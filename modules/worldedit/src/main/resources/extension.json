@@ -1,0 +1,8 @@
+{
+  "name": "WorldEdit",
+  "authors": [
+    "NickAc"
+  ],
+  "version": "1.0",
+  "entrypoint": "io.github.openminigameserver.worldedit.MinestomWorldEdit"
+}
