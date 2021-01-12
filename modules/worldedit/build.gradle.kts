@@ -4,6 +4,7 @@ plugins {
     idea
     java
     kotlin("jvm") version "1.4.30-M1"
+    id("com.github.johnrengelman.shadow") version "6.1.0"
 }
 
 group = "io.github.openminigameserver"
@@ -24,7 +25,7 @@ dependencies {
     compileOnly(minestom("c5d56ae820"))
     testApi(minestom("c5d56ae820"))
     implementation("com.sk89q.worldedit:worldedit-core:7.3.0-SNAPSHOT")
-    implementation(kotlin("stdlib-jdk8"))
+    compileOnly(kotlin("stdlib-jdk8"))
 
     implementation("org.spongepowered:configurate-yaml:$configurateVersion") {
         exclude(module = "geantyref")
@@ -33,7 +34,12 @@ dependencies {
 
 }
 
+
 tasks {
+    shadowJar {
+        archiveClassifier.set("")
+    }
+
     val templateContext = mapOf("version" to project.version.toString())
     processResources {
         expand(*templateContext.toList().toTypedArray())
