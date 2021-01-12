@@ -5,6 +5,7 @@ plugins {
     java
     kotlin("jvm") version "1.4.30-M1"
     id("com.github.johnrengelman.shadow") version "6.1.0"
+    maven
 }
 
 group = "io.github.openminigameserver"
