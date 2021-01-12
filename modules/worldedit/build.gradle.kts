@@ -25,7 +25,7 @@ val configurateVersion = "4.0.0"
 dependencies {
     compileOnly(minestom("c5d56ae820"))
     testApi(minestom("c5d56ae820"))
-    implementation("com.sk89q.worldedit:worldedit-core:7.3.0-SNAPSHOT")
+    api("com.sk89q.worldedit:worldedit-core:7.3.0-SNAPSHOT")
     compileOnly(kotlin("stdlib-jdk8"))
 
     implementation("org.spongepowered:configurate-yaml:$configurateVersion") {
