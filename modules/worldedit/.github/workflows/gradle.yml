@@ -24,4 +24,4 @@ jobs:
       with:
         name: 'MinestomWorldEdit-build'
         # A file, directory or wildcard pattern that describes what to upload
-        path: 'build\libs\*.jar'
+        path: '.\build\libs\*.jar'
