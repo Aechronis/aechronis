@@ -1,10 +1,9 @@
 package io.github.openminigameserver.worldedit.platform
 
-import com.sk89q.worldedit.EditSession
+import BuildInfo
 import com.sk89q.worldedit.LocalConfiguration
 import com.sk89q.worldedit.WorldEdit
 import com.sk89q.worldedit.entity.Player
-import com.sk89q.worldedit.event.extent.EditSessionEvent
 import com.sk89q.worldedit.extension.platform.*
 import com.sk89q.worldedit.internal.Constants
 import com.sk89q.worldedit.util.SideEffect
@@ -61,14 +60,6 @@ class MinestomPlatform(val extension: MinestomWorldEdit) : AbstractPlatform(), M
     override fun registerGameHooks() {
         val handler = MinecraftServer.getGlobalEventHandler()
         val we = WorldEdit.getInstance()
-
-        we.eventBus.register(object {
-            fun onNewSession(e: EditSessionEvent) {
-                if (e.stage == EditSession.Stage.BEFORE_HISTORY) {
-
-                }
-            }
-        })
 
         handler.addEventCallback(PlayerDisconnectEvent::class.java) {
             playerMap.remove(it.player.uuid)
@@ -135,7 +126,7 @@ class MinestomPlatform(val extension: MinestomWorldEdit) : AbstractPlatform(), M
 
     override fun getPlatformName(): String = "WorldEdit-Minestom"
 
-    override fun getPlatformVersion(): String = "1.0"
+    override fun getPlatformVersion(): String = BuildInfo.version
 
     override fun getCapabilities(): MutableMap<Capability, Preference> {
         return mutableMapOf(

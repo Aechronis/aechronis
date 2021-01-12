@@ -3,6 +3,6 @@
   "authors": [
     "NickAc"
   ],
-  "version": "1.0",
+  "version": "${version}",
   "entrypoint": "io.github.openminigameserver.worldedit.MinestomWorldEdit"
 }
