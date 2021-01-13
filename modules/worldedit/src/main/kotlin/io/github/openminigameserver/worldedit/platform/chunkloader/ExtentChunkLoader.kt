@@ -8,7 +8,7 @@ import net.minestom.server.utils.chunk.ChunkCallback
 import net.minestom.server.world.biomes.Biome
 import java.util.*
 
-class ExtentChunkLoader(private val extent: Extent) : IChunkLoader {
+class ExtentChunkLoader(val extent: Extent) : IChunkLoader {
 
     override fun loadChunk(instance: Instance, chunkX: Int, chunkZ: Int, callback: ChunkCallback?): Boolean {
         val chunk =
