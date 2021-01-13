@@ -3,13 +3,14 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     idea
     java
+    `java-library`
     kotlin("jvm") version "1.4.30-M1"
     id("com.github.johnrengelman.shadow") version "6.1.0"
     maven
 }
 
 group = "io.github.openminigameserver"
-version = "1.0-SNAPSHOT"
+version = "1.1-SNAPSHOT"
 
 repositories {
     mavenCentral()

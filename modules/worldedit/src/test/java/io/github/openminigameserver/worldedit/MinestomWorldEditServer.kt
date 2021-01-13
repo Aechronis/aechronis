@@ -1,11 +1,13 @@
 package io.github.openminigameserver.worldedit
 
 import com.sk89q.worldedit.WorldEdit
+import com.sk89q.worldedit.extent.clipboard.Clipboard
 import com.sk89q.worldedit.extent.clipboard.io.BuiltInClipboardFormat
 import com.sk89q.worldedit.function.operation.Operation
 import com.sk89q.worldedit.function.operation.Operations
 import com.sk89q.worldedit.session.ClipboardHolder
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
+import io.github.openminigameserver.worldedit.platform.chunkloader.ExtentChunkLoader
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.GameMode
 import net.minestom.server.event.player.PlayerChatEvent
@@ -29,21 +31,12 @@ object MinestomWorldEditServer {
         // Initialization
         val minecraftServer = MinecraftServer.init()
         val instanceManager = MinecraftServer.getInstanceManager()
-        // Create the instance
-        val instanceContainer = instanceManager.createInstanceContainer()
-        // Set the ChunkGenerator
-        instanceContainer.chunkGenerator = GeneratorDemo()
-        // Enable the auto chunk loading (when players come close)
-        instanceContainer.enableAutoChunkLoad(true)
+
 
         val globalEventHandler = MinecraftServer.getGlobalEventHandler()
-        val schematicFile =
-            File("""D:\Software\MultiMC\instances\1.16.4\.minecraft\config\worldedit\schematics\waiting-lobby.schem""")
+        lateinit var clipboard: Clipboard
 
         globalEventHandler.addEventCallback(PlayerChatEvent::class.java) { event: PlayerChatEvent ->
-            val reader = BuiltInClipboardFormat.SPONGE_SCHEMATIC.getReader(schematicFile.inputStream())
-
-            val clipboard = reader.read()
 
             val instance = event.player.instance!!
             val asWorld = MinestomAdapter.asWorld(instance)
@@ -62,6 +55,20 @@ object MinestomWorldEditServer {
 
         }
         globalEventHandler.addEventCallback(PlayerLoginEvent::class.java) { event: PlayerLoginEvent ->
+            // Create the instance
+            val instanceContainer = instanceManager.createInstanceContainer()
+            val schematicFile =
+                File("""D:\Software\MultiMC\instances\1.16.4\.minecraft\config\worldedit\schematics\glacier.schem""")
+            val reader = BuiltInClipboardFormat.SPONGE_SCHEMATIC.getReader(schematicFile.inputStream())
+
+            clipboard = reader.read()
+
+            // Set the ChunkGenerator
+            instanceContainer.chunkLoader = ExtentChunkLoader(clipboard)
+//            instanceContainer.chunkGenerator = GeneratorDemo()
+            // Enable the auto chunk loading (when players come close)
+            instanceContainer.enableAutoChunkLoad(true)
+
             val player = event.player
             event.setSpawningInstance(instanceContainer)
             player.gameMode = GameMode.SPECTATOR
