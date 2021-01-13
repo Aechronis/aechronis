@@ -3,10 +3,7 @@ package io.github.openminigameserver.worldedit.platform.chunkloader
 import com.sk89q.worldedit.extent.Extent
 import com.sk89q.worldedit.internal.block.BlockStateIdAccess
 import com.sk89q.worldedit.math.BlockVector3
-import net.minestom.server.instance.Chunk
-import net.minestom.server.instance.DynamicChunk
-import net.minestom.server.instance.IChunkLoader
-import net.minestom.server.instance.Instance
+import net.minestom.server.instance.*
 import net.minestom.server.utils.chunk.ChunkCallback
 import net.minestom.server.world.biomes.Biome
 import java.util.*
@@ -14,7 +11,9 @@ import java.util.*
 class ExtentChunkLoader(private val extent: Extent) : IChunkLoader {
 
     override fun loadChunk(instance: Instance, chunkX: Int, chunkZ: Int, callback: ChunkCallback?): Boolean {
-        val chunk = DynamicChunk(arrayOf(Biome.PLAINS), chunkX, chunkZ)
+        val chunk =
+            if (instance is InstanceContainer) instance.chunkSupplier.createChunk(arrayOf(Biome.PLAINS), chunkX, chunkZ)
+            else DynamicChunk(arrayOf(Biome.PLAINS), chunkX, chunkZ)
         Arrays.fill(chunk.biomes, Biome.PLAINS)
 
         for (z in 0 until Chunk.CHUNK_SIZE_Z) {
