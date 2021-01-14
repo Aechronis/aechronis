@@ -24,7 +24,9 @@ import net.minestom.server.entity.ItemEntity
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.utils.Position
+import net.minestom.server.utils.chunk.ChunkUtils
 import java.lang.ref.WeakReference
+import java.util.concurrent.CountDownLatch
 
 
 class MinestomWorld(world: Instance) : AbstractWorld() {
@@ -69,7 +71,20 @@ class MinestomWorld(world: Instance) : AbstractWorld() {
         }
     }
 
+    override fun checkLoadedChunk(pt: BlockVector3) {
+        val chunkX = ChunkUtils.getChunkCoordinate(pt.x)
+        val chunkZ = ChunkUtils.getChunkCoordinate(pt.z)
+        if (!getWorld().isChunkLoaded(chunkX, chunkZ)) {
+            val latch = CountDownLatch(1)
+            getWorld().loadChunk(chunkX, chunkZ) {
+                latch.countDown()
+            }
+            latch.await()
+        }
+    }
+
     override fun getBlock(position: BlockVector3): BlockState {
+        checkLoadedChunk(position)
         val stateId = getWorld().getBlockStateId(MinestomAdapter.asBlockPosition(position))
         return BlockStateIdAccess.getBlockStateById(stateId.toInt())!!
     }
