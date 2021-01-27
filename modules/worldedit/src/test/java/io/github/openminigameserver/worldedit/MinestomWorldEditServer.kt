@@ -73,7 +73,7 @@ object MinestomWorldEditServer {
             event.setSpawningInstance(instanceContainer)
             player.gameMode = GameMode.SPECTATOR
             player.isFlying = true
-            player.respawnPoint = Position(0f, 42f, 0f)
+            player.respawnPoint = Position(0.0, 42.0, 0.0)
         }
 
         // Start the server on port 25565

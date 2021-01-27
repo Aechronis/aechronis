@@ -147,7 +147,7 @@ class MinestomWorld(world: Instance) : AbstractWorld() {
     ): Boolean = false
 
     override fun getSpawnPosition(): BlockVector3 {
-        return MinestomAdapter.asBlockVector(Position(0f, 0f, 0f))
+        return MinestomAdapter.asBlockVector(Position(0.0, 0.0, 0.0))
     }
 
     override fun equals(other: Any?): Boolean {

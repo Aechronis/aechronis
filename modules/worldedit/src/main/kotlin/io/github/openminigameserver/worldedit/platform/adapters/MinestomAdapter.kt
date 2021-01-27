@@ -87,9 +87,9 @@ object MinestomAdapter {
 
     fun toPosition(location: Location): MinestomPosition {
         return MinestomPosition(
-            location.x.toFloat(),
-            location.y.toFloat(),
-            location.z.toFloat(),
+            location.x,
+            location.y,
+            location.z,
             location.yaw,
             location.pitch
         )
@@ -112,7 +112,7 @@ object MinestomAdapter {
     }
 
     fun toPosition(location: Vector3): MinestomPosition {
-        return MinestomPosition(location.x.toFloat(), location.y.toFloat(), location.z.toFloat())
+        return MinestomPosition(location.x, location.y, location.z)
     }
 }
 

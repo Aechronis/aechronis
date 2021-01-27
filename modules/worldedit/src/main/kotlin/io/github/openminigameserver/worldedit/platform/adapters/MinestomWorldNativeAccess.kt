@@ -44,7 +44,7 @@ class MinestomWorldNativeAccess(private val worldRef: WeakReference<Instance>, v
 
 
     override fun getPosition(x: Int, y: Int, z: Int): Position {
-        return Position(x.toFloat(), y.toFloat(), z.toFloat())
+        return Position(x.toDouble(), y.toDouble(), z.toDouble())
     }
 
     override fun getValidBlockForPosition(block: Short, position: Position?): Short {
