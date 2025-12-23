@@ -133,7 +133,7 @@
 //     * Prints list of all resource nodes
 //     *
 //     * @subcommand /nodes resource [name]
-//     * Print detailed stats of a resource node type (income, crops, animals, ore)
+//     * Print detailed stats of a resource node type (income, animals, ore)
 //     */
 //    private fun printResourceNodeInfo(sender: CommandSender, args: Array<String>) {
 //        if (args.size < 2) {

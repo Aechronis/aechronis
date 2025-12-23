@@ -918,7 +918,7 @@
 //        // out during attack and chunks were modified in new territory
 //        val chunk = Nodes.getTerritoryChunkFromCoord(attack.coord)
 //        if (chunk == null) {
-//            Nodes.logger?.severe("finishAttack(): TerritoryChunk at ${attack.coord} is null")
+//            println("finishAttack(): TerritoryChunk at ${attack.coord} is null")
 //            return
 //        }
 //
@@ -1046,7 +1046,7 @@
 //                    attack.armorstand.sendPackets()
 //                } catch (e: Exception) {
 //                    e.printStackTrace()
-//                    Nodes.logger?.warning("Error sending war flag armorstand packet: ${e.message}")
+//                    println("Error sending war flag armorstand packet: ${e.message}")
 //                }
 //            } else {
 //                attack.armorstand.respawn()

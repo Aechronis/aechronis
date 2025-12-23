@@ -39,11 +39,8 @@
 //    val townsSnapshot: List<TownSaveState>,
 //    val nationsSnapshot: List<NationSaveState>,
 //    val pathTownSave: Path,
-//    val pathDynmapDir: Path,
-//    val pathDynmapTowns: Path,
 //    val pathBackupDir: Path,
 //    val pathLastBackupTime: Path,
-//    val copyToDynmap: Boolean,
 //    val backupTimestamp: Long,
 //) : Runnable {
 //    override fun run() {
@@ -55,11 +52,6 @@
 //        )
 //
 //        saveStringToFile(jsonStr, pathTownSave)
-//
-//        if (copyToDynmap) {
-//            Files.createDirectories(pathDynmapDir) // create dynmap folder if it does not exist
-//            Files.copy(pathTownSave, pathDynmapTowns, StandardCopyOption.REPLACE_EXISTING)
-//        }
 //
 //        // if backup timestamp millis timestamp (using System.currentTimeMillis())
 //        // was provided, copy this saved world state to backup folder
@@ -103,9 +95,6 @@
 //    val portsSnapshot: List<PortSaveState>,
 //    val portGroupsSnapshot: List<PortGroupSaveState>,
 //    val pathPortSave: Path,
-//    val pathDynmapDir: Path,
-//    val pathDynmapPorts: Path,
-//    val copyToDynmap: Boolean,
 //) : Runnable {
 //    override fun run() {
 //        // serialize port state
@@ -115,11 +104,6 @@
 //        )
 //
 //        saveStringToFile(jsonStr, pathPortSave)
-//
-//        if (copyToDynmap) {
-//            Files.createDirectories(pathDynmapDir) // create dynmap folder if it does not exist
-//            Files.copy(pathPortSave, pathDynmapPorts, StandardCopyOption.REPLACE_EXISTING)
-//        }
 //    }
 //}
 //

@@ -109,7 +109,7 @@
 //    val terrId = term.territoryId
 //    val terr = Nodes.getTerritoryFromId(terrId)
 //    if (terr === null) {
-//        Nodes.logger?.severe("renderTreatyTermOccupation(): territory $terrId not found")
+//        println("renderTreatyTermOccupation(): territory $terrId not found")
 //        return
 //    }
 //
@@ -153,7 +153,7 @@
 //    val terrId = term.territoryId
 //    val terr = Nodes.getTerritoryFromId(terrId)
 //    if (terr === null) {
-//        Nodes.logger?.severe("renderTreatyTermRelease(): territory $terrId not found")
+//        println("renderTreatyTermRelease(): territory $terrId not found")
 //        return
 //    }
 //

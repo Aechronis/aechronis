@@ -3,7 +3,7 @@
 // * - town permissions and protections
 // * - flag war events
 // * - hidden ore
-// * - ore, crop harvest taxation
+// * - ore taxation
 // */
 //
 //package phonon.nodes.listeners
@@ -167,10 +167,6 @@
 //                // temporarily invalide block location
 //                Nodes.hiddenOreInvalidBlocks.add(block)
 //            }
-//        }
-//        // handle crop harvest
-//        else if (Config.cropTypes.contains(blockMaterial)) {
-//            handleCropHarvest(block)
 //        }
 //    }
 //
@@ -354,63 +350,6 @@
 //
 //        event.setCancelled(true)
 //        Message.error(player, "You cannot use buckets here")
-//    }
-//
-//    // handle placing water/lava onto block (can be used to destroy harvest crops)
-//    @EventHandler(priority = EventPriority.MONITOR)
-//    public fun onPlayerBucketEmptySuccess(event: PlayerBucketEmptyEvent) {
-//        if (event.isCancelled()) {
-//            return
-//        }
-//
-//        // gets block where water actually placed
-//        val block = event.getBlockClicked().getRelative(event.getBlockFace())
-//        val blockMaterial = block.type
-//
-//        // handle crop harvest
-//        if (Config.cropTypes.contains(blockMaterial)) {
-//            handleCropHarvest(block)
-//        }
-//    }
-//
-//    // handle fluids moving to block (for water auto-farms)
-//    // NOTE: there are edge cases that are not triggered:
-//    // - when water falling vertically this is not triggered
-//    // just ignoring that because very limited use ingame of vertical water harvesting
-//    @EventHandler(priority = EventPriority.MONITOR)
-//    public fun onBlockFromToSuccess(event: BlockFromToEvent) {
-//        if (event.isCancelled()) {
-//            return
-//        }
-//
-//        val block = event.getToBlock()
-//        val blockMaterial = block.type
-//
-//        // handle crop harvest
-//        if (Config.cropTypes.contains(blockMaterial)) {
-//            handleCropHarvest(block)
-//        }
-//    }
-//
-//    // handle pistons breaking block (for auto-farms)
-//    // handle harvest tax for any blocks moved by piston event
-//    // this only hnadles objects directly moved by piston, not things like
-//    // dirt underneath a block
-//    @EventHandler(priority = EventPriority.MONITOR)
-//    public fun onPistonExtendSuccess(event: BlockPistonExtendEvent) {
-//        if (event.isCancelled()) {
-//            return
-//        }
-//
-//        val blockMovedList = event.getBlocks()
-//        for (block in blockMovedList) {
-//            val blockMaterial = block.type
-//
-//            // handle crop harvest
-//            if (Config.cropTypes.contains(blockMaterial)) {
-//                handleCropHarvest(block)
-//            }
-//        }
 //    }
 //
 //    @EventHandler

@@ -28,9 +28,6 @@ overMaxClaimsReminderPeriod: 24000
 # nametag update period in ticks
 nametagPipelineTicks: 16 # how many ticks to divide nametag updates
 
-# force copy to dynmap
-dynmapCopyTowns: false
-
 # ===================================
 # afk kick time
 # ===================================
@@ -131,7 +128,7 @@ townClaimsPenaltyDecayPeriod: 3600000
 playerClaimsIncreasePeriod: 3600000
 
 # flag for enforcing over max claims
-# for now, this affects all systems (income, hidden ore, crops,
+# for now, this affects all systems (income, hidden ore,
 # breeding, etc...)
 overClaimsPenalty: true
   
@@ -169,14 +166,10 @@ globalResources:
     iron_ore: [0.015, 1, 2]
     gold_ore: [0.015, 1, 1]
     diamond_ore: 0.007
-  crops:
-    wheat: 0.25
-    potato: 0.25
   animals:
 
 # allow mining/harvesting/breeding in unowned territories
 allowOreInWilderness: false
-allowCropsInWilderness: false
 allowBreedingInWilderness: false
 
 # allow mining in captured territories
@@ -185,13 +178,10 @@ allowOreInCaptured: true
 # allow mining/harvesting in other towns in nation
 allowOreInNationTowns: true
 
-# require crops or animal breeding to be above ground in sky light (set = 0 to disable)
-cropsMinSkyLight: 14
+# require animal breeding to be above ground in sky light (set = 0 to disable)
 breedingMinSkyLight: 14
 
-# min/max y levels allowed for crop growth and animal breeding
-cropsMinYHeight: 16
-cropsMaxYHeight: 255
+# min/max y levels allowed for animal breeding
 breedingMinYHeight: 16
 breedingMaxYHeight: 255
 
@@ -203,9 +193,6 @@ taxIncomeRate: 0.2
 
 # probability that a hidden ore event resources go to occupier
 taxMineRate: 0.2
-
-# probability that all of a crop's harvest items go to occupier
-taxFarmRate: 0.2
 
 # probability that a new animal goes to occupier (as a spawn egg item)
 taxAnimalRate: 0.2
