@@ -34,6 +34,9 @@ package phonon.nodes
 //import phonon.nodes.listeners.NodesIncomeInventoryListener
 //import phonon.nodes.listeners.NodesPlayerAFKKickListener
 //import phonon.nodes.listeners.NodesPlayerDamageListener
+import io.github.togar2.pvp.MinestomPvP
+import io.github.togar2.pvp.feature.CombatFeatures
+import me.lucko.spark.minestom.SparkMinestom
 import phonon.nodes.listeners.onPlayerConfiguration
 import phonon.nodes.listeners.onPlayerJoin
 import phonon.nodes.listeners.onPlayerQuit
@@ -48,6 +51,11 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerLoadedEvent
+import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
+import org.everbuild.blocksandstuff.blocks.BlockPickup
+import org.everbuild.blocksandstuff.blocks.BlockPlacementRuleRegistrations
+import org.everbuild.blocksandstuff.blocks.PlacedHandlerRegistration
+import org.everbuild.blocksandstuff.fluids.MinestomFluids
 
 
 fun main() {
@@ -60,6 +68,27 @@ fun main() {
     // create instance
     val instanceManager = MinecraftServer.getInstanceManager()
     val instanceContainer = instanceManager.createInstanceContainer()
+
+//    instanceContainer.chunkLoader = AnvilLoader("C:\\Users\\Luna\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.4\\minecraft\\saves\\WorldMap120")
+
+    // initialize spark
+    val spark = SparkMinestom.builder(Config.pathSpark)
+        .commands(true) // enables registration of Spark commands
+        .permissionHandler { sender, permission -> true } // allows all command senders
+        .enable()
+
+    // initialize blocks and stuff
+    BlockPlacementRuleRegistrations.registerDefault()
+    BlockBehaviorRuleRegistrations.registerDefault()
+    PlacedHandlerRegistration.registerDefault()
+    BlockPickup.enable()
+    MinestomFluids.enableFluids()
+//    MinestomFluids.enableVanillaFluids() // this causes massive lag when interacting with fluid on coastlines
+
+
+    // initialize minestompvp
+    MinestomPvP.init()
+    MinecraftServer.getGlobalEventHandler().addChild(CombatFeatures.modernVanilla().createNode())
 
     // ===================================
     // load config

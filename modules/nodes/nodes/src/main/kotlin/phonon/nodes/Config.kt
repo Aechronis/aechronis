@@ -36,6 +36,8 @@ public object Config {
     public var pathLastBackupTime = Paths.get(pathPlugin, "lastBackupTime.txt").normalize()
     public var pathLastIncomeTime = Paths.get(pathPlugin, "lastIncomeTime.txt").normalize()
 
+    public var pathSpark = Paths.get("spark").normalize()
+
     // period for running world save
     public var savePeriod: Long = 600L
 
