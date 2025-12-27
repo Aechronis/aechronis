@@ -49,7 +49,7 @@ public fun onPlayerQuit(event: PlayerDisconnectEvent) {
     val player: Player = event.getPlayer()
     val resident = Nodes.getResident(player)
     if (resident != null) {
-//            resident.destroyMinimap()
+        resident.destroyMinimap()
         Nodes.setResidentOffline(resident, player)
     }
 

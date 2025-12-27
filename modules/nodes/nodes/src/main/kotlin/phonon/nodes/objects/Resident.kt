@@ -53,7 +53,7 @@ public class Resident(val uuid: UUID, val name: String) {
 //    var inviteThread: ScheduledTask? = null
 
     // minimap
-//    var minimap: Minimap? = null
+    var minimap: Minimap? = null
 
     // save state needs update flag
     private var saveState: ResidentSaveState
@@ -79,24 +79,24 @@ public class Resident(val uuid: UUID, val name: String) {
 
     public fun createMinimap(player: Player, size: Int) {
         // remove any existing minimap
-//        this.destroyMinimap()
+        this.destroyMinimap()
 
         // create new minimap
-//        this.minimap = Minimap(this, player, size)
+        this.minimap = Minimap(this, player, size)
     }
 
-//    public fun destroyMinimap() {
-//        val minimap = this.minimap
-//        if (minimap != null) {
-//            minimap.destroy()
-//            this.minimap = null
-//        }
-//    }
+    public fun destroyMinimap() {
+        val minimap = this.minimap
+        if (minimap != null) {
+            minimap.destroy()
+            this.minimap = null
+        }
+    }
 
     // update player minimap if it exists
-//    public fun updateMinimap(coord: Coord) {
-//        this.minimap?.render(coord)
-//    }
+    public fun updateMinimap(coord: Coord) {
+        this.minimap?.render(coord)
+    }
 
     // ===================================
 

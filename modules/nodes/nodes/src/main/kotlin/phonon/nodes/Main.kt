@@ -18,7 +18,7 @@ package phonon.nodes
 //import phonon.nodes.commands.PortCommand
 //import phonon.nodes.commands.TerritoryCommand
 //import phonon.nodes.commands.TownChatCommand
-//import phonon.nodes.commands.TownCommand
+import phonon.nodes.commands.TownCommand
 //import phonon.nodes.commands.TruceCommand
 //import phonon.nodes.commands.UnallyCommand
 //import phonon.nodes.commands.WarCommand
@@ -40,7 +40,8 @@ import me.lucko.spark.minestom.SparkMinestom
 import phonon.nodes.listeners.onPlayerConfiguration
 import phonon.nodes.listeners.onPlayerJoin
 import phonon.nodes.listeners.onPlayerQuit
-//import phonon.nodes.listeners.NodesPlayerMoveListener
+import phonon.nodes.listeners.onPlayerMove
+import phonon.nodes.listeners.onPlayerTeleport
 //import phonon.nodes.listeners.NodesSheepShearListener
 //import phonon.nodes.listeners.NodesWarFlagArmorStandListener
 //import phonon.nodes.listeners.NodesWorldListener
@@ -51,6 +52,8 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerLoadedEvent
+import net.minestom.server.event.player.PlayerMoveEvent
+import net.minestom.server.event.entity.EntityTeleportEvent
 import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.BlockPickup
 import org.everbuild.blocksandstuff.blocks.BlockPlacementRuleRegistrations
@@ -138,7 +141,8 @@ fun main() {
     eventHandler.addListener(AsyncPlayerConfigurationEvent::class.java, { event -> onPlayerConfiguration(event) })
     eventHandler.addListener(PlayerLoadedEvent::class.java, { event -> onPlayerJoin(event)})
     eventHandler.addListener(PlayerDisconnectEvent::class.java, { event -> onPlayerQuit(event)})
-//    pluginManager.registerEvents(NodesPlayerMoveListener(), this)
+    eventHandler.addListener(PlayerMoveEvent::class.java, { event -> onPlayerMove(event) })
+    eventHandler.addListener(EntityTeleportEvent::class.java, { event -> onPlayerTeleport(event) })
 //    pluginManager.registerEvents(NodesSheepShearListener(), this)
 //    pluginManager.registerEvents(NodesWarFlagArmorStandListener(), this)
 //    pluginManager.registerEvents(NodesPlayerDamageListener(), this)
@@ -147,7 +151,7 @@ fun main() {
     MinecraftServer.getSchedulerManager().buildShutdownTask({onDisable()})
 //
 //    // register commands
-//    this.getCommand("town")?.setExecutor(TownCommand())
+    MinecraftServer.getCommandManager().register(TownCommand())
 //    this.getCommand("nation")?.setExecutor(NationCommand())
 //    this.getCommand("nodes")?.setExecutor(NodesCommand())
 //    this.getCommand("nodesadmin")?.setExecutor(NodesAdminCommand())
@@ -163,14 +167,6 @@ fun main() {
 //    this.getCommand("player")?.setExecutor(PlayerCommand())
 //    this.getCommand("territory")?.setExecutor(TerritoryCommand())
 //    this.getCommand("port")?.setExecutor(PortCommand())
-//
-//    // override command aliases tab complete if they exist
-//    this.getCommand("t")?.setTabCompleter(this.getCommand("town")?.getExecutor() as TabCompleter)
-//    this.getCommand("n")?.setTabCompleter(this.getCommand("nation")?.getExecutor() as TabCompleter)
-//    this.getCommand("nd")?.setTabCompleter(this.getCommand("nodes")?.getExecutor() as TabCompleter)
-//    this.getCommand("nda")?.setTabCompleter(this.getCommand("nodesadmin")?.getExecutor() as TabCompleter)
-//    this.getCommand("gc")?.setTabCompleter(this.getCommand("globalchat")?.getExecutor() as TabCompleter)
-//    this.getCommand("p")?.setTabCompleter(this.getCommand("player")?.getExecutor() as TabCompleter)
 
     minecraftServer.start("0.0.0.0",25565)
 
