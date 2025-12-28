@@ -29,11 +29,11 @@ import net.minestom.server.entity.Player
 //import phonon.nodes.constants.ErrorAlreadyEnemies
 //import phonon.nodes.constants.ErrorAlreadyTruce
 import phonon.nodes.constants.ErrorNationDoesNotHaveTown
-//import phonon.nodes.constants.ErrorNationExists
+import phonon.nodes.constants.ErrorNationExists
 //import phonon.nodes.constants.ErrorNotAllies
-//import phonon.nodes.constants.ErrorPlayerHasNation
+import phonon.nodes.constants.ErrorPlayerHasNation
 import phonon.nodes.constants.ErrorPlayerHasTown
-//import phonon.nodes.constants.ErrorPlayerNotInTown
+import phonon.nodes.constants.ErrorPlayerNotInTown
 import phonon.nodes.constants.ErrorPortExists
 //import phonon.nodes.constants.ErrorPortInGroup
 import phonon.nodes.constants.ErrorTerritoryHasClaim
@@ -44,7 +44,7 @@ import phonon.nodes.constants.ErrorTerritoryOwned
 import phonon.nodes.constants.ErrorTooManyClaims
 import phonon.nodes.constants.ErrorTownDoesNotExist
 import phonon.nodes.constants.ErrorTownExists
-//import phonon.nodes.constants.ErrorTownHasNation
+import phonon.nodes.constants.ErrorTownHasNation
 //import phonon.nodes.constants.ErrorWarAllyOrTruce
 import phonon.nodes.constants.PermissionsGroup
 import phonon.nodes.constants.TownPermissions
@@ -2113,59 +2113,59 @@ public object Nodes {
 //            }
 //        }
 //    }
-//
-//    // ==============================================
-//    // Nation functions
-//    // ==============================================
-//    public fun createNation(name: String, town: Town, leader: Resident? = null): Result<Nation> {
-//        if (town.nation != null) {
-//            return Result.failure(ErrorTownHasNation)
-//        }
-//
-//        if (leader?.nation != null) {
-//            return Result.failure(ErrorPlayerHasNation)
-//        }
-//
-//        if (leader != null && !town.residents.contains(leader)) {
-//            return Result.failure(ErrorPlayerNotInTown)
-//        }
-//
-//        if (Nodes.getNationFromName(name) != null) {
-//            return Result.failure(ErrorNationExists)
-//        }
-//
-//        val nation = Nation(UUID.randomUUID(), name, town)
-//        nations.put(name, nation)
-//
-//        // add town to nation
-//        nation.towns.add(town)
-//        town.nation = nation
-//
-//        // remove all pre-existing town alliances, but do not change enemies
-//        for (ally in town.allies) {
-//            ally.allies.remove(town)
-//            ally.needsUpdate()
-//        }
-//        town.allies.clear()
-//
-//        // add nation to all residents in creator's town
-//        for (r in town.residents) {
-//            r.nation = nation
-//            r.needsUpdate()
-//        }
-//
-//        town.needsUpdate()
-//        nation.needsUpdate()
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        // update nametags
+
+    // ==============================================
+    // Nation functions
+    // ==============================================
+    public fun createNation(name: String, town: Town, leader: Resident? = null): Result<Nation> {
+        if (town.nation != null) {
+            return Result.failure(ErrorTownHasNation)
+        }
+
+        if (leader?.nation != null) {
+            return Result.failure(ErrorPlayerHasNation)
+        }
+
+        if (leader != null && !town.residents.contains(leader)) {
+            return Result.failure(ErrorPlayerNotInTown)
+        }
+
+        if (Nodes.getNationFromName(name) != null) {
+            return Result.failure(ErrorNationExists)
+        }
+
+        val nation = Nation(UUID.randomUUID(), name, town)
+        nations.put(name, nation)
+
+        // add town to nation
+        nation.towns.add(town)
+        town.nation = nation
+
+        // remove all pre-existing town alliances, but do not change enemies
+        for (ally in town.allies) {
+            ally.allies.remove(town)
+            ally.needsUpdate()
+        }
+        town.allies.clear()
+
+        // add nation to all residents in creator's town
+        for (r in town.residents) {
+            r.nation = nation
+            r.needsUpdate()
+        }
+
+        town.needsUpdate()
+        nation.needsUpdate()
+        Nodes.needsSave = true
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+
+        // update nametags
 //        Nametag.pipelinedUpdateAllText()
-//
-//        return Result.success(nation)
-//    }
+
+        return Result.success(nation)
+    }
 
     // load nation from data
     // used for deserializing from towns.json
@@ -2262,7 +2262,7 @@ public object Nodes {
 
     public fun getNationCount(): Int = Nodes.nations.size
 
-//    public fun getNationFromName(name: String): Nation? = nations.get(name)
+    public fun getNationFromName(name: String): Nation? = nations.get(name)
 //
 //    public fun addTownToNation(nation: Nation, town: Town): Result<Town> {
 //        // check town does not belong to nation
@@ -2385,58 +2385,58 @@ public object Nodes {
         return Result.success(town)
     }
 
-//    public fun setNationColor(nation: Nation, r: Int, g: Int, b: Int) {
-//        nation.color = Color(r, g, b)
-//        nation.needsUpdate()
-//        Nodes.needsSave = true
-//    }
-//
-//    public fun renameNation(nation: Nation, s: String): Boolean {
-//        // check that new name not used
-//        if (Nodes.nations.contains(s)) {
-//            return false
-//        }
-//
-//        Nodes.nations.remove(nation.name)
-//        nation.name = s
-//        Nodes.nations.put(s, nation)
-//        nation.needsUpdate()
-//
-//        // update nation towns and residents
-//        for (town in nation.towns) {
-//            town.needsUpdate()
-//            for (r in town.residents) {
-//                r.needsUpdate()
-//            }
-//        }
-//
-//        // update nation allies/enemies
-//        for (n in nation.enemies) {
-//            n.needsUpdate()
-//        }
-//        for (n in nation.allies) {
-//            n.needsUpdate()
-//        }
-//
-//        Nodes.needsSave = true
-//
-//        return true
-//    }
-//
-//    /**
-//     * Set nation capital to a new town. Town must be in the nation already
-//     */
-//    public fun setNationCapital(nation: Nation, town: Town) {
-//        if (town.nation !== nation || nation.capital === town) {
-//            return
-//        }
-//
-//        nation.capital = town
-//
-//        nation.needsUpdate()
-//        Nodes.needsSave = true
-//    }
-//
+    public fun setNationColor(nation: Nation, r: Int, g: Int, b: Int) {
+        nation.color = Color(r, g, b)
+        nation.needsUpdate()
+        Nodes.needsSave = true
+    }
+
+    public fun renameNation(nation: Nation, s: String): Boolean {
+        // check that new name not used
+        if (Nodes.nations.contains(s)) {
+            return false
+        }
+
+        Nodes.nations.remove(nation.name)
+        nation.name = s
+        Nodes.nations.put(s, nation)
+        nation.needsUpdate()
+
+        // update nation towns and residents
+        for (town in nation.towns) {
+            town.needsUpdate()
+            for (r in town.residents) {
+                r.needsUpdate()
+            }
+        }
+
+        // update nation allies/enemies
+        for (n in nation.enemies) {
+            n.needsUpdate()
+        }
+        for (n in nation.allies) {
+            n.needsUpdate()
+        }
+
+        Nodes.needsSave = true
+
+        return true
+    }
+
+    /**
+     * Set nation capital to a new town. Town must be in the nation already
+     */
+    public fun setNationCapital(nation: Nation, town: Town) {
+        if (town.nation !== nation || nation.capital === town) {
+            return
+        }
+
+        nation.capital = town
+
+        nation.needsUpdate()
+        Nodes.needsSave = true
+    }
+
 //    // ==============================================
 //    // Territory income cycle functions
 //    // ==============================================

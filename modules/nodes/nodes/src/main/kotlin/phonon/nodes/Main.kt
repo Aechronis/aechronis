@@ -10,7 +10,7 @@ package phonon.nodes
 //import phonon.nodes.commands.AllyCommand
 //import phonon.nodes.commands.GlobalChatCommand
 //import phonon.nodes.commands.NationChatCommand
-//import phonon.nodes.commands.NationCommand
+import phonon.nodes.commands.NationCommand
 //import phonon.nodes.commands.NodesAdminCommand
 //import phonon.nodes.commands.NodesCommand
 //import phonon.nodes.commands.PeaceCommand
@@ -152,7 +152,7 @@ fun main() {
 //
 //    // register commands
     MinecraftServer.getCommandManager().register(TownCommand())
-//    this.getCommand("nation")?.setExecutor(NationCommand())
+    MinecraftServer.getCommandManager().register(NationCommand())
 //    this.getCommand("nodes")?.setExecutor(NodesCommand())
 //    this.getCommand("nodesadmin")?.setExecutor(NodesAdminCommand())
 //    this.getCommand("ally")?.setExecutor(AllyCommand())
