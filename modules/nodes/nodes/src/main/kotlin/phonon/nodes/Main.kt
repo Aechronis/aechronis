@@ -154,7 +154,7 @@ fun main() {
 //    // register commands
     MinecraftServer.getCommandManager().register(TownCommand())
     MinecraftServer.getCommandManager().register(NationCommand())
-//    this.getCommand("nodes")?.setExecutor(NodesCommand())
+    MinecraftServer.getCommandManager().register(NodesCommand())
 //    this.getCommand("nodesadmin")?.setExecutor(NodesAdminCommand())
 //    this.getCommand("ally")?.setExecutor(AllyCommand())
 //    this.getCommand("unally")?.setExecutor(UnallyCommand())
