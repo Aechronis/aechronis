@@ -11,7 +11,7 @@ import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerLoadedEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.MinecraftServer
-import net.minestom.server.coordinate.Pos
+import phonon.nodes.Config
 import phonon.nodes.Nodes
 import phonon.nodes.chat.Chat
 //import phonon.nodes.objects.Nametag
@@ -21,7 +21,7 @@ public fun onPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
     val player = event.getPlayer()
     val instance = MinecraftServer.getInstanceManager().instances.first()
     event.spawningInstance = instance
-    player.respawnPoint = Pos(0.0, 100.0, 0.0)
+    player.respawnPoint = Config.spawnLoc
 }
 
 public fun onPlayerJoin(event: PlayerLoadedEvent) {

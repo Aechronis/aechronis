@@ -7,6 +7,7 @@
 
 package phonon.nodes
 
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.Material
 import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.FileConfiguration
@@ -17,6 +18,17 @@ import java.nio.file.Paths
 import java.util.UUID
 
 public object Config {
+
+    // ===================================
+    // config
+    // ===================================
+    // where players spawn
+    public var spawnLoc = Pos(27000.0, 75.0, 5800.0)
+
+    // folder containing minecraft world
+    public var pathLevel = Paths.get("C:\\Users\\Luna\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.4\\minecraft\\saves\\WorldMap120")
+
+    public var pathSpark = Paths.get("spark").normalize()
 
     // ===================================
     // engine configs
@@ -35,8 +47,6 @@ public object Config {
     public var pathPorts = Paths.get(pathPlugin, "ports.json").normalize()
     public var pathLastBackupTime = Paths.get(pathPlugin, "lastBackupTime.txt").normalize()
     public var pathLastIncomeTime = Paths.get(pathPlugin, "lastIncomeTime.txt").normalize()
-
-    public var pathSpark = Paths.get("spark").normalize()
 
     // period for running world save
     public var savePeriod: Long = 600L

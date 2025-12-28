@@ -12,7 +12,7 @@ package phonon.nodes
 //import phonon.nodes.commands.NationChatCommand
 import phonon.nodes.commands.NationCommand
 //import phonon.nodes.commands.NodesAdminCommand
-//import phonon.nodes.commands.NodesCommand
+import phonon.nodes.commands.NodesCommand
 //import phonon.nodes.commands.PeaceCommand
 //import phonon.nodes.commands.PlayerCommand
 //import phonon.nodes.commands.PortCommand
@@ -54,6 +54,7 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerLoadedEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.entity.EntityTeleportEvent
+import net.minestom.server.instance.anvil.AnvilLoader
 import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.BlockPickup
 import org.everbuild.blocksandstuff.blocks.BlockPlacementRuleRegistrations
@@ -72,7 +73,7 @@ fun main() {
     val instanceManager = MinecraftServer.getInstanceManager()
     val instanceContainer = instanceManager.createInstanceContainer()
 
-//    instanceContainer.chunkLoader = AnvilLoader("C:\\Users\\Luna\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.4\\minecraft\\saves\\WorldMap120")
+    instanceContainer.chunkLoader = AnvilLoader(Config.pathLevel)
 
     // initialize spark
     val spark = SparkMinestom.builder(Config.pathSpark)
