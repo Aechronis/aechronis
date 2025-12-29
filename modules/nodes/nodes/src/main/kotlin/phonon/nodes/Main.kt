@@ -19,7 +19,7 @@ import phonon.nodes.commands.NodesCommand
 //import phonon.nodes.commands.TerritoryCommand
 //import phonon.nodes.commands.TownChatCommand
 import phonon.nodes.commands.TownCommand
-//import phonon.nodes.commands.TruceCommand
+import phonon.nodes.commands.TruceCommand
 //import phonon.nodes.commands.UnallyCommand
 //import phonon.nodes.commands.WarCommand
 //import phonon.nodes.listeners.DisabledWorldListener
@@ -160,7 +160,7 @@ fun main() {
 //    this.getCommand("unally")?.setExecutor(UnallyCommand())
 //    this.getCommand("war")?.setExecutor(WarCommand())
 //    this.getCommand("peace")?.setExecutor(PeaceCommand())
-//    this.getCommand("truce")?.setExecutor(TruceCommand())
+    MinecraftServer.getCommandManager().register(TruceCommand())
 //    this.getCommand("globalchat")?.setExecutor(GlobalChatCommand())
 //    this.getCommand("townchat")?.setExecutor(TownChatCommand())
 //    this.getCommand("nationchat")?.setExecutor(NationChatCommand())

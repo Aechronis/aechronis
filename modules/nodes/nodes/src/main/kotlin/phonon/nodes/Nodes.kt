@@ -27,7 +27,7 @@ import net.minestom.server.entity.Player
 //import phonon.nodes.constants.DiplomaticRelationship
 //import phonon.nodes.constants.ErrorAlreadyAllies
 //import phonon.nodes.constants.ErrorAlreadyEnemies
-//import phonon.nodes.constants.ErrorAlreadyTruce
+import phonon.nodes.constants.ErrorAlreadyTruce
 import phonon.nodes.constants.ErrorNationDoesNotHaveTown
 import phonon.nodes.constants.ErrorNationExists
 //import phonon.nodes.constants.ErrorNotAllies
@@ -2888,69 +2888,69 @@ public object Nodes {
 //        return Result.success(true)
 //    }
 //
-//    public fun addTruce(town: Town, other: Town): Result<Boolean> {
-//        // towns already under truce
-//        if (Truce.contains(town, other)) {
-//            return Result.failure(ErrorAlreadyTruce)
-//        }
-//
-//        // truce start time
-//        val time = System.currentTimeMillis()
-//
-//        val townNation = town.nation
-//        val otherNation = other.nation
-//
-//        if (townNation !== null) {
-//            // nation-nation
-//            if (otherNation !== null && townNation !== otherNation) {
-//                for (t in townNation.towns) {
-//                    for (other in otherNation.towns) {
-//                        Truce.create(t, other, time)
-//                    }
-//                }
-//            }
-//            // nation-town
-//            else {
-//                for (t in townNation.towns) {
-//                    Truce.create(t, other, time)
-//                }
-//            }
-//        }
-//        // town allying without nation
-//        else {
-//            // town-nation
-//            if (otherNation !== null) {
-//                for (t in otherNation.towns) {
-//                    Truce.create(town, t, time)
-//                }
-//            }
-//            // town-town
-//            else {
-//                Truce.create(town, other, time)
-//            }
-//        }
-//
-//        return Result.success(true)
-//    }
-//
-//    /**
-//     * Truces all handled between town pairs, so removeTruce should only
-//     * affect towns involved and not nations.
-//     *
-//     * addTruce creates truces for all town pairs in nations,
-//     * truce expiration tick will call this removeTruce for all those
-//     * town pairs individually.
-//     */
-//    public fun removeTruce(town: Town, other: Town): Result<Boolean> {
-//        Truce.remove(town, other)
-//
-//        Bukkit.getPluginManager().callEvent(TruceExpiredEvent(town, other))
-//
-//        // update nametags
+    public fun addTruce(town: Town, other: Town): Result<Boolean> {
+        // towns already under truce
+        if (Truce.contains(town, other)) {
+            return Result.failure(ErrorAlreadyTruce)
+        }
+
+        // truce start time
+        val time = System.currentTimeMillis()
+
+        val townNation = town.nation
+        val otherNation = other.nation
+
+        if (townNation !== null) {
+            // nation-nation
+            if (otherNation !== null && townNation !== otherNation) {
+                for (t in townNation.towns) {
+                    for (o in otherNation.towns) {
+                        Truce.create(t, o, time)
+                    }
+                }
+            }
+            // nation-town
+            else {
+                for (t in townNation.towns) {
+                    Truce.create(t, other, time)
+                }
+            }
+        }
+        // town allying without nation
+        else {
+            // town-nation
+            if (otherNation !== null) {
+                for (t in otherNation.towns) {
+                    Truce.create(town, t, time)
+                }
+            }
+            // town-town
+            else {
+                Truce.create(town, other, time)
+            }
+        }
+
+        return Result.success(true)
+    }
+
+    /**
+     * Truces all handled between town pairs, so removeTruce should only
+     * affect towns involved and not nations.
+     *
+     * addTruce creates truces for all town pairs in nations,
+     * truce expiration tick will call this removeTruce for all those
+     * town pairs individually.
+     */
+    public fun removeTruce(town: Town, other: Town): Result<Boolean> {
+        Truce.remove(town, other)
+
+        // Bukkit.getPluginManager().callEvent(TruceExpiredEvent(town, other))
+
+        // update nametags
 //        Nametag.pipelinedUpdateAllText()
-//
-//        return Result.success(true)
-//    }
+
+        return Result.success(true)
+    }
 //
 //    // set two nations as enemies (bidirectional), order does not matter
 //    // -> sets all towns in each nation as enemies

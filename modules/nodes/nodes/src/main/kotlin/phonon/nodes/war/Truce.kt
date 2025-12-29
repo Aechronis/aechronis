@@ -14,7 +14,10 @@
 package phonon.nodes.war
 
 import com.google.gson.JsonParser
+import net.minestom.server.command.CommandSender
+import org.bukkit.ChatColor
 import phonon.nodes.Config
+import phonon.nodes.Message
 import phonon.nodes.Nodes
 import phonon.nodes.objects.Town
 import phonon.nodes.objects.TownPair
@@ -169,6 +172,38 @@ public object Truce {
 
                 // set truce
                 Truce.create(town1, town2, startTime)
+            }
+        }
+    }
+
+    // print truce list to sender
+    public fun printTownTruces(sender: CommandSender, town: Town) {
+        val time = System.currentTimeMillis()
+
+        Message.print(sender, "Truces with ${town.name}:")
+
+        // get truce list
+        val truceList = Truce.get(town)
+        for (townPair in truceList) {
+            val startTime = Truce.truces.get(townPair)
+            if (startTime !== null) {
+                val remainingTime = Config.trucePeriod - (time - startTime)
+
+                val remainingTimeString = if (remainingTime > 0) {
+                    val hour: Long = remainingTime / 3600000L
+                    val min: Long = 1L + (remainingTime - hour * 3600000L) / 60000L
+                    "${hour}hr ${min}min"
+                } else {
+                    "0hr 0min"
+                }
+
+                val otherTownName = if (town === townPair.town1) {
+                    townPair.town2.name
+                } else {
+                    townPair.town1.name
+                }
+
+                Message.print(sender, "- ${otherTownName}${ChatColor.WHITE}: $remainingTimeString")
             }
         }
     }
