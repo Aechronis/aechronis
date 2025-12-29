@@ -1,4 +1,4 @@
-main: phonon.nodes.NodesPlugin
+main: luna.nodes.NodesPlugin
 name: nodes
 version: 0.0.14
 api-version: 1.16

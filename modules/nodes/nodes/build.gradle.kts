@@ -47,5 +47,5 @@ tasks.build { dependsOn(tasks.shadowJar) }
 
 tasks.shadowJar {
     archiveClassifier.set("") // no "-all"
-    manifest.attributes("Main-Class" to "phonon.nodes.MainKt")
+    manifest.attributes("Main-Class" to "luna.nodes.MainKt")
 }
