@@ -61,8 +61,6 @@
 //    "peace",
 //    "ally",
 //    "allyremove",
-//    "truce",
-//    "truceremove",
 //    "treaty",
 //    "save",
 //    "load",
@@ -181,8 +179,6 @@
 //            "peace" -> setPeace(sender, args)
 //            "ally" -> setAlly(sender, args)
 //            "allyremove" -> removeAlly(sender, args)
-//            "truce" -> setTruce(sender, args)
-//            "truceremove" -> removeTruce(sender, args)
 //            "treaty" -> manageTreaty(sender, args)
 //            "save" -> saveWorld(sender, args)
 //            "load" -> loadWorld(sender)
@@ -423,8 +419,6 @@
 //                "peace",
 //                "ally",
 //                "allyremove",
-//                "truce",
-//                "truceremove",
 //                -> {
 //                    if (args.size == 2) {
 //                        return filterTownOrNation(args[1])
@@ -487,8 +481,6 @@
 //        Message.print(sender, "/nodesadmin peace${ChatColor.WHITE}: Sets peace between two towns/nations")
 //        Message.print(sender, "/nodesadmin ally${ChatColor.WHITE}: Sets alliance between two towns/nations")
 //        Message.print(sender, "/nodesadmin allyremove${ChatColor.WHITE}: Removes alliance between two towns/nations")
-//        Message.print(sender, "/nodesadmin truce${ChatColor.WHITE}: Sets truce between two towns/nations")
-//        Message.print(sender, "/nodesadmin truceremove${ChatColor.WHITE}: Removes truce between two towns/nations")
 //        Message.print(sender, "/nodesadmin save${ChatColor.WHITE}: Force save world")
 //        Message.print(sender, "/nodesadmin load${ChatColor.WHITE}: Force load world")
 //        Message.print(sender, "/nodesadmin runincome${ChatColor.WHITE}: Runs income for all towns")
@@ -2293,94 +2285,6 @@
 //        Nodes.removeAlly(town1, town2)
 //
 //        Message.print(sender, "Removed any alliance between $name1 and $name2")
-//    }
-//
-//    /**
-//     * @command /nodesadmin truce [name1] [name2]
-//     * Sets a truce between [name1] and [name2] (either town or nation names).
-//     */
-//    private fun setTruce(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin ally [name1] [name2]")
-//            return
-//        }
-//
-//        val name1 = args[1]
-//        val name2 = args[2]
-//
-//        // try getting nations first
-//        val nation1 = Nodes.nations.get(name1)
-//        val nation2 = Nodes.nations.get(name2)
-//
-//        // if either null, get towns, else use nation capital
-//        val town1 = if (nation1 !== null) {
-//            nation1.capital
-//        } else {
-//            Nodes.towns.get(name1)
-//        }
-//
-//        val town2 = if (nation2 !== null) {
-//            nation2.capital
-//        } else {
-//            Nodes.towns.get(name2)
-//        }
-//
-//        if (town1 == null) {
-//            Message.error(sender, "\"${name1}\" does not exist")
-//            return
-//        }
-//        if (town2 == null) {
-//            Message.error(sender, "\"${name2}\" does not exist")
-//            return
-//        }
-//
-//        Nodes.addTruce(town1, town2)
-//
-//        Message.print(sender, "Set truce between $name1 and $name2")
-//    }
-//
-//    /**
-//     * @command /nodesadmin truceremove [name1] [name2]
-//     * Removes any truce between [name1] and [name2] (either town or nation names).
-//     */
-//    private fun removeTruce(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin ally [name1] [name2]")
-//            return
-//        }
-//
-//        val name1 = args[1]
-//        val name2 = args[2]
-//
-//        // try getting nations first
-//        val nation1 = Nodes.nations.get(name1)
-//        val nation2 = Nodes.nations.get(name2)
-//
-//        // if either null, get towns, else use nation capital
-//        val town1 = if (nation1 !== null) {
-//            nation1.capital
-//        } else {
-//            Nodes.towns.get(name1)
-//        }
-//
-//        val town2 = if (nation2 !== null) {
-//            nation2.capital
-//        } else {
-//            Nodes.towns.get(name2)
-//        }
-//
-//        if (town1 == null) {
-//            Message.error(sender, "\"${name1}\" does not exist")
-//            return
-//        }
-//        if (town2 == null) {
-//            Message.error(sender, "\"${name2}\" does not exist")
-//            return
-//        }
-//
-//        Nodes.removeTruce(town1, town2)
-//
-//        Message.print(sender, "Removed any truce between $name1 and $name2")
 //    }
 //
 //    // =============================================================

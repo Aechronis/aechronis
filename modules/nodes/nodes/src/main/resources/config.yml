@@ -276,15 +276,6 @@ occupiedHomeTeleportMultiplier: 12.0
 # - caffd0a0-042e-4022-910f-608be7fd277e
 
 # ===========================================
-# Truce Settings
-# ===========================================
-# truce period in milliseconds
-# 24 hour = 86400000 ms
-# 48 hour = 172800000 ms
-# 72 hour = 259200000 ms
-trucePeriod: 259200000
-
-# ===========================================
 # Ports Settings
 # ===========================================
 # sea level for port warps

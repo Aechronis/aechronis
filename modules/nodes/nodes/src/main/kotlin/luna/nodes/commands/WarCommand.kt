@@ -15,7 +15,6 @@
 //import luna.nodes.objects.Nation
 //import luna.nodes.objects.Town
 //import luna.nodes.utils.string.filterTownOrNation
-//import luna.nodes.war.Truce
 //
 ///**
 // * @command /war
@@ -126,13 +125,9 @@
 //            return
 //        }
 //
-//        // cannot war allies or truce
+//        // cannot war allies
 //        if (town.allies.contains(enemy) || enemy.allies.contains(town)) {
 //            Message.error(player, "You cannot declare war on an ally")
-//            return
-//        }
-//        if (Truce.contains(town, enemy)) {
-//            Message.error(player, "You are in a truce with ${enemy.name}")
 //            return
 //        }
 //

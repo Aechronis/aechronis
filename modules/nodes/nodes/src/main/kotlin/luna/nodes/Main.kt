@@ -19,7 +19,6 @@ import luna.nodes.commands.NodesCommand
 //import luna.nodes.commands.TerritoryCommand
 //import luna.nodes.commands.TownChatCommand
 import luna.nodes.commands.TownCommand
-import luna.nodes.commands.TruceCommand
 //import luna.nodes.commands.UnallyCommand
 //import luna.nodes.commands.WarCommand
 //import luna.nodes.listeners.DisabledWorldListener
@@ -27,8 +26,6 @@ import luna.nodes.commands.TruceCommand
 //import luna.nodes.listeners.NodesChatListener
 //import luna.nodes.listeners.NodesChestProtectionDestroyListener
 //import luna.nodes.listeners.NodesChestProtectionListener
-//import luna.nodes.listeners.NodesDiplomacyAllianceListener
-//import luna.nodes.listeners.NodesDiplomacyTruceExpiredListener
 //import luna.nodes.listeners.NodesEntityBreedListener
 //import luna.nodes.listeners.NodesGuiListener
 //import luna.nodes.listeners.NodesIncomeInventoryListener
@@ -131,8 +128,6 @@ fun main() {
 //    pluginManager.registerEvents(NodesChatListener(), this)
 //    pluginManager.registerEvents(NodesChestProtectionListener(), this)
 //    pluginManager.registerEvents(NodesChestProtectionDestroyListener(), this)
-//    pluginManager.registerEvents(NodesDiplomacyAllianceListener(), this)
-//    pluginManager.registerEvents(NodesDiplomacyTruceExpiredListener(), this)
 //    pluginManager.registerEvents(NodesEntityBreedListener(), this)
 //    pluginManager.registerEvents(NodesGuiListener(), this)
 //    pluginManager.registerEvents(NodesIncomeInventoryListener(), this)
@@ -160,7 +155,6 @@ fun main() {
 //    this.getCommand("unally")?.setExecutor(UnallyCommand())
 //    this.getCommand("war")?.setExecutor(WarCommand())
 //    this.getCommand("peace")?.setExecutor(PeaceCommand())
-    MinecraftServer.getCommandManager().register(TruceCommand())
 //    this.getCommand("globalchat")?.setExecutor(GlobalChatCommand())
 //    this.getCommand("townchat")?.setExecutor(TownChatCommand())
 //    this.getCommand("nationchat")?.setExecutor(NationChatCommand())
@@ -208,6 +202,5 @@ fun onDisable() {
 //    //    to avoid saving junk empty data when plugin fails load
 //    if (Nodes.initialized) {
 //        Nodes.saveWorld(checkIfNeedsSave = false, async = false)
-//        Nodes.saveTruce(async = false)
 //    }
 }

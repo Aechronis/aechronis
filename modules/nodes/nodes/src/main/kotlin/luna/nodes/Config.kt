@@ -43,7 +43,6 @@ public object Config {
     public var pathWorld = Paths.get(pathPlugin, "world.json").normalize()
     public var pathTowns = Paths.get(pathPlugin, "towns.json").normalize()
     public var pathWar = Paths.get(pathPlugin, "war.json").normalize()
-    public var pathTruce = Paths.get(pathPlugin, "truce.json").normalize()
     public var pathPorts = Paths.get(pathPlugin, "ports.json").normalize()
     public var pathLastBackupTime = Paths.get(pathPlugin, "lastBackupTime.txt").normalize()
     public var pathLastIncomeTime = Paths.get(pathPlugin, "lastIncomeTime.txt").normalize()
@@ -331,17 +330,6 @@ public object Config {
     public var allowControlInOccupiedTownList: HashSet<UUID> = hashSetOf()
 
     // ===================================
-    // truce configs
-    // ===================================
-
-    // truce period in milliseconds
-    // (truce counter uses System.currentTimeMillis)
-    // 24 hour = 86400000 ms
-    // 48 hour = 172800000 ms
-    // 72 hour = 259200000 ms
-    public var trucePeriod: Long = 172800000L
-
-    // ===================================
     // port configs
     // ===================================
     public var seaLevel: Double = 62.0
@@ -476,9 +464,6 @@ public object Config {
 
         Config.allowControlInOccupiedTownList = parseUUIDSet(config, "allowControlInOccupiedTownList")
         // ======================
-
-        // truce
-        Config.trucePeriod = config.getLong("trucePeriod", Config.trucePeriod)
 
         // ports
         Config.seaLevel = config.getDouble("seaLevel", Config.seaLevel)

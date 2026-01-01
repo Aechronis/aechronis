@@ -178,7 +178,7 @@
 //        renderMainView()
 //    }
 //
-//    // run treaty and all terms, then apply truce between towns
+//    // run treaty and all terms
 //    public fun execute() {
 //        // lock treaty terms
 //        this.finished = true
@@ -197,9 +197,6 @@
 //        for (term in this.termsItems) {
 //            term.execute()
 //        }
-//
-//        // set truce between towns
-//        Nodes.addTruce(this.town1, this.town2)
 //
 //        // remove enemy status
 //        Nodes.removeEnemy(this.town1, this.town2)

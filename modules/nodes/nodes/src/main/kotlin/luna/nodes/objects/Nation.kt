@@ -30,7 +30,7 @@ public class Nation(
     val towns: HashSet<Town> = hashSetOf()
     val residents: HashSet<Resident> = hashSetOf()
 
-    // nation's diplomatic relations: allies, enemies, truce
+    // nation's diplomatic relations: allies, enemies
     // determine who nation can attack during war
     val allies: HashSet<Nation> = hashSetOf()
     val enemies: HashSet<Nation> = hashSetOf()

@@ -27,7 +27,6 @@ import net.minestom.server.entity.Player
 //import luna.nodes.constants.DiplomaticRelationship
 //import luna.nodes.constants.ErrorAlreadyAllies
 //import luna.nodes.constants.ErrorAlreadyEnemies
-import luna.nodes.constants.ErrorAlreadyTruce
 import luna.nodes.constants.ErrorNationDoesNotHaveTown
 import luna.nodes.constants.ErrorNationExists
 //import luna.nodes.constants.ErrorNotAllies
@@ -45,7 +44,7 @@ import luna.nodes.constants.ErrorTooManyClaims
 import luna.nodes.constants.ErrorTownDoesNotExist
 import luna.nodes.constants.ErrorTownExists
 import luna.nodes.constants.ErrorTownHasNation
-//import luna.nodes.constants.ErrorWarAllyOrTruce
+//import luna.nodes.constants.ErrorWarAlly
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
 import luna.nodes.objects.Coord
@@ -77,7 +76,6 @@ import luna.nodes.utils.Color
 import luna.nodes.utils.sanitizeString
 import luna.nodes.utils.saveStringToFile
 //import luna.nodes.war.FlagWar
-import luna.nodes.war.Truce
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -616,7 +614,7 @@ public object Nodes {
 //    }
 
     // initialization function,
-    // loads diplomatic relations (allies, enemies, truce)
+    // loads diplomatic relations (allies, enemies)
     // requires all towns, nations already be created
     internal fun loadDiplomacy(
         towns: ArrayList<Town>,
@@ -734,16 +732,6 @@ public object Nodes {
         //         }
         //     }
         // }
-
-        // load truce from truce config file
-        if (Files.exists(Config.pathTruce)) {
-            try {
-                val truceString = String(Files.readAllBytes(Config.pathTruce))
-                Truce.fromJsonString(truceString)
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
-        }
     }
 
 //    // ==============================================
@@ -2590,7 +2578,7 @@ public object Nodes {
 //    //    - town with nation:
 //    //       - capital town declare war against other towns
 //    //       - internal town declare war on other towns in nation
-//    //    - cannot war an ally or town/nation with truce
+//    //    - cannot war an ally
 //    // 2. war on enemy town:
 //    //    - if enemy town has no nation, only war against town
 //    //    - if enemy town has nation, war defaults against enemy nation
@@ -2622,9 +2610,9 @@ public object Nodes {
 //     * This should be the main function used.
 //     */
 //    public fun addEnemy(town: Town, enemy: Town): Result<Boolean> {
-//        // make sure towns are not allies or in truce
-//        if (town.allies.contains(enemy) || Truce.contains(town, enemy)) {
-//            return Result.failure(ErrorWarAllyOrTruce)
+//        // make sure towns are not allies
+//        if (town.allies.contains(enemy)) {
+//            return Result.failure(ErrorWarAlly)
 //        }
 //
 //        // check if towns already enemies
@@ -2929,91 +2917,13 @@ public object Nodes {
 //        return Result.success(true)
 //    }
 //
-    public fun addTruce(town: Town, other: Town): Result<Boolean> {
-        // towns already under truce
-        if (Truce.contains(town, other)) {
-            return Result.failure(ErrorAlreadyTruce)
-        }
-
-        // truce start time
-        val time = System.currentTimeMillis()
-
-        val townNation = town.nation
-        val otherNation = other.nation
-
-        if (townNation !== null) {
-            // nation-nation
-            if (otherNation !== null && townNation !== otherNation) {
-                for (t in townNation.towns) {
-                    for (o in otherNation.towns) {
-                        Truce.create(t, o, time)
-                    }
-                }
-            }
-            // nation-town
-            else {
-                for (t in townNation.towns) {
-                    Truce.create(t, other, time)
-                }
-            }
-        }
-        // town allying without nation
-        else {
-            // town-nation
-            if (otherNation !== null) {
-                for (t in otherNation.towns) {
-                    Truce.create(town, t, time)
-                }
-            }
-            // town-town
-            else {
-                Truce.create(town, other, time)
-            }
-        }
-
-        return Result.success(true)
-    }
-
-    /**
-     * Truces all handled between town pairs, so removeTruce should only
-     * affect towns involved and not nations.
-     *
-     * addTruce creates truces for all town pairs in nations,
-     * truce expiration tick will call this removeTruce for all those
-     * town pairs individually.
-     */
-    public fun removeTruce(town: Town, other: Town): Result<Boolean> {
-        Truce.remove(town, other)
-
-        val msgTown1 = "Your truce with ${other.name} has expired"
-        for (r in town.residents) {
-            val player = r.player()
-            if (player !== null) {
-                Message.print(player, msgTown1)
-            }
-        }
-
-        val msgTown2 = "Your truce with ${town.name} has expired"
-        for (r in other.residents) {
-            val player = r.player()
-            if (player !== null) {
-                Message.print(player, msgTown2)
-            }
-        }
-
-        // update nametags
-//        Nametag.pipelinedUpdateAllText()
-
-        return Result.success(true)
-    }
-//
 //    // set two nations as enemies (bidirectional), order does not matter
 //    // -> sets all towns in each nation as enemies
 //    // returns true on success
 //    private fun nationAddEnemy(nation: Nation, enemy: Nation): Result<Boolean> {
-//        // make sure nations are not allies or in truce
-//        if (nation.allies.contains(enemy) || Truce.contains(nation.capital, enemy.capital)) {
-//            return Result.failure(ErrorWarAllyOrTruce)
+//        // make sure nations are not allies
+//        if (nation.allies.contains(enemy)) {
+//            return Result.failure(ErrorWarAlly)
 //        }
 //
 //        // check if nations already enemies
@@ -3139,48 +3049,6 @@ public object Nodes {
 //        Nodes.renderMinimaps()
 //
 //        return Result.success(true)
-//    }
-//
-//    /**
-//     * Run the truce tick
-//     */
-//    public fun truceTick() {
-//        // current time
-//        val time = System.currentTimeMillis()
-//
-//        // get list of expired truces
-//        val expired: List<TownPair> = Truce.truces.asSequence()
-//            .filter({ (towns, startTime) ->
-//                (time - startTime) > Config.trucePeriod
-//            })
-//            .map({ (towns, startTime) ->
-//                towns
-//            })
-//            .toList()
-//
-//        // remove expired truces
-//        for (towns in expired) {
-//            Nodes.removeTruce(towns.town1, towns.town2)
-//        }
-//
-//        // save truce.json file
-//        if (Truce.needsUpdate == true) {
-//            Bukkit.getAsyncScheduler().runNow(Nodes.plugin!!, { _ -> Truce.saveTask().run() })
-//            Truce.needsUpdate = false
-//        }
-//    }
-//
-//    /**
-//     * Save truces to json file. This is separate from world state save
-//     * because truces only need to be saved infrequently on a separate
-//     * schedule than regular world save.
-//     */
-//    public fun saveTruce(async: Boolean = false) {
-//        if (async) {
-//            Bukkit.getAsyncScheduler().runNow(Nodes.plugin!!, { _ -> Truce.saveTask().run() })
-//        } else {
-//            Truce.saveTask().run()
-//        }
 //    }
 //
 //    /**

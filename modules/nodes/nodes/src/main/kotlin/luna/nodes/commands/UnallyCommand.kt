@@ -121,9 +121,6 @@
 //
 //        val result = Nodes.removeAlly(town, other)
 //        if (result.isSuccess) {
-//            // add truce period
-//            Nodes.addTruce(town, other)
-//
 //            // broadcast message
 //            val thisSide = if (townNation !== null) {
 //                townNation.name

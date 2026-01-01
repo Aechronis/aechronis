@@ -73,7 +73,7 @@ public class Town(
     // nation for town
     var nation: Nation? = null
 
-    // town's diplomatic relations: allies, enemies, truce
+    // town's diplomatic relations: allies, enemies
     // these determine who town can attack during war
     val allies: HashSet<Town> = hashSetOf()
     val enemies: HashSet<Town> = hashSetOf()
