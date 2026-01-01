@@ -115,7 +115,7 @@
 //    // break alliance with other side
 //    private fun breakAlliance(player: Player, town: Town, other: Town, townNation: Nation?, otherNation: Nation?) {
 //        if (town === other) {
-//            Message.error(player, "You cannot make a peace treaty with yourself.")
+//            Message.error(player, "You cannot ally yourself.")
 //            return
 //        }
 //

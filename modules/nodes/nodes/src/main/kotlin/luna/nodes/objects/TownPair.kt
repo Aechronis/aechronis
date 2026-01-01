@@ -4,8 +4,6 @@
  * If either town1 or town2 are equal, two TownPairs
  * must be equal.
  *
- * Used for diplomacy functions as a map key for treaties,
- * e.g. HashMap<TownPair, Treaty>
  */
 
 package luna.nodes.objects

@@ -22,7 +22,7 @@
 //import luna.nodes.objects.TownPair
 //import java.util.concurrent.TimeUnit
 //
-//// peace request status results
+//// alliance request status results
 //public enum class AllianceRequest {
 //    NEW, // new offer created
 //    ACCEPTED, // offer accepted
@@ -92,7 +92,7 @@
 //        else {
 //            // initiator is same town
 //            if (initiator === town1) {
-//                return Result.failure(ErrorPeaceRequestAlreadyCreated)
+//                return Result.failure(ErrorAllyRequestAlreadyCreated)
 //            } else { // accept request
 //                // remove request
 //                Alliance.requests.remove(towns)
@@ -109,7 +109,7 @@
 //        }
 //    }
 //
-//    // remove and cancel peace request
+//    // remove and cancel ally request
 //    public fun cancelRequest(towns: TownPair) {
 //        val initiator = Alliance.requests.remove(towns)
 //        if (initiator !== null) {

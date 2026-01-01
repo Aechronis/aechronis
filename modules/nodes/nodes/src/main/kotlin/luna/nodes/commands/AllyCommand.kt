@@ -19,7 +19,7 @@
 //import luna.nodes.war.AllianceRequest
 //import luna.nodes.war.ErrorAllyRequestAlreadyAllies
 //import luna.nodes.war.ErrorAllyRequestEnemies
-//import luna.nodes.war.ErrorPeaceRequestAlreadyCreated
+//import luna.nodes.war.ErrorAllyRequestAlreadyCreated
 //
 ///**
 // * @command /ally
@@ -119,7 +119,7 @@
 //    // offer alliance, other side must offer alliance to accept
 //    private fun offerAlliance(player: Player, town: Town, other: Town, townNation: Nation?, otherNation: Nation?) {
 //        if (town === other) {
-//            Message.error(player, "You cannot make a peace treaty with yourself.")
+//            Message.error(player, "You cannot ally yourself.")
 //            return
 //        }
 //
@@ -166,7 +166,7 @@
 //            when (result.exceptionOrNull()) {
 //                ErrorAllyRequestEnemies -> Message.error(player, "You cannot ally an enemy")
 //                ErrorAllyRequestAlreadyAllies -> Message.error(player, "You are already allied with this town or nation")
-//                ErrorPeaceRequestAlreadyCreated -> Message.error(player, "You already sent an alliance request")
+//                ErrorAllyRequestAlreadyCreated -> Message.error(player, "You already sent an alliance request")
 //            }
 //        }
 //

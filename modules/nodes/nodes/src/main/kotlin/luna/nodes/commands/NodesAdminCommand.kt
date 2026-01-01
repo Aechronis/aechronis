@@ -41,9 +41,6 @@
 //import luna.nodes.utils.string.filterTownOrNation
 //import luna.nodes.utils.string.filterTownResident
 //import luna.nodes.utils.stringInputIsValid
-//import luna.nodes.war.Treaty
-//import luna.nodes.war.TreatyTermItems
-//import luna.nodes.war.TreatyTermOccupation
 //import kotlin.getOrElse
 //import kotlin.math.roundToInt
 //
@@ -58,10 +55,8 @@
 //    "town",
 //    "nation",
 //    "enemy",
-//    "peace",
 //    "ally",
 //    "allyremove",
-//    "treaty",
 //    "save",
 //    "load",
 //    "runincome",
@@ -176,10 +171,8 @@
 //            "portgroup" -> managePortGroup(sender, args)
 //            "nation" -> manageNation(sender, args)
 //            "enemy" -> setEnemy(sender, args)
-//            "peace" -> setPeace(sender, args)
 //            "ally" -> setAlly(sender, args)
 //            "allyremove" -> removeAlly(sender, args)
-//            "treaty" -> manageTreaty(sender, args)
 //            "save" -> saveWorld(sender, args)
 //            "load" -> loadWorld(sender)
 //            "runincome" -> Nodes.runIncome()
@@ -416,18 +409,9 @@
 //
 //                // /nodesadmin subcommand [town/nation] [town/nation]
 //                "enemy",
-//                "peace",
 //                "ally",
 //                "allyremove",
 //                -> {
-//                    if (args.size == 2) {
-//                        return filterTownOrNation(args[1])
-//                    } else if (args.size == 3) {
-//                        return filterTownOrNation(args[2])
-//                    }
-//                }
-//
-//                "treaty" -> {
 //                    if (args.size == 2) {
 //                        return filterTownOrNation(args[1])
 //                    } else if (args.size == 3) {
@@ -478,7 +462,6 @@
 //        Message.print(sender, "/nodesadmin portgroup${ChatColor.WHITE}: Manage port groups (see \"/nodesadmin portgroup help\")")
 //        Message.print(sender, "/nodesadmin port${ChatColor.WHITE}: Manage ports (see \"/nodesadmin port help\")")
 //        Message.print(sender, "/nodesadmin enemy${ChatColor.WHITE}: Make two towns/nations enemies")
-//        Message.print(sender, "/nodesadmin peace${ChatColor.WHITE}: Sets peace between two towns/nations")
 //        Message.print(sender, "/nodesadmin ally${ChatColor.WHITE}: Sets alliance between two towns/nations")
 //        Message.print(sender, "/nodesadmin allyremove${ChatColor.WHITE}: Removes alliance between two towns/nations")
 //        Message.print(sender, "/nodesadmin save${ChatColor.WHITE}: Force save world")
@@ -2106,7 +2089,7 @@
 //
 //    // =============================================================
 //    // Diplomacy commands
-//    // force add/remove war, peace, ally
+//    // force add/remove war, ally
 //    // =============================================================
 //
 //    /**
@@ -2152,51 +2135,6 @@
 //        Nodes.addEnemy(town1, town2)
 //
 //        Message.print(sender, "Set war between $name1 and $name2")
-//    }
-//
-//    /**
-//     * @command /nodesadmin peace [name1] [name2]
-//     * Removes enemy status between [name1] and [name2]
-//     * (either town or nation names)
-//     */
-//    private fun setPeace(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin peace [name1] [name2]")
-//            return
-//        }
-//
-//        val name1 = args[1]
-//        val name2 = args[2]
-//
-//        // try getting nations first
-//        val nation1 = Nodes.nations.get(name1)
-//        val nation2 = Nodes.nations.get(name2)
-//
-//        // if either null, get towns, else use nation capital
-//        val town1 = if (nation1 !== null) {
-//            nation1.capital
-//        } else {
-//            Nodes.towns.get(name1)
-//        }
-//
-//        val town2 = if (nation2 !== null) {
-//            nation2.capital
-//        } else {
-//            Nodes.towns.get(name2)
-//        }
-//
-//        if (town1 == null) {
-//            Message.error(sender, "\"${name1}\" does not exist")
-//            return
-//        }
-//        if (town2 == null) {
-//            Message.error(sender, "\"${name2}\" does not exist")
-//            return
-//        }
-//
-//        Nodes.removeEnemy(town1, town2)
-//
-//        Message.print(sender, "Set peace between $name1 and $name2")
 //    }
 //
 //    /**
@@ -2285,117 +2223,6 @@
 //        Nodes.removeAlly(town1, town2)
 //
 //        Message.print(sender, "Removed any alliance between $name1 and $name2")
-//    }
-//
-//    // =============================================================
-//    // treaty manipulation commands
-//    // - add/remove terms from active peace treaties (mostly for debug)
-//    // - main form:
-//    //   /nda treaty [name1] [name2] [add/remove] [term] [side: 0 or 1] [args...]
-//    //
-//    //   for term side, 0 == name1 and 1 == name2
-//    // =============================================================
-//    private fun manageTreaty(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 6) {
-//            Message.error(sender, "Usage: /nodesadmin treaty [name1] [name2] [add/remove] [term] [side] [args...]")
-//            return
-//        }
-//
-//        val name1 = args[1]
-//        val name2 = args[2]
-//
-//        // try getting nations first
-//        val nation1 = Nodes.nations.get(name1)
-//        val nation2 = Nodes.nations.get(name2)
-//
-//        // if either null, get towns, else use nation capital
-//        val town1 = if (nation1 !== null) {
-//            nation1.capital
-//        } else {
-//            Nodes.towns.get(name1)
-//        }
-//
-//        val town2 = if (nation2 !== null) {
-//            nation2.capital
-//        } else {
-//            Nodes.towns.get(name2)
-//        }
-//
-//        if (town1 == null) {
-//            Message.error(sender, "\"${name1}\" does not exist")
-//            return
-//        }
-//        if (town2 == null) {
-//            Message.error(sender, "\"${name2}\" does not exist")
-//            return
-//        }
-//
-//        // get treaty
-//        val treaty = Treaty.get(town1, town2)
-//        if (treaty === null) {
-//            Message.error(sender, "No treaty exists between ${town1.name} and ${town2.name}")
-//            return
-//        }
-//
-//        // get town side the term belongs to
-//        var provider: Town? = null
-//        var receiver: Town? = null
-//        if (args[5] == "0") {
-//            provider = town1
-//            receiver = town2
-//        } else if (args[5] == "1") {
-//            provider = town2
-//            receiver = town1
-//        } else {
-//            Message.error(sender, "Term side arg[5] must be \"0\" or \"1\"")
-//            return
-//        }
-//        provider = provider as Town
-//        receiver = receiver as Town
-//
-//        // get add/remove term
-//        if (args[3] == "add") {
-//            // match term type
-//            when (args[4]) {
-//                "occupy" -> {
-//                    if (args.size < 7) {
-//                        Message.error(sender, "Usage: /nodesadmin treaty [name1] [name2] [add/remove] occupy [side] [id]")
-//                        return
-//                    }
-//
-//                    // get territory
-//                    val territory = Nodes.getTerritoryFromId(TerritoryId(args[6].toInt()))
-//                    if (territory === null) {
-//                        Message.error(sender, "Invalid territory id")
-//                        return
-//                    }
-//
-//                    treaty.add(TreatyTermOccupation(provider, receiver, territory.id))
-//
-//                    Message.print(sender, "Added occupation term to treaty between ${town1.name} and ${town2.name}")
-//                }
-//                "item" -> {
-//                    if (args.size < 8) {
-//                        Message.error(sender, "Usage: /nodesadmin treaty [name1] [name2] [add/remove] item [side] [type] [count]")
-//                        return
-//                    }
-//
-//                    val itemType = Material.matchMaterial(args[6])
-//                    if (itemType == null) {
-//                        return
-//                    }
-//                    val itemCount = args[7].toInt()
-//
-//                    treaty.add(TreatyTermItems(provider, receiver, ItemStack(itemType, itemCount), null))
-//
-//                    Message.print(sender, "Added item term to treaty between ${town1.name} and ${town2.name}")
-//                }
-//            }
-//        } else if (args[3] == "remove") {
-//            // TODO
-//        } else {
-//            Message.error(sender, "arg[3] must be \"add\" or \"remove\"")
-//        }
 //    }
 //
 //    // =============================================================

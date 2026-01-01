@@ -13,7 +13,6 @@ package luna.nodes
 import luna.nodes.commands.NationCommand
 //import luna.nodes.commands.NodesAdminCommand
 import luna.nodes.commands.NodesCommand
-//import luna.nodes.commands.PeaceCommand
 //import luna.nodes.commands.PlayerCommand
 //import luna.nodes.commands.PortCommand
 //import luna.nodes.commands.TerritoryCommand
@@ -154,7 +153,6 @@ fun main() {
 //    this.getCommand("ally")?.setExecutor(AllyCommand())
 //    this.getCommand("unally")?.setExecutor(UnallyCommand())
 //    this.getCommand("war")?.setExecutor(WarCommand())
-//    this.getCommand("peace")?.setExecutor(PeaceCommand())
 //    this.getCommand("globalchat")?.setExecutor(GlobalChatCommand())
 //    this.getCommand("townchat")?.setExecutor(TownChatCommand())
 //    this.getCommand("nationchat")?.setExecutor(NationChatCommand())
