@@ -1,5 +1,5 @@
 ///**
-// * Commands for viewing town's truces
+// * Commands for viewing resident info
 // */
 //
 //package luna.nodes.commands
@@ -14,15 +14,15 @@
 //import luna.nodes.utils.string.filterResident
 //
 ///**
-// * @command /truce
-// * Print list of player's town's truces and list of times
+// * @command /player
+// * Print info about a player
 // */
 //public class PlayerCommand :
 //    CommandExecutor,
 //    TabCompleter {
 //
 //    override fun onCommand(sender: CommandSender, cmd: Command, commandLabel: String, args: Array<String>): Boolean {
-//        // no args, use sender's town
+//        // no args, use sender
 //        if (args.size == 0) {
 //            if (sender is Player) {
 //                val resident = Nodes.getResident(sender)
