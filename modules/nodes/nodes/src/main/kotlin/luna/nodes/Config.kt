@@ -175,24 +175,9 @@ public object Config {
     // town spawn timer in seconds (converted to ticks by num * 20)
     public var townSpawnTime: Int = 10
 
-    // outpost configs
-    public val outpostTeleportCost: MutableMap<Material, Int> = mutableMapOf()
-
-    // inline string list of outpost teleport cost
-    public var outpostTeleportCostString: String = ""
-
     // ===================================
     // nation settings
     // ===================================
-    // allow spawning in nation towns
-    public var allowNationTownSpawn: Boolean = false
-
-    // cost for nation town spawn
-    public val nationTownTeleportCost: MutableMap<Material, Int> = mutableMapOf()
-
-    // inline string list of outpost teleport cost
-    public var nationTownTeleportCostString: String = ""
-
     // allow members of the same nation to attack eachother
     public var allowNationFriendlyFire: Boolean = false
 
@@ -369,19 +354,8 @@ public object Config {
 
         // town settings
         Config.townSpawnTime = config.getInt("townSpawnTime", Config.townSpawnTime)
-        val outpostTeleportCostSection = config.getConfigurationSection("outpostTeleportCost")
-        if (outpostTeleportCostSection !== null) {
-            Config.outpostTeleportCost.putAll(parseTeleportCost(outpostTeleportCostSection))
-            Config.outpostTeleportCostString = teleportCostToString(Config.outpostTeleportCost)
-        }
 
         // nation settings
-        Config.allowNationTownSpawn = config.getBoolean("allowNationTownSpawn", Config.allowNationTownSpawn)
-        val nationTeleportCostSection = config.getConfigurationSection("nationTownTeleportCost")
-        if (nationTeleportCostSection !== null) {
-            Config.nationTownTeleportCost.putAll(parseTeleportCost(nationTeleportCostSection))
-            Config.nationTownTeleportCostString = teleportCostToString(Config.nationTownTeleportCost)
-        }
         Config.allowNationFriendlyFire = config.getBoolean("allowNationFriendlyFire", Config.allowNationFriendlyFire)
 
         // ally settings

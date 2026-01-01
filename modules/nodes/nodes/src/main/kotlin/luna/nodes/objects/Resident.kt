@@ -41,10 +41,8 @@ public class Resident(val uuid: UUID, val name: String) {
     var prefix: String = ""
     var suffix: String = ""
 
-    // town teleport thread and flag for outpost
+    // town teleport thread
 //    var teleportThread: ScheduledTask? = null
-    var isTeleportingToOutpost: Boolean = false // if true, gives outpost teleport cost refund if teleport fails
-    var isTeleportingToNationTown: Boolean = false // if true, gives nation town teleport cost refund if teleport fails
 
     // town invite
     var invitingNation: Nation? = null

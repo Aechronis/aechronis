@@ -63,7 +63,6 @@ import luna.nodes.objects.TerritoryId
 import luna.nodes.objects.TerritoryPreprocessing
 import luna.nodes.objects.TerritoryResources
 import luna.nodes.objects.Town
-import luna.nodes.objects.TownOutpost
 import luna.nodes.objects.TownPair
 import luna.nodes.serdes.Deserializer
 //import luna.nodes.tasks.OverMaxClaimsReminder
@@ -1096,7 +1095,6 @@ public object Nodes {
         isOpen: Boolean,
 //        protectedBlocks: HashSet<Block>,
         moveHomeCooldown: Long,
-        outposts: HashMap<String, Pair<Int, Pos>>,
     ): Town? {
         val leaderAsResident = if (leader != null) {
             Nodes.getResidentFromUUID(leader)
@@ -1210,23 +1208,6 @@ public object Nodes {
 
         // set move home cooldown
         town.moveHomeCooldown = moveHomeCooldown
-
-        // load outposts
-        for ((name, outpostData) in outposts) {
-            val terrId = TerritoryId(outpostData.first)
-            val spawn = outpostData.second
-            val terr = Nodes.getTerritoryFromId(terrId)
-            if (terr !== null && town.territories.contains(terrId)) {
-                town.outposts.put(
-                    name,
-                    TownOutpost(
-                        name,
-                        terrId,
-                        spawn,
-                    ),
-                )
-            }
-        }
 
         // save new town
         towns.put(name, town)
@@ -1528,9 +1509,6 @@ public object Nodes {
         // passed checks, remove territory from town
         town.territories.remove(territory.id)
         territory.town = null
-
-        // remove any outposts with this territory
-        town.outposts.entries.removeAll({ (name, outpost) -> outpost.territory == territory.id })
 
         // if territory was not annexed, remove territory cost
         // from claims used, add to penalty until it decays
@@ -1982,72 +1960,6 @@ public object Nodes {
         town.moveHomeCooldown = time
         town.needsUpdate()
         Nodes.needsSave = true
-    }
-
-//    /**
-//     * Create an outpost for a town
-//     * Returns true on success, false on failure
-//     */
-//    public fun createTownOutpost(town: Town, name: String, territory: Territory): Boolean {
-//        // town must own the territory
-//        if (!town.territories.contains(territory.id)) {
-//            return false
-//        }
-//
-//        // town must not have outpost of same name
-//        if (town.outposts.contains(name)) {
-//            return false
-//        }
-//
-//        val spawn = Nodes.getDefaultSpawnLocation(territory)
-//
-//        town.outposts.put(
-//            name,
-//            TownOutpost(
-//                name,
-//                territory.id,
-//                spawn,
-//            ),
-//        )
-//
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//
-//        return true
-//    }
-//
-//    /**
-//     * Remove town outpost with given name
-//     * Returns true on success, false on failure
-//     */
-//    public fun destroyTownOutpost(town: Town, name: String): Boolean {
-//        val outpost = town.outposts.remove(name)
-//        if (outpost === null) {
-//            return false
-//        }
-//
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//
-//        return true
-//    }
-
-    /**
-     * Set a town outpost's spawn location.
-     * Returns true on success, false on failure
-     */
-    public fun setOutpostSpawn(town: Town, outpost: TownOutpost, spawn: Pos): Boolean {
-        // verify location is inside territory
-        if (Nodes.getTerritoryFromChunk(MinecraftServer.getInstanceManager().instances.first().getChunk(spawn.chunkX(),spawn.chunkZ())!!)?.id != outpost.territory) {
-            return false
-        }
-
-        outpost.spawn = spawn
-
-        town.needsUpdate()
-        Nodes.needsSave = true
-
-        return true
     }
 
 //    // when inventory close, require save because items could have

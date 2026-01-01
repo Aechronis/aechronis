@@ -125,7 +125,6 @@ class TownCommand : Command("t", "town") {
         addSubcommand(TownUntrustCommand())
         addSubcommand(TownCapitalCommand())
         addSubcommand(TownAnnexCommand())
-        addSubcommand(TownOutpostCommand())
         addSubcommand(TownFlyCommand())
     }
 }
@@ -161,7 +160,6 @@ class TownHelpCommand : Command("help") {
             Message.print(sender, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
             Message.print(sender, "/town capital${ChatColor.WHITE}: Set your town's home territory")
             Message.print(sender, "/town annex${ChatColor.WHITE}: Annex an occupied territory")
-            Message.print(sender, "/town outpost${ChatColor.WHITE}: Town outpost commands")
             Message.print(sender, "/town fly${ChatColor.WHITE}: Fly inside your town")
         }
     }
@@ -1620,120 +1618,6 @@ class TownAnnexCommand : Command("annex") {
             } else {
                 Message.error(player, "Failed to annex territory")
             }
-        })
-    }
-}
-
-private fun printOutpostHelp(sender: CommandSender) {
-    Message.print(sender, "${ChatColor.BOLD}[Nodes] Town outpost management:")
-    Message.print(sender, "/town outpost list${ChatColor.WHITE}: List town's outposts")
-    Message.print(sender, "/town outpost setspawn${ChatColor.WHITE}: Set town outpost spawn to your current location")
-    Message.print(sender, "Run a command with no args to see usage.")
-}
-
-class TownOutpostCommand : Command("outpost") {
-    init {
-        setDefaultExecutor { sender, context ->
-            printOutpostHelp(sender)
-        }
-
-        addSubcommand(TownOutpostListCommand())
-        addSubcommand(TownOutpostSetSpawnCommand())
-    }
-}
-
-class TownOutpostListCommand : Command("list") {
-    init {
-        setDefaultExecutor { sender, context ->
-            printOutpostHelp(sender)
-        }
-
-        addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
-            if (player == null) {
-                return@addSyntax
-            }
-
-            val resident = Nodes.getResident(player)
-            if (resident == null) {
-                return@addSyntax
-            }
-
-            val town = resident.town
-            if (town == null) {
-                Message.error(player, "You are not a member of a town")
-                return@addSyntax
-            }
-
-            if (town.outposts.size > 0) {
-                Message.print(player, "Town outposts:")
-                for ((name, outpost) in town.outposts) {
-                    val spawn = outpost.spawn
-                    Message.print(player, "- ${name}${ChatColor.WHITE}: Territory (id=${outpost.territory}, Spawn = (${spawn.x}, ${spawn.y}, ${spawn.z})")
-                }
-            } else {
-                Message.error(player, "Town has no outposts")
-            }
-        })
-    }
-}
-
-class TownOutpostSetSpawnCommand : Command("setspawn") {
-    init {
-        setDefaultExecutor { sender, context ->
-            printOutpostHelp(sender)
-        }
-
-        addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
-            if (player == null) {
-                return@addSyntax
-            }
-
-            val resident = Nodes.getResident(player)
-            if (resident == null) {
-                return@addSyntax
-            }
-
-            val town = resident.town
-            if (town == null) {
-                Message.error(player, "You are not a member of a town")
-                return@addSyntax
-            }
-
-            // check if player is leader or officer
-            val leader = town.leader
-            if (resident !== leader && !town.officers.contains(resident)) {
-                Message.error(player, "Only leaders and officers can move an outpost's spawn location")
-                return@addSyntax
-            }
-
-            // check if territory belongs to town and isnt home already
-            val territory = Nodes.getTerritoryFromPlayer(player)
-            if (territory == null) {
-                Message.error(player, "This region has no territory")
-                return@addSyntax
-            }
-            if (town !== territory.town) {
-                Message.error(player, "This is not your territory")
-                return@addSyntax
-            }
-
-            // match outpost to territory
-            for (outpost in town.outposts.values) {
-                if (outpost.territory == territory.id) {
-                    val result = Nodes.setOutpostSpawn(town, outpost, player.position)
-                    if (result == true) {
-                        Message.print(player, "Set outpost \"${outpost.name}\" spawn to current location")
-                    } else {
-                        Message.error(player, "Failed to set outpost spawn in current location")
-                    }
-                    return@addSyntax
-                }
-            }
-
-            // failed to match, return error
-            Message.error(player, "Your town has no outpost in this location")
         })
     }
 }

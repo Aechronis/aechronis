@@ -124,8 +124,6 @@
 //    "spawn",
 //    "sethome",
 //    "sethomecooldown",
-//    "addoutpost",
-//    "removeoutpost",
 //    "defaulttownspawns",
 //)
 //
@@ -340,25 +338,6 @@
 //                                    val town = Nodes.getTownFromName(args[2])
 //                                    if (town !== null) {
 //                                        return filterTownResident(town, args[args.size - 1])
-//                                    }
-//                                }
-//                            }
-//
-//                            // outpost
-//                            "addoutpost" -> {
-//                                if (args.size == 3) {
-//                                    return filterTown(args[2])
-//                                }
-//                            }
-//
-//                            // /nodesadmin town subcommand [town] [outpost] ...
-//                            "removeoutpost" -> {
-//                                if (args.size == 3) {
-//                                    return filterTown(args[2])
-//                                } else if (args.size >= 4) {
-//                                    val town = Nodes.getTownFromName(args[2])
-//                                    if (town !== null) {
-//                                        return filterByStart(town.outposts.keys.toList(), args[3])
 //                                    }
 //                                }
 //                            }
@@ -953,8 +932,6 @@
 //                "incomeremove" -> townIncomeRemove(sender, args)
 //                "sethome" -> setTownHome(sender, args)
 //                "sethomecooldown" -> setTownMoveHomeCooldown(sender, args)
-//                "addoutpost" -> addOutpostToTown(sender, args)
-//                "removeoutpost" -> removeOutpostFromTown(sender, args)
 //                "defaulttownspawns" -> defaultTownSpawns(sender, args)
 //                else -> {
 //                    printTownHelp(sender)
@@ -982,8 +959,6 @@
 //        Message.print(sender, "/nodesadmin town leader${ChatColor.WHITE}: Set town leader to player")
 //        Message.print(sender, "/nodesadmin town open${ChatColor.WHITE}: Toggle town is open to join")
 //        Message.print(sender, "/nodesadmin town income${ChatColor.WHITE}: View a town's income inventory")
-//        Message.print(sender, "/nodesadmin town addoutpost${ChatColor.WHITE}: Add an outpost to a town")
-//        Message.print(sender, "/nodesadmin town removeoutpost${ChatColor.WHITE}: Remove an outpost from a town")
 //        Message.print(sender, "Run a command with no args to see usage.")
 //    }
 //
@@ -1759,84 +1734,6 @@
 //
 //        Nodes.setTownHomeMoveCooldown(town, cooldown)
 //        Message.print(sender, "Set town \"${townName}\" move cooldown to $cooldown ms")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town addoutpost [town] [name] [id]
-//     * Add an outpost with name to town at territory id
-//     */
-//    private fun addOutpostToTown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 5) {
-//            Message.error(sender, "Usage: /nodesadmin town addoutpost [town] [name] [id]")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // get outpost name
-//        val name = args[3]
-//        if (town.outposts.contains(name)) {
-//            Message.error(sender, "Town already has outpost named: \"${name}\"")
-//            return
-//        }
-//
-//        // get outpost territory
-//        val id = TerritoryId(args[4].toInt())
-//        val terr = Nodes.territories.get(id)
-//        if (terr == null) {
-//            Message.error(sender, "Invalid territory id=$id: does not exist")
-//            return
-//        }
-//
-//        // set town home territory
-//        if (town !== terr.town) {
-//            Message.error(sender, "Invalid territory id=$id: does not belong to town")
-//            return
-//        }
-//
-//        val result = Nodes.createTownOutpost(town, name, terr)
-//        if (result == true) {
-//            Message.print(sender, "Created outpost \"${name}\" for \"${townName}\" in territory id = ${terr.id}")
-//        } else {
-//            Message.error(sender, "Failed to create outpost \"${name}\" for \"${townName}\"")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town removeoutpost [town] [name]
-//     * Remove outpost from town with given name
-//     */
-//    private fun removeOutpostFromTown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town removeoutpost [town] [name]")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // get outpost name
-//        val name = args[3]
-//        if (!town.outposts.contains(name)) {
-//            Message.error(sender, "Town does not have outpost named: \"${name}\"")
-//            return
-//        }
-//
-//        val result = Nodes.destroyTownOutpost(town, name)
-//        if (result == true) {
-//            Message.print(sender, "Removed outpost \"${name}\" from \"${townName}\"")
-//        } else {
-//            Message.error(sender, "Failed to remove outpost \"${name}\" from \"${townName}\"")
-//        }
 //    }
 //
 //    // TODO: town perm toggles

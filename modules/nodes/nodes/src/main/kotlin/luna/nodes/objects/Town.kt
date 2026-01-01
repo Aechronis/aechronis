@@ -65,10 +65,6 @@ public class Town(
     // territories captured by town (but not annexed)
     val captured: HashSet<TerritoryId> = hashSetOf()
 
-    // outposts in town, players can /t spawn [output]
-    // map name -> town outpost
-    val outposts: HashMap<String, TownOutpost> = hashMapOf()
-
     // nation for town
     var nation: Nation? = null
 
@@ -248,7 +244,6 @@ public class Town(
         public val territories = t.territories.toList()
         public val annexed = t.annexed.toList()
         public val captured = t.captured.toList()
-        public val outposts: HashMap<String, TownOutpost> = HashMap(t.outposts)
         public val allies = t.allies.map { x -> x.name }
         public val enemies = t.enemies.map { x -> x.name }
 //        public val income = t.income.storage.clone()
@@ -294,7 +289,6 @@ public class Town(
                     "\"territories\":$territories," +
                     "\"annexed\":$annexed," +
                     "\"captured\":$captured," +
-                    "\"outpost\":${townOutpostsToJsonString(this.outposts)}," +
                     "\"allies\":$allies," +
                     "\"enemies\":$enemies," +
 //                    "\"income\":$income," +
@@ -367,23 +361,3 @@ private fun permissionsToJsonString(permissions: EnumArrayMap<TownPermissions, E
 //    val s = str.toString()
 //    return s
 //}
-
-// string format for town outposts HashMap<String, TownOutpost>
-private fun townOutpostsToJsonString(outposts: HashMap<String, TownOutpost>): String {
-    val str = StringBuilder()
-    str.append("{")
-
-    var index: Int = 0
-    for ((name, outpost) in outposts) {
-        str.append("\"${name}\":${outpost.toJsonString()}")
-        if (index < outposts.size - 1) {
-            str.append(",")
-        }
-        index += 1
-    }
-
-    str.append("}")
-
-    val s = str.toString()
-    return s
-}

@@ -53,21 +53,9 @@ townCooldownUpdateTick: 2400
 # town spawn timer in seconds (converted to ticks by num * 20)
 townSpawnTime: 10
 
-# outpost configs
-# item cost for outpost teleport
-outpostTeleportCost:
-  diamond: 1
-
 # ===========================================
 # nation settings
 # ===========================================
-# allow teleporting to other towns in nation
-allowNationTownSpawn: false
-
-# item cost to teleport to nation's towns
-nationTownTeleportCost:
-  diamond: 1
-
 # allow members of the same nation to attack eachother
 allowNationFriendlyFire: false
 

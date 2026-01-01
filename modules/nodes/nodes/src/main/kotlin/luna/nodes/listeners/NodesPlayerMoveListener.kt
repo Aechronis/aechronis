@@ -41,48 +41,6 @@ public fun onPlayerMove(event: PlayerMoveEvent) {
 //        resident.teleportThread!!.cancel()
 //        resident.teleportThread = null // remove reference
 //        Message.error(event.player, "You moved, teleport cancelled")
-//
-//        // provide cost refund if player teleporting to outpost
-//        if (resident.isTeleportingToOutpost == true) {
-//            Message.error(event.player, "Refunding outpost teleport items")
-//
-//            val world = player.world
-//            val location = player.location
-//            val inventory = player.getInventory()
-//
-//            for ((material, amount) in Config.outpostTeleportCost) {
-//                val items = ItemStack(material, amount)
-//                val leftover = inventory.addItem(items)
-//
-//                // drop remaining items at player
-//                for (items in leftover.values) {
-//                    world.dropItem(location, items)
-//                }
-//            }
-//
-//            resident.isTeleportingToOutpost = false
-//        }
-//
-//        // provide cost refund if player teleporting to a nation town
-//        if (resident.isTeleportingToNationTown == true) {
-//            Message.error(event.player, "Refunding teleport items")
-//
-//            val world = player.world
-//            val location = player.location
-//            val inventory = player.getInventory()
-//
-//            for ((material, amount) in Config.nationTownTeleportCost) {
-//                val items = ItemStack(material, amount)
-//                val leftover = inventory.addItem(items)
-//
-//                // drop remaining items at player
-//                for (items in leftover.values) {
-//                    world.dropItem(location, items)
-//                }
-//            }
-//
-//            resident.isTeleportingToNationTown = false
-//        }
 //    }
 
     // check if player chunk changed

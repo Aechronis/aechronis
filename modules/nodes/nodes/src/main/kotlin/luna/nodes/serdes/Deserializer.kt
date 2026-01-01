@@ -285,23 +285,6 @@ public object Deserializer {
                 // town move home cooldown
                 val moveHomeCooldown: Long = town.get("homeCool")?.getAsLong() ?: 0L
 
-                // parse town outposts "[terr.id, spawn.x, spawn.y, spawn.z]"
-                val outposts: HashMap<String, Pair<Int, Pos>> = hashMapOf()
-                val outpostsJson = town.get("outpost")?.getAsJsonObject()
-                if (outpostsJson !== null) {
-                    outpostsJson.keySet().forEach { name ->
-                        val dataArray = outpostsJson.get(name)?.getAsJsonArray()
-                        if (dataArray !== null && dataArray.size() == 4) {
-                            val terrId = dataArray[0].getAsInt()
-                            val spawnX = dataArray[1].getAsDouble()
-                            val spawnY = dataArray[2].getAsDouble()
-                            val spawnZ = dataArray[3].getAsDouble()
-                            val location = Pos(spawnX, spawnY, spawnZ)
-                            outposts.put(name, Pair(terrId, location))
-                        }
-                    }
-                }
-
                 val townObject: Town? = Nodes.loadTown(
                     uuid,
                     name,
@@ -323,7 +306,6 @@ public object Deserializer {
                     isOpen,
 //                    protectedBlocks,
                     moveHomeCooldown,
-                    outposts,
                 )
 
                 if (townObject !== null) {
