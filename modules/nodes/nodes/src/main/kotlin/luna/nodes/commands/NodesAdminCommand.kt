@@ -113,9 +113,6 @@
 //    "removeofficer",
 //    "leader",
 //    "removeleader",
-//    "claimsbonus",
-//    "claimsannex",
-//    "claimspenalty",
 //    "open",
 //    "income",
 //    "incomeadd",
@@ -289,9 +286,6 @@
 //                            "removeterritory",
 //                            "captureterritory",
 //                            "releaseterritory",
-//                            "claimsbonus",
-//                            "claimsannex",
-//                            "claimspenalty",
 //                            "open",
 //                            "income",
 //                            "setspawn",
@@ -899,7 +893,7 @@
 //    // town management commands
 //    // - create/delete towns
 //    // - toggle town properties, players
-//    // - modify town territories, claims bonus, ...
+//    // - modify town territories, ...
 //    // =============================================================
 //
 //    // route command to further subcommands
@@ -917,9 +911,6 @@
 //                "removeterritory" -> removeTerritoryFromTown(sender, args)
 //                "captureterritory" -> captureTerritory(sender, args)
 //                "releaseterritory" -> releaseTerritory(sender, args)
-//                "claimsbonus" -> setClaimsBonus(sender, args)
-//                "claimsannex" -> setClaimsAnnexed(sender, args)
-//                "claimspenalty" -> setClaimsPenalty(sender, args)
 //                "setspawn" -> townSetSpawn(sender, args)
 //                "spawn" -> townSpawn(sender, args)
 //                "addofficer" -> addTownOfficer(sender, args)
@@ -950,8 +941,6 @@
 //        Message.print(sender, "/nodesadmin town removeterritory${ChatColor.WHITE}: Remove territories from town")
 //        Message.print(sender, "/nodesadmin town captureterritory${ChatColor.WHITE}: Add captured territories to town")
 //        Message.print(sender, "/nodesadmin town releaseterritory${ChatColor.WHITE}: Release captured territories")
-//        Message.print(sender, "/nodesadmin town claimsbonus${ChatColor.WHITE}: Set town bonus claims")
-//        Message.print(sender, "/nodesadmin town claimsannex${ChatColor.WHITE}: Set town annexed claims penalty")
 //        Message.print(sender, "/nodesadmin town setspawn${ChatColor.WHITE}: Set town's spawn to location")
 //        Message.print(sender, "/nodesadmin town spawn${ChatColor.WHITE}: Go to town's spawn")
 //        Message.print(sender, "/nodesadmin town addofficer${ChatColor.WHITE}: Add officer to town")
@@ -1252,105 +1241,6 @@
 //        }
 //
 //        Message.print(sender, "Released ${territories.size} territories under occupation")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town claimsbonus [town] [#]
-//     * Set town bonus claims.
-//     */
-//    private fun setClaimsBonus(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town claimsbonus [town] [#]")
-//            return
-//        }
-//
-//        // get town
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // print bonus claims for town
-//        if (args.size == 3) {
-//            Message.print(sender, "Town \"${townName}\" bonus claims: ${town.claimsBonus}")
-//        }
-//        // set town bonus claims
-//        else if (args.size > 3) {
-//            val bonus = args[3].toInt()
-//
-//            // set claims
-//            Nodes.setClaimsBonus(town, bonus)
-//
-//            Message.print(sender, "Town \"${townName}\" bonus claims set to $bonus")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town claimspenalty [town] [#]
-//     * Set town penalty claims.
-//     */
-//    private fun setClaimsPenalty(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town claimspenalty [town] [#]")
-//            return
-//        }
-//
-//        // get town
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // print bonus claims for town
-//        if (args.size == 3) {
-//            Message.print(sender, "Town \"${townName}\" claims penalty: ${town.claimsPenalty}")
-//        }
-//        // set town bonus claims
-//        else if (args.size > 3) {
-//            val num = args[3].toInt()
-//
-//            // set claims
-//            Nodes.setClaimsPenalty(town, num)
-//
-//            Message.print(sender, "Town \"${townName}\" claims penalty set to $num")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town claimsannex [town] [#]
-//     * Set town bonus claims.
-//     */
-//    private fun setClaimsAnnexed(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town claimsannex [town] [#]")
-//            return
-//        }
-//
-//        // get town
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // print bonus claims for town
-//        if (args.size == 3) {
-//            Message.print(sender, "Town \"${townName}\" annexed claims penalty: ${town.claimsAnnexed}")
-//        }
-//        // set town bonus claims
-//        else if (args.size > 3) {
-//            val value = args[3].toInt()
-//
-//            // set claims
-//            Nodes.setClaimsAnnexed(town, value)
-//
-//            Message.print(sender, "Town \"${townName}\" annexed claims penalty set to $value")
-//        }
 //    }
 //
 //    /**

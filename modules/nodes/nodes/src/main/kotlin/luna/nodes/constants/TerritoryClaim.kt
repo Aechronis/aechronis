@@ -9,7 +9,6 @@
 package luna.nodes.constants
 
 // claim errors
-val ErrorTooManyClaims = Exception("Town has too many claims")
 val ErrorTerritoryNotConnected = Exception("Territory not connected to town's claims")
 val ErrorTerritoryHasClaim = Exception("Territory already has town")
 

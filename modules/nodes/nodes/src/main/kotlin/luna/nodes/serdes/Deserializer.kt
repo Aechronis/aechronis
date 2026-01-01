@@ -71,15 +71,6 @@ public object Deserializer {
             jsonResidents.keySet().forEach { uuid ->
                 val resident = jsonResidents[uuid].getAsJsonObject()
 
-                // claims
-                var claims: Int = 0
-                var claimsTime: Long = 0
-                val claimsJson = resident.get("claims")?.getAsJsonArray()
-                if (claimsJson !== null && claimsJson.size() == 2) {
-                    claims = claimsJson[0].getAsInt()
-                    claimsTime = claimsJson[1].getAsLong()
-                }
-
                 // prefix, suffix
                 val prefix = resident.get("prefix")?.getAsString() ?: ""
                 val suffix = resident.get("suffix")?.getAsString() ?: ""
@@ -92,8 +83,6 @@ public object Deserializer {
 
                 Nodes.loadResident(
                     UUID.fromString(uuid),
-                    claims,
-                    claimsTime,
                     prefix,
                     suffix,
                     trusted,
@@ -147,21 +136,6 @@ public object Deserializer {
                     Color(colorArray[0].getAsInt(), colorArray[1].getAsInt(), colorArray[2].getAsInt())
                 } else {
                     null
-                }
-
-                // parse claimsBonus
-                var claimsBonus = town.get("claimsBonus")?.getAsInt() ?: 0
-
-                // parse claimsAnnexed penalty
-                var claimsAnnexed = town.get("claimsAnnex")?.getAsInt() ?: 0
-
-                // parse claimsPenalty
-                var claimsPenalty: Int = 0
-                var claimsPenaltyTime: Long = 0
-                val claimsPenaltyJson = town.get("claimsPenalty")?.getAsJsonArray()
-                if (claimsPenaltyJson !== null && claimsPenaltyJson.size() == 2) {
-                    claimsPenalty = claimsPenaltyJson[0].getAsInt()
-                    claimsPenaltyTime = claimsPenaltyJson[1].getAsLong()
                 }
 
                 // parse residents
@@ -297,10 +271,6 @@ public object Deserializer {
                     territoryIds,
                     capturedIds,
                     annexedIds,
-                    claimsBonus,
-                    claimsAnnexed,
-                    claimsPenalty,
-                    claimsPenaltyTime,
                     income,
                     permissions,
                     isOpen,

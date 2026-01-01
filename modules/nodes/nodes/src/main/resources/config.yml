@@ -22,9 +22,6 @@ backupPeriod: 3600000
 # main background task in ticks
 mainPeriodicTick: 1200
 
-# over max claim reminder in ticks
-overMaxClaimsReminderPeriod: 24000
-
 # nametag update period in ticks
 nametagPipelineTicks: 16 # how many ticks to divide nametag updates
 
@@ -66,71 +63,11 @@ allowNationFriendlyFire: false
 allowAllyFriendlyFire: true
 
 # ===========================================
-# Town Claim Settings
-# 
-# claims = baseClaims + bonusClaims + claimsPerPlayer * players
-# ===========================================
-
-# territory cost parameters
-#   cost = base + scale * chunks
-territoryCostBase: 10
-territoryCostScale: 0.25
-
-# initial claims GIVEN TO PLAYER when towns created
-townInitialClaims: 25
-
-# penalty scale factor when over initial claim allowed:
-# penalty = scale * (territory.cost - initialAllowed) if cost > allowed
-initialOverClaimsAmountScale: 2
-
-# extra base claim power per town
-townClaimsBase: 20
-
-# max claim power per town (-1 for unlimited)
-townClaimsMax: -1
-
-# claim power per player
-playerClaimsInitial: 1     # initial player claims on town join
-playerClaimsMax: 25        # max player claims for town
-playerClaimsIncrease: 2    # claims increase per tick period
-
-# town penalty decay
-townPenaltyDecay: 2
-
-# time periods for town claims penalty decay and player power gain, milliseconds
-# 1 hour = 3600000 ms
-# 2 hour = 7200000 ms
-townClaimsPenaltyDecayPeriod: 3600000
-playerClaimsIncreasePeriod: 3600000
-
-# flag for enforcing over max claims
-# for now, this affects all systems (income, hidden ore, etc...)
-overClaimsPenalty: true
-  
-# reduced resource rate when over max claim (runs Math.random() < rate)
-overClaimsMaxPenalty: 0.5
-
-# allow claiming territories even if town already over max claims
-overClaimsAllowClaim: false
-
-# ===========================================
 # Resource Settings
 # ===========================================
 # territory do income enabled and income time
 incomeEnabled: true
 incomePeriod: 3600000
-
-# enable income rate scaling based on percent of town claim power used
-# e.g. if 100 claim power is needed for all territories
-# and town players have total of 60 claim power
-# then income rate is scaled by,
-#     r = (sum of player claim power) / (sum of territory claim)
-#       = 60 / 100
-#       = 0.6
-incomeScaleByClaimPower: true
-# min/max income scaling factor, >1.0 for max is allowed
-incomeScaleMin: 0.1
-incomeScaleMax: 1.0
 
 # default resources in all territories
 globalResources:

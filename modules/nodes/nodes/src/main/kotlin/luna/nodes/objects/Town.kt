@@ -59,7 +59,6 @@ public class Town(
     val territories: HashSet<TerritoryId> = hashSetOf(home)
 
     // separate set of all annexed territories
-    // config: for these to count towards total claims
     val annexed: HashSet<TerritoryId> = hashSetOf()
 
     // territories captured by town (but not annexed)
@@ -76,17 +75,6 @@ public class Town(
     // players currently online in town
     // must be Set to satisfy bukkit interface in Chat.kt
     val playersOnline: MutableSet<Player> = mutableSetOf()
-
-    // territory claims power
-    var claimsUsed: Int = 0 // territory claim power used
-    var claimsMax: Int = 0 // calculated total claim power
-    var claimsBonus: Int = 0 // manual adjust add/subtract claim power
-    var claimsPenalty: Int = 0 // subtracted from max power, decay over time
-    var claimsPenaltyTime: Long = 0 // time progress until penalty reduced
-    var claimsAnnexed: Int = 0 // claims penalty from territories that were annexed
-
-    // flag that town is over max claims
-    var isOverClaimsMax: Boolean = false
 
     // income storage container from territory income
     // map material -> current amount of it
@@ -198,23 +186,9 @@ public class Town(
             "${ChatColor.GRAY}None"
         }
 
-        // make max claims red if town has penalty
-        val claimsMaxColor = if (claimsPenalty > 0) {
-            "${ChatColor.RED}"
-        } else {
-            ""
-        }
-        // used claims dark red if over max
-        val claimsUsedColor = if (isOverClaimsMax) {
-            "${ChatColor.DARK_RED}"
-        } else {
-            ""
-        }
-
         Message.print(sender, "${ChatColor.BOLD}Town ${this.name}:")
         Message.print(sender, "- Home${ChatColor.WHITE}: Territory (id = ${this.home})")
         Message.print(sender, "- Territories${ChatColor.WHITE}: ${this.territories.size}")
-        Message.print(sender, "- Claim Power${ChatColor.WHITE}: ${claimsUsedColor}${this.claimsUsed}/${claimsMaxColor}${this.claimsMax}")
         Message.print(sender, "- Nation${ChatColor.WHITE}: $nation")
         Message.print(sender, "- Allies${ChatColor.WHITE}: $allies")
         Message.print(sender, "- Enemies${ChatColor.WHITE}: $enemies")
@@ -237,10 +211,6 @@ public class Town(
         public val permissions = t.permissions.copyOf()
         public val residents = t.residents.map { x -> x.uuid }
         public val officers = t.officers.map { x -> x.uuid }
-        public val claimsBonus = t.claimsBonus
-        public val claimsAnnexed = t.claimsAnnexed
-        public val claimsPenalty = t.claimsPenalty
-        public val claimsPenaltyTime = t.claimsPenaltyTime
         public val territories = t.territories.toList()
         public val annexed = t.annexed.toList()
         public val captured = t.captured.toList()
@@ -283,9 +253,6 @@ public class Town(
                     "\"perms\":$permissions," +
                     "\"residents\":$residents," +
                     "\"officers\":$officers," +
-                    "\"claimsBonus\":${this.claimsBonus}," +
-                    "\"claimsAnnexed\":${this.claimsAnnexed}," +
-                    "\"claimsPenalty\":[${this.claimsPenalty},${this.claimsPenaltyTime}]," +
                     "\"territories\":$territories," +
                     "\"annexed\":$annexed," +
                     "\"captured\":$captured," +

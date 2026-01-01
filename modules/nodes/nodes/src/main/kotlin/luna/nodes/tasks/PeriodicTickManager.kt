@@ -54,8 +54,6 @@
 //                val currTime2 = System.currentTimeMillis()
 //                val dt = currTime2 - capturedPreviousTime
 //                Nodes.townMoveHomeCooldownTick(dt)
-//                Nodes.claimsPowerRamp(dt)
-//                Nodes.claimsPenaltyDecay(dt)
 //                Nodes.residentTownCreateCooldownTick(dt)
 //            }
 //        }

@@ -309,7 +309,6 @@ data class Territory(
     val neighbors: TerritoryIdArray, // neighboring territories (touching chunks/shares border)
     val resourceNodes: List<String>,
     // resource properties, should be derived from a TerritoryResources object
-    val cost: Int,
     val income: MutableMap<Material, Double>,
     val ores: OreSampler,
     val customProperties: HashMap<String, Any> = HashMap(0),
@@ -364,7 +363,6 @@ data class Territory(
         Message.print(sender, "- Occupier${ChatColor.WHITE}: $occupier")
         Message.print(sender, "- Chunks${ChatColor.WHITE}: ${this.chunks.size}")
         Message.print(sender, "- Core chunk (x,z)${ChatColor.WHITE}: (${core.x}, ${core.z})")
-        Message.print(sender, "- Cost${ChatColor.WHITE}: ${this.cost}")
         Message.print(sender, "- Resources:")
         for (name in this.resourceNodes) {
             Message.print(sender, "   - $name")

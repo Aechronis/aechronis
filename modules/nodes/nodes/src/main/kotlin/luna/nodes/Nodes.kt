@@ -39,7 +39,6 @@ import luna.nodes.constants.ErrorTerritoryIsTownHome
 import luna.nodes.constants.ErrorTerritoryNotConnected
 import luna.nodes.constants.ErrorTerritoryNotInTown
 import luna.nodes.constants.ErrorTerritoryOwned
-import luna.nodes.constants.ErrorTooManyClaims
 import luna.nodes.constants.ErrorTownDoesNotExist
 import luna.nodes.constants.ErrorTownExists
 import luna.nodes.constants.ErrorTownHasNation
@@ -65,7 +64,6 @@ import luna.nodes.objects.TerritoryResources
 import luna.nodes.objects.Town
 import luna.nodes.objects.TownPair
 import luna.nodes.serdes.Deserializer
-//import luna.nodes.tasks.OverMaxClaimsReminder
 //import luna.nodes.tasks.SaveManager
 //import luna.nodes.tasks.TaskSaveBackup
 //import luna.nodes.tasks.TaskSavePorts
@@ -178,7 +176,6 @@ public object Nodes {
 //    internal fun reloadManagers() {
 //        SaveManager.stop()
 //        PeriodicTickManager.stop()
-//        OverMaxClaimsReminder.stop()
 //
 //        val plugin = Nodes.plugin
 //        if (plugin === null) {
@@ -187,7 +184,6 @@ public object Nodes {
 //
 //        SaveManager.start(plugin, Config.savePeriod)
 //        PeriodicTickManager.start(plugin, Config.mainPeriodicTick)
-//        OverMaxClaimsReminder.start(plugin, Config.overMaxClaimsReminderPeriod)
 //    }
 
     // mark all current players in game as online
@@ -374,9 +370,6 @@ public object Nodes {
             // create OreSampler from ores map
             val ores = OreSampler(ArrayList(resources.ores.values))
 
-            // calculate territory cost
-            val cost = Nodes.calculateTerritoryCost(t.chunks.size, resourceNamesSorted)
-
             // create territory
             val territory = Territory(
                 id = t.id,
@@ -387,7 +380,6 @@ public object Nodes {
                 bordersWilderness = t.bordersWilderness,
                 neighbors = t.neighbors,
                 resourceNodes = resourceNamesSorted,
-                cost = cost,
                 income = resources.income,
                 ores = ores,
                 customProperties = resources.customProperties,
@@ -751,27 +743,6 @@ public object Nodes {
     // Territory functions
     // ==============================================
 
-    // calculate territory cost from:
-    // 1. territory size in chunks
-    // 2. list of resource names
-    public fun calculateTerritoryCost(size: Int, resourceNodes: List<String>): Int {
-        // initialize with global cost rates
-        var costConstant = Config.territoryCostBase
-        var costScale = Config.territoryCostScale
-
-        for (type in resourceNodes) {
-            val resource = Nodes.resourceNodes.get(type)
-            if (resource != null) {
-                costConstant += resource.costConstant
-                costScale *= resource.costScale
-            }
-        }
-
-        val cost = costConstant + Math.round(costScale * size.toDouble()).toInt()
-
-        return cost
-    }
-
     // return number of territories in world
     public fun getTerritoryCount(): Int = Nodes.territories.size
 
@@ -845,8 +816,6 @@ public object Nodes {
     // used for deserializing from towns.json
     public fun loadResident(
         uuid: UUID,
-        claims: Int,
-        claimsTime: Long,
         prefix: String,
         suffix: String,
         trusted: Boolean,
@@ -865,8 +834,6 @@ public object Nodes {
         val resident = Resident(uuid, playerName)
         resident.prefix = prefix
         resident.suffix = suffix
-        resident.claims = Math.min(claims, Config.playerClaimsMax) // in case config changed
-        resident.claimsTime = claimsTime
 
         // resident trusted status
         resident.trusted = trusted
@@ -965,13 +932,6 @@ public object Nodes {
         resident.needsUpdate()
         Nodes.needsSave = true
     }
-
-//    // set resident's current claims time progress
-//    public fun setResidentClaimTimer(resident: Resident, time: Long) {
-//        resident.claimsTime = time
-//        resident.needsUpdate()
-//        Nodes.needsSave = true
-//    }
 //
 //    // update players online in each town, nation
 //    public fun refreshPlayersOnline() {
@@ -1040,7 +1000,6 @@ public object Nodes {
         }
 
         val town = Town(UUID.randomUUID(), name, territory.id, leader, spawnpoint)
-        town.claimsUsed = territory.cost
 
         // set home territory town
         territory.town = town
@@ -1048,17 +1007,8 @@ public object Nodes {
         if (leader != null) {
             leader.town = town
 
-            // check how much player is over town claim limit
-            val overClaimsPenalty: Int = Math.max(0, Config.initialOverClaimsAmountScale * (territory.cost - Config.townInitialClaims))
-
-            // give initial leader their max claims
-            leader.claims = Math.max(0, Math.max(Config.playerClaimsMax, Config.townInitialClaims) - overClaimsPenalty)
-            leader.claimsTime = 0L
-
             leader.needsUpdate()
         }
-
-        town.claimsMax = Nodes.calculateMaxClaims(town)
 
         Nodes.towns.put(name, town)
         Nodes.needsSave = true
@@ -1086,10 +1036,6 @@ public object Nodes {
         territoryIds: ArrayList<Int>,
         capturedTerritoryIds: ArrayList<Int>,
         annexedTerritoryIds: ArrayList<Int>,
-        claimsBonus: Int,
-        claimsAnnexed: Int,
-        claimsPenalty: Int,
-        claimsPenaltyTime: Long,
         income: MutableMap<Material, Int>,
         permissions: MutableMap<TownPermissions, EnumSet<PermissionsGroup>>,
         isOpen: Boolean,
@@ -1140,13 +1086,12 @@ public object Nodes {
             }
         }
 
-        // add territory claims and claims power used
+        // add territory claims
         for (id in territoryIds) {
             val terrId = TerritoryId(id)
             Nodes.getTerritoryFromId(terrId)?.let { terr ->
                 town.territories.add(terrId)
                 terr.town = town
-                town.claimsUsed += terr.cost
             }
         }
 
@@ -1157,7 +1102,6 @@ public object Nodes {
             Nodes.getTerritoryFromId(terrId)?.let { terr ->
                 if (town.territories.contains(terrId)) {
                     town.annexed.add(terrId)
-                    town.claimsUsed -= terr.cost
                 }
             }
         }
@@ -1192,13 +1136,6 @@ public object Nodes {
             town.permissions[type].clear()
             town.permissions[type].addAll(groups)
         }
-
-        // calculate max claims
-        town.claimsBonus = claimsBonus
-        town.claimsAnnexed = claimsAnnexed
-        town.claimsPenalty = claimsPenalty
-        town.claimsPenaltyTime = claimsPenaltyTime
-        town.claimsMax = Nodes.calculateMaxClaims(town)
 
         // set isOpen
         town.isOpen = isOpen
@@ -1324,131 +1261,6 @@ public object Nodes {
 //
 //        return null
 //    }
-//
-//    // set town's bonus claims
-//    public fun setClaimsBonus(town: Town, num: Int) {
-//        town.claimsBonus = num
-//        town.claimsMax = Nodes.calculateMaxClaims(town)
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//    }
-//
-//    // set town's claims penalty
-//    public fun setClaimsPenalty(town: Town, num: Int) {
-//        town.claimsPenalty = num
-//        town.claimsMax = Nodes.calculateMaxClaims(town)
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//    }
-//
-//    // set town's annexed claims penalty
-//    public fun setClaimsAnnexed(town: Town, num: Int) {
-//        town.claimsAnnexed = num
-//        town.claimsMax = Nodes.calculateMaxClaims(town)
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//    }
-
-    // calculates and returns town's max claims
-    // NOTE: DOES NOT actually set town's max claims
-    // called should do:
-    // town.claimsMax = Nodes.calculateMaxClaims(town)
-    public fun calculateMaxClaims(town: Town): Int {
-        val numResidents = town.residents.size
-
-        var maxClaims = Config.townClaimsBase - town.claimsPenalty
-        for (r in town.residents) {
-            maxClaims += r.claims
-        }
-
-        // apply bonus
-        maxClaims += town.claimsBonus
-
-        // penalty from annexed territories
-        maxClaims -= town.claimsAnnexed
-
-        // clamp to max
-        if (Config.townClaimsMax > 0) {
-            maxClaims = Math.min(Config.townClaimsMax, maxClaims)
-        }
-
-        // check if town over max claims
-        town.isOverClaimsMax = town.claimsUsed > maxClaims
-
-        return maxClaims
-    }
-
-//    // reduces claim penalty from all towns by 1
-//    // scheduled by ClaimPenaltyDecayManager
-//    public fun claimsPenaltyDecay(dt: Long) {
-//        for (town in Nodes.towns.values) {
-//            if (town.claimsPenalty > 0) {
-//                // update tick, run update if passed period
-//                val elapsedTime = town.claimsPenaltyTime + dt
-//                if (elapsedTime >= Config.townClaimsPenaltyDecayPeriod) {
-//                    town.claimsPenaltyTime = 0L
-//                    town.claimsPenalty = Math.max(0, town.claimsPenalty - Config.townPenaltyDecay)
-//                    town.claimsMax = Nodes.calculateMaxClaims(town)
-//                    town.needsUpdate()
-//                    Nodes.needsSave = true
-//                } else {
-//                    town.claimsPenaltyTime = elapsedTime
-//                    town.needsUpdate()
-//                    Nodes.needsSave = true
-//                }
-//            }
-//        }
-//    }
-//
-//    // tick player claim power contributions and
-//    // re-calculate town max claims
-//    // -> apply only for online players
-//    public fun claimsPowerRamp(dt: Long) {
-//        for (player in Bukkit.getOnlinePlayers()) {
-//            val resident = Nodes.getResident(player)
-//            val town = resident?.town
-//            if (town !== null && resident.claims < Config.playerClaimsMax) {
-//                // update tick, run update if passed period
-//                val elapsedTime = resident.claimsTime + dt
-//                if (elapsedTime >= Config.playerClaimsIncreasePeriod) {
-//                    resident.claimsTime = 0L
-//                    resident.claims = Math.min(Config.playerClaimsMax, resident.claims + Config.playerClaimsIncrease)
-//                    town.claimsMax = Nodes.calculateMaxClaims(town)
-//                    resident.needsUpdate()
-//                    town.needsUpdate()
-//                    Nodes.needsSave = true
-//                } else {
-//                    resident.claimsTime = elapsedTime
-//                    resident.needsUpdate()
-//                    Nodes.needsSave = true
-//                }
-//            }
-//        }
-//    }
-//
-//    /**
-//     * Runs in bukkit task periodically, sends message to town
-//     * players if their town is over max claims
-//     */
-//    public fun overMaxClaimsReminder() {
-//        if (!Config.overClaimsPenalty) { // skip reminder if over max claims disabled
-//            return
-//        }
-//
-//        val resourcePenalty = "${(Config.overClaimsMaxPenalty * 100).toInt()}% resource penalty"
-//
-//        for (town in Nodes.towns.values) {
-//            if (town.isOverClaimsMax) {
-//                val msg = "${ChatColor.DARK_RED}Your town is over max claims: ${town.claimsUsed}/${town.claimsMax}, you have a $resourcePenalty"
-//                for (r in town.residents) {
-//                    val player = r.player()
-//                    if (player !== null) {
-//                        Message.print(player, msg)
-//                    }
-//                }
-//            }
-//        }
-//    }
 
     /**
      * Claim territory for a town. Returns result with either Territory
@@ -1473,17 +1285,9 @@ public object Nodes {
             return Result.failure(ErrorTerritoryNotConnected)
         }
 
-        // check if town has claims available
-        if (!Config.overClaimsAllowClaim && territory.cost > town.claimsMax - town.claimsUsed) {
-            return Result.failure(ErrorTooManyClaims)
-        }
-
         // passed checks, add territory to town
         town.territories.add(territory.id)
         territory.town = town
-
-        // increase claims power used
-        town.claimsUsed += territory.cost
 
         // mark dirty
         town.needsUpdate()
@@ -1510,13 +1314,7 @@ public object Nodes {
         town.territories.remove(territory.id)
         territory.town = null
 
-        // if territory was not annexed, remove territory cost
-        // from claims used, add to penalty until it decays
-        if (!town.annexed.contains(territory.id)) {
-            town.claimsUsed -= territory.cost
-            town.claimsPenalty += territory.cost
-            town.claimsMax = Nodes.calculateMaxClaims(town)
-        } else {
+        if (town.annexed.contains(territory.id)) {
             town.annexed.remove(territory.id)
         }
 
@@ -1531,7 +1329,7 @@ public object Nodes {
     }
 //
 //    // adds a territory to town and bypasses standard claim checks
-//    // (e.g. territory must be connected, town has claims available, ...)
+//    // (e.g. territory must be connected, ...)
 //    // if successful, returns added territory
 //    public fun addTerritoryToTown(town: Town, territory: Territory): Result<Territory> {
 //        // check territory not already occupied
@@ -1542,9 +1340,6 @@ public object Nodes {
 //        // add territory to town
 //        town.territories.add(territory.id)
 //        territory.town = town
-//
-//        // increase claims power used
-//        town.claimsUsed += territory.cost
 //
 //        // mark dirty
 //        town.needsUpdate()
@@ -1599,7 +1394,6 @@ public object Nodes {
     /**
      * Town annexes a territory:
      * - add to town's territories and town's annexed territories
-     * - does not cost claim power (no need to recalculate max claims)
      * Returns boolean on success
      */
     public fun annexTerritory(town: Town, territory: Territory): Boolean {
@@ -1632,15 +1426,9 @@ public object Nodes {
                 if (oldTown.annexed.contains(territory.id)) {
                     oldTown.annexed.remove(territory.id)
                 }
-                // if territory was not an annexed territory, adjust claims
-                else {
-                    oldTown.claimsUsed -= territory.cost
-                    oldTown.claimsAnnexed += territory.cost
-                }
 
-                // remove territory and re-calculate claims
+                // remove territory
                 oldTown.territories.remove(territory.id)
-                oldTown.claimsMax = Nodes.calculateMaxClaims(town)
 
                 oldTown.needsUpdate()
             }
@@ -1726,11 +1514,6 @@ public object Nodes {
         town.residents.add(resident)
         resident.town = town
 
-        // update resident max claims
-        resident.claims = Config.playerClaimsInitial
-        resident.claimsTime = 0L
-        town.claimsMax = Nodes.calculateMaxClaims(town)
-
         // initialize player as untrusted
         resident.trusted = false
 
@@ -1780,9 +1563,6 @@ public object Nodes {
                 nation.playersOnline.remove(player)
             }
         }
-
-        // update max claims
-        town.claimsMax = Nodes.calculateMaxClaims(town)
 
         // remove player to town online players
         if (player !== null) {
@@ -2335,8 +2115,7 @@ public object Nodes {
 //    /**
 //     * System to run income from all town territories and deposit items into
 //     * a town's income inventory chest. For a town's occupied territories,
-//     * it gives the income to the occupier town. This must also handle
-//     * adjusting net income rates based on a town's over max claims penalty.
+//     * it gives the income to the occupier town.
 //     * Strategy for income:
 //     *     for each town:
 //     *         // 1. construct hashmap of each town name mapped to an enum map of
@@ -2349,11 +2128,7 @@ public object Nodes {
 //     *         for territory in town:
 //     *             doTownIncomeLogic(territory)
 //     *
-//     *         // 3. apply over max claims penalty, other modifiers, etc.
-//     *         //    to each town's income to be given
-//     *         townIncomes.forEach { town, income -> doTownIncomeModifiers(town, income) }
-//     *
-//     *         // 4. add incomes to each town's income chests
+//     *         // 3. add incomes to each town's income chests
 //     *         townIncomes.forEach { town, income -> addTownIncomeToChest(town, income) }
 //     */
 //    public fun runIncome() {
@@ -2398,7 +2173,7 @@ public object Nodes {
 //                val thisTownIncome = EnumMap<Material, Double>(Material::class.java) // hard-coded value for this town
 //                val townIncomes = HashMap<Town, EnumMap<Material, Double>>()
 //
-//                // inject this town, to unify claims penalty logic later
+//                // inject this town
 //                townIncomes[town] = thisTownIncome
 //
 //                for (terrId in town.territories) {
@@ -2427,18 +2202,6 @@ public object Nodes {
 //                // apply income modifiers for each town, then add items to town income chest
 //                for ((townForIncome, income) in townIncomes) {
 //                    var incomeModifier = 1.0
-//
-//                    // over max claims penalty
-//                    if (Config.overClaimsPenalty && townForIncome.isOverClaimsMax == true) {
-//                        incomeModifier *= (1.0 - Config.overClaimsMaxPenalty)
-//                    }
-//
-//                    // income claims power scaling
-//                    if (Config.incomeScaleByClaimPower) {
-//                        val claimsUsedRatio = townForIncome.claimsMax.toDouble() / townForIncome.claimsUsed.toDouble()
-//                        val incomeClaimsPowerScale = claimsUsedRatio.coerceIn(Config.incomeScaleMin, Config.incomeScaleMax)
-//                        incomeModifier *= incomeClaimsPowerScale
-//                    }
 //
 //                    // we can do any other income modifiers here in the future
 //

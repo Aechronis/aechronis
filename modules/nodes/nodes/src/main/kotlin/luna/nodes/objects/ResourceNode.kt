@@ -64,8 +64,6 @@ interface ResourceAttributeLoader {
 data class ResourceNode(
     val name: String,
     val icon: String?,
-    val costConstant: Int,
-    val costScale: Double,
     val priority: Int, // sort priority vs. other resource nodes, lower = applied first
     val attributes: List<ResourceAttribute>,
 ) {
@@ -553,11 +551,6 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
                     }
                 }
 
-                // cost
-                val costJson = node.get("cost")?.getAsJsonObject()
-                val costConstant = costJson?.get("constant")?.getAsInt() ?: 0
-                val costScale = costJson?.get("scale")?.getAsDouble() ?: 1.0
-
                 // priority
                 val priority = node.get("priority")?.getAsInt() ?: 0
 
@@ -648,8 +641,6 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
                     ResourceNode(
                         name,
                         icon,
-                        costConstant,
-                        costScale,
                         priority,
                         attributes,
                     ),

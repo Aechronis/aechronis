@@ -788,13 +788,6 @@
 //            }
 //            // else, drop items normally
 //            else {
-//                // check if town has claims penalty
-//                if (Config.overClaimsPenalty && playerTown?.isOverClaimsMax == true) {
-//                    if (random.nextDouble() < Config.overClaimsMaxPenalty) {
-//                        return
-//                    }
-//                }
-//
 //                for (itemStack in itemDrops) {
 //                    blockWorld.dropItem(block.location, itemStack)
 //                }

@@ -31,7 +31,6 @@ import luna.nodes.constants.ErrorTerritoryIsTownHome
 import luna.nodes.constants.ErrorTerritoryNotConnected
 import luna.nodes.constants.ErrorTerritoryNotInTown
 import luna.nodes.constants.ErrorTerritoryOwned
-import luna.nodes.constants.ErrorTooManyClaims
 import luna.nodes.constants.ErrorTownExists
 import luna.nodes.constants.TownPermissions
 //import luna.nodes.constants.NODES_SOUND_CHEST_PROTECT
@@ -221,12 +220,6 @@ class TownCreateCommand : Command("create", "new") {
             val result = Nodes.createTown(sanitizeString(name), territory, resident)
             if (result.isSuccess) {
                 Message.broadcast("${ChatColor.BOLD}${player.username} has created the town \"${name}\"")
-
-                // check how much player is over town claim limit
-                val overClaimsPenalty: Int = Math.max(0, Config.initialOverClaimsAmountScale * (territory.cost - Config.townInitialClaims))
-                if (overClaimsPenalty > 0) {
-                    Message.print(player, "${ChatColor.DARK_RED}Your town is over the initial town claim amount ${Config.townInitialClaims}: you are receiving a -$overClaimsPenalty starting power penalty")
-                }
             } else {
                 when (result.exceptionOrNull()) {
                     ErrorTownExists -> Message.error(player, "Town \"${name}\" already exists")
@@ -857,7 +850,6 @@ class TownClaimCommand : Command("claim") {
                 Message.print(player, "Territory(id=${territory.id}) claimed")
             } else {
                 when (result.exceptionOrNull()) {
-                    ErrorTooManyClaims -> Message.error(player, "Not enough claim power")
                     ErrorTerritoryNotConnected -> Message.error(player, "Territory must neighbor existing claims")
                     ErrorTerritoryHasClaim -> Message.error(player, "Territory is already claimed by a town")
                 }
@@ -902,7 +894,7 @@ class TownUnclaimCommand : Command("unclaim") {
 
             val result = Nodes.unclaimTerritory(town, territory)
             if (result.isSuccess) {
-                Message.print(player, "Territory(id=${territory.id}) unclaimed, claim power used will regenerate over time")
+                Message.print(player, "Territory(id=${territory.id}) unclaimed")
             } else {
                 when (result.exceptionOrNull()) {
                     ErrorTerritoryNotInTown -> Message.error(player, "Territory not owned by town")

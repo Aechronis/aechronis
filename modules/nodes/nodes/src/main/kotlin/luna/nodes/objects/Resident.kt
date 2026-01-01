@@ -23,10 +23,6 @@ public class Resident(val uuid: UUID, val name: String) {
     var town: Town? = null
     var nation: Nation? = null
 
-    // claims power and current elapsed time until power added
-    var claims: Int = 0
-    var claimsTime: Long = 0L
-
     // town create cooldown listener
     var townCreateCooldown: Long = 0L
 
@@ -104,7 +100,6 @@ public class Resident(val uuid: UUID, val name: String) {
         val nation = this.nation?.name ?: "${ChatColor.GRAY}None"
 
         Message.print(sender, "${ChatColor.BOLD}Player ${this.name}:")
-        Message.print(sender, "- Claim Power${ChatColor.WHITE}: ${this.claims}/${Config.playerClaimsMax}")
         Message.print(sender, "- Town${ChatColor.WHITE}: $town")
         Message.print(sender, "- Nation${ChatColor.WHITE}: $nation")
     }
@@ -118,8 +113,6 @@ public class Resident(val uuid: UUID, val name: String) {
         public val name = r.name
         public val town = r.town?.name
         public val nation = r.nation?.name
-        public val claims = r.claims
-        public val claimsTime = r.claimsTime
         public val prefix = r.prefix
         public val suffix = r.suffix
         public val trusted = r.trusted
@@ -133,7 +126,6 @@ public class Resident(val uuid: UUID, val name: String) {
                     "\"name\":\"${this.name}\"," +
                     "\"town\":${ if (this.town !== null) "\"${this.town}\"" else null }," +
                     "\"nation\":${ if (this.nation !== null) "\"${this.nation}\"" else null }," +
-                    "\"claims\":[${this.claims},${this.claimsTime}]," +
                     "\"prefix\":\"${this.prefix}\"," +
                     "\"suffix\":\"${this.suffix}\"," +
                     "\"trust\":${this.trusted}," +
