@@ -49,9 +49,6 @@
 //import luna.nodes.constants.ErrorTooManyAttacks
 //import luna.nodes.constants.ErrorTownBlacklisted
 //import luna.nodes.constants.ErrorTownNotWhitelisted
-//import luna.nodes.event.WarAttackCancelEvent
-//import luna.nodes.event.WarAttackFinishEvent
-//import luna.nodes.event.WarAttackStartEvent
 //import luna.nodes.objects.Coord
 //import luna.nodes.objects.Territory
 //import luna.nodes.objects.TerritoryChunk
@@ -435,18 +432,6 @@
 //                FlagWar.attackers.put(attacker, currentAttacks)
 //            } else if (currentAttacks.size >= Config.maxPlayerChunkAttacks) {
 //                return Result.failure(ErrorTooManyAttacks)
-//            }
-//
-//            // send attack event, allow other plugins to custom cancel flag attack
-//            val event = WarAttackStartEvent(
-//                attacker,
-//                attackingTown,
-//                territory,
-//                flagBase,
-//            )
-//            Bukkit.getPluginManager().callEvent(event)
-//            if (event.isCancelled()) {
-//                return Result.failure(ErrorAttackCustomCancel)
 //            }
 //
 //            val attack = createAttack(
@@ -860,22 +845,10 @@
 //
 //        // mark save needed
 //        FlagWar.needsSave = true
-//
-//        // run cancel attack event
-//        if (chunk !== null) {
-//            val event = WarAttackCancelEvent(
-//                attack.attacker,
-//                attack.town,
-//                chunk.territory,
-//                attack.flagBase,
-//            )
-//            Bukkit.getPluginManager().callEvent(event)
-//        }
 //    }
 //
 //    /**
 //     * finish attack instance and capture chunk
-//     * - calls event which may cancel the capture
 //     * - set chunk occupation status
 //     * - dispatch signal that attack finished
 //     * (runs on main thread)
@@ -884,7 +857,6 @@
 //     *   2. attacking enemy home chunk -> capture territory
 //     *   3. attacking town/ally occupied chunk -> capture chunk
 //     *   4. attacking town/ally home chunk -> recapture territory
-//     * TODO: signal event that chunk captured (broadcast message)
 //     */
 //    internal fun finishAttack(attack: Attack) {
 //        // remove progress bar from player
@@ -919,19 +891,6 @@
 //        val chunk = Nodes.getTerritoryChunkFromCoord(attack.coord)
 //        if (chunk == null) {
 //            println("finishAttack(): TerritoryChunk at ${attack.coord} is null")
-//            return
-//        }
-//
-//        // check if attack finish is cancelled
-//        val event = WarAttackFinishEvent(
-//            attack.attacker,
-//            attack.town,
-//            chunk.territory,
-//            attack.flagBase,
-//        )
-//        Bukkit.getPluginManager().callEvent(event)
-//        if (event.isCancelled()) {
-//            chunk.attacker = null
 //            return
 //        }
 //

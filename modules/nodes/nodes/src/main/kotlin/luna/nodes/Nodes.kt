@@ -48,10 +48,6 @@ import luna.nodes.constants.ErrorTownHasNation
 //import luna.nodes.constants.ErrorWarAllyOrTruce
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
-//import luna.nodes.event.AllianceCreatedEvent
-//import luna.nodes.event.NodesTerritoriesLoadedEvent
-//import luna.nodes.event.NodesWorldLoadedEvent
-//import luna.nodes.event.TruceExpiredEvent
 import luna.nodes.objects.Coord
 import luna.nodes.objects.DefaultResourceAttributeLoader
 //import luna.nodes.objects.Nametag
@@ -2795,8 +2791,23 @@ public object Nodes {
 //                    t.allies.add(other)
 //                    other.allies.add(town)
 //
+//                    val msgTown1 = "Your town is now allied with ${town2.name}"
+//                    for (r in t.residents) {
+//                        val player = r.player()
+//                        if (player !== null) {
+//                            Message.print(player, msgTown1)
+//                        }
+//                    }
+//
+//                    val msgTown2 = "Your town is now allied with ${t.name}"
+//                    for (r in other.residents) {
+//                        val player = r.player()
+//                        if (player !== null) {
+//                            Message.print(player, msgTown2)
+//                        }
+//                    }
+//
 //                    t.needsUpdate()
-//                    pm.callEvent(AllianceCreatedEvent(t, other))
 //                }
 //            }
 //        }
@@ -2808,15 +2819,45 @@ public object Nodes {
 //                    t.allies.add(town)
 //                    town.allies.add(t)
 //
+//                    val msgTown1 = "Your town is now allied with ${t.name}"
+//                    for (r in town.residents) {
+//                        val player = r.player()
+//                        if (player !== null) {
+//                            Message.print(player, msgTown1)
+//                        }
+//                    }
+//
+//                    val msgTown2 = "Your town is now allied with ${town.name}"
+//                    for (r in t.residents) {
+//                        val player = r.player()
+//                        if (player !== null) {
+//                            Message.print(player, msgTown2)
+//                        }
+//                    }
+//
 //                    t.needsUpdate()
-//                    pm.callEvent(AllianceCreatedEvent(town, t))
 //                }
 //            }
 //            // town-town
 //            else {
 //                town.allies.add(other)
 //                other.allies.add(town)
-//                pm.callEvent(AllianceCreatedEvent(town, other))
+//
+//                val msgTown1 = "Your town is now allied with ${other.name}"
+//                for (r in town.residents) {
+//                    val player = r.player()
+//                    if (player !== null) {
+//                        Message.print(player, msgTown1)
+//                    }
+//                }
+//
+//                val msgTown2 = "Your town is now allied with ${town.name}"
+//                for (r in other.residents) {
+//                    val player = r.player()
+//                    if (player !== null) {
+//                        Message.print(player, msgTown2)
+//                    }
+//                }
 //            }
 //        }
 //
@@ -2944,7 +2985,21 @@ public object Nodes {
     public fun removeTruce(town: Town, other: Town): Result<Boolean> {
         Truce.remove(town, other)
 
-        // Bukkit.getPluginManager().callEvent(TruceExpiredEvent(town, other))
+        val msgTown1 = "Your truce with ${other.name} has expired"
+        for (r in town.residents) {
+            val player = r.player()
+            if (player !== null) {
+                Message.print(player, msgTown1)
+            }
+        }
+
+        val msgTown2 = "Your truce with ${town.name} has expired"
+        for (r in other.residents) {
+            val player = r.player()
+            if (player !== null) {
+                Message.print(player, msgTown2)
+            }
+        }
 
         // update nametags
 //        Nametag.pipelinedUpdateAllText()
@@ -3036,7 +3091,21 @@ public object Nodes {
 //
 //                allyTown.needsUpdate()
 //
-//                pm.callEvent(AllianceCreatedEvent(nationTown, allyTown))
+//                val msgTown1 = "Your town is now allied with ${allyTown.name}"
+//                for (r in nationTown.residents) {
+//                    val player = r.player()
+//                    if (player !== null) {
+//                        Message.print(player, msgTown1)
+//                    }
+//                }
+//
+//                val msgTown2 = "Your town is now allied with ${nationTown.name}"
+//                for (r in allyTown.residents) {
+//                    val player = r.player()
+//                    if (player !== null) {
+//                        Message.print(player, msgTown2)
+//                    }
+//                }
 //            }
 //            nationTown.needsUpdate()
 //        }
