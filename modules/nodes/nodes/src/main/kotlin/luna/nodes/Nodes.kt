@@ -18,7 +18,6 @@ import net.minestom.server.item.Material
 //import org.bukkit.block.Chest
 //import org.bukkit.block.DoubleChest
 import org.bukkit.configuration.file.YamlConfiguration
-import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 //import org.bukkit.inventory.DoubleChestInventory
 //import org.bukkit.inventory.Inventory
@@ -391,9 +390,7 @@ public object Nodes {
                 resourceNodes = resourceNamesSorted,
                 cost = cost,
                 income = resources.income,
-                incomeSpawnEgg = resources.incomeSpawnEgg,
                 ores = ores,
-                animals = resources.animals,
                 customProperties = resources.customProperties,
                 attackerTimeMultiplier = resources.attackerTimeMultiplier,
                 defenderTimeMultiplier = resources.defenderTimeMultiplier,
@@ -1095,7 +1092,6 @@ public object Nodes {
         claimsPenalty: Int,
         claimsPenaltyTime: Long,
         income: MutableMap<Material, Int>,
-        incomeSpawnEgg: MutableMap<EntityType, Int>,
         permissions: MutableMap<TownPermissions, EnumSet<PermissionsGroup>>,
         isOpen: Boolean,
 //        protectedBlocks: HashSet<Block>,
@@ -1187,7 +1183,6 @@ public object Nodes {
 
 //        // add saved income
 //        town.income.storage.putAll(income)
-//        town.income.storageSpawnEgg.putAll(incomeSpawnEgg)
 
         // set town color
         if (color != null) {
@@ -2509,21 +2504,11 @@ public object Nodes {
 //                            occupierIncome[material] = (occupierIncome[material] ?: 0.0) + (amount * taxRate)
 //                            thisTownIncome[material] = (thisTownIncome[material] ?: 0.0) + (amount * keptRate)
 //                        }
-//
-//                        // TODO: 1.12 compatibility? spawn egg income
-//                        // for ( (entityType, rate) in territory.incomeSpawnEgg ) {
-//                        //     TODO
-//                        // }
 //                    } else {
 //                        // regular item income
 //                        for ((material, amount) in territory.income) {
 //                            thisTownIncome[material] = (thisTownIncome[material] ?: 0.0) + amount
 //                        }
-//
-//                        // TODO: 1.12 compatibility? spawn egg income
-//                        // for ( (entityType, rate) in territory.incomeSpawnEgg ) {
-//                        //     TODO
-//                        // }
 //                    }
 //                }
 //
@@ -2553,12 +2538,6 @@ public object Nodes {
 //                        }
 //                    }
 //                }
-//
-//                // TODO: 1.12 compatibility? spawn egg income
-//                // for ( (entityType, rate) in territory.incomeSpawnEgg ) {
-//                //     var amount: Int = rateToAmount(rate)
-//                //     town.income.add(Material.MONSTER_EGG, amount, entityType.ordinal)
-//                // }
 //            } catch (err: Exception) {
 //                println("Error running income for town ${town.name}")
 //                err.printStackTrace()

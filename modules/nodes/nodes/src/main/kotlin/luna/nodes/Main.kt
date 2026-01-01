@@ -23,7 +23,6 @@ import luna.nodes.commands.TownCommand
 //import luna.nodes.listeners.NodesChatListener
 //import luna.nodes.listeners.NodesChestProtectionDestroyListener
 //import luna.nodes.listeners.NodesChestProtectionListener
-//import luna.nodes.listeners.NodesEntityBreedListener
 //import luna.nodes.listeners.NodesGuiListener
 //import luna.nodes.listeners.NodesIncomeInventoryListener
 //import luna.nodes.listeners.NodesPlayerDamageListener
@@ -35,7 +34,6 @@ import luna.nodes.listeners.onPlayerJoin
 import luna.nodes.listeners.onPlayerQuit
 import luna.nodes.listeners.onPlayerMove
 import luna.nodes.listeners.onPlayerTeleport
-//import luna.nodes.listeners.NodesSheepShearListener
 //import luna.nodes.listeners.NodesWarFlagArmorStandListener
 //import luna.nodes.listeners.NodesWorldListener
 import luna.nodes.utils.loadLongFromFile
@@ -123,7 +121,6 @@ fun main() {
 //    pluginManager.registerEvents(NodesChatListener(), this)
 //    pluginManager.registerEvents(NodesChestProtectionListener(), this)
 //    pluginManager.registerEvents(NodesChestProtectionDestroyListener(), this)
-//    pluginManager.registerEvents(NodesEntityBreedListener(), this)
 //    pluginManager.registerEvents(NodesGuiListener(), this)
 //    pluginManager.registerEvents(NodesIncomeInventoryListener(), this)
 //    pluginManager.registerEvents(NodesWorldListener(), this)
@@ -133,7 +130,6 @@ fun main() {
     eventHandler.addListener(PlayerDisconnectEvent::class.java, { event -> onPlayerQuit(event)})
     eventHandler.addListener(PlayerMoveEvent::class.java, { event -> onPlayerMove(event) })
     eventHandler.addListener(EntityTeleportEvent::class.java, { event -> onPlayerTeleport(event) })
-//    pluginManager.registerEvents(NodesSheepShearListener(), this)
 //    pluginManager.registerEvents(NodesWarFlagArmorStandListener(), this)
 //    pluginManager.registerEvents(NodesPlayerDamageListener(), this)
 

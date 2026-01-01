@@ -37,9 +37,6 @@ canInteractInEmpty: false
 # interact in territory without town (build, destroy, etc...)
 canInteractInUnclaimed: true
 
-# only allow shearing in sheep node
-requireSheepNodeToShear: true
-
 # ===========================================
 # town settings
 # ===========================================
@@ -119,8 +116,7 @@ townClaimsPenaltyDecayPeriod: 3600000
 playerClaimsIncreasePeriod: 3600000
 
 # flag for enforcing over max claims
-# for now, this affects all systems (income, hidden ore,
-# breeding, etc...)
+# for now, this affects all systems (income, hidden ore, etc...)
 overClaimsPenalty: true
   
 # reduced resource rate when over max claim (runs Math.random() < rate)
@@ -157,24 +153,15 @@ globalResources:
     iron_ore: [0.015, 1, 2]
     gold_ore: [0.015, 1, 1]
     diamond_ore: 0.007
-  animals:
 
-# allow mining/breeding in unowned territories
+# allow mining in unowned territories
 allowOreInWilderness: false
-allowBreedingInWilderness: false
 
 # allow mining in captured territories
 allowOreInCaptured: true
 
 # allow mining in other towns in nation
 allowOreInNationTowns: true
-
-# require animal breeding to be above ground in sky light (set = 0 to disable)
-breedingMinSkyLight: 14
-
-# min/max y levels allowed for animal breeding
-breedingMinYHeight: 16
-breedingMaxYHeight: 255
 
 # ===========================================
 # Tax Settings
@@ -184,9 +171,6 @@ taxIncomeRate: 0.2
 
 # probability that a hidden ore event resources go to occupier
 taxMineRate: 0.2
-
-# probability that a new animal goes to occupier (as a spawn egg item)
-taxAnimalRate: 0.2
 
 # ===========================================
 # War Settings

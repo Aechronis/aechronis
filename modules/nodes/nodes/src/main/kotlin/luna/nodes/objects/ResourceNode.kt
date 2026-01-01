@@ -4,7 +4,6 @@
  * Composable resource modifier attached to territory:
  *    income: [(blockId, count), ...]
  *    ore: [(blockId, rate, count), ...]
- *    animals: [(name, rate), ...]
  * Territory calculates net resources from array of
  * nodes during initialization
  */
@@ -15,7 +14,6 @@ import com.google.gson.JsonObject
 import org.bukkit.ChatColor
 import net.minestom.server.item.Material
 import net.minestom.server.command.CommandSender
-import net.minestom.server.entity.EntityType
 import luna.nodes.Message
 //import luna.nodes.Nodes
 import kotlin.math.min
@@ -97,7 +95,6 @@ data class ResourceNode(
 
 public data class ResourceAttributeIncome(
     private val income: MutableMap<Material, Double>,
-    private val incomeSpawnEgg: MutableMap<EntityType, Double>,
 ) : ResourceAttribute {
     override val priority: Int = 1
     val description: String
@@ -106,9 +103,6 @@ public data class ResourceAttributeIncome(
         val s = StringBuilder("Income:\n")
         for ((item, value) in this.income.entries) {
             s.append("- $item: ${value}\n")
-        }
-        for ((item, value) in this.incomeSpawnEgg.entries) {
-            s.append("- SPAWN_EGG_$item: ${value}\n")
         }
 
         description = s.toString()
@@ -119,7 +113,6 @@ public data class ResourceAttributeIncome(
      */
     override fun apply(resources: TerritoryResources): TerritoryResources {
         val newIncome = resources.income.toMutableMap()
-        val newIncomeSpawnEgg = resources.incomeSpawnEgg.toMutableMap()
 
         this.income.forEach { k, v ->
             newIncome.get(k)?.let { currentVal ->
@@ -129,17 +122,8 @@ public data class ResourceAttributeIncome(
             }
         }
 
-        this.incomeSpawnEgg.forEach { k, v ->
-            newIncomeSpawnEgg.get(k)?.let { currentVal ->
-                newIncomeSpawnEgg.put(k, currentVal + v)
-            } ?: run {
-                newIncomeSpawnEgg.put(k, v)
-            }
-        }
-
         return resources.copy(
             income = newIncome,
-            incomeSpawnEgg = newIncomeSpawnEgg,
         )
     }
 
@@ -189,44 +173,6 @@ public data class ResourceAttributeOre(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeAnimals(
-    private val animals: MutableMap<EntityType, Double>,
-) : ResourceAttribute {
-    override val priority: Int = 4
-    val description: String
-
-    init {
-        val s = StringBuilder("Animals:\n")
-        for (entry in this.animals.entries) {
-            s.append("- ${entry.key}: ${entry.value}\n")
-        }
-
-        description = s.toString()
-    }
-
-    /**
-     * Add animal breed success probability from this attribute into territory.
-     * Saturate probability at 1.0.
-     */
-    override fun apply(resources: TerritoryResources): TerritoryResources {
-        val newAnimals = resources.animals.toMutableMap()
-
-        this.animals.forEach { k, v ->
-            newAnimals.get(k)?.let { currentVal ->
-                newAnimals.put(k, min(1.0, currentVal + v))
-            } ?: run {
-                newAnimals.put(k, v)
-            }
-        }
-
-        return resources.copy(
-            animals = newAnimals,
-        )
-    }
-
-    override fun describe(): String = this.description
-}
-
 // ============================================================================
 // MULTIPLIER ATTRIBUTES
 // ============================================================================
@@ -242,18 +188,13 @@ public data class ResourceAttributeTotalIncomeMultiplier(
      */
     override fun apply(resources: TerritoryResources): TerritoryResources {
         val newIncome = resources.income.toMutableMap()
-        val newIncomeSpawnEgg = resources.incomeSpawnEgg.toMutableMap()
 
         newIncome.forEach { (type, amount) ->
             newIncome[type] = amount * multiplier
         }
-        newIncomeSpawnEgg.forEach { (type, amount) ->
-            newIncomeSpawnEgg[type] = amount * multiplier
-        }
 
         return resources.copy(
             income = newIncome,
-            incomeSpawnEgg = newIncomeSpawnEgg,
         )
     }
 
@@ -284,33 +225,8 @@ public data class ResourceAttributeTotalOreMultiplier(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeTotalAnimalsMultiplier(
-    val multiplier: Double,
-) : ResourceAttribute {
-    override val priority: Int = 50
-    val description: String = "Animal Breeding Multiplier: ${this.multiplier}"
-
-    /**
-     * Apply multiplier to resource's animals.
-     */
-    override fun apply(resources: TerritoryResources): TerritoryResources {
-        val newAnimals = resources.animals.toMutableMap()
-
-        newAnimals.forEach { (type, amount) ->
-            newAnimals[type] = amount * multiplier
-        }
-
-        return resources.copy(
-            animals = newAnimals,
-        )
-    }
-
-    override fun describe(): String = this.description
-}
-
 public data class ResourceAttributeIncomeMultiplier(
     private val income: MutableMap<Material, Double>,
-    private val incomeSpawnEgg: MutableMap<EntityType, Double>,
 ) : ResourceAttribute {
     override val priority: Int = 50
     val description: String
@@ -319,9 +235,6 @@ public data class ResourceAttributeIncomeMultiplier(
         val s = StringBuilder("Income Multiplier:\n")
         for ((item, value) in this.income.entries) {
             s.append("- $item: ${value}\n")
-        }
-        for ((item, value) in this.incomeSpawnEgg.entries) {
-            s.append("- SPAWN_EGG_$item: ${value}\n")
         }
 
         description = s.toString()
@@ -332,7 +245,6 @@ public data class ResourceAttributeIncomeMultiplier(
      */
     override fun apply(resources: TerritoryResources): TerritoryResources {
         val newIncome = resources.income.toMutableMap()
-        val newIncomeSpawnEgg = resources.incomeSpawnEgg.toMutableMap()
 
         this.income.forEach { type, multiplier ->
             if (newIncome.containsKey(type)) {
@@ -340,15 +252,8 @@ public data class ResourceAttributeIncomeMultiplier(
             }
         }
 
-        this.incomeSpawnEgg.forEach { (type, multiplier) ->
-            if (newIncomeSpawnEgg.containsKey(type)) {
-                newIncomeSpawnEgg[type] = newIncomeSpawnEgg[type]!! * multiplier
-            }
-        }
-
         return resources.copy(
             income = newIncome,
-            incomeSpawnEgg = newIncomeSpawnEgg,
         )
     }
 
@@ -396,48 +301,12 @@ public data class ResourceAttributeOreMultiplier(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeAnimalsMultiplier(
-    private val multiplier: MutableMap<EntityType, Double>,
-) : ResourceAttribute {
-    override val priority: Int = 50
-    val description: String
-
-    init {
-        val s = StringBuilder("Animals Multiplier:\n")
-        for ((type, entry) in this.multiplier) {
-            s.append("- $type: ${entry}\n")
-        }
-
-        description = s.toString()
-    }
-
-    /**
-     * Apply multipliers to matching keys in the resource.
-     */
-    override fun apply(resources: TerritoryResources): TerritoryResources {
-        val newAnimals = resources.animals.toMutableMap()
-
-        this.multiplier.forEach { type, multiplier ->
-            if (newAnimals.containsKey(type)) {
-                newAnimals[type] = newAnimals[type]!! * multiplier
-            }
-        }
-
-        return resources.copy(
-            animals = newAnimals,
-        )
-    }
-
-    override fun describe(): String = this.description
-}
-
 // ============================================================================
 // NEIGHBOR ATTRIBUTES
 // ============================================================================
 
 public data class ResourceAttributeNeighborIncome(
     private val income: MutableMap<Material, Double>,
-    private val incomeSpawnEgg: MutableMap<EntityType, Double>,
 ) : ResourceAttribute {
     override val priority: Int = 100
     val description: String
@@ -446,9 +315,6 @@ public data class ResourceAttributeNeighborIncome(
         val s = StringBuilder("Neighbor Income:\n")
         for ((item, value) in this.income.entries) {
             s.append("- $item: ${value}\n")
-        }
-        for ((item, value) in this.incomeSpawnEgg.entries) {
-            s.append("- SPAWN_EGG_$item: ${value}\n")
         }
 
         description = s.toString()
@@ -459,7 +325,6 @@ public data class ResourceAttributeNeighborIncome(
      */
     override fun apply(resources: TerritoryResources): TerritoryResources {
         val newIncome = resources.neighborIncome?.toMutableMap() ?: mutableMapOf()
-        val newIncomeSpawnEgg = resources.neighborIncomeSpawnEgg?.toMutableMap() ?: mutableMapOf()
 
         this.income.forEach { k, v ->
             newIncome.get(k)?.let { currentVal ->
@@ -469,17 +334,8 @@ public data class ResourceAttributeNeighborIncome(
             }
         }
 
-        this.incomeSpawnEgg.forEach { k, v ->
-            newIncomeSpawnEgg.get(k)?.let { currentVal ->
-                newIncomeSpawnEgg.put(k, currentVal + v)
-            } ?: run {
-                newIncomeSpawnEgg.put(k, v)
-            }
-        }
-
         return resources.copy(
             neighborIncome = newIncome,
-            neighborIncomeSpawnEgg = newIncomeSpawnEgg,
         )
     }
 
@@ -529,44 +385,6 @@ public data class ResourceAttributeNeighborOre(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeNeighborAnimals(
-    private val animals: MutableMap<EntityType, Double>,
-) : ResourceAttribute {
-    override val priority: Int = 100
-    val description: String
-
-    init {
-        val s = StringBuilder("Neighbor Animals:\n")
-        for (entry in this.animals.entries) {
-            s.append("- ${entry.key}: ${entry.value}\n")
-        }
-
-        description = s.toString()
-    }
-
-    /**
-     * Add animal breed success probability from this attribute into territory.
-     * Saturate probability at 1.0.
-     */
-    override fun apply(resources: TerritoryResources): TerritoryResources {
-        val newAnimals = resources.neighborAnimals?.toMutableMap() ?: mutableMapOf()
-
-        this.animals.forEach { k, v ->
-            newAnimals.get(k)?.let { currentVal ->
-                newAnimals.put(k, min(1.0, currentVal + v))
-            } ?: run {
-                newAnimals.put(k, v)
-            }
-        }
-
-        return resources.copy(
-            neighborAnimals = newAnimals,
-        )
-    }
-
-    override fun describe(): String = this.description
-}
-
 public data class ResourceAttributeNeighborTotalIncomeMultiplier(
     private val neighborTotalIncomeMultiplier: Double,
 ) : ResourceAttribute {
@@ -588,7 +406,6 @@ public data class ResourceAttributeNeighborTotalIncomeMultiplier(
 
 public data class ResourceAttributeNeighborIncomeMultiplier(
     private val neighborIncomeMultiplier: MutableMap<Material, Double>,
-    private val neighborIncomeSpawnEggMultiplier: MutableMap<EntityType, Double>,
 ) : ResourceAttribute {
     override val priority: Int = 100
     val description: String
@@ -596,9 +413,6 @@ public data class ResourceAttributeNeighborIncomeMultiplier(
     init {
         val s = StringBuilder("Neighbor Income Multipliers:\n")
         for (entry in this.neighborIncomeMultiplier.entries) {
-            s.append("- ${entry.key}: ${entry.value}\n")
-        }
-        for (entry in this.neighborIncomeSpawnEggMultiplier.entries) {
             s.append("- ${entry.key}: ${entry.value}\n")
         }
 
@@ -610,7 +424,6 @@ public data class ResourceAttributeNeighborIncomeMultiplier(
      */
     override fun apply(resources: TerritoryResources): TerritoryResources {
         val newNeighborIncomeMultiplier = resources.neighborIncomeMultiplier?.toMutableMap() ?: mutableMapOf()
-        val newNeighborIncomeSpawnEggMultiplier = resources.neighborIncomeSpawnEggMultiplier?.toMutableMap() ?: mutableMapOf()
 
         this.neighborIncomeMultiplier.forEach { k, v ->
             newNeighborIncomeMultiplier.get(k)?.let { currentVal ->
@@ -619,17 +432,9 @@ public data class ResourceAttributeNeighborIncomeMultiplier(
                 newNeighborIncomeMultiplier.put(k, v)
             }
         }
-        this.neighborIncomeSpawnEggMultiplier.forEach { k, v ->
-            newNeighborIncomeSpawnEggMultiplier.get(k)?.let { currentVal ->
-                newNeighborIncomeSpawnEggMultiplier.put(k, currentVal + v)
-            } ?: run {
-                newNeighborIncomeSpawnEggMultiplier.put(k, v)
-            }
-        }
 
         return resources.copy(
             neighborIncomeMultiplier = newNeighborIncomeMultiplier,
-            neighborIncomeSpawnEggMultiplier = newNeighborIncomeSpawnEggMultiplier,
         )
     }
 
@@ -686,62 +491,6 @@ public data class ResourceAttributeNeighborOreMultiplier(
 
         return resources.copy(
             neighborOresMultiplier = newNeighborOresMultiplier,
-        )
-    }
-
-    override fun describe(): String = this.description
-}
-
-public data class ResourceAttributeNeighborTotalAnimalsMultiplier(
-    private val neighborTotalAnimalsMultiplier: Double,
-) : ResourceAttribute {
-    override val priority: Int = 100
-    val description: String = "Neighbor Total Animals Multiplier: ${this.neighborTotalAnimalsMultiplier}"
-
-    /**
-     * Add together neighbor multipliers.
-     */
-    override fun apply(resources: TerritoryResources): TerritoryResources {
-        val neighborTotalAnimalsMultiplier = resources.neighborTotalAnimalsMultiplier ?: 0.0
-        return resources.copy(
-            neighborTotalAnimalsMultiplier = neighborTotalAnimalsMultiplier + this.neighborTotalAnimalsMultiplier,
-        )
-    }
-
-    override fun describe(): String = this.description
-}
-
-public data class ResourceAttributeNeighborAnimalsMultiplier(
-    private val neighborAnimalsMultiplier: MutableMap<EntityType, Double>,
-) : ResourceAttribute {
-    override val priority: Int = 100
-    val description: String
-
-    init {
-        val s = StringBuilder("Neighbor Animals Multipliers:\n")
-        for (entry in this.neighborAnimalsMultiplier.entries) {
-            s.append("- ${entry.key}: ${entry.value}\n")
-        }
-
-        description = s.toString()
-    }
-
-    /**
-     * Add together neighbor multipliers.
-     */
-    override fun apply(resources: TerritoryResources): TerritoryResources {
-        val newNeighborAnimalsMultiplier = resources.neighborAnimalsMultiplier?.toMutableMap() ?: mutableMapOf()
-
-        this.neighborAnimalsMultiplier.forEach { k, v ->
-            newNeighborAnimalsMultiplier.get(k)?.let { currentVal ->
-                newNeighborAnimalsMultiplier.put(k, currentVal + v)
-            } ?: run {
-                newNeighborAnimalsMultiplier.put(k, v)
-            }
-        }
-
-        return resources.copy(
-            neighborAnimalsMultiplier = newNeighborAnimalsMultiplier,
         )
     }
 
@@ -817,20 +566,14 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
                 // main resource attributes
                 node.get("income")?.getAsJsonObject()?.let { jsonIncome ->
                     if (jsonIncome.size() > 0) {
-                        val (income, incomeSpawnEgg) = parseJsonIncome(jsonIncome)
-                        attributes.add(ResourceAttributeIncome(income, incomeSpawnEgg))
+                        val income = parseJsonIncome(jsonIncome)
+                        attributes.add(ResourceAttributeIncome(income))
                     }
                 }
                 node.get("ore")?.getAsJsonObject()?.let { jsonOre ->
                     if (jsonOre.size() > 0) {
                         val ores = parseJsonMapMaterialToOre(jsonOre)
                         attributes.add(ResourceAttributeOre(ores))
-                    }
-                }
-                node.get("animals")?.getAsJsonObject()?.let { jsonAnimals ->
-                    if (jsonAnimals.size() > 0) {
-                        val animals = parseJsonMapEntityTypeToDouble(jsonAnimals)
-                        attributes.add(ResourceAttributeAnimals(animals))
                     }
                 }
 
@@ -841,15 +584,12 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
                 node.get("ore_total_multiplier")?.getAsDouble()?.let { multiplier ->
                     attributes.add(ResourceAttributeTotalOreMultiplier(multiplier))
                 }
-                node.get("animals_total_multiplier")?.getAsDouble()?.let { multiplier ->
-                    attributes.add(ResourceAttributeTotalAnimalsMultiplier(multiplier))
-                }
 
                 // territory specific type multipliers
                 node.get("income_multiplier")?.getAsJsonObject()?.let { jsonIncome ->
                     if (jsonIncome.size() > 0) {
-                        val (incomeMultiplier, incomeSpawnEggMultiplier) = parseJsonIncome(jsonIncome)
-                        attributes.add(ResourceAttributeIncomeMultiplier(incomeMultiplier, incomeSpawnEggMultiplier))
+                        val incomeMultiplier = parseJsonIncome(jsonIncome)
+                        attributes.add(ResourceAttributeIncomeMultiplier(incomeMultiplier))
                     }
                 }
                 node.get("ore_multiplier")?.getAsJsonObject()?.let { jsonOre ->
@@ -858,30 +598,18 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
                         attributes.add(ResourceAttributeOreMultiplier(oresMultiplier))
                     }
                 }
-                node.get("animals_multiplier")?.getAsJsonObject()?.let { jsonAnimals ->
-                    if (jsonAnimals.size() > 0) {
-                        val animalsMultiplier = parseJsonMapEntityTypeToDouble(jsonAnimals)
-                        attributes.add(ResourceAttributeAnimalsMultiplier(animalsMultiplier))
-                    }
-                }
 
                 // neighbor direct properties
                 node.get("neighbor_income")?.getAsJsonObject()?.let { jsonIncome ->
                     if (jsonIncome.size() > 0) {
-                        val (income, incomeSpawnEgg) = parseJsonIncome(jsonIncome)
-                        attributes.add(ResourceAttributeNeighborIncome(income, incomeSpawnEgg))
+                        val income = parseJsonIncome(jsonIncome)
+                        attributes.add(ResourceAttributeNeighborIncome(income))
                     }
                 }
                 node.get("neighbor_ore")?.getAsJsonObject()?.let { jsonOre ->
                     if (jsonOre.size() > 0) {
                         val ores = parseJsonMapMaterialToOre(jsonOre)
                         attributes.add(ResourceAttributeNeighborOre(ores))
-                    }
-                }
-                node.get("neighbor_animals")?.getAsJsonObject()?.let { jsonAnimals ->
-                    if (jsonAnimals.size() > 0) {
-                        val animals = parseJsonMapEntityTypeToDouble(jsonAnimals)
-                        attributes.add(ResourceAttributeNeighborAnimals(animals))
                     }
                 }
 
@@ -892,27 +620,18 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
                 node.get("neighbor_ore_total_multiplier")?.getAsDouble()?.let { multiplier ->
                     attributes.add(ResourceAttributeNeighborTotalOreMultiplier(multiplier))
                 }
-                node.get("neighbor_animals_total_multiplier")?.getAsDouble()?.let { multiplier ->
-                    attributes.add(ResourceAttributeNeighborTotalAnimalsMultiplier(multiplier))
-                }
 
                 // neighbor specific multipliers
                 node.get("neighbor_income_multiplier")?.getAsJsonObject()?.let { jsonIncome ->
                     if (jsonIncome.size() > 0) {
-                        val (incomeMultiplier, incomeSpawnEggMultiplier) = parseJsonIncome(jsonIncome)
-                        attributes.add(ResourceAttributeNeighborIncomeMultiplier(incomeMultiplier, incomeSpawnEggMultiplier))
+                        val incomeMultiplier = parseJsonIncome(jsonIncome)
+                        attributes.add(ResourceAttributeNeighborIncomeMultiplier(incomeMultiplier))
                     }
                 }
                 node.get("neighbor_ore_multiplier")?.getAsJsonObject()?.let { jsonOre ->
                     if (jsonOre.size() > 0) {
                         val oresMultiplier = parseJsonMapMaterialToDouble(jsonOre)
                         attributes.add(ResourceAttributeNeighborOreMultiplier(oresMultiplier))
-                    }
-                }
-                node.get("neighbor_animals_multiplier")?.getAsJsonObject()?.let { jsonAnimals ->
-                    if (jsonAnimals.size() > 0) {
-                        val animalsMultiplier = parseJsonMapEntityTypeToDouble(jsonAnimals)
-                        attributes.add(ResourceAttributeNeighborAnimalsMultiplier(animalsMultiplier))
                     }
                 }
 
@@ -947,37 +666,23 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
 // helper functions for parsing json resource node format
 
 /**
- * Parse income and spawn egg keys from an income json section.
- * Return tuple of (income, incomeSpawnEgg).
+ * Parse income from an income json section.
  */
-private fun parseJsonIncome(json: JsonObject): Pair<MutableMap<Material, Double>, MutableMap<EntityType, Double>> {
+private fun parseJsonIncome(json: JsonObject): MutableMap<Material, Double> {
     val income = mutableMapOf<Material, Double>()
-    val incomeSpawnEgg = mutableMapOf<EntityType, Double>()
 
     json.keySet().forEach { type ->
         val itemName = type.uppercase()
 
-        // spawn egg
-        if (itemName.startsWith("SPAWN_EGG_")) {
-            val entityType = EntityType.fromKey(itemName.replace("SPAWN_EGG_", ""))
-            if (entityType !== null) {
-                incomeSpawnEgg.put(entityType, json.get(type).getAsDouble())
-            } else {
-                println("parseJsonIncome(): Failed to parse spawn egg type: $itemName")
-            }
-        }
-        // regular material
-        else {
-            val material = Material.fromKey(type)
-            if (material !== null) {
-                income.put(material, json.get(type).getAsDouble())
-            } else {
-                println("parseJsonIncome(): Failed to parse income material type: $itemName")
-            }
+        val material = Material.fromKey(type)
+        if (material !== null) {
+            income.put(material, json.get(type).getAsDouble())
+        } else {
+            println("parseJsonIncome(): Failed to parse income material type: $itemName")
         }
     }
 
-    return Pair(income, incomeSpawnEgg)
+    return income
 }
 
 /**
@@ -1037,24 +742,6 @@ private fun parseJsonMapMaterialToDouble(json: JsonObject): MutableMap<Material,
             map[material] = json.get(type).asDouble
         } else {
             println("parseJsonMapMaterialToDouble(): Failed to parse material type: $type")
-        }
-    }
-
-    return map
-}
-
-/**
- * Parse json section as a map of a entity type name to a Double value.
- */
-private fun parseJsonMapEntityTypeToDouble(json: JsonObject): MutableMap<EntityType, Double> {
-    val map = mutableMapOf<EntityType, Double>()
-
-    json.keySet().forEach { type ->
-        try {
-            val entityType = EntityType.fromKey(type.lowercase())
-            map.put(entityType!!, json.get(type).getAsDouble())
-        } catch (err: Exception) {
-            println("parseJsonMapEntityTypeToDouble(): Failed to parse entity type $type: $err")
         }
     }
 

@@ -11,7 +11,6 @@ import net.minestom.server.coordinate.Pos
 //import org.bukkit.Material
 //import org.bukkit.block.Block
 import net.minestom.server.command.CommandSender
-//import org.bukkit.entity.EntityType
 import net.minestom.server.entity.Player
 import luna.nodes.Message
 import luna.nodes.constants.PermissionsGroup
@@ -253,7 +252,6 @@ public class Town(
         public val allies = t.allies.map { x -> x.name }
         public val enemies = t.enemies.map { x -> x.name }
 //        public val income = t.income.storage.clone()
-//        public val incomeEgg = t.income.storageSpawnEgg.clone()
         public val isOpen = t.isOpen
 //        public val protectedBlocks: HashSet<Block> = HashSet(t.protectedBlocks)
         public val moveHomeCooldown = t.moveHomeCooldown
@@ -271,11 +269,6 @@ public class Town(
             val enemies = this.enemies.asSequence().map { x -> "\"$x\"" }.joinToString(",", "[", "]")
 //            val income = stringMapFromMap<Material, Int>(
 //                this.income,
-//                { k -> "\"$k\"" },
-//                { v -> "$v" },
-//            )
-//            val incomeSpawnEgg = stringMapFromMap<EntityType, Int>(
-//                this.incomeEgg,
 //                { k -> "\"$k\"" },
 //                { v -> "$v" },
 //            )
@@ -305,7 +298,6 @@ public class Town(
                     "\"allies\":$allies," +
                     "\"enemies\":$enemies," +
 //                    "\"income\":$income," +
-//                    "\"incomeEgg\":$incomeSpawnEgg," +
                     "\"open\":${this.isOpen}," +
 //                    "\"protect\":${blocksToJsonString(this.protectedBlocks)}," +
                     "\"homeCool\":${this.moveHomeCooldown}" +

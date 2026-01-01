@@ -10,7 +10,6 @@ import com.google.gson.JsonParser
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.Material
 //import org.bukkit.block.Block
-import net.minestom.server.entity.EntityType
 import luna.nodes.Nodes
 import luna.nodes.Nodes.createPortGroup
 import luna.nodes.constants.PermissionsGroup
@@ -222,18 +221,6 @@ public object Deserializer {
                     }
                 }
 
-                // parse stored spawn egg income
-                val incomeSpawnEgg: MutableMap<EntityType, Int> = mutableMapOf()
-                val townIncomeSpawnEggJson = town.get("incomeEgg")?.getAsJsonObject()
-                if (townIncomeSpawnEggJson !== null) {
-                    townIncomeSpawnEggJson.keySet().forEach { type ->
-                        val entityType = EntityType.fromKey(type)
-                        if (entityType !== null) {
-                            incomeSpawnEgg.put(entityType, townIncomeSpawnEggJson.get(type).getAsInt())
-                        }
-                    }
-                }
-
                 // parse ally names
                 val allies: ArrayList<String> = ArrayList()
                 val alliesArray = town.get("allies")?.getAsJsonArray()
@@ -332,7 +319,6 @@ public object Deserializer {
                     claimsPenalty,
                     claimsPenaltyTime,
                     income,
-                    incomeSpawnEgg,
                     permissions,
                     isOpen,
 //                    protectedBlocks,

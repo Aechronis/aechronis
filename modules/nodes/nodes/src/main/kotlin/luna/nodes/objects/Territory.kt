@@ -2,7 +2,7 @@
  * Territory
  *
  * Data container around group of chunks,
- * contains settings for ore drop rates, animal breeding, ...
+ * contains settings for ore drop rates, ...
  */
 
 package luna.nodes.objects
@@ -11,9 +11,7 @@ import com.google.gson.JsonObject
 import org.bukkit.ChatColor
 import net.minestom.server.item.Material
 import net.minestom.server.command.CommandSender
-import net.minestom.server.entity.EntityType
 import luna.nodes.Message
-import java.util.EnumMap
 import kotlin.math.max
 
 /**
@@ -172,9 +170,7 @@ data class TerritoryPreprocessing(
 data class TerritoryResources(
     // core properties
     val income: MutableMap<Material, Double> = mutableMapOf(),
-    val incomeSpawnEgg: MutableMap<EntityType, Double> = mutableMapOf(),
     val ores: MutableMap<Material, OreDeposit> = mutableMapOf(),
-    val animals: MutableMap<EntityType, Double> = mutableMapOf(),
     val customProperties: HashMap<String, Any> = HashMap(0),
     // claim time modifier
     val attackerTimeMultiplier: Double = 1.0,
@@ -182,23 +178,15 @@ data class TerritoryResources(
     // accumulated neighbor multipliers applied onto THIS TerritoryResources
     val accumulatedNeighborTotalIncomeMultiplier: Double = 1.0,
     val accumulatedNeighborTotalOresMultiplier: Double = 1.0,
-    val accumulatedNeighborTotalAnimalsMultiplier: Double = 1.0,
     val accumulatedNeighborIncomeMultiplier: MutableMap<Material, Double> = mutableMapOf(),
-    val accumulatedNeighborIncomeSpawnEggMultiplier: MutableMap<EntityType, Double> = mutableMapOf(),
     val accumulatedNeighborOresMultiplier: MutableMap<Material, Double> = mutableMapOf(),
-    val accumulatedNeighborAnimalsMultiplier: MutableMap<EntityType, Double> = mutableMapOf(),
     // modifiers for neighbors of this territory
     val neighborIncome: MutableMap<Material, Double>? = null,
-    val neighborIncomeSpawnEgg: MutableMap<EntityType, Double>? = null,
     val neighborOres: MutableMap<Material, OreDeposit>? = null,
-    val neighborAnimals: MutableMap<EntityType, Double>? = null,
     val neighborTotalIncomeMultiplier: Double? = null,
     val neighborTotalOresMultiplier: Double? = null,
-    val neighborTotalAnimalsMultiplier: Double? = null,
     val neighborIncomeMultiplier: MutableMap<Material, Double>? = null,
-    val neighborIncomeSpawnEggMultiplier: MutableMap<EntityType, Double>? = null,
     val neighborOresMultiplier: MutableMap<Material, Double>? = null,
-    val neighborAnimalsMultiplier: MutableMap<EntityType, Double>? = null,
 ) {
     // flag that this resource contains a non-null neighbor modifier.
     // this is used to avoid unnecessarily running `applyNeighborModifiers`
@@ -206,16 +194,11 @@ data class TerritoryResources(
     // will not contain any neighbor modifiers.
     val hasNeighborModifier: Boolean = (
         neighborIncome != null ||
-            neighborIncomeSpawnEgg != null ||
             neighborOres != null ||
-            neighborAnimals != null ||
             neighborTotalIncomeMultiplier != null ||
             neighborTotalOresMultiplier != null ||
-            neighborTotalAnimalsMultiplier != null ||
             neighborIncomeMultiplier != null ||
-            neighborIncomeSpawnEggMultiplier != null ||
-            neighborOresMultiplier != null ||
-            neighborAnimalsMultiplier != null
+            neighborOresMultiplier != null
         )
 
     /**
@@ -225,26 +208,18 @@ data class TerritoryResources(
      */
     public fun accumulateNeighborModifiers(neighbor: TerritoryResources): TerritoryResources {
         val newIncome = this.income.toMutableMap()
-        val newIncomeSpawnEgg = this.incomeSpawnEgg.toMutableMap()
         val newOres = this.ores.toMutableMap()
-        val newAnimals = this.animals.toMutableMap()
 
         // neighbor total neighbor multipliers applied
         // for now: CLAMP TO MAX AMONG NEIGHBORS
         var maxAccumulatedNeighborTotalIncomeMultiplier = this.accumulatedNeighborTotalIncomeMultiplier
         var maxAccumulatedNeighborTotalOresMultiplier = this.accumulatedNeighborTotalOresMultiplier
-        var maxAccumulatedNeighborTotalAnimalsMultiplier = this.accumulatedNeighborTotalAnimalsMultiplier
         var maxAccumulatedNeighborIncomeMultiplier = this.accumulatedNeighborIncomeMultiplier.toMutableMap()
-        var maxAccumulatedNeighborIncomeSpawnEggMultiplier = this.accumulatedNeighborIncomeSpawnEggMultiplier.toMutableMap()
         var maxAccumulatedNeighborOresMultiplier = this.accumulatedNeighborOresMultiplier.toMutableMap()
-        var maxAccumulatedNeighborAnimalsMultiplier = this.accumulatedNeighborAnimalsMultiplier.toMutableMap()
 
         // income direct addition
         neighbor.neighborIncome?.forEach { (type, amount) ->
             newIncome[type] = newIncome.getOrDefault(type, 0.0) + amount
-        }
-        neighbor.neighborIncomeSpawnEgg?.forEach { (type, amount) ->
-            newIncomeSpawnEgg[type] = newIncomeSpawnEgg.getOrDefault(type, 0.0) + amount
         }
         // income multiplier
         neighbor.neighborTotalIncomeMultiplier?.let { multiplier ->
@@ -253,11 +228,6 @@ data class TerritoryResources(
         neighbor.neighborIncomeMultiplier?.let { multipliers ->
             multipliers.forEach { (type, multiplier) ->
                 maxAccumulatedNeighborIncomeMultiplier[type] = max(multiplier, maxAccumulatedNeighborIncomeMultiplier[type] ?: 1.0)
-            }
-        }
-        neighbor.neighborIncomeSpawnEggMultiplier?.let { multipliers ->
-            multipliers.forEach { (type, multiplier) ->
-                maxAccumulatedNeighborIncomeSpawnEggMultiplier[type] = max(multiplier, maxAccumulatedNeighborIncomeSpawnEggMultiplier[type] ?: 1.0)
             }
         }
 
@@ -280,32 +250,13 @@ data class TerritoryResources(
             }
         }
 
-        // animals direct addition
-        neighbor.neighborAnimals?.forEach { (type, amount) ->
-            newAnimals[type] = newAnimals.getOrDefault(type, 0.0) + amount
-        }
-        // animals multiplier
-        neighbor.neighborTotalAnimalsMultiplier?.let { multiplier ->
-            maxAccumulatedNeighborTotalAnimalsMultiplier = max(multiplier, maxAccumulatedNeighborTotalAnimalsMultiplier)
-        }
-        neighbor.neighborAnimalsMultiplier?.let { multipliers ->
-            multipliers.forEach { (type, multiplier) ->
-                maxAccumulatedNeighborAnimalsMultiplier[type] = max(multiplier, maxAccumulatedNeighborAnimalsMultiplier[type] ?: 1.0)
-            }
-        }
-
         return this.copy(
             income = newIncome,
-            incomeSpawnEgg = newIncomeSpawnEgg,
             ores = newOres,
-            animals = newAnimals,
             accumulatedNeighborTotalIncomeMultiplier = maxAccumulatedNeighborTotalIncomeMultiplier,
             accumulatedNeighborTotalOresMultiplier = maxAccumulatedNeighborTotalOresMultiplier,
-            accumulatedNeighborTotalAnimalsMultiplier = maxAccumulatedNeighborTotalAnimalsMultiplier,
             accumulatedNeighborIncomeMultiplier = maxAccumulatedNeighborIncomeMultiplier,
-            accumulatedNeighborIncomeSpawnEggMultiplier = maxAccumulatedNeighborIncomeSpawnEggMultiplier,
             accumulatedNeighborOresMultiplier = maxAccumulatedNeighborOresMultiplier,
-            accumulatedNeighborAnimalsMultiplier = maxAccumulatedNeighborAnimalsMultiplier,
         )
     }
 
@@ -314,25 +265,15 @@ data class TerritoryResources(
      */
     public fun applyNeighborModifiers(): TerritoryResources {
         val newIncome = this.income.toMutableMap()
-        val newIncomeSpawnEgg = this.incomeSpawnEgg.toMutableMap()
         val newOres = this.ores.toMutableMap()
-        val newAnimals = this.animals.toMutableMap()
 
         // income multiplier
         newIncome.forEach { (type, value) ->
             newIncome[type] = value * accumulatedNeighborTotalIncomeMultiplier
         }
-        newIncomeSpawnEgg.forEach { (type, value) ->
-            newIncomeSpawnEgg[type] = value * accumulatedNeighborTotalIncomeMultiplier
-        }
         accumulatedNeighborIncomeMultiplier.forEach { (type, multiplier) ->
             if (newIncome.containsKey(type)) {
                 newIncome[type] = newIncome[type]!! * multiplier
-            }
-        }
-        accumulatedNeighborIncomeSpawnEggMultiplier.forEach { (type, multiplier) ->
-            if (newIncomeSpawnEgg.containsKey(type)) {
-                newIncomeSpawnEgg[type] = newIncomeSpawnEgg[type]!! * multiplier
             }
         }
 
@@ -347,21 +288,9 @@ data class TerritoryResources(
             }
         }
 
-        // animals multiplier
-        newAnimals.forEach { (type, value) ->
-            newAnimals[type] = value * accumulatedNeighborTotalAnimalsMultiplier
-        }
-        accumulatedNeighborAnimalsMultiplier.forEach { (type, multiplier) ->
-            if (newAnimals.containsKey(type)) {
-                newAnimals[type] = newAnimals[type]!! * multiplier
-            }
-        }
-
         return this.copy(
             income = newIncome,
-            incomeSpawnEgg = newIncomeSpawnEgg,
             ores = newOres,
-            animals = newAnimals,
         )
     }
 }
@@ -382,9 +311,7 @@ data class Territory(
     // resource properties, should be derived from a TerritoryResources object
     val cost: Int,
     val income: MutableMap<Material, Double>,
-    val incomeSpawnEgg: MutableMap<EntityType, Double>,
     val ores: OreSampler,
-    val animals: MutableMap<EntityType, Double>,
     val customProperties: HashMap<String, Any> = HashMap(0),
     // claim time modifier
     val attackerTimeMultiplier: Double,
@@ -395,12 +322,10 @@ data class Territory(
 ) {
     val containsIncome: Boolean
     val containsOre: Boolean
-    val animalsCanBreed: Boolean
 
     init {
         this.containsIncome = income.size > 0
         this.containsOre = ores.containsOre
-        this.animalsCanBreed = animals.size > 0
     }
 
     // id is forced to be unique by system
@@ -453,20 +378,11 @@ data class Territory(
         for ((k, v) in this.income) {
             Message.print(sender, "   - $k: $v")
         }
-        for ((k, v) in this.incomeSpawnEgg) {
-            Message.print(sender, "   - $k: $v")
-        }
 
         // print ore deposits
         Message.print(sender, "- Ore:")
         for (ore in this.ores.ores) {
             Message.print(sender, "   - ${ore.material}: ${String.format("%.5f", ore.dropChance)}, ${ore.minAmount} - ${ore.maxAmount}")
-        }
-
-        // print animals
-        Message.print(sender, "- Animals:")
-        for ((k, v) in this.animals) {
-            Message.print(sender, "   - $k: $v")
         }
     }
 }

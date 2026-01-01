@@ -11,7 +11,6 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.Material
 import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.FileConfiguration
-import net.minestom.server.entity.EntityType
 import luna.nodes.objects.OreDeposit
 import luna.nodes.objects.TerritoryResources
 import java.nio.file.Paths
@@ -93,22 +92,14 @@ public object Config {
         Material.DIORITE,
     )
 
-    // allow mining/breeding in unowned territories
+    // allow mining in unowned territories
     public var allowOreInWilderness: Boolean = false
-    public var allowBreedingInWilderness: Boolean = false
 
     // allow getting ore in captured territory
     public var allowOreInCaptured: Boolean = true
 
     // allow mining in other towns in nation
     public var allowOreInNationTowns: Boolean = true
-
-    // required sky light for animal breeding (set = 0 to disable)
-    public var breedingMinSkyLight: Int = 14
-
-    // min/max y levels allowed for animal breeding
-    public var breedingMinYHeight: Int = 10
-    public var breedingMaxYHeight: Int = 255
 
     // ===================================
     // permissions
@@ -118,9 +109,6 @@ public object Config {
 
     // interact in territory without town (build, destroy, etc...)
     public var canInteractInUnclaimed: Boolean = true
-
-    // only allow shearing in sheep node
-    public var requireSheepNodeToShear: Boolean = true
 
     // ===================================
     // town cooldowns
@@ -167,8 +155,7 @@ public object Config {
     public var playerClaimsIncreasePeriod: Long = 3600000L
 
     // flag for enforcing over max claims
-    // for now, this affects all systems (income, hidden ore,
-    // breeding, etc...)
+    // for now, this affects all systems (income, hidden ore, etc...)
     // TODO: make fine grained over claims penalty for each system
     public var overClaimsPenalty: Boolean = true
 
@@ -224,9 +211,6 @@ public object Config {
 
     // probability that a hidden ore event resources go to occupier
     public var taxMineRate: Double = 0.2
-
-    // probability that a new animal goes to occupier (as a spawn egg item)
-    public var taxAnimalRate: Double = 0.2
 
     // ===================================
     // war configs
@@ -341,7 +325,6 @@ public object Config {
         // generic permissions
         Config.canInteractInEmpty = config.getBoolean("canInteractInEmpty", Config.canInteractInEmpty)
         Config.canInteractInUnclaimed = config.getBoolean("canInteractInUnclaimed", Config.canInteractInUnclaimed)
-        Config.requireSheepNodeToShear = config.getBoolean("requireSheepNodeToShear", Config.requireSheepNodeToShear)
 
         // town cooldown configs
         Config.townCreateCooldown = config.getLong("townCreateCooldown", Config.townCreateCooldown)
@@ -354,12 +337,8 @@ public object Config {
         Config.incomeScaleMin = config.getDouble("incomeScaleMin", Config.incomeScaleMin)
         Config.incomeScaleMax = config.getDouble("incomeScaleMax", Config.incomeScaleMax)
         Config.allowOreInWilderness = config.getBoolean("allowOreInWilderness", Config.allowOreInWilderness)
-        Config.allowBreedingInWilderness = config.getBoolean("allowBreedingInWilderness", Config.allowBreedingInWilderness)
         Config.allowOreInCaptured = config.getBoolean("allowOreInCaptured", Config.allowOreInCaptured)
         Config.allowOreInNationTowns = config.getBoolean("allowOreInNationTowns", Config.allowOreInNationTowns)
-        Config.breedingMinSkyLight = config.getInt("breedingMinSkyLight", Config.breedingMinSkyLight)
-        Config.breedingMinYHeight = config.getInt("breedingMinYHeight", Config.breedingMinYHeight)
-        Config.breedingMaxYHeight = config.getInt("breedingMaxYHeight", Config.breedingMaxYHeight)
 
         // global resources in all territories
         val globalResourcesSection = config.getConfigurationSection("globalResources")
@@ -411,7 +390,6 @@ public object Config {
         // tax
         Config.taxIncomeRate = config.getDouble("taxIncomeRate", Config.taxIncomeRate)
         Config.taxMineRate = config.getDouble("taxMineRate", Config.taxMineRate)
-        Config.taxAnimalRate = config.getDouble("taxAnimalRate", Config.taxAnimalRate)
 
         // ======================
         // war
@@ -463,26 +441,13 @@ public object Config {
 // parse global resources section in config.yml
 private fun parseGlobalResources(globalResourcesSection: ConfigurationSection): TerritoryResources {
     val income: MutableMap<Material, Double> = mutableMapOf()
-    val incomeSpawnEgg: MutableMap<EntityType, Double> = mutableMapOf()
     val ores: MutableMap<Material, OreDeposit> = mutableMapOf()
-    val animals: MutableMap<EntityType, Double> = mutableMapOf()
 
     globalResourcesSection.getConfigurationSection("income")?.let { section ->
         for (item in section.getKeys(false)) {
-            val itemName = item.uppercase()
-            // spawn egg
-            if (itemName.startsWith("SPAWN_EGG_")) {
-                val entityType = EntityType.fromKey(itemName.replace("SPAWN_EGG_", ""))
-                if (entityType !== null) {
-                    incomeSpawnEgg.put(entityType, section.getDouble(item))
-                }
-            }
-            // regular material
-            else {
-                val material = Material.fromKey(item)
-                if (material !== null) {
-                    income.put(material, section.getDouble(item))
-                }
+            val material = Material.fromKey(item)
+            if (material !== null) {
+                income.put(material, section.getDouble(item))
             }
         }
     }
@@ -510,22 +475,9 @@ private fun parseGlobalResources(globalResourcesSection: ConfigurationSection): 
         }
     }
 
-    globalResourcesSection.getConfigurationSection("animals")?.let { section ->
-        for (item in section.getKeys(false)) {
-            try {
-                val entityType = EntityType.fromKey(item.uppercase())
-                animals.put(entityType!!, section.getDouble(item))
-            } catch (err: Exception) {
-                err.printStackTrace()
-            }
-        }
-    }
-
     return TerritoryResources(
         income = income,
-        incomeSpawnEgg = incomeSpawnEgg,
         ores = ores,
-        animals = animals,
     )
 }
 
