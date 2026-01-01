@@ -114,6 +114,7 @@ class TownCommand : Command("t", "town") {
         addSubcommand(TownColorCommand())
         addSubcommand(TownClaimCommand())
         addSubcommand(TownUnclaimCommand())
+        addSubcommand(TownIncomeCommand())
         addSubcommand(TownPrefixCommand())
         addSubcommand(TownSuffixCommand())
         addSubcommand(TownRenameCommand())
@@ -900,6 +901,52 @@ class TownUnclaimCommand : Command("unclaim") {
                     ErrorTerritoryNotInTown -> Message.error(player, "Territory not owned by town")
                     ErrorTerritoryIsTownHome -> Message.error(player, "Cannot unclaim home territory")
                 }
+            }
+        })
+    }
+}
+
+class TownIncomeCommand : Command("income") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.error(sender, "Usage: /t income")
+        }
+
+        addSyntax({ sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if ( player == null ) {
+                return@addSyntax
+            }
+
+            // get town from player
+            val resident = Nodes.getResident(player)
+            val town = resident?.town
+            if ( town == null ) {
+                Message.error(player, "You do not belong to a town")
+                return@addSyntax
+            }
+
+            // check player permissions
+            val hasPermissions = if ( resident === town.leader || town.officers.contains(resident) ) {
+                true
+            }
+            else if ( town.permissions[TownPermissions.INCOME].contains(PermissionsGroup.TOWN) && resident.town === town ) {
+                true
+            }
+            else if ( town.permissions[TownPermissions.INCOME].contains(PermissionsGroup.TRUSTED) && resident.town === town && resident.trusted ) {
+                true
+            }
+            else {
+                false
+            }
+
+            // open town inventory
+            if ( hasPermissions ) {
+                player.openInventory(Nodes.getTownIncomeInventory(town))
+            }
+            else {
+                Message.error(player, "You do not have permissions to view town income")
             }
         })
     }

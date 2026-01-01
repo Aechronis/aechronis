@@ -78,7 +78,7 @@ public class Town(
 
     // income storage container from territory income
     // map material -> current amount of it
-//    val income: IncomeInventory = IncomeInventory()
+    val income: IncomeInventory = IncomeInventory()
 
     // permission flags, map of
     // town permissions category -> set of allowed groups in (town, ally, nation, outsider)
@@ -216,7 +216,7 @@ public class Town(
         public val captured = t.captured.toList()
         public val allies = t.allies.map { x -> x.name }
         public val enemies = t.enemies.map { x -> x.name }
-//        public val income = t.income.storage.clone()
+        public val income = t.income.storage.toMutableMap()
         public val isOpen = t.isOpen
 //        public val protectedBlocks: HashSet<Block> = HashSet(t.protectedBlocks)
         public val moveHomeCooldown = t.moveHomeCooldown

@@ -23,10 +23,11 @@ import luna.nodes.commands.TownCommand
 //import luna.nodes.listeners.NodesChatListener
 //import luna.nodes.listeners.NodesChestProtectionDestroyListener
 //import luna.nodes.listeners.NodesChestProtectionListener
-//import luna.nodes.listeners.NodesIncomeInventoryListener
+import luna.nodes.listeners.onInventoryClick
 //import luna.nodes.listeners.NodesPlayerDamageListener
 import io.github.togar2.pvp.MinestomPvP
 import io.github.togar2.pvp.feature.CombatFeatures
+import luna.nodes.listeners.onInventoryClose
 import me.lucko.spark.minestom.SparkMinestom
 import luna.nodes.listeners.onPlayerConfiguration
 import luna.nodes.listeners.onPlayerJoin
@@ -44,6 +45,8 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerLoadedEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.entity.EntityTeleportEvent
+import net.minestom.server.event.inventory.InventoryCloseEvent
+import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.instance.anvil.AnvilLoader
 import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.BlockPickup
@@ -120,7 +123,8 @@ fun main() {
 //    pluginManager.registerEvents(NodesChatListener(), this)
 //    pluginManager.registerEvents(NodesChestProtectionListener(), this)
 //    pluginManager.registerEvents(NodesChestProtectionDestroyListener(), this)
-//    pluginManager.registerEvents(NodesIncomeInventoryListener(), this)
+    eventHandler.addListener(InventoryPreClickEvent::class.java, { event -> onInventoryClick(event) })
+    eventHandler.addListener(InventoryCloseEvent::class.java, { event -> onInventoryClose(event) })
 //    pluginManager.registerEvents(NodesWorldListener(), this)
 //    pluginManager.registerEvents(NodesPlayerJoinQuitListener(), this)
     eventHandler.addListener(AsyncPlayerConfigurationEvent::class.java, { event -> onPlayerConfiguration(event) })
@@ -156,9 +160,9 @@ fun main() {
     val currTime = System.currentTimeMillis()
     Nodes.lastBackupTime = loadLongFromFile(Config.pathLastBackupTime) ?: currTime
     Nodes.lastIncomeTime = loadLongFromFile(Config.pathLastIncomeTime) ?: currTime
-//
-//    // run background schedulers/tasks
-//    Nodes.reloadManagers()
+
+    // run background schedulers/tasks
+    Nodes.reloadManagers()
 
     // initialize all players online
     Nodes.initializeOnlinePlayers()

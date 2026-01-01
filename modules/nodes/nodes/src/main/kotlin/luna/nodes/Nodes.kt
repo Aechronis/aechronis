@@ -19,8 +19,7 @@ import net.minestom.server.item.Material
 //import org.bukkit.block.DoubleChest
 import org.bukkit.configuration.file.YamlConfiguration
 import net.minestom.server.entity.Player
-//import org.bukkit.inventory.DoubleChestInventory
-//import org.bukkit.inventory.Inventory
+import net.minestom.server.inventory.Inventory
 //import org.bukkit.plugin.Plugin
 //import luna.nodes.chat.ChatMode
 //import luna.nodes.constants.DiplomaticRelationship
@@ -81,7 +80,7 @@ import java.nio.file.Files
 //import java.util.EnumMap
 import java.util.EnumSet
 import java.util.UUID
-//import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.ThreadLocalRandom
 //import java.util.concurrent.TimeUnit
 //import java.util.logging.Logger
 //import kotlin.system.measureNanoTime
@@ -170,21 +169,16 @@ public object Nodes {
         }
     }
 
-//    /**
-//     * Reload background managers/tasks
-//     */
-//    internal fun reloadManagers() {
+    /**
+     * Reload background managers/tasks
+     */
+    internal fun reloadManagers() {
 //        SaveManager.stop()
-//        PeriodicTickManager.stop()
-//
-//        val plugin = Nodes.plugin
-//        if (plugin === null) {
-//            return
-//        }
-//
+        PeriodicTickManager.stop()
+
 //        SaveManager.start(plugin, Config.savePeriod)
-//        PeriodicTickManager.start(plugin, Config.mainPeriodicTick)
-//    }
+        PeriodicTickManager.start(Config.mainPeriodicTick)
+    }
 
     // mark all current players in game as online
     // needed to correctly mark online players after reloading plugin
@@ -213,12 +207,12 @@ public object Nodes {
 
         // force push all town income items from inventory gui
         // back to storage data structure
-//        for (town in Nodes.towns.values) {
-//            val result = town.income.pushToStorage(true)
-//            if (result == true) { // has moved items
-//                town.needsUpdate()
-//            }
-//        }
+        for (town in Nodes.towns.values) {
+            val result = town.income.pushToStorage(true)
+            if (result == true) { // has moved items
+                town.needsUpdate()
+            }
+        }
 
         // cleanup war if its enabled
 //        if (Nodes.war.enabled) {
@@ -1452,43 +1446,43 @@ public object Nodes {
         return true
     }
 
-//    // adds items to town's income
-//    // used by taxation events in occupied/captured territories
-//    // TODO: cleanup + rename this to "townIncomeAdd"
-//    public fun addToIncome(town: Town, material: Material, amount: Int, meta: Int = 0) {
-//        town.income.add(material, amount, meta)
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//    }
-//
-//    /**
-//     * Removes items from town's income. If Material is null, removes all
-//     * items. If amount < 0, removes all items of that type.
-//     */
-//    public fun townIncomeRemove(
-//        town: Town,
-//        material: Material?,
-//        amount: Int = -1,
-//    ) {
-//        town.income.pushToStorage(force = true) // push items to storage before removing
-//
-//        if (material !== null) {
-//            if (amount >= 0) {
-//                val currAmount = town.income.storage.get(material) ?: 0
-//                if (currAmount > amount) {
-//                    town.income.storage.put(material, currAmount - amount)
-//                } else {
-//                    town.income.storage.remove(material)
-//                }
-//            } else { // remove all
-//                town.income.storage.remove(material)
-//            }
-//        } else {
-//            town.income.storage.clear()
-//        }
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//    }
+    // adds items to town's income
+    // used by taxation events in occupied/captured territories
+    // TODO: cleanup + rename this to "townIncomeAdd"
+    public fun addToIncome(town: Town, material: Material, amount: Int, meta: Int = 0) {
+        town.income.add(material, amount, meta)
+        town.needsUpdate()
+        Nodes.needsSave = true
+    }
+
+    /**
+     * Removes items from town's income. If Material is null, removes all
+     * items. If amount < 0, removes all items of that type.
+     */
+    public fun townIncomeRemove(
+        town: Town,
+        material: Material?,
+        amount: Int = -1,
+    ) {
+        town.income.pushToStorage(force = true) // push items to storage before removing
+
+        if (material !== null) {
+            if (amount >= 0) {
+                val currAmount = town.income.storage.get(material) ?: 0
+                if (currAmount > amount) {
+                    town.income.storage.put(material, currAmount - amount)
+                } else {
+                    town.income.storage.remove(material)
+                }
+            } else { // remove all
+                town.income.storage.remove(material)
+            }
+        } else {
+            town.income.storage.clear()
+        }
+        town.needsUpdate()
+        Nodes.needsSave = true
+    }
 
     public fun setTownColor(town: Town, r: Int, g: Int, b: Int) {
         town.color = Color(r, g, b)
@@ -1683,15 +1677,15 @@ public object Nodes {
 
         return true
     }
-//
-//    // view town income inventory gui
-//    public fun getTownIncomeInventory(town: Town): Inventory {
-//        // mark dirty if inventory not empty (player could take items)
-//        if (!town.income.empty()) {
-//            town.needsUpdate()
-//        }
-//        return town.income.getInventory()
-//    }
+
+    // view town income inventory gui
+    public fun getTownIncomeInventory(town: Town): Inventory {
+        // mark dirty if inventory not empty (player could take items)
+        if (!town.income.empty()) {
+            town.needsUpdate()
+        }
+        return town.income.getInventory()
+    }
 
     /**
      * Set town permissions
@@ -1742,11 +1736,11 @@ public object Nodes {
         Nodes.needsSave = true
     }
 
-//    // when inventory close, require save because items could have
-//    // been moved
-//    internal fun onTownIncomeInventoryClose() {
-//        Nodes.needsSave = true
-//    }
+    // when inventory close, require save because items could have
+    // been moved
+    internal fun onTownIncomeInventoryClose() {
+        Nodes.needsSave = true
+    }
 //
 //    // set town's isOpen state
 //    internal fun setTownOpen(town: Town, isOpen: Boolean) {
@@ -1755,35 +1749,35 @@ public object Nodes {
 //        Nodes.needsSave = true
 //    }
 //
-//    /**
-//     * Run cooldown tick, with change in time dt
-//     */
-//    internal fun townMoveHomeCooldownTick(dt: Long) {
-//        // reduce town move home territory cooldown
-//        for (town in Nodes.towns.values) {
-//            if (town.moveHomeCooldown > 0) {
-//                town.moveHomeCooldown = Math.max(0, town.moveHomeCooldown - dt)
-//
-//                town.needsUpdate()
-//                Nodes.needsSave = true
-//            }
-//        }
-//    }
-//
-//    /**
-//     * Reduce resident town create cooldown tick by dt
-//     */
-//    internal fun residentTownCreateCooldownTick(dt: Long) {
-//        // reduce player create town cooldown
-//        for (resident in Nodes.residents.values) {
-//            if (resident.townCreateCooldown > 0) {
-//                resident.townCreateCooldown = Math.max(0, resident.townCreateCooldown - dt)
-//
-//                resident.needsUpdate()
-//                Nodes.needsSave = true
-//            }
-//        }
-//    }
+    /**
+     * Run cooldown tick, with change in time dt
+     */
+    internal fun townMoveHomeCooldownTick(dt: Long) {
+        // reduce town move home territory cooldown
+        for (town in Nodes.towns.values) {
+            if (town.moveHomeCooldown > 0) {
+                town.moveHomeCooldown = Math.max(0, town.moveHomeCooldown - dt)
+
+                town.needsUpdate()
+                Nodes.needsSave = true
+            }
+        }
+    }
+
+    /**
+     * Reduce resident town create cooldown tick by dt
+     */
+    internal fun residentTownCreateCooldownTick(dt: Long) {
+        // reduce player create town cooldown
+        for (resident in Nodes.residents.values) {
+            if (resident.townCreateCooldown > 0) {
+                resident.townCreateCooldown = Math.max(0, resident.townCreateCooldown - dt)
+
+                resident.needsUpdate()
+                Nodes.needsSave = true
+            }
+        }
+    }
 
     // ==============================================
     // Nation functions
@@ -2108,121 +2102,121 @@ public object Nodes {
         Nodes.needsSave = true
     }
 
-//    // ==============================================
-//    // Territory income cycle functions
-//    // ==============================================
-//
-//    /**
-//     * System to run income from all town territories and deposit items into
-//     * a town's income inventory chest. For a town's occupied territories,
-//     * it gives the income to the occupier town.
-//     * Strategy for income:
-//     *     for each town:
-//     *         // 1. construct hashmap of each town name mapped to an enum map of
-//     *         //    material mapped to net income to be given
-//     *         townIncomes = HashMap<Town, EnumMap<Material, Double>>
-//     *
-//     *         // 2. accumulate net income from each territory into the town
-//     *         //    incomes hashmap. for occupied territories, create a new
-//     *         //    town entry if it doesn't exist.
-//     *         for territory in town:
-//     *             doTownIncomeLogic(territory)
-//     *
-//     *         // 3. add incomes to each town's income chests
-//     *         townIncomes.forEach { town, income -> addTownIncomeToChest(town, income) }
-//     */
-//    public fun runIncome() {
-//        /**
-//         * Helper to convert an income item rate Double to a item count as Int.
-//         * The rate must be >0.0 but can have fractional parts which allow for
-//         * random rolls for item amount. Examples for handling rates:
-//         * - rate = 2.0 : 2 items
-//         * - rate = 2.5 : split into 2.0 + 0.5
-//         *      - 2.0 -> 2 items are guaranteed
-//         *      - 0.5 -> do random roll, if roll < 0.5, add 1 item (50% chance)
-//         */
-//        fun rateToAmount(rate: Double): Int {
-//            if (rate <= 0.0) {
-//                return 0
-//            }
-//
-//            // determine integer part and fractional remainder for random roll
-//            val intPart = kotlin.math.floor(rate)
-//            val fracPart = kotlin.math.max(0.0, rate - intPart)
-//
-//            val fracAmount = if (fracPart > 0.0) {
-//                val roll = ThreadLocalRandom.current().nextDouble()
-//                if (roll < fracPart) {
-//                    1
-//                } else {
-//                    0
-//                }
-//            } else {
-//                0
-//            }
-//
-//            return intPart.toInt() + fracAmount
-//        }
-//
-//        // tax and kept item rates for occupied territories
-//        val taxRate = Config.taxIncomeRate.coerceIn(0.0, 1.0)
-//        val keptRate = 1.0 - taxRate
-//
-//        for (town in Nodes.towns.values) {
-//            try {
-//                val thisTownIncome = EnumMap<Material, Double>(Material::class.java) // hard-coded value for this town
-//                val townIncomes = HashMap<Town, EnumMap<Material, Double>>()
-//
-//                // inject this town
-//                townIncomes[town] = thisTownIncome
-//
-//                for (terrId in town.territories) {
-//                    val territory = Nodes.getTerritoryFromId(terrId)
-//                    if (territory === null) {
-//                        continue
-//                    }
-//
-//                    val occupier = territory.occupier
-//                    if (occupier != null) {
-//                        val occupierIncome = townIncomes.getOrPut(occupier) { EnumMap<Material, Double>(Material::class.java) }
-//
-//                        // regular item income
-//                        for ((material, amount) in territory.income) {
-//                            occupierIncome[material] = (occupierIncome[material] ?: 0.0) + (amount * taxRate)
-//                            thisTownIncome[material] = (thisTownIncome[material] ?: 0.0) + (amount * keptRate)
-//                        }
-//                    } else {
-//                        // regular item income
-//                        for ((material, amount) in territory.income) {
-//                            thisTownIncome[material] = (thisTownIncome[material] ?: 0.0) + amount
-//                        }
-//                    }
-//                }
-//
-//                // apply income modifiers for each town, then add items to town income chest
-//                for ((townForIncome, income) in townIncomes) {
-//                    var incomeModifier = 1.0
-//
-//                    // we can do any other income modifiers here in the future
-//
-//                    // add items to town income chest
-//                    for ((material, amount) in income) {
-//                        val amountInt = rateToAmount(amount * incomeModifier)
-//                        if (amountInt > 0) {
-//                            Nodes.addToIncome(town, material, amountInt)
-//                        }
-//                    }
-//                }
-//            } catch (err: Exception) {
-//                println("Error running income for town ${town.name}")
-//                err.printStackTrace()
-//            }
-//        }
-//
-//        // message players ingame that income collected
-//        Message.broadcast("Towns have collected income (use \"/t income\" to get)")
-//    }
-//
+    // ==============================================
+    // Territory income cycle functions
+    // ==============================================
+
+    /**
+     * System to run income from all town territories and deposit items into
+     * a town's income inventory chest. For a town's occupied territories,
+     * it gives the income to the occupier town.
+     * Strategy for income:
+     *     for each town:
+     *         // 1. construct hashmap of each town name mapped to an enum map of
+     *         //    material mapped to net income to be given
+     *         townIncomes = HashMap<Town, EnumMap<Material, Double>>
+     *
+     *         // 2. accumulate net income from each territory into the town
+     *         //    incomes hashmap. for occupied territories, create a new
+     *         //    town entry if it doesn't exist.
+     *         for territory in town:
+     *             doTownIncomeLogic(territory)
+     *
+     *         // 3. add incomes to each town's income chests
+     *         townIncomes.forEach { town, income -> addTownIncomeToChest(town, income) }
+     */
+    public fun runIncome() {
+        /**
+         * Helper to convert an income item rate Double to a item count as Int.
+         * The rate must be >0.0 but can have fractional parts which allow for
+         * random rolls for item amount. Examples for handling rates:
+         * - rate = 2.0 : 2 items
+         * - rate = 2.5 : split into 2.0 + 0.5
+         *      - 2.0 -> 2 items are guaranteed
+         *      - 0.5 -> do random roll, if roll < 0.5, add 1 item (50% chance)
+         */
+        fun rateToAmount(rate: Double): Int {
+            if (rate <= 0.0) {
+                return 0
+            }
+
+            // determine integer part and fractional remainder for random roll
+            val intPart = kotlin.math.floor(rate)
+            val fracPart = kotlin.math.max(0.0, rate - intPart)
+
+            val fracAmount = if (fracPart > 0.0) {
+                val roll = ThreadLocalRandom.current().nextDouble()
+                if (roll < fracPart) {
+                    1
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+
+            return intPart.toInt() + fracAmount
+        }
+
+        // tax and kept item rates for occupied territories
+        val taxRate = Config.taxIncomeRate.coerceIn(0.0, 1.0)
+        val keptRate = 1.0 - taxRate
+
+        for (town in Nodes.towns.values) {
+            try {
+                val thisTownIncome = mutableMapOf<Material, Double>() // hard-coded value for this town
+                val townIncomes = HashMap<Town, MutableMap<Material, Double>>()
+
+                // inject this town
+                townIncomes[town] = thisTownIncome
+
+                for (terrId in town.territories) {
+                    val territory = Nodes.getTerritoryFromId(terrId)
+                    if (territory === null) {
+                        continue
+                    }
+
+                    val occupier = territory.occupier
+                    if (occupier != null) {
+                        val occupierIncome = townIncomes.getOrPut(occupier) { mutableMapOf() }
+
+                        // regular item income
+                        for ((material, amount) in territory.income) {
+                            occupierIncome[material] = (occupierIncome[material] ?: 0.0) + (amount * taxRate)
+                            thisTownIncome[material] = (thisTownIncome[material] ?: 0.0) + (amount * keptRate)
+                        }
+                    } else {
+                        // regular item income
+                        for ((material, amount) in territory.income) {
+                            thisTownIncome[material] = (thisTownIncome[material] ?: 0.0) + amount
+                        }
+                    }
+                }
+
+                // apply income modifiers for each town, then add items to town income chest
+                for ((townForIncome, income) in townIncomes) {
+                    var incomeModifier = 1.0
+
+                    // we can do any other income modifiers here in the future
+
+                    // add items to town income chest
+                    for ((material, amount) in income) {
+                        val amountInt = rateToAmount(amount * incomeModifier)
+                        if (amountInt > 0) {
+                            Nodes.addToIncome(town, material, amountInt)
+                        }
+                    }
+                }
+            } catch (err: Exception) {
+                println("Error running income for town ${town.name}")
+                err.printStackTrace()
+            }
+        }
+
+        // message players ingame that income collected
+        Message.broadcast("Towns have collected income (use \"/t income\" to get)")
+    }
+
 //    // ==============================================
 //    // Handle war and diplomatic relations
 //    //

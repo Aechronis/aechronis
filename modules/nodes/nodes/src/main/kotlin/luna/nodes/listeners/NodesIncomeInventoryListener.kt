@@ -1,72 +1,32 @@
-//package luna.nodes.listeners
-//
-//import org.bukkit.event.EventHandler
-//import org.bukkit.event.Listener
-//import org.bukkit.event.inventory.InventoryAction
-//import org.bukkit.event.inventory.InventoryClickEvent
-//import org.bukkit.event.inventory.InventoryCloseEvent
-//import org.bukkit.event.inventory.InventoryDragEvent
-//import luna.nodes.Nodes
-//
-//public class NodesIncomeInventoryListener : Listener {
-//
-//    // allow removing items from town income inventory
-//    // but cancel all possible ways to insert items back in
-//    // CASE THAT ISNT HANDLED: if there is a partial stack
-//    // in inventory, player can shift click add items in
-//    @EventHandler
-//    public fun onInventoryClick(event: InventoryClickEvent) {
-//        val inventoryClicked = event.getClickedInventory()
-//        val inventoryView = event.getView()
-//
-//        if (inventoryClicked !== null && inventoryView.title == "Town Income") {
-//            // disable actions that move items into top view
-//            // https://hub.spigotmc.org/javadocs/spigot/org/bukkit/event/inventory/InventoryAction.html
-//            if (inventoryClicked === inventoryView.getTopInventory()) {
-//                when (event.getAction()) {
-//                    InventoryAction.HOTBAR_MOVE_AND_READD,
-//                    InventoryAction.HOTBAR_SWAP,
-//                    InventoryAction.PLACE_ALL,
-//                    InventoryAction.PLACE_ONE,
-//                    InventoryAction.PLACE_SOME,
-//                    InventoryAction.SWAP_WITH_CURSOR,
-//                    -> {
-//                        event.setCancelled(true)
-//                    }
-//                    else -> {}
-//                }
-//            } else { // bottom inventory
-//                when (event.getAction()) {
-//                    InventoryAction.MOVE_TO_OTHER_INVENTORY,
-//                    -> {
-//                        event.setCancelled(true)
-//                    }
-//                    else -> {}
-//                }
-//            }
-//        }
-//    }
-//
-//    @EventHandler
-//    public fun onInventoryDrag(event: InventoryDragEvent) {
-//        val inventoryView = event.getView()
-//        if (inventoryView.title == "Town Income") {
-//            // if any slots involved were in top inventory, cancel event
-//            // use raw inventory slots: large double chest inventory are index range [0, 53]
-//            for (slot in event.getRawSlots()) {
-//                if (slot < 54) {
-//                    event.setCancelled(true)
-//                    break
-//                }
-//            }
-//        }
-//    }
-//
-//    @EventHandler
-//    public fun onInventoryClose(event: InventoryCloseEvent) {
-//        val inventoryView = event.getView()
-//        if (inventoryView.title == "Town Income") {
-//            Nodes.onTownIncomeInventoryClose()
-//        }
-//    }
-//}
+package luna.nodes.listeners
+
+import luna.nodes.Nodes
+import net.minestom.server.event.inventory.InventoryCloseEvent
+import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.inventory.click.Click
+
+// allow removing items from town income inventory, but not putting items in
+// for simplicity, just allow all shift clicks when clicking in the town income gui, else cancel event
+public fun onInventoryClick(event: InventoryPreClickEvent) {
+    val player = event.player
+    val inventory = event.inventory ?: return
+
+    val inventorySize = inventory.size
+    println(inventorySize)
+
+    // player has "town income" inv open
+    if (player.openInventory?.size == 45) {
+        if (event.inventory.size != 45) {
+            event.isCancelled = true
+        }
+        if (!(event.click is Click.LeftShift && event.click is Click.RightShift)) {
+            event.isCancelled = true
+        }
+    }
+}
+
+public fun onInventoryClose(event: InventoryCloseEvent) {
+    if (event.inventory.size == 45) {
+        Nodes.onTownIncomeInventoryClose()
+    }
+}

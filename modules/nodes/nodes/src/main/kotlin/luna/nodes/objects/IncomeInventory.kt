@@ -1,97 +1,118 @@
-///**
-// * IncomeInventory
-// *
-// * Inventory container for adding income to town
-// */
-//
-//package luna.nodes.objects
-//
-//import org.bukkit.Bukkit
-//import org.bukkit.Material
-//import org.bukkit.inventory.Inventory
-//import org.bukkit.inventory.InventoryHolder
-//import org.bukkit.inventory.ItemStack
-//import java.util.EnumMap
-//
-//public class IncomeInventory : InventoryHolder {
-//
-//    // normal items:
-//    // map material -> current amount of it in storage
-//    val storage: EnumMap<Material, Int> = EnumMap<Material, Int>(Material::class.java)
-//
-//    // inventory gui object, only populate when open
-//    @Suppress("PropertyName")
-//    val _inventory: Inventory = Bukkit.createInventory(this, 54, "Town Income")
-//
-//    // internal, add items to storage
-//    @Suppress("FunctionName")
-//    private fun _add(mat: Material, amount: Int) {
-//        this.storage.get(mat)?.let { current ->
-//            storage.put(mat, current + amount)
-//        } ?: run {
-//            storage.put(mat, amount)
-//        }
-//    }
-//
-//    // public interface to add new items to storage
-//    public fun add(mat: Material, amount: Int, meta: Int = 0) {
-//        if (amount <= 0) {
-//            return
-//        }
-//
-//        this._add(mat, amount)
-//    }
-//
-//    // checks if any items in inventory or storage
-//    public fun empty(): Boolean = (storage.size == 0)
-//
-//    // implement getInventory for InventoryHolder
-//    public override fun getInventory(): Inventory {
-//        // populate inventory
-//        while (this.storage.size > 0) {
-//            val item = this.storage.iterator().next()
-//            val material = item.key
-//            val amount = item.value
-//            this.storage.remove(material)
-//
-//            val itemsFailedToAdd = this._inventory.addItem(ItemStack(material, amount))
-//            if (itemsFailedToAdd.size > 0) {
-//                val leftoverItems = itemsFailedToAdd.get(0)!!
-//                this.storage.put(material, leftoverItems.amount)
-//                return this._inventory
-//            }
-//        }
-//
-//        return this._inventory
-//    }
-//
-//    // moves items into storage and clear inventory
-//    // use this before saving game state
-//    // (still potential to dupe items if storage cleared and
-//    // game crashes before next save finishes)
-//    //
-//    // By default, only pushes to backend if no players are viewing
-//    // the income (so items don't seem like they're disappearing)
-//    // "force" option force-pushes items to backend (e.g. on server close)
-//    //
-//    // return if items moved (needed to determine if town needsUpdate()):
-//    // - true: if any items moved
-//    // - false: if no items moved
-//    public fun pushToStorage(force: Boolean): Boolean {
-//        var hasMovedItems = false
-//
-//        val viewers = this._inventory.viewers
-//        if (viewers.size == 0 || force) {
-//            for (itemStack in this._inventory.iterator()) {
-//                if (itemStack != null) {
-//                    this._add(itemStack.type, itemStack.amount)
-//
-//                    hasMovedItems = true
-//                }
-//            }
-//            this._inventory.clear()
-//        }
-//
-//        return hasMovedItems
-//    }
-//}
+/**
+ * IncomeInventory
+ *
+ * Inventory container for adding income to town
+ */
+
+package luna.nodes.objects
+
+import net.minestom.server.item.Material
+import net.minestom.server.inventory.Inventory
+import net.minestom.server.inventory.InventoryType
+import net.minestom.server.item.ItemStack
+
+public class IncomeInventory {
+
+    // normal items:
+    // map material -> current amount of it in storage
+    val storage: MutableMap<Material, Int> = mutableMapOf()
+
+    // inventory gui object, only populate when open
+    @Suppress("PropertyName")
+    val _inventory: Inventory = Inventory(InventoryType.CHEST_5_ROW, "Town Income")
+
+    // internal, add items to storage
+    @Suppress("FunctionName")
+    private fun _add(mat: Material, amount: Int) {
+        this.storage.get(mat)?.let { current ->
+            storage.put(mat, current + amount)
+        } ?: run {
+            storage.put(mat, amount)
+        }
+    }
+
+    // public interface to add new items to storage
+    public fun add(mat: Material, amount: Int, meta: Int = 0) {
+        if (amount <= 0) {
+            return
+        }
+
+        this._add(mat, amount)
+    }
+
+    // checks if any items in inventory or storage
+    public fun empty(): Boolean = (storage.size == 0)
+
+    // get inventory for viewing
+    public fun getInventory(): Inventory {
+        // populate inventory
+        while (this.storage.size > 0) {
+            val item = this.storage.iterator().next()
+            val material = item.key
+            val amount = item.value
+            this.storage.remove(material)
+
+            // find empty slots and add items
+            val maxStackSize = material.maxStackSize()
+            var remainingAmount = amount
+
+            for (slot in 0 until _inventory.size) {
+                if (remainingAmount <= 0) break
+
+                val existingItem = _inventory.getItemStack(slot)
+                
+                // check if slot is empty
+                if (existingItem.isAir) {
+                    val stackAmount = minOf(remainingAmount, maxStackSize)
+                    _inventory.setItemStack(slot, ItemStack.of(material, stackAmount))
+                    remainingAmount -= stackAmount
+                }
+                // check if slot has same material and can stack more
+                else if (existingItem.material() == material && existingItem.amount() < maxStackSize) {
+                    val canAdd = maxStackSize - existingItem.amount()
+                    val toAdd = minOf(remainingAmount, canAdd)
+                    _inventory.setItemStack(slot, existingItem.withAmount(existingItem.amount() + toAdd))
+                    remainingAmount -= toAdd
+                }
+            }
+
+            // if items couldn't fit, put back in storage
+            if (remainingAmount > 0) {
+                this.storage.put(material, remainingAmount)
+                return this._inventory
+            }
+        }
+
+        return this._inventory
+    }
+
+    // moves items into storage and clear inventory
+    // use this before saving game state
+    // (still potential to dupe items if storage cleared and
+    // game crashes before next save finishes)
+    //
+    // By default, only pushes to backend if no players are viewing
+    // the income (so items don't seem like they're disappearing)
+    // "force" option force-pushes items to backend (e.g. on server close)
+    //
+    // return if items moved (needed to determine if town needsUpdate()):
+    // - true: if any items moved
+    // - false: if no items moved
+    public fun pushToStorage(force: Boolean): Boolean {
+        var hasMovedItems = false
+
+        val viewers = this._inventory.viewers
+        if (viewers.size == 0 || force) {
+            for (slot in 0 until _inventory.size) {
+                val itemStack = _inventory.getItemStack(slot)
+                if (!itemStack.isAir) {
+                    this._add(itemStack.material(), itemStack.amount())
+                    hasMovedItems = true
+                }
+            }
+            this._inventory.clear()
+        }
+
+        return hasMovedItems
+    }
+}
