@@ -23,7 +23,6 @@ import luna.nodes.commands.TownCommand
 //import luna.nodes.listeners.NodesChatListener
 //import luna.nodes.listeners.NodesChestProtectionDestroyListener
 //import luna.nodes.listeners.NodesChestProtectionListener
-//import luna.nodes.listeners.NodesGuiListener
 //import luna.nodes.listeners.NodesIncomeInventoryListener
 //import luna.nodes.listeners.NodesPlayerDamageListener
 import io.github.togar2.pvp.MinestomPvP
@@ -121,7 +120,6 @@ fun main() {
 //    pluginManager.registerEvents(NodesChatListener(), this)
 //    pluginManager.registerEvents(NodesChestProtectionListener(), this)
 //    pluginManager.registerEvents(NodesChestProtectionDestroyListener(), this)
-//    pluginManager.registerEvents(NodesGuiListener(), this)
 //    pluginManager.registerEvents(NodesIncomeInventoryListener(), this)
 //    pluginManager.registerEvents(NodesWorldListener(), this)
 //    pluginManager.registerEvents(NodesPlayerJoinQuitListener(), this)
