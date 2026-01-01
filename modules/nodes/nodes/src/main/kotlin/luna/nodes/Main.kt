@@ -20,7 +20,6 @@ import luna.nodes.commands.NodesCommand
 import luna.nodes.commands.TownCommand
 //import luna.nodes.commands.UnallyCommand
 //import luna.nodes.commands.WarCommand
-//import luna.nodes.listeners.DisabledWorldListener
 //import luna.nodes.listeners.NodesBlockGrowListener
 //import luna.nodes.listeners.NodesChatListener
 //import luna.nodes.listeners.NodesChestProtectionDestroyListener
