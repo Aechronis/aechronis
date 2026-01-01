@@ -747,34 +747,6 @@
 //    return false
 //}
 //
-//// handle crop harvest and tax event
-//private fun handleCropHarvest(block: Block) {
-//    val blockX = block.location.blockX
-//    val blockZ = block.location.blockZ
-//    val territory = Nodes.getTerritoryFromBlock(blockX, blockZ)
-//
-//    if (territory !== null) {
-//        val random = ThreadLocalRandom.current()
-//
-//        // do tax event check
-//        val territoryOccupier = territory.occupier
-//        if (territoryOccupier !== null && random.nextDouble() <= Config.taxFarmRate) {
-//            val items = block.getDrops()
-//            for (itemStack in items) {
-//                Nodes.addToIncome(territoryOccupier, itemStack.type, itemStack.amount)
-//            }
-//
-//            block.setType(Material.AIR)
-//        }
-//        // handle town over max claims penalty
-//        else if (Config.overClaimsPenalty && territory.town?.isOverClaimsMax == true) {
-//            if (random.nextDouble() < Config.overClaimsMaxPenalty) {
-//                block.setType(Material.AIR)
-//            }
-//        }
-//    }
-//}
-//
 //// handle hidden ore generation during mining
 //private fun handleHiddenOre(player: Player, block: Block) {
 //    // ignore hidden ore for silk touch tools

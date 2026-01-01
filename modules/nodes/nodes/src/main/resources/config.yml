@@ -159,14 +159,14 @@ globalResources:
     diamond_ore: 0.007
   animals:
 
-# allow mining/harvesting/breeding in unowned territories
+# allow mining/breeding in unowned territories
 allowOreInWilderness: false
 allowBreedingInWilderness: false
 
 # allow mining in captured territories
 allowOreInCaptured: true
 
-# allow mining/harvesting in other towns in nation
+# allow mining in other towns in nation
 allowOreInNationTowns: true
 
 # require animal breeding to be above ground in sky light (set = 0 to disable)

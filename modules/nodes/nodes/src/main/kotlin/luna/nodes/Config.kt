@@ -93,7 +93,7 @@ public object Config {
         Material.DIORITE,
     )
 
-    // allow mining/harvesting/breeding in unowned territories
+    // allow mining/breeding in unowned territories
     public var allowOreInWilderness: Boolean = false
     public var allowBreedingInWilderness: Boolean = false
 
