@@ -27,7 +27,6 @@ import luna.nodes.commands.TownCommand
 //import luna.nodes.listeners.NodesEntityBreedListener
 //import luna.nodes.listeners.NodesGuiListener
 //import luna.nodes.listeners.NodesIncomeInventoryListener
-//import luna.nodes.listeners.NodesPlayerAFKKickListener
 //import luna.nodes.listeners.NodesPlayerDamageListener
 import io.github.togar2.pvp.MinestomPvP
 import io.github.togar2.pvp.feature.CombatFeatures
@@ -130,7 +129,6 @@ fun main() {
 //    pluginManager.registerEvents(NodesGuiListener(), this)
 //    pluginManager.registerEvents(NodesIncomeInventoryListener(), this)
 //    pluginManager.registerEvents(NodesWorldListener(), this)
-//    pluginManager.registerEvents(NodesPlayerAFKKickListener(), this)
 //    pluginManager.registerEvents(NodesPlayerJoinQuitListener(), this)
     eventHandler.addListener(AsyncPlayerConfigurationEvent::class.java, { event -> onPlayerConfiguration(event) })
     eventHandler.addListener(PlayerLoadedEvent::class.java, { event -> onPlayerJoin(event)})

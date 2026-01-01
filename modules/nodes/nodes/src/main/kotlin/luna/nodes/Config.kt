@@ -111,15 +111,6 @@ public object Config {
     public var breedingMaxYHeight: Int = 255
 
     // ===================================
-    // afk kick time
-    // ===================================
-    // time in milliseconds for afk time before player kicked
-    // adjusts claims progress as penalty
-    // 10 min = 600000 ms
-    // 20 min = 1200000 ms
-    public var afkKickTime: Long = 900000L
-
-    // ===================================
     // permissions
     // ===================================
     // interact in area with NO TERRITORIES (build, destroy, etc...)
@@ -346,9 +337,6 @@ public object Config {
         Config.mainPeriodicTick = config.getLong("mainPeriodicTick", Config.mainPeriodicTick)
         Config.overMaxClaimsReminderPeriod = config.getLong("overMaxClaimsReminderPeriod", Config.overMaxClaimsReminderPeriod)
         Config.nametagPipelineTicks = config.getInt("nametagPipelineTicks", Config.nametagPipelineTicks)
-
-        // afk kick time
-        Config.afkKickTime = config.getLong("afkKickTime", Config.afkKickTime)
 
         // generic permissions
         Config.canInteractInEmpty = config.getBoolean("canInteractInEmpty", Config.canInteractInEmpty)
