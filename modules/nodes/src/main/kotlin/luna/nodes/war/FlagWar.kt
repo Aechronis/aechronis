@@ -40,7 +40,6 @@
 //import luna.nodes.Nodes
 //import luna.nodes.constants.ErrorAlreadyCaptured
 //import luna.nodes.constants.ErrorAlreadyUnderAttack
-//import luna.nodes.constants.ErrorAttackCustomCancel
 //import luna.nodes.constants.ErrorChunkNotEdge
 //import luna.nodes.constants.ErrorFlagTooHigh
 //import luna.nodes.constants.ErrorNotBorderTerritory
