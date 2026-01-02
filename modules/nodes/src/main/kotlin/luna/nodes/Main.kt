@@ -183,15 +183,10 @@ fun main() {
 fun onDisable() {
     println("wtf i hate xeth now")
 
-//    Nodes.enabled = false
-//
-//    // world cleanup
-//    Nodes.cleanup()
-//
-//    // final synchronous save of world
-//    // -> only save when world was properly initialized,
-//    //    to avoid saving junk empty data when plugin fails load
-//    if (Nodes.initialized) {
-//        Nodes.saveWorld(checkIfNeedsSave = false, async = false)
-//    }
+    // world cleanup
+    Nodes.cleanup()
+
+    // final synchronous save of world
+    Nodes.saveWorld(checkIfNeedsSave = false, async = false)
+
 }

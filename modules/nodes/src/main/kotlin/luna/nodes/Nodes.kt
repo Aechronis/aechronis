@@ -63,10 +63,10 @@ import luna.nodes.objects.TerritoryResources
 import luna.nodes.objects.Town
 import luna.nodes.objects.TownPair
 import luna.nodes.serdes.Deserializer
-//import luna.nodes.tasks.SaveManager
-//import luna.nodes.tasks.TaskSaveBackup
-//import luna.nodes.tasks.TaskSavePorts
-//import luna.nodes.tasks.TaskSaveWorld
+import luna.nodes.tasks.SaveManager
+import luna.nodes.tasks.TaskSaveBackup
+import luna.nodes.tasks.TaskSavePorts
+import luna.nodes.tasks.TaskSaveWorld
 import luna.nodes.utils.Color
 import luna.nodes.utils.sanitizeString
 import luna.nodes.utils.saveStringToFile
@@ -80,10 +80,11 @@ import java.nio.file.Files
 //import java.util.EnumMap
 import java.util.EnumSet
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ThreadLocalRandom
 //import java.util.concurrent.TimeUnit
 //import java.util.logging.Logger
-//import kotlin.system.measureNanoTime
+import kotlin.system.measureNanoTime
 
 /**
  * Nodes container
@@ -173,10 +174,10 @@ public object Nodes {
      * Reload background managers/tasks
      */
     internal fun reloadManagers() {
-//        SaveManager.stop()
+        SaveManager.stop()
         PeriodicTickManager.stop()
 
-//        SaveManager.start(plugin, Config.savePeriod)
+        SaveManager.start(Config.savePeriod)
         PeriodicTickManager.start(Config.mainPeriodicTick)
     }
 
@@ -496,104 +497,104 @@ public object Nodes {
         return true
     }
 
-//    /**
-//     * Save world to JSON storage.
-//     */
-//    internal fun saveWorld(
-//        checkIfNeedsSave: Boolean = true, // set to false to force save
-//        async: Boolean = false, // run serialization and file write asynchronously
-//    ) {
-//        // if we reached backup time interval, generate a backup millis
-//        // timestamp for save task, which will be used to create a
-//        // timestamped backup file
-//        val currTime = System.currentTimeMillis()
-//        val backup = currTime > Nodes.lastBackupTime + Config.backupPeriod
-//        val backupTimestamp = if (backup) {
-//            Nodes.lastBackupTime = currTime
-//            currTime
-//        } else {
-//            -1
-//        }
-//
-//        if (Nodes.needsSave == true || checkIfNeedsSave == false) {
-//            // world pre-processing
-//            Nodes.saveWorldPreprocess()
-//
-//            val timeUpdate = measureNanoTime {
-//                // create a snapshot of world objects state
-//                // always do synchronously on main thread to keep world consistent
-//                val residentsSnapshot = Nodes.residents.values.map { it.getSaveState() }
-//                val townsSnapshot = Nodes.towns.values.map { it.getSaveState() }
-//                val nationsSnapshot = Nodes.nations.values.map { it.getSaveState() }
-//
-//                // save task manages:
-//                // 1. serialize individual objects into json strings and combine into a full json string
-//                // 2. write file
-//                // 3. save backup if reached backup interval
-//                val taskSave = TaskSaveWorld(
-//                    residentsSnapshot,
-//                    townsSnapshot,
-//                    nationsSnapshot,
-//                    Config.pathTowns,
-//                    Config.pathBackup,
-//                    Config.pathLastBackupTime,
-//                    backupTimestamp,
-//                )
-//
-//                if (async) {
-//                    Bukkit.getAsyncScheduler().runNow(Nodes.plugin!!, { _ -> taskSave.run() })
-//                } else {
-//                    taskSave.run()
-//                }
-//
-//                Nodes.needsSave = false
-//            }
-//
-//            println("[Nodes] Saving world: ${timeUpdate}ns")
-//
-//            // save ports
-//            // create a snapshot of port objects state
-//            val portGroupsSnapshot = Nodes.portGroups.values.map { it.getSaveState() }
-//            val portsSnapshot = Nodes.ports.values.map { it.getSaveState() }
-//
-//            val taskSavePorts = TaskSavePorts(
-//                portsSnapshot,
-//                portGroupsSnapshot,
-//                Config.pathPorts,
-//            )
-//
-//            if (async) {
-//                Bukkit.getAsyncScheduler().runNow(Nodes.plugin!!, { _ -> taskSavePorts.run() })
-//            } else {
-//                taskSavePorts.run()
-//            }
-//        }
-//        // no new save needed...just do backup if we reached backup interval
-//        else if (backup) {
-//            val taskBackup =
-//                TaskSaveBackup(backupTimestamp, Config.pathTowns, Config.pathBackup, Config.pathLastBackupTime)
-//            if (async) {
-//                Bukkit.getAsyncScheduler().runNow(Nodes.plugin!!, { _ -> taskBackup.run() })
-//            } else {
-//                taskBackup.run()
-//            }
-//        }
-//    }
-//
-//    /**
-//     * Handle any pre-processing or finishing town/nation modifications before
-//     * saving to json.
-//     */
-//    internal fun saveWorldPreprocess() {
-//        // move all town income items from inventory gui
-//        // back to storage data structure
-//        for (town in Nodes.towns.values) {
-//            val result = town.income.pushToStorage(false)
-//            if (result == true) { // has moved items
-//                town.needsUpdate()
-//            }
-//        }
-//    }
+    /**
+     * Save world to JSON storage.
+     */
+    internal fun saveWorld(
+        checkIfNeedsSave: Boolean = true, // set to false to force save
+        async: Boolean = false, // run serialization and file write asynchronously
+    ) {
+        // if we reached backup time interval, generate a backup millis
+        // timestamp for save task, which will be used to create a
+        // timestamped backup file
+        val currTime = System.currentTimeMillis()
+        val backup = currTime > Nodes.lastBackupTime + Config.backupPeriod
+        val backupTimestamp = if (backup) {
+            Nodes.lastBackupTime = currTime
+            currTime
+        } else {
+            -1
+        }
+
+        if (Nodes.needsSave == true || checkIfNeedsSave == false) {
+            // world pre-processing
+            Nodes.saveWorldPreprocess()
+
+            val timeUpdate = measureNanoTime {
+                // create a snapshot of world objects state
+                // always do synchronously on main thread to keep world consistent
+                val residentsSnapshot = Nodes.residents.values.map { it.getSaveState() }
+                val townsSnapshot = Nodes.towns.values.map { it.getSaveState() }
+                val nationsSnapshot = Nodes.nations.values.map { it.getSaveState() }
+
+                // save task manages:
+                // 1. serialize individual objects into json strings and combine into a full json string
+                // 2. write file
+                // 3. save backup if reached backup interval
+                val taskSave = TaskSaveWorld(
+                    residentsSnapshot,
+                    townsSnapshot,
+                    nationsSnapshot,
+                    Config.pathTowns,
+                    Config.pathBackup,
+                    Config.pathLastBackupTime,
+                    backupTimestamp,
+                )
+
+                if (async) {
+                    CompletableFuture.runAsync { taskSave.run() }
+                } else {
+                    taskSave.run()
+                }
+
+                Nodes.needsSave = false
+            }
+
+            println("[Nodes] Saving world: ${timeUpdate}ns")
+
+            // save ports
+            // create a snapshot of port objects state
+            val portGroupsSnapshot = Nodes.portGroups.values.map { it.getSaveState() }
+            val portsSnapshot = Nodes.ports.values.map { it.getSaveState() }
+
+            val taskSavePorts = TaskSavePorts(
+                portsSnapshot,
+                portGroupsSnapshot,
+                Config.pathPorts,
+            )
+
+            if (async) {
+                CompletableFuture.runAsync { taskSavePorts.run() }
+            } else {
+                taskSavePorts.run()
+            }
+        }
+        // no new save needed...just do backup if we reached backup interval
+        else if (backup) {
+            val taskBackup =
+                TaskSaveBackup(backupTimestamp, Config.pathTowns, Config.pathBackup, Config.pathLastBackupTime)
+            if (async) {
+                CompletableFuture.runAsync { taskBackup.run() }
+            } else {
+                taskBackup.run()
+            }
+        }
+    }
+
+    /**
+     * Handle any pre-processing or finishing town/nation modifications before
+     * saving to json.
+     */
+    internal fun saveWorldPreprocess() {
+        // move all town income items from inventory gui
+        // back to storage data structure
+        for (town in Nodes.towns.values) {
+            val result = town.income.pushToStorage(false)
+            if (result == true) { // has moved items
+                town.needsUpdate()
+            }
+        }
+    }
 
     // initialization function,
     // loads diplomatic relations (allies, enemies)
