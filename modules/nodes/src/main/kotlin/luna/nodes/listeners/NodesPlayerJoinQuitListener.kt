@@ -16,12 +16,15 @@ import luna.nodes.Nodes
 import luna.nodes.chat.Chat
 //import luna.nodes.objects.Nametag
 import luna.nodes.objects.Resident
+import luna.nodes.war.FlagWar
+import net.minestom.server.entity.GameMode
 
 public fun onPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
     val player = event.getPlayer()
     val instance = MinecraftServer.getInstanceManager().instances.first()
     event.spawningInstance = instance
     player.respawnPoint = Config.spawnLoc
+    player.gameMode = GameMode.CREATIVE
 }
 
 public fun onPlayerJoin(event: PlayerLoadedEvent) {
@@ -33,13 +36,20 @@ public fun onPlayerJoin(event: PlayerLoadedEvent) {
     val resident: Resident = Nodes.getResident(player)!!
     Nodes.setResidentOnline(resident, player)
 
-//    // if war enabled, send active chunk attack progress bars
-//        if (Nodes.war.enabled == true) {
-//            Nodes.war.sendWarProgressBarToPlayer(player)
-//        }
+    // if war enabled, send active chunk attack progress bars
+        if (Nodes.war.enabled == true) {
+            Nodes.war.sendWarProgressBarToPlayer(player)
+        }
 
 //    // update nametags
 //        Nametag.pipelinedUpdateAllText()
+
+    // if war enabled, add per-player text displays for active attacks
+    if (Nodes.war.enabled) {
+        for (attack in FlagWar.chunkToAttacker.values) {
+            attack.textDisplay.update(player)
+        }
+    }
 
     // update username -> uuid cache
     Nodes.playerNameCache.set(player.uuid,player.username)
@@ -56,13 +66,20 @@ public fun onPlayerQuit(event: PlayerDisconnectEvent) {
     // remove player from muting global chat
     Chat.enableGlobalChat(player)
 
-//        // if playing attacking a chunk, stop it
-//        if (Nodes.war.enabled) {
-//            val attacks = Nodes.war.attackers.get(player.getUniqueId())
-//            if (attacks !== null) {
-//                for (a in attacks) {
-//                    a.cancel()
-//                }
-//            }
-//        }
+    // if war enabled, remove per-player town name displays for active attacks
+    if (Nodes.war.enabled) {
+        for (attack in FlagWar.chunkToAttacker.values) {
+            attack.textDisplay.removePlayerTextDisplay(player)
+        }
+    }
+
+        // if playing attacking a chunk, stop it
+        if (Nodes.war.enabled) {
+            val attacks = Nodes.war.attackers.get(player.uuid)
+            if (attacks !== null) {
+                for (a in attacks) {
+                    a.cancel()
+                }
+            }
+        }
 }

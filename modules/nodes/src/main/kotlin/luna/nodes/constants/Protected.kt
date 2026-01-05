@@ -1,23 +1,20 @@
-///**
-// * List of town protectable blocks for Chests permissions
-// * and for trusted player permissions
-// *
-// * TODO: include shulker boxes?
-// */
-//
-//package luna.nodes.constants
-//
-//import org.bukkit.Material
-//
-//val PROTECTED_BLOCKS: List<Material> = listOf(
-//    Material.CHEST,
-//    Material.TRAPPED_CHEST,
-//    Material.FURNACE,
-//
-//    // 1.12
-//    // Material.BURNING_FURNACE,
-//
-//    // 1.16
-//    Material.BARREL, // 1.16
-//    Material.BLAST_FURNACE,
-//)
+/**
+ * List of town protectable blocks for Chests permissions
+ * and for trusted player permissions
+ *
+ * TODO: include shulker boxes?
+ */
+
+package luna.nodes.constants
+
+import net.minestom.server.instance.block.Block
+
+val PROTECTED_BLOCKS: List<Block> = listOf(
+    Block.CHEST,
+    Block.TRAPPED_CHEST,
+    Block.FURNACE,
+
+    // 1.16
+    Block.BARREL, // 1.16
+    Block.BLAST_FURNACE,
+)

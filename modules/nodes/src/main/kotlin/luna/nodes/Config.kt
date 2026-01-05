@@ -13,6 +13,7 @@ import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.FileConfiguration
 import luna.nodes.objects.OreDeposit
 import luna.nodes.objects.TerritoryResources
+import net.minestom.server.instance.block.Block
 import java.nio.file.Paths
 import java.util.UUID
 
@@ -47,7 +48,7 @@ public object Config {
     public var pathLastIncomeTime = Paths.get(pathPlugin, "lastIncomeTime.txt").normalize()
 
     // period for running world save
-    public var savePeriod: Long = 600L
+    public var savePeriod: Int = 600
 
     // all long tick cycle values
     // 1 hour = 3600000 ms
@@ -72,10 +73,10 @@ public object Config {
 
     // hidden ore blocks, stone only
     public var oreBlocks = setOf(
-        Material.STONE, // note: granite, diorite, and andesite are variants of stone in 1.12.2
-        Material.ANDESITE,
-        Material.GRANITE,
-        Material.DIORITE,
+        Block.STONE, // note: granite, diorite, and andesite are variants of stone in 1.12.2
+        Block.GRANITE,
+        Block.ANDESITE,
+        Block.DIORITE,
     )
 
     // allow mining in unowned territories
@@ -145,18 +146,18 @@ public object Config {
     public var restrictExplosions: Boolean = true
     public var onlyAllowExplosionsDuringWar: Boolean = true
 
-    public var flagMaterialDefault: Material = Material.OAK_FENCE
+    public var flagBlockDefault: Block = Block.OAK_FENCE
 
-    public var flagMaterials: MutableSet<Material> = mutableSetOf<Material>(
-        Material.ACACIA_FENCE,
-        Material.BIRCH_FENCE,
-        Material.BAMBOO_FENCE,
-        Material.CHERRY_FENCE,
-        Material.DARK_OAK_FENCE,
-        Material.JUNGLE_FENCE,
-        Material.MANGROVE_FENCE,
-        Material.OAK_FENCE,
-        Material.SPRUCE_FENCE,
+    public var flagBlocks: MutableSet<Block> = mutableSetOf(
+        Block.ACACIA_FENCE,
+        Block.BIRCH_FENCE,
+        Block.BAMBOO_FENCE,
+        Block.CHERRY_FENCE,
+        Block.DARK_OAK_FENCE,
+        Block.JUNGLE_FENCE,
+        Block.MANGROVE_FENCE,
+        Block.OAK_FENCE,
+        Block.SPRUCE_FENCE,
     )
 
     // disable building within this distance of flag (square range)
@@ -242,7 +243,7 @@ public object Config {
     // ===================================================
     public fun load(config: FileConfiguration) {
         // engine settings
-        Config.savePeriod = config.getLong("savePeriod", Config.savePeriod)
+        Config.savePeriod = config.getInt("savePeriod", Config.savePeriod)
         Config.backupPeriod = config.getLong("backupPeriod", Config.backupPeriod)
         Config.mainPeriodicTick = config.getLong("mainPeriodicTick", Config.mainPeriodicTick)
         Config.nametagPipelineTicks = config.getInt("nametagPipelineTicks", Config.nametagPipelineTicks)

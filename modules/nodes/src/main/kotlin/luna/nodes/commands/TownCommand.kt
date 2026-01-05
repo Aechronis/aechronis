@@ -181,10 +181,10 @@ class TownCreateCommand : Command("create", "new") {
             }
 
             // do not allow during war
-//            if (!Config.canCreateTownDuringWar && Nodes.war.enabled == true) {
-//                Message.error(player, "Cannot create towns during war")
-//                return
-//            }
+            if (!Config.canCreateTownDuringWar && Nodes.war.enabled == true) {
+                Message.error(player, "Cannot create towns during war")
+                return@addSyntax
+            }
 
             val resident = Nodes.getResident(player)
             if (resident == null) {
@@ -271,10 +271,10 @@ class TownDeleteCommand : Command("delete", "disband") {
             }
 
             // do not allow during war
-//            if (!Config.canDestroyTownDuringWar && Nodes.war.enabled == true) {
-//                Message.error(player, "Cannot delete your town during war")
-//                return
-//            }
+            if (!Config.canDestroyTownDuringWar && Nodes.war.enabled == true) {
+                Message.error(player, "Cannot delete your town during war")
+                return@addSyntax
+            }
 
             Nodes.destroyTown(town)
 
@@ -507,10 +507,10 @@ class TownLeaveCommand : Command("leave") {
             }
 
             // do not allow during war?
-//            if (!Config.canLeaveTownDuringWar && Nodes.war.enabled == true) {
-//                Message.error(player, "Cannot leave your town during war")
-//                return@addSyntax
-//            }
+            if (!Config.canLeaveTownDuringWar && Nodes.war.enabled == true) {
+                Message.error(player, "Cannot leave your town during war")
+                return@addSyntax
+            }
 
             Message.print(player, "You have left ${town.name}")
             Nodes.removeResidentFromTown(town, resident)
@@ -1581,10 +1581,10 @@ class TownAnnexCommand : Command("annex") {
                 return@addSyntax
             }
 
-//            if (!Nodes.war.enabled || !Nodes.war.canAnnexTerritories) {
-//                Message.error(player, "You can only annex territories during war")
-//                return@addSyntax
-//            }
+            if (!Nodes.war.enabled || !Nodes.war.canAnnexTerritories) {
+                Message.error(player, "You can only annex territories during war")
+                return@addSyntax
+            }
 
             val resident = Nodes.getResident(player)
             if (resident == null) {
@@ -1685,11 +1685,11 @@ class TownFlyCommand : Command("fly") {
                 return@addSyntax
             }
 
-            // do not allow during war?
-//            if (Nodes.war.enabled) {
-//                Message.error(player, "Cannot fly during war")
-//                return@addSyntax
-//            }
+            // do not allow during war
+            if (Nodes.war.enabled) {
+                Message.error(player, "Cannot fly during war")
+                return@addSyntax
+            }
 
             if (player.isAllowFlying) {
                 player.isAllowFlying = false

@@ -139,11 +139,11 @@ public class Town(
         )
 
         // generate nametags from name
-        this.nametagTown = "${ChatColor.GREEN}[${this.name}] "
-        this.nametagNation = "${ChatColor.DARK_GREEN}[${this.name}] "
-        this.nametagNeutral = "${ChatColor.GOLD}[${this.name}] "
-        this.nametagAlly = "${ChatColor.DARK_AQUA}[${this.name}] "
-        this.nametagEnemy = "${ChatColor.RED}[${this.name}] "
+        this.nametagTown = "${ChatColor.GREEN}[${this.name}]"
+        this.nametagNation = "${ChatColor.DARK_GREEN}[${this.name}]"
+        this.nametagNeutral = "${ChatColor.GOLD}[${this.name}]"
+        this.nametagAlly = "${ChatColor.DARK_AQUA}[${this.name}]"
+        this.nametagEnemy = "${ChatColor.RED}[${this.name}]"
 
         // generate initial json string
         this.saveState = TownSaveState(this)
@@ -154,11 +154,11 @@ public class Town(
     // update town nametag display strings from name
     // (different color for each diplomacy group)
     public fun updateNametags() {
-        this.nametagTown = "${ChatColor.GREEN}[${this.name}] "
-        this.nametagNation = "${ChatColor.DARK_GREEN}[${this.name}] "
-        this.nametagNeutral = "${ChatColor.GOLD}[${this.name}] "
-        this.nametagAlly = "${ChatColor.DARK_AQUA}[${this.name}] "
-        this.nametagEnemy = "${ChatColor.RED}[${this.name}] "
+        this.nametagTown = "${ChatColor.GREEN}[${this.name}]"
+        this.nametagNation = "${ChatColor.DARK_GREEN}[${this.name}]"
+        this.nametagNeutral = "${ChatColor.GOLD}[${this.name}]"
+        this.nametagAlly = "${ChatColor.DARK_AQUA}[${this.name}]"
+        this.nametagEnemy = "${ChatColor.RED}[${this.name}]"
     }
 
     // prints out nation object info

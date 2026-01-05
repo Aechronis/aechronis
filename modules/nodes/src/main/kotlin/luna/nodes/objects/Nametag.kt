@@ -1,43 +1,42 @@
-///**
-// * 1.13+ Player town nametag
-// *
-// * NOTE: this conflicts with any other plugin doing nametag prefix/suffix (e.g. TAB)
-// * Make sure all other plugins that affect prefix/suffix are disabled
-// *
-// * TODO: make sure name is not too long (may cause bukkit error)
-// */
-//
-//package luna.nodes.objects
-//
-//import org.bukkit.Bukkit
-//import org.bukkit.entity.Player
-//import luna.nodes.Config
-//import luna.nodes.Nodes
-//import luna.nodes.nms.sendTeamAddPlayers
-//import luna.nodes.nms.sendTeamCreate
-//import luna.nodes.nms.sendTeamRemove
-//
-///**
-// * Get armor stand custom name as VIEWED by input player
-// */
-//public fun townNametagViewedByPlayer(town: Town, viewer: Player): String {
-//    // get input player relation to this.player
-//    val otherTown = Nodes.getResident(viewer)?.town
-//    if (otherTown !== null) {
-//        if (town === otherTown) {
-//            return town.nametagTown
-//        } else if (town.nation !== null && town.nation === otherTown.nation) {
-//            return town.nametagNation
-//        } else if (town.allies.contains(otherTown)) {
-//            return town.nametagAlly
-//        } else if (town.enemies.contains(otherTown)) {
-//            return town.nametagEnemy
-//        }
-//    }
-//
-//    return town.nametagNeutral
-//}
-//
+/**
+ * 1.13+ Player town nametag
+ *
+ * NOTE: this conflicts with any other plugin doing nametag prefix/suffix (e.g. TAB)
+ * Make sure all other plugins that affect prefix/suffix are disabled
+ *
+ * TODO: make sure name is not too long (may cause bukkit error)
+ */
+
+package luna.nodes.objects
+import luna.nodes.Config
+import luna.nodes.Nodes
+import net.minestom.server.entity.Player
+
+/**
+ * Get town nametag text as VIEWED by input player
+ */
+public fun townNametagViewedByPlayer(
+    town: Town,
+    viewer: Player,
+    space: Boolean = true, // append space to the end of string
+): String {
+    // get input player relation to this.player
+    val otherTown = Nodes.getResident(viewer)?.town
+    if (otherTown !== null) {
+        if (town === otherTown) {
+            return if (space) "${town.nametagTown} " else town.nametagTown
+        } else if (town.nation !== null && town.nation === otherTown.nation) {
+            return if (space) "${town.nametagNation} " else town.nametagNation
+        } else if (town.allies.contains(otherTown)) {
+            return if (space) "${town.nametagAlly} " else town.nametagAlly
+        } else if (town.enemies.contains(otherTown)) {
+            return if (space) "${town.nametagEnemy} " else town.nametagEnemy
+        }
+    }
+
+    return ""
+}
+
 //public object Nametag {
 //
 //    // lock for pipelined nametag update

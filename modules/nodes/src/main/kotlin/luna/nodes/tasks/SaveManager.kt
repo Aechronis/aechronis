@@ -114,7 +114,7 @@ public object SaveManager {
 
     private var task: Task? = null
 
-    public fun start(period: Long) {
+    public fun start(period: Int) {
         if (this.task !== null) {
             return
         }
@@ -132,8 +132,8 @@ public object SaveManager {
 
         this.task = MinecraftServer.getSchedulerManager()
             .buildTask(runnable)
-            .delay(TaskSchedule.millis(period))
-            .repeat(TaskSchedule.millis(period))
+            .delay(TaskSchedule.tick(period))
+            .repeat(TaskSchedule.tick(period))
             .schedule()
         }
 

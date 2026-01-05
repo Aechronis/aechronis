@@ -22,9 +22,9 @@ import net.minestom.server.entity.Player
 import net.minestom.server.inventory.Inventory
 //import org.bukkit.plugin.Plugin
 //import luna.nodes.chat.ChatMode
-//import luna.nodes.constants.DiplomaticRelationship
+import luna.nodes.constants.DiplomaticRelationship
 //import luna.nodes.constants.ErrorAlreadyAllies
-//import luna.nodes.constants.ErrorAlreadyEnemies
+import luna.nodes.constants.ErrorAlreadyEnemies
 import luna.nodes.constants.ErrorNationDoesNotHaveTown
 import luna.nodes.constants.ErrorNationExists
 //import luna.nodes.constants.ErrorNotAllies
@@ -41,7 +41,7 @@ import luna.nodes.constants.ErrorTerritoryOwned
 import luna.nodes.constants.ErrorTownDoesNotExist
 import luna.nodes.constants.ErrorTownExists
 import luna.nodes.constants.ErrorTownHasNation
-//import luna.nodes.constants.ErrorWarAlly
+import luna.nodes.constants.ErrorWarAlly
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
 import luna.nodes.objects.Coord
@@ -49,7 +49,7 @@ import luna.nodes.objects.DefaultResourceAttributeLoader
 //import luna.nodes.objects.Nametag
 import luna.nodes.objects.Nation
 import luna.nodes.objects.NationPair
-//import luna.nodes.objects.OreBlockCache
+import luna.nodes.objects.OreBlockCache
 import luna.nodes.objects.OreSampler
 import luna.nodes.objects.Port
 import luna.nodes.objects.PortGroup
@@ -70,7 +70,7 @@ import luna.nodes.tasks.TaskSaveWorld
 import luna.nodes.utils.Color
 import luna.nodes.utils.sanitizeString
 import luna.nodes.utils.saveStringToFile
-//import luna.nodes.war.FlagWar
+import luna.nodes.war.FlagWar
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -128,15 +128,15 @@ public object Nodes {
     // last time income occurred: NOTE this is accessed async
     internal var lastIncomeTime: Long = 0 // milliseconds
 
-//    // war manager
-//    public val war = FlagWar
+    // war manager
+    public val war = FlagWar
 
     // flag that world was updated and needs save
     internal var needsSave: Boolean = false
 
-//    // set of invalid block locations for hidden ore drops
-//    internal val hiddenOreInvalidBlocks: OreBlockCache = OreBlockCache(2000)
-//
+    // set of invalid block locations for hidden ore drops
+    internal val hiddenOreInvalidBlocks: OreBlockCache = OreBlockCache(2000)
+
         lateinit var playerNameCache: PlayerNameCache
 
 //    // flag that plugin successfully initialized
@@ -216,9 +216,9 @@ public object Nodes {
         }
 
         // cleanup war if its enabled
-//        if (Nodes.war.enabled) {
-//            Nodes.war.cleanup()
-//        }
+        if (Nodes.war.enabled) {
+            Nodes.war.cleanup()
+        }
 
         // save backup, income current time
         val currTimeString = System.currentTimeMillis().toString()
@@ -466,7 +466,7 @@ public object Nodes {
                 }
 
                 // load war state
-//                Nodes.war.load()
+                Nodes.war.load()
             } else {
                 System.err.println("No towns found: ${Config.pathTowns}")
                 return true
@@ -1346,45 +1346,45 @@ public object Nodes {
 //        return Result.success(territory)
 //    }
 //
-//    // makes territory occupied by town
-//    public fun captureTerritory(town: Town, territory: Territory) {
-//        // check if territory already occupied, remove current occupier
-//        val currentOccupier: Town? = territory.occupier
-//        if (currentOccupier != null) {
-//            currentOccupier.captured.remove(territory.id)
-//            territory.occupier = null
-//
-//            currentOccupier.needsUpdate()
-//        }
-//
-//        // handle capturing enemy territory
-//        if (territory.town != town) {
-//            town.captured.add(territory.id)
-//            territory.occupier = town
-//        }
-//
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//    }
-//
-//    // release territory from town occupation
-//    public fun releaseTerritory(territory: Territory) {
-//        // check if territory currently occupied, remove current occupier
-//        val currentOccupier: Town? = territory.occupier
-//        if (currentOccupier != null) {
-//            currentOccupier.captured.remove(territory.id)
-//            territory.occupier = null
-//
-//            currentOccupier.needsUpdate()
-//            Nodes.needsSave = true
-//
-//            // re-render minimaps
-//            Nodes.renderMinimaps()
-//        }
-//    }
+    // makes territory occupied by town
+    public fun captureTerritory(town: Town, territory: Territory) {
+        // check if territory already occupied, remove current occupier
+        val currentOccupier: Town? = territory.occupier
+        if (currentOccupier != null) {
+            currentOccupier.captured.remove(territory.id)
+            territory.occupier = null
+
+            currentOccupier.needsUpdate()
+        }
+
+        // handle capturing enemy territory
+        if (territory.town != town) {
+            town.captured.add(territory.id)
+            territory.occupier = town
+        }
+
+        town.needsUpdate()
+        Nodes.needsSave = true
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+    }
+
+    // release territory from town occupation
+    public fun releaseTerritory(territory: Territory) {
+        // check if territory currently occupied, remove current occupier
+        val currentOccupier: Town? = territory.occupier
+        if (currentOccupier != null) {
+            currentOccupier.captured.remove(territory.id)
+            territory.occupier = null
+
+            currentOccupier.needsUpdate()
+            Nodes.needsSave = true
+
+            // re-render minimaps
+            Nodes.renderMinimaps()
+        }
+    }
 
     /**
      * Town annexes a territory:
@@ -2238,100 +2238,100 @@ public object Nodes {
 //    //
 //    // Same rules apply for making allies.
 //    // ==============================================
-//
-//    public fun enableWar(
-//        canAnnexTerritories: Boolean,
-//        canOnlyAttackBorders: Boolean,
-//        destructionEnabled: Boolean,
-//    ) {
-//        Nodes.war.enable(canAnnexTerritories, canOnlyAttackBorders, destructionEnabled)
-//    }
-//
-//    public fun disableWar() {
-//        Nodes.war.disable()
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//    }
-//
-//    /**
-//     * Set two towns as enemies and their nations if needed, order does not matter.
-//     * This should be the main function used.
-//     */
-//    public fun addEnemy(town: Town, enemy: Town): Result<Boolean> {
-//        // make sure towns are not allies
-//        if (town.allies.contains(enemy)) {
-//            return Result.failure(ErrorWarAlly)
-//        }
-//
-//        // check if towns already enemies
-//        if (town.enemies.contains(enemy) || enemy.enemies.contains(town)) {
-//            return Result.failure(ErrorAlreadyEnemies)
-//        }
-//
-//        val townNation = town.nation
-//        val enemyNation = enemy.nation
-//
-//        if (townNation !== null) {
-//            // nation-nation war
-//            if (enemyNation !== null) {
-//                // civil war boogaloo
-//                if (enemyNation === townNation) {
-//                    town.enemies.add(enemy)
-//                    enemy.enemies.add(town)
-//
-//                    // remove ally status
-//                    town.allies.remove(enemy)
-//                    enemy.allies.remove(town)
-//                }
-//                // default to nation-nation war
-//                else {
-//                    if (town === townNation.capital) { // only nation leading town declare war
-//                        return nationAddEnemy(townNation, enemyNation)
-//                    }
-//                }
-//            }
-//            // nation-town war
-//            else {
-//                for (t in townNation.towns) {
-//                    t.enemies.add(enemy)
-//                    enemy.enemies.add(t)
-//
-//                    t.needsUpdate()
-//                }
-//            }
-//        }
-//        // town declaring war without nation
-//        else {
-//            // town-nation war
-//            if (enemyNation !== null) {
-//                for (t in enemyNation.towns) {
-//                    t.enemies.add(town)
-//                    town.enemies.add(t)
-//
-//                    t.needsUpdate()
-//                }
-//            }
-//            // town-town war
-//            else {
-//                town.enemies.add(enemy)
-//                enemy.enemies.add(town)
-//            }
-//        }
-//
-//        town.needsUpdate()
-//        enemy.needsUpdate()
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        // update nametags
+
+    public fun enableWar(
+        canAnnexTerritories: Boolean,
+        canOnlyAttackBorders: Boolean,
+        destructionEnabled: Boolean,
+    ) {
+        Nodes.war.enable(canAnnexTerritories, canOnlyAttackBorders, destructionEnabled)
+    }
+
+    public fun disableWar() {
+        Nodes.war.disable()
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+    }
+
+    /**
+     * Set two towns as enemies and their nations if needed, order does not matter.
+     * This should be the main function used.
+     */
+    public fun addEnemy(town: Town, enemy: Town): Result<Boolean> {
+        // make sure towns are not allies
+        if (town.allies.contains(enemy)) {
+            return Result.failure(ErrorWarAlly)
+        }
+
+        // check if towns already enemies
+        if (town.enemies.contains(enemy) || enemy.enemies.contains(town)) {
+            return Result.failure(ErrorAlreadyEnemies)
+        }
+
+        val townNation = town.nation
+        val enemyNation = enemy.nation
+
+        if (townNation !== null) {
+            // nation-nation war
+            if (enemyNation !== null) {
+                // civil war boogaloo
+                if (enemyNation === townNation) {
+                    town.enemies.add(enemy)
+                    enemy.enemies.add(town)
+
+                    // remove ally status
+                    town.allies.remove(enemy)
+                    enemy.allies.remove(town)
+                }
+                // default to nation-nation war
+                else {
+                    if (town === townNation.capital) { // only nation leading town declare war
+                        return nationAddEnemy(townNation, enemyNation)
+                    }
+                }
+            }
+            // nation-town war
+            else {
+                for (t in townNation.towns) {
+                    t.enemies.add(enemy)
+                    enemy.enemies.add(t)
+
+                    t.needsUpdate()
+                }
+            }
+        }
+        // town declaring war without nation
+        else {
+            // town-nation war
+            if (enemyNation !== null) {
+                for (t in enemyNation.towns) {
+                    t.enemies.add(town)
+                    town.enemies.add(t)
+
+                    t.needsUpdate()
+                }
+            }
+            // town-town war
+            else {
+                town.enemies.add(enemy)
+                enemy.enemies.add(town)
+            }
+        }
+
+        town.needsUpdate()
+        enemy.needsUpdate()
+        Nodes.needsSave = true
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+
+        // update nametags
 //        Nametag.pipelinedUpdateAllText()
-//
-//        return Result.success(true)
-//    }
-//
+
+        return Result.success(true)
+    }
+
 //    /**
 //     * Removes enemy status between two towns (and nations if needed)
 //     * Order does not matter.
@@ -2565,43 +2565,43 @@ public object Nodes {
 //
 //        return Result.success(true)
 //    }
-//
-//    // set two nations as enemies (bidirectional), order does not matter
-//    // -> sets all towns in each nation as enemies
-//    // returns true on success
-//    private fun nationAddEnemy(nation: Nation, enemy: Nation): Result<Boolean> {
-//        // make sure nations are not allies
-//        if (nation.allies.contains(enemy)) {
-//            return Result.failure(ErrorWarAlly)
-//        }
-//
-//        // check if nations already enemies
-//        if (nation.enemies.contains(enemy) && enemy.enemies.contains(nation)) {
-//            return Result.failure(ErrorAlreadyEnemies)
-//        }
-//
-//        nation.enemies.add(enemy)
-//        enemy.enemies.add(nation)
-//
-//        // mark all towns in each nation as enemies
-//        for (nationTown in nation.towns) {
-//            for (enemyTown in enemy.towns) {
-//                nationTown.enemies.add(enemyTown)
-//                enemyTown.enemies.add(nationTown)
-//
-//                enemyTown.needsUpdate()
-//            }
-//            nationTown.needsUpdate()
-//        }
-//
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        return Result.success(true)
-//    }
-//
+
+    // set two nations as enemies (bidirectional), order does not matter
+    // -> sets all towns in each nation as enemies
+    // returns true on success
+    private fun nationAddEnemy(nation: Nation, enemy: Nation): Result<Boolean> {
+        // make sure nations are not allies
+        if (nation.allies.contains(enemy)) {
+            return Result.failure(ErrorWarAlly)
+        }
+
+        // check if nations already enemies
+        if (nation.enemies.contains(enemy) && enemy.enemies.contains(nation)) {
+            return Result.failure(ErrorAlreadyEnemies)
+        }
+
+        nation.enemies.add(enemy)
+        enemy.enemies.add(nation)
+
+        // mark all towns in each nation as enemies
+        for (nationTown in nation.towns) {
+            for (enemyTown in enemy.towns) {
+                nationTown.enemies.add(enemyTown)
+                enemyTown.enemies.add(nationTown)
+
+                enemyTown.needsUpdate()
+            }
+            nationTown.needsUpdate()
+        }
+
+        Nodes.needsSave = true
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+
+        return Result.success(true)
+    }
+
 //    private fun nationRemoveEnemy(nation: Nation, enemy: Nation): Result<Boolean> {
 //        nation.enemies.remove(enemy)
 //        enemy.enemies.remove(nation)
@@ -2699,38 +2699,38 @@ public object Nodes {
 //
 //        return Result.success(true)
 //    }
-//
-//    /**
-//     * Get diplomatic relationship between two towns
-//     */
-//    public fun getRelationshipOfTownToTown(playerTown: Town?, otherTown: Town?): DiplomaticRelationship {
-//        if (playerTown !== null && otherTown !== null) {
-//            if (playerTown === otherTown) {
-//                return DiplomaticRelationship.TOWN
-//            }
-//
-//            val playerNation = playerTown.nation
-//            val otherNation = otherTown.nation
-//            if (playerNation !== null && playerNation === otherNation) {
-//                return DiplomaticRelationship.NATION
-//            }
-//
-//            if (playerTown.allies.contains(otherTown)) {
-//                return DiplomaticRelationship.ALLY
-//            }
-//
-//            if (playerTown.enemies.contains(otherTown)) {
-//                return DiplomaticRelationship.ENEMY
-//            }
-//        }
-//
-//        return DiplomaticRelationship.NEUTRAL
-//    }
-//
-//    public fun getRelationshipOfPlayerToTown(player: Player, otherTown: Town): DiplomaticRelationship {
-//        val playerTown = Nodes.getTownFromPlayer(player)
-//        return getRelationshipOfTownToTown(playerTown, otherTown)
-//    }
+
+    /**
+     * Get diplomatic relationship between two towns
+     */
+    public fun getRelationshipOfTownToTown(playerTown: Town?, otherTown: Town?): DiplomaticRelationship {
+        if (playerTown !== null && otherTown !== null) {
+            if (playerTown === otherTown) {
+                return DiplomaticRelationship.TOWN
+            }
+
+            val playerNation = playerTown.nation
+            val otherNation = otherTown.nation
+            if (playerNation !== null && playerNation === otherNation) {
+                return DiplomaticRelationship.NATION
+            }
+
+            if (playerTown.allies.contains(otherTown)) {
+                return DiplomaticRelationship.ALLY
+            }
+
+            if (playerTown.enemies.contains(otherTown)) {
+                return DiplomaticRelationship.ENEMY
+            }
+        }
+
+        return DiplomaticRelationship.NEUTRAL
+    }
+
+    public fun getRelationshipOfPlayerToTown(player: Player, otherTown: Town): DiplomaticRelationship {
+        val playerTown = Nodes.getTownFromPlayer(player)
+        return getRelationshipOfTownToTown(playerTown, otherTown)
+    }
 //
 //    public fun getRelationshipOfPlayerToPlayer(player: Player, other: Player): DiplomaticRelationship {
 //        val playerTown = Nodes.getTownFromPlayer(player)

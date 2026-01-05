@@ -19,7 +19,7 @@ import luna.nodes.commands.NodesCommand
 //import luna.nodes.commands.TownChatCommand
 import luna.nodes.commands.TownCommand
 //import luna.nodes.commands.UnallyCommand
-//import luna.nodes.commands.WarCommand
+import luna.nodes.commands.WarCommand
 //import luna.nodes.listeners.NodesChatListener
 //import luna.nodes.listeners.NodesChestProtectionDestroyListener
 //import luna.nodes.listeners.NodesChestProtectionListener
@@ -27,6 +27,10 @@ import luna.nodes.listeners.onInventoryClick
 //import luna.nodes.listeners.NodesPlayerDamageListener
 import io.github.togar2.pvp.MinestomPvP
 import io.github.togar2.pvp.feature.CombatFeatures
+import luna.nodes.listeners.onBlockBreak
+import luna.nodes.listeners.onBlockBreakSuccess
+import luna.nodes.listeners.onBlockPlace
+import luna.nodes.listeners.onBlockPlaceSuccess
 import luna.nodes.listeners.onInventoryClose
 import me.lucko.spark.minestom.SparkMinestom
 import luna.nodes.listeners.onPlayerConfiguration
@@ -34,8 +38,6 @@ import luna.nodes.listeners.onPlayerJoin
 import luna.nodes.listeners.onPlayerQuit
 import luna.nodes.listeners.onPlayerMove
 import luna.nodes.listeners.onPlayerTeleport
-//import luna.nodes.listeners.NodesWarFlagArmorStandListener
-//import luna.nodes.listeners.NodesWorldListener
 import luna.nodes.utils.loadLongFromFile
 import luna.nodes.utils.PlayerNameCache
 import net.minestom.server.Auth
@@ -47,6 +49,8 @@ import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.entity.EntityTeleportEvent
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.event.player.PlayerBlockBreakEvent
+import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.instance.anvil.AnvilLoader
 import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.BlockPickup
@@ -91,9 +95,9 @@ fun main() {
     // load config
     // ===================================
     Nodes.reloadConfig()
-//
-//    Nodes.war.initialize(Config.flagMaterials)
-//
+
+    Nodes.war.initialize(Config.flagBlocks)
+
     // initalize username -> uuid cache
     Nodes.playerNameCache = PlayerNameCache()
     Nodes.playerNameCache.load()
@@ -125,14 +129,16 @@ fun main() {
 //    pluginManager.registerEvents(NodesChestProtectionDestroyListener(), this)
     eventHandler.addListener(InventoryPreClickEvent::class.java, { event -> onInventoryClick(event) })
     eventHandler.addListener(InventoryCloseEvent::class.java, { event -> onInventoryClose(event) })
-//    pluginManager.registerEvents(NodesWorldListener(), this)
+    eventHandler.addListener(PlayerBlockBreakEvent::class.java, { event -> onBlockBreak(event) })
+    eventHandler.addListener(PlayerBlockBreakEvent::class.java, { event -> onBlockBreakSuccess(event) })
+    eventHandler.addListener(PlayerBlockPlaceEvent::class.java, { event -> onBlockPlace(event) })
+    eventHandler.addListener(PlayerBlockPlaceEvent::class.java, { event -> onBlockPlaceSuccess(event) })
 //    pluginManager.registerEvents(NodesPlayerJoinQuitListener(), this)
     eventHandler.addListener(AsyncPlayerConfigurationEvent::class.java, { event -> onPlayerConfiguration(event) })
     eventHandler.addListener(PlayerLoadedEvent::class.java, { event -> onPlayerJoin(event)})
     eventHandler.addListener(PlayerDisconnectEvent::class.java, { event -> onPlayerQuit(event)})
     eventHandler.addListener(PlayerMoveEvent::class.java, { event -> onPlayerMove(event) })
     eventHandler.addListener(EntityTeleportEvent::class.java, { event -> onPlayerTeleport(event) })
-//    pluginManager.registerEvents(NodesWarFlagArmorStandListener(), this)
 //    pluginManager.registerEvents(NodesPlayerDamageListener(), this)
 
     // shutdown task
@@ -145,7 +151,7 @@ fun main() {
 //    this.getCommand("nodesadmin")?.setExecutor(NodesAdminCommand())
 //    this.getCommand("ally")?.setExecutor(AllyCommand())
 //    this.getCommand("unally")?.setExecutor(UnallyCommand())
-//    this.getCommand("war")?.setExecutor(WarCommand())
+    MinecraftServer.getCommandManager().register(WarCommand())
 //    this.getCommand("globalchat")?.setExecutor(GlobalChatCommand())
 //    this.getCommand("townchat")?.setExecutor(TownChatCommand())
 //    this.getCommand("nationchat")?.setExecutor(NationChatCommand())

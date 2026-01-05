@@ -204,7 +204,7 @@ public object WorldMap {
                 val chunkOccupier = Nodes.territoryChunks.get(coord)?.occupier
 
                 // special tokens during war for captured chunks
-                val coordToken = if (/**Nodes.war.enabled && */ residentTown !== null && chunkOccupier !== null) {
+                val coordToken = if (Nodes.war.enabled && residentTown !== null && chunkOccupier !== null) {
                     playerToken = PLAYER_IN_OCCUPIED_TOKEN // overwrite player token with different occupied chunk token
 
                     val chunkOccupierNation = chunkOccupier.nation

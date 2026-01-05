@@ -13,7 +13,7 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 //import org.bukkit.command.TabCompleter
 import net.minestom.server.entity.Player
 //import org.bukkit.inventory.ItemStack
-//import luna.nodes.Config
+import luna.nodes.Config
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.constants.ErrorNationExists
@@ -87,10 +87,10 @@ class NationCreateCommand : Command("create", "new") {
             }
 
             // do not allow during war
-//            if (Nodes.war.enabled == true) {
-//                Message.error(player, "Cannot create nations during war")
-//                return
-//            }
+            if (Nodes.war.enabled == true) {
+                Message.error(player, "Cannot create nations during war")
+                return@addSyntax
+            }
 
             val resident = Nodes.getResident(player)
             if (resident == null) {
@@ -160,11 +160,11 @@ class NationDeleteCommand : Command("delete", "disband") {
                 return@addSyntax
             }
 
-//            // do not allow during war
-//            if (Nodes.war.enabled == true) {
-//                Message.error(player, "Cannot delete your nation during war")
-//                return@addSyntax
-//            }
+            // do not allow during war
+            if (Nodes.war.enabled == true) {
+                Message.error(player, "Cannot delete your nation during war")
+                return@addSyntax
+            }
 
             Nodes.destroyNation(nation)
             Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nation ${nation.name} has been destroyed")
@@ -211,10 +211,10 @@ class NationLeaveCommand : Command("leave") {
             }
 
             // do not allow during war
-//            if (Nodes.war.enabled == true && Config.canLeaveNationDuringWar == false) {
-//                Message.error(player, "Cannot leave your nation during war")
-//                return
-//            }
+            if (Nodes.war.enabled == true && Config.canLeaveNationDuringWar == false) {
+                Message.error(player, "Cannot leave your nation during war")
+                return@addSyntax
+            }
 
             // remove town
             Nodes.removeTownFromNation(nation, town)
