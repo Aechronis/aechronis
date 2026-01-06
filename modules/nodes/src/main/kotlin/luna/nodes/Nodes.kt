@@ -23,7 +23,7 @@ import net.minestom.server.inventory.Inventory
 //import org.bukkit.plugin.Plugin
 //import luna.nodes.chat.ChatMode
 import luna.nodes.constants.DiplomaticRelationship
-//import luna.nodes.constants.ErrorAlreadyAllies
+import luna.nodes.constants.ErrorAlreadyAllies
 import luna.nodes.constants.ErrorAlreadyEnemies
 import luna.nodes.constants.ErrorNationDoesNotHaveTown
 import luna.nodes.constants.ErrorNationExists
@@ -2397,120 +2397,118 @@ public object Nodes {
 //        return Result.success(true)
 //    }
 //
-//    /**
-//     * Set two towns as allies (bidirectional), order does not matter.
-//     * Handle town-town, town-nation, nation-town, nation-nation cases
-//     */
-//    public fun addAlly(town: Town, other: Town): Result<Boolean> {
-//        val pm = Bukkit.getPluginManager()
-//
-//        // towns already allies
-//        if (town.allies.contains(other) && other.allies.contains(town)) {
-//            return Result.failure(ErrorAlreadyAllies)
-//        }
-//
-//        // cannot ally enemies
-//        if (town.enemies.contains(other) || other.enemies.contains(town)) {
-//            return Result.failure(ErrorAlreadyEnemies)
-//        }
-//
-//        val townNation = town.nation
-//        val otherNation = other.nation
-//
-//        if (townNation !== null) {
-//            // nation-nation
-//            if (otherNation !== null && townNation !== otherNation) {
-//                Nodes.nationAddAlly(townNation, otherNation)
-//            }
-//            // nation-town
-//            else {
-//                for (t in townNation.towns) {
-//                    t.allies.add(other)
-//                    other.allies.add(town)
-//
-//                    val msgTown1 = "Your town is now allied with ${town2.name}"
-//                    for (r in t.residents) {
-//                        val player = r.player()
-//                        if (player !== null) {
-//                            Message.print(player, msgTown1)
-//                        }
-//                    }
-//
-//                    val msgTown2 = "Your town is now allied with ${t.name}"
-//                    for (r in other.residents) {
-//                        val player = r.player()
-//                        if (player !== null) {
-//                            Message.print(player, msgTown2)
-//                        }
-//                    }
-//
-//                    t.needsUpdate()
-//                }
-//            }
-//        }
-//        // town allying without nation
-//        else {
-//            // town-nation
-//            if (otherNation !== null) {
-//                for (t in otherNation.towns) {
-//                    t.allies.add(town)
-//                    town.allies.add(t)
-//
-//                    val msgTown1 = "Your town is now allied with ${t.name}"
-//                    for (r in town.residents) {
-//                        val player = r.player()
-//                        if (player !== null) {
-//                            Message.print(player, msgTown1)
-//                        }
-//                    }
-//
-//                    val msgTown2 = "Your town is now allied with ${town.name}"
-//                    for (r in t.residents) {
-//                        val player = r.player()
-//                        if (player !== null) {
-//                            Message.print(player, msgTown2)
-//                        }
-//                    }
-//
-//                    t.needsUpdate()
-//                }
-//            }
-//            // town-town
-//            else {
-//                town.allies.add(other)
-//                other.allies.add(town)
-//
-//                val msgTown1 = "Your town is now allied with ${other.name}"
-//                for (r in town.residents) {
-//                    val player = r.player()
-//                    if (player !== null) {
-//                        Message.print(player, msgTown1)
-//                    }
-//                }
-//
-//                val msgTown2 = "Your town is now allied with ${town.name}"
-//                for (r in other.residents) {
-//                    val player = r.player()
-//                    if (player !== null) {
-//                        Message.print(player, msgTown2)
-//                    }
-//                }
-//            }
-//        }
-//
-//        town.needsUpdate()
-//        other.needsUpdate()
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        // update nametags
+    /**
+     * Set two towns as allies (bidirectional), order does not matter.
+     * Handle town-town, town-nation, nation-town, nation-nation cases
+     */
+    public fun addAlly(town: Town, other: Town): Result<Boolean> {
+        // towns already allies
+        if (town.allies.contains(other) && other.allies.contains(town)) {
+            return Result.failure(ErrorAlreadyAllies)
+        }
+
+        // cannot ally enemies
+        if (town.enemies.contains(other) || other.enemies.contains(town)) {
+            return Result.failure(ErrorAlreadyEnemies)
+        }
+
+        val townNation = town.nation
+        val otherNation = other.nation
+
+        if (townNation !== null) {
+            // nation-nation
+            if (otherNation !== null && townNation !== otherNation) {
+                Nodes.nationAddAlly(townNation, otherNation)
+            }
+            // nation-town
+            else {
+                for (t in townNation.towns) {
+                    t.allies.add(other)
+                    other.allies.add(town)
+
+                    val msgTown1 = "Your town is now allied with ${other.name}"
+                    for (r in t.residents) {
+                        val player = r.player()
+                        if (player !== null) {
+                            Message.print(player, msgTown1)
+                        }
+                    }
+
+                    val msgTown2 = "Your town is now allied with ${t.name}"
+                    for (r in other.residents) {
+                        val player = r.player()
+                        if (player !== null) {
+                            Message.print(player, msgTown2)
+                        }
+                    }
+
+                    t.needsUpdate()
+                }
+            }
+        }
+        // town allying without nation
+        else {
+            // town-nation
+            if (otherNation !== null) {
+                for (t in otherNation.towns) {
+                    t.allies.add(town)
+                    town.allies.add(t)
+
+                    val msgTown1 = "Your town is now allied with ${t.name}"
+                    for (r in town.residents) {
+                        val player = r.player()
+                        if (player !== null) {
+                            Message.print(player, msgTown1)
+                        }
+                    }
+
+                    val msgTown2 = "Your town is now allied with ${town.name}"
+                    for (r in t.residents) {
+                        val player = r.player()
+                        if (player !== null) {
+                            Message.print(player, msgTown2)
+                        }
+                    }
+
+                    t.needsUpdate()
+                }
+            }
+            // town-town
+            else {
+                town.allies.add(other)
+                other.allies.add(town)
+
+                val msgTown1 = "Your town is now allied with ${other.name}"
+                for (r in town.residents) {
+                    val player = r.player()
+                    if (player !== null) {
+                        Message.print(player, msgTown1)
+                    }
+                }
+
+                val msgTown2 = "Your town is now allied with ${town.name}"
+                for (r in other.residents) {
+                    val player = r.player()
+                    if (player !== null) {
+                        Message.print(player, msgTown2)
+                    }
+                }
+            }
+        }
+
+        town.needsUpdate()
+        other.needsUpdate()
+        Nodes.needsSave = true
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+
+        // update nametags
 //        Nametag.pipelinedUpdateAllText()
-//
-//        return Result.success(true)
-//    }
-//
+
+        return Result.success(true)
+    }
+
 //    public fun removeAlly(town: Town, other: Town): Result<Boolean> {
 //        // not currently allies
 //        if (!town.allies.contains(other) || !other.allies.contains(town)) {
@@ -2625,58 +2623,56 @@ public object Nodes {
 //        return Result.success(true)
 //    }
 //
-//    // add alliance between two nations and their towns (bidirectional)
-//    private fun nationAddAlly(nation: Nation, ally: Nation): Result<Boolean> {
-//        val pm = Bukkit.getPluginManager()
-//
-//        // make sure nations are not enemies
-//        if (nation.enemies.contains(ally) || ally.enemies.contains(nation)) {
-//            return Result.failure(ErrorAlreadyEnemies)
-//        }
-//
-//        // check if nations already have alliance
-//        if (nation.allies.contains(ally) && ally.allies.contains(nation)) {
-//            return Result.failure(ErrorAlreadyAllies)
-//        }
-//
-//        nation.allies.add(ally)
-//        ally.allies.add(nation)
-//
-//        // mark all towns in each nation as enemies
-//        for (nationTown in nation.towns) {
-//            for (allyTown in ally.towns) {
-//                nationTown.allies.add(allyTown)
-//                allyTown.allies.add(nationTown)
-//
-//                allyTown.needsUpdate()
-//
-//                val msgTown1 = "Your town is now allied with ${allyTown.name}"
-//                for (r in nationTown.residents) {
-//                    val player = r.player()
-//                    if (player !== null) {
-//                        Message.print(player, msgTown1)
-//                    }
-//                }
-//
-//                val msgTown2 = "Your town is now allied with ${nationTown.name}"
-//                for (r in allyTown.residents) {
-//                    val player = r.player()
-//                    if (player !== null) {
-//                        Message.print(player, msgTown2)
-//                    }
-//                }
-//            }
-//            nationTown.needsUpdate()
-//        }
-//
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        return Result.success(true)
-//    }
-//
+    // add alliance between two nations and their towns (bidirectional)
+    private fun nationAddAlly(nation: Nation, ally: Nation): Result<Boolean> {
+        // make sure nations are not enemies
+        if (nation.enemies.contains(ally) || ally.enemies.contains(nation)) {
+            return Result.failure(ErrorAlreadyEnemies)
+        }
+
+        // check if nations already have alliance
+        if (nation.allies.contains(ally) && ally.allies.contains(nation)) {
+            return Result.failure(ErrorAlreadyAllies)
+        }
+
+        nation.allies.add(ally)
+        ally.allies.add(nation)
+
+        // mark all towns in each nation as enemies
+        for (nationTown in nation.towns) {
+            for (allyTown in ally.towns) {
+                nationTown.allies.add(allyTown)
+                allyTown.allies.add(nationTown)
+
+                allyTown.needsUpdate()
+
+                val msgTown1 = "Your town is now allied with ${allyTown.name}"
+                for (r in nationTown.residents) {
+                    val player = r.player()
+                    if (player !== null) {
+                        Message.print(player, msgTown1)
+                    }
+                }
+
+                val msgTown2 = "Your town is now allied with ${nationTown.name}"
+                for (r in allyTown.residents) {
+                    val player = r.player()
+                    if (player !== null) {
+                        Message.print(player, msgTown2)
+                    }
+                }
+            }
+            nationTown.needsUpdate()
+        }
+
+        Nodes.needsSave = true
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+
+        return Result.success(true)
+    }
+
 //    private fun nationRemoveAlly(nation: Nation, ally: Nation): Result<Boolean> {
 //        nation.allies.remove(ally)
 //        ally.allies.remove(nation)

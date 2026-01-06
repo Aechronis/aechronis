@@ -7,7 +7,7 @@ package luna.nodes
 //import org.bukkit.command.TabCompleter
 //import org.bukkit.plugin.java.JavaPlugin
 //import luna.nodes.commands.AllyChatCommand
-//import luna.nodes.commands.AllyCommand
+import luna.nodes.commands.AllyCommand
 //import luna.nodes.commands.GlobalChatCommand
 //import luna.nodes.commands.NationChatCommand
 import luna.nodes.commands.NationCommand
@@ -151,7 +151,7 @@ fun main() {
     MinecraftServer.getCommandManager().register(NationCommand())
     MinecraftServer.getCommandManager().register(NodesCommand())
 //    this.getCommand("nodesadmin")?.setExecutor(NodesAdminCommand())
-//    this.getCommand("ally")?.setExecutor(AllyCommand())
+    MinecraftServer.getCommandManager().register(AllyCommand())
 //    this.getCommand("unally")?.setExecutor(UnallyCommand())
     MinecraftServer.getCommandManager().register(WarCommand())
 //    this.getCommand("globalchat")?.setExecutor(GlobalChatCommand())
