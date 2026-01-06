@@ -24,6 +24,5 @@ jobs:
           distribution: temurin
           java-version: 25
       - run: |
-          cd nodes
           chmod +x gradlew
           ./gradlew clean build
