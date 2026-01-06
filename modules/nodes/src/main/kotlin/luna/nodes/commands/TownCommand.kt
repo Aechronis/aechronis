@@ -614,14 +614,14 @@ class TownInviteCommand : Command("invite") {
             }
 
             if (town.leader === resident || town.officers.contains(resident)) {
-                Message.print(player, "${invitee.name} has been invited to your town.")
+                Message.print(player, "${invitee.username} has been invited to your town.")
                 Message.print(invitee, "You have been invited to become a member of ${town.name}.\nType \"/t accept\" to join the town or \"/t reject\" to refuse the offer.")
                 inviteeResident.invitingTown = town
                 inviteeResident.invitingPlayer = player
                 inviteeResident.inviteThread = MinecraftServer.getSchedulerManager()
                     .buildTask {
                         if (inviteeResident.invitingPlayer == player) {
-                            Message.print(player, "${invitee.name} didn't respond to your town invitation!")
+                            Message.print(player, "${invitee.username} didn't respond to your town invitation!")
                             inviteeResident.invitingTown = null
                             inviteeResident.invitingPlayer = null
                             inviteeResident.inviteThread = null
@@ -1212,7 +1212,7 @@ class TownOnlineCommand : Command("online") {
             }
 
             val numPlayersOnline = town.playersOnline.size
-            val playersOnline = town.playersOnline.map({ p -> p.name }).joinToString(", ")
+            val playersOnline = town.playersOnline.map({ p -> p.username }).joinToString(", ")
             Message.print(player, "Players online in town ${town.name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
         })
 
@@ -1239,7 +1239,7 @@ class TownOnlineCommand : Command("online") {
             }
 
             val numPlayersOnline = town.playersOnline.size
-            val playersOnline = town.playersOnline.map({ p -> p.name }).joinToString(", ")
+            val playersOnline = town.playersOnline.map({ p -> p.username }).joinToString(", ")
             Message.print(player, "Players online in town ${town.name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
         }, townArg)
     }

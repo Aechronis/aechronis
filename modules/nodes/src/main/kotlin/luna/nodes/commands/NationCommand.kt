@@ -26,6 +26,9 @@ import luna.nodes.utils.sanitizeString
 //import luna.nodes.utils.string.filterNationTown
 //import luna.nodes.utils.string.filterTown
 import luna.nodes.utils.stringInputIsValid
+import net.minestom.server.MinecraftServer
+import net.minestom.server.timer.TaskSchedule
+
 //import java.util.concurrent.TimeUnit
 
 class NationCommand : Command("n", "nation") {
@@ -49,6 +52,9 @@ class NationCommand : Command("n", "nation") {
         addSubcommand(NationDeleteCommand())
         addSubcommand(NationLeaveCommand())
         addSubcommand(NationCapitalCommand())
+        addSubcommand(NationInviteCommand())
+        addSubcommand(NationAcceptCommand())
+        addSubcommand(NationDenyCommand())
         addSubcommand(NationListCommand())
         addSubcommand(NationColorCommand())
         addSubcommand(NationRenameCommand())
@@ -283,6 +289,154 @@ class NationCapitalCommand : Command("capital") {
     }
 }
 
+class NationInviteCommand : Command("invite") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: ${ChatColor.WHITE}/nation invite [town]")
+        }
+
+        val townArg = ArgumentType.String("town")
+
+        addSyntax( { sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if (player == null) {
+                return@addSyntax
+            }
+
+            val resident = Nodes.getResident(player)
+            if (resident == null) {
+                return@addSyntax
+            }
+
+            val nation = resident.nation
+            if (nation == null) {
+                Message.error(player, "You do not belong to a nation")
+                return@addSyntax
+            }
+
+            val leader = nation.capital.leader
+            if (resident !== leader) {
+                Message.error(player, "Only nation leaders can invite new towns")
+                return@addSyntax
+            }
+
+            val inviteeTown = Nodes.getTownFromName(context[townArg])
+            if (inviteeTown == null) {
+                Message.error(player, "That town does not exist")
+                return@addSyntax
+            }
+            if (inviteeTown.nation != null) {
+                Message.error(player, "That town already belongs to another nation")
+                return@addSyntax
+            }
+
+            val inviteeResident = inviteeTown.leader
+            if (inviteeResident == null) {
+                Message.error(player, "That town has no leader (?)")
+                return@addSyntax
+            }
+            val invitee: Player? = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(inviteeResident.name)
+            if (invitee == null) {
+                Message.error(player, "That town's leader is not online")
+                return@addSyntax
+            }
+
+            Message.print(player, "${inviteeTown.name} has been invited to your nation.")
+            Message.print(invitee, "Your town has been invited to join the nation of ${nation.name} by ${player.username}. \nType \"/n accept\" to agree or \"/n reject\" to refuse the offer.")
+            inviteeResident.invitingNation = nation
+            inviteeResident.invitingTown = inviteeTown
+            inviteeResident.invitingPlayer = player
+            inviteeResident.inviteThread = MinecraftServer.getSchedulerManager()
+                .buildTask {
+                    if (inviteeResident.invitingPlayer == player) {
+                        Message.print(player, "${invitee.username} didn't respond to your nation invitation!")
+                        inviteeResident.invitingNation = null
+                        inviteeResident.invitingTown = null
+                        inviteeResident.invitingPlayer = null
+                        inviteeResident.inviteThread = null
+                    }
+                }
+                .delay(TaskSchedule.tick(1200))
+                .schedule()
+        }, townArg)
+    }
+}
+
+class NationAcceptCommand : Command("accept") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nation accept")
+        }
+
+        addSyntax( { sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if (player == null) {
+                return@addSyntax
+            }
+
+            val resident = Nodes.getResident(player)
+            if (resident == null) {
+                return@addSyntax
+            }
+
+            if (resident.town != resident.invitingTown) {
+                Message.error(player, "Invite invalid")
+                return@addSyntax
+            }
+
+            if (resident.invitingNation == null) {
+                Message.error(player, "You have not been invited to any nation")
+                return@addSyntax
+            }
+
+            Message.print(player, "${resident.town?.name} is now a jurisdiction of ${resident.invitingNation?.name}!")
+            Message.print(resident.invitingPlayer, "${resident.town?.name} has accepted your authority!")
+
+            Nodes.addTownToNation(resident.invitingNation!!, resident.town!!)
+            resident.invitingNation = null
+            resident.invitingTown = null
+            resident.invitingPlayer = null
+            resident.inviteThread = null
+        })
+    }
+}
+
+class NationDenyCommand : Command("deny", "reject") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nation deny")
+        }
+
+        addSyntax({ sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if (player == null) {
+                return@addSyntax
+            }
+
+            val resident = Nodes.getResident(player)
+            if (resident == null) {
+                return@addSyntax
+            }
+
+            if (resident.invitingNation == null) {
+                Message.error(player, "You have not been invited to any nation")
+                return@addSyntax
+            }
+
+            Message.print(player, "You have rejected the invitation to ${resident.invitingNation?.name}!")
+            Message.print(resident.invitingPlayer, "${resident.town?.name} has rejected your authority!")
+
+            resident.invitingNation = null
+            resident.invitingTown = null
+            resident.invitingPlayer = null
+            resident.inviteThread = null
+        })
+    }
+}
+
 class NationListCommand : Command("list") {
     init {
         setDefaultExecutor { sender, context ->
@@ -442,7 +596,7 @@ class NationOnlineCommand : Command("online") {
             }
 
             val numPlayersOnline = nation.playersOnline.size
-            val playersOnline = nation.playersOnline.map({ p -> p.name }).joinToString(", ")
+            val playersOnline = nation.playersOnline.map({ p -> p.username }).joinToString(", ")
             Message.print(player, "Players online in nation ${nation.name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
         })
 
@@ -470,7 +624,7 @@ class NationOnlineCommand : Command("online") {
             }
 
             val numPlayersOnline = nation.playersOnline.size
-            val playersOnline = nation.playersOnline.map({ p -> p.name }).joinToString(", ")
+            val playersOnline = nation.playersOnline.map({ p -> p.username }).joinToString(", ")
             Message.print(player, "Players online in nation ${nation.name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
         }, nationArg)
     }

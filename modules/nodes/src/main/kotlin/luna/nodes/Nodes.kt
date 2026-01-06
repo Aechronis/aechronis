@@ -1929,64 +1929,64 @@ public object Nodes {
     public fun getNationCount(): Int = Nodes.nations.size
 
     public fun getNationFromName(name: String): Nation? = nations.get(name)
-//
-//    public fun addTownToNation(nation: Nation, town: Town): Result<Town> {
-//        // check town does not belong to nation
-//        if (town.nation != null) {
-//            return Result.failure(ErrorTownHasNation)
-//        }
-//
-//        // add town to nation
-//        nation.towns.add(town)
-//        town.nation = nation
-//        town.needsUpdate()
-//
-//        // add nation to residents
-//        for (r in town.residents) {
-//            r.nation = nation
-//            nation.residents.add(r)
-//            val player = r.player()
-//            if (player !== null) {
-//                nation.playersOnline.add(player)
-//            }
-//            r.needsUpdate()
-//        }
-//
-//        // remove current town alliances and enemies, set equal to nation capital
-//        for (ally in town.allies) {
-//            ally.allies.remove(town)
-//            ally.needsUpdate()
-//        }
-//        for (enemy in town.enemies) {
-//            enemy.enemies.remove(town)
-//            enemy.needsUpdate()
-//        }
-//
-//        town.allies.clear()
-//        town.enemies.clear()
-//
-//        for (ally in nation.capital.allies) {
-//            town.allies.add(ally)
-//            ally.allies.add(town)
-//            ally.needsUpdate()
-//        }
-//        for (enemy in nation.capital.enemies) {
-//            town.enemies.add(enemy)
-//            enemy.enemies.add(town)
-//            enemy.needsUpdate()
-//        }
-//
-//        nation.needsUpdate()
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        // update nametags
+
+    public fun addTownToNation(nation: Nation, town: Town): Result<Town> {
+        // check town does not belong to nation
+        if (town.nation != null) {
+            return Result.failure(ErrorTownHasNation)
+        }
+
+        // add town to nation
+        nation.towns.add(town)
+        town.nation = nation
+        town.needsUpdate()
+
+        // add nation to residents
+        for (r in town.residents) {
+            r.nation = nation
+            nation.residents.add(r)
+            val player = r.player()
+            if (player !== null) {
+                nation.playersOnline.add(player)
+            }
+            r.needsUpdate()
+        }
+
+        // remove current town alliances and enemies, set equal to nation capital
+        for (ally in town.allies) {
+            ally.allies.remove(town)
+            ally.needsUpdate()
+        }
+        for (enemy in town.enemies) {
+            enemy.enemies.remove(town)
+            enemy.needsUpdate()
+        }
+
+        town.allies.clear()
+        town.enemies.clear()
+
+        for (ally in nation.capital.allies) {
+            town.allies.add(ally)
+            ally.allies.add(town)
+            ally.needsUpdate()
+        }
+        for (enemy in nation.capital.enemies) {
+            town.enemies.add(enemy)
+            enemy.enemies.add(town)
+            enemy.needsUpdate()
+        }
+
+        nation.needsUpdate()
+        Nodes.needsSave = true
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+
+        // update nametags
 //        Nametag.pipelinedUpdateAllText()
-//
-//        return Result.success(town)
-//    }
+
+        return Result.success(town)
+    }
 
     public fun removeTownFromNation(nation: Nation, town: Town): Result<Town> {
         // check town belongs to nation
