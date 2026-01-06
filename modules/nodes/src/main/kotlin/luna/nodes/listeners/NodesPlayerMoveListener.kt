@@ -37,11 +37,11 @@ public fun onPlayerMove(event: PlayerMoveEvent) {
     }
 
     // player moved -> cancel any home teleport
-//    if (resident?.teleportThread != null) {
-//        resident.teleportThread!!.cancel()
-//        resident.teleportThread = null // remove reference
-//        Message.error(event.player, "You moved, teleport cancelled")
-//    }
+    if (resident?.teleportThread != null) {
+        resident.teleportThread!!.cancel()
+        resident.teleportThread = null // remove reference
+        Message.error(event.player, "You moved, teleport cancelled")
+    }
 
     // check if player chunk changed
     val fromCoord = Coord.fromBlockCoords(fromX, fromZ)

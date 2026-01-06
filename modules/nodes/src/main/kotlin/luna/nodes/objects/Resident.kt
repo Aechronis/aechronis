@@ -8,7 +8,6 @@
 
 package luna.nodes.objects
 
-//import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import net.minestom.server.MinecraftServer
 import org.bukkit.ChatColor
 import net.minestom.server.command.CommandSender
@@ -17,6 +16,7 @@ import luna.nodes.Config
 import luna.nodes.Message
 import luna.nodes.chat.ChatMode
 import luna.nodes.serdes.SaveState
+import net.minestom.server.timer.Task
 import java.util.UUID
 
 public class Resident(val uuid: UUID, val name: String) {
@@ -38,13 +38,13 @@ public class Resident(val uuid: UUID, val name: String) {
     var suffix: String = ""
 
     // town teleport thread
-//    var teleportThread: ScheduledTask? = null
+    var teleportThread: Task? = null
 
     // town invite
     var invitingNation: Nation? = null
     var invitingTown: Town? = null
     var invitingPlayer: Player? = null
-//    var inviteThread: ScheduledTask? = null
+    var inviteThread: Task? = null
 
     // minimap
     var minimap: Minimap? = null

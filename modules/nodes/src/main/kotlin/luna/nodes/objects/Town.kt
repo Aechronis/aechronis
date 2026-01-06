@@ -5,7 +5,6 @@
 
 package luna.nodes.objects
 
-//import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import org.bukkit.ChatColor
 import net.minestom.server.coordinate.Pos
 //import org.bukkit.Material
@@ -21,6 +20,7 @@ import luna.nodes.utils.EnumArrayMap
 import luna.nodes.utils.createEnumArrayMap
 import luna.nodes.utils.string.stringArrayFromSet
 import luna.nodes.utils.string.stringMapFromMap
+import net.minestom.server.timer.Task
 import java.util.EnumSet
 import java.util.UUID
 import java.util.concurrent.ThreadLocalRandom
@@ -101,8 +101,8 @@ public class Town(
     // flag that anyone can join town
     var isOpen: Boolean = false
 
-//    // players applying to town and their scheduledtasks
-//    val applications: HashMap<Resident, ScheduledTask> = hashMapOf()
+    // players applying to town and their tasks
+    val applications: HashMap<Resident, Task> = hashMapOf()
 
     // cooldown timer for moving town home territory
     var moveHomeCooldown: Long = 0L

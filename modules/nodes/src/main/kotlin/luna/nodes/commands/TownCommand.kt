@@ -37,6 +37,7 @@ import luna.nodes.constants.TownPermissions
 import luna.nodes.constants.PermissionsGroup
 //import luna.nodes.constants.TownPermissions
 import luna.nodes.objects.Coord
+import luna.nodes.objects.Resident
 //import luna.nodes.objects.Resident
 import luna.nodes.objects.Town
 import luna.nodes.utils.sanitizeString
@@ -45,6 +46,8 @@ import luna.nodes.utils.sanitizeString
 //import luna.nodes.utils.string.filterTown
 //import luna.nodes.utils.string.filterTownResident
 import luna.nodes.utils.stringInputIsValid
+import net.minestom.server.timer.TaskSchedule
+
 //import java.util.concurrent.TimeUnit
 
 // ==================================================
@@ -105,8 +108,13 @@ class TownCommand : Command("t", "town") {
         addSubcommand(TownPromoteCommand())
         addSubcommand(TownDemoteCommand())
         addSubcommand(TownLeaderCommand())
+        addSubcommand(TownApplyCommand())
+        addSubcommand(TownInviteCommand())
+        addSubcommand(TownAcceptCommand())
+        addSubcommand(TownDenyCommand())
         addSubcommand(TownLeaveCommand())
         addSubcommand(TownKickCommand())
+        addSubcommand(TownSpawn())
         addSubcommand(TownSetSpawn())
         addSubcommand(TownListCommand())
         addSubcommand(TownInfoCommand())
@@ -477,6 +485,420 @@ class TownLeaderCommand : Command("leader") {
     }
 }
 
+class TownApplyCommand: Command("apply", "join") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /town apply [town]")
+        }
+
+        val townArg = ArgumentType.String("town")
+
+        addSyntax( {sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if (player == null) {
+                return@addSyntax
+            }
+
+            val resident = Nodes.getResident(player)
+            if (resident == null) {
+                return@addSyntax
+            }
+
+            if (resident.town != null) {
+                Message.error(player, "You are already a member of a town")
+                return@addSyntax
+            }
+
+            val town = Nodes.getTownFromName(context[townArg])
+            if (town == null) {
+                Message.error(player, "That town does not exist")
+                return@addSyntax
+            }
+
+            if (town.isOpen == true) {
+                Nodes.addResidentToTown(town, resident)
+                Message.print(player, "You are now a resident of ${town.name}!")
+                return@addSyntax
+            }
+
+            if (town.applications.containsKey(resident)) {
+                Message.error(player, "You have already applied to ${town.name}")
+                return@addSyntax
+            }
+
+            val approvers: ArrayList<Player> = ArrayList()
+            MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(town.leader!!.name)?.let { player ->
+                approvers.add(player)
+            }
+            town.officers.forEach { officer ->
+                MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(officer.name)?.let { player ->
+                    approvers.add(player)
+                }
+            }
+
+            if (approvers.isEmpty()) {
+                Message.error(player, "There are no officers online from ${town.name} to receive your application")
+                return@addSyntax
+            }
+
+            approvers.forEach { approver ->
+                Message.print(approver, "${resident.name} has applied to join to your town. \nType \"/t accept\" to let them in or \"/t reject\" to refuse the offer.")
+            }
+            Message.print(player, "Your application has been sent")
+
+            town.applications.put(
+                resident,
+                MinecraftServer.getSchedulerManager()
+                    .buildTask {
+                        if (resident.town == null) {
+                            player.sendMessage("No one in ${town.name} responded to your application!")
+                            town.applications.remove(resident)
+                        }
+                    }
+                    .delay(TaskSchedule.tick(1200))
+                    .schedule()
+            )
+        }, townArg)
+    }
+}
+
+class TownInviteCommand : Command("invite") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /town invite [player]")
+        }
+
+        val inviteeArg = ArgumentType.String("player")
+
+        addSyntax( {sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if (player == null) {
+                return@addSyntax
+            }
+            val resident = Nodes.getResident(player)
+            if (resident == null) {
+                return@addSyntax
+            }
+            val town = resident.town
+            if (town == null) {
+                Message.error(player, "You are not a member of a town")
+                return@addSyntax
+            }
+
+            val invitee: Player? = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(context[inviteeArg])
+            if (invitee == null) {
+                Message.error(player, "That player is not online")
+                return@addSyntax
+            } else if (invitee == player) {
+                Message.error(player, "You're already in your town")
+                return@addSyntax
+            }
+
+            val inviteeResident = Nodes.getResident(invitee)
+            if (inviteeResident == null) {
+                return@addSyntax
+            }
+            if (inviteeResident.invitingTown == town) {
+                Message.error(player, "This player has already been invited to the town")
+                return@addSyntax
+            } else if (inviteeResident.invitingTown != null) {
+                Message.error(player, "This player is considering another town invitation")
+                return@addSyntax
+            }
+            val inviteeTown = inviteeResident.town
+            if (inviteeTown != null) {
+                Message.error(player, "This player is already a member of a town")
+                return@addSyntax
+            }
+
+            if (town.leader === resident || town.officers.contains(resident)) {
+                Message.print(player, "${invitee.name} has been invited to your town.")
+                Message.print(invitee, "You have been invited to become a member of ${town.name}.\nType \"/t accept\" to join the town or \"/t reject\" to refuse the offer.")
+                inviteeResident.invitingTown = town
+                inviteeResident.invitingPlayer = player
+                inviteeResident.inviteThread = MinecraftServer.getSchedulerManager()
+                    .buildTask {
+                        if (inviteeResident.invitingPlayer == player) {
+                            Message.print(player, "${invitee.name} didn't respond to your town invitation!")
+                            inviteeResident.invitingTown = null
+                            inviteeResident.invitingPlayer = null
+                            inviteeResident.inviteThread = null
+                        }
+                    }
+                    .delay(TaskSchedule.tick(1200))
+                    .schedule()
+            } else {
+                Message.error(player, "You are not allowed to invite new members")
+            }
+
+        }, inviteeArg)
+    }
+}
+
+class TownAcceptCommand : Command("accept") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.error(sender, "Usage: /t accept [player]")
+        }
+
+        val applicantArg = ArgumentType.String("player")
+
+        addSyntax({ sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if (player == null) {
+                return@addSyntax
+            }
+
+            val resident = Nodes.getResident(player)
+            if (resident == null) {
+                return@addSyntax
+            }
+
+            val town = resident.town
+            if (town == null) {
+                if (resident.invitingTown == null) {
+                    Message.error(player, "You have not been invited to any town or your invitation expired")
+                    return@addSyntax
+                }
+
+                Message.print(player, "You are now a member of ${resident.invitingTown?.name}! Type \"/t spawn\" to teleport to your new town.")
+                Message.print(resident.invitingPlayer, "${resident.name} has accepted your invitation!")
+
+                Nodes.addResidentToTown(resident.invitingTown!!, resident)
+                resident.invitingTown = null
+                resident.invitingPlayer = null
+                resident.inviteThread = null
+            } else {
+                if (town.leader != resident && !town.officers.contains(resident)) {
+                    Message.error(player, "You aren't allowed to consider town applications")
+                    return@addSyntax
+                }
+
+                if (town.applications.isEmpty()) {
+                    Message.error(player, "There are no active applications")
+                    return@addSyntax
+                }
+
+                var applicant: Resident = resident
+                if (town.applications.size == 1) {
+                    town.applications.forEach { k, v ->
+                        applicant = k
+                    }
+                } else {
+                    val applicantsString = town.applications.map { application -> application.key.name }.joinToString(", ")
+                    Message.print(player, "There are multiple town applications. Please use \"/town accept [player]\".\nCurrent applicants: $applicantsString")
+                    return@addSyntax
+                }
+
+                Message.print(player, "${applicant.name} has been accepted into your town!")
+                val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
+                if (applicantPlayer != null) {
+                    Message.print(applicantPlayer, "You have been accepted into ${town.name}!")
+                }
+
+                Nodes.addResidentToTown(town, applicant)
+                town.applications.remove(applicant)
+            }
+        })
+
+        addSyntax( { sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if (player == null) {
+                return@addSyntax
+            }
+
+            val resident = Nodes.getResident(player)
+            if (resident == null) {
+                return@addSyntax
+            }
+
+            val town = resident.town
+            if (town == null) {
+                if (resident.invitingTown == null) {
+                    Message.error(player, "You have not been invited to any town or your invitation expired")
+                    return@addSyntax
+                }
+
+                Message.print(player, "You are now a member of ${resident.invitingTown?.name}! Type \"/t spawn\" to teleport to your new town.")
+                Message.print(resident.invitingPlayer, "${resident.name} has accepted your invitation!")
+
+                Nodes.addResidentToTown(resident.invitingTown!!, resident)
+                resident.invitingTown = null
+                resident.invitingPlayer = null
+                resident.inviteThread = null
+            } else {
+                if (town.leader != resident && !town.officers.contains(resident)) {
+                    Message.error(player, "You aren't allowed to consider town applications")
+                    return@addSyntax
+                }
+
+                if (town.applications.isEmpty()) {
+                    Message.error(player, "There are no active applications")
+                    return@addSyntax
+                }
+
+                var applicant: Resident = resident
+                if (town.applications.size == 1) {
+                    town.applications.forEach { k, v ->
+                        applicant = k
+                    }
+                    if (context[applicantArg].lowercase() != applicant.name.lowercase()) {
+                        Message.error(player, "That player has not applied or their application has expired")
+                        return@addSyntax
+                    }
+                } else {
+                    applicant = Nodes.getResidentFromName(context[applicantArg])!!
+                    if (!town.applications.containsKey(applicant)) {
+                        Message.error(player, "That player has not applied or their application has expired")
+                        return@addSyntax
+                    }
+                }
+
+                Message.print(player, "${applicant.name} has been accepted into your town!")
+                val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
+                if (applicantPlayer != null) {
+                    Message.print(applicantPlayer, "You have been accepted into ${town.name}!")
+                }
+
+                Nodes.addResidentToTown(town, applicant)
+                town.applications.remove(applicant)
+            }
+        }, applicantArg)
+    }
+}
+
+class TownDenyCommand : Command("deny", "reject") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.error(sender, "Usage: /t deny [player]")
+        }
+
+        val applicantArg = ArgumentType.String("player")
+
+        addSyntax( { sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if (player == null) {
+                return@addSyntax
+            }
+
+            val resident = Nodes.getResident(player)
+            if (resident == null) {
+                return@addSyntax
+            }
+
+            val town = resident.town
+            if (town == null) {
+                if (resident.invitingTown == null) {
+                    Message.error(player, "You have not been invited to any town or your invitation expired")
+                    return@addSyntax
+                }
+
+                Message.print(player, "You have rejected the invitation to join ${resident.invitingTown?.name}")
+                Message.print(resident.invitingPlayer, "${resident.name} has rejected your invitation!")
+                resident.invitingTown = null
+                resident.invitingPlayer = null
+                resident.inviteThread = null
+            } else {
+                if (town.leader != resident && !town.officers.contains(resident)) {
+                    Message.error(player, "You aren't allowed to consider town applications")
+                    return@addSyntax
+                }
+
+                if (town.applications.isEmpty()) {
+                    Message.error(player, "There are no active applications")
+                    return@addSyntax
+                }
+
+                var applicant: Resident = resident
+                if (town.applications.size == 1) {
+                    town.applications.forEach { k, v ->
+                        applicant = k
+                    }
+                } else {
+                    val applicantsString = town.applications.map { application -> application.key.name }.joinToString(", ")
+                    Message.print(player, "There are multiple town applications. Please use \"/town accept [player]\".\nCurrent applicants: $applicantsString")
+                    return@addSyntax
+                }
+
+                Message.print(player, "${applicant.name} has been denied residence in your town!")
+                val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
+                if (applicantPlayer != null) {
+                    Message.print(applicantPlayer, "Your application to ${town.name} has been rejected!")
+                }
+
+                town.applications.remove(applicant)
+            }
+        })
+
+        addSyntax( { sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if (player == null) {
+                return@addSyntax
+            }
+
+            val resident = Nodes.getResident(player)
+            if (resident == null) {
+                return@addSyntax
+            }
+
+            val town = resident.town
+            if (town == null) {
+                if (resident.invitingTown == null) {
+                    Message.error(player, "You have not been invited to any town or your invitation expired")
+                    return@addSyntax
+                }
+
+                Message.print(player, "You have rejected the invitation to join ${resident.invitingTown?.name}")
+                Message.print(resident.invitingPlayer, "${resident.name} has rejected your invitation!")
+                resident.invitingTown = null
+                resident.invitingPlayer = null
+                resident.inviteThread = null
+            } else {
+                if (town.leader != resident && !town.officers.contains(resident)) {
+                    Message.error(player, "You aren't allowed to consider town applications")
+                    return@addSyntax
+                }
+
+                if (town.applications.isEmpty()) {
+                    Message.error(player, "There are no active applications")
+                    return@addSyntax
+                }
+
+                var applicant: Resident = resident
+                if (town.applications.size == 1) {
+                    town.applications.forEach { k, v ->
+                        applicant = k
+                    }
+                    if (context[applicantArg] != applicant.name) {
+                        Message.error(player, "That player has not applied or their application has expired")
+                        return@addSyntax
+                    }
+                } else {
+                    applicant = Nodes.getResidentFromName(context[applicantArg])!!
+                    if (!town.applications.containsKey(applicant)) {
+                        Message.error(player, "That player has not applied or their application has expired")
+                        return@addSyntax
+                    }
+                }
+
+                Message.print(player, "${applicant.name} has been denied residence in your town!")
+                val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
+                if (applicantPlayer != null) {
+                    Message.print(applicantPlayer, "Your application to ${town.name} has been rejected!")
+                }
+
+                town.applications.remove(applicant)
+            }
+        }, applicantArg)
+    }
+}
+
 class TownLeaveCommand : Command("leave") {
     init {
         setDefaultExecutor { sender, context ->
@@ -579,6 +1001,61 @@ class TownKickCommand : Command("kick") {
 
             Nodes.removeResidentFromTown(town, target)
         }, targetArg)
+    }
+}
+
+class TownSpawn : Command("spawn") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.error(sender, "Usage: /t spawn")
+        }
+
+        addSyntax( { sender, context ->
+            val player = if (sender is Player) sender else null
+
+            if (player === null) {
+                return@addSyntax
+            }
+
+            val resident = Nodes.getResident(player)
+            if (resident === null) {
+                return@addSyntax
+            }
+
+            val town = resident.town
+            if (town === null) {
+                Message.error(player, "You are not a member of a town")
+                return@addSyntax
+            }
+
+            // check if already trying to teleport
+            if (resident.teleportThread !== null) {
+                Message.error(player, "You are already trying to teleport")
+                return@addSyntax
+            }
+
+            // ticks before teleport timer runs
+            var teleportTimerTicks = Math.max(0, Config.townSpawnTime * 20)
+
+            // multiplier during war and if home occupied
+            if (Nodes.war.enabled && Nodes.getTerritoryFromId(town.home)?.occupier !== null) {
+                Message.error(player, "${ChatColor.BOLD}Your home is occupied, town spawn will take much longer...")
+                teleportTimerTicks *= Config.occupiedHomeTeleportMultiplier
+            }
+
+            resident.teleportThread = MinecraftServer.getSchedulerManager().buildTask {
+                player.teleport(town.spawnpoint);
+                resident.teleportThread = null
+            }
+                .delay(TaskSchedule.tick(teleportTimerTicks))
+                .schedule()
+
+            if (teleportTimerTicks > 0) {
+                val seconds = teleportTimerTicks / 20
+
+                Message.print(player, "Teleporting to town spawn in $seconds seconds. Don't move...")
+            }
+        })
     }
 }
 

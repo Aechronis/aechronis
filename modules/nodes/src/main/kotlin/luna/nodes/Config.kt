@@ -222,7 +222,7 @@ public object Config {
     public var onlyWhitelistCanClaim: Boolean = true
 
     // multiplier for warping home when occupied
-    public var occupiedHomeTeleportMultiplier: Double = 12.0
+    public var occupiedHomeTeleportMultiplier: Int = 12
 
     // List of town UUIDs to allow building in occupied territory.
     // War whitelist often used to create AI towns that can be attacked
@@ -319,7 +319,7 @@ public object Config {
         Config.onlyWhitelistCanAnnex = config.getBoolean("onlyWhitelistCanAnnex", Config.onlyWhitelistCanAnnex)
         Config.onlyWhitelistCanClaim = config.getBoolean("onlyWhitelistCanClaim", Config.onlyWhitelistCanClaim)
 
-        Config.occupiedHomeTeleportMultiplier = config.getDouble("occupiedHomeTeleportMultiplier", Config.occupiedHomeTeleportMultiplier)
+        Config.occupiedHomeTeleportMultiplier = config.getInt("occupiedHomeTeleportMultiplier", Config.occupiedHomeTeleportMultiplier)
 
         Config.allowControlInOccupiedTownList = parseUUIDSet(config, "allowControlInOccupiedTownList")
         // ======================
