@@ -32,6 +32,7 @@ import luna.nodes.listeners.onBlockBreakSuccess
 import luna.nodes.listeners.onBlockPlace
 import luna.nodes.listeners.onBlockPlaceSuccess
 import luna.nodes.listeners.onInventoryClose
+import luna.nodes.listeners.onPlayerChat
 import me.lucko.spark.minestom.SparkMinestom
 import luna.nodes.listeners.onPlayerConfiguration
 import luna.nodes.listeners.onPlayerJoin
@@ -51,6 +52,7 @@ import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
+import net.minestom.server.event.player.PlayerChatEvent
 import net.minestom.server.instance.anvil.AnvilLoader
 import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.BlockPickup
@@ -124,7 +126,7 @@ fun main() {
     var eventHandler = MinecraftServer.getGlobalEventHandler()
 
     // register listeners
-//    pluginManager.registerEvents(NodesChatListener(), this)
+    eventHandler.addListener(PlayerChatEvent::class.java, { event -> onPlayerChat(event) })
 //    pluginManager.registerEvents(NodesChestProtectionListener(), this)
 //    pluginManager.registerEvents(NodesChestProtectionDestroyListener(), this)
     eventHandler.addListener(InventoryPreClickEvent::class.java, { event -> onInventoryClick(event) })
