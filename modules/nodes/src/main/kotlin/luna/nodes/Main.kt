@@ -18,7 +18,7 @@ import luna.nodes.commands.NodesCommand
 //import luna.nodes.commands.TerritoryCommand
 //import luna.nodes.commands.TownChatCommand
 import luna.nodes.commands.TownCommand
-//import luna.nodes.commands.UnallyCommand
+import luna.nodes.commands.UnallyCommand
 import luna.nodes.commands.WarCommand
 //import luna.nodes.listeners.NodesChatListener
 //import luna.nodes.listeners.NodesChestProtectionDestroyListener
@@ -152,7 +152,7 @@ fun main() {
     MinecraftServer.getCommandManager().register(NodesCommand())
 //    this.getCommand("nodesadmin")?.setExecutor(NodesAdminCommand())
     MinecraftServer.getCommandManager().register(AllyCommand())
-//    this.getCommand("unally")?.setExecutor(UnallyCommand())
+    MinecraftServer.getCommandManager().register(UnallyCommand())
     MinecraftServer.getCommandManager().register(WarCommand())
 //    this.getCommand("globalchat")?.setExecutor(GlobalChatCommand())
 //    this.getCommand("townchat")?.setExecutor(TownChatCommand())

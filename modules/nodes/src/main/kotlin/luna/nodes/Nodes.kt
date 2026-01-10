@@ -27,7 +27,7 @@ import luna.nodes.constants.ErrorAlreadyAllies
 import luna.nodes.constants.ErrorAlreadyEnemies
 import luna.nodes.constants.ErrorNationDoesNotHaveTown
 import luna.nodes.constants.ErrorNationExists
-//import luna.nodes.constants.ErrorNotAllies
+import luna.nodes.constants.ErrorNotAllies
 import luna.nodes.constants.ErrorPlayerHasNation
 import luna.nodes.constants.ErrorPlayerHasTown
 import luna.nodes.constants.ErrorPlayerNotInTown
@@ -2509,60 +2509,60 @@ public object Nodes {
         return Result.success(true)
     }
 
-//    public fun removeAlly(town: Town, other: Town): Result<Boolean> {
-//        // not currently allies
-//        if (!town.allies.contains(other) || !other.allies.contains(town)) {
-//            return Result.failure(ErrorNotAllies)
-//        }
-//
-//        val townNation = town.nation
-//        val otherNation = other.nation
-//
-//        if (townNation !== null) {
-//            // nation-nation
-//            if (otherNation !== null && townNation !== otherNation) {
-//                Nodes.nationRemoveAlly(townNation, otherNation)
-//            }
-//            // nation-town
-//            else {
-//                for (t in townNation.towns) {
-//                    t.allies.remove(other)
-//                    other.allies.remove(town)
-//
-//                    t.needsUpdate()
-//                }
-//            }
-//        }
-//        // town allying without nation
-//        else {
-//            // town-nation
-//            if (otherNation !== null) {
-//                for (t in otherNation.towns) {
-//                    t.allies.remove(town)
-//                    town.allies.remove(t)
-//
-//                    t.needsUpdate()
-//                }
-//            }
-//            // town-town
-//            else {
-//                town.allies.remove(other)
-//                other.allies.remove(town)
-//            }
-//        }
-//
-//        town.needsUpdate()
-//        other.needsUpdate()
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        // update nametags
+    public fun removeAlly(town: Town, other: Town): Result<Boolean> {
+        // not currently allies
+        if (!town.allies.contains(other) || !other.allies.contains(town)) {
+            return Result.failure(ErrorNotAllies)
+        }
+
+        val townNation = town.nation
+        val otherNation = other.nation
+
+        if (townNation !== null) {
+            // nation-nation
+            if (otherNation !== null && townNation !== otherNation) {
+                Nodes.nationRemoveAlly(townNation, otherNation)
+            }
+            // nation-town
+            else {
+                for (t in townNation.towns) {
+                    t.allies.remove(other)
+                    other.allies.remove(town)
+
+                    t.needsUpdate()
+                }
+            }
+        }
+        // town allying without nation
+        else {
+            // town-nation
+            if (otherNation !== null) {
+                for (t in otherNation.towns) {
+                    t.allies.remove(town)
+                    town.allies.remove(t)
+
+                    t.needsUpdate()
+                }
+            }
+            // town-town
+            else {
+                town.allies.remove(other)
+                other.allies.remove(town)
+            }
+        }
+
+        town.needsUpdate()
+        other.needsUpdate()
+        Nodes.needsSave = true
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+
+        // update nametags
 //        Nametag.pipelinedUpdateAllText()
-//
-//        return Result.success(true)
-//    }
+
+        return Result.success(true)
+    }
 
     // set two nations as enemies (bidirectional), order does not matter
     // -> sets all towns in each nation as enemies
@@ -2673,28 +2673,28 @@ public object Nodes {
         return Result.success(true)
     }
 
-//    private fun nationRemoveAlly(nation: Nation, ally: Nation): Result<Boolean> {
-//        nation.allies.remove(ally)
-//        ally.allies.remove(nation)
-//
-//        // mark all towns in each nation as enemies
-//        for (nationTown in nation.towns) {
-//            for (allyTown in ally.towns) {
-//                nationTown.allies.remove(allyTown)
-//                allyTown.allies.remove(nationTown)
-//
-//                allyTown.needsUpdate()
-//            }
-//            nationTown.needsUpdate()
-//        }
-//
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        return Result.success(true)
-//    }
+    private fun nationRemoveAlly(nation: Nation, ally: Nation): Result<Boolean> {
+        nation.allies.remove(ally)
+        ally.allies.remove(nation)
+
+        // mark all towns in each nation as enemies
+        for (nationTown in nation.towns) {
+            for (allyTown in ally.towns) {
+                nationTown.allies.remove(allyTown)
+                allyTown.allies.remove(nationTown)
+
+                allyTown.needsUpdate()
+            }
+            nationTown.needsUpdate()
+        }
+
+        Nodes.needsSave = true
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+
+        return Result.success(true)
+    }
 
     /**
      * Get diplomatic relationship between two towns
