@@ -8,8 +8,6 @@ package luna.nodes.commands
 
 import org.bukkit.ChatColor
 import net.minestom.server.command.builder.Command
-import net.minestom.server.command.builder.CommandExecutor
-import net.minestom.server.command.builder.arguments.Argument
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 //import org.bukkit.command.CommandExecutor
@@ -28,7 +26,7 @@ class NodesCommand : Command("nodes", "nd") {
     init {
         // no args, print plugin info
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "${ChatColor.BOLD}Nodes ${Nodes.version}")
+            Message.print(sender, "${ChatColor.BOLD}Nodes ${Nodes.VERSION}")
 
             // print number of resource nodes and territories loaded
             Message.print(sender, "World info:")
@@ -102,7 +100,7 @@ class NodesTerritoryCommand : Command("territory") {
 
         addSyntax({ sender, context ->
             // if command sender was player, print territory info of current location
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
             if (player == null) {
                 return@addSyntax
             }
@@ -125,7 +123,7 @@ class NodesTerritoryCommand : Command("territory") {
 
         addSyntax({ sender, context ->
             // if command sender was player, print territory info of current location
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
             if (player == null) {
                 return@addSyntax
             }

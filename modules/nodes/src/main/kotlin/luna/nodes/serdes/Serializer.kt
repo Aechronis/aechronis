@@ -18,7 +18,7 @@ import luna.nodes.objects.PortGroup.PortGroupSaveState
 import luna.nodes.objects.Resident.ResidentSaveState
 import luna.nodes.objects.Town.TownSaveState
 
-public object Serializer {
+object Serializer {
 
     fun worldToJson(
         residents: List<ResidentSaveState>,

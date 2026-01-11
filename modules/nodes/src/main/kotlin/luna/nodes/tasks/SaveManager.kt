@@ -33,14 +33,11 @@ import java.util.Date
  * asynchronously by the caller.
  *
  */
-public class TaskSaveWorld(
+class TaskSaveWorld(
     val residentsSnapshot: List<ResidentSaveState>,
     val townsSnapshot: List<TownSaveState>,
     val nationsSnapshot: List<NationSaveState>,
-    val pathTownSave: Path,
-    val pathBackupDir: Path,
-    val pathLastBackupTime: Path,
-    val backupTimestamp: Long,
+    val backupTimestamp: Long?,
 ) : Runnable {
     override fun run() {
         // serialize world state
@@ -50,12 +47,12 @@ public class TaskSaveWorld(
             nationsSnapshot,
         )
 
-        saveStringToFile(jsonStr, pathTownSave)
+        saveStringToFile(jsonStr, Config.pathTowns)
 
         // if backup timestamp millis timestamp (using System.currentTimeMillis())
         // was provided, copy this saved world state to backup folder
-        if (backupTimestamp > 0) {
-            TaskSaveBackup(backupTimestamp, pathTownSave, pathBackupDir, pathLastBackupTime).run()
+        if (backupTimestamp != null) {
+            TaskSaveBackup(backupTimestamp).run()
         }
     }
 }
@@ -68,21 +65,16 @@ private val BACKUP_DATE_FORMATTER = SimpleDateFormat("yyyy.MM.dd.HH.mm.ss")
  */
 internal class TaskSaveBackup(
     val timestamp: Long, // millis timestamp from System.currentTimeMillis()
-    val pathTowns: Path,
-    val pathBackupDir: Path,
-    val pathLastBackupTime: Path,
 ) : Runnable {
     override fun run() {
-        // val pathTowns = Config.pathTowns
-        // val pathBackupDir = Config.pathBackup
-        if (Files.exists(pathTowns)) {
-            Files.createDirectories(pathBackupDir) // create backup folder if it does not exist
+        if (Files.exists(Config.pathTowns)) {
+            Files.createDirectories(Config.pathBackup) // create backup folder if it does not exist
 
             // save towns file backup
             val date = Date(timestamp)
             val backupName = "towns.${BACKUP_DATE_FORMATTER.format(date)}.json"
-            val pathBackup = pathBackupDir.resolve(backupName)
-            Files.copy(pathTowns, pathBackup)
+            val pathBackup = Config.pathBackup.resolve(backupName)
+            Files.copy(Config.pathTowns, pathBackup)
         }
 
         // save last backup timestamp to file
@@ -90,7 +82,7 @@ internal class TaskSaveBackup(
     }
 }
 
-public class TaskSavePorts(
+class TaskSavePorts(
     val portsSnapshot: List<PortSaveState>,
     val portGroupsSnapshot: List<PortGroupSaveState>,
     val pathPortSave: Path,
@@ -110,11 +102,11 @@ public class TaskSavePorts(
  * Async periodic tick scheduler to signal main thread
  * to save world state.
  */
-public object SaveManager {
+object SaveManager {
 
     private var task: Task? = null
 
-    public fun start(period: Int) {
+    fun start(period: Int) {
         if (this.task !== null) {
             return
         }
@@ -137,7 +129,7 @@ public object SaveManager {
             .schedule()
         }
 
-    public fun stop() {
+    fun stop() {
         val task = this.task
         if (task === null) {
             return

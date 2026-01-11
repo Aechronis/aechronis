@@ -20,10 +20,11 @@ import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.AbstractDisplayMeta
 import net.minestom.server.entity.metadata.display.TextDisplayMeta
+import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.util.UUID
 
-public class Attack(
+class Attack(
     val attacker: UUID, // attacker's UUID
     val town: Town, // attacker's town
     val coord: Coord, // chunk coord under attack
@@ -44,7 +45,7 @@ public class Attack(
     val noBuildYMin: Int
     val noBuildYMax: Int = 255 // temporarily set to height
 
-    var thread = MinecraftServer.getSchedulerManager()
+    var thread: Task = MinecraftServer.getSchedulerManager()
         .buildTask{ this.run() }
         .delay(TaskSchedule.tick(FlagWar.ATTACK_TICK))
         .repeat(TaskSchedule.tick(FlagWar.ATTACK_TICK))
@@ -86,18 +87,18 @@ public class Attack(
         this.jsonString = StringBuilder(jsonStringBufferSize)
     }
 
-    public override fun run() {
+    override fun run() {
         FlagWar.attackTick(this)
     }
 
-    public fun cancel() {
+    fun cancel() {
         this.thread.cancel()
         FlagWar.cancelAttack(this)
     }
 
     // returns json format string as a StringBuilder
     // only used with WarSerializer objects
-    public fun toJson(): StringBuilder {
+    fun toJson(): StringBuilder {
         // reset json StringBuilder
         this.jsonString.setLength(0)
 
@@ -142,7 +143,7 @@ private fun generateFixedJsonBase(
     return s
 }
 
-public class AttackTextDisplay(
+class AttackTextDisplay(
     val attack: Attack,
     val loc: Pos,
 ) {
@@ -159,7 +160,7 @@ public class AttackTextDisplay(
     /**
      * Remove a player's TextDisplay.
      */
-    public fun removePlayerTextDisplay(player: Player) {
+    fun removePlayerTextDisplay(player: Player) {
         // remove the display from the map
         val display = playerTextDisplays.remove(player.uuid)
 
@@ -170,8 +171,8 @@ public class AttackTextDisplay(
     /**
      * Update the progress text display with current timer.
      */
-    public fun update(player: Player) {
-        var textDisplay = playerTextDisplays.get(player.uuid)
+    fun update(player: Player) {
+        var textDisplay = playerTextDisplays[player.uuid]
 
         // create display
         if (textDisplay == null) {
@@ -197,7 +198,7 @@ public class AttackTextDisplay(
     /**
      * Remove all entities, for cleanup.
      */
-    public fun remove() {
+    fun remove() {
         // Remove all per-player town name displays
         for (display in playerTextDisplays.values) {
             display.remove()

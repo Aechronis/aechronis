@@ -6,7 +6,6 @@ package luna.nodes.commands
 
 //import org.bukkit.Bukkit
 import net.minestom.server.MinecraftServer
-import net.minestom.server.command.CommandSender
 import net.minestom.server.command.builder.Command
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
@@ -54,14 +53,13 @@ import net.minestom.server.timer.TaskSchedule
 // Constants for /t map
 //
 // symbols
-val SHADE = "\u2592" // medium shade
-val HOME = "\u2588" // full solid block
-val CORE = "\u256B" // core chunk H
-val CONQUERED0 = "\u2561" // captured chunk
-val CONQUERED1 = "\u255F" // other chunk flag symbol
-val SPACER = "\u17f2" // spacer
+const val SHADE = "\u2592" // medium shade
+const val HOME = "\u2588" // full solid block
+const val CORE = "\u256B" // core chunk H
+const val CONQUERED0 = "\u2561" // captured chunk
+const val CONQUERED1 = "\u255F" // other chunk flag symbol
 
-val MAP_STR_BEGIN = "    "
+const val MAP_STR_BEGIN = "    "
 
 val MAP_STR_END = arrayOf(
     "",
@@ -90,7 +88,7 @@ class TownCommand : Command("t", "town") {
     init {
         // no args, print current town info
         setDefaultExecutor { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player != null) {
                 // print player's town info
@@ -182,14 +180,14 @@ class TownCreateCommand : Command("create", "new") {
         var nameArg = ArgumentType.String("name")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
             }
 
             // do not allow during war
-            if (!Config.canCreateTownDuringWar && Nodes.war.enabled == true) {
+            if (!Config.canCreateTownDuringWar && Nodes.war.enabled) {
                 Message.error(player, "Cannot create towns during war")
                 return@addSyntax
             }
@@ -202,12 +200,10 @@ class TownCreateCommand : Command("create", "new") {
             // check if player has cooldown
             if (resident.townCreateCooldown > 0) {
                 val remainingTime = resident.townCreateCooldown
-                val remainingTimeString = if (remainingTime > 0) {
+                val remainingTimeString = run {
                     val hour: Long = remainingTime / 3600000L
                     val min: Long = 1L + (remainingTime - hour * 3600000L) / 60000L
                     "${hour}hr ${min}min"
-                } else {
-                    "0hr 0min"
                 }
 
                 Message.error(player, "You cannot create another town for: $remainingTimeString ")
@@ -248,7 +244,7 @@ class TownDeleteCommand : Command("delete", "disband") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -279,7 +275,7 @@ class TownDeleteCommand : Command("delete", "disband") {
             }
 
             // do not allow during war
-            if (!Config.canDestroyTownDuringWar && Nodes.war.enabled == true) {
+            if (!Config.canDestroyTownDuringWar && Nodes.war.enabled) {
                 Message.error(player, "Cannot delete your town during war")
                 return@addSyntax
             }
@@ -303,7 +299,7 @@ class TownPromoteCommand : Command("promote", "officer") {
         var targetArg = ArgumentType.String("player")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -368,7 +364,7 @@ class TownDemoteCommand : Command("demote") {
         var targetArg = ArgumentType.String("player")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -433,7 +429,7 @@ class TownLeaderCommand : Command("leader") {
         var targetArg = ArgumentType.String("player")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -494,7 +490,7 @@ class TownApplyCommand: Command("apply", "join") {
         val townArg = ArgumentType.String("town")
 
         addSyntax( {sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -516,7 +512,7 @@ class TownApplyCommand: Command("apply", "join") {
                 return@addSyntax
             }
 
-            if (town.isOpen == true) {
+            if (town.isOpen) {
                 Nodes.addResidentToTown(town, resident)
                 Message.print(player, "You are now a resident of ${town.name}!")
                 return@addSyntax
@@ -572,7 +568,7 @@ class TownInviteCommand : Command("invite") {
         val inviteeArg = ArgumentType.String("player")
 
         addSyntax( {sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -646,7 +642,7 @@ class TownAcceptCommand : Command("accept") {
         val applicantArg = ArgumentType.String("player")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -705,7 +701,7 @@ class TownAcceptCommand : Command("accept") {
         })
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -780,7 +776,7 @@ class TownDenyCommand : Command("deny", "reject") {
         val applicantArg = ArgumentType.String("player")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -836,7 +832,7 @@ class TownDenyCommand : Command("deny", "reject") {
         })
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -906,7 +902,7 @@ class TownLeaveCommand : Command("leave") {
         }
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -929,7 +925,7 @@ class TownLeaveCommand : Command("leave") {
             }
 
             // do not allow during war?
-            if (!Config.canLeaveTownDuringWar && Nodes.war.enabled == true) {
+            if (!Config.canLeaveTownDuringWar && Nodes.war.enabled) {
                 Message.error(player, "Cannot leave your town during war")
                 return@addSyntax
             }
@@ -949,7 +945,7 @@ class TownKickCommand : Command("kick") {
         val targetArg = ArgumentType.String("name")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player === null) {
                 return@addSyntax
@@ -1011,7 +1007,7 @@ class TownSpawn : Command("spawn") {
         }
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player === null) {
                 return@addSyntax
@@ -1035,7 +1031,7 @@ class TownSpawn : Command("spawn") {
             }
 
             // ticks before teleport timer runs
-            var teleportTimerTicks = Math.max(0, Config.townSpawnTime * 20)
+            var teleportTimerTicks = (Config.townSpawnTime * 20).coerceAtLeast(0)
 
             // multiplier during war and if home occupied
             if (Nodes.war.enabled && Nodes.getTerritoryFromId(town.home)?.occupier !== null) {
@@ -1044,7 +1040,7 @@ class TownSpawn : Command("spawn") {
             }
 
             resident.teleportThread = MinecraftServer.getSchedulerManager().buildTask {
-                player.teleport(town.spawnpoint);
+                player.teleport(town.spawnpoint)
                 resident.teleportThread = null
             }
                 .delay(TaskSchedule.tick(teleportTimerTicks))
@@ -1066,7 +1062,7 @@ class TownSetSpawn : Command("setspawn") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1091,7 +1087,7 @@ class TownSetSpawn : Command("setspawn") {
 
             val result = Nodes.setTownSpawn(town, player.position)
 
-            if (result == true) {
+            if (result) {
                 Message.print(player, "Town spawn set to current location")
             } else {
                 Message.error(player, "Spawn location must be within town's home territory")
@@ -1107,7 +1103,7 @@ class TownListCommand : Command("list") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1137,7 +1133,7 @@ class TownInfoCommand : Command("info") {
         val townArg = ArgumentType.String("town")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1159,7 +1155,7 @@ class TownInfoCommand : Command("info") {
         })
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1190,7 +1186,7 @@ class TownOnlineCommand : Command("online") {
         val townArg = ArgumentType.String("town")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1212,12 +1208,12 @@ class TownOnlineCommand : Command("online") {
             }
 
             val numPlayersOnline = town.playersOnline.size
-            val playersOnline = town.playersOnline.map({ p -> p.username }).joinToString(", ")
+            val playersOnline = town.playersOnline.joinToString(", ", transform = { p -> p.username })
             Message.print(player, "Players online in town ${town.name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
         })
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1239,7 +1235,7 @@ class TownOnlineCommand : Command("online") {
             }
 
             val numPlayersOnline = town.playersOnline.size
-            val playersOnline = town.playersOnline.map({ p -> p.username }).joinToString(", ")
+            val playersOnline = town.playersOnline.joinToString(", ", transform = { p -> p.username })
             Message.print(player, "Players online in town ${town.name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
         }, townArg)
     }
@@ -1256,7 +1252,7 @@ class TownColorCommand : Command("color") {
         val bArg = ArgumentType.Integer("b")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1297,7 +1293,7 @@ class TownClaimCommand : Command("claim") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
             if (player == null) {
                 return@addSyntax
             }
@@ -1343,7 +1339,7 @@ class TownUnclaimCommand : Command("unclaim") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1390,7 +1386,7 @@ class TownIncomeCommand : Command("income") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if ( player == null ) {
                 return@addSyntax
@@ -1443,7 +1439,7 @@ class TownPrefixCommand : Command("prefix") {
         val prefixArg = ArgumentType.String("prefix")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player === null) {
                 return@addSyntax
@@ -1460,13 +1456,13 @@ class TownPrefixCommand : Command("prefix") {
                 Message.print(player, "Removed your prefix.")
             } else {
                 Nodes.setResidentPrefix(resident, prefix)
-                Message.print(player, "Your prefix set to: ${prefix}")
+                Message.print(player, "Your prefix set to: $prefix")
             }
 
         }, prefixArg)
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player === null) {
                 return@addSyntax
@@ -1509,7 +1505,7 @@ class TownPrefixCommand : Command("prefix") {
                 Message.print(player, "Removed ${target.name} prefix.")
             } else {
                 Nodes.setResidentPrefix(target, prefix)
-                Message.print(player, "${target.name} prefix set to: ${prefix}")
+                Message.print(player, "${target.name} prefix set to: $prefix")
             }
 
         }, targetArg, prefixArg)
@@ -1530,7 +1526,7 @@ class TownSuffixCommand : Command("suffix") {
         val suffixArg = ArgumentType.String("suffix")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player === null) {
                 return@addSyntax
@@ -1547,13 +1543,13 @@ class TownSuffixCommand : Command("suffix") {
                 Message.print(player, "Removed your suffix.")
             } else {
                 Nodes.setResidentSuffix(resident, suffix)
-                Message.print(player, "Your suffix set to: ${suffix}")
+                Message.print(player, "Your suffix set to: $suffix")
             }
 
         }, suffixArg)
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player === null) {
                 return@addSyntax
@@ -1596,7 +1592,7 @@ class TownSuffixCommand : Command("suffix") {
                 Message.print(player, "Removed ${target.name} suffix.")
             } else {
                 Nodes.setResidentSuffix(target, suffix)
-                Message.print(player, "${target.name} suffix set to: ${suffix}")
+                Message.print(player, "${target.name} suffix set to: $suffix")
             }
 
         }, targetArg, suffixArg)
@@ -1612,7 +1608,7 @@ class TownRenameCommand : Command("rename") {
         val nameArg = ArgumentType.String("new_name")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1663,7 +1659,7 @@ class TownMapCommand : Command("map") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1702,7 +1698,7 @@ class TownMinimapCommand : Command("minimap") {
         val sizeArg = ArgumentType.Integer("size")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1724,7 +1720,7 @@ class TownMinimapCommand : Command("minimap") {
         })
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1737,7 +1733,7 @@ class TownMinimapCommand : Command("minimap") {
 
             // if size input, create new minimap of that size
             // note: minimap creation internally handles removing old minimaps
-            val size = Math.min(5, Math.max(3, context[sizeArg]))
+            val size = context[sizeArg].coerceIn(3, 5)
             resident.createMinimap(player, size)
             Message.print(player, "Minimap enabled (size = $size)")
 
@@ -1759,7 +1755,7 @@ class TownPermissionsCommand : Command("permissions", "perms") {
         val flagArg = ArgumentType.String("flag")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1793,7 +1789,7 @@ class TownPermissionsCommand : Command("permissions", "perms") {
         })
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1877,7 +1873,7 @@ class TownTrustCommand : Command("trust") {
         val targetArg = ArgumentType.String("player")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1930,7 +1926,7 @@ class TownUntrustCommand : Command("untrust") {
         val targetArg = ArgumentType.String("player")
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -1981,7 +1977,7 @@ class TownCapitalCommand : Command("capital") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -2021,12 +2017,10 @@ class TownCapitalCommand : Command("capital") {
             }
             if (town.moveHomeCooldown > 0) {
                 val remainingTime = town.moveHomeCooldown
-                val remainingTimeString = if (remainingTime > 0) {
+                val remainingTimeString = run {
                     val hour: Long = remainingTime / 3600000L
                     val min: Long = 1L + (remainingTime - hour * 3600000L) / 60000L
                     "${hour}hr ${min}min"
-                } else {
-                    "0hr 0min"
                 }
 
                 Message.error(player, "You cannot move the town's home territory for: $remainingTimeString ")
@@ -2047,7 +2041,7 @@ class TownAnnexCommand : Command("annex") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -2129,7 +2123,7 @@ class TownAnnexCommand : Command("annex") {
             }
 
             val result = Nodes.annexTerritory(town, territory)
-            if (result == true) {
+            if (result) {
                 Message.print(player, "Annexed territory (id = ${territory.id})")
             } else {
                 Message.error(player, "Failed to annex territory")
@@ -2145,7 +2139,7 @@ class TownFlyCommand : Command("fly") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax

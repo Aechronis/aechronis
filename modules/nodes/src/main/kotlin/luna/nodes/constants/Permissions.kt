@@ -4,7 +4,7 @@
 
 package luna.nodes.constants
 
-public enum class PermissionsGroup {
+enum class PermissionsGroup {
     TOWN, // any member of town
     NATION, // any member of nation
     ALLY, // any member of allied towns
@@ -13,12 +13,12 @@ public enum class PermissionsGroup {
     ;
 
     companion object {
-        public val values: Array<PermissionsGroup> = PermissionsGroup.values()
+        val values: Array<PermissionsGroup> = entries.toTypedArray()
     }
 }
 
 // town permissions categories
-public enum class TownPermissions {
+enum class TownPermissions {
     INTERACT,
     BUILD,
     DESTROY,
@@ -28,6 +28,6 @@ public enum class TownPermissions {
     ;
 
     companion object {
-        public val values: Array<TownPermissions> = TownPermissions.values()
+        val values: Array<TownPermissions> = entries.toTypedArray()
     }
 }

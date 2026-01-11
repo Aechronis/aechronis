@@ -11,11 +11,9 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.Material
 //import org.bukkit.block.Block
 import luna.nodes.Nodes
-import luna.nodes.Nodes.createPortGroup
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
 import luna.nodes.objects.Nation
-import luna.nodes.objects.Port
 import luna.nodes.objects.PortGroup
 import luna.nodes.objects.Town
 import luna.nodes.utils.Color
@@ -29,29 +27,29 @@ import java.util.UUID
  * Utility class to hold resources and territories json
  * object sections.
  */
-public data class WorldJsonState(
+data class WorldJsonState(
     val resources: JsonObject?,
     val territories: JsonObject?,
 )
 
-public object Deserializer {
+object Deserializer {
 
     // parse the world.json definition file:
     // contains resource nodes and territories
-    public fun worldFromJson(path: Path): WorldJsonState {
+    fun worldFromJson(path: Path): WorldJsonState {
         val json = JsonParser.parseReader(FileReader(path.toString())) // newer gson
         // val json = JsonParser().parse(FileReader(path.toString()))        // gson bundled in mineman
-        val jsonObj = json.getAsJsonObject()
+        val jsonObj = json.asJsonObject
 
-        val jsonNodes = jsonObj.get("nodes")?.getAsJsonObject()
-        val jsonTerritories = jsonObj.get("territories")?.getAsJsonObject()
+        val jsonNodes = jsonObj.get("nodes")?.asJsonObject
+        val jsonTerritories = jsonObj.get("territories")?.asJsonObject
 
         return WorldJsonState(jsonNodes, jsonTerritories)
     }
 
     // import towns.json definition file
     // contains
-    public fun townsFromJson(path: Path) {
+    fun townsFromJson(path: Path) {
         // list of towns, nations and relations, for post-process adding diplomacy
         val towns: ArrayList<Town> = ArrayList()
         val townAllies: ArrayList<ArrayList<String>> = ArrayList()
@@ -61,25 +59,25 @@ public object Deserializer {
         val nationEnemies: ArrayList<ArrayList<String>> = ArrayList()
 
         val json = JsonParser.parseReader(FileReader(path.toString()))
-        val jsonObj = json.getAsJsonObject()
+        val jsonObj = json.asJsonObject
 
         // ===============================
         // Residents
         // ===============================
-        val jsonResidents = jsonObj.get("residents")?.getAsJsonObject()
+        val jsonResidents = jsonObj.get("residents")?.asJsonObject
         if (jsonResidents !== null) {
             jsonResidents.keySet().forEach { uuid ->
-                val resident = jsonResidents[uuid].getAsJsonObject()
+                val resident = jsonResidents[uuid].asJsonObject
 
                 // prefix, suffix
-                val prefix = resident.get("prefix")?.getAsString() ?: ""
-                val suffix = resident.get("suffix")?.getAsString() ?: ""
+                val prefix = resident.get("prefix")?.asString ?: ""
+                val suffix = resident.get("suffix")?.asString ?: ""
 
                 // trusted
-                val trusted = resident.get("trust")?.getAsBoolean() ?: false
+                val trusted = resident.get("trust")?.asBoolean ?: false
 
                 // town create cooldown
-                val townCreateCooldown: Long = resident.get("townCool")?.getAsLong() ?: 0L
+                val townCreateCooldown: Long = resident.get("townCool")?.asLong ?: 0L
 
                 Nodes.loadResident(
                     UUID.fromString(uuid),
@@ -94,21 +92,21 @@ public object Deserializer {
         // ===============================
         // Towns
         // ===============================
-        val jsonTowns = jsonObj.get("towns")?.getAsJsonObject()
+        val jsonTowns = jsonObj.get("towns")?.asJsonObject
         if (jsonTowns !== null) {
             jsonTowns.keySet().forEach { name ->
-                val town = jsonTowns[name].getAsJsonObject()
+                val town = jsonTowns[name].asJsonObject
 
                 // parse uuid
                 val uuidJson = town.get("uuid")
                 val uuid: UUID = if (uuidJson !== null) {
-                    UUID.fromString(uuidJson.getAsString())
+                    UUID.fromString(uuidJson.asString)
                 } else {
                     UUID.randomUUID()
                 }
 
                 // get home territory id, if missing skip town
-                val homeId = town.get("home")?.getAsInt()
+                val homeId = town.get("home")?.asInt
                 if (homeId == null) {
                     System.err.println("Cannot create $name: no home")
                     return@forEach
@@ -116,118 +114,117 @@ public object Deserializer {
 
                 // parse leader uuid (may be null)
                 val leaderJson = town.get("leader")
-                val leader: UUID? = if (leaderJson == null || leaderJson.isJsonNull()) {
+                val leader: UUID? = if (leaderJson == null || leaderJson.isJsonNull) {
                     null
                 } else {
-                    UUID.fromString(leaderJson.getAsString())
+                    UUID.fromString(leaderJson.asString)
                 }
 
                 // parse spawn location
-                val spawnLocArray = town.get("spawn")?.getAsJsonArray()
-                var spawn = if (spawnLocArray !== null && spawnLocArray.size() == 3) {
-                    Pos(spawnLocArray[0].getAsDouble(), spawnLocArray[1].getAsDouble(), spawnLocArray[2].getAsDouble())
+                val spawnLocArray = town.get("spawn")?.asJsonArray
+                val spawn = if (spawnLocArray !== null && spawnLocArray.size() == 3) {
+                    Pos(spawnLocArray[0].asDouble, spawnLocArray[1].asDouble, spawnLocArray[2].asDouble)
                 } else {
                     null
                 }
 
                 // parse color
-                val colorArray = town.get("color")?.getAsJsonArray()
-                var color = if (colorArray !== null && colorArray.size() == 3) {
-                    Color(colorArray[0].getAsInt(), colorArray[1].getAsInt(), colorArray[2].getAsInt())
+                val colorArray = town.get("color")?.asJsonArray
+                val color = if (colorArray !== null && colorArray.size() == 3) {
+                    Color(colorArray[0].asInt, colorArray[1].asInt, colorArray[2].asInt)
                 } else {
                     null
                 }
 
                 // parse residents
                 val residentsUUID: ArrayList<UUID> = ArrayList()
-                val residentsArray = town.get("residents")?.getAsJsonArray()
+                val residentsArray = town.get("residents")?.asJsonArray
                 if (residentsArray !== null) {
                     residentsArray.forEach { uuid ->
-                        residentsUUID.add(UUID.fromString(uuid.getAsString()))
+                        residentsUUID.add(UUID.fromString(uuid.asString))
                     }
                 }
 
                 // parse officers
                 val officersUUID: ArrayList<UUID> = ArrayList()
-                val officersArray = town.get("officers")?.getAsJsonArray()
+                val officersArray = town.get("officers")?.asJsonArray
                 if (officersArray !== null) {
                     officersArray.forEach { uuid ->
-                        officersUUID.add(UUID.fromString(uuid.getAsString()))
+                        officersUUID.add(UUID.fromString(uuid.asString))
                     }
                 }
 
                 // parse territories
                 val territoryIds: ArrayList<Int> = ArrayList()
-                val territoryArray = town.get("territories")?.getAsJsonArray()
+                val territoryArray = town.get("territories")?.asJsonArray
                 if (territoryArray !== null) {
                     territoryArray.forEach { id ->
-                        territoryIds.add(id.getAsInt())
+                        territoryIds.add(id.asInt)
                     }
                 }
 
                 // parse captured territories
                 val capturedIds: ArrayList<Int> = ArrayList()
-                val capturedTerrArray = town.get("captured")?.getAsJsonArray()
+                val capturedTerrArray = town.get("captured")?.asJsonArray
                 if (capturedTerrArray !== null) {
                     capturedTerrArray.forEach { id ->
-                        capturedIds.add(id.getAsInt())
+                        capturedIds.add(id.asInt)
                     }
                 }
 
                 // parse annexed territories
                 val annexedIds: ArrayList<Int> = ArrayList()
-                val annexedTerrArray = town.get("annexed")?.getAsJsonArray()
+                val annexedTerrArray = town.get("annexed")?.asJsonArray
                 if (annexedTerrArray !== null) {
                     annexedTerrArray.forEach { id ->
-                        annexedIds.add(id.getAsInt())
+                        annexedIds.add(id.asInt)
                     }
                 }
 
                 // parse stored income
                 val income: MutableMap<Material, Int> = mutableMapOf()
-                val townIncomeJson = town.get("income")?.getAsJsonObject()
+                val townIncomeJson = town.get("income")?.asJsonObject
                 if (townIncomeJson !== null) {
                     townIncomeJson.keySet().forEach { type ->
                         val material = Material.fromKey(type.lowercase())
                         if (material !== null) {
-                            income.put(material, townIncomeJson.get(type).getAsInt())
+                            income.put(material, townIncomeJson.get(type).asInt)
                         }
                     }
                 }
 
                 // parse ally names
                 val allies: ArrayList<String> = ArrayList()
-                val alliesArray = town.get("allies")?.getAsJsonArray()
+                val alliesArray = town.get("allies")?.asJsonArray
                 if (alliesArray !== null) {
                     alliesArray.forEach { name ->
-                        allies.add(name.getAsString())
+                        allies.add(name.asString)
                     }
                 }
 
                 // parse enemy names
                 val enemies: ArrayList<String> = ArrayList()
-                val enemiesArray = town.get("enemies")?.getAsJsonArray()
+                val enemiesArray = town.get("enemies")?.asJsonArray
                 if (enemiesArray !== null) {
                     enemiesArray.forEach { name ->
-                        enemies.add(name.getAsString())
+                        enemies.add(name.asString)
                     }
                 }
 
                 // parse permissions
                 val permissions: EnumMap<TownPermissions, EnumSet<PermissionsGroup>> = enumValues<TownPermissions>().toList().associateWithTo(
                     EnumMap<TownPermissions, EnumSet<PermissionsGroup>>(TownPermissions::class.java),
-                    { _ -> EnumSet.noneOf(PermissionsGroup::class.java) },
-                )
-                val permissionsJson = town.get("perms")?.getAsJsonObject()
+                ) { _ -> EnumSet.noneOf(PermissionsGroup::class.java) }
+                val permissionsJson = town.get("perms")?.asJsonObject
                 if (permissionsJson !== null) {
                     permissionsJson.keySet().forEach { type ->
                         // get enum type
                         try {
                             val permType = TownPermissions.valueOf(type)
-                            val permGroupList = permissionsJson.get(type)?.getAsJsonArray()
+                            val permGroupList = permissionsJson.get(type)?.asJsonArray
                             if (permGroupList !== null) {
                                 for (group in permGroupList) {
-                                    permissions.get(permType)!!.add(PermissionsGroup.values[group.getAsInt()])
+                                    permissions[permType]!!.add(PermissionsGroup.values[group.asInt])
                                 }
                             }
                         } catch (err: IllegalArgumentException) {
@@ -237,7 +234,7 @@ public object Deserializer {
                 }
 
                 // parse town isOpen
-                val isOpen: Boolean = town.get("open")?.getAsBoolean() ?: false
+                val isOpen: Boolean = town.get("open")?.asBoolean ?: false
 
 //                // parse town protected blocks
 //                val protectedBlocks: HashSet<Block> = hashSetOf()
@@ -257,7 +254,7 @@ public object Deserializer {
 //                }
 
                 // town move home cooldown
-                val moveHomeCooldown: Long = town.get("homeCool")?.getAsLong() ?: 0L
+                val moveHomeCooldown: Long = town.get("homeCool")?.asLong ?: 0L
 
                 val townObject: Town? = Nodes.loadTown(
                     uuid,
@@ -289,38 +286,38 @@ public object Deserializer {
         // ===============================
         // Nations
         // ===============================
-        val jsonNations = jsonObj.get("nations")?.getAsJsonObject()
+        val jsonNations = jsonObj.get("nations")?.asJsonObject
         if (jsonNations !== null) {
             jsonNations.keySet().forEach { name ->
-                val nation = jsonNations[name].getAsJsonObject()
+                val nation = jsonNations[name].asJsonObject
 
                 // parse uuid
                 val uuidJson = nation.get("uuid")
                 val uuid: UUID = if (uuidJson !== null) {
-                    UUID.fromString(uuidJson.getAsString())
+                    UUID.fromString(uuidJson.asString)
                 } else {
                     UUID.randomUUID()
                 }
 
                 // parse color
-                val colorArray = nation.get("color")?.getAsJsonArray()
-                var color = if (colorArray !== null && colorArray.size() == 3) {
-                    Color(colorArray[0].getAsInt(), colorArray[1].getAsInt(), colorArray[2].getAsInt())
+                val colorArray = nation.get("color")?.asJsonArray
+                val color = if (colorArray !== null && colorArray.size() == 3) {
+                    Color(colorArray[0].asInt, colorArray[1].asInt, colorArray[2].asInt)
                 } else {
                     null
                 }
 
                 // parse towns
                 val towns: ArrayList<String> = arrayListOf()
-                val townsArray = nation.get("towns")?.getAsJsonArray()
+                val townsArray = nation.get("towns")?.asJsonArray
                 if (townsArray !== null) {
                     townsArray.forEach { townName ->
-                        towns.add(townName.getAsString())
+                        towns.add(townName.asString)
                     }
                 }
 
                 // parse capital town name
-                var capitalName = nation.get("capital")?.getAsString()
+                var capitalName = nation.get("capital")?.asString
                 if (capitalName == null) {
                     System.err.println("Capital for: $name not found, setting it to ${towns[0]}")
                     capitalName = towns[0]
@@ -328,19 +325,19 @@ public object Deserializer {
 
                 // parse ally names
                 val allies: ArrayList<String> = ArrayList()
-                val alliesArray = nation.get("allies")?.getAsJsonArray()
+                val alliesArray = nation.get("allies")?.asJsonArray
                 if (alliesArray !== null) {
                     alliesArray.forEach { name ->
-                        allies.add(name.getAsString())
+                        allies.add(name.asString)
                     }
                 }
 
                 // parse enemy names
                 val enemies: ArrayList<String> = ArrayList()
-                val enemiesArray = nation.get("enemies")?.getAsJsonArray()
+                val enemiesArray = nation.get("enemies")?.asJsonArray
                 if (enemiesArray !== null) {
                     enemiesArray.forEach { name ->
-                        enemies.add(name.getAsString())
+                        enemies.add(name.asString)
                     }
                 }
 
@@ -364,50 +361,56 @@ public object Deserializer {
             towns,
             townAllies,
             townEnemies,
-            nations,
-            nationAllies,
-            nationEnemies,
         )
     }
 
     // parse ports.json
-    public fun portsFromJson(path: Path) {
+    fun portsFromJson(path: Path) {
         val json = JsonParser.parseReader(FileReader(path.toString()))
-        val jsonObj = json.getAsJsonObject()
+        val jsonObj = json.asJsonObject
 
         val groups = jsonObj.getAsJsonArray("groups")
         if (groups !== null) {
             for (group in groups) {
-                createPortGroup(group.asString)
+                val name = group?.asString
+                if (name == null) {
+                    System.err.println("Cannot create port group: missing name")
+                    continue
+                }
+                Nodes.loadPortGroup(name)
             }
         }
 
-        val jsonPorts = jsonObj.get("ports")?.getAsJsonObject()
+        val jsonPorts = jsonObj.get("ports")?.asJsonObject
         if (jsonPorts !== null) {
             jsonPorts.keySet().forEach { name ->
-                val port = jsonPorts[name].getAsJsonObject()
+                val port = jsonPorts[name].asJsonObject
 
                 // parse location (x,z)
-                val x = port.get("x").asInt
-                val z = port.get("z").asInt
-
-                // get group(s)
-                val groupsArray = port.get("groups").getAsJsonArray()
+                val x = port.get("x")?.asInt
+                val z = port.get("z")?.asInt
+                if (x == null || z == null) {
+                    System.err.println("Cannot create port $name: missing x or z coordinate")
+                    return@forEach
+                }
 
                 // get port groups
                 val groups: HashSet<PortGroup> = hashSetOf()
-                for (groupElement in groupsArray) {
-                    val groupName = groupElement.asString
-                    val group = Nodes.getPortGroupFromName(groupName)
-                    if (group !== null) {
-                        groups.add(group)
+                val groupsArray = port.get("groups")?.asJsonArray
+                if (groupsArray !== null) {
+                    for (groupElement in groupsArray) {
+                        val groupName = groupElement.asString
+                        val group = Nodes.getPortGroupFromName(groupName)
+                        if (group !== null) {
+                            groups.add(group)
+                        }
                     }
                 }
 
                 // parse port isPublic
-                val isPublic: Boolean = port.get("isPublic")?.getAsBoolean() ?: false
+                val isPublic: Boolean = port.get("isPublic")?.asBoolean ?: false
 
-                val portObject: Port? = Nodes.loadPort(
+                Nodes.loadPort(
                     name,
                     x,
                     z,

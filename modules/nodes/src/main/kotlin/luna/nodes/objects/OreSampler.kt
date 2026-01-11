@@ -34,8 +34,8 @@ import java.util.Deque
 import java.util.concurrent.ThreadLocalRandom
 
 // game heights constants
-val Y_WORLD_MIN = 0
-val Y_WORLD_MAX = 255
+const val Y_WORLD_MIN = 0
+const val Y_WORLD_MAX = 255
 
 // random number generator
 private val random = ThreadLocalRandom.current()
@@ -53,7 +53,7 @@ private class ItemDistribution(inputItems: List<OreDeposit>) {
     init {
         val probabilityTemp: MutableList<Double> = mutableListOf()
         val itemsTemp: MutableList<OreDeposit?> = mutableListOf()
-        var prSum: Double = 0.0
+        var prSum = 0.0
 
         inputItems.forEach { item ->
             itemsTemp.add(item)
@@ -74,7 +74,7 @@ private class ItemDistribution(inputItems: List<OreDeposit>) {
 
         // alias table and probabilities that will be saved to object
         val aliasTemp: Array<OreDeposit?> = arrayOfNulls(n)
-        val probabilities: DoubleArray = DoubleArray(n)
+        val probabilities = DoubleArray(n)
 
         // stacks for small, large pr
         val small: Deque<Int> = ArrayDeque<Int>()
@@ -118,12 +118,12 @@ private class ItemDistribution(inputItems: List<OreDeposit>) {
 
         this.size = n
         this.probability = probabilities
-        this.items = Array<OreDeposit?>(n, { i -> itemsTemp[i] })
+        this.items = Array<OreDeposit?>(n) { i -> itemsTemp[i] }
         this.alias = aliasTemp
     }
 
     // return item from probability distribution
-    public fun sample(): List<ItemStack> {
+    fun sample(): List<ItemStack> {
         val roll = random.nextInt(this.size)
         val p = random.nextDouble()
         val oreDeposit = if (p <= this.probability[roll]) {
@@ -145,7 +145,7 @@ private class ItemDistribution(inputItems: List<OreDeposit>) {
 
     // return item from all ores in this distribution
     // that satisfy the roll
-    public fun sampleAll(): List<ItemStack> {
+    fun sampleAll(): List<ItemStack> {
         val roll = random.nextDouble()
         val drops: MutableList<ItemStack> = mutableListOf()
 
@@ -179,7 +179,7 @@ class OreSampler(
     private val itemsAtHeight: Array<ItemDistribution?> = arrayOfNulls(256)
 
     // contains any ore at some height
-    val containsOre: Boolean = ores.size > 0
+    val containsOre: Boolean = ores.isNotEmpty()
 
     init {
         // 1. iterate ores and generate array of y-intervals and their ore deposits
@@ -188,15 +188,15 @@ class OreSampler(
         while (yStart < Y_WORLD_MAX) {
 
             // find closest interval edge
-            yEnd = ores.fold(yEnd, { y, oreDeposit ->
+            yEnd = ores.fold(yEnd) { y, oreDeposit ->
                 if (oreDeposit.ymin > yStart) {
-                    Math.min(y, oreDeposit.ymin - 1) // don't include next interval start
+                    y.coerceAtMost(oreDeposit.ymin - 1) // don't include next interval start
                 } else if (oreDeposit.ymax >= yStart) {
-                    Math.min(y, oreDeposit.ymax)
+                    y.coerceAtMost(oreDeposit.ymax)
                 } else {
                     y
                 }
-            })
+            }
 
             // 2. generate item distribution for height interval
             // map all y in [yStart, yEnd] -> ItemDistribution
@@ -219,7 +219,7 @@ class OreSampler(
     }
 
     // sample ore deposits distribution at given height
-    public fun sample(y: Int): List<ItemStack> {
+    fun sample(y: Int): List<ItemStack> {
         // ensure y in [0, 255]
         if (y >= Y_WORLD_MIN && y <= Y_WORLD_MAX) {
             val sampler = this.itemsAtHeight[y]
@@ -233,7 +233,7 @@ class OreSampler(
 
     // simple sample, iterate all ore types and sample
     // return every sample which roll < chance
-    public fun sampleAll(y: Int): List<ItemStack> {
+    fun sampleAll(y: Int): List<ItemStack> {
         // ensure y in [0, 255]
         if (y >= Y_WORLD_MIN && y <= Y_WORLD_MAX) {
             val sampler = this.itemsAtHeight[y]

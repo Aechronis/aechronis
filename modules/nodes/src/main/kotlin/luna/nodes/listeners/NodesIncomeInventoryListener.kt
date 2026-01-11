@@ -7,7 +7,7 @@ import net.minestom.server.inventory.click.Click
 
 // allow removing items from town income inventory, but not putting items in
 // for simplicity, just allow all shift clicks when clicking in the town income gui, else cancel event
-public fun onInventoryClick(event: InventoryPreClickEvent) {
+fun onInventoryClick(event: InventoryPreClickEvent) {
     val player = event.player
     val inventory = event.inventory ?: return
 
@@ -25,7 +25,7 @@ public fun onInventoryClick(event: InventoryPreClickEvent) {
     }
 }
 
-public fun onInventoryClose(event: InventoryCloseEvent) {
+fun onInventoryClose(event: InventoryCloseEvent) {
     if (event.inventory.size == 45) {
         Nodes.onTownIncomeInventoryClose()
     }

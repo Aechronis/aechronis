@@ -35,7 +35,7 @@ class NationCommand : Command("n", "nation") {
     init {
         // no args, print current nation info
         setDefaultExecutor { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player != null) {
                 // print player's nation info
@@ -86,14 +86,14 @@ class NationCreateCommand : Command("create", "new") {
         var nameArg = ArgumentType.String("name")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
             }
 
             // do not allow during war
-            if (Nodes.war.enabled == true) {
+            if (Nodes.war.enabled) {
                 Message.error(player, "Cannot create nations during war")
                 return@addSyntax
             }
@@ -142,7 +142,7 @@ class NationDeleteCommand : Command("delete", "disband") {
         }
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -167,7 +167,7 @@ class NationDeleteCommand : Command("delete", "disband") {
             }
 
             // do not allow during war
-            if (Nodes.war.enabled == true) {
+            if (Nodes.war.enabled) {
                 Message.error(player, "Cannot delete your nation during war")
                 return@addSyntax
             }
@@ -181,7 +181,7 @@ class NationDeleteCommand : Command("delete", "disband") {
 class NationLeaveCommand : Command("leave") {
     init {
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -217,7 +217,7 @@ class NationLeaveCommand : Command("leave") {
             }
 
             // do not allow during war
-            if (Nodes.war.enabled == true && Config.canLeaveNationDuringWar == false) {
+            if (Nodes.war.enabled && !Config.canLeaveNationDuringWar) {
                 Message.error(player, "Cannot leave your nation during war")
                 return@addSyntax
             }
@@ -244,7 +244,7 @@ class NationCapitalCommand : Command("capital") {
         var newCapitalArg = ArgumentType.String("town")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -298,7 +298,7 @@ class NationInviteCommand : Command("invite") {
         val townArg = ArgumentType.String("town")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -370,7 +370,7 @@ class NationAcceptCommand : Command("accept") {
         }
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -410,7 +410,7 @@ class NationDenyCommand : Command("deny", "reject") {
         }
 
         addSyntax({ sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -444,7 +444,7 @@ class NationListCommand : Command("list") {
         }
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             Message.print(player, "${ChatColor.BOLD}Nation - Population - Towns")
             val nationsList = ArrayList(Nodes.nations.values)
@@ -477,7 +477,7 @@ class NationColorCommand : Command("color") {
         var bArg = ArgumentType.Integer("b")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -520,7 +520,7 @@ class NationRenameCommand : Command("rename") {
         var nameArg = ArgumentType.String("new_name")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -573,7 +573,7 @@ class NationOnlineCommand : Command("online") {
         var nationArg = ArgumentType.String("nation")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -596,12 +596,12 @@ class NationOnlineCommand : Command("online") {
             }
 
             val numPlayersOnline = nation.playersOnline.size
-            val playersOnline = nation.playersOnline.map({ p -> p.username }).joinToString(", ")
+            val playersOnline = nation.playersOnline.joinToString(", ", transform = { p -> p.username })
             Message.print(player, "Players online in nation ${nation.name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
         })
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -624,7 +624,7 @@ class NationOnlineCommand : Command("online") {
             }
 
             val numPlayersOnline = nation.playersOnline.size
-            val playersOnline = nation.playersOnline.map({ p -> p.username }).joinToString(", ")
+            val playersOnline = nation.playersOnline.joinToString(", ", transform = { p -> p.username })
             Message.print(player, "Players online in nation ${nation.name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
         }, nationArg)
     }
@@ -639,7 +639,7 @@ class NationInfoCommand : Command("info") {
         var nationArg = ArgumentType.String("nation")
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax
@@ -661,7 +661,7 @@ class NationInfoCommand : Command("info") {
         })
 
         addSyntax( { sender, context ->
-            val player = if (sender is Player) sender else null
+            val player = sender as? Player
 
             if (player == null) {
                 return@addSyntax

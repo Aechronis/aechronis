@@ -75,7 +75,7 @@ fun main() {
     instanceContainer.chunkLoader = AnvilLoader(Config.pathLevel)
 
     // initialize spark
-    val spark = SparkMinestom.builder(Config.pathSpark)
+    SparkMinestom.builder(Config.pathSpark)
         .commands(true) // enables registration of Spark commands
         .permissionHandler { sender, permission -> true } // allows all command senders
         .enable()
@@ -108,7 +108,7 @@ fun main() {
     val pluginPath = Config.pathPlugin
     println("Loading world from: $pluginPath")
     try {
-        if (Nodes.loadWorld() == true) { // successful load
+        if (Nodes.loadWorld()) { // successful load
             // print number of resource nodes and territories loaded
             println("- Resource Nodes: ${Nodes.getResourceNodeCount()}")
             println("- Territories: ${Nodes.getTerritoryCount()}")
@@ -123,28 +123,28 @@ fun main() {
         println("Error loading world: $err")
     }
 
-    var eventHandler = MinecraftServer.getGlobalEventHandler()
+    val eventHandler = MinecraftServer.getGlobalEventHandler()
 
     // register listeners
-    eventHandler.addListener(PlayerChatEvent::class.java, { event -> onPlayerChat(event) })
+    eventHandler.addListener(PlayerChatEvent::class.java) { event -> onPlayerChat(event) }
 //    pluginManager.registerEvents(NodesChestProtectionListener(), this)
 //    pluginManager.registerEvents(NodesChestProtectionDestroyListener(), this)
-    eventHandler.addListener(InventoryPreClickEvent::class.java, { event -> onInventoryClick(event) })
-    eventHandler.addListener(InventoryCloseEvent::class.java, { event -> onInventoryClose(event) })
-    eventHandler.addListener(PlayerBlockBreakEvent::class.java, { event -> onBlockBreak(event) })
-    eventHandler.addListener(PlayerBlockBreakEvent::class.java, { event -> onBlockBreakSuccess(event) })
-    eventHandler.addListener(PlayerBlockPlaceEvent::class.java, { event -> onBlockPlace(event) })
-    eventHandler.addListener(PlayerBlockPlaceEvent::class.java, { event -> onBlockPlaceSuccess(event) })
+    eventHandler.addListener(InventoryPreClickEvent::class.java) { event -> onInventoryClick(event) }
+    eventHandler.addListener(InventoryCloseEvent::class.java) { event -> onInventoryClose(event) }
+    eventHandler.addListener(PlayerBlockBreakEvent::class.java) { event -> onBlockBreak(event) }
+    eventHandler.addListener(PlayerBlockBreakEvent::class.java) { event -> onBlockBreakSuccess(event) }
+    eventHandler.addListener(PlayerBlockPlaceEvent::class.java) { event -> onBlockPlace(event) }
+    eventHandler.addListener(PlayerBlockPlaceEvent::class.java) { event -> onBlockPlaceSuccess(event) }
 //    pluginManager.registerEvents(NodesPlayerJoinQuitListener(), this)
-    eventHandler.addListener(AsyncPlayerConfigurationEvent::class.java, { event -> onPlayerConfiguration(event) })
-    eventHandler.addListener(PlayerLoadedEvent::class.java, { event -> onPlayerJoin(event)})
-    eventHandler.addListener(PlayerDisconnectEvent::class.java, { event -> onPlayerQuit(event)})
-    eventHandler.addListener(PlayerMoveEvent::class.java, { event -> onPlayerMove(event) })
-    eventHandler.addListener(EntityTeleportEvent::class.java, { event -> onPlayerTeleport(event) })
+    eventHandler.addListener(AsyncPlayerConfigurationEvent::class.java) { event -> onPlayerConfiguration(event) }
+    eventHandler.addListener(PlayerLoadedEvent::class.java) { event -> onPlayerJoin(event) }
+    eventHandler.addListener(PlayerDisconnectEvent::class.java) { event -> onPlayerQuit(event) }
+    eventHandler.addListener(PlayerMoveEvent::class.java) { event -> onPlayerMove(event) }
+    eventHandler.addListener(EntityTeleportEvent::class.java) { event -> onPlayerTeleport(event) }
 //    pluginManager.registerEvents(NodesPlayerDamageListener(), this)
 
     // shutdown task
-    MinecraftServer.getSchedulerManager().buildShutdownTask({onDisable()})
+    MinecraftServer.getSchedulerManager().buildShutdownTask { onDisable() }
 //
 //    // register commands
     MinecraftServer.getCommandManager().register(TownCommand())

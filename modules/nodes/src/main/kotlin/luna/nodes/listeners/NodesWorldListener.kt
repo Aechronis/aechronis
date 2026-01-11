@@ -25,8 +25,6 @@ import luna.nodes.constants.ErrorSkyBlocked
 import luna.nodes.constants.ErrorTooManyAttacks
 import luna.nodes.constants.ErrorTownBlacklisted
 import luna.nodes.constants.ErrorTownNotWhitelisted
-import luna.nodes.constants.INTERACTIVE_BLOCKS
-import luna.nodes.constants.PROTECTED_BLOCKS
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
 import luna.nodes.objects.Resident
@@ -46,20 +44,19 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.enchant.Enchantment
 import java.util.concurrent.ThreadLocalRandom
 
-public fun onBlockBreak(event: PlayerBlockBreakEvent) {
+fun onBlockBreak(event: PlayerBlockBreakEvent) {
     val player: Player = event.player
-    val block = event.block
     val blockPos = event.blockPosition
     val territoryChunk = Nodes.getTerritoryChunkFromBlock(blockPos.blockX, blockPos.blockZ)
 
     // if war enabled, and chunk is being attacked, do flag checks
     if (Nodes.war.enabled && territoryChunk?.attacker !== null) {
-        var attack = FlagWar.chunkToAttacker.get(territoryChunk.coord)!!
+        val attack = FlagWar.chunkToAttacker.get(territoryChunk.coord)!!
 
         if (blockInWarFlagNoBuildRegion(blockPos, attack)) {
             // handle war flag breaking
             if (attack.flagBlock == blockPos) {
-                event.setCancelled(true)
+                event.isCancelled = true
 
                 // handle breaking allies flags
                 if (!Config.allowBreakingAlliesFlags) {
@@ -87,7 +84,7 @@ public fun onBlockBreak(event: PlayerBlockBreakEvent) {
 //                if (player.isOp()) {
 //                    return
 //                }
-            event.setCancelled(true)
+            event.isCancelled = true
             Message.error(player, "[War] Cannot break blocks within ${Config.flagNoBuildDistance} blocks of war flags")
             return
         }
@@ -110,7 +107,7 @@ public fun onBlockBreak(event: PlayerBlockBreakEvent) {
             return
         }
 
-        event.setCancelled(true)
+        event.isCancelled = true
         Message.error(player, "You cannot destroy here!")
         return
     }
@@ -133,12 +130,12 @@ public fun onBlockBreak(event: PlayerBlockBreakEvent) {
         }
     }
 
-    event.setCancelled(true)
+    event.isCancelled = true
     Message.error(player, "You cannot destroy here!")
 }
 
-public fun onBlockBreakSuccess(event: PlayerBlockBreakEvent) {
-    if (event.isCancelled()) {
+fun onBlockBreakSuccess(event: PlayerBlockBreakEvent) {
+    if (event.isCancelled) {
         return
     }
 
@@ -157,7 +154,7 @@ public fun onBlockBreakSuccess(event: PlayerBlockBreakEvent) {
     }
 }
 
-public fun onBlockPlace(event: PlayerBlockPlaceEvent) {
+fun onBlockPlace(event: PlayerBlockPlaceEvent) {
     val block = event.block
     val blockPos = event.blockPosition
     val player: Player = event.player
@@ -173,10 +170,10 @@ public fun onBlockPlace(event: PlayerBlockPlaceEvent) {
 //                    return
 //                }
 
-                var attack = FlagWar.chunkToAttacker.get(territoryChunk.coord)
+                val attack = FlagWar.chunkToAttacker.get(territoryChunk.coord)
                 if (attack !== null) {
                     if (blockInWarFlagNoBuildRegion(blockPos, attack)) {
-                        event.setCancelled(true)
+                        event.isCancelled = true
                         Message.error(player, "[War] Cannot build within ${Config.flagNoBuildDistance} blocks of war flags")
                         return
                     }
@@ -216,14 +213,14 @@ public fun onBlockPlace(event: PlayerBlockPlaceEvent) {
                             }
 
                             // cancel event
-                            event.setCancelled(true)
+                            event.isCancelled = true
                         }
                     } else {
                         Message.error(player, "[War] Cannot claim unless you are part of a town")
-                        event.setCancelled(true)
+                        event.isCancelled = true
                     }
                 } else {
-                    event.setCancelled(true)
+                    event.isCancelled = true
                 }
             }
         }
@@ -245,7 +242,7 @@ public fun onBlockPlace(event: PlayerBlockPlaceEvent) {
             return
         }
 
-        event.setCancelled(true)
+        event.isCancelled = true
         Message.error(player, "You cannot build here!")
         return
     }
@@ -273,12 +270,12 @@ public fun onBlockPlace(event: PlayerBlockPlaceEvent) {
         }
     }
 
-    event.setCancelled(true)
+    event.isCancelled = true
     Message.error(player, "You cannot build here!")
 }
 
-public fun onBlockPlaceSuccess(event: PlayerBlockPlaceEvent) {
-    if (event.isCancelled()) {
+fun onBlockPlaceSuccess(event: PlayerBlockPlaceEvent) {
+    if (event.isCancelled) {
         return
     }
 
@@ -636,7 +633,7 @@ private fun hasTownPermissions(perms: TownPermissions, town: Town, player: Resid
         return true
     } else if (town.permissions[perms].contains(PermissionsGroup.NATION) && town.nation !== null && player.nation === town.nation) {
         return true
-    } else if (town.permissions[perms].contains(PermissionsGroup.ALLY) && (town.allies.contains(player.town) == true)) {
+    } else if (town.permissions[perms].contains(PermissionsGroup.ALLY) && town.allies.contains(player.town)) {
         return true
     } else if (town.permissions[perms].contains(PermissionsGroup.OUTSIDER)) {
         return true
@@ -653,10 +650,10 @@ private fun hasTownPermissions(perms: TownPermissions, town: Town, player: Resid
  * player: player interacting in the territory
  */
 private fun hasOccupierPermissions(perms: TownPermissions, town: Town, occupier: Town, player: Resident): Boolean {
-    if (Config.allowControlInOccupiedTownList.contains(town.uuid)) {
-        return hasTownPermissions(perms, occupier, player)
+    return if (Config.allowControlInOccupiedTownList.contains(town.uuid)) {
+        hasTownPermissions(perms, occupier, player)
     } else {
-        return false
+        false
     }
 }
 
@@ -666,12 +663,10 @@ private fun hasOccupierPermissions(perms: TownPermissions, town: Town, occupier:
  */
 private fun hasTownProtectedChestPermissions(town: Town, player: Resident): Boolean {
     if (player.town === town) {
-        if (player === town.leader) {
-            return true
-        } else if (town.officers.contains(player)) {
-            return true
+        return if (player === town.leader || town.officers.contains(player)) {
+            true
         } else {
-            return player.trusted
+            player.trusted
         }
     }
 
@@ -773,7 +768,7 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
             // else, drop items normally
             else {
                 for (itemStack in itemDrops) {
-                    val itemEntity = ItemEntity(itemStack);
+                    val itemEntity = ItemEntity(itemStack)
                     itemEntity.setInstance(MinecraftServer.getInstanceManager().instances.first(), block)
                 }
             }

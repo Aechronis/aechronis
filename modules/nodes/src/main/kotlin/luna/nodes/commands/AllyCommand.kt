@@ -32,7 +32,7 @@ class AllyCommand : Command("ally") {
         val targetArg = ArgumentType.String("target")
 
         addSyntax( { sender, context ->
-            if (!(sender is Player)) {
+            if (sender !is Player) {
                 return@addSyntax
             }
 

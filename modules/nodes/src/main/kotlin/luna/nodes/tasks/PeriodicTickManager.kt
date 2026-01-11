@@ -3,15 +3,17 @@
  * - Income, backup, cooldowns
  */
 
-package luna.nodes
+package luna.nodes.tasks
 
+import luna.nodes.Config
+import luna.nodes.Nodes
 import luna.nodes.utils.FileWriteTask
 import net.minestom.server.MinecraftServer
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.util.concurrent.CompletableFuture
 
-public object PeriodicTickManager {
+object PeriodicTickManager {
 
     private var task: Task? = null
 
@@ -19,7 +21,7 @@ public object PeriodicTickManager {
     private var previousTime: Long = 0L
 
     // run scheduler for saving backups
-    public fun start(period: Long) {
+    fun start(period: Long) {
         if (this.task !== null) {
             return
         }
@@ -64,7 +66,7 @@ public object PeriodicTickManager {
             .schedule()
     }
 
-    public fun stop() {
+    fun stop() {
         val task = this.task
         if (task === null) {
             return

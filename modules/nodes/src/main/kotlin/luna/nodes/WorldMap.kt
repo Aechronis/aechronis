@@ -14,16 +14,15 @@ import luna.nodes.objects.Coord
 import luna.nodes.objects.Resident
 
 // minimap display primitive glyphs MUST BE SAME ASCII SIZE
-private val SOLID = "\u2588" // full solid block
-private val SHADE0 = "\u2592" // medium shade
-private val SHADE1 = "\u2593" // dark shade
-private val SHADE2 = "\u2588" // full solid block
-private val HOME = SHADE2 // home territory
-private val CORE = "\u256B" // core chunk H
-private val CONQUERED0 = "\u255E" // captured chunk flag symbol
-private val CONQUERED1 = "\u255F" // other chunk flag symbol
-private val PLAYER_TOKEN = "\u253C" // player token
-private val PLAYER_IN_OCCUPIED_TOKEN = "\u256C" // player token in occupied chunk
+private const val SHADE0 = "\u2592" // medium shade
+private const val SHADE1 = "\u2593" // dark shade
+private const val SHADE2 = "\u2588" // full solid block
+private const val HOME = SHADE2 // home territory
+private const val CORE = "\u256B" // core chunk H
+private const val CONQUERED0 = "\u255E" // captured chunk flag symbol
+private const val CONQUERED1 = "\u255F" // other chunk flag symbol
+private const val PLAYER_TOKEN = "\u253C" // player token
+private const val PLAYER_IN_OCCUPIED_TOKEN = "\u256C" // player token in occupied chunk
 private val PORT_TOKEN = "${ChatColor.BOLD}\u2693" // port anchor symbol, bold so it has the same width as other chars
 
 // minimap display tokens
@@ -39,7 +38,6 @@ private val CORE_NEUTRAL = "${ChatColor.YELLOW}$CORE"
 private val CORE_ENEMY = "${ChatColor.RED}$CORE"
 private val CORE_ALLY = "${ChatColor.AQUA}$CORE"
 private val CORE_CAPTURED = "${ChatColor.GREEN}$CORE" // captured by your town
-private val CORE_OCCUPIED = "${ChatColor.RED}$CORE" // occupied by another town
 
 // home territory
 private val HOME_TOWN = "${ChatColor.GREEN}$HOME" // captured by your town
@@ -171,11 +169,11 @@ private fun getAlternativeColor(c: String): String {
     }
 }
 
-public object WorldMap {
+object WorldMap {
 
     // render a horizontal line (constant z)
     // units in chunk coords
-    public fun renderLine(resident: Resident, playerCoord: Coord, z: Int, xMin: Int, xMax: Int): String {
+    fun renderLine(resident: Resident, playerCoord: Coord, z: Int, xMin: Int, xMax: Int): String {
         var renderedString = ""
 
         for (x in xMin..xMax) {

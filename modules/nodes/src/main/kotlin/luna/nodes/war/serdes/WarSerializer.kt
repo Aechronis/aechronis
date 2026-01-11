@@ -19,11 +19,11 @@
  * }
  */
 
-package luna.nodes.war
+package luna.nodes.war.serdes
 
 import luna.nodes.Config
 import luna.nodes.Nodes
-import luna.nodes.utils.estimateNumDigits
+import luna.nodes.war.FlagWar
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
 import java.nio.channels.AsynchronousFileChannel
@@ -34,7 +34,7 @@ import java.nio.file.StandardOpenOption
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
 
-public object WarSerializer {
+object WarSerializer {
 
     // pre-processed state
 
@@ -46,11 +46,11 @@ public object WarSerializer {
     internal val attacksJsonList: ArrayList<StringBuilder> = arrayListOf()
 
     // pre-process war objects
-    public fun save(async: Boolean) {
+    fun save(async: Boolean) {
         // val timePreprocess = measureNanoTime {
 
         // convert occupiedChunks to json string
-        WarSerializer.occupiedChunks.clear()
+        occupiedChunks.clear()
 
         for (coord in FlagWar.occupiedChunks) {
             val chunk = Nodes.getTerritoryChunkFromCoord(coord)
@@ -63,7 +63,7 @@ public object WarSerializer {
                 val cx = coord.x
                 val cz = coord.z
 
-                WarSerializer.occupiedChunks.get(town)?.let { chunkList ->
+                occupiedChunks.get(town)?.let { chunkList ->
                     chunkList.add(cx)
                     chunkList.add(cz)
                 } ?: run {
@@ -73,25 +73,25 @@ public object WarSerializer {
         }
 
         // update json strings for each attack
-        WarSerializer.attacksJsonList.clear()
+        attacksJsonList.clear()
         for (attack in FlagWar.chunkToAttacker.values) {
-            WarSerializer.attacksJsonList.add(attack.toJson())
+            attacksJsonList.add(attack.toJson())
         }
 
         // }
 
         // println("[WAR] PRE-PROCESS TIME: ${timePreprocess.toString()}ns")
 
-        if (async == true) {
+        if (async) {
             // write file in worker thread
-            CompletableFuture.runAsync { WarSerializer.writeToJson(Config.pathWar) }
+            CompletableFuture.runAsync { writeToJson(Config.pathWar) }
         } else {
-            WarSerializer.writeToJson(Config.pathWar)
+            writeToJson(Config.pathWar)
         }
     }
 
     // save war json file synchronously on main thread
-    public fun writeToJson(path: Path) {
+    fun writeToJson(path: Path) {
         // =============================================
         // calculate string builder capacity
 
@@ -105,20 +105,20 @@ public object WarSerializer {
         // captured chunks format:
         // "town": [0, 1, 2, 3, ...]
         // -> get each integer size, then include brackets [] and commas ,
-        for ((townName, coordList) in WarSerializer.occupiedChunks) {
+        for ((townName, coordList) in occupiedChunks) {
             // size of "townName":[]
             bufferSize += (5 + townName.length + coordList.size)
 
             // size of each integer
             for (c in coordList) {
-                val intLength = 2 + estimateNumDigits(c)
+                val intLength = 2 + c.toString().length
                 bufferSize += intLength
             }
         }
 
         // list of attack json objects
         // add 1 to length to account for comma
-        for (s in WarSerializer.attacksJsonList) {
+        for (s in attacksJsonList) {
             bufferSize += (1 + s.length)
         }
         // =============================================
@@ -126,7 +126,7 @@ public object WarSerializer {
         // json string builder
         val jsonString = StringBuilder(bufferSize)
 
-        var bytes: ByteBuffer = ByteBuffer.allocate(0)
+        var bytes: ByteBuffer
 
         // val timeBuffers = measureNanoTime {
 
@@ -144,7 +144,7 @@ public object WarSerializer {
         jsonString.append("\"occupied\":{")
 
         var index = 1
-        for ((townName, coordList) in WarSerializer.occupiedChunks) {
+        for ((townName, coordList) in occupiedChunks) {
             jsonString.append("\"${townName}\":[")
             for ((i, c) in coordList.withIndex()) {
                 jsonString.append(c)
@@ -154,7 +154,7 @@ public object WarSerializer {
             }
 
             // add comma
-            if (index < WarSerializer.occupiedChunks.size) {
+            if (index < occupiedChunks.size) {
                 jsonString.append("],")
                 index += 1
             }
@@ -171,11 +171,11 @@ public object WarSerializer {
         // ===============================
         jsonString.append("\"attacks\":[")
 
-        for ((i, attack) in WarSerializer.attacksJsonList.iterator().withIndex()) {
+        for ((i, attack) in attacksJsonList.iterator().withIndex()) {
             jsonString.append(attack)
 
             // add comma
-            if (i < WarSerializer.attacksJsonList.size - 1) {
+            if (i < attacksJsonList.size - 1) {
                 jsonString.append(",")
             }
         }

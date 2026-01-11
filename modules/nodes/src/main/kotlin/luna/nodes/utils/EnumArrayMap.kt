@@ -19,7 +19,7 @@ inline fun <reified K : Enum<K>, reified T> createEnumArrayMap(init: (K) -> T): 
  * See:
  * https://stackoverflow.com/questions/49855273/kotlin-generic-iterator-over-enum-how-to-declare-type-variables
  */
-public class EnumArrayMap<K : Enum<K>, T>(
+class EnumArrayMap<K : Enum<K>, T>(
     val array: Array<T>,
 ) {
     /**
@@ -34,11 +34,11 @@ public class EnumArrayMap<K : Enum<K>, T>(
     /**
      * Return array size.
      */
-    public val size: Int get() = this.array.size
+    val size: Int get() = this.array.size
 
     /**
      * Return a copy with backing array cloned.
      * Note actual internal elements are just shallow-copied references.
      */
-    public fun copyOf(): EnumArrayMap<K, T> = EnumArrayMap(this.array.copyOf())
+    fun copyOf(): EnumArrayMap<K, T> = EnumArrayMap(this.array.copyOf())
 }

@@ -16,7 +16,6 @@ import net.minestom.server.item.Material
 import net.minestom.server.command.CommandSender
 import luna.nodes.Message
 //import luna.nodes.Nodes
-import kotlin.math.min
 
 /**
  * Interface for resource attributes. These are modifiers
@@ -28,18 +27,18 @@ interface ResourceAttribute {
      * Sort priority within a ResourceNode object's attributes.
      * Lower priority attributes are applied first.
      */
-    public val priority: Int
+    val priority: Int
 
     /**
      * Apply this attribute to a TerritoryResources to generate a
      * new TerritoryResources with modified properties.
      */
-    public fun apply(resources: TerritoryResources): TerritoryResources
+    fun apply(resources: TerritoryResources): TerritoryResources
 
     /**
      * Return string description of this attribute
      */
-    public fun describe(): String
+    fun describe(): String
 }
 
 /**
@@ -53,7 +52,7 @@ interface ResourceAttributeLoader {
      * The load implementation determines which fields correspond to
      * different resource attributes.
      */
-    public fun load(resources: HashMap<String, ResourceNode>, json: JsonObject): HashMap<String, ResourceNode>
+    fun load(json: JsonObject): HashMap<String, ResourceNode>
 }
 
 /**
@@ -74,15 +73,17 @@ data class ResourceNode(
     /**
      * Apply resource node attributes to a TerritoryResources.
      */
-    public fun apply(terr: TerritoryResources): TerritoryResources = this.attributesSorted.fold(terr, { t, attribute -> attribute.apply(t) })
+    fun apply(terr: TerritoryResources): TerritoryResources = this.attributesSorted.fold(terr) { t, attribute ->
+        attribute.apply(t)
+    }
 
     /**
      * Print resource node attributes info to sender.
      */
-    public fun printInfo(sender: CommandSender) {
+    fun printInfo(sender: CommandSender) {
         Message.print(sender, "${ChatColor.BOLD}Resource node \"${this.name}\":")
         for (attribute in this.attributesSorted) {
-            Message.print(sender, "${attribute.describe()}")
+            Message.print(sender, attribute.describe())
         }
     }
 }
@@ -91,7 +92,7 @@ data class ResourceNode(
 // RESOURCE ATTRIBUTE IMPLEMENTATIONS
 // ============================================================================
 
-public data class ResourceAttributeIncome(
+data class ResourceAttributeIncome(
     private val income: MutableMap<Material, Double>,
 ) : ResourceAttribute {
     override val priority: Int = 1
@@ -113,7 +114,7 @@ public data class ResourceAttributeIncome(
         val newIncome = resources.income.toMutableMap()
 
         this.income.forEach { k, v ->
-            newIncome.get(k)?.let { currentVal ->
+            newIncome[k]?.let { currentVal ->
                 newIncome.put(k, currentVal + v)
             } ?: run {
                 newIncome.put(k, v)
@@ -128,7 +129,7 @@ public data class ResourceAttributeIncome(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeOre(
+data class ResourceAttributeOre(
     private val ores: MutableMap<Material, OreDeposit>,
 ) : ResourceAttribute {
     override val priority: Int = 2
@@ -156,7 +157,7 @@ public data class ResourceAttributeOre(
 
         // merge ore deposits
         this.ores.forEach { k, v ->
-            newOres.get(k)?.let { oreDeposit ->
+            newOres[k]?.let { oreDeposit ->
                 newOres.put(k, oreDeposit.merge(v))
             } ?: run {
                 newOres.put(k, v)
@@ -175,7 +176,7 @@ public data class ResourceAttributeOre(
 // MULTIPLIER ATTRIBUTES
 // ============================================================================
 
-public data class ResourceAttributeTotalIncomeMultiplier(
+data class ResourceAttributeTotalIncomeMultiplier(
     val multiplier: Double,
 ) : ResourceAttribute {
     override val priority: Int = 50
@@ -199,7 +200,7 @@ public data class ResourceAttributeTotalIncomeMultiplier(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeTotalOreMultiplier(
+data class ResourceAttributeTotalOreMultiplier(
     val multiplier: Double,
 ) : ResourceAttribute {
     override val priority: Int = 50
@@ -223,7 +224,7 @@ public data class ResourceAttributeTotalOreMultiplier(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeIncomeMultiplier(
+data class ResourceAttributeIncomeMultiplier(
     private val income: MutableMap<Material, Double>,
 ) : ResourceAttribute {
     override val priority: Int = 50
@@ -258,7 +259,7 @@ public data class ResourceAttributeIncomeMultiplier(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeOreMultiplier(
+data class ResourceAttributeOreMultiplier(
     private val multiplier: MutableMap<Material, Double>,
 ) : ResourceAttribute {
     override val priority: Int = 50
@@ -303,7 +304,7 @@ public data class ResourceAttributeOreMultiplier(
 // NEIGHBOR ATTRIBUTES
 // ============================================================================
 
-public data class ResourceAttributeNeighborIncome(
+data class ResourceAttributeNeighborIncome(
     private val income: MutableMap<Material, Double>,
 ) : ResourceAttribute {
     override val priority: Int = 100
@@ -325,7 +326,7 @@ public data class ResourceAttributeNeighborIncome(
         val newIncome = resources.neighborIncome?.toMutableMap() ?: mutableMapOf()
 
         this.income.forEach { k, v ->
-            newIncome.get(k)?.let { currentVal ->
+            newIncome[k]?.let { currentVal ->
                 newIncome.put(k, currentVal + v)
             } ?: run {
                 newIncome.put(k, v)
@@ -340,7 +341,7 @@ public data class ResourceAttributeNeighborIncome(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeNeighborOre(
+data class ResourceAttributeNeighborOre(
     private val ores: MutableMap<Material, OreDeposit>,
 ) : ResourceAttribute {
     override val priority: Int = 100
@@ -368,7 +369,7 @@ public data class ResourceAttributeNeighborOre(
 
         // merge ore deposits
         this.ores.forEach { k, v ->
-            newOres.get(k)?.let { oreDeposit ->
+            newOres[k]?.let { oreDeposit ->
                 newOres.put(k, oreDeposit.merge(v))
             } ?: run {
                 newOres.put(k, v)
@@ -383,7 +384,7 @@ public data class ResourceAttributeNeighborOre(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeNeighborTotalIncomeMultiplier(
+data class ResourceAttributeNeighborTotalIncomeMultiplier(
     private val neighborTotalIncomeMultiplier: Double,
 ) : ResourceAttribute {
     override val priority: Int = 100
@@ -402,7 +403,7 @@ public data class ResourceAttributeNeighborTotalIncomeMultiplier(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeNeighborIncomeMultiplier(
+data class ResourceAttributeNeighborIncomeMultiplier(
     private val neighborIncomeMultiplier: MutableMap<Material, Double>,
 ) : ResourceAttribute {
     override val priority: Int = 100
@@ -424,7 +425,7 @@ public data class ResourceAttributeNeighborIncomeMultiplier(
         val newNeighborIncomeMultiplier = resources.neighborIncomeMultiplier?.toMutableMap() ?: mutableMapOf()
 
         this.neighborIncomeMultiplier.forEach { k, v ->
-            newNeighborIncomeMultiplier.get(k)?.let { currentVal ->
+            newNeighborIncomeMultiplier[k]?.let { currentVal ->
                 newNeighborIncomeMultiplier.put(k, currentVal + v)
             } ?: run {
                 newNeighborIncomeMultiplier.put(k, v)
@@ -439,7 +440,7 @@ public data class ResourceAttributeNeighborIncomeMultiplier(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeNeighborTotalOreMultiplier(
+data class ResourceAttributeNeighborTotalOreMultiplier(
     private val neighborTotalOresMultiplier: Double,
 ) : ResourceAttribute {
     override val priority: Int = 100
@@ -458,7 +459,7 @@ public data class ResourceAttributeNeighborTotalOreMultiplier(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeNeighborOreMultiplier(
+data class ResourceAttributeNeighborOreMultiplier(
     private val neighborOresMultiplier: MutableMap<Material, Double>,
 ) : ResourceAttribute {
     override val priority: Int = 100
@@ -480,7 +481,7 @@ public data class ResourceAttributeNeighborOreMultiplier(
         val newNeighborOresMultiplier = resources.neighborOresMultiplier?.toMutableMap() ?: mutableMapOf()
 
         this.neighborOresMultiplier.forEach { k, v ->
-            newNeighborOresMultiplier.get(k)?.let { currentVal ->
+            newNeighborOresMultiplier[k]?.let { currentVal ->
                 newNeighborOresMultiplier.put(k, currentVal + v)
             } ?: run {
                 newNeighborOresMultiplier.put(k, v)
@@ -495,7 +496,7 @@ public data class ResourceAttributeNeighborOreMultiplier(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeAttackerTimeMultiplier(
+data class ResourceAttributeAttackerTimeMultiplier(
     val multiplier: Double,
 ) : ResourceAttribute {
     override val priority: Int = 200
@@ -511,7 +512,7 @@ public data class ResourceAttributeAttackerTimeMultiplier(
     override fun describe(): String = this.description
 }
 
-public data class ResourceAttributeDefenderTimeMultiplier(
+data class ResourceAttributeDefenderTimeMultiplier(
     val multiplier: Double,
 ) : ResourceAttribute {
     override val priority: Int = 201
@@ -531,39 +532,39 @@ public data class ResourceAttributeDefenderTimeMultiplier(
 // RESOURCE ATTRIBUTE LOADER IMPLEMENTATION
 // ============================================================================
 
-public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
-    public override fun load(_ignored: HashMap<String, ResourceNode>, json: JsonObject): HashMap<String, ResourceNode> {
+object DefaultResourceAttributeLoader : ResourceAttributeLoader {
+    override fun load(json: JsonObject): HashMap<String, ResourceNode> {
         // this should always run first. ignore existing resources input
         val resources: HashMap<String, ResourceNode> = hashMapOf()
 
         for (name in json.keySet()) {
             try {
-                val node = json[name].getAsJsonObject()
+                val node = json[name].asJsonObject
 
                 val attributes: ArrayList<ResourceAttribute> = arrayListOf()
 
                 // icon
                 val icon = node.get("icon")?.let { jsonIcon ->
-                    if (jsonIcon.isJsonPrimitive()) {
-                        jsonIcon.getAsString()
+                    if (jsonIcon.isJsonPrimitive) {
+                        jsonIcon.asString
                     } else {
                         null
                     }
                 }
 
                 // priority
-                val priority = node.get("priority")?.getAsInt() ?: 0
+                val priority = node.get("priority")?.asInt ?: 0
 
                 // ATTRIBUTES
 
                 // main resource attributes
-                node.get("income")?.getAsJsonObject()?.let { jsonIncome ->
+                node.get("income")?.asJsonObject?.let { jsonIncome ->
                     if (jsonIncome.size() > 0) {
                         val income = parseJsonIncome(jsonIncome)
                         attributes.add(ResourceAttributeIncome(income))
                     }
                 }
-                node.get("ore")?.getAsJsonObject()?.let { jsonOre ->
+                node.get("ore")?.asJsonObject?.let { jsonOre ->
                     if (jsonOre.size() > 0) {
                         val ores = parseJsonMapMaterialToOre(jsonOre)
                         attributes.add(ResourceAttributeOre(ores))
@@ -571,21 +572,21 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
                 }
 
                 // territory total modifiers
-                node.get("income_total_multiplier")?.getAsDouble()?.let { multiplier ->
+                node.get("income_total_multiplier")?.asDouble?.let { multiplier ->
                     attributes.add(ResourceAttributeTotalIncomeMultiplier(multiplier))
                 }
-                node.get("ore_total_multiplier")?.getAsDouble()?.let { multiplier ->
+                node.get("ore_total_multiplier")?.asDouble?.let { multiplier ->
                     attributes.add(ResourceAttributeTotalOreMultiplier(multiplier))
                 }
 
                 // territory specific type multipliers
-                node.get("income_multiplier")?.getAsJsonObject()?.let { jsonIncome ->
+                node.get("income_multiplier")?.asJsonObject?.let { jsonIncome ->
                     if (jsonIncome.size() > 0) {
                         val incomeMultiplier = parseJsonIncome(jsonIncome)
                         attributes.add(ResourceAttributeIncomeMultiplier(incomeMultiplier))
                     }
                 }
-                node.get("ore_multiplier")?.getAsJsonObject()?.let { jsonOre ->
+                node.get("ore_multiplier")?.asJsonObject?.let { jsonOre ->
                     if (jsonOre.size() > 0) {
                         val oresMultiplier = parseJsonMapMaterialToDouble(jsonOre)
                         attributes.add(ResourceAttributeOreMultiplier(oresMultiplier))
@@ -593,13 +594,13 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
                 }
 
                 // neighbor direct properties
-                node.get("neighbor_income")?.getAsJsonObject()?.let { jsonIncome ->
+                node.get("neighbor_income")?.asJsonObject?.let { jsonIncome ->
                     if (jsonIncome.size() > 0) {
                         val income = parseJsonIncome(jsonIncome)
                         attributes.add(ResourceAttributeNeighborIncome(income))
                     }
                 }
-                node.get("neighbor_ore")?.getAsJsonObject()?.let { jsonOre ->
+                node.get("neighbor_ore")?.asJsonObject?.let { jsonOre ->
                     if (jsonOre.size() > 0) {
                         val ores = parseJsonMapMaterialToOre(jsonOre)
                         attributes.add(ResourceAttributeNeighborOre(ores))
@@ -607,21 +608,21 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
                 }
 
                 // neighbor modifiers
-                node.get("neighbor_income_total_multiplier")?.getAsDouble()?.let { multiplier ->
+                node.get("neighbor_income_total_multiplier")?.asDouble?.let { multiplier ->
                     attributes.add(ResourceAttributeNeighborTotalIncomeMultiplier(multiplier))
                 }
-                node.get("neighbor_ore_total_multiplier")?.getAsDouble()?.let { multiplier ->
+                node.get("neighbor_ore_total_multiplier")?.asDouble?.let { multiplier ->
                     attributes.add(ResourceAttributeNeighborTotalOreMultiplier(multiplier))
                 }
 
                 // neighbor specific multipliers
-                node.get("neighbor_income_multiplier")?.getAsJsonObject()?.let { jsonIncome ->
+                node.get("neighbor_income_multiplier")?.asJsonObject?.let { jsonIncome ->
                     if (jsonIncome.size() > 0) {
                         val incomeMultiplier = parseJsonIncome(jsonIncome)
                         attributes.add(ResourceAttributeNeighborIncomeMultiplier(incomeMultiplier))
                     }
                 }
-                node.get("neighbor_ore_multiplier")?.getAsJsonObject()?.let { jsonOre ->
+                node.get("neighbor_ore_multiplier")?.asJsonObject?.let { jsonOre ->
                     if (jsonOre.size() > 0) {
                         val oresMultiplier = parseJsonMapMaterialToDouble(jsonOre)
                         attributes.add(ResourceAttributeNeighborOreMultiplier(oresMultiplier))
@@ -629,10 +630,10 @@ public object DefaultResourceAttributeLoader : ResourceAttributeLoader {
                 }
 
                 // claim time modifiers
-                node.get("attacker_time_multiplier")?.getAsDouble()?.let { multiplier ->
+                node.get("attacker_time_multiplier")?.asDouble?.let { multiplier ->
                     attributes.add(ResourceAttributeAttackerTimeMultiplier(multiplier))
                 }
-                node.get("defender_time_multiplier")?.getAsDouble()?.let { multiplier ->
+                node.get("defender_time_multiplier")?.asDouble?.let { multiplier ->
                     attributes.add(ResourceAttributeDefenderTimeMultiplier(multiplier))
                 }
 
@@ -667,7 +668,7 @@ private fun parseJsonIncome(json: JsonObject): MutableMap<Material, Double> {
 
         val material = Material.fromKey(type)
         if (material !== null) {
-            income.put(material, json.get(type).getAsDouble())
+            income.put(material, json.get(type).asDouble)
         } else {
             println("parseJsonIncome(): Failed to parse income material type: $itemName")
         }
@@ -688,23 +689,23 @@ private fun parseJsonMapMaterialToOre(json: JsonObject): MutableMap<Material, Or
             val oreData = json.get(type)
 
             // parse array format: [rate, minDrop, maxDrop]
-            if (oreData?.isJsonArray() ?: false) {
-                val oreDataAsArray = oreData.getAsJsonArray()
+            if (oreData?.isJsonArray ?: false) {
+                val oreDataAsArray = oreData.asJsonArray
                 if (oreDataAsArray.size() == 3) {
                     ores.put(
                         material,
                         OreDeposit(
                             material,
-                            oreDataAsArray[0].getAsDouble(),
-                            oreDataAsArray[1].getAsInt(),
-                            oreDataAsArray[2].getAsInt(),
+                            oreDataAsArray[0].asDouble,
+                            oreDataAsArray[1].asInt,
+                            oreDataAsArray[2].asInt,
                         ),
                     )
                 }
             }
             // parse number format: rate (default minDrop = maxDrop = 1)
-            else if (oreData?.isJsonPrimitive() ?: false) {
-                val oreDataRate = oreData.getAsDouble()
+            else if (oreData?.isJsonPrimitive ?: false) {
+                val oreDataRate = oreData.asDouble
                 ores.put(
                     material,
                     OreDeposit(

@@ -19,25 +19,25 @@ import luna.nodes.objects.Resident
 import luna.nodes.war.FlagWar
 import net.minestom.server.entity.GameMode
 
-public fun onPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
-    val player = event.getPlayer()
+fun onPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
+    val player = event.player
     val instance = MinecraftServer.getInstanceManager().instances.first()
     event.spawningInstance = instance
     player.respawnPoint = Config.spawnLoc
     player.gameMode = GameMode.CREATIVE
 }
 
-public fun onPlayerJoin(event: PlayerLoadedEvent) {
+fun onPlayerJoin(event: PlayerLoadedEvent) {
     // create resident wrapper for player
     // createResident checks if resident already exists
-    val player: Player = event.getPlayer()
+    val player: Player = event.player
     Nodes.createResident(player)
 
     val resident: Resident = Nodes.getResident(player)!!
     Nodes.setResidentOnline(resident, player)
 
     // if war enabled, send active chunk attack progress bars
-        if (Nodes.war.enabled == true) {
+        if (Nodes.war.enabled) {
             Nodes.war.sendWarProgressBarToPlayer(player)
         }
 
@@ -55,8 +55,8 @@ public fun onPlayerJoin(event: PlayerLoadedEvent) {
     Nodes.playerNameCache.set(player.uuid,player.username)
 }
 
-public fun onPlayerQuit(event: PlayerDisconnectEvent) {
-    val player: Player = event.getPlayer()
+fun onPlayerQuit(event: PlayerDisconnectEvent) {
+    val player: Player = event.player
     val resident = Nodes.getResident(player)
     if (resident != null) {
         resident.destroyMinimap()

@@ -12,7 +12,7 @@ package luna.nodes.constants
  * Neutral - neutral towns, or players with no town
  * Enemy - enemy towns
  */
-public enum class DiplomaticRelationship {
+enum class DiplomaticRelationship {
     TOWN,
     NATION,
     ALLY,
@@ -21,9 +21,9 @@ public enum class DiplomaticRelationship {
 }
 
 // constants for setting enemy
-public val ErrorWarAlly = Exception("Cannot declare war against an ally")
-public val ErrorAlreadyEnemies = Exception("Already enemies")
-public val ErrorAlreadyAllies = Exception("Already allies")
+val ErrorWarAlly = Exception("Cannot declare war against an ally")
+val ErrorAlreadyEnemies = Exception("Already enemies")
+val ErrorAlreadyAllies = Exception("Already allies")
 
 // constants for adding/removing ally
-public val ErrorNotAllies = Exception("Not allies")
+val ErrorNotAllies = Exception("Not allies")

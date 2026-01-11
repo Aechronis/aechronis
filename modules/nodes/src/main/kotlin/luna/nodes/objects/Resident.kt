@@ -12,14 +12,13 @@ import net.minestom.server.MinecraftServer
 import org.bukkit.ChatColor
 import net.minestom.server.command.CommandSender
 import net.minestom.server.entity.Player
-import luna.nodes.Config
 import luna.nodes.Message
 import luna.nodes.chat.ChatMode
 import luna.nodes.serdes.SaveState
 import net.minestom.server.timer.Task
 import java.util.UUID
 
-public class Resident(val uuid: UUID, val name: String) {
+class Resident(val uuid: UUID, val name: String) {
     var town: Town? = null
     var nation: Nation? = null
 
@@ -50,20 +49,21 @@ public class Resident(val uuid: UUID, val name: String) {
     var minimap: Minimap? = null
 
     // save state needs update flag
-    private var saveState: ResidentSaveState
+    private var saveState = ResidentSaveState(this)
 
-    @Suppress("PropertyName")
     private var _needsUpdate = false
 
-    init {
-        this.saveState = ResidentSaveState(this)
-    }
+    override fun hashCode(): Int = this.uuid.hashCode()
 
-    public override fun hashCode(): Int = this.uuid.hashCode()
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Resident) return false
+        return this.uuid == other.uuid
+    }
 
     // returns player associated with resident
     // returns null when player is offline
-    public fun player(): Player? = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(this.uuid)
+    fun player(): Player? = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(this.uuid)
 
     // ===================================
     // Minimap functions
@@ -71,7 +71,7 @@ public class Resident(val uuid: UUID, val name: String) {
     // and only viewable by player
     // ===================================
 
-    public fun createMinimap(player: Player, size: Int) {
+    fun createMinimap(player: Player, size: Int) {
         // remove any existing minimap
         this.destroyMinimap()
 
@@ -79,7 +79,7 @@ public class Resident(val uuid: UUID, val name: String) {
         this.minimap = Minimap(this, player, size)
     }
 
-    public fun destroyMinimap() {
+    fun destroyMinimap() {
         val minimap = this.minimap
         if (minimap != null) {
             minimap.destroy()
@@ -88,14 +88,14 @@ public class Resident(val uuid: UUID, val name: String) {
     }
 
     // update player minimap if it exists
-    public fun updateMinimap(coord: Coord) {
+    fun updateMinimap(coord: Coord) {
         this.minimap?.render(coord)
     }
 
     // ===================================
 
     // print resident info
-    public fun printInfo(sender: CommandSender) {
+    fun printInfo(sender: CommandSender) {
         val town = this.town?.name ?: "${ChatColor.GRAY}None"
         val nation = this.nation?.name ?: "${ChatColor.GRAY}None"
 
@@ -108,19 +108,19 @@ public class Resident(val uuid: UUID, val name: String) {
      * Immutable save snapshot, must be composed of immutable primitives.
      * Used to generate json string serialization.
      */
-    public class ResidentSaveState(r: Resident) : SaveState {
-        public val uuid = r.uuid
-        public val name = r.name
-        public val town = r.town?.name
-        public val nation = r.nation?.name
-        public val prefix = r.prefix
-        public val suffix = r.suffix
-        public val trusted = r.trusted
-        public val townCreateCooldown = r.townCreateCooldown
+    class ResidentSaveState(r: Resident) : SaveState {
+        val uuid = r.uuid
+        val name = r.name
+        val town = r.town?.name
+        val nation = r.nation?.name
+        val prefix = r.prefix
+        val suffix = r.suffix
+        val trusted = r.trusted
+        val townCreateCooldown = r.townCreateCooldown
 
-        public override var jsonString: String? = null
+        override var jsonString: String? = null
 
-        public override fun createJsonString(): String {
+        override fun createJsonString(): String {
             val jsonString = (
                 "{" +
                     "\"name\":\"${this.name}\"," +
@@ -137,14 +137,14 @@ public class Resident(val uuid: UUID, val name: String) {
     }
 
     // function to let client flag this object as dirty
-    public fun needsUpdate() {
+    fun needsUpdate() {
         this._needsUpdate = true
     }
 
     // wrapper to return self as state
     // - returns memoized copy if needsUpdate false
     // - otherwise, parses self
-    public fun getSaveState(): ResidentSaveState {
+    fun getSaveState(): ResidentSaveState {
         if (this._needsUpdate) {
             this.saveState = ResidentSaveState(this)
             this._needsUpdate = false

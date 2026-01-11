@@ -40,6 +40,8 @@ import luna.nodes.objects.Coord
 import luna.nodes.objects.Territory
 import luna.nodes.objects.TerritoryChunk
 import luna.nodes.objects.Town
+import luna.nodes.war.serdes.WarDeserializer
+import luna.nodes.war.serdes.WarSerializer
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
@@ -64,7 +66,7 @@ private val SKY_BEACON_BLOCKS: Set<Block> = setOf(
     SKY_BEACON_BLOCK,
 )
 
-public object FlagWar {
+object FlagWar {
 
     // ============================================
     // war settings
@@ -82,7 +84,7 @@ public object FlagWar {
     internal var destructionEnabled: Boolean = false
 
     // ticks for the save task
-    public var saveTaskPeriod: Int = 20
+    var saveTaskPeriod: Int = 20
     // ============================================
 
     // flag items that can be used to claim during war
@@ -104,7 +106,7 @@ public object FlagWar {
     internal val occupiedChunks: MutableSet<Coord> = ConcurrentHashMap.newKeySet() // create concurrent set from ConcurrentHashMap
 
     // attack/flag update tick interval
-    internal val ATTACK_TICK: Int = 20
+    internal const val ATTACK_TICK: Int = 20
 
     // flag that save required
     internal var needsSave: Boolean = false
@@ -112,16 +114,16 @@ public object FlagWar {
     // periodic task to check for save
     internal var saveTask: Task? = null
 
-    public fun initialize(flagBlocks: MutableSet<Block>) {
+    fun initialize(flagBlocks: MutableSet<Block>) {
         FlagWar.flagBlocks.addAll(flagBlocks)
-        FlagWar.skyBeaconSize = Math.max(2, Math.min(16, Config.flagBeaconSize))
+        skyBeaconSize = Config.flagBeaconSize.coerceIn(2, 16)
     }
 
     /**
      * Print info to sender about current war state
      */
-    public fun printInfo(sender: CommandSender, detailed: Boolean = false) {
-        val status = if (Nodes.war.enabled == true) "enabled" else "${ChatColor.GRAY}disabled"
+    fun printInfo(sender: CommandSender, detailed: Boolean = false) {
+        val status = if (Nodes.war.enabled) "enabled" else "${ChatColor.GRAY}disabled"
         Message.print(sender, "${ChatColor.BOLD}Nodes war status: $status")
         if (Nodes.war.enabled) {
             Message.print(sender, "- Can Annex Territories${ChatColor.WHITE}: ${Nodes.war.canAnnexTerritories}")
@@ -141,9 +143,9 @@ public object FlagWar {
      * Async save loop task
      */
     internal object SaveLoop : Runnable {
-        public override fun run() {
-            if (FlagWar.needsSave) {
-                FlagWar.needsSave = false
+        override fun run() {
+            if (needsSave) {
+                needsSave = false
                 WarSerializer.save(true)
             }
         }
@@ -154,17 +156,17 @@ public object FlagWar {
      */
     internal fun load() {
         // clear all maps
-        FlagWar.attackers.clear()
-        FlagWar.chunkToAttacker.clear()
-        FlagWar.blockToAttacker.clear()
-        FlagWar.occupiedChunks.clear()
+        attackers.clear()
+        chunkToAttacker.clear()
+        blockToAttacker.clear()
+        occupiedChunks.clear()
 
         if (Files.exists(Config.pathWar)) {
             WarDeserializer.fromJson(Config.pathWar)
         }
 
-        if (FlagWar.enabled) {
-            if (FlagWar.canOnlyAttackBorders) {
+        if (enabled) {
+            if (canOnlyAttackBorders) {
                 Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes border skirmishing enabled")
             } else {
                 Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes war enabled")
@@ -190,7 +192,7 @@ public object FlagWar {
 
         // mark chunk occupied
         terrChunk.occupier = town
-        FlagWar.occupiedChunks.add(terrChunk.coord)
+        occupiedChunks.add(terrChunk.coord)
     }
 
     // load an in-progress attack from json
@@ -208,13 +210,11 @@ public object FlagWar {
         val skyBeaconWireframeBlocks: MutableList<BlockVec> = mutableListOf()
 
         // recreate sky beacon
-        FlagWar.createAttackBeacon(
+        createAttackBeacon(
             skyBeaconColorBlocks,
             skyBeaconWireframeBlocks,
             coord,
             flagBase.blockY,
-            true,
-            true,
         )
 
         // get resident and their town
@@ -234,7 +234,7 @@ public object FlagWar {
         }
 
         // create attack
-        FlagWar.createAttack(
+        createAttack(
             attacker,
             attackingTown,
             chunk,
@@ -248,35 +248,35 @@ public object FlagWar {
     // cleanup when Nodes plugin disabled
     internal fun cleanup() {
         // stop save task
-        FlagWar.saveTask?.cancel()
-        FlagWar.saveTask = null
+        saveTask?.cancel()
+        saveTask = null
 
         // remove all progress bars from players
-        for (attack in FlagWar.chunkToAttacker.values) {
+        for (attack in chunkToAttacker.values) {
             attack.progressBar.removeViewer(Audiences.all())
         }
 
         // save current war state
-        if (FlagWar.enabled) {
+        if (enabled) {
             WarSerializer.save(false)
         }
 
         // disable war
-        FlagWar.enabled = false
+        enabled = false
 
         // iterate chunks and stop current attacks
-        for ((coord, attack) in FlagWar.chunkToAttacker) {
+        for ((coord, attack) in chunkToAttacker) {
             val chunk = Nodes.getTerritoryChunkFromCoord(coord)
             if (chunk !== null) {
                 chunk.attacker = null
                 chunk.occupier = null
             }
             attack.thread.cancel()
-            FlagWar.cancelAttack(attack)
+            cancelAttack(attack)
         }
 
         // clear occupied chunks
-        for (coord in FlagWar.occupiedChunks) {
+        for (coord in occupiedChunks) {
             val chunk = Nodes.getTerritoryChunkFromCoord(coord)
             if (chunk !== null) {
                 chunk.attacker = null
@@ -285,25 +285,25 @@ public object FlagWar {
         }
 
         // clear all maps
-        FlagWar.attackers.clear()
-        FlagWar.chunkToAttacker.clear()
-        FlagWar.blockToAttacker.clear()
-        FlagWar.occupiedChunks.clear()
+        attackers.clear()
+        chunkToAttacker.clear()
+        blockToAttacker.clear()
+        occupiedChunks.clear()
     }
 
     /**
      * Enable war, set war state flags
      */
     internal fun enable(canAnnexTerritories: Boolean, canOnlyAttackBorders: Boolean, destructionEnabled: Boolean) {
-        FlagWar.enabled = true
+        enabled = true
         FlagWar.canAnnexTerritories = canAnnexTerritories
         FlagWar.canOnlyAttackBorders = canOnlyAttackBorders
         FlagWar.destructionEnabled = destructionEnabled
 
         // create task
-        FlagWar.saveTask?.cancel()
-        FlagWar.saveTask = MinecraftServer.getSchedulerManager()
-            .buildTask{ FlagWar.SaveLoop }
+        saveTask?.cancel()
+        saveTask = MinecraftServer.getSchedulerManager()
+            .buildTask{ SaveLoop }
             .delay(TaskSchedule.tick(saveTaskPeriod))
             .repeat(TaskSchedule.tick(saveTaskPeriod))
             .schedule()
@@ -313,26 +313,26 @@ public object FlagWar {
      * Disable war, cleanup war state
      */
     internal fun disable() {
-        FlagWar.enabled = false
-        FlagWar.canAnnexTerritories = false
+        enabled = false
+        canAnnexTerritories = false
 
         // kill save task
-        FlagWar.saveTask?.cancel()
-        FlagWar.saveTask = null
+        saveTask?.cancel()
+        saveTask = null
 
         // iterate chunks and stop current attacks
-        for ((coord, attack) in FlagWar.chunkToAttacker) {
+        for ((coord, attack) in chunkToAttacker) {
             val chunk = Nodes.getTerritoryChunkFromCoord(coord)
             if (chunk !== null) {
                 chunk.attacker = null
                 chunk.occupier = null
             }
             attack.thread.cancel()
-            FlagWar.cancelAttack(attack)
+            cancelAttack(attack)
         }
 
         // clear occupied chunks
-        for (coord in FlagWar.occupiedChunks) {
+        for (coord in occupiedChunks) {
             val chunk = Nodes.getTerritoryChunkFromCoord(coord)
             if (chunk !== null) {
                 chunk.attacker = null
@@ -341,10 +341,10 @@ public object FlagWar {
         }
 
         // clear all maps
-        FlagWar.attackers.clear()
-        FlagWar.chunkToAttacker.clear()
-        FlagWar.blockToAttacker.clear()
-        FlagWar.occupiedChunks.clear()
+        attackers.clear()
+        chunkToAttacker.clear()
+        blockToAttacker.clear()
+        occupiedChunks.clear()
 
         // save war.json (empty)
         WarSerializer.save(true)
@@ -396,14 +396,14 @@ public object FlagWar {
         // 3. allied chunk occupied by enemy
         if (chunkIsEnemy(chunk, territory, attackingTown)) {
             // check for only attacking border territories
-            if (FlagWar.canOnlyAttackBorders && !FlagWar.isBorderTerritory(territory)) {
+            if (canOnlyAttackBorders && !isBorderTerritory(territory)) {
                 return Result.failure(ErrorNotBorderTerritory)
             }
 
             // check that chunk valid, either:
             // 1. next to wilderness
             // 2. next to occupied chunk (by town or allies)
-            if (FlagWar.chunkIsAtEdge(chunk, attackingTown) == false) {
+            if (!chunkIsAtEdge(chunk, attackingTown)) {
                 return Result.failure(ErrorChunkNotEdge)
             }
 
@@ -420,10 +420,10 @@ public object FlagWar {
             }
 
             // attacker's current attacks (if any exist)
-            var currentAttacks = FlagWar.attackers.get(attacker)
+            var currentAttacks = attackers.get(attacker)
             if (currentAttacks == null) {
                 currentAttacks = ArrayList(Config.maxPlayerChunkAttacks) // set initial capacity = max attacks
-                FlagWar.attackers.put(attacker, currentAttacks)
+                attackers.put(attacker, currentAttacks)
             } else if (currentAttacks.size >= Config.maxPlayerChunkAttacks) {
                 return Result.failure(ErrorTooManyAttacks)
             }
@@ -437,7 +437,7 @@ public object FlagWar {
             )
 
             // mark that save required
-            FlagWar.needsSave = true
+            needsSave = true
 
             return Result.success(attack)
         } else {
@@ -476,10 +476,10 @@ public object FlagWar {
             if (territory.id == terrTown.home) {
                 attackTime *= Config.chunkAttackHomeMultiplier
             }
-            if (terrTown.uuid == attackingTown.uuid || terrTown.allies.contains(attackingTown)) {
-                attackTime *= territory.defenderTimeMultiplier
+            attackTime *= if (terrTown.uuid == attackingTown.uuid || terrTown.allies.contains(attackingTown)) {
+                territory.defenderTimeMultiplier
             } else {
-                attackTime *= territory.attackerTimeMultiplier
+                territory.attackerTimeMultiplier
             }
         }
 
@@ -496,13 +496,11 @@ public object FlagWar {
         }
 
         if (skyBeaconColorBlocksInput === null || skyBeaconWireframeBlocksInput === null) {
-            FlagWar.createAttackBeacon(
+            createAttackBeacon(
                 skyBeaconColorBlocks,
                 skyBeaconWireframeBlocks,
                 chunk.coord,
                 flagBaseY,
-                true, // create frame
-                true, // create color
             )
         }
 
@@ -540,18 +538,18 @@ public object FlagWar {
         }
 
         // add attack to list of attacks by attacker
-        var currentAttacks = FlagWar.attackers.get(attacker)
+        var currentAttacks = attackers.get(attacker)
         if (currentAttacks == null) {
             currentAttacks = ArrayList(Config.maxPlayerChunkAttacks) // set initial capacity = max attacks
-            FlagWar.attackers.put(attacker, currentAttacks)
+            attackers.put(attacker, currentAttacks)
         }
         currentAttacks.add(attack)
 
         // map chunk to the attack
-        FlagWar.chunkToAttacker.put(chunk.coord, attack)
+        chunkToAttacker.put(chunk.coord, attack)
 
         // map flag block to attack (for breaking)
-        FlagWar.blockToAttacker.put(flagBlock, attack)
+        blockToAttacker.put(flagBlock, attack)
 
         return attack
     }
@@ -657,15 +655,10 @@ public object FlagWar {
         val chunkWest = Nodes.getTerritoryChunkFromCoord(Coord(coord.x - 1, coord.z))
         val chunkEast = Nodes.getTerritoryChunkFromCoord(Coord(coord.x + 1, coord.z))
 
-        if (canAttackFromNeighborChunk(chunkNorth, attackingTown) ||
-            canAttackFromNeighborChunk(chunkSouth, attackingTown) ||
-            canAttackFromNeighborChunk(chunkWest, attackingTown) ||
-            canAttackFromNeighborChunk(chunkEast, attackingTown)
-        ) {
-            return true
-        }
-
-        return false
+        return canAttackFromNeighborChunk(chunkNorth, attackingTown) ||
+                canAttackFromNeighborChunk(chunkSouth, attackingTown) ||
+                canAttackFromNeighborChunk(chunkWest, attackingTown) ||
+                canAttackFromNeighborChunk(chunkEast, attackingTown)
     }
 
     /**
@@ -704,7 +697,7 @@ public object FlagWar {
         }
 
         // you or an ally is occupying the neighboring chunk
-        if (neighborChunkOccupier === attacker || attacker.allies.contains(neighborChunkOccupier) == true) {
+        if (neighborChunkOccupier === attacker || attacker.allies.contains(neighborChunkOccupier)) {
             return true
         }
 
@@ -751,18 +744,16 @@ public object FlagWar {
         skyBeaconWireframeBlocks: MutableList<BlockVec>,
         coord: Coord,
         flagBaseY: Int,
-        createFrame: Boolean,
-        createColor: Boolean,
     ) {
         // get starting corner
-        val size = FlagWar.skyBeaconSize
+        val size = skyBeaconSize
         val startPositionInChunk: Int = (16 - size) / 2
         val x0: Int = coord.x * 16 + startPositionInChunk
         val z0: Int = coord.z * 16 + startPositionInChunk
-        val y0: Int = Math.max(flagBaseY + Config.flagBeaconSkyLevel, Config.flagBeaconMinSkyLevel)
+        val y0: Int = maxOf(flagBaseY + Config.flagBeaconSkyLevel, Config.flagBeaconMinSkyLevel)
         val xEnd: Int = x0 + size - 1
         val zEnd: Int = z0 + size - 1
-        val yEnd: Int = Math.min(255, y0 + size) // truncate at map limit
+        val yEnd: Int = minOf(255, y0 + size) // truncate at map limit
 
         for (y in y0..yEnd) {
             for (x in x0..xEnd) {
@@ -776,15 +767,11 @@ public object FlagWar {
                         ) { // middle section corners glowstone
                             // block.setType(BEACON_EDGE_BLOCK) // slow
                             skyBeaconWireframeBlocks.add(blockPos)
-                            if (createFrame) {
-                                MinecraftServer.getInstanceManager().instances.first().setBlock(blockPos, SKY_BEACON_FRAME_BLOCK)
-                            }
+                            MinecraftServer.getInstanceManager().instances.first().setBlock(blockPos, SKY_BEACON_FRAME_BLOCK)
                         } else { // color block
                             // setFlagAttackColorBlock(block, progress) // slow
                             skyBeaconColorBlocks.add(blockPos)
-                            if (createColor) {
-                                MinecraftServer.getInstanceManager().instances.first().setBlock(blockPos, SKY_BEACON_BLOCK)
-                            }
+                            MinecraftServer.getInstanceManager().instances.first().setBlock(blockPos, SKY_BEACON_BLOCK)
                         }
                     }
                 }
@@ -822,12 +809,12 @@ public object FlagWar {
         attack.textDisplay.remove()
 
         // remove attack instance references
-        FlagWar.attackers.get(attack.attacker)?.remove(attack)
-        FlagWar.chunkToAttacker.remove(attack.coord)
-        FlagWar.blockToAttacker.remove(attack.flagBlock)
+        attackers.get(attack.attacker)?.remove(attack)
+        chunkToAttacker.remove(attack.coord)
+        blockToAttacker.remove(attack.flagBlock)
 
         // mark save needed
-        FlagWar.needsSave = true
+        needsSave = true
     }
 
     /**
@@ -862,12 +849,12 @@ public object FlagWar {
         attack.textDisplay.remove()
 
         // remove attack instance references
-        FlagWar.attackers.get(attack.attacker)?.remove(attack)
-        FlagWar.chunkToAttacker.remove(attack.coord)
-        FlagWar.blockToAttacker.remove(attack.flagBlock)
+        attackers.get(attack.attacker)?.remove(attack)
+        chunkToAttacker.remove(attack.coord)
+        blockToAttacker.remove(attack.flagBlock)
 
         // mark that save required
-        FlagWar.needsSave = true
+        needsSave = true
 
         // chunk should not be null unless territory swapped
         // out during attack and chunks were modified in new territory
@@ -891,14 +878,14 @@ public object FlagWar {
                 val territoryChunk = Nodes.getTerritoryChunkFromCoord(coord)
                 if (territoryChunk != null) {
                     // cancel any concurrent attacks in this territory
-                    FlagWar.chunkToAttacker.get(territoryChunk.coord)?.cancel()
+                    chunkToAttacker.get(territoryChunk.coord)?.cancel()
 
                     // clear occupy/attack status from chunks
                     territoryChunk.attacker = null
                     territoryChunk.occupier = null
 
                     // remove from internal list of occupied chunks
-                    FlagWar.occupiedChunks.remove(territoryChunk.coord)
+                    occupiedChunks.remove(territoryChunk.coord)
                 }
             }
 
@@ -933,7 +920,7 @@ public object FlagWar {
                 // re-capturing territory from occupier
                 if (occupier !== null) {
                     chunk.occupier = town
-                    FlagWar.occupiedChunks.add(chunk.coord)
+                    occupiedChunks.add(chunk.coord)
 
                     Message.broadcast("${ChatColor.DARK_RED}[War] ${attacker?.name} liberated chunk (${chunk.coord.x}, ${chunk.coord.z}) from ${occupier.name}!")
                 }
@@ -942,7 +929,7 @@ public object FlagWar {
                     val chunkOccupier = chunk.occupier
 
                     chunk.occupier = null
-                    FlagWar.occupiedChunks.remove(chunk.coord)
+                    occupiedChunks.remove(chunk.coord)
 
                     if (chunkOccupier !== null) {
                         Message.broadcast("${ChatColor.DARK_RED}[War] ${attacker?.name} defended chunk (${chunk.coord.x}, ${chunk.coord.z}) against ${chunkOccupier.name}!")
@@ -950,12 +937,12 @@ public object FlagWar {
                 }
             } else if (occupier === attack.town && chunk.occupier !== null) {
                 chunk.occupier = null
-                FlagWar.occupiedChunks.remove(chunk.coord)
+                occupiedChunks.remove(chunk.coord)
 
                 Message.broadcast("${ChatColor.DARK_RED}[War] ${attacker?.name} defended chunk (${chunk.coord.x}, ${chunk.coord.z}) against ${chunk.occupier!!.name}!")
             } else {
                 chunk.occupier = attack.town
-                FlagWar.occupiedChunks.add(chunk.coord)
+                occupiedChunks.add(chunk.coord)
 
                 Message.broadcast("${ChatColor.DARK_RED}[War] ${attacker?.name} captured chunk (${chunk.coord.x}, ${chunk.coord.z}) from ${chunk.territory.town?.name}!")
             }
@@ -967,12 +954,12 @@ public object FlagWar {
 
     // update tick for attack instance
     internal fun attackTick(attack: Attack) {
-        val progress = attack.progress + FlagWar.ATTACK_TICK
+        val progress = attack.progress + ATTACK_TICK
 
         if (progress >= attack.attackTime) {
             // cancel thread, then finalize attack
             attack.thread.cancel()
-            FlagWar.finishAttack(attack)
+            finishAttack(attack)
         } else { // update
             attack.progress = progress
 
@@ -990,11 +977,11 @@ public object FlagWar {
     // intended to run on PlayerJoin event
     // if war enabled and player has attacks,
     // send progress bars to player
-    public fun sendWarProgressBarToPlayer(player: Player) {
+    fun sendWarProgressBarToPlayer(player: Player) {
         val uuid = player.uuid
 
         // add attack to list of attacks by attacker
-        var currentAttacks = FlagWar.attackers.get(uuid)
+        val currentAttacks = attackers.get(uuid)
         if (currentAttacks != null) {
             for (attack in currentAttacks) {
                 attack.progressBar.addViewer(player)

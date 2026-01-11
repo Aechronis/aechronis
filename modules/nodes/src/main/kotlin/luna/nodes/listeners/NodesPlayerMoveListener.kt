@@ -8,7 +8,6 @@ import net.minestom.server.event.entity.EntityTeleportEvent
 //import org.bukkit.inventory.ItemStack
 import net.minestom.server.potion.Potion
 import net.minestom.server.potion.PotionEffect
-import luna.nodes.Config
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.Nodes.getTownFromPlayer
@@ -17,7 +16,7 @@ import luna.nodes.objects.Resident
 import luna.nodes.objects.Territory
 import luna.nodes.objects.Town
 
-public fun onPlayerMove(event: PlayerMoveEvent) {
+fun onPlayerMove(event: PlayerMoveEvent) {
     // abort if did not change blocks
     val fromX = event.player.position.blockX()
     val fromY = event.player.position.blockY()
@@ -37,9 +36,9 @@ public fun onPlayerMove(event: PlayerMoveEvent) {
     }
 
     // player moved -> cancel any home teleport
-    if (resident?.teleportThread != null) {
-        resident.teleportThread!!.cancel()
-        resident.teleportThread = null // remove reference
+    resident.teleportThread?.let { thread ->
+        thread.cancel()
+        resident.teleportThread = null
         Message.error(event.player, "You moved, teleport cancelled")
     }
 
@@ -53,9 +52,9 @@ public fun onPlayerMove(event: PlayerMoveEvent) {
 }
 
 // handle player teleport (e.g. /t spawn)
-public fun onPlayerTeleport(event: EntityTeleportEvent) {
+fun onPlayerTeleport(event: EntityTeleportEvent) {
     val entity = event.entity
-    val player = if (entity is Player) entity else null
+    val player = entity as? Player
 
     if (player == null) {
         return
@@ -89,7 +88,7 @@ public fun onPlayerTeleport(event: EntityTeleportEvent) {
 }
 
 // handle player changing to new chunk
-public fun onPlayerMoveChunk(player: Player, resident: Resident, fromCoord: Coord, toCoord: Coord) {
+fun onPlayerMoveChunk(player: Player, resident: Resident, fromCoord: Coord, toCoord: Coord) {
     val fromTerritory = Nodes.getTerritoryFromCoord(fromCoord)
     val toTerritory = Nodes.getTerritoryFromCoord(toCoord)
 
@@ -107,11 +106,7 @@ public fun onPlayerMoveChunk(player: Player, resident: Resident, fromCoord: Coor
                 printTownMessage(player, resident, toTown, toTerritory)
             }
         } else if (fromTown !== null && toTown === null) {
-            if (toTerritory.name != fromTerritory.name) {
-                Message.announcement(player, "${ChatColor.GRAY}${toTerritory.name}")
-            } else {
-                Message.announcement(player, "${ChatColor.GRAY}Wilderness")
-            }
+            Message.announcement(player, "${ChatColor.GRAY}Wilderness")
         } else if (toTown !== null) {
             printTownMessage(player, resident, toTown, toTerritory)
         }
@@ -150,36 +145,36 @@ private fun printTownMessage(player: Player, resident: Resident, toTown: Town, t
     val territoryName = if (toTerritory.name != "") {
         "${toTerritory.name} (${toTown.name})"
     } else {
-        "${toTown.name}"
+        toTown.name
     }
 
-    // territory name color and territory occupation/captured modifier
-    var territoryNameColor = ""
-    var ownerStatus = ""
-
-    if (residentTown !== null) {
+    // territory name color
+    val territoryNameColor = if (residentTown !== null) {
         if (toTown === residentTown) {
-            territoryNameColor = "${ChatColor.DARK_GREEN}"
+            "${ChatColor.DARK_GREEN}"
         } else if (residentTown.enemies.contains(toTown)) {
-            territoryNameColor = "${ChatColor.DARK_RED}"
+            "${ChatColor.DARK_RED}"
         } else {
-            territoryNameColor = "${ChatColor.DARK_AQUA}"
-        }
-
-        // set occupation status
-        if (territoryOccupier !== null) {
-            if (territoryOccupier === residentTown) {
-                ownerStatus = " ${ChatColor.DARK_GREEN}(Captured)"
-            } else if (toTown === residentTown) {
-                ownerStatus = " ${ChatColor.DARK_RED}(Occupied)"
-            } else {
-                ownerStatus = " ${ChatColor.DARK_AQUA}(Occupied)"
-            }
+            "${ChatColor.DARK_AQUA}"
         }
     } else {
-        territoryNameColor = "${ChatColor.DARK_AQUA}"
+        "${ChatColor.DARK_AQUA}"
+    }
+
+    // territory occupation/captured modifier
+    val ownerStatus = if (residentTown !== null && territoryOccupier !== null) {
+        if (territoryOccupier === residentTown) {
+            " ${ChatColor.DARK_GREEN}(Captured)"
+        } else if (toTown === residentTown) {
+            " ${ChatColor.DARK_RED}(Occupied)"
+        } else {
+            " ${ChatColor.DARK_AQUA}(Occupied)"
+        }
+    } else {
         if (territoryOccupier !== null) {
-            ownerStatus = " (Occupied)"
+            " (Occupied)"
+        } else {
+            ""
         }
     }
 

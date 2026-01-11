@@ -63,6 +63,7 @@ import luna.nodes.objects.TerritoryResources
 import luna.nodes.objects.Town
 import luna.nodes.objects.TownPair
 import luna.nodes.serdes.Deserializer
+import luna.nodes.tasks.PeriodicTickManager
 import luna.nodes.tasks.SaveManager
 import luna.nodes.tasks.TaskSaveBackup
 import luna.nodes.tasks.TaskSavePorts
@@ -72,7 +73,6 @@ import luna.nodes.utils.sanitizeString
 import luna.nodes.utils.saveStringToFile
 import luna.nodes.war.FlagWar
 import java.io.File
-import java.io.IOException
 import java.nio.file.Files
 //import java.nio.file.Path
 //import java.nio.file.Paths
@@ -89,10 +89,10 @@ import kotlin.system.measureNanoTime
 /**
  * Nodes container
  */
-public object Nodes {
+object Nodes {
 
     // version string
-    internal val version: String = "v0.0.14"
+    internal const val VERSION: String = "v0.0.14"
 
     // library of resource node definitions
     internal val resourceNodes: HashMap<String, ResourceNode> = hashMapOf()
@@ -120,7 +120,7 @@ public object Nodes {
 //    public var playerWarpTasks: HashMap<UUID, ScheduledTask> = hashMapOf()
 
     // map chunk coords -> port, assumes one chunk only has 1 port
-    public var chunkToPort: HashMap<List<Int>, Port> = hashMapOf()
+    var chunkToPort: HashMap<List<Int>, Port> = hashMapOf()
 
     // last time backup occurred: NOTE this is accessed async
     internal var lastBackupTime: Long = 0 // milliseconds
@@ -129,7 +129,7 @@ public object Nodes {
     internal var lastIncomeTime: Long = 0 // milliseconds
 
     // war manager
-    public val war = FlagWar
+    val war = FlagWar
 
     // flag that world was updated and needs save
     internal var needsSave: Boolean = false
@@ -186,11 +186,11 @@ public object Nodes {
     internal fun initializeOnlinePlayers() {
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
             // create resident for player if it does not exist
-            Nodes.createResident(player)
+            createResident(player)
 
             // mark player online
-            val resident = Nodes.getResident(player)!!
-            Nodes.setResidentOnline(resident, player)
+            val resident = getResident(player)!!
+            setResidentOnline(resident, player)
         }
 
 //        // update nametags
@@ -201,23 +201,23 @@ public object Nodes {
     // run when plugin disabled
     internal fun cleanup() {
         // cleanup residents
-        for (r in Nodes.residents.values) {
+        for (r in residents.values) {
             // remove minimaps
             r.destroyMinimap()
         }
 
         // force push all town income items from inventory gui
         // back to storage data structure
-        for (town in Nodes.towns.values) {
+        for (town in towns.values) {
             val result = town.income.pushToStorage(true)
-            if (result == true) { // has moved items
+            if (result) { // has moved items
                 town.needsUpdate()
             }
         }
 
         // cleanup war if its enabled
-        if (Nodes.war.enabled) {
-            Nodes.war.cleanup()
+        if (war.enabled) {
+            war.cleanup()
         }
 
         // save backup, income current time
@@ -232,7 +232,7 @@ public object Nodes {
      */
     internal fun loadResources(json: JsonObject) {
         // TODO: generalize to multipler loaders
-        Nodes.resourceNodes.putAll(DefaultResourceAttributeLoader.load(HashMap(0), json))
+        resourceNodes.putAll(DefaultResourceAttributeLoader.load(json))
     }
 
     /**
@@ -258,11 +258,11 @@ public object Nodes {
             val neighborResourcesToLoad = HashSet<TerritoryId>()
 
             for (id in ids) {
-                val currTerr = Nodes.territories[id]
+                val currTerr = territories[id]
                 if (currTerr != null) {
                     // add neighbor territory resources into territory resource graph
                     for (neighborId in currTerr.neighbors) {
-                        val neighborTerr = Nodes.territories[neighborId]
+                        val neighborTerr = territories[neighborId]
                         if (neighborTerr != null) {
                             neighborResourcesToLoad.add(neighborId)
                             // also add neighbor's neighbor ids
@@ -279,13 +279,13 @@ public object Nodes {
             }
 
             for (id in neighborResourcesToLoad) {
-                val neighborTerr = Nodes.territories[id]
+                val neighborTerr = territories[id]
                 if (neighborTerr != null) {
                     val resources = neighborTerr.resourceNodes
-                        .map { name -> Nodes.resourceNodes[name] ?: throw Exception("Resource node '$name' does not exist (for territory id=${neighborTerr.id})") }
+                        .map { name -> resourceNodes[name] ?: throw Exception("Resource node '$name' does not exist (for territory id=${neighborTerr.id})") }
                         .sortedBy { r -> r.priority }
 
-                    terrResourceGraph[id] = resources.fold(Config.globalResources.copy(), { terr, r -> r.apply(terr) })
+                    terrResourceGraph[id] = resources.fold(Config.globalResources.copy()) { terr, r -> r.apply(terr) }
                 } else {
                     println("`loadTerritories()` neighbor territory $id does not exist")
                 }
@@ -295,10 +295,10 @@ public object Nodes {
         // adds territories to be loaded to terrResourceGraph
         for (terr in territoryPreprocessing) {
             val resources = terr.resourceNodes
-                .map { name -> Nodes.resourceNodes[name] ?: throw Exception("Resource node '$name' does not exist (for territory id=${terr.id})") }
+                .map { name -> resourceNodes[name] ?: throw Exception("Resource node '$name' does not exist (for territory id=${terr.id})") }
                 .sortedBy { r -> r.priority }
 
-            terrResourceGraph[terr.id] = resources.fold(Config.globalResources.copy(), { tr, r -> r.apply(tr) })
+            terrResourceGraph[terr.id] = resources.fold(Config.globalResources.copy()) { tr, r -> r.apply(tr) }
         }
 
         // Determine final territories to be built.
@@ -322,9 +322,8 @@ public object Nodes {
                 neighborIdsToRebuild.remove(terr.id)
             }
 
-            val terrNeighborsToRebuild = neighborIdsToRebuild
-                .map { id -> Nodes.territories.get(id)?.toPreprocessing() }
-                .filterNotNull()
+            val terrNeighborsToRebuild =
+                neighborIdsToRebuild.mapNotNull { id -> territories.get(id)?.toPreprocessing() }
 
             territoryPreprocessing + terrNeighborsToRebuild
         }
@@ -360,7 +359,7 @@ public object Nodes {
             val resources = terrResourceGraph[t.id]!!.applyNeighborModifiers()
 
             // sorted resource names
-            val resourceNamesSorted = t.resourceNodes.sortedBy { name -> Nodes.resourceNodes[name]!!.priority }
+            val resourceNamesSorted = t.resourceNodes.sortedBy { name -> resourceNodes[name]!!.priority }
 
             // create OreSampler from ores map
             val ores = OreSampler(ArrayList(resources.ores.values))
@@ -377,26 +376,25 @@ public object Nodes {
                 resourceNodes = resourceNamesSorted,
                 income = resources.income,
                 ores = ores,
-                customProperties = resources.customProperties,
                 attackerTimeMultiplier = resources.attackerTimeMultiplier,
                 defenderTimeMultiplier = resources.defenderTimeMultiplier,
             )
 
             // if previous territory existed, first do cleanup and copy mutable ingame properties
-            Nodes.territories[t.id]?.let { oldTerritory ->
+            territories[t.id]?.let { oldTerritory ->
                 // remove old territory chunks
-                oldTerritory.chunks.forEach { c -> Nodes.territoryChunks.remove(c) }
+                oldTerritory.chunks.forEach { c -> territoryChunks.remove(c) }
                 // copy town and occupier
                 territory.town = oldTerritory.town
                 territory.occupier = oldTerritory.occupier
             }
 
             // set territory
-            Nodes.territories.put(t.id, territory)
+            territories.put(t.id, territory)
 
             // create territory chunks in world grid and map to territory
             t.chunks.forEach { c ->
-                Nodes.territoryChunks.put(c, TerritoryChunk(c, territory))
+                territoryChunks.put(c, TerritoryChunk(c, territory))
             }
         }
     }
@@ -435,19 +433,19 @@ public object Nodes {
     // false - failed
     internal fun loadWorld(): Boolean {
         // clear storage
-        Nodes.resourceNodes.clear()
-        Nodes.territoryChunks.clear()
-        Nodes.territories.clear()
-        Nodes.towns.clear()
-        Nodes.nations.clear()
-        Nodes.residents.clear()
-        Nodes.ports.clear()
+        resourceNodes.clear()
+        territoryChunks.clear()
+        territories.clear()
+        towns.clear()
+        nations.clear()
+        residents.clear()
+        ports.clear()
 
         // load world from JSON storage
         if (Files.exists(Config.pathWorld)) {
             val (jsonResources, jsonTerritories) = Deserializer.worldFromJson(Config.pathWorld)
-            if (jsonResources != null) Nodes.loadResources(jsonResources)
-            if (jsonTerritories != null) Nodes.loadTerritories(jsonTerritories)
+            if (jsonResources != null) loadResources(jsonResources)
+            if (jsonTerritories != null) loadTerritories(jsonTerritories)
 
             // load towns from json after main world load finishes
             if (Files.exists(Config.pathTowns)) {
@@ -455,18 +453,18 @@ public object Nodes {
 
                 // pre-generate initial json strings for all world objects
                 // (speeds up first save)
-                for (resident in Nodes.residents.values) {
+                for (resident in residents.values) {
                     resident.getSaveState()
                 }
-                for (town in Nodes.towns.values) {
+                for (town in towns.values) {
                     town.getSaveState()
                 }
-                for (nation in Nodes.nations.values) {
+                for (nation in nations.values) {
                     nation.getSaveState()
                 }
 
                 // load war state
-                Nodes.war.load()
+                war.load()
             } else {
                 System.err.println("No towns found: ${Config.pathTowns}")
                 return true
@@ -478,10 +476,10 @@ public object Nodes {
 
                 // pre-generate initial json strings for all port objects
                 // (speeds up first save)
-                for (port in Nodes.ports.values) {
+                for (port in ports.values) {
                     port.getSaveState()
                 }
-                for (portGroup in Nodes.portGroups.values) {
+                for (portGroup in portGroups.values) {
                     portGroup.getSaveState()
                 }
 
@@ -508,24 +506,24 @@ public object Nodes {
         // timestamp for save task, which will be used to create a
         // timestamped backup file
         val currTime = System.currentTimeMillis()
-        val backup = currTime > Nodes.lastBackupTime + Config.backupPeriod
+        val backup = currTime > lastBackupTime + Config.backupPeriod
         val backupTimestamp = if (backup) {
-            Nodes.lastBackupTime = currTime
+            lastBackupTime = currTime
             currTime
         } else {
-            -1
+            null
         }
 
-        if (Nodes.needsSave == true || checkIfNeedsSave == false) {
+        if (needsSave || !checkIfNeedsSave) {
             // world pre-processing
-            Nodes.saveWorldPreprocess()
+            saveWorldPreprocess()
 
             val timeUpdate = measureNanoTime {
                 // create a snapshot of world objects state
                 // always do synchronously on main thread to keep world consistent
-                val residentsSnapshot = Nodes.residents.values.map { it.getSaveState() }
-                val townsSnapshot = Nodes.towns.values.map { it.getSaveState() }
-                val nationsSnapshot = Nodes.nations.values.map { it.getSaveState() }
+                val residentsSnapshot = residents.values.map { it.getSaveState() }
+                val townsSnapshot = towns.values.map { it.getSaveState() }
+                val nationsSnapshot = nations.values.map { it.getSaveState() }
 
                 // save task manages:
                 // 1. serialize individual objects into json strings and combine into a full json string
@@ -535,9 +533,6 @@ public object Nodes {
                     residentsSnapshot,
                     townsSnapshot,
                     nationsSnapshot,
-                    Config.pathTowns,
-                    Config.pathBackup,
-                    Config.pathLastBackupTime,
                     backupTimestamp,
                 )
 
@@ -547,15 +542,15 @@ public object Nodes {
                     taskSave.run()
                 }
 
-                Nodes.needsSave = false
+                needsSave = false
             }
 
             println("[Nodes] Saving world: ${timeUpdate}ns")
 
             // save ports
             // create a snapshot of port objects state
-            val portGroupsSnapshot = Nodes.portGroups.values.map { it.getSaveState() }
-            val portsSnapshot = Nodes.ports.values.map { it.getSaveState() }
+            val portGroupsSnapshot = portGroups.values.map { it.getSaveState() }
+            val portsSnapshot = ports.values.map { it.getSaveState() }
 
             val taskSavePorts = TaskSavePorts(
                 portsSnapshot,
@@ -571,8 +566,7 @@ public object Nodes {
         }
         // no new save needed...just do backup if we reached backup interval
         else if (backup) {
-            val taskBackup =
-                TaskSaveBackup(backupTimestamp, Config.pathTowns, Config.pathBackup, Config.pathLastBackupTime)
+            val taskBackup = TaskSaveBackup(backupTimestamp!!)
             if (async) {
                 CompletableFuture.runAsync { taskBackup.run() }
             } else {
@@ -588,9 +582,9 @@ public object Nodes {
     internal fun saveWorldPreprocess() {
         // move all town income items from inventory gui
         // back to storage data structure
-        for (town in Nodes.towns.values) {
+        for (town in towns.values) {
             val result = town.income.pushToStorage(false)
-            if (result == true) { // has moved items
+            if (result) { // has moved items
                 town.needsUpdate()
             }
         }
@@ -603,9 +597,6 @@ public object Nodes {
         towns: ArrayList<Town>,
         townAllies: ArrayList<ArrayList<String>>,
         townEnemies: ArrayList<ArrayList<String>>,
-        nations: ArrayList<Nation>,
-        nationAllies: ArrayList<ArrayList<String>>,
-        nationEnemies: ArrayList<ArrayList<String>>,
     ) {
         // perform fixes on diplomacy during loading:
         // 1. if towns are in nation, ignore pairs between towns
@@ -722,48 +713,48 @@ public object Nodes {
 //    // ==============================================
 //
     // return number of resource node types
-    public fun getResourceNodeCount(): Int = Nodes.resourceNodes.size
+fun getResourceNodeCount(): Int = resourceNodes.size
 
     // ==============================================
     // Territory Chunk functions
     // ==============================================
-    public fun getTerritoryChunkFromBlock(blockX: Int, blockZ: Int): TerritoryChunk? {
+    fun getTerritoryChunkFromBlock(blockX: Int, blockZ: Int): TerritoryChunk? {
         val coord = Coord.fromBlockCoords(blockX, blockZ)
-        return Nodes.territoryChunks.get(coord)
+        return territoryChunks.get(coord)
     }
 
-    public fun getTerritoryChunkFromCoord(coord: Coord): TerritoryChunk? = Nodes.territoryChunks.get(coord)
+    fun getTerritoryChunkFromCoord(coord: Coord): TerritoryChunk? = territoryChunks.get(coord)
 
     // ==============================================
     // Territory functions
     // ==============================================
 
     // return number of territories in world
-    public fun getTerritoryCount(): Int = Nodes.territories.size
+    fun getTerritoryCount(): Int = territories.size
 
-    public fun getTerritoryFromId(id: TerritoryId): Territory? = Nodes.territories.get(id)
+    fun getTerritoryFromId(id: TerritoryId): Territory? = territories.get(id)
 
-    public fun getTerritoryFromBlock(blockX: Int, blockZ: Int): Territory? {
+    fun getTerritoryFromBlock(blockX: Int, blockZ: Int): Territory? {
         val coord = Coord.fromBlockCoords(blockX, blockZ)
-        return Nodes.territoryChunks.get(coord)?.territory
+        return territoryChunks.get(coord)?.territory
     }
 
-    public fun getTerritoryFromPlayer(player: Player): Territory? {
+    fun getTerritoryFromPlayer(player: Player): Territory? {
         val loc = player.position
         val coord = Coord.fromBlockCoords(loc.x.toInt(), loc.z.toInt())
-        return Nodes.territoryChunks.get(coord)?.territory
+        return territoryChunks.get(coord)?.territory
     }
 
-    public fun getTerritoryFromCoord(coord: Coord): Territory? = Nodes.territoryChunks.get(coord)?.territory
+    fun getTerritoryFromCoord(coord: Coord): Territory? = territoryChunks.get(coord)?.territory
 
-    public fun getTerritoryFromChunk(chunk: Chunk): Territory? {
+    fun getTerritoryFromChunk(chunk: Chunk): Territory? {
         val coord = Coord(chunk.chunkX, chunk.chunkZ)
-        return Nodes.territoryChunks.get(coord)?.territory
+        return territoryChunks.get(coord)?.territory
     }
 
-    public fun getTerritoryFromChunkCoords(cx: Int, cz: Int): Territory? {
+    fun getTerritoryFromChunkCoords(cx: Int, cz: Int): Territory? {
         val coord = Coord(cx, cz)
-        return Nodes.territoryChunks.get(coord)?.territory
+        return territoryChunks.get(coord)?.territory
     }
 
 //    /**
@@ -776,7 +767,7 @@ public object Nodes {
     // default spawn location: returns region ~center of
     // core chunk of home territory
     // y-level is first empty air block
-    public fun getDefaultSpawnLocation(territory: Territory): Pos {
+    fun getDefaultSpawnLocation(territory: Territory): Pos {
         // get from ~middle of territory home chunk
         val homeChunk = territory.core
         val x = homeChunk.x * 16 + 8
@@ -797,19 +788,19 @@ public object Nodes {
     // ==============================================
     // Resident functions
     // ==============================================
-    public fun createResident(player: Player) {
+    fun createResident(player: Player) {
         val uuid = player.uuid
         if (!residents.containsKey(uuid)) {
             val resident = Resident(uuid, player.username)
             residents.put(uuid, resident)
 
-            Nodes.needsSave = true
+            needsSave = true
         }
     }
 
     // loads a resident from UUID and other parameters
     // used for deserializing from towns.json
-    public fun loadResident(
+    fun loadResident(
         uuid: UUID,
         prefix: String,
         suffix: String,
@@ -818,7 +809,7 @@ public object Nodes {
     ) {
         // get player name from UUID
         // use online player if exists, else get from OfflinePlayer
-        var playerName: String? = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uuid)?.username ?: playerNameCache.get(uuid)
+        val playerName: String? = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uuid)?.username ?: playerNameCache.get(uuid)
 
         // if player name null, player does not exist
         if (playerName == null) {
@@ -842,20 +833,20 @@ public object Nodes {
         residents.put(uuid, resident)
     }
 
-    public fun getResidentCount(): Int = Nodes.residents.size
+    fun getResidentCount(): Int = residents.size
 
-    public fun getResident(player: Player): Resident? = Nodes.residents.get(player.uuid)
+    fun getResident(player: Player): Resident? = residents.get(player.uuid)
 
-    public fun getResidentFromName(name: String): Resident? {
+    fun getResidentFromName(name: String): Resident? {
         // get player from server
         val player = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(name)
         if (player != null) {
-            return Nodes.residents.get(player.uuid)
+            return residents.get(player.uuid)
         }
         // search through residents and try to match name
         else {
             val playerNameLowercase = name.lowercase()
-            for (r in Nodes.residents.values) {
+            for (r in residents.values) {
                 if (r.name.lowercase() == playerNameLowercase) {
                     return r
                 }
@@ -865,45 +856,41 @@ public object Nodes {
         return null
     }
 
-    public fun getResidentFromUUID(uuid: UUID): Resident? = Nodes.residents.get(uuid)
+    fun getResidentFromUUID(uuid: UUID): Resident? = residents.get(uuid)
 
-    public fun setResidentPrefix(resident: Resident, s: String) {
+    fun setResidentPrefix(resident: Resident, s: String) {
         resident.prefix = sanitizeString(s)
         resident.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
-    public fun setResidentSuffix(resident: Resident, s: String) {
+    fun setResidentSuffix(resident: Resident, s: String) {
         resident.suffix = sanitizeString(s)
         resident.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
     // marks player as online
-    public fun setResidentOnline(resident: Resident, player: Player) {
+    fun setResidentOnline(resident: Resident, player: Player) {
         val town = resident.town
         if (town != null) {
             town.playersOnline.add(player)
 
             val nation = town.nation
-            if (nation != null) {
-                nation.playersOnline.add(player)
-            }
+            nation?.playersOnline?.add(player)
         }
     }
 
     // marks player as offline
     // force player as input in case resident cannot access player
     // if player already offline
-    public fun setResidentOffline(resident: Resident, player: Player) {
+    fun setResidentOffline(resident: Resident, player: Player) {
         val town = resident.town
         if (town != null) {
             town.playersOnline.remove(player)
 
             val nation = town.nation
-            if (nation != null) {
-                nation.playersOnline.remove(player)
-            }
+            nation?.playersOnline?.remove(player)
         }
     }
 //
@@ -922,10 +909,10 @@ public object Nodes {
 //    }
 
     // set player's town create cooldown
-    public fun setResidentTownCreateCooldown(resident: Resident, cooldown: Long) {
+    fun setResidentTownCreateCooldown(resident: Resident, cooldown: Long) {
         resident.townCreateCooldown = cooldown
         resident.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 //
 //    // update players online in each town, nation
@@ -952,9 +939,9 @@ public object Nodes {
 //    }
 
     // forces re-render of online player minimaps
-    public fun renderMinimaps() {
+    fun renderMinimaps() {
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
-            val resident = Nodes.getResident(player)
+            val resident = getResident(player)
             if (resident?.minimap != null) {
                 // get current location coord
                 val loc = player.position
@@ -973,16 +960,16 @@ public object Nodes {
     // create town at player location:
     // - player becomes town leader
     // - territory at player's location becomes town home
-    public fun createTown(name: String, territory: Territory, leader: Resident?): Result<Town> {
+    fun createTown(name: String, territory: Territory, leader: Resident?): Result<Town> {
         // get resident and spawn coordinate from leader if exists
         val leaderPlayer = leader?.player()
-        var spawnpoint = if (leaderPlayer != null) {
+        val spawnpoint = if (leaderPlayer != null) {
             leaderPlayer.position
         } else {
-            Nodes.getDefaultSpawnLocation(territory)
+            getDefaultSpawnLocation(territory)
         }
 
-        if (Nodes.getTownFromName(name) != null) {
+        if (getTownFromName(name) != null) {
             return Result.failure(ErrorTownExists)
         }
 
@@ -1005,11 +992,11 @@ public object Nodes {
             leader.needsUpdate()
         }
 
-        Nodes.towns.put(name, town)
-        Nodes.needsSave = true
+        towns.put(name, town)
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         // update nametags
 //        Nametag.pipelinedUpdateAllText()
@@ -1019,7 +1006,7 @@ public object Nodes {
 
     // load town from data
     // used for deserializing from towns.json
-    public fun loadTown(
+    fun loadTown(
         uuid: UUID,
         name: String,
         leader: UUID?,
@@ -1038,13 +1025,13 @@ public object Nodes {
         moveHomeCooldown: Long,
     ): Town? {
         val leaderAsResident = if (leader != null) {
-            Nodes.getResidentFromUUID(leader)
+            getResidentFromUUID(leader)
         } else {
             null
         }
 
         // make sure home territory exists
-        val home = Nodes.getTerritoryFromId(TerritoryId(homeId))
+        val home = getTerritoryFromId(TerritoryId(homeId))
         if (home == null) {
             System.err.println("Failed to create town $name with home (id = $homeId)")
             return null
@@ -1054,9 +1041,9 @@ public object Nodes {
         val spawnpoint = if (spawn != null) {
             spawn
         } else { // get default value
-            val homeTerritory = Nodes.territories.get(TerritoryId(homeId))
+            val homeTerritory = territories[TerritoryId(homeId)]
             if (homeTerritory != null) {
-                Nodes.getDefaultSpawnLocation(homeTerritory)
+                getDefaultSpawnLocation(homeTerritory)
             } else {
                 Pos(0.0, 255.0, 0.0)
             }
@@ -1067,7 +1054,7 @@ public object Nodes {
 
         // add residents
         for (id in residents) {
-            Nodes.getResidentFromUUID(id)?.let { r ->
+            getResidentFromUUID(id)?.let { r ->
                 town.residents.add(r)
                 r.town = town
                 r.needsUpdate()
@@ -1076,7 +1063,7 @@ public object Nodes {
 
         // add officers
         for (id in officers) {
-            Nodes.getResidentFromUUID(id)?.let { r ->
+            getResidentFromUUID(id)?.let { r ->
                 town.officers.add(r)
             }
         }
@@ -1084,7 +1071,7 @@ public object Nodes {
         // add territory claims
         for (id in territoryIds) {
             val terrId = TerritoryId(id)
-            Nodes.getTerritoryFromId(terrId)?.let { terr ->
+            getTerritoryFromId(terrId)?.let { terr ->
                 town.territories.add(terrId)
                 terr.town = town
             }
@@ -1094,7 +1081,7 @@ public object Nodes {
         // (duplicated in territoryIds, so just add ids)
         for (id in annexedTerritoryIds) {
             val terrId = TerritoryId(id)
-            Nodes.getTerritoryFromId(terrId)?.let { terr ->
+            getTerritoryFromId(terrId)?.let { terr ->
                 if (town.territories.contains(terrId)) {
                     town.annexed.add(terrId)
                 }
@@ -1104,13 +1091,11 @@ public object Nodes {
         // add captured territories
         for (id in capturedTerritoryIds) {
             val terrId = TerritoryId(id)
-            Nodes.getTerritoryFromId(terrId)?.let { terr ->
+            getTerritoryFromId(terrId)?.let { terr ->
                 // check if territory already occupied, remove current occupier
                 // should never occur, but just in case
                 val currentOccupier: Town? = terr.occupier
-                if (currentOccupier != null) {
-                    currentOccupier.captured.remove(terrId)
-                }
+                currentOccupier?.captured?.remove(terrId)
 
                 // capture territory for town
                 town.captured.add(terrId)
@@ -1118,8 +1103,8 @@ public object Nodes {
             }
         }
 
-//        // add saved income
-//        town.income.storage.putAll(income)
+        // add saved income
+        town.income.storage.putAll(income)
 
         // set town color
         if (color != null) {
@@ -1150,27 +1135,27 @@ public object Nodes {
         return town
     }
 
-    public fun destroyTown(town: Town) {
+    fun destroyTown(town: Town) {
         // remove town links backwards from creation:
 
         // check if town last in nation, destroy nation first if last
         val nation = town.nation
         if (nation !== null) {
             if (nation.towns.size == 1) { // last town in nation
-                Nodes.destroyNation(nation)
+                destroyNation(nation)
             } else {
-                Nodes.removeTownFromNation(nation, town)
+                removeTownFromNation(nation, town)
             }
         }
 
         // remove territory claim links
         town.territories.forEach { terrId ->
-            Nodes.getTerritoryFromId(terrId)?.town = null
+            getTerritoryFromId(terrId)?.town = null
         }
 
         // remove occupied territories
         town.captured.forEach { terrId ->
-            Nodes.getTerritoryFromId(terrId)?.occupier = null
+            getTerritoryFromId(terrId)?.occupier = null
         }
 
         // remove resident town links
@@ -1201,24 +1186,24 @@ public object Nodes {
         }
 
         // remove town from global
-        Nodes.towns.remove(town.name)
+        towns.remove(town.name)
 
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 //
 //        // update nametags
 //        Nametag.pipelinedUpdateAllText()
     }
 
-    public fun getTownCount(): Int = Nodes.towns.size
+    fun getTownCount(): Int = towns.size
 
-    public fun getTownFromName(name: String): Town? = towns.get(name)
+    fun getTownFromName(name: String): Town? = towns.get(name)
 
-    public fun getTownFromPlayer(player: Player): Town? {
+    fun getTownFromPlayer(player: Player): Town? {
         // get resident
-        val resident = Nodes.getResident(player)
+        val resident = getResident(player)
         if (resident !== null) {
             return resident.town
         }
@@ -1261,7 +1246,7 @@ public object Nodes {
      * Claim territory for a town. Returns result with either Territory
      * if successful, or an TerritoryClaim error status.
      */
-    public fun claimTerritory(town: Town, territory: Territory): Result<Territory> {
+    fun claimTerritory(town: Town, territory: Territory): Result<Territory> {
         // check if territory already claimed
         if (territory.town != null) {
             return Result.failure(ErrorTerritoryHasClaim)
@@ -1271,7 +1256,7 @@ public object Nodes {
         // iterate this territory neighbors, check if any link to town
         var isNeighbor = false
         for (neighborId in territory.neighbors) {
-            if (Nodes.getTerritoryFromId(neighborId)?.town === town) {
+            if (getTerritoryFromId(neighborId)?.town === town) {
                 isNeighbor = true
                 break
             }
@@ -1286,15 +1271,15 @@ public object Nodes {
 
         // mark dirty
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         return Result.success(territory)
     }
 
-    public fun unclaimTerritory(town: Town, territory: Territory): Result<Territory> {
+    fun unclaimTerritory(town: Town, territory: Territory): Result<Territory> {
         // check if town owns territory
         if (!town.territories.contains(territory.id)) {
             return Result.failure(ErrorTerritoryNotInTown)
@@ -1315,10 +1300,10 @@ public object Nodes {
 
         // mark dirty
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         return Result.success(territory)
     }
@@ -1347,7 +1332,7 @@ public object Nodes {
 //    }
 //
     // makes territory occupied by town
-    public fun captureTerritory(town: Town, territory: Territory) {
+fun captureTerritory(town: Town, territory: Territory) {
         // check if territory already occupied, remove current occupier
         val currentOccupier: Town? = territory.occupier
         if (currentOccupier != null) {
@@ -1364,14 +1349,14 @@ public object Nodes {
         }
 
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+    renderMinimaps()
     }
 
     // release territory from town occupation
-    public fun releaseTerritory(territory: Territory) {
+    fun releaseTerritory(territory: Territory) {
         // check if territory currently occupied, remove current occupier
         val currentOccupier: Town? = territory.occupier
         if (currentOccupier != null) {
@@ -1379,10 +1364,10 @@ public object Nodes {
             territory.occupier = null
 
             currentOccupier.needsUpdate()
-            Nodes.needsSave = true
+            needsSave = true
 
             // re-render minimaps
-            Nodes.renderMinimaps()
+            renderMinimaps()
         }
     }
 
@@ -1391,7 +1376,7 @@ public object Nodes {
      * - add to town's territories and town's annexed territories
      * Returns boolean on success
      */
-    public fun annexTerritory(town: Town, territory: Territory): Boolean {
+    fun annexTerritory(town: Town, territory: Territory): Boolean {
         val occupier: Town? = territory.occupier
         if (occupier !== town) {
             return false
@@ -1412,7 +1397,7 @@ public object Nodes {
                 }
 
                 // destroy town and broadcast
-                Nodes.destroyTown(oldTown)
+                destroyTown(oldTown)
 
                 Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Town ${oldTown.name} was completely annexed by ${town.name}")
             }
@@ -1439,10 +1424,10 @@ public object Nodes {
         territory.occupier = null
 
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         return true
     }
@@ -1450,17 +1435,17 @@ public object Nodes {
     // adds items to town's income
     // used by taxation events in occupied/captured territories
     // TODO: cleanup + rename this to "townIncomeAdd"
-    public fun addToIncome(town: Town, material: Material, amount: Int, meta: Int = 0) {
-        town.income.add(material, amount, meta)
+    fun addToIncome(town: Town, material: Material, amount: Int) {
+        town.income.add(material, amount)
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
     /**
      * Removes items from town's income. If Material is null, removes all
      * items. If amount < 0, removes all items of that type.
      */
-    public fun townIncomeRemove(
+    fun townIncomeRemove(
         town: Town,
         material: Material?,
         amount: Int = -1,
@@ -1469,7 +1454,7 @@ public object Nodes {
 
         if (material !== null) {
             if (amount >= 0) {
-                val currAmount = town.income.storage.get(material) ?: 0
+                val currAmount = town.income.storage[material] ?: 0
                 if (currAmount > amount) {
                     town.income.storage.put(material, currAmount - amount)
                 } else {
@@ -1482,30 +1467,30 @@ public object Nodes {
             town.income.storage.clear()
         }
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
-    public fun setTownColor(town: Town, r: Int, g: Int, b: Int) {
+    fun setTownColor(town: Town, r: Int, g: Int, b: Int) {
         town.color = Color(r, g, b)
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
-    public fun setTownSpawn(town: Town, spawnpoint: Pos): Boolean {
+    fun setTownSpawn(town: Town, spawnpoint: Pos): Boolean {
         // enforce spawnpoint in town's home territory
-        val territory = Nodes.getTerritoryFromChunk(MinecraftServer.getInstanceManager().instances.first().getChunk(spawnpoint.chunkX(),spawnpoint.chunkX())!!)
+        val territory = getTerritoryFromChunk(MinecraftServer.getInstanceManager().instances.first().getChunk(spawnpoint.chunkX(),spawnpoint.chunkX())!!)
         if (territory === null || territory.id != town.home) {
             return false
         }
 
         town.spawnpoint = spawnpoint
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         return true
     }
 
-    public fun addResidentToTown(town: Town, resident: Resident) {
+    fun addResidentToTown(town: Town, resident: Resident) {
         town.residents.add(resident)
         resident.town = town
 
@@ -1532,13 +1517,13 @@ public object Nodes {
 
         town.needsUpdate()
         resident.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // update nametags
 //        Nametag.pipelinedUpdateAllText()
     }
 
-    public fun removeResidentFromTown(town: Town, resident: Resident) {
+    fun removeResidentFromTown(town: Town, resident: Resident) {
         if (town.officers.contains(resident)) {
             town.officers.remove(resident)
         }
@@ -1566,14 +1551,14 @@ public object Nodes {
 
         town.needsUpdate()
         resident.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // update nametags
 //        Nametag.pipelinedUpdateAllText()
     }
 
     // make player in town an officer
-    public fun townAddOfficer(town: Town, resident: Resident): Boolean {
+    fun townAddOfficer(town: Town, resident: Resident): Boolean {
         if (resident.town !== town) {
             return false
         }
@@ -1585,13 +1570,13 @@ public object Nodes {
         town.officers.add(resident)
 
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         return true
     }
 
     // remove player from officer status
-    public fun townRemoveOfficer(town: Town, resident: Resident): Boolean {
+    fun townRemoveOfficer(town: Town, resident: Resident): Boolean {
         if (resident.town !== town) {
             return false
         }
@@ -1599,7 +1584,7 @@ public object Nodes {
         town.officers.remove(resident)
 
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         return true
     }
@@ -1616,7 +1601,7 @@ public object Nodes {
      * Set town's leader. If input resident is null, try to remove
      * current town leader.
      */
-    public fun townSetLeader(town: Town, resident: Resident?) {
+    fun townSetLeader(town: Town, resident: Resident?) {
         if (resident !== null) {
             if (resident.town !== town) {
                 // must first be part of town, skipping
@@ -1633,7 +1618,7 @@ public object Nodes {
 
             town.leader = resident
             town.needsUpdate()
-            Nodes.needsSave = true
+            needsSave = true
         } else {
             // no resident input: remove current town leader
             if (town.leader === null) {
@@ -1643,21 +1628,21 @@ public object Nodes {
 
             town.leader = null
             town.needsUpdate()
-            Nodes.needsSave = true
+            needsSave = true
         }
     }
 
-    public fun renameTown(town: Town, s: String): Boolean {
+    fun renameTown(town: Town, s: String): Boolean {
         // check that new name not used
-        if (Nodes.towns.contains(s)) {
+        if (towns.contains(s)) {
             return false
         }
 
-        Nodes.towns.remove(town.name)
+        towns.remove(town.name)
         town.name = s
         town.updateNametags()
 
-        Nodes.towns.put(s, town)
+        towns.put(s, town)
         town.needsUpdate()
 
         // update residents in town and nation
@@ -1674,13 +1659,13 @@ public object Nodes {
             t.needsUpdate()
         }
 
-        Nodes.needsSave = true
+        needsSave = true
 
         return true
     }
 
     // view town income inventory gui
-    public fun getTownIncomeInventory(town: Town): Inventory {
+    fun getTownIncomeInventory(town: Town): Inventory {
         // mark dirty if inventory not empty (player could take items)
         if (!town.income.empty()) {
             town.needsUpdate()
@@ -1691,22 +1676,22 @@ public object Nodes {
     /**
      * Set town permissions
      */
-    public fun setTownPermissions(town: Town, perm: TownPermissions, group: PermissionsGroup, flag: Boolean) {
+    fun setTownPermissions(town: Town, perm: TownPermissions, group: PermissionsGroup, flag: Boolean) {
         // add perms
-        if (flag == true) {
+        if (flag) {
             town.permissions[perm].add(group)
         } else { // remove perms
             town.permissions[perm].remove(group)
         }
 
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
     /**
      * set town's home territory
      */
-    public fun setTownHomeTerritory(town: Town, territory: Territory) {
+    fun setTownHomeTerritory(town: Town, territory: Territory) {
         if (town !== territory.town) {
             return
         }
@@ -1718,29 +1703,29 @@ public object Nodes {
         town.home = territory.id
 
         // set town spawn to new home territory
-        town.spawnpoint = Nodes.getDefaultSpawnLocation(territory)
+        town.spawnpoint = getDefaultSpawnLocation(territory)
 
         // set cooldown
         town.moveHomeCooldown = Config.townMoveHomeCooldown
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
     // set town's move home cooldown period
-    public fun setTownHomeMoveCooldown(town: Town, time: Long) {
+    fun setTownHomeMoveCooldown(town: Town, time: Long) {
         town.moveHomeCooldown = time
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
     // when inventory close, require save because items could have
     // been moved
     internal fun onTownIncomeInventoryClose() {
-        Nodes.needsSave = true
+        needsSave = true
     }
 //
 //    // set town's isOpen state
@@ -1755,12 +1740,12 @@ public object Nodes {
      */
     internal fun townMoveHomeCooldownTick(dt: Long) {
         // reduce town move home territory cooldown
-        for (town in Nodes.towns.values) {
+        for (town in towns.values) {
             if (town.moveHomeCooldown > 0) {
-                town.moveHomeCooldown = Math.max(0, town.moveHomeCooldown - dt)
+                town.moveHomeCooldown = (town.moveHomeCooldown - dt).coerceAtLeast(0)
 
                 town.needsUpdate()
-                Nodes.needsSave = true
+                needsSave = true
             }
         }
     }
@@ -1770,12 +1755,12 @@ public object Nodes {
      */
     internal fun residentTownCreateCooldownTick(dt: Long) {
         // reduce player create town cooldown
-        for (resident in Nodes.residents.values) {
+        for (resident in residents.values) {
             if (resident.townCreateCooldown > 0) {
-                resident.townCreateCooldown = Math.max(0, resident.townCreateCooldown - dt)
+                resident.townCreateCooldown = (resident.townCreateCooldown - dt).coerceAtLeast(0)
 
                 resident.needsUpdate()
-                Nodes.needsSave = true
+                needsSave = true
             }
         }
     }
@@ -1783,7 +1768,7 @@ public object Nodes {
     // ==============================================
     // Nation functions
     // ==============================================
-    public fun createNation(name: String, town: Town, leader: Resident? = null): Result<Nation> {
+    fun createNation(name: String, town: Town, leader: Resident? = null): Result<Nation> {
         if (town.nation != null) {
             return Result.failure(ErrorTownHasNation)
         }
@@ -1796,7 +1781,7 @@ public object Nodes {
             return Result.failure(ErrorPlayerNotInTown)
         }
 
-        if (Nodes.getNationFromName(name) != null) {
+        if (getNationFromName(name) != null) {
             return Result.failure(ErrorNationExists)
         }
 
@@ -1822,10 +1807,10 @@ public object Nodes {
 
         town.needsUpdate()
         nation.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         // update nametags
 //        Nametag.pipelinedUpdateAllText()
@@ -1835,14 +1820,14 @@ public object Nodes {
 
     // load nation from data
     // used for deserializing from towns.json
-    public fun loadNation(
+    fun loadNation(
         uuid: UUID,
         name: String,
         capitalName: String, // name of capital city
         color: Color?,
         towns: ArrayList<String>,
     ): Nation {
-        val capital = Nodes.getTownFromName(capitalName)
+        val capital = getTownFromName(capitalName)
         if (capital == null) {
             throw ErrorTownDoesNotExist
         }
@@ -1856,7 +1841,7 @@ public object Nodes {
 
         // add towns
         for (townName in towns) {
-            val town = Nodes.getTownFromName(townName)
+            val town = getTownFromName(townName)
             if (town != null) {
                 nation.towns.add(town)
                 town.nation = nation
@@ -1879,7 +1864,7 @@ public object Nodes {
         return nation
     }
 
-    public fun destroyNation(nation: Nation) {
+    fun destroyNation(nation: Nation) {
         // remove nation level alliances and enemies
         for (ally in nation.allies) {
             ally.allies.remove(nation)
@@ -1915,22 +1900,22 @@ public object Nodes {
             town.needsUpdate()
         }
 
-        Nodes.nations.remove(nation.name)
+        nations.remove(nation.name)
 
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 //
 //        // update nametags
 //        Nametag.pipelinedUpdateAllText()
     }
 
-    public fun getNationCount(): Int = Nodes.nations.size
+    fun getNationCount(): Int = nations.size
 
-    public fun getNationFromName(name: String): Nation? = nations.get(name)
+    fun getNationFromName(name: String): Nation? = nations.get(name)
 
-    public fun addTownToNation(nation: Nation, town: Town): Result<Town> {
+    fun addTownToNation(nation: Nation, town: Town): Result<Town> {
         // check town does not belong to nation
         if (town.nation != null) {
             return Result.failure(ErrorTownHasNation)
@@ -1977,10 +1962,10 @@ public object Nodes {
         }
 
         nation.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         // update nametags
 //        Nametag.pipelinedUpdateAllText()
@@ -1988,7 +1973,7 @@ public object Nodes {
         return Result.success(town)
     }
 
-    public fun removeTownFromNation(nation: Nation, town: Town): Result<Town> {
+    fun removeTownFromNation(nation: Nation, town: Town): Result<Town> {
         // check town belongs to nation
         if (town.nation !== nation) {
             return Result.failure(ErrorNationDoesNotHaveTown)
@@ -2007,8 +1992,8 @@ public object Nodes {
 
         // if nation has no more towns, destroy nation
         // -> cleans up allies, enemies, etc... and global references
-        if (nation.towns.size == 0) {
-            Nodes.destroyNation(nation)
+        if (nation.towns.isEmpty()) {
+            destroyNation(nation)
         }
         // set new leader for nation if this was capital
         else {
@@ -2040,10 +2025,10 @@ public object Nodes {
 
         town.needsUpdate()
         nation.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 //
 //        // update nametags
 //        Nametag.pipelinedUpdateAllText()
@@ -2051,21 +2036,21 @@ public object Nodes {
         return Result.success(town)
     }
 
-    public fun setNationColor(nation: Nation, r: Int, g: Int, b: Int) {
+    fun setNationColor(nation: Nation, r: Int, g: Int, b: Int) {
         nation.color = Color(r, g, b)
         nation.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
-    public fun renameNation(nation: Nation, s: String): Boolean {
+    fun renameNation(nation: Nation, s: String): Boolean {
         // check that new name not used
-        if (Nodes.nations.contains(s)) {
+        if (nations.contains(s)) {
             return false
         }
 
-        Nodes.nations.remove(nation.name)
+        nations.remove(nation.name)
         nation.name = s
-        Nodes.nations.put(s, nation)
+        nations.put(s, nation)
         nation.needsUpdate()
 
         // update nation towns and residents
@@ -2084,7 +2069,7 @@ public object Nodes {
             n.needsUpdate()
         }
 
-        Nodes.needsSave = true
+        needsSave = true
 
         return true
     }
@@ -2092,7 +2077,7 @@ public object Nodes {
     /**
      * Set nation capital to a new town. Town must be in the nation already
      */
-    public fun setNationCapital(nation: Nation, town: Town) {
+    fun setNationCapital(nation: Nation, town: Town) {
         if (town.nation !== nation || nation.capital === town) {
             return
         }
@@ -2100,7 +2085,7 @@ public object Nodes {
         nation.capital = town
 
         nation.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
     // ==============================================
@@ -2126,7 +2111,7 @@ public object Nodes {
      *         // 3. add incomes to each town's income chests
      *         townIncomes.forEach { town, income -> addTownIncomeToChest(town, income) }
      */
-    public fun runIncome() {
+    fun runIncome() {
         /**
          * Helper to convert an income item rate Double to a item count as Int.
          * The rate must be >0.0 but can have fractional parts which allow for
@@ -2163,7 +2148,7 @@ public object Nodes {
         val taxRate = Config.taxIncomeRate.coerceIn(0.0, 1.0)
         val keptRate = 1.0 - taxRate
 
-        for (town in Nodes.towns.values) {
+        for (town in towns.values) {
             try {
                 val thisTownIncome = mutableMapOf<Material, Double>() // hard-coded value for this town
                 val townIncomes = HashMap<Town, MutableMap<Material, Double>>()
@@ -2172,7 +2157,7 @@ public object Nodes {
                 townIncomes[town] = thisTownIncome
 
                 for (terrId in town.territories) {
-                    val territory = Nodes.getTerritoryFromId(terrId)
+                    val territory = getTerritoryFromId(terrId)
                     if (territory === null) {
                         continue
                     }
@@ -2195,8 +2180,8 @@ public object Nodes {
                 }
 
                 // apply income modifiers for each town, then add items to town income chest
-                for ((townForIncome, income) in townIncomes) {
-                    var incomeModifier = 1.0
+                for ((_, income) in townIncomes) {
+                    val incomeModifier = 1.0
 
                     // we can do any other income modifiers here in the future
 
@@ -2204,7 +2189,7 @@ public object Nodes {
                     for ((material, amount) in income) {
                         val amountInt = rateToAmount(amount * incomeModifier)
                         if (amountInt > 0) {
-                            Nodes.addToIncome(town, material, amountInt)
+                            addToIncome(town, material, amountInt)
                         }
                     }
                 }
@@ -2239,26 +2224,26 @@ public object Nodes {
 //    // Same rules apply for making allies.
 //    // ==============================================
 
-    public fun enableWar(
+    fun enableWar(
         canAnnexTerritories: Boolean,
         canOnlyAttackBorders: Boolean,
         destructionEnabled: Boolean,
     ) {
-        Nodes.war.enable(canAnnexTerritories, canOnlyAttackBorders, destructionEnabled)
+        war.enable(canAnnexTerritories, canOnlyAttackBorders, destructionEnabled)
     }
 
-    public fun disableWar() {
-        Nodes.war.disable()
+    fun disableWar() {
+        war.disable()
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
     }
 
     /**
      * Set two towns as enemies and their nations if needed, order does not matter.
      * This should be the main function used.
      */
-    public fun addEnemy(town: Town, enemy: Town): Result<Boolean> {
+    fun addEnemy(town: Town, enemy: Town): Result<Boolean> {
         // make sure towns are not allies
         if (town.allies.contains(enemy)) {
             return Result.failure(ErrorWarAlly)
@@ -2321,10 +2306,10 @@ public object Nodes {
 
         town.needsUpdate()
         enemy.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         // update nametags
 //        Nametag.pipelinedUpdateAllText()
@@ -2401,7 +2386,7 @@ public object Nodes {
      * Set two towns as allies (bidirectional), order does not matter.
      * Handle town-town, town-nation, nation-town, nation-nation cases
      */
-    public fun addAlly(town: Town, other: Town): Result<Boolean> {
+    fun addAlly(town: Town, other: Town): Result<Boolean> {
         // towns already allies
         if (town.allies.contains(other) && other.allies.contains(town)) {
             return Result.failure(ErrorAlreadyAllies)
@@ -2418,7 +2403,7 @@ public object Nodes {
         if (townNation !== null) {
             // nation-nation
             if (otherNation !== null && townNation !== otherNation) {
-                Nodes.nationAddAlly(townNation, otherNation)
+                nationAddAlly(townNation, otherNation)
             }
             // nation-town
             else {
@@ -2498,10 +2483,10 @@ public object Nodes {
 
         town.needsUpdate()
         other.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         // update nametags
 //        Nametag.pipelinedUpdateAllText()
@@ -2509,7 +2494,7 @@ public object Nodes {
         return Result.success(true)
     }
 
-    public fun removeAlly(town: Town, other: Town): Result<Boolean> {
+    fun removeAlly(town: Town, other: Town): Result<Boolean> {
         // not currently allies
         if (!town.allies.contains(other) || !other.allies.contains(town)) {
             return Result.failure(ErrorNotAllies)
@@ -2521,7 +2506,7 @@ public object Nodes {
         if (townNation !== null) {
             // nation-nation
             if (otherNation !== null && townNation !== otherNation) {
-                Nodes.nationRemoveAlly(townNation, otherNation)
+                nationRemoveAlly(townNation, otherNation)
             }
             // nation-town
             else {
@@ -2553,10 +2538,10 @@ public object Nodes {
 
         town.needsUpdate()
         other.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         // update nametags
 //        Nametag.pipelinedUpdateAllText()
@@ -2592,10 +2577,10 @@ public object Nodes {
             nationTown.needsUpdate()
         }
 
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         return Result.success(true)
     }
@@ -2665,10 +2650,10 @@ public object Nodes {
             nationTown.needsUpdate()
         }
 
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+    renderMinimaps()
 
         return Result.success(true)
     }
@@ -2688,10 +2673,10 @@ public object Nodes {
             nationTown.needsUpdate()
         }
 
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         return Result.success(true)
     }
@@ -2699,7 +2684,7 @@ public object Nodes {
     /**
      * Get diplomatic relationship between two towns
      */
-    public fun getRelationshipOfTownToTown(playerTown: Town?, otherTown: Town?): DiplomaticRelationship {
+    fun getRelationshipOfTownToTown(playerTown: Town?, otherTown: Town?): DiplomaticRelationship {
         if (playerTown !== null && otherTown !== null) {
             if (playerTown === otherTown) {
                 return DiplomaticRelationship.TOWN
@@ -2723,8 +2708,8 @@ public object Nodes {
         return DiplomaticRelationship.NEUTRAL
     }
 
-    public fun getRelationshipOfPlayerToTown(player: Player, otherTown: Town): DiplomaticRelationship {
-        val playerTown = Nodes.getTownFromPlayer(player)
+    fun getRelationshipOfPlayerToTown(player: Player, otherTown: Town): DiplomaticRelationship {
+        val playerTown = getTownFromPlayer(player)
         return getRelationshipOfTownToTown(playerTown, otherTown)
     }
 //
@@ -2744,7 +2729,7 @@ public object Nodes {
     internal fun setResidentTrust(resident: Resident, trust: Boolean) {
         resident.trusted = trust
         resident.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
 //    /**
@@ -2908,7 +2893,7 @@ public object Nodes {
     // ==============================================
     // load port from data
     // used for deserializing from ports.json
-    public fun loadPort(
+    fun loadPort(
         name: String,
         locX: Int,
         locZ: Int,
@@ -2921,7 +2906,7 @@ public object Nodes {
         ports.put(name, port)
 
         // for each port, map the chunk its in to it
-        val chunk = listOf(Math.floorDiv(locX, 16), Math.floorDiv(locZ, 16))
+        val chunk = listOf(locX.floorDiv(16), locZ.floorDiv(16))
         chunkToPort.put(chunk, port)
 
         // mark dirty
@@ -2943,9 +2928,18 @@ public object Nodes {
 //
 //    public fun getPortFromName(name: String): Port? = ports.get(name)
 //
-    public fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
+fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
 
-    public fun createPortGroup(name: String): Result<PortGroup> {
+    // load port group from data
+    // used for deserializing from ports.json
+    fun loadPortGroup(name: String): PortGroup {
+        val portGroup = PortGroup(name)
+        portGroups.put(name, portGroup)
+        portGroup.needsUpdate()
+        return portGroup
+    }
+
+    fun createPortGroup(name: String): Result<PortGroup> {
         if (portGroups.containsKey(name)) {
             return Result.failure(ErrorPortExists)
         }
@@ -2981,7 +2975,7 @@ public object Nodes {
 //        ports.put(name, port)
 //
 //        // for each port, map the chunk its in to it
-//        val chunk = listOf(Math.floorDiv(locX, 16), Math.floorDiv(locZ, 16))
+//        val chunk = listOf(locX.floorDiv(16), locZ.floorDiv(16))
 //        chunkToPort.put(chunk, port)
 //
 //        // mark dirty

@@ -31,7 +31,6 @@ value class TerritoryId(private val id: Int) {
 @JvmInline
 value class TerritoryIdArray(private val ids: IntArray) {
     override fun toString(): String = ids.toString()
-    fun toIntArray(): IntArray = ids.copyOf()
 
     /**
      * Return true if this territory id array contains given territory id.
@@ -53,7 +52,7 @@ value class TerritoryIdArray(private val ids: IntArray) {
     /**
      * Wrapper iterator to emit TerritoryId instead of int.
      */
-    public class TerritoryIdIterator(val intIter: IntIterator) : Iterator<TerritoryId> {
+    class TerritoryIdIterator(val intIter: IntIterator) : Iterator<TerritoryId> {
         override fun hasNext(): Boolean = intIter.hasNext()
         override fun next(): TerritoryId = TerritoryId(intIter.nextInt())
     }
@@ -84,15 +83,11 @@ data class TerritoryPreprocessing(
          * If `ids` list is specified, only load those ids (if they exist).
          * Otherwise, load all ids.
          */
-        public fun loadFromJson(json: JsonObject, ids: List<TerritoryId>? = null): List<TerritoryPreprocessing> {
-            val idStrings = if (ids != null) {
-                ids.asSequence().map { id -> id.toInt().toString() }
-            } else {
-                json.keySet().asSequence()
-            }
+        fun loadFromJson(json: JsonObject, ids: List<TerritoryId>? = null): List<TerritoryPreprocessing> {
+            val idStrings = ids?.asSequence()?.map { id -> id.toInt().toString() } ?: json.keySet().asSequence()
 
             val territories = idStrings
-                .map { id -> TerritoryPreprocessing.fromJson(id.toInt(), json[id].getAsJsonObject()) }
+                .map { id -> fromJson(id.toInt(), json[id].asJsonObject) }
                 .toList()
 
             return territories
@@ -102,51 +97,51 @@ data class TerritoryPreprocessing(
          * Load a single territory structure from world json object.
          * Note this will cause error if json is invalid.
          */
-        public fun fromJson(id: Int, json: JsonObject): TerritoryPreprocessing {
+        fun fromJson(id: Int, json: JsonObject): TerritoryPreprocessing {
             // territory name
-            val name: String = json.get("name")?.getAsString() ?: ""
+            val name: String = json.get("name")?.asString ?: ""
 
             // territory color, 6 possible colors -> integer in range [0, 5]
             // if null (editor error?), assign 5, the least likely color
-            val color: Int = json.get("color")?.getAsInt() ?: 5
+            val color: Int = json.get("color")?.asInt ?: 5
 
             // core chunk (required)
-            val coreChunkArray = json.get("coreChunk")!!.getAsJsonArray()!!
-            val coreChunk = Coord(coreChunkArray[0].getAsInt(), coreChunkArray[1].getAsInt())
+            val coreChunkArray = json.get("coreChunk")!!.asJsonArray!!
+            val coreChunk = Coord(coreChunkArray[0].asInt, coreChunkArray[1].asInt)
 
             // chunks:
             // parse interleaved coordinate buffer
             // [x1, y1, x2, y2, ... , xN, yN]
             val chunks: MutableList<Coord> = mutableListOf()
-            val jsonChunkArray = json.get("chunks")?.getAsJsonArray()
+            val jsonChunkArray = json.get("chunks")?.asJsonArray
             if (jsonChunkArray !== null) {
                 for (i in 0 until jsonChunkArray.size() step 2) {
-                    val c = Coord(jsonChunkArray[i].getAsInt(), jsonChunkArray[i + 1].getAsInt())
+                    val c = Coord(jsonChunkArray[i].asInt, jsonChunkArray[i + 1].asInt)
                     chunks.add(c)
                 }
             }
 
             // resource nodes
             val resourceNodes: MutableList<String> = mutableListOf()
-            val jsonNodesArray = json.get("nodes")?.getAsJsonArray()
+            val jsonNodesArray = json.get("nodes")?.asJsonArray
             if (jsonNodesArray !== null) {
                 jsonNodesArray.forEach { nodeJson ->
-                    val s = nodeJson.getAsString()
+                    val s = nodeJson.asString
                     resourceNodes.add(s)
                 }
             }
 
             // neighbor territory ids
             val neighbors: MutableList<Int> = mutableListOf()
-            val jsonNeighborsArray = json.get("neighbors")?.getAsJsonArray()
+            val jsonNeighborsArray = json.get("neighbors")?.asJsonArray
             if (jsonNeighborsArray !== null) {
                 jsonNeighborsArray.forEach { neighborId ->
-                    neighbors.add(neighborId.getAsInt())
+                    neighbors.add(neighborId.asInt)
                 }
             }
 
             // flag that territory borders wilderness (regions without any territories)
-            val bordersWilderness: Boolean = json.get("isEdge")?.getAsBoolean() ?: false
+            val bordersWilderness: Boolean = json.get("isEdge")?.asBoolean ?: false
 
             return TerritoryPreprocessing(
                 TerritoryId(id),
@@ -171,7 +166,6 @@ data class TerritoryResources(
     // core properties
     val income: MutableMap<Material, Double> = mutableMapOf(),
     val ores: MutableMap<Material, OreDeposit> = mutableMapOf(),
-    val customProperties: HashMap<String, Any> = HashMap(0),
     // claim time modifier
     val attackerTimeMultiplier: Double = 1.0,
     val defenderTimeMultiplier: Double = 1.0,
@@ -206,7 +200,7 @@ data class TerritoryResources(
      * TerritoryResources object's neighbor modifiers applied
      * onto this object's resource properties.
      */
-    public fun accumulateNeighborModifiers(neighbor: TerritoryResources): TerritoryResources {
+    fun accumulateNeighborModifiers(neighbor: TerritoryResources): TerritoryResources {
         val newIncome = this.income.toMutableMap()
         val newOres = this.ores.toMutableMap()
 
@@ -214,8 +208,8 @@ data class TerritoryResources(
         // for now: CLAMP TO MAX AMONG NEIGHBORS
         var maxAccumulatedNeighborTotalIncomeMultiplier = this.accumulatedNeighborTotalIncomeMultiplier
         var maxAccumulatedNeighborTotalOresMultiplier = this.accumulatedNeighborTotalOresMultiplier
-        var maxAccumulatedNeighborIncomeMultiplier = this.accumulatedNeighborIncomeMultiplier.toMutableMap()
-        var maxAccumulatedNeighborOresMultiplier = this.accumulatedNeighborOresMultiplier.toMutableMap()
+        val maxAccumulatedNeighborIncomeMultiplier = this.accumulatedNeighborIncomeMultiplier.toMutableMap()
+        val maxAccumulatedNeighborOresMultiplier = this.accumulatedNeighborOresMultiplier.toMutableMap()
 
         // income direct addition
         neighbor.neighborIncome?.forEach { (type, amount) ->
@@ -263,7 +257,7 @@ data class TerritoryResources(
     /**
      * Applies all accumulated neighbor modifiers onto this territory.
      */
-    public fun applyNeighborModifiers(): TerritoryResources {
+    fun applyNeighborModifiers(): TerritoryResources {
         val newIncome = this.income.toMutableMap()
         val newOres = this.ores.toMutableMap()
 
@@ -311,7 +305,6 @@ data class Territory(
     // resource properties, should be derived from a TerritoryResources object
     val income: MutableMap<Material, Double>,
     val ores: OreSampler,
-    val customProperties: HashMap<String, Any> = HashMap(0),
     // claim time modifier
     val attackerTimeMultiplier: Double,
     val defenderTimeMultiplier: Double,
@@ -319,21 +312,10 @@ data class Territory(
     var town: Town? = null, // town owner
     var occupier: Town? = null, // town occupier (after being captured in war)
 ) {
-    val containsIncome: Boolean
-    val containsOre: Boolean
-
-    init {
-        this.containsIncome = income.size > 0
-        this.containsOre = ores.containsOre
-    }
-
-    // id is forced to be unique by system
-    public override fun hashCode(): Int = this.id.toInt()
-
     // Returns territory structural properties (chunks, id, neighbors, etc.)
     // as a TerritoryPreprocessing object. Used when rebuilding territories
     // in territory hot reloading.
-    public fun toPreprocessing(): TerritoryPreprocessing = TerritoryPreprocessing(
+    fun toPreprocessing(): TerritoryPreprocessing = TerritoryPreprocessing(
         id = this.id,
         name = this.name,
         color = this.color,
@@ -345,7 +327,7 @@ data class Territory(
     )
 
     // print territory info
-    public fun printInfo(sender: CommandSender) {
+    fun printInfo(sender: CommandSender) {
         val town: String = this.town?.name ?: "${ChatColor.GRAY}None"
         val occupier: String = if (this.occupier != null) {
             "${ChatColor.RED}${this.occupier!!.name}"
@@ -370,7 +352,7 @@ data class Territory(
     }
 
     // print territory net resources
-    public fun printResources(sender: CommandSender) {
+    fun printResources(sender: CommandSender) {
         // print income
         Message.print(sender, "- Income:")
         for ((k, v) in this.income) {

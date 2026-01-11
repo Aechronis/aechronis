@@ -23,7 +23,7 @@ import net.minestom.server.entity.Player
  * @subcommand /war [nation]
  * Declares war on a nation
  */
-public class WarCommand : Command("war") {
+class WarCommand : Command("war") {
     init {
         setDefaultExecutor { sender, context ->
             Nodes.war.printInfo(sender, false)
@@ -35,7 +35,7 @@ public class WarCommand : Command("war") {
         var targetArg = ArgumentType.String("target")
 
         addSyntax ({ sender, context ->
-            if (!(sender is Player)) {
+            if (sender !is Player) {
                 return@addSyntax
             }
 

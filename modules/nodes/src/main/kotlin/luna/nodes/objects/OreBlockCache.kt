@@ -15,14 +15,14 @@ package luna.nodes.objects
 import net.minestom.server.coordinate.BlockVec
 import java.util.Collections
 
-public class OreBlockCache(val maxSize: Int) {
+class OreBlockCache(val maxSize: Int) {
     private val cache: MutableSet<BlockVec> = Collections.newSetFromMap(object : LinkedHashMap<BlockVec, Boolean>() {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<BlockVec, Boolean>): Boolean = this.size > maxSize
     })
 
-    public fun add(block: BlockVec) {
+    fun add(block: BlockVec) {
         this.cache.add(block)
     }
 
-    public fun contains(block: BlockVec): Boolean = cache.contains(block)
+    fun contains(block: BlockVec): Boolean = cache.contains(block)
 }

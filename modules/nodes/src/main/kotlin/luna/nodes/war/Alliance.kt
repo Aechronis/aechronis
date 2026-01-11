@@ -21,18 +21,17 @@ import luna.nodes.objects.TownPair
 import net.minestom.server.MinecraftServer
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
-import java.util.concurrent.TimeUnit
 
 // alliance request status results
-public enum class AllianceRequest {
+enum class AllianceRequest {
     NEW, // new offer created
     ACCEPTED, // offer accepted
 }
 
 // errors
-public val ErrorAllyRequestEnemies = Exception("Not enemies")
-public val ErrorAllyRequestAlreadyAllies = Exception("Already allies")
-public val ErrorAllyRequestAlreadyCreated = Exception("Already sent an ally request")
+val ErrorAllyRequestEnemies = Exception("Not enemies")
+val ErrorAllyRequestAlreadyAllies = Exception("Already allies")
+val ErrorAllyRequestAlreadyCreated = Exception("Already sent an ally request")
 
 // timeout for ally request to cancel (default 1200 ticks ~ 1 minute)
 private const val ALLY_REQUEST_TIMEOUT: Int = 1200
@@ -40,13 +39,13 @@ private const val ALLY_REQUEST_TIMEOUT: Int = 1200
 /**
  * Alliance request manager
  */
-public object Alliance {
+object Alliance {
 
     // offers lists: maps TownPair involved -> Initiating Town
-    public val requests: HashMap<TownPair, Town> = hashMapOf()
+    val requests: HashMap<TownPair, Town> = hashMapOf()
 
     // threads to delete requests after timeout
-    public val requestTimers: HashMap<TownPair, Task> = hashMapOf()
+    val requestTimers: HashMap<TownPair, Task> = hashMapOf()
 
     /**
      * Offer/accept request between two towns. Inputs:
@@ -58,7 +57,7 @@ public object Alliance {
      * else, create new request
      *
      */
-    public fun request(town1: Town, town2: Town): Result<AllianceRequest> {
+    fun request(town1: Town, town2: Town): Result<AllianceRequest> {
         // check towns are not enemies
         if (town1.enemies.contains(town2) || town2.enemies.contains(town1)) {
             return Result.failure(ErrorAllyRequestEnemies)
@@ -69,19 +68,19 @@ public object Alliance {
         }
 
         val towns = TownPair(town1, town2)
-        val initiator = Alliance.requests.get(towns)
+        val initiator = requests.get(towns)
 
         // no request, create new request
         if (initiator === null) {
-            Alliance.requests.put(towns, town1)
+            requests.put(towns, town1)
 
             // create timeout thread
             val timeoutThread = MinecraftServer.getSchedulerManager()
-                .buildTask { Alliance.cancelRequest(towns) }
+                .buildTask { cancelRequest(towns) }
                 .delay(TaskSchedule.tick(ALLY_REQUEST_TIMEOUT))
                 .schedule()
 
-            Alliance.requestTimers.put(towns, timeoutThread)
+            requestTimers.put(towns, timeoutThread)
 
             return Result.success(AllianceRequest.NEW)
         }
@@ -92,10 +91,10 @@ public object Alliance {
                 return Result.failure(ErrorAllyRequestAlreadyCreated)
             } else { // accept request
                 // remove request
-                Alliance.requests.remove(towns)
+                requests.remove(towns)
 
                 // cancel timeout thread
-                val timeoutThread = Alliance.requestTimers.remove(towns)
+                val timeoutThread = requestTimers.remove(towns)
                 if (timeoutThread !== null) {
                     timeoutThread.cancel()
                 }
@@ -107,11 +106,11 @@ public object Alliance {
     }
 
     // remove and cancel ally request
-    public fun cancelRequest(towns: TownPair) {
-        val initiator = Alliance.requests.remove(towns)
+    fun cancelRequest(towns: TownPair) {
+        val initiator = requests.remove(towns)
         if (initiator !== null) {
             // cancel timeout thread
-            val timeoutThread = Alliance.requestTimers.remove(towns)
+            val timeoutThread = requestTimers.remove(towns)
             if (timeoutThread !== null) {
                 timeoutThread.cancel()
             }

@@ -11,7 +11,7 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
 
-public class IncomeInventory {
+class IncomeInventory {
 
     // normal items:
     // map material -> current amount of it in storage
@@ -24,7 +24,7 @@ public class IncomeInventory {
     // internal, add items to storage
     @Suppress("FunctionName")
     private fun _add(mat: Material, amount: Int) {
-        this.storage.get(mat)?.let { current ->
+        this.storage[mat]?.let { current ->
             storage.put(mat, current + amount)
         } ?: run {
             storage.put(mat, amount)
@@ -32,7 +32,7 @@ public class IncomeInventory {
     }
 
     // public interface to add new items to storage
-    public fun add(mat: Material, amount: Int, meta: Int = 0) {
+    fun add(mat: Material, amount: Int) {
         if (amount <= 0) {
             return
         }
@@ -41,12 +41,12 @@ public class IncomeInventory {
     }
 
     // checks if any items in inventory or storage
-    public fun empty(): Boolean = (storage.size == 0)
+    fun empty(): Boolean = (storage.isEmpty())
 
     // get inventory for viewing
-    public fun getInventory(): Inventory {
+    fun getInventory(): Inventory {
         // populate inventory
-        while (this.storage.size > 0) {
+        while (this.storage.isNotEmpty()) {
             val item = this.storage.iterator().next()
             val material = item.key
             val amount = item.value
@@ -98,11 +98,11 @@ public class IncomeInventory {
     // return if items moved (needed to determine if town needsUpdate()):
     // - true: if any items moved
     // - false: if no items moved
-    public fun pushToStorage(force: Boolean): Boolean {
+    fun pushToStorage(force: Boolean): Boolean {
         var hasMovedItems = false
 
         val viewers = this._inventory.viewers
-        if (viewers.size == 0 || force) {
+        if (viewers.isEmpty() || force) {
             for (slot in 0 until _inventory.size) {
                 val itemStack = _inventory.getItemStack(slot)
                 if (!itemStack.isAir) {

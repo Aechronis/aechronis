@@ -21,10 +21,6 @@ import net.minestom.server.entity.Player
 import net.minestom.server.scoreboard.Sidebar
 import luna.nodes.WorldMap
 
-// max min allowed sizes
-private val MAP_RADIUS_MIN = 5
-private val MAP_RADIUS_MAX = 9
-
 // used to start each line in scoreboard
 // ensures each line name is unique
 private val LINE_ID = arrayOf(
@@ -53,7 +49,7 @@ private val HEADER = arrayOf(
     "${ChatColor.RED}-5         0          5",
 )
 
-public class Minimap(
+class Minimap(
     val resident: Resident,
     val player: Player,
     var size: Int, // display square half extend, renders [-size, size]
@@ -63,7 +59,7 @@ public class Minimap(
 
     init {
         // ensure size within limits [3..5]
-        this.size = Math.min(5, Math.max(3, this.size))
+        this.size = this.size.coerceIn(3, 5)
 
         // create sidebar with title
         this.sidebar = Sidebar(Component.text("Minimap"))
@@ -81,7 +77,7 @@ public class Minimap(
     }
 
     // render minimap centered at coord (current player location)
-    public fun render(coord: Coord) {
+    fun render(coord: Coord) {
         // remove all existing lines
         for (lineId in this.sidebar.lines.map { it.id }) {
             this.sidebar.removeLine(lineId)
@@ -112,7 +108,7 @@ public class Minimap(
         }
     }
 
-    public fun destroy() {
+    fun destroy() {
         // remove player from sidebar viewers
         this.sidebar.removeViewer(player)
     }

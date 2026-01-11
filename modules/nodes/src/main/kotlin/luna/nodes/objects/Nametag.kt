@@ -8,14 +8,13 @@
  */
 
 package luna.nodes.objects
-import luna.nodes.Config
 import luna.nodes.Nodes
 import net.minestom.server.entity.Player
 
 /**
  * Get town nametag text as VIEWED by input player
  */
-public fun townNametagViewedByPlayer(
+fun townNametagViewedByPlayer(
     town: Town,
     viewer: Player,
     space: Boolean = true, // append space to the end of string
@@ -34,7 +33,7 @@ public fun townNametagViewedByPlayer(
         }
     }
 
-    return ""
+    return if (space) "${town.nametagNeutral} " else town.nametagNeutral
 }
 
 //public object Nametag {

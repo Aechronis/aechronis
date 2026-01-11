@@ -18,7 +18,7 @@ import java.util.UUID
 // random number generator
 private val random = Random()
 
-public class Nation(
+class Nation(
     val uuid: UUID,
     var name: String,
     var capital: Town, // main town in nation, used for nation leadership
@@ -36,36 +36,27 @@ public class Nation(
     val enemies: HashSet<Nation> = hashSetOf()
 
     // color for displaying on map
-    var color: Color
+    // assign random color by default
+    var color: Color = Color(
+        random.nextInt(256),
+        random.nextInt(256),
+        random.nextInt(256),
+    )
 
     // json string and memoization flag
-    private var saveState: NationSaveState
+    private var saveState = NationSaveState(this)
 
-    @Suppress("PropertyName")
     private var _needsUpdate = false
 
-    init {
-        // assign random color
-        this.color = Color(
-            random.nextInt(256),
-            random.nextInt(256),
-            random.nextInt(256),
-        )
-
-        this.saveState = NationSaveState(this)
-    }
-
-    public override fun hashCode(): Int = this.uuid.hashCode()
-
     // prints out nation object info
-    public fun printInfo(sender: CommandSender) {
+    fun printInfo(sender: CommandSender) {
         val leader = this.capital.leader?.name ?: "${ChatColor.GRAY}None"
 
         // read info out of towns:
         // - get town names
         // - get total residents count
         var residents = 0
-        val towns = if (this.towns.size > 0) {
+        val towns = if (this.towns.isNotEmpty()) {
             val townNames: ArrayList<String> = arrayListOf()
             for (t in this.towns) {
                 townNames.add(t.name)
@@ -76,14 +67,14 @@ public class Nation(
             "${ChatColor.GRAY}None"
         }
 
-        val allies = if (this.allies.size > 0) {
-            this.allies.map { v -> v.name }.joinToString(", ")
+        val allies = if (this.allies.isNotEmpty()) {
+            this.allies.joinToString(", ") { v -> v.name }
         } else {
             "${ChatColor.GRAY}None"
         }
 
-        val enemies = if (this.enemies.size > 0) {
-            this.enemies.map { v -> v.name }.joinToString(", ")
+        val enemies = if (this.enemies.isNotEmpty()) {
+            this.enemies.joinToString(", ") { v -> v.name }
         } else {
             "${ChatColor.GRAY}None"
         }
@@ -101,20 +92,18 @@ public class Nation(
      * Immutable save snapshot, must be composed of immutable primitives.
      * Used to generate json string serialization.
      */
-    public class NationSaveState(n: Nation) : SaveState {
-        public val uuid = n.uuid
-        public val name = n.name
-        public val capital = n.capital.name
-        public val color = n.color
-        public val towns = n.towns.map { x -> x.name }
-        public val allies = n.allies.map { x -> x.name }
-        public val enemies = n.enemies.map { x -> x.name }
+    class NationSaveState(n: Nation) : SaveState {
+        val uuid = n.uuid
+        val name = n.name
+        val capital = n.capital.name
+        val color = n.color
+        val towns = n.towns.map { x -> x.name }
+        val allies = n.allies.map { x -> x.name }
+        val enemies = n.enemies.map { x -> x.name }
 
-        public override var jsonString: String? = null
+        override var jsonString: String? = null
 
-        public override fun createJsonString(): String {
-            val capitalName = "\"${capital}\""
-            val col = this.color
+        override fun createJsonString(): String {
             val towns = this.towns.asSequence().map { x -> "\"${x}\"" }.joinToString(",", "[", "]")
             val allies = this.allies.asSequence().map { x -> "\"${x}\"" }.joinToString(",", "[", "]")
             val enemies = this.enemies.asSequence().map { x -> "\"${x}\"" }.joinToString(",", "[", "]")
@@ -122,7 +111,7 @@ public class Nation(
             val jsonString = (
                 "{" +
                     "\"uuid\":\"${this.uuid}\"," +
-                    "\"capital\":$capitalName," +
+                    "\"capital\":\"$capital\"," +
                     "\"color\":[${this.color.r},${this.color.g},${this.color.b}]," +
                     "\"towns\":$towns," +
                     "\"allies\":$allies," +
@@ -135,14 +124,14 @@ public class Nation(
     }
 
     // function to let client flag this object as dirty
-    public fun needsUpdate() {
+    fun needsUpdate() {
         this._needsUpdate = true
     }
 
     // wrapper to return self as savestate
     // - returns memoized copy if needsUpdate false
     // - otherwise, parses self
-    public fun getSaveState(): NationSaveState {
+    fun getSaveState(): NationSaveState {
         if (this._needsUpdate) {
             this.saveState = NationSaveState(this)
             this._needsUpdate = false

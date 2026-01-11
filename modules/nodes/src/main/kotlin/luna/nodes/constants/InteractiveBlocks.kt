@@ -9,7 +9,6 @@
 package luna.nodes.constants
 
 import net.minestom.server.instance.block.Block
-import java.util.EnumSet
 
 val INTERACTIVE_BLOCKS: MutableSet<Block> = mutableSetOf(
     Block.CHEST,

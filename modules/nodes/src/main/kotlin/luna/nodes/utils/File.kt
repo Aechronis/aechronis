@@ -13,7 +13,7 @@ import java.util.concurrent.Future
 /**
  * Synchronously save string to file from given path.
  */
-public fun saveStringToFile(str: String, path: Path) {
+fun saveStringToFile(str: String, path: Path) {
     val buffer = ByteBuffer.wrap(str.toByteArray())
     val fileChannel: AsynchronousFileChannel = AsynchronousFileChannel.open(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
     val operation: Future<Int> = fileChannel.write(buffer, 0)
@@ -23,7 +23,7 @@ public fun saveStringToFile(str: String, path: Path) {
 /**
  * Load long number from file
  */
-public fun loadLongFromFile(path: Path): Long? {
+fun loadLongFromFile(path: Path): Long? {
     if (Files.exists(path)) {
         try {
             val numString = String(Files.readAllBytes(path))
@@ -45,22 +45,20 @@ public fun loadLongFromFile(path: Path): Long? {
  * Runnable task for writing string to a file, with optional callback
  * to run after writing is complete.
  */
-public class FileWriteTask(
+class FileWriteTask(
     str: String,
     val path: Path,
     val callback: (() -> Unit)? = null,
 ) : Runnable {
-    val buffer = ByteBuffer.wrap(str.toByteArray())
+    val buffer: ByteBuffer = ByteBuffer.wrap(str.toByteArray())
 
-    public override fun run() {
+    override fun run() {
         val fileChannel: AsynchronousFileChannel = AsynchronousFileChannel.open(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
 
         val operation: Future<Int> = fileChannel.write(buffer, 0)
 
         operation.get()
 
-        if (callback != null) {
-            callback.invoke()
-        }
+        callback?.invoke()
     }
 }
