@@ -7,25 +7,13 @@
 package luna.nodes.listeners
 
 import net.minestom.server.entity.Player
-import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerLoadedEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
-import net.minestom.server.MinecraftServer
-import luna.nodes.Config
 import luna.nodes.Nodes
 import luna.nodes.chat.Chat
 //import luna.nodes.objects.Nametag
 import luna.nodes.objects.Resident
 import luna.nodes.war.FlagWar
-import net.minestom.server.entity.GameMode
-
-fun onPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
-    val player = event.player
-    val instance = MinecraftServer.getInstanceManager().instances.first()
-    event.spawningInstance = instance
-    player.respawnPoint = Config.spawnLoc
-    player.gameMode = GameMode.CREATIVE
-}
 
 fun onPlayerJoin(event: PlayerLoadedEvent) {
     // create resident wrapper for player
@@ -50,9 +38,6 @@ fun onPlayerJoin(event: PlayerLoadedEvent) {
             attack.textDisplay.update(player)
         }
     }
-
-    // update username -> uuid cache
-    Nodes.playerNameCache.set(player.uuid,player.username)
 }
 
 fun onPlayerQuit(event: PlayerDisconnectEvent) {

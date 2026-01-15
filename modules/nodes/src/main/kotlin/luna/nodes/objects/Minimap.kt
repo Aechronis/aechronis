@@ -15,7 +15,7 @@
 
 package luna.nodes.objects
 
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 import net.minestom.server.scoreboard.Sidebar

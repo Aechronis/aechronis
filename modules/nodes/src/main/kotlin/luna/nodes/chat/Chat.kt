@@ -4,7 +4,7 @@
 
 package luna.nodes.chat
 
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerChatEvent

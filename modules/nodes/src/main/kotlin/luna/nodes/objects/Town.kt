@@ -5,7 +5,7 @@
 
 package luna.nodes.objects
 
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import net.minestom.server.coordinate.Pos
 //import org.bukkit.Material
 //import org.bukkit.block.Block

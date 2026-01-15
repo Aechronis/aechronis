@@ -11,7 +11,7 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 import net.minestom.server.potion.Potion
 import net.minestom.server.potion.PotionEffect
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 //import org.bukkit.command.Command
 //import org.bukkit.command.CommandExecutor
 //import org.bukkit.command.CommandSender
@@ -20,7 +20,6 @@ import org.bukkit.ChatColor
 //import org.bukkit.inventory.ItemStack
 //import org.bukkit.potion.PotionEffect
 //import org.bukkit.potion.PotionEffectType
-import luna.nodes.Config
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.WorldMap
@@ -187,7 +186,7 @@ class TownCreateCommand : Command("create", "new") {
             }
 
             // do not allow during war
-            if (!Config.canCreateTownDuringWar && Nodes.war.enabled) {
+            if (!Nodes.config.canCreateTownDuringWar && Nodes.war.enabled) {
                 Message.error(player, "Cannot create towns during war")
                 return@addSyntax
             }
@@ -275,7 +274,7 @@ class TownDeleteCommand : Command("delete", "disband") {
             }
 
             // do not allow during war
-            if (!Config.canDestroyTownDuringWar && Nodes.war.enabled) {
+            if (!Nodes.config.canDestroyTownDuringWar && Nodes.war.enabled) {
                 Message.error(player, "Cannot delete your town during war")
                 return@addSyntax
             }
@@ -283,7 +282,7 @@ class TownDeleteCommand : Command("delete", "disband") {
             Nodes.destroyTown(town)
 
             // add player penalty for destroying town
-            Nodes.setResidentTownCreateCooldown(resident, Config.townCreateCooldown)
+            Nodes.setResidentTownCreateCooldown(resident, Nodes.config.townCreateCooldown)
 
             Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}The town \"${town.name}\" has been destroyed...")
         })
@@ -925,7 +924,7 @@ class TownLeaveCommand : Command("leave") {
             }
 
             // do not allow during war?
-            if (!Config.canLeaveTownDuringWar && Nodes.war.enabled) {
+            if (!Nodes.config.canLeaveTownDuringWar && Nodes.war.enabled) {
                 Message.error(player, "Cannot leave your town during war")
                 return@addSyntax
             }
@@ -1031,12 +1030,12 @@ class TownSpawn : Command("spawn") {
             }
 
             // ticks before teleport timer runs
-            var teleportTimerTicks = (Config.townSpawnTime * 20).coerceAtLeast(0)
+            var teleportTimerTicks = (Nodes.config.townSpawnTime * 20).coerceAtLeast(0)
 
             // multiplier during war and if home occupied
             if (Nodes.war.enabled && Nodes.getTerritoryFromId(town.home)?.occupier !== null) {
                 Message.error(player, "${ChatColor.BOLD}Your home is occupied, town spawn will take much longer...")
-                teleportTimerTicks *= Config.occupiedHomeTeleportMultiplier
+                teleportTimerTicks *= Nodes.config.occupiedHomeTeleportMultiplier
             }
 
             resident.teleportThread = MinecraftServer.getSchedulerManager().buildTask {
@@ -2047,7 +2046,7 @@ class TownAnnexCommand : Command("annex") {
                 return@addSyntax
             }
 
-            if (Config.annexDisabled) {
+            if (Nodes.config.annexDisabled) {
                 Message.error(player, "Annexing disabled")
                 return@addSyntax
             }
@@ -2089,21 +2088,21 @@ class TownAnnexCommand : Command("annex") {
             }
 
             // check blacklist
-            if (Config.warUseBlacklist && Config.warBlacklist.contains(territoryTown.uuid)) {
+            if (Nodes.config.warUseBlacklist && Nodes.config.warBlacklist.contains(territoryTown.uuid)) {
                 Message.error(player, "Cannot annex this town (blacklisted)")
                 return@addSyntax
             }
-            if (Config.useAnnexBlacklist && Config.annexBlacklist.contains(territoryTown.uuid)) {
+            if (Nodes.config.useAnnexBlacklist && Nodes.config.annexBlacklist.contains(territoryTown.uuid)) {
                 Message.error(player, "Cannot annex this town (blacklisted)")
                 return@addSyntax
             }
 
             // check whitelist
-            if (Config.warUseWhitelist) {
-                if (!Config.warWhitelist.contains(territoryTown.uuid)) {
+            if (Nodes.config.warUseWhitelist) {
+                if (!Nodes.config.warWhitelist.contains(territoryTown.uuid)) {
                     Message.error(player, "Cannot annex this town (not whitelisted)")
                     return@addSyntax
-                } else if (Config.onlyWhitelistCanAnnex && !Config.warWhitelist.contains(town.uuid)) {
+                } else if (Nodes.config.onlyWhitelistCanAnnex && !Nodes.config.warWhitelist.contains(town.uuid)) {
                     Message.error(player, "Cannot annex territories because your town is not white listed")
                     return@addSyntax
                 }

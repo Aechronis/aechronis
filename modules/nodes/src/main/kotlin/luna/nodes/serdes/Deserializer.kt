@@ -69,6 +69,8 @@ object Deserializer {
             jsonResidents.keySet().forEach { uuid ->
                 val resident = jsonResidents[uuid].asJsonObject
 
+                val name = resident.get("name")?.asString ?: return@forEach
+
                 // prefix, suffix
                 val prefix = resident.get("prefix")?.asString ?: ""
                 val suffix = resident.get("suffix")?.asString ?: ""
@@ -81,6 +83,7 @@ object Deserializer {
 
                 Nodes.loadResident(
                     UUID.fromString(uuid),
+                    name,
                     prefix,
                     suffix,
                     trusted,

@@ -6,7 +6,7 @@
 
 package luna.nodes.objects
 
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import net.minestom.server.command.CommandSender
 import net.minestom.server.entity.Player
 import luna.nodes.Message

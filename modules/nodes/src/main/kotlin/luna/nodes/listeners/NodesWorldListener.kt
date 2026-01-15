@@ -8,8 +8,7 @@
 
 package luna.nodes.listeners
 
-import org.bukkit.ChatColor
-import luna.nodes.Config
+import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.Nodes.getRelationshipOfPlayerToTown
@@ -59,7 +58,7 @@ fun onBlockBreak(event: PlayerBlockBreakEvent) {
                 event.isCancelled = true
 
                 // handle breaking allies flags
-                if (!Config.allowBreakingAlliesFlags) {
+                if (!Nodes.config.allowBreakingAlliesFlags) {
                     // allow player to break their own flag
                     if (player.uuid != attack.attacker) {
                         val relationship = getRelationshipOfPlayerToTown(player, attack.town)
@@ -85,7 +84,7 @@ fun onBlockBreak(event: PlayerBlockBreakEvent) {
 //                    return
 //                }
             event.isCancelled = true
-            Message.error(player, "[War] Cannot break blocks within ${Config.flagNoBuildDistance} blocks of war flags")
+            Message.error(player, "[War] Cannot break blocks within ${Nodes.config.flagNoBuildDistance} blocks of war flags")
             return
         }
     }
@@ -144,7 +143,7 @@ fun onBlockBreakSuccess(event: PlayerBlockBreakEvent) {
     val blockPos = event.blockPosition
 
     // handle hidden ore mining
-    if (Config.oreBlocks.contains(block)) {
+    if (Nodes.config.oreBlocks.contains(block)) {
         if (!Nodes.hiddenOreInvalidBlocks.contains(blockPos)) {
             handleHiddenOre(player, blockPos)
 
@@ -174,7 +173,7 @@ fun onBlockPlace(event: PlayerBlockPlaceEvent) {
                 if (attack !== null) {
                     if (blockInWarFlagNoBuildRegion(blockPos, attack)) {
                         event.isCancelled = true
-                        Message.error(player, "[War] Cannot build within ${Config.flagNoBuildDistance} blocks of war flags")
+                        Message.error(player, "[War] Cannot build within ${Nodes.config.flagNoBuildDistance} blocks of war flags")
                         return
                     }
                 }
@@ -265,7 +264,7 @@ fun onBlockPlace(event: PlayerBlockPlaceEvent) {
         }
 
         // ignore if war enabled and item in hand is a flag material
-        if (Nodes.war.enabled && Config.flagBlocks.contains(block)) {
+        if (Nodes.war.enabled && Nodes.config.flagBlocks.contains(block)) {
             return
         }
     }
@@ -283,7 +282,7 @@ fun onBlockPlaceSuccess(event: PlayerBlockPlaceEvent) {
     val blockPos = event.blockPosition
 
     // invalide hidden ore blocks
-    if (Config.oreBlocks.contains(block)) {
+    if (Nodes.config.oreBlocks.contains(block)) {
         Nodes.hiddenOreInvalidBlocks.add(blockPos)
     }
 }
@@ -370,7 +369,7 @@ fun onBlockPlaceSuccess(event: PlayerBlockPlaceEvent) {
 //
 //    if (resident !== null) {
 //        // ignore if war enabled and item in hand is a flag material
-//        if (Nodes.war.enabled && Config.flagMaterials.contains(event.getMaterial()) && action == Action.RIGHT_CLICK_BLOCK) {
+//        if (Nodes.war.enabled && Nodes.config.flagMaterials.contains(event.getMaterial()) && action == Action.RIGHT_CLICK_BLOCK) {
 //            // dont allow using block
 //            val clickedBlock = event.getClickedBlock()
 //            if (clickedBlock !== null && INTERACTIVE_BLOCKS.contains(clickedBlock.getType())) {
@@ -498,28 +497,28 @@ fun onBlockPlaceSuccess(event: PlayerBlockPlaceEvent) {
 //@EventHandler(priority = EventPriority.LOW)
 //public fun onEntityExplode(event: EntityExplodeEvent) {
 //    // check if explosion allowed
-//    if (Config.restrictExplosions) {
+//    if (Nodes.config.restrictExplosions) {
 //        if (!Nodes.war.enabled) {
-//            if (Config.onlyAllowExplosionsDuringWar) {
+//            if (Nodes.config.onlyAllowExplosionsDuringWar) {
 //                event.setCancelled(true)
 //                return
 //            }
 //        }
 //        // war on, check town blacklist/whitelist
 //        else {
-//            if (Config.warUseWhitelist) {
+//            if (Nodes.config.warUseWhitelist) {
 //                val chunk = event.entity.getLocation().chunk
 //                val town = Nodes.getTownAtChunkCoord(chunk.x, chunk.z)
-//                if (town !== null && !Config.warWhitelist.contains(town.uuid)) {
+//                if (town !== null && !Nodes.config.warWhitelist.contains(town.uuid)) {
 //                    event.setCancelled(true)
 //                    return
 //                }
 //            }
 //
-//            if (Config.warUseBlacklist) {
+//            if (Nodes.config.warUseBlacklist) {
 //                val chunk = event.entity.getLocation().chunk
 //                val town = Nodes.getTownAtChunkCoord(chunk.x, chunk.z)
-//                if (town !== null && Config.warBlacklist.contains(town.uuid)) {
+//                if (town !== null && Nodes.config.warBlacklist.contains(town.uuid)) {
 //                    event.setCancelled(true)
 //                    return
 //                }
@@ -556,28 +555,28 @@ fun onBlockPlaceSuccess(event: PlayerBlockPlaceEvent) {
 //@EventHandler(priority = EventPriority.LOW)
 //public fun onBlockExplode(event: BlockExplodeEvent) {
 //    // check if explosion allowed
-//    if (Config.restrictExplosions) {
+//    if (Nodes.config.restrictExplosions) {
 //        if (!Nodes.war.enabled) {
-//            if (Config.onlyAllowExplosionsDuringWar) {
+//            if (Nodes.config.onlyAllowExplosionsDuringWar) {
 //                event.setCancelled(true)
 //                return
 //            }
 //        }
 //        // war on, check town blacklist/whitelist
 //        else {
-//            if (Config.warUseWhitelist) {
+//            if (Nodes.config.warUseWhitelist) {
 //                val chunk = event.block.chunk
 //                val town = Nodes.getTownAtChunkCoord(chunk.x, chunk.z)
-//                if (town !== null && !Config.warWhitelist.contains(town.uuid)) {
+//                if (town !== null && !Nodes.config.warWhitelist.contains(town.uuid)) {
 //                    event.setCancelled(true)
 //                    return
 //                }
 //            }
 //
-//            if (Config.warUseBlacklist) {
+//            if (Nodes.config.warUseBlacklist) {
 //                val chunk = event.block.chunk
 //                val town = Nodes.getTownAtChunkCoord(chunk.x, chunk.z)
-//                if (town !== null && Config.warBlacklist.contains(town.uuid)) {
+//                if (town !== null && Nodes.config.warBlacklist.contains(town.uuid)) {
 //                    event.setCancelled(true)
 //                    return
 //                }
@@ -611,9 +610,9 @@ fun onBlockPlaceSuccess(event: PlayerBlockPlaceEvent) {
  * Permissions for unclaimed territories or empty areas (no territories)
  */
 private fun hasWildernessPermissions(territory: Territory?): Boolean {
-    if (territory !== null && Config.canInteractInUnclaimed) {
+    if (territory !== null && Nodes.config.canInteractInUnclaimed) {
         return true
-    } else if (Config.canInteractInEmpty) {
+    } else if (Nodes.config.canInteractInEmpty) {
         return true
     }
 
@@ -650,7 +649,7 @@ private fun hasTownPermissions(perms: TownPermissions, town: Town, player: Resid
  * player: player interacting in the territory
  */
 private fun hasOccupierPermissions(perms: TownPermissions, town: Town, occupier: Town, player: Resident): Boolean {
-    return if (Config.allowControlInOccupiedTownList.contains(town.uuid)) {
+    return if (Nodes.config.allowControlInOccupiedTownList.contains(town.uuid)) {
         hasTownPermissions(perms, occupier, player)
     } else {
         false
@@ -682,7 +681,7 @@ private fun hasWarPermissions(resident: Resident, territory: Territory, territor
 
         if (residentTown !== null) {
             // extended permissions for allies
-            if (Config.warPermissions) {
+            if (Nodes.config.warPermissions) {
                 val residentNation = residentTown.nation
 
                 if (territory.occupier === residentTown ||
@@ -751,16 +750,16 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
         val playerNation = playerTown?.nation
 
         // conditions allowed for mining ore
-        if ((Config.allowOreInWilderness && territoryTown === null) ||
+        if ((Nodes.config.allowOreInWilderness && territoryTown === null) ||
             (territoryTown !== null && territoryTown === playerTown) ||
-            (Config.allowOreInNationTowns && territoryNation !== null && territoryNation === playerNation) ||
-            (Config.allowOreInCaptured && territory.occupier === playerTown)
+            (Nodes.config.allowOreInNationTowns && territoryNation !== null && territoryNation === playerNation) ||
+            (Nodes.config.allowOreInCaptured && territory.occupier === playerTown)
         ) {
             val itemDrops = territory.ores.sample(blockY)
 
             // do tax event check
             val territoryOccupier = territory.occupier
-            if (territoryOccupier !== null && random.nextDouble() <= Config.taxMineRate) {
+            if (territoryOccupier !== null && random.nextDouble() <= Nodes.config.taxMineRate) {
                 for (itemStack in itemDrops) {
                     Nodes.addToIncome(territoryOccupier, itemStack.material(), itemStack.amount())
                 }

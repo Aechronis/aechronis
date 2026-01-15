@@ -11,7 +11,7 @@
 package luna.nodes.objects
 
 import com.google.gson.JsonObject
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import net.minestom.server.item.Material
 import net.minestom.server.command.CommandSender
 import luna.nodes.Message

@@ -9,7 +9,7 @@
 package luna.nodes.objects
 
 import net.minestom.server.MinecraftServer
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import net.minestom.server.command.CommandSender
 import net.minestom.server.entity.Player
 import luna.nodes.Message

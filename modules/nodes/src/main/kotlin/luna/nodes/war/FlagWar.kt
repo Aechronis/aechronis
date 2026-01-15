@@ -23,7 +23,6 @@
 
 package luna.nodes.war
 
-import luna.nodes.Config
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.constants.ErrorAlreadyCaptured
@@ -52,7 +51,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -114,9 +113,9 @@ object FlagWar {
     // periodic task to check for save
     internal var saveTask: Task? = null
 
-    fun initialize(flagBlocks: MutableSet<Block>) {
+    fun initialize(flagBlocks: Set<Block>) {
         FlagWar.flagBlocks.addAll(flagBlocks)
-        skyBeaconSize = Config.flagBeaconSize.coerceIn(2, 16)
+        skyBeaconSize = Nodes.config.flagBeaconSize.coerceIn(2, 16)
     }
 
     /**
@@ -130,11 +129,11 @@ object FlagWar {
             Message.print(sender, "- Can Only Attack Borders${ChatColor.WHITE}: ${Nodes.war.canOnlyAttackBorders}")
             Message.print(sender, "- Destruction Enabled${ChatColor.WHITE}: ${Nodes.war.destructionEnabled}")
             if (detailed) {
-                Message.print(sender, "- Using Towns Whitelist${ChatColor.WHITE}: ${Config.warUseWhitelist}")
-                Message.print(sender, "- Can leave town${ChatColor.WHITE}: ${Config.canLeaveTownDuringWar}")
-                Message.print(sender, "- Can create town${ChatColor.WHITE}: ${Config.canCreateTownDuringWar}")
-                Message.print(sender, "- Can destroy town${ChatColor.WHITE}: ${Config.canDestroyTownDuringWar}")
-                Message.print(sender, "- Annex disabled${ChatColor.WHITE}: ${Config.annexDisabled}")
+                Message.print(sender, "- Using Towns Whitelist${ChatColor.WHITE}: ${Nodes.config.warUseWhitelist}")
+                Message.print(sender, "- Can leave town${ChatColor.WHITE}: ${Nodes.config.canLeaveTownDuringWar}")
+                Message.print(sender, "- Can create town${ChatColor.WHITE}: ${Nodes.config.canCreateTownDuringWar}")
+                Message.print(sender, "- Can destroy town${ChatColor.WHITE}: ${Nodes.config.canDestroyTownDuringWar}")
+                Message.print(sender, "- Annex disabled${ChatColor.WHITE}: ${Nodes.config.annexDisabled}")
             }
         }
     }
@@ -161,8 +160,8 @@ object FlagWar {
         blockToAttacker.clear()
         occupiedChunks.clear()
 
-        if (Files.exists(Config.pathWar)) {
-            WarDeserializer.fromJson(Config.pathWar)
+        if (Files.exists(Nodes.config.pathWar)) {
+            WarDeserializer.fromJson(Nodes.config.pathWar)
         }
 
         if (enabled) {
@@ -369,13 +368,13 @@ object FlagWar {
         }
 
         // check if town blacklisted
-        if (Config.warUseBlacklist && Config.warBlacklist.contains(territoryTown.uuid)) {
+        if (Nodes.config.warUseBlacklist && Nodes.config.warBlacklist.contains(territoryTown.uuid)) {
             return Result.failure(ErrorTownBlacklisted)
         }
 
         // check if town not whitelisted
-        if (Config.warUseWhitelist) {
-            if (!Config.warWhitelist.contains(territoryTown.uuid) || (Config.onlyWhitelistCanClaim && !Config.warWhitelist.contains(attackingTown.uuid))) {
+        if (Nodes.config.warUseWhitelist) {
+            if (!Nodes.config.warWhitelist.contains(territoryTown.uuid) || (Nodes.config.onlyWhitelistCanClaim && !Nodes.config.warWhitelist.contains(attackingTown.uuid))) {
                 return Result.failure(ErrorTownNotWhitelisted)
             }
         }
@@ -422,9 +421,9 @@ object FlagWar {
             // attacker's current attacks (if any exist)
             var currentAttacks = attackers.get(attacker)
             if (currentAttacks == null) {
-                currentAttacks = ArrayList(Config.maxPlayerChunkAttacks) // set initial capacity = max attacks
+                currentAttacks = ArrayList(Nodes.config.maxPlayerChunkAttacks) // set initial capacity = max attacks
                 attackers.put(attacker, currentAttacks)
-            } else if (currentAttacks.size >= Config.maxPlayerChunkAttacks) {
+            } else if (currentAttacks.size >= Nodes.config.maxPlayerChunkAttacks) {
                 return Result.failure(ErrorTooManyAttacks)
             }
 
@@ -466,15 +465,15 @@ object FlagWar {
         val progressBar = BossBar.bossBar(Component.text("Attacking ${territory.town!!.name} at ($flagBaseX, $flagBaseY, $flagBaseZ)"), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS)
 
         // calculate max attack time based on chunk and other modifiers
-        var attackTime = Config.chunkAttackTime.toDouble()
+        var attackTime = Nodes.config.chunkAttackTime.toDouble()
         if (territory.bordersWilderness) {
-            attackTime *= Config.chunkAttackFromWastelandMultiplier
+            attackTime *= Nodes.config.chunkAttackFromWastelandMultiplier
         }
         // town specific claim time modifiers
         val terrTown = territory.town
         if (terrTown !== null) {
             if (territory.id == terrTown.home) {
-                attackTime *= Config.chunkAttackHomeMultiplier
+                attackTime *= Nodes.config.chunkAttackHomeMultiplier
             }
             attackTime *= if (terrTown.uuid == attackingTown.uuid || terrTown.allies.contains(attackingTown)) {
                 territory.defenderTimeMultiplier
@@ -505,8 +504,8 @@ object FlagWar {
         }
 
         // no flag base block, set to default
-        if (!Config.flagBlocks.contains(MinecraftServer.getInstanceManager().instances.first().getBlock(flagBase))) {
-            MinecraftServer.getInstanceManager().instances.first().setBlock(flagBase, Config.flagBlockDefault)
+        if (!Nodes.config.flagBlocks.contains(MinecraftServer.getInstanceManager().instances.first().getBlock(flagBase))) {
+            MinecraftServer.getInstanceManager().instances.first().setBlock(flagBase, Nodes.config.flagBlockDefault)
         }
 
         // initialize flag blocks
@@ -540,7 +539,7 @@ object FlagWar {
         // add attack to list of attacks by attacker
         var currentAttacks = attackers.get(attacker)
         if (currentAttacks == null) {
-            currentAttacks = ArrayList(Config.maxPlayerChunkAttacks) // set initial capacity = max attacks
+            currentAttacks = ArrayList(Nodes.config.maxPlayerChunkAttacks) // set initial capacity = max attacks
             attackers.put(attacker, currentAttacks)
         }
         currentAttacks.add(attack)
@@ -750,7 +749,7 @@ object FlagWar {
         val startPositionInChunk: Int = (16 - size) / 2
         val x0: Int = coord.x * 16 + startPositionInChunk
         val z0: Int = coord.z * 16 + startPositionInChunk
-        val y0: Int = maxOf(flagBaseY + Config.flagBeaconSkyLevel, Config.flagBeaconMinSkyLevel)
+        val y0: Int = maxOf(flagBaseY + Nodes.config.flagBeaconSkyLevel, Nodes.config.flagBeaconMinSkyLevel)
         val xEnd: Int = x0 + size - 1
         val zEnd: Int = z0 + size - 1
         val yEnd: Int = minOf(255, y0 + size) // truncate at map limit

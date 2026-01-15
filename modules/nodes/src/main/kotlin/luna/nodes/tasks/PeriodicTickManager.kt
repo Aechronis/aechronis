@@ -5,7 +5,6 @@
 
 package luna.nodes.tasks
 
-import luna.nodes.Config
 import luna.nodes.Nodes
 import luna.nodes.utils.FileWriteTask
 import net.minestom.server.MinecraftServer
@@ -39,15 +38,15 @@ object PeriodicTickManager {
             // =================================
             // income cycle
             // =================================
-            if (currTime > Nodes.lastIncomeTime + Config.incomePeriod) {
+            if (currTime > Nodes.lastIncomeTime + Nodes.config.incomePeriod) {
                 Nodes.lastIncomeTime = currTime
 
-                if (Config.incomeEnabled) {
+                if (Nodes.config.incomeEnabled) {
                     Nodes.runIncome()
                 }
 
                 // save current time
-                CompletableFuture.runAsync { FileWriteTask(currTime.toString(), Config.pathLastIncomeTime, null).run() }
+                CompletableFuture.runAsync { FileWriteTask(currTime.toString(), Nodes.config.pathLastIncomeTime, null).run() }
             }
 
             // =================================

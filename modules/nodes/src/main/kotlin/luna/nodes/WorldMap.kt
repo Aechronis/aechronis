@@ -9,7 +9,7 @@
 
 package luna.nodes
 
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import luna.nodes.objects.Coord
 import luna.nodes.objects.Resident
 
@@ -150,22 +150,22 @@ private val COLOR_OCCUPIED_ENEMY: Array<String> = arrayOf(
  */
 private fun getAlternativeColor(c: String): String {
     when (c) {
-        "${ChatColor.GRAY}" -> return "${ChatColor.WHITE}"
-        "${ChatColor.DARK_GRAY}" -> return "${ChatColor.GRAY}"
+        ChatColor.GRAY -> return ChatColor.WHITE
+        ChatColor.DARK_GRAY -> return ChatColor.GRAY
 
-        "${ChatColor.GREEN}" -> return "${ChatColor.DARK_GREEN}"
-        "${ChatColor.DARK_GREEN}" -> return "${ChatColor.GREEN}"
+        ChatColor.GREEN -> return ChatColor.DARK_GREEN
+        ChatColor.DARK_GREEN -> return ChatColor.GREEN
 
-        "${ChatColor.YELLOW}" -> return "${ChatColor.GOLD}"
-        "${ChatColor.GOLD}" -> return "${ChatColor.YELLOW}"
+        ChatColor.YELLOW -> return ChatColor.GOLD
+        ChatColor.GOLD -> return ChatColor.YELLOW
 
-        "${ChatColor.AQUA}" -> return "${ChatColor.DARK_AQUA}"
-        "${ChatColor.DARK_AQUA}" -> return "${ChatColor.AQUA}"
+        ChatColor.AQUA -> return ChatColor.DARK_AQUA
+        ChatColor.DARK_AQUA -> return ChatColor.AQUA
 
-        "${ChatColor.RED}" -> return "${ChatColor.DARK_RED}"
-        "${ChatColor.DARK_RED}" -> return "${ChatColor.RED}"
+        ChatColor.RED -> return ChatColor.DARK_RED
+        ChatColor.DARK_RED -> return ChatColor.RED
 
-        else -> return "${ChatColor.WHITE}"
+        else -> return ChatColor.WHITE
     }
 }
 

@@ -2,7 +2,7 @@ package luna.nodes
 
 import net.kyori.adventure.text.Component
 import net.minestom.server.adventure.audience.Audiences
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import net.minestom.server.command.CommandSender
 import net.minestom.server.entity.Player
 

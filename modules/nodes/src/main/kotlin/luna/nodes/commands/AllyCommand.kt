@@ -16,7 +16,7 @@ import luna.nodes.war.ErrorAllyRequestEnemies
 import net.minestom.server.command.builder.Command
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 
 
 class AllyCommand : Command("ally") {

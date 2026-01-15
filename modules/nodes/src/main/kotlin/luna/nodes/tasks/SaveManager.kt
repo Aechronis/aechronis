@@ -10,7 +10,6 @@
 
 package luna.nodes.tasks
 
-import luna.nodes.Config
 import luna.nodes.Nodes
 import luna.nodes.objects.Nation.NationSaveState
 import luna.nodes.objects.Port.PortSaveState
@@ -47,7 +46,7 @@ class TaskSaveWorld(
             nationsSnapshot,
         )
 
-        saveStringToFile(jsonStr, Config.pathTowns)
+        saveStringToFile(jsonStr, Nodes.config.pathTowns)
 
         // if backup timestamp millis timestamp (using System.currentTimeMillis())
         // was provided, copy this saved world state to backup folder
@@ -67,18 +66,18 @@ internal class TaskSaveBackup(
     val timestamp: Long, // millis timestamp from System.currentTimeMillis()
 ) : Runnable {
     override fun run() {
-        if (Files.exists(Config.pathTowns)) {
-            Files.createDirectories(Config.pathBackup) // create backup folder if it does not exist
+        if (Files.exists(Nodes.config.pathTowns)) {
+            Files.createDirectories(Nodes.config.pathBackup) // create backup folder if it does not exist
 
             // save towns file backup
             val date = Date(timestamp)
             val backupName = "towns.${BACKUP_DATE_FORMATTER.format(date)}.json"
-            val pathBackup = Config.pathBackup.resolve(backupName)
-            Files.copy(Config.pathTowns, pathBackup)
+            val pathBackup = Nodes.config.pathBackup.resolve(backupName)
+            Files.copy(Nodes.config.pathTowns, pathBackup)
         }
 
         // save last backup timestamp to file
-        saveStringToFile(timestamp.toString(), Config.pathLastBackupTime)
+        saveStringToFile(timestamp.toString(), Nodes.config.pathLastBackupTime)
     }
 }
 
@@ -107,12 +106,12 @@ object SaveManager {
     private var task: Task? = null
 
     fun start(period: Int) {
-        if (this.task !== null) {
+        if (this.task !== null || !Nodes.config.save) {
             return
         }
 
         // create save folder if it does not exist
-        Files.createDirectories(Paths.get(Config.pathPlugin).normalize())
+        Files.createDirectories(Paths.get(Nodes.config.pathPlugin).normalize())
 
         // scheduler for saving world
         val runnable =  Runnable {

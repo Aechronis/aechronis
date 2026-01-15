@@ -21,7 +21,6 @@
 
 package luna.nodes.war.serdes
 
-import luna.nodes.Config
 import luna.nodes.Nodes
 import luna.nodes.war.FlagWar
 import java.nio.ByteBuffer
@@ -84,9 +83,9 @@ object WarSerializer {
 
         if (async) {
             // write file in worker thread
-            CompletableFuture.runAsync { writeToJson(Config.pathWar) }
+            CompletableFuture.runAsync { writeToJson(Nodes.config.pathWar) }
         } else {
-            writeToJson(Config.pathWar)
+            writeToJson(Nodes.config.pathWar)
         }
     }
 

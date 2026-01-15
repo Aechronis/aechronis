@@ -13,7 +13,7 @@
 
 package luna.nodes.war
 
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.objects.Town

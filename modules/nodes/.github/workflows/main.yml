@@ -13,16 +13,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
-      - run: |
-          git clone https://github.com/d-z4/spark.git
-          cd spark
-          chmod +x gradlew
-          ./gradlew publishToMavenLocal
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
           java-version: 25
       - run: |
           chmod +x gradlew
-          ./gradlew clean build
+          ./gradlew test

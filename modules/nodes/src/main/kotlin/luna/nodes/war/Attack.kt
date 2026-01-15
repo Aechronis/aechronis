@@ -6,7 +6,7 @@
 
 package luna.nodes.war
 
-import luna.nodes.Config
+import luna.nodes.Nodes
 import luna.nodes.objects.Coord
 import luna.nodes.objects.Town
 import luna.nodes.objects.townNametagViewedByPlayer
@@ -64,11 +64,11 @@ class Attack(
         val flagZ = flagBase.blockZ
 
         // set no build ranges
-        this.noBuildXMin = flagX - Config.flagNoBuildDistance
-        this.noBuildXMax = flagX + Config.flagNoBuildDistance
-        this.noBuildZMin = flagZ - Config.flagNoBuildDistance
-        this.noBuildZMax = flagZ + Config.flagNoBuildDistance
-        this.noBuildYMin = flagY + Config.flagNoBuildYOffset
+        this.noBuildXMin = flagX - Nodes.config.flagNoBuildDistance
+        this.noBuildXMax = flagX + Nodes.config.flagNoBuildDistance
+        this.noBuildZMin = flagZ - Nodes.config.flagNoBuildDistance
+        this.noBuildZMax = flagZ + Nodes.config.flagNoBuildDistance
+        this.noBuildYMin = flagY + Nodes.config.flagNoBuildYOffset
 
         // set boss bar progress
         val progressNormalized: Float = this.progress.toFloat() / this.attackTime.toFloat()

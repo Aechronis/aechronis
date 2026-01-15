@@ -4,11 +4,16 @@
 
 package luna.nodes
 
-import luna.nodes.utils.PlayerNameCache
 import com.google.gson.JsonObject
+import luna.nodes.commands.AllyCommand
+import luna.nodes.commands.NationCommand
+import luna.nodes.commands.NodesCommand
+import luna.nodes.commands.TownCommand
+import luna.nodes.commands.UnallyCommand
+import luna.nodes.commands.WarCommand
 //import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import net.minestom.server.MinecraftServer
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import net.minestom.server.instance.Chunk
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.Material
@@ -17,7 +22,6 @@ import net.minestom.server.item.Material
 //import org.bukkit.block.Block
 //import org.bukkit.block.Chest
 //import org.bukkit.block.DoubleChest
-import org.bukkit.configuration.file.YamlConfiguration
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.Inventory
 //import org.bukkit.plugin.Plugin
@@ -44,6 +48,17 @@ import luna.nodes.constants.ErrorTownHasNation
 import luna.nodes.constants.ErrorWarAlly
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
+import luna.nodes.listeners.onBlockBreak
+import luna.nodes.listeners.onBlockBreakSuccess
+import luna.nodes.listeners.onBlockPlace
+import luna.nodes.listeners.onBlockPlaceSuccess
+import luna.nodes.listeners.onInventoryClick
+import luna.nodes.listeners.onInventoryClose
+import luna.nodes.listeners.onPlayerChat
+import luna.nodes.listeners.onPlayerJoin
+import luna.nodes.listeners.onPlayerMove
+import luna.nodes.listeners.onPlayerQuit
+import luna.nodes.listeners.onPlayerTeleport
 import luna.nodes.objects.Coord
 import luna.nodes.objects.DefaultResourceAttributeLoader
 //import luna.nodes.objects.Nametag
@@ -69,10 +84,19 @@ import luna.nodes.tasks.TaskSaveBackup
 import luna.nodes.tasks.TaskSavePorts
 import luna.nodes.tasks.TaskSaveWorld
 import luna.nodes.utils.Color
+import luna.nodes.utils.loadLongFromFile
 import luna.nodes.utils.sanitizeString
 import luna.nodes.utils.saveStringToFile
 import luna.nodes.war.FlagWar
-import java.io.File
+import net.minestom.server.event.entity.EntityTeleportEvent
+import net.minestom.server.event.inventory.InventoryCloseEvent
+import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.event.player.PlayerBlockBreakEvent
+import net.minestom.server.event.player.PlayerBlockPlaceEvent
+import net.minestom.server.event.player.PlayerChatEvent
+import net.minestom.server.event.player.PlayerDisconnectEvent
+import net.minestom.server.event.player.PlayerLoadedEvent
+import net.minestom.server.event.player.PlayerMoveEvent
 import java.nio.file.Files
 //import java.nio.file.Path
 //import java.nio.file.Paths
@@ -137,37 +161,93 @@ object Nodes {
     // set of invalid block locations for hidden ore drops
     internal val hiddenOreInvalidBlocks: OreBlockCache = OreBlockCache(2000)
 
-        lateinit var playerNameCache: PlayerNameCache
+    // configuration
+    lateinit var config: NodesConfig
 
-//    // flag that plugin successfully initialized
-//    internal var initialized: Boolean = false
-//
-//    // flag that plugin is running
-//    internal var enabled: Boolean = false
+    fun initialize(config: NodesConfig = NodesConfig()) {
+        // measure load time
+        val timeStart = System.currentTimeMillis()
 
-    /**
-     * create default config file
-     */
-    internal fun saveDefaultConfig() {
-        val input = object {}.javaClass.getResourceAsStream("/config.yml")
-        input.use { it.copyTo(File("config.yml").outputStream()) }
-    }
+        // store config
+        this.config = config
 
-    /**
-     * reload config file
-     */
-    internal fun reloadConfig() {
-        // get config file
-        val configFile = File("config.yml")
-        if (!configFile.exists()) {
-            println("No config found: generating default config.yml")
-            saveDefaultConfig()
+        war.initialize(config.flagBlocks)
+
+        // try load world
+        val pluginPath = config.pathPlugin
+        println("Loading world from: $pluginPath")
+        try {
+            if (loadWorld()) { // successful load
+                // print number of resource nodes and territories loaded
+                println("- Resource Nodes: ${getResourceNodeCount()}")
+                println("- Territories: ${getTerritoryCount()}")
+                println("- Residents: ${getResidentCount()}")
+                println("- Towns: ${getTownCount()}")
+                println("- Nations: ${getNationCount()}")
+            } else {
+                println("Error loading world: Invalid world file at $pluginPath/${config.pathWorld}")
+            }
+        } catch (err: Exception) {
+            err.printStackTrace()
+            println("Error loading world: $err")
         }
 
-        val config = YamlConfiguration.loadConfiguration(configFile)
-        if (config !== null) {
-            Config.load(config)
-        }
+        val eventHandler = MinecraftServer.getGlobalEventHandler()
+
+        // register listeners
+        eventHandler.addListener(PlayerChatEvent::class.java) { event -> onPlayerChat(event) }
+//    pluginManager.registerEvents(NodesChestProtectionListener(), this)
+//    pluginManager.registerEvents(NodesChestProtectionDestroyListener(), this)
+        eventHandler.addListener(InventoryPreClickEvent::class.java) { event -> onInventoryClick(event) }
+        eventHandler.addListener(InventoryCloseEvent::class.java) { event -> onInventoryClose(event) }
+        eventHandler.addListener(PlayerBlockBreakEvent::class.java) { event -> onBlockBreak(event) }
+        eventHandler.addListener(PlayerBlockBreakEvent::class.java) { event -> onBlockBreakSuccess(event) }
+        eventHandler.addListener(PlayerBlockPlaceEvent::class.java) { event -> onBlockPlace(event) }
+        eventHandler.addListener(PlayerBlockPlaceEvent::class.java) { event -> onBlockPlaceSuccess(event) }
+//    pluginManager.registerEvents(NodesPlayerJoinQuitListener(), this)
+        eventHandler.addListener(PlayerLoadedEvent::class.java) { event -> onPlayerJoin(event) }
+        eventHandler.addListener(PlayerDisconnectEvent::class.java) { event -> onPlayerQuit(event) }
+        eventHandler.addListener(PlayerMoveEvent::class.java) { event -> onPlayerMove(event) }
+        eventHandler.addListener(EntityTeleportEvent::class.java) { event -> onPlayerTeleport(event) }
+//    pluginManager.registerEvents(NodesPlayerDamageListener(), this)
+
+        // shutdown task
+        MinecraftServer.getSchedulerManager().buildShutdownTask { cleanup() }
+
+//    // register commands
+        MinecraftServer.getCommandManager().register(TownCommand())
+        MinecraftServer.getCommandManager().register(NationCommand())
+        MinecraftServer.getCommandManager().register(NodesCommand())
+//    this.getCommand("nodesadmin")?.setExecutor(NodesAdminCommand())
+        MinecraftServer.getCommandManager().register(AllyCommand())
+        MinecraftServer.getCommandManager().register(UnallyCommand())
+        MinecraftServer.getCommandManager().register(WarCommand())
+//    this.getCommand("globalchat")?.setExecutor(GlobalChatCommand())
+//    this.getCommand("townchat")?.setExecutor(TownChatCommand())
+//    this.getCommand("nationchat")?.setExecutor(NationChatCommand())
+//    this.getCommand("allychat")?.setExecutor(AllyChatCommand())
+//    this.getCommand("player")?.setExecutor(PlayerCommand())
+//    this.getCommand("territory")?.setExecutor(TerritoryCommand())
+//    this.getCommand("port")?.setExecutor(PortCommand())
+
+        // load current income tick
+        val currTime = System.currentTimeMillis()
+        lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: currTime
+        lastIncomeTime = loadLongFromFile(config.pathLastIncomeTime) ?: currTime
+
+        // run background schedulers/tasks
+        reloadManagers()
+
+        // initialize all players online
+        initializeOnlinePlayers()
+
+        // print load time
+        val timeEnd = System.currentTimeMillis()
+        val timeLoad = timeEnd - timeStart
+        println("Enabled in ${timeLoad}ms")
+
+        // print success message
+        println("now this is epic")
     }
 
     /**
@@ -177,8 +257,8 @@ object Nodes {
         SaveManager.stop()
         PeriodicTickManager.stop()
 
-        SaveManager.start(Config.savePeriod)
-        PeriodicTickManager.start(Config.mainPeriodicTick)
+        SaveManager.start(config.savePeriod)
+        PeriodicTickManager.start(config.mainPeriodicTick)
     }
 
     // mark all current players in game as online
@@ -220,10 +300,13 @@ object Nodes {
             war.cleanup()
         }
 
+        // final synchronous save of world
+        saveWorld(checkIfNeedsSave = false, async = false)
+
         // save backup, income current time
         val currTimeString = System.currentTimeMillis().toString()
-        saveStringToFile(currTimeString, Config.pathLastBackupTime)
-        saveStringToFile(currTimeString, Config.pathLastIncomeTime)
+        saveStringToFile(currTimeString, config.pathLastBackupTime)
+        saveStringToFile(currTimeString, config.pathLastIncomeTime)
     }
 
     /**
@@ -285,7 +368,7 @@ object Nodes {
                         .map { name -> resourceNodes[name] ?: throw Exception("Resource node '$name' does not exist (for territory id=${neighborTerr.id})") }
                         .sortedBy { r -> r.priority }
 
-                    terrResourceGraph[id] = resources.fold(Config.globalResources.copy()) { terr, r -> r.apply(terr) }
+                    terrResourceGraph[id] = resources.fold(config.globalResources.copy()) { terr, r -> r.apply(terr) }
                 } else {
                     println("`loadTerritories()` neighbor territory $id does not exist")
                 }
@@ -298,7 +381,7 @@ object Nodes {
                 .map { name -> resourceNodes[name] ?: throw Exception("Resource node '$name' does not exist (for territory id=${terr.id})") }
                 .sortedBy { r -> r.priority }
 
-            terrResourceGraph[terr.id] = resources.fold(Config.globalResources.copy()) { tr, r -> r.apply(tr) }
+            terrResourceGraph[terr.id] = resources.fold(config.globalResources.copy()) { tr, r -> r.apply(tr) }
         }
 
         // Determine final territories to be built.
@@ -408,8 +491,8 @@ object Nodes {
 //        reloadTerritories: Boolean,
 //        territoryIds: List<TerritoryId>? = null,
 //    ): Boolean {
-//        if (Files.exists(Config.pathWorld)) {
-//            val (jsonResources, jsonTerritories) = Deserializer.worldFromJson(Config.pathWorld)
+//        if (Files.exists(config.pathWorld)) {
+//            val (jsonResources, jsonTerritories) = Deserializer.worldFromJson(config.pathWorld)
 //
 //            // if resources are reloaded, ALL territories must be updated (ignore ids input)
 //            if (reloadResources && jsonResources != null) {
@@ -442,14 +525,14 @@ object Nodes {
         ports.clear()
 
         // load world from JSON storage
-        if (Files.exists(Config.pathWorld)) {
-            val (jsonResources, jsonTerritories) = Deserializer.worldFromJson(Config.pathWorld)
+        if (Files.exists(config.pathWorld)) {
+            val (jsonResources, jsonTerritories) = Deserializer.worldFromJson(config.pathWorld)
             if (jsonResources != null) loadResources(jsonResources)
             if (jsonTerritories != null) loadTerritories(jsonTerritories)
 
             // load towns from json after main world load finishes
-            if (Files.exists(Config.pathTowns)) {
-                Deserializer.townsFromJson(Config.pathTowns)
+            if (Files.exists(config.pathTowns)) {
+                Deserializer.townsFromJson(config.pathTowns)
 
                 // pre-generate initial json strings for all world objects
                 // (speeds up first save)
@@ -466,13 +549,13 @@ object Nodes {
                 // load war state
                 war.load()
             } else {
-                System.err.println("No towns found: ${Config.pathTowns}")
+                System.err.println("No towns found: ${config.pathTowns}")
                 return true
             }
 
             // load ports from json
-            if (Files.exists(Config.pathPorts)) {
-                Deserializer.portsFromJson(Config.pathPorts)
+            if (Files.exists(config.pathPorts)) {
+                Deserializer.portsFromJson(config.pathPorts)
 
                 // pre-generate initial json strings for all port objects
                 // (speeds up first save)
@@ -484,11 +567,11 @@ object Nodes {
                 }
 
             } else {
-                System.err.println("No ports found: ${Config.pathPorts}")
+                System.err.println("No ports found: ${config.pathPorts}")
                 return true
             }
         } else {
-            System.err.println("Failed to load world: ${Config.pathWorld}")
+            System.err.println("Failed to load world: ${config.pathWorld}")
             return false
         }
 
@@ -502,11 +585,15 @@ object Nodes {
         checkIfNeedsSave: Boolean = true, // set to false to force save
         async: Boolean = false, // run serialization and file write asynchronously
     ) {
+        if (!config.save) {
+            return
+        }
+
         // if we reached backup time interval, generate a backup millis
         // timestamp for save task, which will be used to create a
         // timestamped backup file
         val currTime = System.currentTimeMillis()
-        val backup = currTime > lastBackupTime + Config.backupPeriod
+        val backup = currTime > lastBackupTime + config.backupPeriod
         val backupTimestamp = if (backup) {
             lastBackupTime = currTime
             currTime
@@ -555,7 +642,7 @@ object Nodes {
             val taskSavePorts = TaskSavePorts(
                 portsSnapshot,
                 portGroupsSnapshot,
-                Config.pathPorts,
+                config.pathPorts,
             )
 
             if (async) {
@@ -775,11 +862,15 @@ fun getResourceNodeCount(): Int = resourceNodes.size
 
         // iterate up in y to find first empty block
         var y = 255
-        while (y > 0) {
-            if (MinecraftServer.getInstanceManager().instances.first().getBlock(x,y,z).isAir) {
-                break
+        try {
+            while (y > 0) {
+                if (MinecraftServer.getInstanceManager().instances.first().getBlock(x, y, z).isAir) {
+                    break
+                }
+                y -= 1
             }
-            y -= 1
+        } catch (_: NullPointerException) {
+            // chunk isnt loaded
         }
 
         return Pos(x.toDouble(), y.toDouble(), z.toDouble())
@@ -802,22 +893,14 @@ fun getResourceNodeCount(): Int = resourceNodes.size
     // used for deserializing from towns.json
     fun loadResident(
         uuid: UUID,
+        name: String,
         prefix: String,
         suffix: String,
         trusted: Boolean,
         townCreateCooldown: Long,
     ) {
-        // get player name from UUID
-        // use online player if exists, else get from OfflinePlayer
-        val playerName: String? = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uuid)?.username ?: playerNameCache.get(uuid)
-
-        // if player name null, player does not exist
-        if (playerName == null) {
-            return
-        }
-
         // create and add resident
-        val resident = Resident(uuid, playerName)
+        val resident = Resident(uuid, name)
         resident.prefix = prefix
         resident.suffix = suffix
 
@@ -1706,7 +1789,7 @@ fun captureTerritory(town: Town, territory: Territory) {
         town.spawnpoint = getDefaultSpawnLocation(territory)
 
         // set cooldown
-        town.moveHomeCooldown = Config.townMoveHomeCooldown
+        town.moveHomeCooldown = config.townMoveHomeCooldown
 
         // re-render minimaps
         renderMinimaps()
@@ -2145,7 +2228,7 @@ fun captureTerritory(town: Town, territory: Territory) {
         }
 
         // tax and kept item rates for occupied territories
-        val taxRate = Config.taxIncomeRate.coerceIn(0.0, 1.0)
+        val taxRate = config.taxIncomeRate.coerceIn(0.0, 1.0)
         val keptRate = 1.0 - taxRate
 
         for (town in towns.values) {

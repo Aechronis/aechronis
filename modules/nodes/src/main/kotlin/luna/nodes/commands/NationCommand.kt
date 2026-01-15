@@ -5,7 +5,7 @@
 package luna.nodes.commands
 
 //import org.bukkit.Bukkit
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import net.minestom.server.command.builder.Command
 import net.minestom.server.command.builder.arguments.ArgumentType
 //import org.bukkit.command.CommandExecutor
@@ -13,7 +13,6 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 //import org.bukkit.command.TabCompleter
 import net.minestom.server.entity.Player
 //import org.bukkit.inventory.ItemStack
-import luna.nodes.Config
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.constants.ErrorNationExists
@@ -217,7 +216,7 @@ class NationLeaveCommand : Command("leave") {
             }
 
             // do not allow during war
-            if (Nodes.war.enabled && !Config.canLeaveNationDuringWar) {
+            if (Nodes.war.enabled && !Nodes.config.canLeaveNationDuringWar) {
                 Message.error(player, "Cannot leave your nation during war")
                 return@addSyntax
             }

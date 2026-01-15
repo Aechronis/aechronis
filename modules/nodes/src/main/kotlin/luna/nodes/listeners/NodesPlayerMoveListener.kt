@@ -1,6 +1,6 @@
 package luna.nodes.listeners
 
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerMoveEvent
@@ -151,14 +151,14 @@ private fun printTownMessage(player: Player, resident: Resident, toTown: Town, t
     // territory name color
     val territoryNameColor = if (residentTown !== null) {
         if (toTown === residentTown) {
-            "${ChatColor.DARK_GREEN}"
+            ChatColor.DARK_GREEN
         } else if (residentTown.enemies.contains(toTown)) {
-            "${ChatColor.DARK_RED}"
+            ChatColor.DARK_RED
         } else {
-            "${ChatColor.DARK_AQUA}"
+            ChatColor.DARK_AQUA
         }
     } else {
-        "${ChatColor.DARK_AQUA}"
+        ChatColor.DARK_AQUA
     }
 
     // territory occupation/captured modifier

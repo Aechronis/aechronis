@@ -4,7 +4,7 @@
 
 package luna.nodes.commands
 
-import org.bukkit.ChatColor
+import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.objects.Nation
