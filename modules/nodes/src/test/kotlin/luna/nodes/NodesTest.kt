@@ -19,6 +19,10 @@ class NodesTest {
 
     @BeforeAll
     fun setup() {
+        // start server
+        MinecraftServer.init().start("0.0.0.0", 67)
+
+        // create instance
         val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
         instance.setGenerator(TestGenerator())
 
@@ -34,9 +38,6 @@ class NodesTest {
             save = false,
             pathPlugin = Paths.get(javaClass.getResource("/nodes/world.json")!!.toURI()).parent.toString(),
         )
-
-        // start server
-        MinecraftServer.init().start("0.0.0.0", 67)
 
         // initialize nodes with test config
         Nodes.initialize(config)
