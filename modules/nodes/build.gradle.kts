@@ -14,7 +14,7 @@ repositories {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2025.10.31-1.21.10")
+    implementation("net.minestom:minestom:2026.01.08-1.21.11")
 
     // testing
     testImplementation("org.jetbrains.kotlin:kotlin-test")
