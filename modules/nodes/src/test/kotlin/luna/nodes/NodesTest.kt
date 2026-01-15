@@ -20,7 +20,7 @@ class NodesTest {
     @BeforeAll
     fun setup() {
         // start server
-        MinecraftServer.init().start("0.0.0.0", 67)
+        MinecraftServer.init().start("0.0.0.0", 55555)
 
         // create instance
         val instance = MinecraftServer.getInstanceManager().createInstanceContainer()

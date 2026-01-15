@@ -1,5 +1,5 @@
 group = "luna.nodes"
-version = "0.0.14"
+version = System.getenv("GITHUB_SHA")?.take(7) ?: ""
 
 plugins {
     `maven-publish`
@@ -32,6 +32,16 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
+        }
+    }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/d-z4/minestom-nodes")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
         }
     }
 }

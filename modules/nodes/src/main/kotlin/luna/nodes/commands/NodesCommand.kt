@@ -26,7 +26,7 @@ class NodesCommand : Command("nodes", "nd") {
     init {
         // no args, print plugin info
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "${ChatColor.BOLD}Nodes ${Nodes.VERSION}")
+            Message.print(sender, "${ChatColor.BOLD}Nodes")
 
             // print number of resource nodes and territories loaded
             Message.print(sender, "World info:")

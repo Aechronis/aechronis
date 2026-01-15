@@ -115,9 +115,6 @@ import kotlin.system.measureNanoTime
  */
 object Nodes {
 
-    // version string
-    internal const val VERSION: String = "v0.0.14"
-
     // library of resource node definitions
     internal val resourceNodes: HashMap<String, ResourceNode> = hashMapOf()
 

@@ -1,10 +1,4 @@
-on:
-  push:
-    branches: [ master ]
-
-permissions:
-  contents: read
-  packages: write
+on: [ pull_request ]
 
 jobs:
   build:
@@ -19,6 +13,3 @@ jobs:
       - run: |
           chmod +x gradlew
           ./gradlew test
-          ./gradlew publish
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
