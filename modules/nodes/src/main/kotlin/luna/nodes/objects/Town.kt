@@ -100,9 +100,6 @@ class Town(
     // players applying to town and their tasks
     val applications: HashMap<Resident, Task> = hashMapOf()
 
-    // cooldown timer for moving town home territory
-    var moveHomeCooldown: Long = 0L
-
     // json string and memoization flag
     private var saveState: TownSaveState
 
@@ -199,7 +196,6 @@ class Town(
         val income = t.income.storage.toMutableMap()
         val isOpen = t.isOpen
 //        public val protectedBlocks: HashSet<Block> = HashSet(t.protectedBlocks)
-val moveHomeCooldown = t.moveHomeCooldown
 
         override var jsonString: String? = null
 
@@ -241,7 +237,6 @@ val moveHomeCooldown = t.moveHomeCooldown
                     "\"income\":$income," +
                     "\"open\":${this.isOpen}," +
 //                    "\"protect\":${blocksToJsonString(this.protectedBlocks)}," +
-                    "\"homeCool\":${this.moveHomeCooldown}" +
                     "}"
                 )
 

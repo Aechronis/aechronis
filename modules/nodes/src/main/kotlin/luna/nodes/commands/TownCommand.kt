@@ -192,19 +192,6 @@ class TownCreateCommand : Command("create", "new") {
                 return@addSyntax
             }
 
-            // check if player has cooldown
-            if (resident.townCreateCooldown > 0) {
-                val remainingTime = resident.townCreateCooldown
-                val remainingTimeString = run {
-                    val hour: Long = remainingTime / 3600000L
-                    val min: Long = 1L + (remainingTime - hour * 3600000L) / 60000L
-                    "${hour}hr ${min}min"
-                }
-
-                Message.error(player, "You cannot create another town for: $remainingTimeString ")
-                return@addSyntax
-            }
-
             val name = context[nameArg]
             if (!stringInputIsValid(name)) {
                 Message.error(player, "Invalid town name")
@@ -276,9 +263,6 @@ class TownDeleteCommand : Command("delete", "disband") {
             }
 
             Nodes.destroyTown(town)
-
-            // add player penalty for destroying town
-            Nodes.setResidentTownCreateCooldown(resident, Nodes.config.townCreateCooldown)
 
             Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}The town \"${town.name}\" has been destroyed...")
         })
@@ -1834,17 +1818,6 @@ class TownCapitalCommand : Command("capital") {
             }
             if (town.home == territory.id) {
                 Message.error(player, "This is already your home territory")
-                return@addSyntax
-            }
-            if (town.moveHomeCooldown > 0) {
-                val remainingTime = town.moveHomeCooldown
-                val remainingTimeString = run {
-                    val hour: Long = remainingTime / 3600000L
-                    val min: Long = 1L + (remainingTime - hour * 3600000L) / 60000L
-                    "${hour}hr ${min}min"
-                }
-
-                Message.error(player, "You cannot move the town's home territory for: $remainingTimeString ")
                 return@addSyntax
             }
 

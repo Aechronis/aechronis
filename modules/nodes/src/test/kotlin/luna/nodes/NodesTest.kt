@@ -30,13 +30,15 @@ class NodesTest {
             val player = event.player
             event.spawningInstance = instance
             player.respawnPoint = Pos(27000.0, 60.0, 5700.0)
-            player.gameMode = GameMode.CREATIVE
+            player.gameMode = GameMode.SURVIVAL
         }
 
         // create test config
         val config = NodesConfig(
             save = false,
             pathPlugin = Paths.get(javaClass.getResource("/nodes/world.json")!!.toURI()).parent.toString(),
+            incomePeriod = 100,
+            canCreateTownDuringWar = true,
         )
 
         // initialize nodes with test config

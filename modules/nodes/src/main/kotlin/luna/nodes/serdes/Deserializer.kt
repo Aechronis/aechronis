@@ -74,14 +74,10 @@ object Deserializer {
                 // trusted
                 val trusted = resident.get("trust")?.asBoolean ?: false
 
-                // town create cooldown
-                val townCreateCooldown: Long = resident.get("townCool")?.asLong ?: 0L
-
                 Nodes.loadResident(
                     UUID.fromString(uuid),
                     name,
                     trusted,
-                    townCreateCooldown,
                 )
             }
         }
@@ -250,9 +246,6 @@ object Deserializer {
 //                    }
 //                }
 
-                // town move home cooldown
-                val moveHomeCooldown: Long = town.get("homeCool")?.asLong ?: 0L
-
                 val townObject: Town? = Nodes.loadTown(
                     uuid,
                     name,
@@ -269,7 +262,6 @@ object Deserializer {
                     permissions,
                     isOpen,
 //                    protectedBlocks,
-                    moveHomeCooldown,
                 )
 
                 if (townObject !== null) {

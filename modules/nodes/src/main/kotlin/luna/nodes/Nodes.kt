@@ -78,14 +78,13 @@ import luna.nodes.objects.TerritoryResources
 import luna.nodes.objects.Town
 import luna.nodes.objects.TownPair
 import luna.nodes.serdes.Deserializer
-import luna.nodes.tasks.PeriodicTickManager
+import luna.nodes.tasks.IncomeManager
 import luna.nodes.tasks.SaveManager
 import luna.nodes.tasks.TaskSaveBackup
 import luna.nodes.tasks.TaskSavePorts
 import luna.nodes.tasks.TaskSaveWorld
 import luna.nodes.utils.Color
 import luna.nodes.utils.loadLongFromFile
-import luna.nodes.utils.sanitizeString
 import luna.nodes.utils.saveStringToFile
 import luna.nodes.war.FlagWar
 import net.minestom.server.event.entity.EntityTeleportEvent
@@ -145,9 +144,6 @@ object Nodes {
 
     // last time backup occurred: NOTE this is accessed async
     internal var lastBackupTime: Long = 0 // milliseconds
-
-    // last time income occurred: NOTE this is accessed async
-    internal var lastIncomeTime: Long = 0 // milliseconds
 
     // war manager
     val war = FlagWar
@@ -230,7 +226,6 @@ object Nodes {
         // load current income tick
         val currTime = System.currentTimeMillis()
         lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: currTime
-        lastIncomeTime = loadLongFromFile(config.pathLastIncomeTime) ?: currTime
 
         // run background schedulers/tasks
         reloadManagers()
@@ -252,10 +247,10 @@ object Nodes {
      */
     internal fun reloadManagers() {
         SaveManager.stop()
-        PeriodicTickManager.stop()
+        IncomeManager.stop()
 
         SaveManager.start(config.savePeriod)
-        PeriodicTickManager.start(config.mainPeriodicTick)
+        IncomeManager.start(config.incomePeriod)
     }
 
     // mark all current players in game as online
@@ -303,7 +298,6 @@ object Nodes {
         // save backup, income current time
         val currTimeString = System.currentTimeMillis().toString()
         saveStringToFile(currTimeString, config.pathLastBackupTime)
-        saveStringToFile(currTimeString, config.pathLastIncomeTime)
     }
 
     /**
@@ -892,7 +886,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
         uuid: UUID,
         name: String,
         trusted: Boolean,
-        townCreateCooldown: Long,
     ) {
         // create and add resident
         val resident = Resident(uuid, name)
@@ -902,9 +895,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
 
         // mark resident needs update
         resident.needsUpdate()
-
-        // set resident town create cooldown
-        resident.townCreateCooldown = townCreateCooldown
 
         residents.put(uuid, resident)
     }
@@ -971,13 +961,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
 //
 //        return resident.chatMode
 //    }
-
-    // set player's town create cooldown
-    fun setResidentTownCreateCooldown(resident: Resident, cooldown: Long) {
-        resident.townCreateCooldown = cooldown
-        resident.needsUpdate()
-        needsSave = true
-    }
 //
 //    // update players online in each town, nation
 //    public fun refreshPlayersOnline() {
@@ -1086,7 +1069,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
         permissions: MutableMap<TownPermissions, EnumSet<PermissionsGroup>>,
         isOpen: Boolean,
 //        protectedBlocks: HashSet<Block>,
-        moveHomeCooldown: Long,
     ): Town? {
         val leaderAsResident = if (leader != null) {
             getResidentFromUUID(leader)
@@ -1186,9 +1168,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
 
 //        // add protected blocks
 //        town.protectedBlocks.addAll(protectedBlocks)
-
-        // set move home cooldown
-        town.moveHomeCooldown = moveHomeCooldown
 
         // save new town
         towns.put(name, town)
@@ -1769,19 +1748,9 @@ fun captureTerritory(town: Town, territory: Territory) {
         // set town spawn to new home territory
         town.spawnpoint = getDefaultSpawnLocation(territory)
 
-        // set cooldown
-        town.moveHomeCooldown = config.townMoveHomeCooldown
-
         // re-render minimaps
         renderMinimaps()
 
-        town.needsUpdate()
-        needsSave = true
-    }
-
-    // set town's move home cooldown period
-    fun setTownHomeMoveCooldown(town: Town, time: Long) {
-        town.moveHomeCooldown = time
         town.needsUpdate()
         needsSave = true
     }
@@ -1798,36 +1767,6 @@ fun captureTerritory(town: Town, territory: Territory) {
 //        town.needsUpdate()
 //        Nodes.needsSave = true
 //    }
-//
-    /**
-     * Run cooldown tick, with change in time dt
-     */
-    internal fun townMoveHomeCooldownTick(dt: Long) {
-        // reduce town move home territory cooldown
-        for (town in towns.values) {
-            if (town.moveHomeCooldown > 0) {
-                town.moveHomeCooldown = (town.moveHomeCooldown - dt).coerceAtLeast(0)
-
-                town.needsUpdate()
-                needsSave = true
-            }
-        }
-    }
-
-    /**
-     * Reduce resident town create cooldown tick by dt
-     */
-    internal fun residentTownCreateCooldownTick(dt: Long) {
-        // reduce player create town cooldown
-        for (resident in residents.values) {
-            if (resident.townCreateCooldown > 0) {
-                resident.townCreateCooldown = (resident.townCreateCooldown - dt).coerceAtLeast(0)
-
-                resident.needsUpdate()
-                needsSave = true
-            }
-        }
-    }
 
     // ==============================================
     // Nation functions

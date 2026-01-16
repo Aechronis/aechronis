@@ -22,9 +22,6 @@ class Resident(val uuid: UUID, val name: String) {
     var town: Town? = null
     var nation: Nation? = null
 
-    // town create cooldown listener
-    var townCreateCooldown: Long = 0L
-
     // flag that player trusted by town
     var trusted: Boolean = false
 
@@ -112,7 +109,6 @@ class Resident(val uuid: UUID, val name: String) {
         val town = r.town?.name
         val nation = r.nation?.name
         val trusted = r.trusted
-        val townCreateCooldown = r.townCreateCooldown
 
         override var jsonString: String? = null
 
@@ -123,7 +119,6 @@ class Resident(val uuid: UUID, val name: String) {
                     "\"town\":${ if (this.town !== null) "\"${this.town}\"" else null }," +
                     "\"nation\":${ if (this.nation !== null) "\"${this.nation}\"" else null }," +
                     "\"trust\":${this.trusted}," +
-                    "\"townCool\":${this.townCreateCooldown}" +
                     "}"
                 )
             return jsonString

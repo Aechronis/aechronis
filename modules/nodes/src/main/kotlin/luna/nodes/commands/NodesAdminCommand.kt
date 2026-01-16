@@ -94,11 +94,6 @@
 //    "delete",
 //)
 //
-//// resident/player subcommands
-//private val RESIDENT_SUBCOMMANDS: List<String> = listOf(
-//    "towncooldown",
-//)
-//
 //// town subcommands
 //private val TOWN_SUBCOMMANDS: List<String> = listOf(
 //    "create",
@@ -120,7 +115,6 @@
 //    "setspawn",
 //    "spawn",
 //    "sethome",
-//    "sethomecooldown",
 //    "defaulttownspawns",
 //)
 //
@@ -256,22 +250,6 @@
 //                    }
 //                }
 //
-//                // /nodesadmin resident [subcommand]
-//                "resident" -> {
-//                    if (args.size == 2) {
-//                        return filterByStart(RESIDENT_SUBCOMMANDS, args[1])
-//                    } else if (args.size > 2) {
-//                        when (args[1].lowercase()) {
-//                            // /nodesadmin resident [subcommand] [player]
-//                            "towncooldown" -> {
-//                                if (args.size == 3) {
-//                                    return filterResident(args[2])
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//
 //                // /nodesadmin town [subcommand]
 //                "town" -> {
 //                    if (args.size == 2) {
@@ -291,7 +269,6 @@
 //                            "setspawn",
 //                            "spawn",
 //                            "sethome",
-//                            "sethomecooldown",
 //                            "removeleader",
 //                            -> {
 //                                if (args.size == 3) {
@@ -845,51 +822,6 @@
 //    }
 //
 //    // =============================================================
-//    // resident management commands
-//    // - change town create cooldown
-//    // =============================================================
-//
-//    // route command to further subcommands
-//    private fun manageResident(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 2) {
-//            printTownHelp(sender)
-//        } else {
-//            // route subcommand function
-//            when (args[1].lowercase()) {
-//                "help" -> printResidentHelp(sender)
-//                "towncooldown" -> setResidentTownCooldown(sender, args)
-//                else -> {
-//                    printResidentHelp(sender)
-//                }
-//            }
-//        }
-//    }
-//
-//    private fun printResidentHelp(sender: CommandSender) {
-//        Message.print(sender, "${ChatColor.BOLD}[Nodes] Admin town management:")
-//        Message.print(sender, "/nodesadmin resident towncooldown${ChatColor.WHITE}: Change resident town cooldown")
-//        Message.print(sender, "Run a command with no args to see usage.")
-//    }
-//
-//    private fun setResidentTownCooldown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin resident towncooldown [player] [number]")
-//            return
-//        }
-//
-//        val residentName = args[2]
-//        val resident = Nodes.getResidentFromName(residentName)
-//        if (resident === null) {
-//            Message.error(sender, "Resident \"${residentName}\" does not exist")
-//            return
-//        }
-//
-//        val cooldown: Long = Math.max(0, args[3].toLong())
-//
-//        Nodes.setResidentTownCreateCooldown(resident, cooldown)
-//    }
-//
-//    // =============================================================
 //    // town management commands
 //    // - create/delete towns
 //    // - toggle town properties, players
@@ -922,7 +854,6 @@
 //                "incomeadd" -> townIncomeAdd(sender, args)
 //                "incomeremove" -> townIncomeRemove(sender, args)
 //                "sethome" -> setTownHome(sender, args)
-//                "sethomecooldown" -> setTownMoveHomeCooldown(sender, args)
 //                "defaulttownspawns" -> defaultTownSpawns(sender, args)
 //                else -> {
 //                    printTownHelp(sender)
@@ -1600,30 +1531,6 @@
 //
 //        Nodes.setTownHomeTerritory(town, terr)
 //        Message.print(sender, "Moved \"${townName}\" home territory to id = ${terr.id}")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town setHomeCooldown [town] [int]
-//     * Set a town's move home cooldown
-//     */
-//    private fun setTownMoveHomeCooldown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town sethome [name] [id]")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // get new home territory
-//        val cooldown: Long = Math.max(0L, args[3].toLong())
-//
-//        Nodes.setTownHomeMoveCooldown(town, cooldown)
-//        Message.print(sender, "Set town \"${townName}\" move cooldown to $cooldown ms")
 //    }
 //
 //    // TODO: town perm toggles

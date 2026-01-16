@@ -12,14 +12,13 @@ fun onInventoryClick(event: InventoryPreClickEvent) {
     val inventory = event.inventory ?: return
 
     val inventorySize = inventory.size
-    println(inventorySize)
 
     // player has "town income" inv open
-    if (player.openInventory?.size == 45) {
+    if (player.openInventory?.size == 1) {
         if (event.inventory.size != 45) {
             event.isCancelled = true
         }
-        if (!(event.click is Click.LeftShift && event.click is Click.RightShift)) {
+        if (!(event.click is Click.LeftShift || event.click is Click.RightShift)) {
             event.isCancelled = true
         }
     }

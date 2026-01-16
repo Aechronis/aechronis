@@ -31,9 +31,6 @@ data class NodesConfig(
     // 2 hour = 7200000 ms
     val backupPeriod: Long = 3600000L, // 1 hour
 
-    // main tick period check for backup, income, town + resident cooldown counters
-    val mainPeriodicTick: Long = 1200L,
-
     // nametag update period
     val nametagPipelineTicks: Int = 16,
 
@@ -72,16 +69,6 @@ data class NodesConfig(
 
     // interact in territory without town (build, destroy, etc...)
     val canInteractInUnclaimed: Boolean = true,
-
-    // ===================================
-    // town cooldowns
-    // ===================================
-    // 24 hour = 86400000 ms
-    // 48 hour = 172800000 ms
-    // 72 hour = 259200000 ms
-    val townCreateCooldown: Long = 172800000L,
-
-    val townMoveHomeCooldown: Long = 172800000L,
 
     // annexation settings
     // only allow annexing during war time
@@ -218,7 +205,6 @@ data class NodesConfig(
     val pathWar: Path get() = Paths.get(pathPlugin, "war.json").normalize()
     val pathPorts: Path get() = Paths.get(pathPlugin, "ports.json").normalize()
     val pathLastBackupTime: Path get() = Paths.get(pathPlugin, "lastBackupTime.txt").normalize()
-    val pathLastIncomeTime: Path get() = Paths.get(pathPlugin, "lastIncomeTime.txt").normalize()
 
     // use whitelist/blacklist for war (derived from list.size > 0 for lists below)
     val warUseWhitelist: Boolean get() = warWhitelist.isNotEmpty()
