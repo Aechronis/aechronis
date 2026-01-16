@@ -18,7 +18,7 @@ dependencies {
 
     // testing
     testImplementation("org.jetbrains.kotlin:kotlin-test")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.0.2")
     testImplementation("org.slf4j:slf4j-simple:2.0.17") // logging (only used while testing at the moment)
 }
 
