@@ -891,15 +891,11 @@ fun getResourceNodeCount(): Int = resourceNodes.size
     fun loadResident(
         uuid: UUID,
         name: String,
-        prefix: String,
-        suffix: String,
         trusted: Boolean,
         townCreateCooldown: Long,
     ) {
         // create and add resident
         val resident = Resident(uuid, name)
-        resident.prefix = prefix
-        resident.suffix = suffix
 
         // resident trusted status
         resident.trusted = trusted
@@ -937,18 +933,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
     }
 
     fun getResidentFromUUID(uuid: UUID): Resident? = residents.get(uuid)
-
-    fun setResidentPrefix(resident: Resident, s: String) {
-        resident.prefix = sanitizeString(s)
-        resident.needsUpdate()
-        needsSave = true
-    }
-
-    fun setResidentSuffix(resident: Resident, s: String) {
-        resident.suffix = sanitizeString(s)
-        resident.needsUpdate()
-        needsSave = true
-    }
 
     // marks player as online
     fun setResidentOnline(resident: Resident, player: Player) {

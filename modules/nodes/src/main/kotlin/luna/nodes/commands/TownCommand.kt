@@ -120,8 +120,6 @@ class TownCommand : Command("t", "town") {
         addSubcommand(TownClaimCommand())
         addSubcommand(TownUnclaimCommand())
         addSubcommand(TownIncomeCommand())
-        addSubcommand(TownPrefixCommand())
-        addSubcommand(TownSuffixCommand())
         addSubcommand(TownRenameCommand())
         addSubcommand(TownMapCommand())
         addSubcommand(TownMinimapCommand())
@@ -154,8 +152,6 @@ class TownHelpCommand : Command("help") {
             Message.print(sender, "/town color${ChatColor.WHITE}: Set town color on map")
             Message.print(sender, "/town claim${ChatColor.WHITE}: Claim territory at current location")
             Message.print(sender, "/town unclaim${ChatColor.WHITE}: Unclaim territory at current location")
-            Message.print(sender, "/town prefix${ChatColor.WHITE}: Set player name prefix")
-            Message.print(sender, "/town suffix${ChatColor.WHITE}: Set player name suffix")
             Message.print(sender, "/town rename${ChatColor.WHITE}: Rename town")
             Message.print(sender, "/town map${ChatColor.WHITE}: View world map")
             Message.print(sender, "/town minimap${ChatColor.WHITE}: Toggle sidebar world minimap")
@@ -1421,180 +1417,6 @@ class TownIncomeCommand : Command("income") {
                 Message.error(player, "You do not have permissions to view town income")
             }
         })
-    }
-}
-
-class TownPrefixCommand : Command("prefix") {
-    init {
-        setDefaultExecutor { sender, context ->
-            // print usage
-            Message.error(sender, "Usage: \"/town prefix [name]\" to set your prefix")
-            Message.error(sender, "Usage: \"/town prefix remove\" to remove your prefix")
-            Message.error(sender, "Usage: \"/town prefix [player] [name]\" to set a player's prefix")
-            Message.error(sender, "Usage: \"/town prefix [player] remove\" to remove a player's prefix")
-        }
-
-        val targetArg = ArgumentType.String("player")
-        val prefixArg = ArgumentType.String("prefix")
-
-        addSyntax({ sender, context ->
-            val player = sender as? Player
-
-            if (player === null) {
-                return@addSyntax
-            }
-
-            val resident = Nodes.getResident(player)
-            if (resident === null) {
-                return@addSyntax
-            }
-
-            val prefix = context[prefixArg]
-            if (prefix.lowercase() == "remove") {
-                Nodes.setResidentPrefix(resident, "")
-                Message.print(player, "Removed your prefix.")
-            } else {
-                Nodes.setResidentPrefix(resident, prefix)
-                Message.print(player, "Your prefix set to: $prefix")
-            }
-
-        }, prefixArg)
-
-        addSyntax({ sender, context ->
-            val player = sender as? Player
-
-            if (player === null) {
-                return@addSyntax
-            }
-
-            val resident = Nodes.getResident(player)
-            if (resident === null) {
-                return@addSyntax
-            }
-
-            val town = resident.town
-            if (town == null) {
-                Message.error(player, "You are not a member of a town")
-                return@addSyntax
-            }
-
-            // check if player is leader or officer
-            val leader = town.leader
-            if (resident !== leader && !town.officers.contains(resident)) {
-                Message.error(player, "Only leaders and officers can set other player's prefix/suffix")
-                return@addSyntax
-            }
-
-            // get other resident
-            val target = Nodes.getResidentFromName(context[targetArg])
-            if (target === null) {
-                Message.error(player, "Player not found")
-                return@addSyntax
-            }
-
-            val targetTown = target.town
-            if (targetTown !== town) {
-                Message.error(player, "Player is not in this town")
-                return@addSyntax
-            }
-
-            val prefix = context[prefixArg]
-            if (prefix.lowercase() == "remove") {
-                Nodes.setResidentPrefix(target, "")
-                Message.print(player, "Removed ${target.name} prefix.")
-            } else {
-                Nodes.setResidentPrefix(target, prefix)
-                Message.print(player, "${target.name} prefix set to: $prefix")
-            }
-
-        }, targetArg, prefixArg)
-    }
-}
-
-class TownSuffixCommand : Command("suffix") {
-    init {
-        setDefaultExecutor { sender, context ->
-            // print usage
-            Message.error(sender, "Usage: \"/town suffix [name]\" to set your suffix")
-            Message.error(sender, "Usage: \"/town suffix remove\" to remove your suffix")
-            Message.error(sender, "Usage: \"/town suffix [player] [name]\" to set a player's suffix")
-            Message.error(sender, "Usage: \"/town suffix [player] remove\" to remove a player's suffix")
-        }
-
-        val targetArg = ArgumentType.String("player")
-        val suffixArg = ArgumentType.String("suffix")
-
-        addSyntax({ sender, context ->
-            val player = sender as? Player
-
-            if (player === null) {
-                return@addSyntax
-            }
-
-            val resident = Nodes.getResident(player)
-            if (resident === null) {
-                return@addSyntax
-            }
-
-            val suffix = context[suffixArg]
-            if (suffix.lowercase() == "remove") {
-                Nodes.setResidentSuffix(resident, "")
-                Message.print(player, "Removed your suffix.")
-            } else {
-                Nodes.setResidentSuffix(resident, suffix)
-                Message.print(player, "Your suffix set to: $suffix")
-            }
-
-        }, suffixArg)
-
-        addSyntax({ sender, context ->
-            val player = sender as? Player
-
-            if (player === null) {
-                return@addSyntax
-            }
-
-            val resident = Nodes.getResident(player)
-            if (resident === null) {
-                return@addSyntax
-            }
-
-            val town = resident.town
-            if (town == null) {
-                Message.error(player, "You are not a member of a town")
-                return@addSyntax
-            }
-
-            // check if player is leader or officer
-            val leader = town.leader
-            if (resident !== leader && !town.officers.contains(resident)) {
-                Message.error(player, "Only leaders and officers can set other player's prefix/suffix")
-                return@addSyntax
-            }
-
-            // get other resident
-            val target = Nodes.getResidentFromName(context[targetArg])
-            if (target === null) {
-                Message.error(player, "Player not found")
-                return@addSyntax
-            }
-
-            val targetTown = target.town
-            if (targetTown !== town) {
-                Message.error(player, "Player is not in this town")
-                return@addSyntax
-            }
-
-            val suffix = context[suffixArg]
-            if (suffix.lowercase() == "remove") {
-                Nodes.setResidentSuffix(target, "")
-                Message.print(player, "Removed ${target.name} suffix.")
-            } else {
-                Nodes.setResidentSuffix(target, suffix)
-                Message.print(player, "${target.name} suffix set to: $suffix")
-            }
-
-        }, targetArg, suffixArg)
     }
 }
 

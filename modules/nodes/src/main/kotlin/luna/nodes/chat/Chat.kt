@@ -119,15 +119,7 @@ object Chat {
             }
         }
 
-        return if (resident.prefix != "" && resident.suffix != "") {
-            "${color}${resident.prefix} $color$playerName ${color}${resident.suffix}"
-        } else if (resident.prefix != "") {
-            "${color}${resident.prefix} $color$playerName"
-        } else if (resident.suffix != "") {
-            "$color$playerName ${resident.suffix}"
-        } else {
-            "$color$playerName"
-        }
+        return color + playerName
     }
 
     fun formatMsgGlobal(resident: Resident, playerName: String, message: String): Component {

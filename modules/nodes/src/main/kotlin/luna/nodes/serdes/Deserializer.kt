@@ -71,10 +71,6 @@ object Deserializer {
 
                 val name = resident.get("name")?.asString ?: return@forEach
 
-                // prefix, suffix
-                val prefix = resident.get("prefix")?.asString ?: ""
-                val suffix = resident.get("suffix")?.asString ?: ""
-
                 // trusted
                 val trusted = resident.get("trust")?.asBoolean ?: false
 
@@ -84,8 +80,6 @@ object Deserializer {
                 Nodes.loadResident(
                     UUID.fromString(uuid),
                     name,
-                    prefix,
-                    suffix,
                     trusted,
                     townCreateCooldown,
                 )

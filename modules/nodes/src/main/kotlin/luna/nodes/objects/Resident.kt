@@ -33,8 +33,6 @@ class Resident(val uuid: UUID, val name: String) {
 
     // chat mode config
     var chatMode: ChatMode = ChatMode.GLOBAL
-    var prefix: String = ""
-    var suffix: String = ""
 
     // town teleport thread
     var teleportThread: Task? = null
@@ -113,8 +111,6 @@ class Resident(val uuid: UUID, val name: String) {
         val name = r.name
         val town = r.town?.name
         val nation = r.nation?.name
-        val prefix = r.prefix
-        val suffix = r.suffix
         val trusted = r.trusted
         val townCreateCooldown = r.townCreateCooldown
 
@@ -126,8 +122,6 @@ class Resident(val uuid: UUID, val name: String) {
                     "\"name\":\"${this.name}\"," +
                     "\"town\":${ if (this.town !== null) "\"${this.town}\"" else null }," +
                     "\"nation\":${ if (this.nation !== null) "\"${this.nation}\"" else null }," +
-                    "\"prefix\":\"${this.prefix}\"," +
-                    "\"suffix\":\"${this.suffix}\"," +
                     "\"trust\":${this.trusted}," +
                     "\"townCool\":${this.townCreateCooldown}" +
                     "}"
