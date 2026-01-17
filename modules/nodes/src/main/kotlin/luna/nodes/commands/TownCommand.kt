@@ -1010,23 +1010,23 @@ class TownSpawn : Command("spawn") {
             }
 
             // ticks before teleport timer runs
-            var teleportTimerTicks = (Nodes.config.townSpawnTime * 20).coerceAtLeast(0)
+            var teleportTime = Nodes.config.townSpawnTime.coerceAtLeast(0)
 
             // multiplier during war and if home occupied
             if (Nodes.war.enabled && Nodes.getTerritoryFromId(town.home)?.occupier !== null) {
                 Message.error(player, "${ChatColor.BOLD}Your home is occupied, town spawn will take much longer...")
-                teleportTimerTicks *= Nodes.config.occupiedHomeTeleportMultiplier
+                teleportTime *= Nodes.config.occupiedHomeTeleportMultiplier
             }
 
             resident.teleportThread = MinecraftServer.getSchedulerManager().buildTask {
                 player.teleport(town.spawnpoint)
                 resident.teleportThread = null
             }
-                .delay(TaskSchedule.tick(teleportTimerTicks))
+                .delay(TaskSchedule.millis(teleportTime))
                 .schedule()
 
-            if (teleportTimerTicks > 0) {
-                val seconds = teleportTimerTicks / 20
+            if (teleportTime > 0) {
+                val seconds = teleportTime / 1000
 
                 Message.print(player, "Teleporting to town spawn in $seconds seconds. Don't move...")
             }

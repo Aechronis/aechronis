@@ -3,6 +3,7 @@
  *
  * Configuration data class for the library.
  * All fields have defaults - only need to specify what needs to change.
+ * All measurements of time are in milliseconds unless specified
  */
 
 package luna.nodes
@@ -24,32 +25,32 @@ data class NodesConfig(
     val pathPlugin: String = "nodes",
 
     // period for running world save
-    val savePeriod: Int = 600,
+    val savePeriod: Long = 30000,
 
     // all long tick cycle values
     // 1 hour = 3600000 ms
     // 2 hour = 7200000 ms
-    val backupPeriod: Long = 3600000L, // 1 hour
-
-    // nametag update period
-    val nametagPipelineTicks: Int = 16,
+    val backupPeriod: Long = 3600000, // 1 hour
 
     // ===================================
     // resource configs
     // ===================================
     // territory do income enabled and income time
     val incomeEnabled: Boolean = true,
-    val incomePeriod: Long = 3600000L,
+    val incomePeriod: Long = 3600000,
 
     // global resource node in all territories
     val globalResources: TerritoryResources = TerritoryResources(),
 
     // hidden ore blocks, stone only
     val oreBlocks: Set<Block> = setOf(
-        Block.STONE, // note: granite, diorite, and andesite are variants of stone in 1.12.2
+        Block.STONE,
         Block.GRANITE,
         Block.ANDESITE,
         Block.DIORITE,
+        Block.TUFF,
+        Block.DEEPSLATE,
+        Block.DRIPSTONE_BLOCK,
     ),
 
     // allow mining in unowned territories
@@ -77,8 +78,8 @@ data class NodesConfig(
     // ===================================
     // town settings
     // ===================================
-    // town spawn timer in seconds (converted to ticks by num * 20)
-    val townSpawnTime: Int = 10,
+    // town spawn timer
+    val townSpawnTime: Long = 10000,
 
     // ===================================
     // nation settings
@@ -121,6 +122,8 @@ data class NodesConfig(
         Block.MANGROVE_FENCE,
         Block.OAK_FENCE,
         Block.SPRUCE_FENCE,
+        Block.CRIMSON_FENCE,
+        Block.WARPED_FENCE,
     ),
 
     // disable building within this distance of flag (square range)
@@ -129,8 +132,8 @@ data class NodesConfig(
     // disable building for y > flag base block + flagNoBuildYOffset
     val flagNoBuildYOffset: Int = -1,
 
-    // ticks required to capture chunk
-    val chunkAttackTime: Long = 200,
+    // time required to capture chunk
+    val chunkAttackTime: Long = 120000,
 
     // multiplier for chunk attacks
     val chunkAttackFromWastelandMultiplier: Double = 2.0, // territory next to wilderness
@@ -193,7 +196,7 @@ data class NodesConfig(
     // port configs
     // ===================================
     val seaLevel: Double = 62.0,
-    val portWarpTime: Double = 5.0 * 20.0, // in ticks
+    val portWarpTime: Long = 10000,
     val allowPortWarpWithoutBoat: Boolean = false,
 ) {
     // folder for backups of json state files

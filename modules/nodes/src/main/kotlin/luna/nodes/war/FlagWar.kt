@@ -465,7 +465,8 @@ object FlagWar {
         val progressBar = BossBar.bossBar(Component.text("Attacking ${territory.town!!.name} at ($flagBaseX, $flagBaseY, $flagBaseZ)"), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS)
 
         // calculate max attack time based on chunk and other modifiers
-        var attackTime = Nodes.config.chunkAttackTime.toDouble()
+        // convert milliseconds to ticks
+        var attackTime = Nodes.config.chunkAttackTime.toDouble() * 20 / 1000
         if (territory.bordersWilderness) {
             attackTime *= Nodes.config.chunkAttackFromWastelandMultiplier
         }

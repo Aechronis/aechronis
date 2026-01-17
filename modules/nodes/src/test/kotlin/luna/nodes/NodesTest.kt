@@ -30,7 +30,7 @@ class NodesTest {
             val player = event.player
             event.spawningInstance = instance
             player.respawnPoint = Pos(27000.0, 60.0, 5700.0)
-            player.gameMode = GameMode.SURVIVAL
+            player.gameMode = GameMode.CREATIVE
         }
 
         // create test config
