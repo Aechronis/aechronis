@@ -4,6 +4,7 @@
 
 package luna.nodes.chat
 
+import luna.nodes.Message
 import luna.nodes.utils.ChatColor
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
@@ -104,6 +105,18 @@ object Chat {
     // mute global chat for player
     fun disableGlobalChat(player: Player) {
         playersMuteGlobal.add(player)
+    }
+
+    // toggle chat mode then print message
+    fun toggleChatMode(player: Player, resident: Resident, chatMode: ChatMode) {
+        val newChatMode = Nodes.toggleChatMode(resident, chatMode)
+
+        when (newChatMode) {
+            ChatMode.GLOBAL -> Message.print(player, "${ChatColor.BOLD}Now talking in global chat")
+            ChatMode.TOWN -> Message.print(player, "${ChatColor.DARK_AQUA}${ChatColor.BOLD}Now talking in town chat")
+            ChatMode.NATION -> Message.print(player, "${ChatColor.GOLD}${ChatColor.BOLD}Now talking in nation chat")
+            ChatMode.ALLY -> Message.print(player, "${ChatColor.GREEN}${ChatColor.BOLD}Now talking in ally chat")
+        }
     }
 
     fun formatResidentName(resident: Resident, playerName: String): String {

@@ -23,7 +23,11 @@ import net.minestom.server.item.Material
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.Inventory
 //import org.bukkit.plugin.Plugin
-//import luna.nodes.chat.ChatMode
+import luna.nodes.chat.ChatMode
+import luna.nodes.commands.AllyChatCommand
+import luna.nodes.commands.GlobalChatCommand
+import luna.nodes.commands.NationChatCommand
+import luna.nodes.commands.TownChatCommand
 import luna.nodes.constants.DiplomaticRelationship
 import luna.nodes.constants.ErrorAlreadyAllies
 import luna.nodes.constants.ErrorAlreadyEnemies
@@ -211,10 +215,10 @@ object Nodes {
 //    this.getCommand("nodesadmin")?.setExecutor(NodesAdminCommand())
         MinecraftServer.getCommandManager().register(AllyCommand())
         MinecraftServer.getCommandManager().register(UnallyCommand())
-//    this.getCommand("globalchat")?.setExecutor(GlobalChatCommand())
-//    this.getCommand("townchat")?.setExecutor(TownChatCommand())
-//    this.getCommand("nationchat")?.setExecutor(NationChatCommand())
-//    this.getCommand("allychat")?.setExecutor(AllyChatCommand())
+        MinecraftServer.getCommandManager().register(GlobalChatCommand())
+        MinecraftServer.getCommandManager().register(TownChatCommand())
+        MinecraftServer.getCommandManager().register(NationChatCommand())
+        MinecraftServer.getCommandManager().register(AllyChatCommand())
 //    this.getCommand("player")?.setExecutor(PlayerCommand())
 //    this.getCommand("territory")?.setExecutor(TerritoryCommand())
 //    this.getCommand("port")?.setExecutor(PortCommand())
@@ -888,20 +892,20 @@ fun getResourceNodeCount(): Int = resourceNodes.size
             nation?.playersOnline?.remove(player)
         }
     }
-//
-//    // toggle chat mode:
-//    // if already in mode, return to default (global)
-//    // else, set to new mode
-//    // return chatmode this is set to
-//    public fun toggleChatMode(resident: Resident, mode: ChatMode): ChatMode {
-//        if (resident.chatMode == mode) {
-//            resident.chatMode = ChatMode.GLOBAL
-//        } else {
-//            resident.chatMode = mode
-//        }
-//
-//        return resident.chatMode
-//    }
+
+    // toggle chat mode:
+    // if already in mode, return to default (global)
+    // else, set to new mode
+    // return chatmode this is set to
+    public fun toggleChatMode(resident: Resident, mode: ChatMode): ChatMode {
+        if (resident.chatMode == mode) {
+            resident.chatMode = ChatMode.GLOBAL
+        } else {
+            resident.chatMode = mode
+        }
+
+        return resident.chatMode
+    }
 //
 //    // update players online in each town, nation
 //    public fun refreshPlayersOnline() {
