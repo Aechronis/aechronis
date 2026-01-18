@@ -632,7 +632,7 @@ private fun hasTownPermissions(perms: TownPermissions, town: Town, player: Resid
         return true
     } else if (town.permissions[perms].contains(PermissionsGroup.NATION) && town.nation !== null && player.nation === town.nation) {
         return true
-    } else if (town.permissions[perms].contains(PermissionsGroup.ALLY) && town.allies.contains(player.town)) {
+    } else if (town.permissions[perms].contains(PermissionsGroup.ALLY) && town.nation !== null && player.town?.nation !== null && town.nation!!.allies.contains(player.town!!.nation)) {
         return true
     } else if (town.permissions[perms].contains(PermissionsGroup.OUTSIDER)) {
         return true
@@ -684,13 +684,18 @@ private fun hasWarPermissions(resident: Resident, territory: Territory, territor
             if (Nodes.config.warPermissions) {
                 val residentNation = residentTown.nation
 
+                val territoryOccupierNation = territory.occupier?.nation
+                val territoryTownNation = territoryTown?.nation
+                val chunkOccupierNation = territoryChunk.occupier?.nation
+                val chunkAttackerNation = territoryChunk.attacker?.nation
+
                 if (territory.occupier === residentTown ||
-                    residentTown.allies.contains(territory.occupier) ||
+                    (residentNation !== null && territoryOccupierNation !== null && residentNation.allies.contains(territoryOccupierNation)) ||
                     territoryChunk.occupier === residentTown ||
                     territoryChunk.attacker === residentTown ||
-                    residentTown.allies.contains(territoryTown) ||
-                    residentTown.allies.contains(territoryChunk.occupier) ||
-                    residentTown.allies.contains(territoryChunk.attacker)
+                    (residentNation !== null && territoryTownNation !== null && residentNation.allies.contains(territoryTownNation)) ||
+                    (residentNation !== null && chunkOccupierNation !== null && residentNation.allies.contains(chunkOccupierNation)) ||
+                    (residentNation !== null && chunkAttackerNation !== null && residentNation.allies.contains(chunkAttackerNation))
                 ) {
                     return true
                 }

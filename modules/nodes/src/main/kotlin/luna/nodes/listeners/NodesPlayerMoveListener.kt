@@ -150,9 +150,11 @@ private fun printTownMessage(player: Player, resident: Resident, toTown: Town, t
 
     // territory name color
     val territoryNameColor = if (residentTown !== null) {
+        val residentNation = residentTown.nation
+        val toTownNation = toTown.nation
         if (toTown === residentTown) {
             ChatColor.DARK_GREEN
-        } else if (residentTown.enemies.contains(toTown)) {
+        } else if (residentNation !== null && toTownNation !== null && residentNation.enemies.contains(toTownNation)) {
             ChatColor.DARK_RED
         } else {
             ChatColor.DARK_AQUA

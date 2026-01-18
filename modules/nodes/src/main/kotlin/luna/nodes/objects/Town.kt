@@ -59,11 +59,6 @@ class Town(
     // nation for town
     var nation: Nation? = null
 
-    // town's diplomatic relations: allies, enemies
-    // these determine who town can attack during war
-    val allies: HashSet<Town> = hashSetOf()
-    val enemies: HashSet<Town> = hashSetOf()
-
     // players currently online in town
     // must be Set to satisfy bukkit interface in Chat.kt
     val playersOnline: MutableSet<Player> = mutableSetOf()
@@ -152,13 +147,14 @@ class Town(
         } else {
             "${ChatColor.GRAY}None"
         }
-        val allies = if (this.allies.isNotEmpty()) {
-            this.allies.joinToString(", ") { it -> it.name }
+        // allies/enemies are inherited from nation
+        val allies = if (this.nation?.allies?.isNotEmpty() == true) {
+            this.nation!!.allies.joinToString(", ") { it -> it.name }
         } else {
             "${ChatColor.GRAY}None"
         }
-        val enemies = if (this.enemies.isNotEmpty()) {
-            this.enemies.joinToString(", ") { it -> it.name }
+        val enemies = if (this.nation?.enemies?.isNotEmpty() == true) {
+            this.nation!!.enemies.joinToString(", ") { it -> it.name }
         } else {
             "${ChatColor.GRAY}None"
         }
@@ -191,8 +187,6 @@ class Town(
         val territories = t.territories.toList()
         val annexed = t.annexed.toList()
         val captured = t.captured.toList()
-        val allies = t.allies.map { x -> x.name }
-        val enemies = t.enemies.map { x -> x.name }
         val income = t.income.storage.toMutableMap()
         val isOpen = t.isOpen
 //        public val protectedBlocks: HashSet<Block> = HashSet(t.protectedBlocks)
@@ -206,8 +200,6 @@ class Town(
             val territories = this.territories.joinToString(",", "[", "]")
             val annexed = this.annexed.joinToString(",", "[", "]")
             val captured = this.captured.joinToString(",", "[", "]")
-            val allies = this.allies.asSequence().map { x -> "\"$x\"" }.joinToString(",", "[", "]")
-            val enemies = this.enemies.asSequence().map { x -> "\"$x\"" }.joinToString(",", "[", "]")
             val income = stringMapFromMap<Material, Int>(
                 this.income,
                 { k -> "\"$k\"" },
@@ -232,8 +224,6 @@ class Town(
                     "\"territories\":$territories," +
                     "\"annexed\":$annexed," +
                     "\"captured\":$captured," +
-                    "\"allies\":$allies," +
-                    "\"enemies\":$enemies," +
                     "\"income\":$income," +
                     "\"open\":${this.isOpen}," +
 //                    "\"protect\":${blocksToJsonString(this.protectedBlocks)}," +

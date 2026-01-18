@@ -22,13 +22,15 @@ fun townNametagViewedByPlayer(
     // get input player relation to this.player
     val otherTown = Nodes.getResident(viewer)?.town
     if (otherTown !== null) {
+        val townNation = town.nation
+        val otherNation = otherTown.nation
         if (town === otherTown) {
             return if (space) "${town.nametagTown} " else town.nametagTown
-        } else if (town.nation !== null && town.nation === otherTown.nation) {
+        } else if (townNation !== null && townNation === otherNation) {
             return if (space) "${town.nametagNation} " else town.nametagNation
-        } else if (town.allies.contains(otherTown)) {
+        } else if (townNation !== null && otherNation !== null && townNation.allies.contains(otherNation)) {
             return if (space) "${town.nametagAlly} " else town.nametagAlly
-        } else if (town.enemies.contains(otherTown)) {
+        } else if (townNation !== null && otherNation !== null && townNation.enemies.contains(otherNation)) {
             return if (space) "${town.nametagEnemy} " else town.nametagEnemy
         }
     }

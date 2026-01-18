@@ -208,9 +208,9 @@ object WorldMap {
                     val chunkOccupierNation = chunkOccupier.nation
                     if (chunkOccupier === residentTown) {
                         OCCUPIED_TOWN
-                    } else if (residentTown.allies.contains(chunkOccupier) || (residentNation !== null && residentNation === chunkOccupierNation)) {
+                    } else if ((residentNation !== null && residentNation === chunkOccupierNation) || (residentNation !== null && chunkOccupierNation !== null && residentNation.allies.contains(chunkOccupierNation))) {
                         OCCUPIED_ALLY
-                    } else if (residentTown.enemies.contains(chunkOccupier)) {
+                    } else if (residentNation !== null && chunkOccupierNation !== null && residentNation.enemies.contains(chunkOccupierNation)) {
                         OCCUPIED_ENEMY
                     } else {
                         OCCUPIED_NEUTRAL
@@ -223,11 +223,11 @@ object WorldMap {
                                 CORE_TOWN
                             }
                             // enemy
-                            else if (residentTown?.enemies?.contains(town) == true) {
+                            else if (residentNation !== null && nation !== null && residentNation.enemies.contains(nation)) {
                                 CORE_ENEMY
                             }
                             // ally
-                            else if (residentTown?.allies?.contains(town) == true || (residentNation !== null && residentNation === nation)) {
+                            else if ((residentNation !== null && residentNation === nation) || (residentNation !== null && nation !== null && residentNation.allies.contains(nation))) {
                                 CORE_ALLY
                             }
                             // neutral
@@ -244,11 +244,11 @@ object WorldMap {
                                     COLOR_OCCUPIED_TOWN[color]
                                 }
                                 // enemy
-                                else if (residentTown?.enemies?.contains(occupier) == true) {
+                                else if (residentNation !== null && occupierNation !== null && residentNation.enemies.contains(occupierNation)) {
                                     COLOR_OCCUPIED_ENEMY[color]
                                 }
                                 // ally
-                                else if (residentTown?.allies?.contains(occupier) == true || (residentNation !== null && residentNation === occupierNation)) {
+                                else if ((residentNation !== null && residentNation === occupierNation) || (residentNation !== null && occupierNation !== null && residentNation.allies.contains(occupierNation))) {
                                     COLOR_OCCUPIED_ALLY[color]
                                 }
                                 // neutral
@@ -263,11 +263,11 @@ object WorldMap {
                                         HOME_TOWN
                                     }
                                     // enemy
-                                    else if (residentTown?.enemies?.contains(town) == true) {
+                                    else if (residentNation !== null && nation !== null && residentNation.enemies.contains(nation)) {
                                         HOME_ENEMY
                                     }
                                     // ally
-                                    else if (residentTown?.allies?.contains(town) == true || (residentNation !== null && residentNation === nation)) {
+                                    else if ((residentNation !== null && residentNation === nation) || (residentNation !== null && nation !== null && residentNation.allies.contains(nation))) {
                                         HOME_ALLY
                                     }
                                     // neutral
@@ -282,11 +282,11 @@ object WorldMap {
                                         COLOR_TOWN[color]
                                     }
                                     // enemy
-                                    else if (residentTown?.enemies?.contains(town) == true) {
+                                    else if (residentNation !== null && nation !== null && residentNation.enemies.contains(nation)) {
                                         COLOR_ENEMY[color]
                                     }
                                     // ally
-                                    else if (residentTown?.allies?.contains(town) == true || (residentNation !== null && residentNation === nation)) {
+                                    else if ((residentNation !== null && residentNation === nation) || (residentNation !== null && nation !== null && residentNation.allies.contains(nation))) {
                                         COLOR_ALLY[color]
                                     }
                                     // neutral

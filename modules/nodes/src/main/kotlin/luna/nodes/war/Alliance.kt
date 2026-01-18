@@ -1,14 +1,10 @@
 /**
  * Alliance request manager and storage structure
  *
- * Alliances stored as town pairs (town1, town2)
- * Simple ally request manager
+ * Alliances are between nations only. Towns inherit
+ * alliance status from their nation.
  *
- * Handles "/ally [town/nation]" commands.
- * Three types of relations:
- * - town-town
- * - town-nation
- * - nation-nation
+ * Handles "/ally [nation]" commands.
  */
 
 package luna.nodes.war
@@ -16,8 +12,8 @@ package luna.nodes.war
 import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes
-import luna.nodes.objects.Town
-import luna.nodes.objects.TownPair
+import luna.nodes.objects.Nation
+import luna.nodes.objects.NationPair
 import net.minestom.server.MinecraftServer
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
@@ -29,7 +25,7 @@ enum class AllianceRequest {
 }
 
 // errors
-val ErrorAllyRequestEnemies = Exception("Not enemies")
+val ErrorAllyRequestEnemies = Exception("Nations are enemies")
 val ErrorAllyRequestAlreadyAllies = Exception("Already allies")
 val ErrorAllyRequestAlreadyCreated = Exception("Already sent an ally request")
 
@@ -41,92 +37,93 @@ private const val ALLY_REQUEST_TIMEOUT: Int = 1200
  */
 object Alliance {
 
-    // offers lists: maps TownPair involved -> Initiating Town
-    val requests: HashMap<TownPair, Town> = hashMapOf()
+    // offers lists: maps NationPair involved -> Initiating Nation
+    val requests: HashMap<NationPair, Nation> = hashMapOf()
 
     // threads to delete requests after timeout
-    val requestTimers: HashMap<TownPair, Task> = hashMapOf()
+    val requestTimers: HashMap<NationPair, Task> = hashMapOf()
 
     /**
-     * Offer/accept request between two towns. Inputs:
-     * - town1: initiator
-     * - town2: other town involved
-     * - if nations exist for either town, town must be nation's capital
+     * Offer/accept request between two nations. Inputs:
+     * - nation1: initiator
+     * - nation2: other nation involved
      *
-     * if request exists and town1 is not == TownPair -> Town, accept request
+     * if request exists and nation1 is not == NationPair -> Nation, accept request
      * else, create new request
      *
      */
-    fun request(town1: Town, town2: Town): Result<AllianceRequest> {
-        // check towns are not enemies
-        if (town1.enemies.contains(town2) || town2.enemies.contains(town1)) {
+    fun request(nation1: Nation, nation2: Nation): Result<AllianceRequest> {
+        // check nations are not enemies
+        if (nation1.enemies.contains(nation2) || nation2.enemies.contains(nation1)) {
             return Result.failure(ErrorAllyRequestEnemies)
         }
-        // check towns not already allied
-        if (town1.allies.contains(town2) && town2.allies.contains(town1)) {
+        // check nations not already allied
+        if (nation1.allies.contains(nation2) && nation2.allies.contains(nation1)) {
             return Result.failure(ErrorAllyRequestAlreadyAllies)
         }
 
-        val towns = TownPair(town1, town2)
-        val initiator = requests.get(towns)
+        val nations = NationPair(nation1, nation2)
+        val initiator = requests.get(nations)
 
         // no request, create new request
         if (initiator === null) {
-            requests.put(towns, town1)
+            requests.put(nations, nation1)
 
             // create timeout thread
             val timeoutThread = MinecraftServer.getSchedulerManager()
-                .buildTask { cancelRequest(towns) }
+                .buildTask { cancelRequest(nations) }
                 .delay(TaskSchedule.tick(ALLY_REQUEST_TIMEOUT))
                 .schedule()
 
-            requestTimers.put(towns, timeoutThread)
+            requestTimers.put(nations, timeoutThread)
 
             return Result.success(AllianceRequest.NEW)
         }
         // else, check request initiator
         else {
-            // initiator is same town
-            if (initiator === town1) {
+            // initiator is same nation
+            if (initiator === nation1) {
                 return Result.failure(ErrorAllyRequestAlreadyCreated)
             } else { // accept request
                 // remove request
-                requests.remove(towns)
+                requests.remove(nations)
 
                 // cancel timeout thread
-                val timeoutThread = requestTimers.remove(towns)
+                val timeoutThread = requestTimers.remove(nations)
                 if (timeoutThread !== null) {
                     timeoutThread.cancel()
                 }
 
-                Nodes.addAlly(town1, town2)
+                Nodes.addAlly(nation1, nation2)
                 return Result.success(AllianceRequest.ACCEPTED)
             }
         }
     }
 
     // remove and cancel ally request
-    fun cancelRequest(towns: TownPair) {
-        val initiator = requests.remove(towns)
+    fun cancelRequest(nations: NationPair) {
+        val initiator = requests.remove(nations)
         if (initiator !== null) {
             // cancel timeout thread
-            val timeoutThread = requestTimers.remove(towns)
+            val timeoutThread = requestTimers.remove(nations)
             if (timeoutThread !== null) {
                 timeoutThread.cancel()
             }
 
             // message creator that request was not accepted
-            val target = if (initiator === towns.town1) {
-                towns.town2
+            val target = if (initiator === nations.nation1) {
+                nations.nation2
             } else {
-                towns.town1
+                nations.nation1
             }
 
             val msg = "${ChatColor.DARK_RED}Your alliance offer to ${target.name} was ignored..."
-            for (r in initiator.residents) {
-                val p = r.player()
-                if (p !== null) {
-                    Message.print(p, msg)
+            for (town in initiator.towns) {
+                for (r in town.residents) {
+                    val p = r.player()
+                    if (p !== null) {
+                        Message.print(p, msg)
+                    }
                 }
             }
         }

@@ -476,7 +476,7 @@ object FlagWar {
             if (territory.id == terrTown.home) {
                 attackTime *= Nodes.config.chunkAttackHomeMultiplier
             }
-            attackTime *= if (terrTown.uuid == attackingTown.uuid || terrTown.allies.contains(attackingTown)) {
+            attackTime *= if (terrTown.uuid == attackingTown.uuid || Nodes.areTownsAllied(terrTown, attackingTown)) {
                 territory.defenderTimeMultiplier
             } else {
                 territory.attackerTimeMultiplier
@@ -586,14 +586,14 @@ object FlagWar {
         val territoryOccupier = territory.occupier
         val chunkOccupier = chunk.occupier
 
-        if (territoryOccupier === attackingTown || attackingTown.allies.contains(territoryOccupier)) {
-            if (!attackingTown.enemies.contains(chunkOccupier)) {
+        if (territoryOccupier === attackingTown || Nodes.areTownsAllied(attackingTown, territoryOccupier)) {
+            if (!Nodes.areTownsEnemies(attackingTown, chunkOccupier)) {
                 return true
             }
         }
 
         if (chunkOccupier !== null) {
-            if (chunkOccupier === attackingTown || attackingTown.allies.contains(chunkOccupier)) {
+            if (chunkOccupier === attackingTown || Nodes.areTownsAllied(attackingTown, chunkOccupier)) {
                 return true
             }
         }
@@ -608,7 +608,7 @@ object FlagWar {
     // 4. town's occupied territory, chunk occupied by enemy
     // 5. ally's occupied territory, chunk occupied by enemy
     internal fun chunkIsEnemy(chunk: TerritoryChunk, territory: Territory, attackingTown: Town): Boolean {
-        if (attackingTown.enemies.contains(territory.town)) {
+        if (Nodes.areTownsEnemies(attackingTown, territory.town)) {
             return true
         }
 
@@ -618,12 +618,12 @@ object FlagWar {
         // your town, nation, or ally town chunk occupied by enemy
         if ((territory.town === attackingTown) ||
             (attackingNation !== null && attackingNation === territoryNation) ||
-            (attackingTown.allies.contains(territory.town))
+            (Nodes.areTownsAllied(attackingTown, territory.town))
         ) {
-            if (attackingTown.enemies.contains(territory.occupier)) {
+            if (Nodes.areTownsEnemies(attackingTown, territory.occupier)) {
                 return true
             }
-            if (attackingTown.enemies.contains(chunk.occupier)) {
+            if (Nodes.areTownsEnemies(attackingTown, chunk.occupier)) {
                 return true
             }
         }
@@ -634,9 +634,9 @@ object FlagWar {
         val occupierNation = occupier?.nation
         if (occupier === attackingTown ||
             (attackingNation !== null && attackingNation === occupierNation) ||
-            attackingTown.allies.contains(occupier)
+            Nodes.areTownsAllied(attackingTown, occupier)
         ) {
-            if (attackingTown.enemies.contains(chunk.occupier)) {
+            if (Nodes.areTownsEnemies(attackingTown, chunk.occupier)) {
                 return true
             }
         }
@@ -686,18 +686,18 @@ object FlagWar {
         if (neighborTown === attacker) {
             if (neighborTerritoryOccupier === null) {
                 return true
-            } else if (attacker.allies.contains(neighborTerritoryOccupier)) {
+            } else if (Nodes.areTownsAllied(attacker, neighborTerritoryOccupier)) {
                 return true
             }
         }
 
         // you are neighbor territory occupier or an ally is the occupier
-        if (neighborTerritoryOccupier === attacker || attacker.allies.contains(neighborTerritoryOccupier)) {
+        if (neighborTerritoryOccupier === attacker || Nodes.areTownsAllied(attacker, neighborTerritoryOccupier)) {
             return true
         }
 
         // you or an ally is occupying the neighboring chunk
-        if (neighborChunkOccupier === attacker || attacker.allies.contains(neighborChunkOccupier)) {
+        if (neighborChunkOccupier === attacker || Nodes.areTownsAllied(attacker, neighborChunkOccupier)) {
             return true
         }
 
@@ -715,7 +715,7 @@ object FlagWar {
             if (attackerNation === neighborNation) {
                 if (neighborTerritoryOccupier === null) {
                     return true
-                } else if (attacker.allies.contains(neighborTerritoryOccupier)) {
+                } else if (Nodes.areTownsAllied(attacker, neighborTerritoryOccupier)) {
                     return true
                 }
             }
@@ -892,7 +892,7 @@ object FlagWar {
             // handle re-capturing your own territory, nation territory, or ally territory from enemy
             if (territoryTown === attackerTown ||
                 (attackerNation !== null && attackerNation === territoryTown?.nation) ||
-                attackerTown.allies.contains(territoryTown)
+                Nodes.areTownsAllied(attackerTown, territoryTown)
             ) {
                 val occupier = territory.occupier
                 Nodes.releaseTerritory(territory)

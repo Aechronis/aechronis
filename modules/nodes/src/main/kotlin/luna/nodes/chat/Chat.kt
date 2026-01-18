@@ -82,8 +82,14 @@ object Chat {
                 }
                 event.recipients.clear()
                 event.recipients.addAll(town.playersOnline)
-                for (allyTown in town.allies) {
-                    event.recipients.addAll(allyTown.playersOnline)
+                // add players from allied nations
+                val nation = town.nation
+                if (nation !== null) {
+                    for (allyNation in nation.allies) {
+                        for (allyTown in allyNation.towns) {
+                            event.recipients.addAll(allyTown.playersOnline)
+                        }
+                    }
                 }
                 event.formattedMessage = formatMsgAlly(resident, player.username, msg)
             }

@@ -7,10 +7,8 @@ package luna.nodes
 import com.google.gson.JsonObject
 import luna.nodes.commands.AllyCommand
 import luna.nodes.commands.NationCommand
-import luna.nodes.commands.NodesCommand
 import luna.nodes.commands.TownCommand
 import luna.nodes.commands.UnallyCommand
-import luna.nodes.commands.WarCommand
 //import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import net.minestom.server.MinecraftServer
 import luna.nodes.utils.ChatColor
@@ -46,6 +44,7 @@ import luna.nodes.constants.ErrorTownDoesNotExist
 import luna.nodes.constants.ErrorTownExists
 import luna.nodes.constants.ErrorTownHasNation
 import luna.nodes.constants.ErrorWarAlly
+import luna.nodes.constants.ErrorWarSameNation
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
 import luna.nodes.listeners.onBlockBreak
@@ -76,7 +75,6 @@ import luna.nodes.objects.TerritoryId
 import luna.nodes.objects.TerritoryPreprocessing
 import luna.nodes.objects.TerritoryResources
 import luna.nodes.objects.Town
-import luna.nodes.objects.TownPair
 import luna.nodes.serdes.Deserializer
 import luna.nodes.tasks.IncomeManager
 import luna.nodes.tasks.SaveManager
@@ -210,11 +208,9 @@ object Nodes {
 //    // register commands
         MinecraftServer.getCommandManager().register(TownCommand())
         MinecraftServer.getCommandManager().register(NationCommand())
-        MinecraftServer.getCommandManager().register(NodesCommand())
 //    this.getCommand("nodesadmin")?.setExecutor(NodesAdminCommand())
         MinecraftServer.getCommandManager().register(AllyCommand())
         MinecraftServer.getCommandManager().register(UnallyCommand())
-        MinecraftServer.getCommandManager().register(WarCommand())
 //    this.getCommand("globalchat")?.setExecutor(GlobalChatCommand())
 //    this.getCommand("townchat")?.setExecutor(TownChatCommand())
 //    this.getCommand("nationchat")?.setExecutor(NationChatCommand())
@@ -676,15 +672,9 @@ object Nodes {
         townAllies: ArrayList<ArrayList<String>>,
         townEnemies: ArrayList<ArrayList<String>>,
     ) {
-        // perform fixes on diplomacy during loading:
-        // 1. if towns are in nation, ignore pairs between towns
-        //    in nation. instead add nations to nationAlliancePairs
-        // 2. if either town NOT in nation, add to townAlliancePairs
-
-        val townAlliancePairs: HashSet<TownPair> = hashSetOf()
+        // load nation-level diplomacy from town data
+        // towns inherit alliance/enemy status from their nation
         val nationAlliancePairs: HashSet<NationPair> = hashSetOf()
-
-        val townEnemyPairs: HashSet<TownPair> = hashSetOf()
         val nationEnemyPairs: HashSet<NationPair> = hashSetOf()
 
         for ((i, town) in towns.withIndex()) {
@@ -693,97 +683,48 @@ object Nodes {
 
             val townNation = town.nation
 
-            for (name in allies) {
-                val other = Nodes.towns.get(name)
-                if (other !== null) {
-                    val otherNation = other.nation
-
-                    // only add individual town pair if either does not have a nation
-                    if (townNation === null || otherNation === null) {
-                        townAlliancePairs.add(TownPair(town, other))
-                    }
-                    // add nation pairs
-                    else if (town === townNation.capital && other === otherNation.capital) {
-                        nationAlliancePairs.add(NationPair(townNation, otherNation))
+            if (townNation !== null && town === townNation.capital) {
+                for (name in allies) {
+                    val other = Nodes.towns.get(name)
+                    if (other !== null) {
+                        val otherNation = other.nation
+                        // add nationpairs for allies
+                        if (otherNation !== null && other === otherNation.capital) {
+                            nationAlliancePairs.add(NationPair(townNation, otherNation))
+                        }
                     }
                 }
-            }
 
-            for (name in enemies) {
-                val other = Nodes.towns.get(name)
-                if (other !== null) {
-                    val otherNation = other.nation
-
-                    // only add individual town pair if either does not have a nation
-                    if (townNation === null || otherNation === null) {
-                        townEnemyPairs.add(TownPair(town, other))
-                    }
-                    // add nation pairs
-                    else if (town === townNation.capital && other === otherNation.capital) {
-                        nationEnemyPairs.add(NationPair(townNation, otherNation))
+                for (name in enemies) {
+                    val other = Nodes.towns.get(name)
+                    if (other !== null) {
+                        val otherNation = other.nation
+                        // add nationpairs for enemies
+                        if (otherNation !== null && other === otherNation.capital) {
+                            nationEnemyPairs.add(NationPair(townNation, otherNation))
+                        }
                     }
                 }
             }
         }
 
-        // apply ally pairs
-        for (townPair in townAlliancePairs) {
-            val town1 = townPair.town1
-            val town2 = townPair.town2
-
-            town1.allies.add(town2)
-            town2.allies.add(town1)
-        }
-
+        // apply nation ally pairs
         for (nationPair in nationAlliancePairs) {
             val nation1 = nationPair.nation1
             val nation2 = nationPair.nation2
 
             nation1.allies.add(nation2)
             nation2.allies.add(nation1)
-
-            for (town1 in nation1.towns) {
-                for (town2 in nation2.towns) {
-                    town1.allies.add(town2)
-                    town2.allies.add(town1)
-                }
-            }
         }
 
         // apply enemy pairs
-        for (townPair in townEnemyPairs) {
-            val town1 = townPair.town1
-            val town2 = townPair.town2
-
-            town1.enemies.add(town2)
-            town2.enemies.add(town1)
-        }
-
         for (nationPair in nationEnemyPairs) {
             val nation1 = nationPair.nation1
             val nation2 = nationPair.nation2
 
             nation1.enemies.add(nation2)
             nation2.enemies.add(nation1)
-
-            for (town1 in nation1.towns) {
-                for (town2 in nation2.towns) {
-                    town1.enemies.add(town2)
-                    town2.enemies.add(town1)
-                }
-            }
         }
-
-        // apply alliances between towns in nations
-        // for ( nation in Nodes.nations.values ) {
-        //     for ( town1 in nation.towns ) {
-        //         for ( town2 in nation.towns ) {
-        //             if ( town1 !== town2 ) {
-
-        //             }
-        //         }
-        //     }
-        // }
     }
 
 //    // ==============================================
@@ -1214,18 +1155,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
                     nation.playersOnline.remove(player)
                 }
             }
-        }
-
-        // remove all town alliances
-        for (ally in town.allies) {
-            ally.allies.remove(town)
-            ally.needsUpdate()
-        }
-
-        // remove all town enemies
-        for (enemy in town.enemies) {
-            enemy.enemies.remove(town)
-            enemy.needsUpdate()
         }
 
         // remove town from global
@@ -1694,14 +1623,6 @@ fun captureTerritory(town: Town, territory: Territory) {
             r.needsUpdate()
         }
 
-        // update town allies/enemies
-        for (t in town.enemies) {
-            t.needsUpdate()
-        }
-        for (t in town.allies) {
-            t.needsUpdate()
-        }
-
         needsSave = true
 
         return true
@@ -1768,6 +1689,26 @@ fun captureTerritory(town: Town, territory: Territory) {
 //        Nodes.needsSave = true
 //    }
 
+    // check if two towns are allied (same nation or nations are allied)
+    fun areTownsAllied(town1: Town?, town2: Town?): Boolean {
+        if (town1 === null || town2 === null) return false
+        if (town1 === town2) return true
+        val nation1 = town1.nation
+        val nation2 = town2.nation
+        if (nation1 !== null && nation1 === nation2) return true
+        if (nation1 !== null && nation2 !== null && nation1.allies.contains(nation2)) return true
+        return false
+    }
+
+    // check if two towns are enemies (nations are enemies)
+    fun areTownsEnemies(town1: Town?, town2: Town?): Boolean {
+        if (town1 === null || town2 === null) return false
+        val nation1 = town1.nation
+        val nation2 = town2.nation
+        if (nation1 !== null && nation2 !== null && nation1.enemies.contains(nation2)) return true
+        return false
+    }
+
     // ==============================================
     // Nation functions
     // ==============================================
@@ -1794,13 +1735,6 @@ fun captureTerritory(town: Town, territory: Territory) {
         // add town to nation
         nation.towns.add(town)
         town.nation = nation
-
-        // remove all pre-existing town alliances, but do not change enemies
-        for (ally in town.allies) {
-            ally.allies.remove(town)
-            ally.needsUpdate()
-        }
-        town.allies.clear()
 
         // add nation to all residents in creator's town
         for (r in town.residents) {
@@ -1886,19 +1820,6 @@ fun captureTerritory(town: Town, territory: Territory) {
                 r.needsUpdate()
             }
 
-            // remove all town alliances and enemies
-            for (ally in town.allies) {
-                ally.allies.remove(town)
-                ally.needsUpdate()
-            }
-            town.allies.clear()
-
-            for (enemy in town.enemies) {
-                enemy.enemies.remove(town)
-                enemy.needsUpdate()
-            }
-            town.enemies.clear()
-
             town.nation = null
             town.needsUpdate()
         }
@@ -1938,30 +1859,6 @@ fun captureTerritory(town: Town, territory: Territory) {
                 nation.playersOnline.add(player)
             }
             r.needsUpdate()
-        }
-
-        // remove current town alliances and enemies, set equal to nation capital
-        for (ally in town.allies) {
-            ally.allies.remove(town)
-            ally.needsUpdate()
-        }
-        for (enemy in town.enemies) {
-            enemy.enemies.remove(town)
-            enemy.needsUpdate()
-        }
-
-        town.allies.clear()
-        town.enemies.clear()
-
-        for (ally in nation.capital.allies) {
-            town.allies.add(ally)
-            ally.allies.add(town)
-            ally.needsUpdate()
-        }
-        for (enemy in nation.capital.enemies) {
-            town.enemies.add(enemy)
-            enemy.enemies.add(town)
-            enemy.needsUpdate()
         }
 
         nation.needsUpdate()
@@ -2012,19 +1909,6 @@ fun captureTerritory(town: Town, territory: Territory) {
                 }
             }
         }
-
-        // remove all town alliances and enemies
-        for (ally in town.allies) {
-            ally.allies.remove(town)
-            ally.needsUpdate()
-        }
-        town.allies.clear()
-
-        for (enemy in town.enemies) {
-            enemy.enemies.remove(town)
-            enemy.needsUpdate()
-        }
-        town.enemies.clear()
 
         town.needsUpdate()
         nation.needsUpdate()
@@ -2243,319 +2127,92 @@ fun captureTerritory(town: Town, territory: Territory) {
     }
 
     /**
-     * Set two towns as enemies and their nations if needed, order does not matter.
-     * This should be the main function used.
+     * Add alliance between two nations
      */
-    fun addEnemy(town: Town, enemy: Town): Result<Boolean> {
-        // make sure towns are not allies
-        if (town.allies.contains(enemy)) {
-            return Result.failure(ErrorWarAlly)
-        }
-
-        // check if towns already enemies
-        if (town.enemies.contains(enemy) || enemy.enemies.contains(town)) {
-            return Result.failure(ErrorAlreadyEnemies)
-        }
-
-        val townNation = town.nation
-        val enemyNation = enemy.nation
-
-        if (townNation !== null) {
-            // nation-nation war
-            if (enemyNation !== null) {
-                // civil war boogaloo
-                if (enemyNation === townNation) {
-                    town.enemies.add(enemy)
-                    enemy.enemies.add(town)
-
-                    // remove ally status
-                    town.allies.remove(enemy)
-                    enemy.allies.remove(town)
-                }
-                // default to nation-nation war
-                else {
-                    if (town === townNation.capital) { // only nation leading town declare war
-                        return nationAddEnemy(townNation, enemyNation)
-                    }
-                }
-            }
-            // nation-town war
-            else {
-                for (t in townNation.towns) {
-                    t.enemies.add(enemy)
-                    enemy.enemies.add(t)
-
-                    t.needsUpdate()
-                }
-            }
-        }
-        // town declaring war without nation
-        else {
-            // town-nation war
-            if (enemyNation !== null) {
-                for (t in enemyNation.towns) {
-                    t.enemies.add(town)
-                    town.enemies.add(t)
-
-                    t.needsUpdate()
-                }
-            }
-            // town-town war
-            else {
-                town.enemies.add(enemy)
-                enemy.enemies.add(town)
-            }
-        }
-
-        town.needsUpdate()
-        enemy.needsUpdate()
-        needsSave = true
-
-        // re-render minimaps
-        renderMinimaps()
-
-        // update nametags
-//        Nametag.pipelinedUpdateAllText()
-
-        return Result.success(true)
-    }
-
-//    /**
-//     * Removes enemy status between two towns (and nations if needed)
-//     * Order does not matter.
-//     */
-//    public fun removeEnemy(town: Town, enemy: Town): Result<Boolean> {
-//        val townNation = town.nation
-//        val enemyNation = enemy.nation
-//
-//        if (townNation !== null) {
-//            // nation-nation war
-//            if (enemyNation !== null) {
-//                // civil war boogaloo
-//                if (enemyNation === townNation) {
-//                    town.enemies.remove(enemy)
-//                    enemy.enemies.remove(town)
-//
-//                    town.allies.add(enemy)
-//                    enemy.allies.add(town)
-//                }
-//                // default to nation-nation war
-//                else {
-//                    return nationRemoveEnemy(townNation, enemyNation)
-//                }
-//            }
-//            // nation-town war
-//            else {
-//                for (t in townNation.towns) {
-//                    t.enemies.remove(enemy)
-//                    enemy.enemies.remove(t)
-//
-//                    t.needsUpdate()
-//                }
-//            }
-//        }
-//        // town declaring war without nation
-//        else {
-//            // town-nation war
-//            if (enemyNation !== null) {
-//                for (t in enemyNation.towns) {
-//                    t.enemies.remove(town)
-//                    town.enemies.remove(t)
-//
-//                    t.needsUpdate()
-//                }
-//            }
-//            // town-town war
-//            else {
-//                town.enemies.remove(enemy)
-//                enemy.enemies.remove(town)
-//            }
-//        }
-//
-//        town.needsUpdate()
-//        enemy.needsUpdate()
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        // update nametags
-//        Nametag.pipelinedUpdateAllText()
-//
-//        return Result.success(true)
-//    }
-//
-    /**
-     * Set two towns as allies (bidirectional), order does not matter.
-     * Handle town-town, town-nation, nation-town, nation-nation cases
-     */
-    fun addAlly(town: Town, other: Town): Result<Boolean> {
-        // towns already allies
-        if (town.allies.contains(other) && other.allies.contains(town)) {
+    fun addAlly(nation: Nation, other: Nation): Result<Boolean> {
+        // nations already allies
+        if ((nation.allies.contains(other) && other.allies.contains(nation)) || nation === other) {
             return Result.failure(ErrorAlreadyAllies)
         }
 
         // cannot ally enemies
-        if (town.enemies.contains(other) || other.enemies.contains(town)) {
+        if (nation.enemies.contains(other) || other.enemies.contains(nation)) {
             return Result.failure(ErrorAlreadyEnemies)
         }
 
-        val townNation = town.nation
-        val otherNation = other.nation
+        nation.allies.add(other)
+        other.allies.add(nation)
 
-        if (townNation !== null) {
-            // nation-nation
-            if (otherNation !== null && townNation !== otherNation) {
-                nationAddAlly(townNation, otherNation)
-            }
-            // nation-town
-            else {
-                for (t in townNation.towns) {
-                    t.allies.add(other)
-                    other.allies.add(town)
-
-                    val msgTown1 = "Your town is now allied with ${other.name}"
-                    for (r in t.residents) {
-                        val player = r.player()
-                        if (player !== null) {
-                            Message.print(player, msgTown1)
-                        }
-                    }
-
-                    val msgTown2 = "Your town is now allied with ${t.name}"
-                    for (r in other.residents) {
-                        val player = r.player()
-                        if (player !== null) {
-                            Message.print(player, msgTown2)
-                        }
-                    }
-
-                    t.needsUpdate()
+        // message all towns in both nations
+        val msgNation1 = "Your nation is now allied with ${other.name}"
+        for (t in nation.towns) {
+            for (r in t.residents) {
+                val player = r.player()
+                if (player !== null) {
+                    Message.print(player, msgNation1)
                 }
             }
-        }
-        // town allying without nation
-        else {
-            // town-nation
-            if (otherNation !== null) {
-                for (t in otherNation.towns) {
-                    t.allies.add(town)
-                    town.allies.add(t)
-
-                    val msgTown1 = "Your town is now allied with ${t.name}"
-                    for (r in town.residents) {
-                        val player = r.player()
-                        if (player !== null) {
-                            Message.print(player, msgTown1)
-                        }
-                    }
-
-                    val msgTown2 = "Your town is now allied with ${town.name}"
-                    for (r in t.residents) {
-                        val player = r.player()
-                        if (player !== null) {
-                            Message.print(player, msgTown2)
-                        }
-                    }
-
-                    t.needsUpdate()
-                }
-            }
-            // town-town
-            else {
-                town.allies.add(other)
-                other.allies.add(town)
-
-                val msgTown1 = "Your town is now allied with ${other.name}"
-                for (r in town.residents) {
-                    val player = r.player()
-                    if (player !== null) {
-                        Message.print(player, msgTown1)
-                    }
-                }
-
-                val msgTown2 = "Your town is now allied with ${town.name}"
-                for (r in other.residents) {
-                    val player = r.player()
-                    if (player !== null) {
-                        Message.print(player, msgTown2)
-                    }
-                }
-            }
+            t.needsUpdate()
         }
 
-        town.needsUpdate()
+        val msgNation2 = "Your nation is now allied with ${nation.name}"
+        for (t in other.towns) {
+            for (r in t.residents) {
+                val player = r.player()
+                if (player !== null) {
+                    Message.print(player, msgNation2)
+                }
+            }
+            t.needsUpdate()
+        }
+
+        nation.needsUpdate()
         other.needsUpdate()
         needsSave = true
 
         // re-render minimaps
         renderMinimaps()
-
-        // update nametags
-//        Nametag.pipelinedUpdateAllText()
 
         return Result.success(true)
     }
 
-    fun removeAlly(town: Town, other: Town): Result<Boolean> {
+    /**
+     * Remove alliance between two nations
+     */
+    fun removeAlly(nation: Nation, other: Nation): Result<Boolean> {
         // not currently allies
-        if (!town.allies.contains(other) || !other.allies.contains(town)) {
+        if (!nation.allies.contains(other) || !other.allies.contains(nation)) {
             return Result.failure(ErrorNotAllies)
         }
 
-        val townNation = town.nation
-        val otherNation = other.nation
+        nation.allies.remove(other)
+        other.allies.remove(nation)
 
-        if (townNation !== null) {
-            // nation-nation
-            if (otherNation !== null && townNation !== otherNation) {
-                nationRemoveAlly(townNation, otherNation)
-            }
-            // nation-town
-            else {
-                for (t in townNation.towns) {
-                    t.allies.remove(other)
-                    other.allies.remove(town)
-
-                    t.needsUpdate()
-                }
-            }
+        // mark towns as needing update
+        for (t in nation.towns) {
+            t.needsUpdate()
         }
-        // town allying without nation
-        else {
-            // town-nation
-            if (otherNation !== null) {
-                for (t in otherNation.towns) {
-                    t.allies.remove(town)
-                    town.allies.remove(t)
-
-                    t.needsUpdate()
-                }
-            }
-            // town-town
-            else {
-                town.allies.remove(other)
-                other.allies.remove(town)
-            }
+        for (t in other.towns) {
+            t.needsUpdate()
         }
 
-        town.needsUpdate()
+        nation.needsUpdate()
         other.needsUpdate()
         needsSave = true
 
         // re-render minimaps
         renderMinimaps()
-
-        // update nametags
-//        Nametag.pipelinedUpdateAllText()
 
         return Result.success(true)
     }
 
     // set two nations as enemies (bidirectional), order does not matter
-    // -> sets all towns in each nation as enemies
     // returns true on success
-    private fun nationAddEnemy(nation: Nation, enemy: Nation): Result<Boolean> {
+    fun addEnemy(nation: Nation, enemy: Nation): Result<Boolean> {
+        if (nation === enemy) {
+            return Result.failure(ErrorWarSameNation)
+        }
+
         // make sure nations are not allies
         if (nation.allies.contains(enemy)) {
             return Result.failure(ErrorWarAlly)
@@ -2569,17 +2226,16 @@ fun captureTerritory(town: Town, territory: Territory) {
         nation.enemies.add(enemy)
         enemy.enemies.add(nation)
 
-        // mark all towns in each nation as enemies
+        // mark all towns as needing update (towns inherit enemy status from nation)
         for (nationTown in nation.towns) {
-            for (enemyTown in enemy.towns) {
-                nationTown.enemies.add(enemyTown)
-                enemyTown.enemies.add(nationTown)
-
-                enemyTown.needsUpdate()
-            }
             nationTown.needsUpdate()
         }
+        for (enemyTown in enemy.towns) {
+            enemyTown.needsUpdate()
+        }
 
+        nation.needsUpdate()
+        enemy.needsUpdate()
         needsSave = true
 
         // re-render minimaps
@@ -2588,94 +2244,20 @@ fun captureTerritory(town: Town, territory: Territory) {
         return Result.success(true)
     }
 
-//    private fun nationRemoveEnemy(nation: Nation, enemy: Nation): Result<Boolean> {
-//        nation.enemies.remove(enemy)
-//        enemy.enemies.remove(nation)
-//
-//        // remove enemy status between towns in each nation
-//        for (nationTown in nation.towns) {
-//            for (enemyTown in enemy.towns) {
-//                nationTown.enemies.remove(enemyTown)
-//                enemyTown.enemies.remove(nationTown)
-//
-//                enemyTown.needsUpdate()
-//            }
-//            nationTown.needsUpdate()
-//        }
-//
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        return Result.success(true)
-//    }
-//
-    // add alliance between two nations and their towns (bidirectional)
-    private fun nationAddAlly(nation: Nation, ally: Nation): Result<Boolean> {
-        // make sure nations are not enemies
-        if (nation.enemies.contains(ally) || ally.enemies.contains(nation)) {
-            return Result.failure(ErrorAlreadyEnemies)
-        }
+    fun removeEnemy(nation: Nation, enemy: Nation): Result<Boolean> {
+        nation.enemies.remove(enemy)
+        enemy.enemies.remove(nation)
 
-        // check if nations already have alliance
-        if (nation.allies.contains(ally) && ally.allies.contains(nation)) {
-            return Result.failure(ErrorAlreadyAllies)
-        }
-
-        nation.allies.add(ally)
-        ally.allies.add(nation)
-
-        // mark all towns in each nation as enemies
+        // mark all towns as needing update (towns inherit enemy status from nation)
         for (nationTown in nation.towns) {
-            for (allyTown in ally.towns) {
-                nationTown.allies.add(allyTown)
-                allyTown.allies.add(nationTown)
-
-                allyTown.needsUpdate()
-
-                val msgTown1 = "Your town is now allied with ${allyTown.name}"
-                for (r in nationTown.residents) {
-                    val player = r.player()
-                    if (player !== null) {
-                        Message.print(player, msgTown1)
-                    }
-                }
-
-                val msgTown2 = "Your town is now allied with ${nationTown.name}"
-                for (r in allyTown.residents) {
-                    val player = r.player()
-                    if (player !== null) {
-                        Message.print(player, msgTown2)
-                    }
-                }
-            }
             nationTown.needsUpdate()
         }
-
-        needsSave = true
-
-        // re-render minimaps
-    renderMinimaps()
-
-        return Result.success(true)
-    }
-
-    private fun nationRemoveAlly(nation: Nation, ally: Nation): Result<Boolean> {
-        nation.allies.remove(ally)
-        ally.allies.remove(nation)
-
-        // mark all towns in each nation as enemies
-        for (nationTown in nation.towns) {
-            for (allyTown in ally.towns) {
-                nationTown.allies.remove(allyTown)
-                allyTown.allies.remove(nationTown)
-
-                allyTown.needsUpdate()
-            }
-            nationTown.needsUpdate()
+        for (enemyTown in enemy.towns) {
+            enemyTown.needsUpdate()
         }
 
+        nation.needsUpdate()
+        enemy.needsUpdate()
         needsSave = true
 
         // re-render minimaps
@@ -2685,7 +2267,8 @@ fun captureTerritory(town: Town, territory: Territory) {
     }
 
     /**
-     * Get diplomatic relationship between two towns
+     * Get diplomatic relationship between two towns.
+     * Alliances and enemies are inherited from nations.
      */
     fun getRelationshipOfTownToTown(playerTown: Town?, otherTown: Town?): DiplomaticRelationship {
         if (playerTown !== null && otherTown !== null) {
@@ -2699,12 +2282,15 @@ fun captureTerritory(town: Town, territory: Territory) {
                 return DiplomaticRelationship.NATION
             }
 
-            if (playerTown.allies.contains(otherTown)) {
-                return DiplomaticRelationship.ALLY
-            }
+            // check nation-level alliances
+            if (playerNation !== null && otherNation !== null) {
+                if (playerNation.allies.contains(otherNation)) {
+                    return DiplomaticRelationship.ALLY
+                }
 
-            if (playerTown.enemies.contains(otherTown)) {
-                return DiplomaticRelationship.ENEMY
+                if (playerNation.enemies.contains(otherNation)) {
+                    return DiplomaticRelationship.ENEMY
+                }
             }
         }
 
