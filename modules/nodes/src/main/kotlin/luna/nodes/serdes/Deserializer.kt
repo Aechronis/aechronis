@@ -226,9 +226,6 @@ object Deserializer {
                     }
                 }
 
-                // parse town isOpen
-                val isOpen: Boolean = town.get("open")?.asBoolean ?: false
-
 //                // parse town protected blocks
 //                val protectedBlocks: HashSet<Block> = hashSetOf()
 //                val protectedBlocksJsonArray = town.get("protect")?.getAsJsonArray()
@@ -260,7 +257,6 @@ object Deserializer {
                     annexedIds,
                     income,
                     permissions,
-                    isOpen,
 //                    protectedBlocks,
                 )
 

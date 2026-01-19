@@ -258,12 +258,6 @@ class TownApplyCommand: Command("apply", "join") {
                 return@addSyntax
             }
 
-            if (context[townArg].isOpen) {
-                Nodes.addResidentToTown(context[townArg], resident)
-                Message.print(player, "You are now a resident of ${context[townArg].name}!")
-                return@addSyntax
-            }
-
             if (context[townArg].applications.containsKey(resident)) {
                 Message.error(player, "You have already applied to ${context[townArg].name}")
                 return@addSyntax

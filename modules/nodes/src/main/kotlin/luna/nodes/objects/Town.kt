@@ -89,9 +89,6 @@ class Town(
     var nametagAlly: String = "${ChatColor.DARK_AQUA}[${this.name}]"
     var nametagEnemy: String = "${ChatColor.RED}[${this.name}]"
 
-    // flag that anyone can join town
-    var isOpen: Boolean = false
-
     // players applying to town and their tasks
     val applications: HashMap<Resident, Task> = hashMapOf()
 
@@ -188,7 +185,6 @@ class Town(
         val annexed = t.annexed.toList()
         val captured = t.captured.toList()
         val income = t.income.storage.toMutableMap()
-        val isOpen = t.isOpen
 //        public val protectedBlocks: HashSet<Block> = HashSet(t.protectedBlocks)
 
         override var jsonString: String? = null
@@ -225,7 +221,6 @@ class Town(
                     "\"annexed\":$annexed," +
                     "\"captured\":$captured," +
                     "\"income\":$income," +
-                    "\"open\":${this.isOpen}," +
 //                    "\"protect\":${blocksToJsonString(this.protectedBlocks)}," +
                     "}"
                 )

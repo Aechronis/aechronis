@@ -1012,7 +1012,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
         annexedTerritoryIds: ArrayList<Int>,
         income: MutableMap<Material, Int>,
         permissions: MutableMap<TownPermissions, EnumSet<PermissionsGroup>>,
-        isOpen: Boolean,
 //        protectedBlocks: HashSet<Block>,
     ): Town? {
         val leaderAsResident = if (leader != null) {
@@ -1107,9 +1106,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
             town.permissions[type].clear()
             town.permissions[type].addAll(groups)
         }
-
-        // set isOpen
-        town.isOpen = isOpen
 
 //        // add protected blocks
 //        town.protectedBlocks.addAll(protectedBlocks)
@@ -1685,13 +1681,6 @@ fun captureTerritory(town: Town, territory: Territory) {
     internal fun onTownIncomeInventoryClose() {
         needsSave = true
     }
-//
-//    // set town's isOpen state
-//    internal fun setTownOpen(town: Town, isOpen: Boolean) {
-//        town.isOpen = isOpen
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//    }
 
     // check if two towns are allied (same nation or nations are allied)
     fun areTownsAllied(town1: Town?, town2: Town?): Boolean {
