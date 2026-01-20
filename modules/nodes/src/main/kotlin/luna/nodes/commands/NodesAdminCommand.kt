@@ -1,2094 +1,516 @@
-///**
-// * Admin commands to manage world
-// * - modify towns, nations
-// * - war enable/disable
-// *
-// *    /nodesadmin command ...
-// *    /na command
-// */
-//
-//package luna.nodes.commands
-//
-//import org.bukkit.Bukkit
-//import org.bukkit.ChatColor
-//import org.bukkit.Material
-//import org.bukkit.Sound
-//import org.bukkit.command.Command
-//import org.bukkit.command.CommandExecutor
-//import org.bukkit.command.CommandSender
-//import org.bukkit.command.TabCompleter
-//import org.bukkit.entity.Player
-//import org.bukkit.inventory.ItemStack
-//import luna.nodes.Config
-//import luna.nodes.Message
-//import luna.nodes.Nodes
-//import luna.nodes.Nodes.addPortToGroup
-//import luna.nodes.Nodes.removePortFromGroup
-//import luna.nodes.objects.Coord
-//import luna.nodes.objects.Resident
-//import luna.nodes.objects.Territory
-//import luna.nodes.objects.TerritoryId
-//import luna.nodes.objects.Town
-//import luna.nodes.utils.sanitizeString
-//import luna.nodes.utils.string.filterByStart
-//import luna.nodes.utils.string.filterNation
-//import luna.nodes.utils.string.filterNationTown
-//import luna.nodes.utils.string.filterPlayer
-//import luna.nodes.utils.string.filterPort
-//import luna.nodes.utils.string.filterPortGroup
-//import luna.nodes.utils.string.filterResident
-//import luna.nodes.utils.string.filterTown
-//import luna.nodes.utils.string.filterTownOrNation
-//import luna.nodes.utils.string.filterTownResident
-//import luna.nodes.utils.stringInputIsValid
-//import kotlin.getOrElse
-//import kotlin.math.roundToInt
-//
-//// list of all subcommands, used for onTabComplete
-//private val SUBCOMMANDS: List<String> = listOf(
-//    "help",
-//    "reload",
-//    "war",
-//    "port",
-//    "portgroup",
-//    "resident",
-//    "town",
-//    "nation",
-//    "enemy",
-//    "ally",
-//    "allyremove",
-//    "save",
-//    "load",
-//    "runincome",
-//    "playersonline",
-//    "debug",
-//)
-//
-//private val RELOAD_SUBCOMMANDS: List<String> = listOf(
-//    "config",
-//    "managers",
-//    "resources",
-//    "territory",
-//)
-//
-//// war subcommands
-//private val WAR_SUBCOMMANDS: List<String> = listOf(
-//    "enable",
-//    "skirmish",
-//    "disable",
-//    "whitelist",
-//    "blacklist",
-//)
-//
-//// port subcommands
-//private val PORT_SUBCOMMANDS: List<String> = listOf(
-//    "create",
-//    "delete",
-//    "addgroup",
-//    "removegroup",
-//)
-//
-//// portgroup subcommands
-//private val PORTGROUP_SUBCOMMANDS: List<String> = listOf(
-//    "create",
-//    "delete",
-//)
-//
-//// town subcommands
-//private val TOWN_SUBCOMMANDS: List<String> = listOf(
-//    "create",
-//    "delete",
-//    "addplayer",
-//    "removeplayer",
-//    "addterritory",
-//    "removeterritory",
-//    "captureterritory",
-//    "releaseterritory",
-//    "addofficer",
-//    "removeofficer",
-//    "leader",
-//    "removeleader",
-//    "open",
-//    "income",
-//    "incomeadd",
-//    "incomeremove",
-//    "setspawn",
-//    "spawn",
-//    "sethome",
-//    "defaulttownspawns",
-//)
-//
-//// nation subcommands
-//private val NATION_SUBCOMMANDS: List<String> = listOf(
-//    "create",
-//    "delete",
-//    "addtown",
-//    "removetown",
-//    "capital",
-//)
-//
-//// debug subcommands
-//private val DEBUG_SUBCOMMANDS: List<String> = listOf(
-//    "resource",
-//    "chunk",
-//    "territory",
-//    "resident",
-//    "town",
-//    "nation",
-//)
-//
-//public class NodesAdminCommand :
-//    CommandExecutor,
-//    TabCompleter {
-//
-//    override fun onCommand(sender: CommandSender, cmd: Command, commandLabel: String, args: Array<String>): Boolean {
-//        // no args, print plugin info
-//        if (args.size == 0) {
-//            Message.print(sender, "${ChatColor.BOLD}Nodes ${Nodes.version}")
-//            printHelp(sender)
-//            return true
-//        }
-//
-//        // parse subcommand
-//        when (args[0].lowercase()) {
-//            "help" -> printHelp(sender)
-//            "reload" -> reload(sender, args)
-//            "war" -> war(sender, args)
-//            "resident" -> manageResident(sender, args)
-//            "town" -> manageTown(sender, args)
-//            "port" -> managePort(sender, args)
-//            "portgroup" -> managePortGroup(sender, args)
-//            "nation" -> manageNation(sender, args)
-//            "enemy" -> setEnemy(sender, args)
-//            "ally" -> setAlly(sender, args)
-//            "allyremove" -> removeAlly(sender, args)
-//            "save" -> saveWorld(sender, args)
-//            "load" -> loadWorld(sender)
-//            "runincome" -> Nodes.runIncome()
-//            "playersonline" -> Nodes.refreshPlayersOnline()
-//            "debug" -> debugger(sender, args)
-//            else -> {
-//                Message.error(sender, "Invalid command, use \"/nodesadmin help\"")
-//            }
-//        }
-//
-//        return true
-//    }
-//
-//    override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<String>): List<String> {
-//        // match subcommand
-//        if (args.size == 1) {
-//            return filterByStart(SUBCOMMANDS, args[0])
-//        }
-//        // match each subcommand format
-//        else if (args.size > 1) {
-//            // handle specific subcommands
-//            when (args[0].lowercase()) {
-//                "reload" -> {
-//                    if (args.size == 2) {
-//                        return filterByStart(RELOAD_SUBCOMMANDS, args[1])
-//                    }
-//                }
-//
-//                // /nodesadmin war enable/disable
-//                "war" -> {
-//                    if (args.size == 2) {
-//                        return filterByStart(WAR_SUBCOMMANDS, args[1])
-//                    }
-//                }
-//
-//                // /nodesadmin port [subcommand]
-//                "port" -> {
-//                    if (args.size == 2) {
-//                        return filterByStart(PORT_SUBCOMMANDS, args[1])
-//                    }
-//                    // handle subcommand
-//                    else if (args.size == 3) {
-//                        when (args[1].lowercase()) {
-//                            // /nodesadmin port [subcommand] [port] ...
-//                            "delete",
-//                            "addgroup",
-//                            "removegroup",
-//                            -> {
-//                                return filterPort(args[2])
-//                            }
-//                        }
-//                    }
-//                    // return x,z for /nodesadmin port create [town]
-//                    else if (args[1].lowercase() == "create") {
-//                        when (args.size) {
-//                            4 -> {
-//                                return listOf(Bukkit.getPlayer(sender.name)?.x?.roundToInt().toString())
-//                            }
-//                            5 -> {
-//                                return listOf(Bukkit.getPlayer(sender.name)?.z?.roundToInt().toString())
-//                            }
-//                        }
-//                    }
-//                    // return groups for /nodes port addgroup/removegroup
-//                    else if (args.size == 4) {
-//                        when (args[1].lowercase()) {
-//                            "addgroup",
-//                            "removegroup",
-//                            -> {
-//                                return filterPortGroup(args[3])
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                // /nodesadmin portgroup [subcommand
-//                "portgroup" -> {
-//                    if (args.size == 2) {
-//                        return filterByStart(PORTGROUP_SUBCOMMANDS, args[1])
-//                    }
-//                    // handle subcommands
-//                    when (args[1].lowercase()) {
-//                        "delete" -> {
-//                            return filterPortGroup(args[2])
-//                        }
-//                    }
-//                }
-//
-//                // /nodesadmin town [subcommand]
-//                "town" -> {
-//                    if (args.size == 2) {
-//                        return filterByStart(TOWN_SUBCOMMANDS, args[1])
-//                    }
-//                    // handle subcommand
-//                    else if (args.size > 2) {
-//                        when (args[1].lowercase()) {
-//                            // /nodesadmin town [subcommand] [town] ...
-//                            "delete",
-//                            "addterritory",
-//                            "removeterritory",
-//                            "captureterritory",
-//                            "releaseterritory",
-//                            "open",
-//                            "income",
-//                            "setspawn",
-//                            "spawn",
-//                            "sethome",
-//                            "removeleader",
-//                            -> {
-//                                if (args.size == 3) {
-//                                    return filterTown(args[2])
-//                                }
-//                            }
-//
-//                            // /nodesadmin town subcommand [town] [name1] [name2] ...
-//                            "addplayer",
-//                            "removeplayer",
-//                            -> {
-//                                if (args.size == 3) {
-//                                    return filterTown(args[2])
-//                                } else {
-//                                    return filterPlayer(args[args.size - 1])
-//                                }
-//                            }
-//
-//                            // /nodesadmin town subcommand [town] [resident]
-//                            "leader" -> {
-//                                if (args.size == 3) {
-//                                    return filterTown(args[2])
-//                                } else if (args.size == 4) {
-//                                    val town = Nodes.getTownFromName(args[2])
-//                                    if (town !== null) {
-//                                        return filterTownResident(town, args[3])
-//                                    }
-//                                }
-//                            }
-//
-//                            // /nodesadmin town subcommand [town] [resident1] [resident2] ...
-//                            "addofficer",
-//                            "removeofficer",
-//                            -> {
-//                                if (args.size == 3) {
-//                                    return filterTown(args[2])
-//                                } else if (args.size >= 4) {
-//                                    val town = Nodes.getTownFromName(args[2])
-//                                    if (town !== null) {
-//                                        return filterTownResident(town, args[args.size - 1])
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                // /nodesadmin town [subcommand]
-//                "nation" -> {
-//                    if (args.size == 2) {
-//                        return filterByStart(NATION_SUBCOMMANDS, args[1])
-//                    }
-//                    // handle subcommand
-//                    else if (args.size > 2) {
-//                        when (args[1].lowercase()) {
-//                            // /nodesadmin nation [subcommand] [nation] ...
-//                            "delete" -> {
-//                                if (args.size == 3) {
-//                                    return filterNation(args[2])
-//                                }
-//                            }
-//
-//                            // /nodesadmin nation subcommand [nation] [town1] [town2] ...
-//                            "addtown",
-//                            "removetown",
-//                            -> {
-//                                if (args.size == 3) {
-//                                    return filterNation(args[2])
-//                                } else {
-//                                    return filterTown(args[args.size - 1])
-//                                }
-//                            }
-//
-//                            // /nodesadmin nation subcommand [nation] [town1]
-//                            "capital" -> {
-//                                if (args.size == 3) {
-//                                    return filterNation(args[2])
-//                                } else if (args.size == 4) {
-//                                    val nation = Nodes.getNationFromName(args[2])
-//                                    if (nation !== null) {
-//                                        return filterNationTown(nation, args[3])
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                // /nodesadmin subcommand [town/nation] [town/nation]
-//                "enemy",
-//                "ally",
-//                "allyremove",
-//                -> {
-//                    if (args.size == 2) {
-//                        return filterTownOrNation(args[1])
-//                    } else if (args.size == 3) {
-//                        return filterTownOrNation(args[2])
-//                    }
-//                }
-//
-//                // /nodesadmin debug [subcommand]
-//                "debug" -> {
-//                    if (args.size == 2) {
-//                        return filterByStart(DEBUG_SUBCOMMANDS, args[1])
-//                    }
-//                    // handle subcommand
-//                    else if (args.size > 2) {
-//                        when (args[1].lowercase()) {
-//                            "resident" -> {
-//                                if (args.size == 3) {
-//                                    return filterResident(args[2])
-//                                }
-//                            }
-//
-//                            "town" -> {
-//                                if (args.size == 3) {
-//                                    return filterTown(args[2])
-//                                }
-//                            }
-//
-//                            "nation" -> {
-//                                if (args.size == 3) {
-//                                    return filterNation(args[2])
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        return listOf()
-//    }
-//
-//    private fun printHelp(sender: CommandSender) {
-//        Message.print(sender, "[Nodes] Admin commands:")
-//        Message.print(sender, "/nodesadmin reload${ChatColor.WHITE}: Reloads modules of plugin")
-//        Message.print(sender, "/nodesadmin war${ChatColor.WHITE}: Enable/disable war")
-//        Message.print(sender, "/nodesadmin town${ChatColor.WHITE}: Manage towns (see \"/nodesadmin town help\")")
-//        Message.print(sender, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
-//        Message.print(sender, "/nodesadmin portgroup${ChatColor.WHITE}: Manage port groups (see \"/nodesadmin portgroup help\")")
-//        Message.print(sender, "/nodesadmin port${ChatColor.WHITE}: Manage ports (see \"/nodesadmin port help\")")
-//        Message.print(sender, "/nodesadmin enemy${ChatColor.WHITE}: Make two towns/nations enemies")
-//        Message.print(sender, "/nodesadmin ally${ChatColor.WHITE}: Sets alliance between two towns/nations")
-//        Message.print(sender, "/nodesadmin allyremove${ChatColor.WHITE}: Removes alliance between two towns/nations")
-//        Message.print(sender, "/nodesadmin save${ChatColor.WHITE}: Force save world")
-//        Message.print(sender, "/nodesadmin load${ChatColor.WHITE}: Force load world")
-//        Message.print(sender, "/nodesadmin runincome${ChatColor.WHITE}: Runs income for all towns")
-//        Message.print(sender, "/nodesadmin debug${ChatColor.WHITE}: World object debugger")
-//        return
-//    }
-//
-//    /**
-//     * @command /nodesadmin reload [config|managers|territory]
-//     * Reload components of Nodes engine
-//     */
-//    private fun reload(sender: CommandSender, args: Array<String>) {
-//        // print general war state
-//        if (args.size < 2) {
-//            Message.print(sender, "Reload possibilities: \"/nodesadmin reload [config|managers|resources|territory]\"")
-//            return
-//        }
-//
-//        val subcommand = args[1].lowercase()
-//        if (subcommand == "config") {
-//            Nodes.reloadConfig()
-//            Message.print(sender, "[Nodes] reloaded configs")
-//        } else if (subcommand == "managers") {
-//            Nodes.reloadManagers()
-//            Message.print(sender, "[Nodes] reloaded manager tasks")
-//        } else if (subcommand == "resources") {
-//            val success = Nodes.reloadWorldJson(
-//                reloadResources = true,
-//                reloadTerritories = false,
-//            )
-//            if (success) {
-//                Message.print(sender, "[Nodes] reloaded resources and territories")
-//            } else {
-//                Message.error(sender, "[Nodes] failed to reload resources and territories")
-//            }
-//        } else if (subcommand == "territory") {
-//            // parse territory ids
-//            if (args.size < 3) {
-//                Message.print(sender, "Usage: \"/nodesadmin reload territory *\"${ChatColor.WHITE}: reloads ALL territories")
-//                Message.print(sender, "Usage: \"/nodesadmin reload territory id1 id2 id3 ...\"${ChatColor.WHITE}: reloads specific ids")
-//                return
-//            }
-//
-//            val terrIds: List<TerritoryId>? = if (args[2] == "*") { // reload ALL territories (don't specify ids)
-//                null
-//            } else { // load specific ids: parse from chat input
-//                val ids = HashSet<TerritoryId>()
-//
-//                // validate id exists in territories (don't allow reloading NEW territories,
-//                // since this can cause issues and instability if ids/neighbors are changing)
-//                for (i in 2 until args.size) {
-//                    try {
-//                        val id = TerritoryId(args[i].toInt())
-//                        val terr = Nodes.getTerritoryFromId(id)
-//                        if (terr == null) {
-//                            Message.error(sender, "Territory id \"${id}\" does not exist. This can only reload existing territories.")
-//                            return
-//                        }
-//                        ids.add(id)
-//                    } catch (err: Exception) {
-//                        Message.error(sender, "Invalid id: \"${args[i]}\"")
-//                        return
-//                    }
-//                }
-//
-//                ids.toList()
-//            }
-//
-//            val success = Nodes.reloadWorldJson(
-//                reloadResources = false,
-//                reloadTerritories = true,
-//                territoryIds = terrIds,
-//            )
-//
-//            val terrIdsString = terrIds?.let { ids -> "territories $ids" } ?: "all territories"
-//
-//            if (success) {
-//                Message.print(sender, "[Nodes] reloaded $terrIdsString")
-//            } else {
-//                Message.error(sender, "[Nodes] failed to reload $terrIdsString")
-//            }
-//        } else {
-//            Message.print(sender, "Reload possibilities: \"/nodesadmin reload [config|managers|resources|territory]\"")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin war [enable|disable]
-//     * Enables/disables war
-//     */
-//    private fun war(sender: CommandSender, args: Array<String>) {
-//        // print general war state
-//        if (args.size < 2) {
-//            Nodes.war.printInfo(sender, true)
-//            Message.print(sender, "Toggle state: \"/nodesadmin war [enable|disable]\"")
-//        }
-//        // war subcommands
-//        else {
-//            val function = args[1].lowercase()
-//            // full war: allow annex, can attack any territory
-//            when (function) {
-//                "enable" -> {
-//                    Nodes.enableWar(true, false, true)
-//                    Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes war enabled")
-//
-//                    // play MENACING wither spawn sound
-//                    for (p in Bukkit.getOnlinePlayers()) {
-//                        p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.0f)
-//                    }
-//                }
-//
-//                // cannot annex, cannot attack home territory, can only hit borders
-//                "skirmish" -> {
-//                    Nodes.enableWar(false, true, Config.allowDestructionDuringSkirmish)
-//                    Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes border skirmishes enabled")
-//
-//                    // play MENACING wither spawn sound
-//                    for (p in Bukkit.getOnlinePlayers()) {
-//                        p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.0f)
-//                    }
-//                }
-//
-//                "disable" -> {
-//                    if (Nodes.war.enabled == true) {
-//                        Nodes.disableWar()
-//                        Message.broadcast("${ChatColor.BOLD}Nodes war disabled")
-//                    } else {
-//                        Message.error(sender, "Nodes war already disabled")
-//                    }
-//                }
-//
-//                // prints config whitelist
-//                "whitelist" -> {
-//                    if (Config.warUseWhitelist) {
-//                        Message.print(sender, "[War] Town attack whitelist:")
-//                        for (town in Nodes.towns.values) {
-//                            if (Config.warWhitelist.contains(town.uuid)) {
-//                                Message.print(sender, "${ChatColor.GRAY}- ${town.name}")
-//                            }
-//                        }
-//                    } else {
-//                        Message.print(sender, "${ChatColor.GRAY}[War] No town whitelist")
-//                    }
-//                }
-//
-//                // print config blacklist
-//                "blacklist" -> {
-//                    if (Config.warUseBlacklist) {
-//                        Message.print(sender, "[War] Town attack blacklist:")
-//                        for (town in Nodes.towns.values) {
-//                            if (Config.warBlacklist.contains(town.uuid)) {
-//                                Message.print(sender, "${ChatColor.GRAY}- ${town.name}")
-//                            }
-//                        }
-//                    } else {
-//                        Message.print(sender, "${ChatColor.GRAY}[War] No town blacklist")
-//                    }
-//                }
-//
-//                else -> {
-//                    Message.print(sender, "Nodes war usage: \"/nodesadmin war [enable|disable]\"")
-//                }
-//            }
-//        }
-//    }
-//
-//    // =============================================================
-//    // port management commands
-//    // - create/delete ports
-//    // - edit port properties
-//    // =============================================================
-//
-//    // route command to further subcommands
-//    private fun managePort(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 2) {
-//            printPortHelp(sender)
-//        } else {
-//            when (args[1].lowercase()) {
-//                "create" -> createPort(sender, args)
-//                "delete" -> deletePort(sender, args)
-//                "addgroup" -> addPortGroup(sender, args)
-//                "removegroup" -> removePortGroup(sender, args)
-//                else -> printPortHelp(sender)
-//            }
-//        }
-//    }
-//
-//    private fun printPortHelp(sender: CommandSender) {
-//        Message.print(sender, "${ChatColor.AQUA}/nodesadmin port create [name] [x] [z] [groups] [public]${ChatColor.WHITE}: Create a new port")
-//        Message.print(sender, "${ChatColor.AQUA}/nodesadmin port delete [name]${ChatColor.WHITE}: Delete a port")
-//        Message.print(sender, "${ChatColor.AQUA}/nodesadmin port addgroup [port] [group]${ChatColor.WHITE}: Add a port to a group")
-//        Message.print(sender, "${ChatColor.AQUA}/nodesadmin port removegroup [port] [group]${ChatColor.WHITE}: Remove a port from a group")
-//    }
-//
-//    /**
-//     * @command /nodesadmin port create [name] [x] [z]
-//     * Creates a port from name and a set of coordinates.
-//     */
-//    private fun createPort(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin port create [name] [x] [z]")
-//            Message.error(sender, "Example: /nodesadmin port create panama 100 200")
-//            return
-//        }
-//
-//        val portName = args[2].lowercase()
-//
-//        // parse coordinates
-//        val x = args[3].toIntOrNull()
-//        val z = args[4].toIntOrNull()
-//        if (x === null || z === null) {
-//            Message.error(sender, "Invalid coordinates: x and z must be integers")
-//            return
-//        }
-//
-//        // create port with default values
-//        Nodes.createPort(
-//            portName,
-//            x,
-//            z,
-//            hashSetOf(),
-//            false,
-//        ).getOrElse({ err ->
-//            Message.error(sender, "Failed to create port: ${err.message}")
-//            return
-//        })
-//
-//        Message.print(sender, "${ChatColor.GREEN}Created port \"${portName}\" at ($x, $z)")
-//    }
-//
-//    /**
-//     * @command /nodesadmin port delete [name]
-//     * Deletes a port.
-//     */
-//    private fun deletePort(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin port delete [name]")
-//            Message.error(sender, "Example: /nodesadmin port delete panama")
-//            return
-//        }
-//
-//        val portName = args[2].lowercase()
-//        val port = Nodes.getPortFromName(portName)
-//
-//        if (port === null) {
-//            Message.error(sender, "Port \"${portName}\" does not exist")
-//            return
-//        }
-//
-//        // delete the port
-//        Nodes.destroyPort(port)
-//
-//        Message.print(sender, "Port \"${portName}\" has been deleted")
-//    }
-//
-//    /**
-//     * @command /nodesadmin port addgroup [port] [group]
-//     * Adds a port to a group.
-//     */
-//    private fun addPortGroup(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin port addgroup [port] [group]")
-//            Message.error(sender, "Example: /nodesadmin port addgroup panama atlantic")
-//            return
-//        }
-//
-//        val portName = args[2].lowercase()
-//        val port = Nodes.getPortFromName(portName)
-//
-//        val groupName = args[3].lowercase()
-//        val group = Nodes.getPortGroupFromName(groupName)
-//
-//        // check port exists
-//        if (port === null) {
-//            Message.error(sender, "Port \"${portName}\" does not exist")
-//            return
-//        }
-//
-//        // check group exists
-//        if (group === null) {
-//            Message.error(sender, "Group \"${groupName}\" does not exist")
-//            return
-//        }
-//
-//        // check port isnt already in group
-//        if (port.groups.contains(group)) {
-//            Message.error(sender, "Port is already part of ths group")
-//            return
-//        }
-//
-//        addPortToGroup(port, group)
-//
-//        Message.print(sender, "Port \"${portName}\" has been added to $groupName group")
-//    }
-//
-//    /**
-//     * @command /nodesadmin port removegroup [port] [group]
-//     * Removes a port from a group
-//     */
-//    private fun removePortGroup(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin port removegroup [port] [group]")
-//            Message.error(sender, "Example: /nodesadmin port removegroup panama atlantic")
-//            return
-//        }
-//
-//        val portName = args[2].lowercase()
-//        val port = Nodes.getPortFromName(portName)
-//
-//        val groupName = args[3].lowercase()
-//        val group = Nodes.getPortGroupFromName(groupName)
-//
-//        // check port exists
-//        if (port === null) {
-//            Message.error(sender, "Port \"${portName}\" does not exist")
-//            return
-//        }
-//
-//        // check group exists
-//        if (group === null) {
-//            Message.error(sender, "Group \"${groupName}\" does not exist")
-//            return
-//        }
-//
-//        // check port is in group
-//        if (!port.groups.contains(group)) {
-//            Message.error(sender, "Port \"$portName\" is not part of \"$groupName\" group")
-//            return
-//        }
-//
-//        removePortFromGroup(port, group)
-//
-//        Message.print(sender, "Port \"${portName}\" has been removed from $groupName group")
-//    }
-//
-//    // =============================================================
-//    // port group management commands
-//    // - create/delete port groups
-//    // =============================================================
-//
-//    // route command to further subcommands
-//    private fun managePortGroup(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 2) {
-//            printPortGroupHelp(sender)
-//        } else {
-//            when (args[1].lowercase()) {
-//                "create" -> createPortGroup(sender, args)
-//                "delete" -> deletePortGroup(sender, args)
-//                else -> printPortGroupHelp(sender)
-//            }
-//        }
-//    }
-//
-//    private fun printPortGroupHelp(sender: CommandSender) {
-//        Message.print(sender, "${ChatColor.AQUA}/nodesadmin portgroup create [name]${ChatColor.WHITE}: Create a new port group")
-//        Message.print(sender, "${ChatColor.AQUA}/nodesadmin portgroup delete [name]${ChatColor.WHITE}: Delete a port group")
-//    }
-//
-//    /**
-//     * @command /nodesadmin portgroup create [name]
-//     * Creates a port group.
-//     */
-//    private fun createPortGroup(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin portgroup create [name]")
-//            Message.error(sender, "Example: /nodesadmin portgroup create atlantic")
-//            return
-//        }
-//
-//        val portGroupName = args[2].lowercase()
-//
-//        // create port group
-//        Nodes.createPortGroup(
-//            portGroupName,
-//        ).getOrElse({ err ->
-//            Message.error(sender, "Failed to create group: ${err.message}")
-//            return
-//        })
-//
-//        Message.print(sender, "${ChatColor.GREEN}Created group \"${portGroupName}\"")
-//    }
-//
-//    /**
-//     * @command /nodesadmin portgroup delete [name]
-//     * Deletes a port group.
-//     */
-//    private fun deletePortGroup(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin portgroup delete [name]")
-//            Message.error(sender, "Example: /nodesadmin portgroup delete atlantic")
-//            return
-//        }
-//
-//        val portGroupName = args[2].lowercase()
-//        val portGroup = Nodes.getPortGroupFromName(portGroupName)
-//
-//        if (portGroup === null) {
-//            Message.error(sender, "Port group \"${portGroupName}\" does not exist")
-//            return
-//        }
-//
-//        // delete the port group
-//        Nodes.destroyPortGroup(portGroup)
-//
-//        Message.print(sender, "${ChatColor.GREEN}Deleted group \"${portGroupName}\"")
-//    }
-//
-//    // =============================================================
-//    // town management commands
-//    // - create/delete towns
-//    // - toggle town properties, players
-//    // - modify town territories, ...
-//    // =============================================================
-//
-//    // route command to further subcommands
-//    private fun manageTown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 2) {
-//            printTownHelp(sender)
-//        } else {
-//            // route subcommand function
-//            when (args[1].lowercase()) {
-//                "create" -> createTown(sender, args)
-//                "delete" -> deleteTown(sender, args)
-//                "addplayer" -> addPlayerToTown(sender, args)
-//                "removeplayer" -> removePlayerFromTown(sender, args)
-//                "addterritory" -> addTerritoryToTown(sender, args)
-//                "removeterritory" -> removeTerritoryFromTown(sender, args)
-//                "captureterritory" -> captureTerritory(sender, args)
-//                "releaseterritory" -> releaseTerritory(sender, args)
-//                "setspawn" -> townSetSpawn(sender, args)
-//                "spawn" -> townSpawn(sender, args)
-//                "addofficer" -> addTownOfficer(sender, args)
-//                "removeofficer" -> removeTownOfficer(sender, args)
-//                "leader" -> setTownLeader(sender, args)
-//                "removeleader" -> removeTownLeader(sender, args)
-//                "open" -> setTownOpen(sender, args)
-//                "income" -> townIncome(sender, args)
-//                "incomeadd" -> townIncomeAdd(sender, args)
-//                "incomeremove" -> townIncomeRemove(sender, args)
-//                "sethome" -> setTownHome(sender, args)
-//                "defaulttownspawns" -> defaultTownSpawns(sender, args)
-//                else -> {
-//                    printTownHelp(sender)
-//                }
-//            }
-//        }
-//    }
-//
-//    private fun printTownHelp(sender: CommandSender) {
-//        Message.print(sender, "${ChatColor.BOLD}[Nodes] Admin town management:")
-//        Message.print(sender, "/nodesadmin town create${ChatColor.WHITE}: Create a new town")
-//        Message.print(sender, "/nodesadmin town delete${ChatColor.WHITE}: Delete existing town")
-//        Message.print(sender, "/nodesadmin town addplayer${ChatColor.WHITE}: Add players to town")
-//        Message.print(sender, "/nodesadmin town removeplayer${ChatColor.WHITE}: Remove players from town")
-//        Message.print(sender, "/nodesadmin town addterritory${ChatColor.WHITE}: Add territories to town")
-//        Message.print(sender, "/nodesadmin town removeterritory${ChatColor.WHITE}: Remove territories from town")
-//        Message.print(sender, "/nodesadmin town captureterritory${ChatColor.WHITE}: Add captured territories to town")
-//        Message.print(sender, "/nodesadmin town releaseterritory${ChatColor.WHITE}: Release captured territories")
-//        Message.print(sender, "/nodesadmin town setspawn${ChatColor.WHITE}: Set town's spawn to location")
-//        Message.print(sender, "/nodesadmin town spawn${ChatColor.WHITE}: Go to town's spawn")
-//        Message.print(sender, "/nodesadmin town addofficer${ChatColor.WHITE}: Add officer to town")
-//        Message.print(sender, "/nodesadmin town removeofficer${ChatColor.WHITE}: Remove officer from town")
-//        Message.print(sender, "/nodesadmin town leader${ChatColor.WHITE}: Set town leader to player")
-//        Message.print(sender, "/nodesadmin town open${ChatColor.WHITE}: Toggle town is open to join")
-//        Message.print(sender, "/nodesadmin town income${ChatColor.WHITE}: View a town's income inventory")
-//        Message.print(sender, "Run a command with no args to see usage.")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town create [name] [id1] [id2] ...
-//     * Creates a town from name and list of territory ids.
-//     * The first id is required and becomes the home territory.
-//     * This town is created without any residents or leader.
-//     */
-//    private fun createTown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town create [name] [id1] [id2] ...")
-//            Message.error(sender, "Each id is a territory id (first id required)")
-//            return
-//        }
-//
-//        // get town name
-//        if (!stringInputIsValid(args[2])) {
-//            Message.error(sender, "Invalid town name")
-//            return
-//        }
-//        val name = sanitizeString(args[2])
-//
-//        // map ids to territories
-//        val territories: MutableList<Territory> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val id = TerritoryId(args[i].toInt())
-//            val terr = Nodes.territories[id]
-//            if (terr == null || terr.town != null) {
-//                Message.error(sender, "Invalid territory id=$id: either does not exist or already has town")
-//                return
-//            } else {
-//                territories.add(terr)
-//            }
-//        }
-//
-//        // first territory is new town home
-//        val town = Nodes.createTown(name, territories[0], null).getOrElse({ err ->
-//            Message.error(sender, "Failed to create town: ${err.message}")
-//            return
-//        })
-//
-//        // add the other territories
-//        for (i in 1 until territories.size) {
-//            Nodes.addTerritoryToTown(town, territories[i])
-//        }
-//
-//        Message.print(sender, "Created town \"${name}\" with ${territories.size} territories")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town delete [name]
-//     * Deletes town with given name.
-//     */
-//    private fun deleteTown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: \"/nodesadmin town delete [name]")
-//            return
-//        }
-//
-//        val name = args[2]
-//        val town = Nodes.towns.get(name)
-//        if (town != null) {
-//            Nodes.destroyTown(town)
-//            Message.print(sender, "Town \"${name}\" has been deleted")
-//        } else {
-//            Message.error(sender, "Town \"${name}\" does not exist")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town addplayer [name] [player1] [player2] ...
-//     * Add list of player names [player] to town from [name].
-//     */
-//    private fun addPlayerToTown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town addplayer [name] [player1] [player2] ...")
-//            Message.error(sender, "First player name is required")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // get residents from player names, error out if any do not exist
-//        val residents: MutableList<Resident> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val res = Nodes.getResidentFromName(args[i])
-//            if (res == null) {
-//                Message.error(sender, "Player \"${args[i]}\" does not exist")
-//                return
-//            }
-//            residents.add(res)
-//        }
-//
-//        // add residents to town
-//        for (r in residents) {
-//            Nodes.addResidentToTown(town, r)
-//            Message.print(sender, "Added \"${r.name}\" to town \"${town.name}\"")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town removeplayer [name] [player1] [player2] ...
-//     * Remove list of player names [player] from town from [name].
-//     */
-//    private fun removePlayerFromTown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town removeplayer [name] [player1] [player2] ...")
-//            Message.error(sender, "First player name is required")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // get residents from player names, error out if any do not exist
-//        val residents: MutableList<Resident> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val res = Nodes.getResidentFromName(args[i])
-//            if (res == null) {
-//                Message.error(sender, "Player \"${args[i]}\" does not exist")
-//                return
-//            }
-//            residents.add(res)
-//        }
-//
-//        // add residents to town
-//        for (r in residents) {
-//            Nodes.removeResidentFromTown(town, r)
-//            Message.print(sender, "Removed \"${r.name}\" from town \"${town.name}\"")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town addterritory [name] [id1] [id2] ...
-//     * Add list of territory from their ids to town from [name].
-//     * This ignores chunk claiming limits for a town.
-//     */
-//    private fun addTerritoryToTown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town addterritory [name] [id1] [id2] ...")
-//            Message.error(sender, "First territory id is required")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // map ids to territories
-//        val territories: MutableList<Territory> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val id = TerritoryId(args[i].toInt())
-//            val terr = Nodes.territories[id]
-//            if (terr == null || terr.town != null) {
-//                Message.error(sender, "Invalid territory id=$id: either does not exist or already has town")
-//                return
-//            } else {
-//                territories.add(terr)
-//            }
-//        }
-//
-//        // add territories
-//        for (terr in territories) {
-//            Nodes.addTerritoryToTown(town, terr)
-//        }
-//
-//        Message.print(sender, "Added ${territories.size} territories to town \"${town.name}\"")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town removeterritory [name] [id1] [id2] ...
-//     * Remove list of territory from their ids to town from [name].
-//     */
-//    private fun removeTerritoryFromTown(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town removeterritory [name] [id1] [id2] ...")
-//            Message.error(sender, "First territory id is required")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // map ids to territories
-//        val territories: MutableList<Territory> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val id = TerritoryId(args[i].toInt())
-//            val terr = Nodes.territories[id]
-//            if (terr == null || terr?.town != town) {
-//                Message.error(sender, "Invalid territory id=$id: does not belong to town")
-//                return
-//            } else if (town.home == terr.id) {
-//                Message.error(sender, "Cannot remove town's home territory id=$id")
-//                return
-//            } else {
-//                territories.add(terr)
-//            }
-//        }
-//
-//        // remove territories
-//        for (terr in territories) {
-//            Nodes.unclaimTerritory(town, terr)
-//        }
-//
-//        Message.print(sender, "Removed ${territories.size} territories to town \"${town.name}\"")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town captureterritory [town] [id1] [id2] ...
-//     * Makes town capture list of territory from their ids
-//     */
-//    private fun captureTerritory(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town captureterritory [name] [id1] [id2] ...")
-//            Message.error(sender, "First territory id is required")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // map ids to territories
-//        val territories: MutableList<Territory> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val id = TerritoryId(args[i].toInt())
-//            val terr = Nodes.territories[id]
-//            if (terr == null || terr.town == town) {
-//                Message.error(sender, "Invalid territory id=$id: either does not exist or belongs to town")
-//                return
-//            } else {
-//                territories.add(terr)
-//            }
-//        }
-//
-//        // add territories
-//        for (terr in territories) {
-//            Nodes.captureTerritory(town, terr)
-//        }
-//
-//        Message.print(sender, "Captured ${territories.size} territories for town \"${town.name}\"")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town releaseterritory [id1] [id2] ...
-//     * Releases list of territory ids from their current occupier
-//     */
-//    private fun releaseTerritory(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town releaseterritory [id1] [id2] ...")
-//            Message.error(sender, "First territory id is required")
-//            return
-//        }
-//
-//        // map ids to territories
-//        val territories: MutableList<Territory> = mutableListOf()
-//        for (i in 2 until args.size) {
-//            val id = TerritoryId(args[i].toInt())
-//            val terr = Nodes.territories[id]
-//            if (terr == null) {
-//                Message.error(sender, "Invalid territory id=$id: does not exist")
-//                return
-//            } else {
-//                territories.add(terr)
-//            }
-//        }
-//
-//        // add territories
-//        for (terr in territories) {
-//            Nodes.releaseTerritory(terr)
-//        }
-//
-//        Message.print(sender, "Released ${territories.size} territories under occupation")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town addofficer [town] [player]
-//     * Add officer to town
-//     */
-//    private fun addTownOfficer(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town addofficer [town] [player]")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // get residents from player names, error out if any do not exist
-//        val residents: MutableList<Resident> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val res = Nodes.getResidentFromName(args[i])
-//            if (res === null) {
-//                Message.error(sender, "Player \"${args[i]}\" does not exist")
-//                return
-//            }
-//            if (res.town !== town) {
-//                Message.error(sender, "Player \"${args[i]}\" does not belong to ${town.name}")
-//                return
-//            }
-//            residents.add(res)
-//        }
-//
-//        // make residents officers
-//        for (r in residents) {
-//            Nodes.townAddOfficer(town, r)
-//            Message.print(sender, "Made \"${r.name}\" officer of \"${town.name}\"")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town removeofficer [town] [player]
-//     * Remove officer from town
-//     */
-//    private fun removeTownOfficer(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town removeofficer [town] [player]")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // get residents from player names, error out if any do not exist
-//        val residents: MutableList<Resident> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val res = Nodes.getResidentFromName(args[i])
-//            if (res === null) {
-//                Message.error(sender, "Player \"${args[i]}\" does not exist")
-//                return
-//            }
-//            if (res.town !== town) {
-//                Message.error(sender, "Player \"${args[i]}\" does not belong to ${town.name}")
-//                return
-//            }
-//            residents.add(res)
-//        }
-//
-//        // make residents officers
-//        for (r in residents) {
-//            Nodes.townRemoveOfficer(town, r)
-//            Message.print(sender, "Removed \"${r.name}\" as officer of \"${town.name}\"")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town leader [town] [player]
-//     * Set town resident as new town leader
-//     */
-//    private fun setTownLeader(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town leader [town] [player]")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town === null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        val playerName = args[3]
-//        val resident = Nodes.getResidentFromName(playerName)
-//        if (resident === null) {
-//            Message.error(sender, "Player \"${playerName}\" does not exist")
-//            return
-//        }
-//        if (resident.town !== town) {
-//            Message.error(sender, "Player \"${playerName}\" is not a member of \"${town.name}\"")
-//            return
-//        }
-//
-//        Nodes.townSetLeader(town, resident)
-//        Message.print(sender, "Player \"${playerName}\" is now leader of \"${town.name}\"")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town removeleader [town]
-//     * Remove town's leader (makes town leaderless)
-//     */
-//    private fun removeTownLeader(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town removeleader [town]")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town === null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        Nodes.townSetLeader(town, null)
-//        Message.print(sender, "Removed leader of \"${town.name}\"")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town open [town]
-//     * Toggle whether town is open to join
-//     */
-//    private fun setTownOpen(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town open [town]")
-//            return
-//        }
-//
-//        // get town
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // set town open state
-//        Nodes.setTownOpen(town, !town.isOpen)
-//
-//        Message.print(sender, "Town \"${townName}\" isOpen set to ${town.isOpen}")
-//    }
-//
-//    /**
-//     * @command /nodesadmin town income [town]
-//     * View a town's income inventory gui (must run ingame).
-//     */
-//    private fun townIncome(sender: CommandSender, args: Array<String>) {
-//        val player: Player? = if (sender is Player) sender else null
-//        if (player == null) {
-//            Message.print(sender, "Must be run ingame")
-//            return
-//        }
-//
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town income [town]")
-//            return
-//        }
-//
-//        // get town
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // open town inventory
-//        player.openInventory(Nodes.getTownIncomeInventory(town))
-//    }
-//
-//    /**
-//     * @command /nodesadmin town incomeadd [town]
-//     * Adds item player is holding to input town income inventories.
-//     */
-//    private fun townIncomeAdd(sender: CommandSender, args: Array<String>) {
-//        val player: Player? = if (sender is Player) sender else null
-//        if (player === null) {
-//            Message.print(sender, "Must be run ingame")
-//            return
-//        }
-//
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town incomeadd [town]")
-//            return
-//        }
-//
-//        // get towns
-//        val townName = args[2]
-//        val towns = Nodes.matchTowns(townName)
-//        if (towns.size == 0) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // get item in player hand
-//        val item = player.inventory.itemInMainHand
-//        if (item === null || item.type == Material.AIR) {
-//            Message.error(sender, "You must be holding an item")
-//            return
-//        }
-//
-//        for (town in towns) {
-//            Nodes.addToIncome(town, item.type, item.amount)
-//            Message.print(sender, "Added item to \"${town.name}\" income inventory")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town incomeremove [town] [material]
-//     * Removes items in town income inventories. If material is not specified,
-//     * removes all items.
-//     */
-//    private fun townIncomeRemove(sender: CommandSender, args: Array<String>) {
-//        val player: Player? = if (sender is Player) sender else null
-//        if (player === null) {
-//            Message.print(sender, "Must be run ingame")
-//            return
-//        }
-//
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town incomeremove [town] [material]")
-//            return
-//        }
-//
-//        // get towns
-//        val townName = args[2]
-//        val towns = Nodes.matchTowns(townName)
-//        if (towns.size == 0) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // get material if specified, otherwise treat as null and remove all
-//        val material = if (args.size >= 4) Material.matchMaterial(args[3]) else null
-//
-//        // TODO: perhaps abstract this into a Nodes api func
-//        for (town in towns) {
-//            Nodes.townIncomeRemove(town, material)
-//            if (material !== null) {
-//                Message.print(sender, "Removed $material from \"${town.name}\" income inventory")
-//            } else {
-//                Message.print(sender, "Removed all items from \"${town.name}\" income inventory")
-//            }
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town setspawn [town]
-//     * Set town spawn to player location (must run ingame).
-//     */
-//    private fun townSetSpawn(sender: CommandSender, args: Array<String>) {
-//        val player: Player? = if (sender is Player) sender else null
-//        if (player == null) {
-//            Message.print(sender, "Must be run ingame")
-//            return
-//        }
-//
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town setspawn [town]")
-//            return
-//        }
-//
-//        // get town
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        val result = Nodes.setTownSpawn(town, player.location)
-//
-//        if (result == true) {
-//            Message.print(player, "Town \"${townName}\" spawn set to current location")
-//        } else {
-//            Message.error(player, "Spawn location must be within town's home territory")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin town spawn [town]
-//     * Spawn at a town's spawn
-//     */
-//    private fun townSpawn(sender: CommandSender, args: Array<String>) {
-//        val player: Player? = if (sender is Player) sender else null
-//        if (player == null) {
-//            Message.print(sender, "Must be run ingame")
-//            return
-//        }
-//
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town spawn [town]")
-//            return
-//        }
-//
-//        // get town
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town === null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        player.teleportAsync(town.spawnpoint)
-//    }
-//
-//    /**
-//     * @command /nodesadmin town sethome [town] [id]
-//     * Set a town's home territory
-//     */
-//    private fun setTownHome(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin town sethome [name] [id]")
-//            return
-//        }
-//
-//        val townName = args[2]
-//        val town = Nodes.towns.get(townName)
-//        if (town == null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        // get new home territory
-//        val id = TerritoryId(args[3].toInt())
-//        val terr = Nodes.territories[id]
-//        if (terr == null) {
-//            Message.error(sender, "Invalid territory id=$id: does not exist")
-//            return
-//        }
-//
-//        // set town home territory
-//        if (town !== terr.town) {
-//            Message.error(sender, "Invalid territory id=$id: does not belong to town")
-//            return
-//        }
-//
-//        if (town.home == terr.id) {
-//            Message.error(sender, "Invalid territory id=$id: already is home territory")
-//            return
-//        }
-//
-//        Nodes.setTownHomeTerritory(town, terr)
-//        Message.print(sender, "Moved \"${townName}\" home territory to id = ${terr.id}")
-//    }
-//
-//    // TODO: town perm toggles
-//
-//    /**
-//     * @command /nodesadmin town defaulttownspawns [town]
-//     * Reset town spawns to default position (highest block before air)
-//     */
-//    private fun defaultTownSpawns(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin town defaulttownspawns [town]")
-//            return
-//        }
-//
-//        // get towns
-//        val townName = args[2]
-//        val towns = Nodes.matchTowns(townName)
-//        if (towns.size == 0) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//
-//        for (town in towns) {
-//            val terrHome = Nodes.territories.get(town.home)
-//            if (terrHome !== null) {
-//                val spawnpoint = Nodes.getDefaultSpawnLocation(terrHome)
-//                town.spawnpoint = spawnpoint
-//                town.needsUpdate()
-//                Message.print(sender, "Set town \"${town.name}\" spawnpoint to $spawnpoint")
-//            } else {
-//                Message.error(sender, "Town \"${town.name}\" home territory ${town.home} does not exist")
-//            }
-//        }
-//
-//        // TODO: move this out
-//        Nodes.needsSave = true
-//    }
-//
-//    // =============================================================
-//    // nation management commands:
-//    // - create/delete nations
-//    // - toggle nation properties, alliances, towns, ...
-//    // =============================================================
-//
-//    // route command to further subcommands
-//    private fun manageNation(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 2) {
-//            printNationHelp(sender)
-//        } else {
-//            // route subcommand function
-//            when (args[1].lowercase()) {
-//                "create" -> createNation(sender, args)
-//                "delete" -> deleteNation(sender, args)
-//                "addtown" -> addTownToNation(sender, args)
-//                "removetown" -> removeTownFromNation(sender, args)
-//                "capital" -> setNationCapital(sender, args)
-//                else -> {
-//                    printNationHelp(sender)
-//                }
-//            }
-//        }
-//    }
-//
-//    private fun printNationHelp(sender: CommandSender) {
-//        Message.print(sender, "${ChatColor.BOLD}[Nodes] Admin nation management:")
-//        Message.print(sender, "/nodesadmin nation create${ChatColor.WHITE}: Create a new nation")
-//        Message.print(sender, "/nodesadmin nation delete${ChatColor.WHITE}: Delete existing nation")
-//        Message.print(sender, "/nodesadmin nation addtown${ChatColor.WHITE}: Add towns to nation")
-//        Message.print(sender, "/nodesadmin nation removetown${ChatColor.WHITE}: Remove towns from nation")
-//        Message.print(sender, "/nodesadmin nation capital${ChatColor.WHITE}: Set nation's capital town")
-//        Message.print(sender, "Run a command with no args to see usage.")
-//    }
-//
-//    /**
-//     * @command /nodesadmin nation create [name] [town1] [town2] ...
-//     * Creates a new nation with [name] with list of towns.
-//     * [town1] required (cannot have empty nations).
-//     */
-//    private fun createNation(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin nation create [name] [town1] [town2] ...")
-//            Message.error(sender, "List is town names")
-//            return
-//        }
-//
-//        // get nation name
-//        if (!stringInputIsValid(args[2])) {
-//            Message.error(sender, "Invalid nation name")
-//            return
-//        }
-//        val nationName = sanitizeString(args[2])
-//
-//        // get towns
-//        val towns: MutableList<Town> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val townName = args[i]
-//            val town = Nodes.towns.get(townName)
-//            if (town == null || town.nation != null) {
-//                Message.error(sender, "Invalid town \"${townName}\": either does not exist or already has nation")
-//                return
-//            } else {
-//                towns.add(town)
-//            }
-//        }
-//
-//        // create new nation from town
-//        val nation = Nodes.createNation(nationName, towns[0], towns[0].leader).getOrElse({ err ->
-//            Message.error(sender, "Failed to create nation: ${err.message}")
-//            return
-//        })
-//
-//        // add other towns
-//        for (i in 1 until towns.size) {
-//            Nodes.addTownToNation(nation, towns[i])
-//        }
-//
-//        Message.print(sender, "Created nation \"${nationName}\" with ${towns.size} towns")
-//    }
-//
-//    /**
-//     * @command /nodesadmin nation delete [name]
-//     * Deletes nation [name].
-//     */
-//    private fun deleteNation(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin nation delete [name]")
-//            return
-//        }
-//
-//        val name = args[2]
-//        val nation = Nodes.nations.get(name)
-//        if (nation != null) {
-//            Nodes.destroyNation(nation)
-//            Message.print(sender, "Nation \"${name}\" has been deleted")
-//        } else {
-//            Message.error(sender, "Nation \"${name}\" does not exist")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin nation addtown [name] [town1] [town2] ...
-//     * Add list of towns to nation [name].
-//     */
-//    private fun addTownToNation(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin nation addtown [name] [town1] [town2] ...")
-//            Message.error(sender, "First town name is required")
-//            return
-//        }
-//
-//        val nationName = args[2]
-//        val nation = Nodes.nations.get(nationName)
-//        if (nation == null) {
-//            Message.error(sender, "Nation \"${nationName}\" does not exist")
-//            return
-//        }
-//
-//        // get residents from player names, error out if any do not exist
-//        val towns: MutableList<Town> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val town = Nodes.towns.get(args[i])
-//            if (town == null || town.nation != null) {
-//                Message.error(sender, "Invalid town \"${args[i]}\": does not exist or has a nation already")
-//                return
-//            }
-//            towns.add(town)
-//        }
-//
-//        // add towns
-//        for (town in towns) {
-//            Nodes.addTownToNation(nation, town)
-//            Message.print(sender, "Added town \"${town.name}\" to nation \"${nation.name}\"")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin nation removetown [name] [town1] [town2] ...
-//     * Remove list of towns from nation [name].
-//     */
-//    private fun removeTownFromNation(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin nation removetown [name] [town1] [town2] ...")
-//            Message.error(sender, "First town name is required")
-//            return
-//        }
-//
-//        val nationName = args[2]
-//        val nation = Nodes.nations.get(nationName)
-//        if (nation == null) {
-//            Message.error(sender, "Nation \"${nationName}\" does not exist")
-//            return
-//        }
-//
-//        // get towns, error out if any do not exist or do not belong to nation
-//        val towns: MutableList<Town> = mutableListOf()
-//        for (i in 3 until args.size) {
-//            val town = Nodes.towns.get(args[i])
-//            if (town == null || town.nation != nation) {
-//                Message.error(sender, "Invalid town \"${args[i]}\": does not belong to nation")
-//                return
-//            }
-//            towns.add(town)
-//        }
-//
-//        // remove towns
-//        for (town in towns) {
-//            Nodes.removeTownFromNation(nation, town)
-//            Message.print(sender, "Removed town \"${town.name}\" from nation \"${nation.name}\"")
-//        }
-//    }
-//
-//    /**
-//     * @command /nodesadmin nation capital [nation] [town]
-//     * Make input town the new capital of nation. Town must already
-//     * be part of the nation.
-//     */
-//    private fun setNationCapital(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            Message.error(sender, "Usage: /nodesadmin nation capital [nation] [town]")
-//            return
-//        }
-//
-//        val nationName = args[2]
-//        val nation = Nodes.nations.get(nationName)
-//        if (nation === null) {
-//            Message.error(sender, "Nation \"${nationName}\" does not exist")
-//            return
-//        }
-//
-//        val townName = args[3]
-//        val town = Nodes.getTownFromName(townName)
-//        if (town === null) {
-//            Message.error(sender, "Town \"${townName}\" does not exist")
-//            return
-//        }
-//        if (town.nation !== nation) {
-//            Message.error(sender, "Town does not belong to this nation")
-//            return
-//        }
-//        if (town === nation.capital) {
-//            Message.error(sender, "Town is already the nation capital")
-//            return
-//        }
-//
-//        Nodes.setNationCapital(nation, town)
-//
-//        // broadcast message
-//        Message.print(sender, "${town.name} is now the capital of ${nation.name}")
-//    }
-//
-//    // =============================================================
-//    // Diplomacy commands
-//    // force add/remove war, ally
-//    // =============================================================
-//
-//    /**
-//     * @command /nodesadmin enemy [name1] [name2]
-//     * Sets enemy status between [name1] and [name2]
-//     * (either town or nation names)
-//     */
-//    private fun setEnemy(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin enemy [name1] [name2]")
-//            return
-//        }
-//
-//        val name1 = args[1]
-//        val name2 = args[2]
-//
-//        // try getting nations first
-//        val nation1 = Nodes.nations.get(name1)
-//        val nation2 = Nodes.nations.get(name2)
-//
-//        // if either null, get towns, else use nation capital
-//        val town1 = if (nation1 !== null) {
-//            nation1.capital
-//        } else {
-//            Nodes.towns.get(name1)
-//        }
-//
-//        val town2 = if (nation2 !== null) {
-//            nation2.capital
-//        } else {
-//            Nodes.towns.get(name2)
-//        }
-//
-//        if (town1 == null) {
-//            Message.error(sender, "\"${name1}\" does not exist")
-//            return
-//        }
-//        if (town2 == null) {
-//            Message.error(sender, "\"${name2}\" does not exist")
-//            return
-//        }
-//
-//        Nodes.addEnemy(town1, town2)
-//
-//        Message.print(sender, "Set war between $name1 and $name2")
-//    }
-//
-//    /**
-//     * @command /nodesadmin ally [name1] [name2]
-//     * Makes [name1] and [name2] allies (either town or nation names).
-//     */
-//    private fun setAlly(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin ally [name1] [name2]")
-//            return
-//        }
-//
-//        val name1 = args[1]
-//        val name2 = args[2]
-//
-//        // try getting nations first
-//        val nation1 = Nodes.nations.get(name1)
-//        val nation2 = Nodes.nations.get(name2)
-//
-//        // if either null, get towns, else use nation capital
-//        val town1 = if (nation1 !== null) {
-//            nation1.capital
-//        } else {
-//            Nodes.towns.get(name1)
-//        }
-//
-//        val town2 = if (nation2 !== null) {
-//            nation2.capital
-//        } else {
-//            Nodes.towns.get(name2)
-//        }
-//
-//        if (town1 == null) {
-//            Message.error(sender, "\"${name1}\" does not exist")
-//            return
-//        }
-//        if (town2 == null) {
-//            Message.error(sender, "\"${name2}\" does not exist")
-//            return
-//        }
-//
-//        Nodes.addAlly(town1, town2)
-//
-//        Message.print(sender, "Set alliance between $name1 and $name2")
-//    }
-//
-//    /**
-//     * @command /nodesadmin allyremove [name1] [name2]
-//     * Removes alliance between [name1] and [name2] (either town or nation names).
-//     */
-//    private fun removeAlly(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 3) {
-//            Message.error(sender, "Usage: /nodesadmin ally [name1] [name2]")
-//            return
-//        }
-//
-//        val name1 = args[1]
-//        val name2 = args[2]
-//
-//        // try getting nations first
-//        val nation1 = Nodes.nations.get(name1)
-//        val nation2 = Nodes.nations.get(name2)
-//
-//        // if either null, get towns, else use nation capital
-//        val town1 = if (nation1 !== null) {
-//            nation1.capital
-//        } else {
-//            Nodes.towns.get(name1)
-//        }
-//
-//        val town2 = if (nation2 !== null) {
-//            nation2.capital
-//        } else {
-//            Nodes.towns.get(name2)
-//        }
-//
-//        if (town1 == null) {
-//            Message.error(sender, "\"${name1}\" does not exist")
-//            return
-//        }
-//        if (town2 == null) {
-//            Message.error(sender, "\"${name2}\" does not exist")
-//            return
-//        }
-//
-//        Nodes.removeAlly(town1, town2)
-//
-//        Message.print(sender, "Removed any alliance between $name1 and $name2")
-//    }
-//
-//    // =============================================================
-//    // World save/load commands:
-//    // - Force world save/load
-//    // TODO: - better print out
-//    //       - add backupWorld command to force backup
-//    //       - allow loading from backups folder?
-//    // =============================================================
-//
-//    // force save the world (using async save)
-//    private fun saveWorld(sender: CommandSender, args: Array<String>) {
-//        if (args.size > 1 && args[1] == "sync") {
-//            Message.print(sender, "[Nodes] Saving world (sync)")
-//            Nodes.saveWorld(checkIfNeedsSave = false, async = false)
-//        } else {
-//            Message.print(sender, "[Nodes] Saving world (async)")
-//            Nodes.saveWorld(checkIfNeedsSave = false, async = true)
-//        }
-//    }
-//
-//    // force reload the world
-//    // TODO: add optional path name for world data to load?
-//    private fun loadWorld(sender: CommandSender) {
-//        Message.print(sender, "[Nodes] Loading world")
-//        Nodes.loadWorld()
-//    }
-//
-//    // =============================================================
-//    // Debug commands:
-//    // Commands to print fields from resident, town, nation objects
-//    // using reflection. Only intended for developer use.
-//    // =============================================================
-//
-//    /**
-//     * @command /nodesadmin debug
-//     * Console command to debug runtime world object state.
-//     * General usage is /nodesadmin debug [type] [name/id] [field]
-//     *
-//     * @subcommand /nodesadmin debug resource [name] [field]
-//     *
-//     * @subcommand /nodesadmin debug chunk [x,z] [field]
-//     * To input coord, format is "x,z" with no spaces
-//     *
-//     * @subcommand /nodesadmin debug territory [id] [field]
-//     *
-//     * @subcommand /nodesadmin debug resident [name] [field]
-//     *
-//     * @subcommand /nodesadmin debug town [name] [field]
-//     *
-//     * @subcommand /nodesadmin debug nation [name] [field]
-//     */
-//    private fun debugger(sender: CommandSender, args: Array<String>) {
-//        if (args.size < 4) {
-//            printDebuggerHelp(sender)
-//            return
-//        }
-//
-//        // get object instance
-//        val instance: Any? = when (args[1].lowercase()) {
-//            "resource" -> Nodes.resourceNodes.get(args[2])
-//            "chunk" -> Nodes.territoryChunks.get(Coord.fromString(args[2]))
-//            "territory" -> Nodes.territories.get(TerritoryId(args[2].toInt()))
-//            "resident" -> Nodes.getResidentFromName(args[2])
-//            "town" -> Nodes.towns.get(args[2])
-//            "nation" -> Nodes.nations.get(args[2])
-//            else -> null
-//        }
-//
-//        if (instance == null) {
-//            Message.error(sender, "Invalid object: ${args[2]}")
-//            return
-//        }
-//
-//        val classType = instance.javaClass
-//        val fieldName = args[3]
-//        try {
-//            val classField = classType.getDeclaredField(fieldName)
-//            classField.setAccessible(true)
-//            println(classField.get(instance))
-//        } catch (e: NoSuchFieldException) {
-//            Message.error(sender, "No such field: $fieldName")
-//        }
-//    }
-//
-//    private fun printDebuggerHelp(sender: CommandSender) {
-//        Message.print(sender, "${ChatColor.BOLD}[Nodes] Runtime debugger:")
-//        Message.print(sender, "/nodesadmin debug resource${ChatColor.WHITE}: Get resource node data")
-//        Message.print(sender, "/nodesadmin debug chunk${ChatColor.WHITE}: Get chunk data")
-//        Message.print(sender, "/nodesadmin debug territory${ChatColor.WHITE}: Get territory data")
-//        Message.print(sender, "/nodesadmin debug resident${ChatColor.WHITE}: Get resident data")
-//        Message.print(sender, "/nodesadmin debug town${ChatColor.WHITE}: Get town data")
-//        Message.print(sender, "/nodesadmin debug nation${ChatColor.WHITE}: Get nation data")
-//        Message.print(sender, "Used to print debug info into system console from object data fields.")
-//        Message.print(sender, "General usage is \"/nodesadmin debug [type] [name/id] [field]\"")
-//    }
-//
-//    // =============================================================
-//    /* test function for ore sampler, uncomment if needed
-//    private fun testOreSampler() {
-//        val ore1 = OreDeposit(Material.DIAMOND, 0.1, 1, 1)
-//        val ore2 = OreDeposit(Material.EMERALD, 0.1, 1, 1)
-//        val ore3 = OreDeposit(Material.GOLD_ORE, 0.3, 1, 1)
-//        val ore4 = OreDeposit(Material.IRON_ORE, 0.3, 1, 1)
-//        println(ore1)
-//        println(ore2)
-//        println(ore3)
-//        println(ore4)
-//
-//        // create ore sampler from ores
-//        val arrOre: ArrayList<OreDeposit> = arrayListOf(ore1, ore2, ore3, ore4)
-//        val oreSampler = OreSampler(arrOre)
-//
-//        // try sampling
-//        val COUNT = 10000
-//
-//        println("Running sampleAll: ${COUNT} counts")
-//        val allDrops: EnumMap<Material, Int> = EnumMap<Material, Int>(Material::class.java)
-//        val timeSampleAll = measureTimeMillis {
-//            for ( i in 0 until COUNT ) {
-//                val drops = oreSampler.sampleAll(128)
-//                drops.forEach { itemStack ->
-//                    val mat = itemStack.getType()
-//                    val amount = itemStack.getAmount()
-//                    allDrops.get(mat)?.let { currentAmount ->
-//                        allDrops.put(mat, currentAmount + amount)
-//                    } ?: run {
-//                        allDrops.put(mat, amount)
-//                    }
-//                }
-//            }
-//        }
-//        println(allDrops)
-//        println("Time sampleAll: ${timeSampleAll}ms")
-//
-//        println("================================")
-//        println("Test at different heights")
-//        val ore_y_1 = OreDeposit(Material.DIAMOND, 0.6, 1, 1, 0, 255)
-//        val ore_y_2 = OreDeposit(Material.EMERALD, 0.6, 1, 1, 50, 100)
-//        val ore_y_3 = OreDeposit(Material.GOLD_ORE, 0.6, 1, 1, 51, 51)
-//        val ore_y_4 = OreDeposit(Material.IRON_ORE, 0.6, 1, 1, 70, 255)
-//        println(ore_y_1)
-//        println(ore_y_2)
-//        println(ore_y_3)
-//        println(ore_y_4)
-//
-//        // create ore sampler from ores
-//        val arrOre2: ArrayList<OreDeposit> = arrayListOf(ore_y_1, ore_y_2, ore_y_3, ore_y_4)
-//        val oreSamplerHeight = OreSampler(arrOre2)
-//
-//        // test samples at different y levels
-//        val yToTest = arrayOf(25, 50, 51, 69, 80, 150)
-//        yToTest.forEach { y ->
-//            println("SAMPLING AT y=${y}")
-//            val currentDrops: EnumMap<Material, Int> = EnumMap<Material, Int>(Material::class.java)
-//            val timeSample = measureTimeMillis {
-//                for ( i in 0 until COUNT ) {
-//                    val drops = oreSamplerHeight.sample(y)
-//                    drops.forEach { itemStack ->
-//                        val mat = itemStack.getType()
-//                        val amount = itemStack.getAmount()
-//                        currentDrops.get(mat)?.let { currentAmount ->
-//                            currentDrops.put(mat, currentAmount + amount)
-//                        } ?: run {
-//                            currentDrops.put(mat, amount)
-//                        }
-//                    }
-//                }
-//            }
-//            println(currentDrops)
-//            println("Time sampleAll: ${timeSample}ms")
-//        }
-//    }
-//     */
-//}
+/**
+ * Admin commands to manage world
+ * - modify towns, nations
+ * - war enable/disable
+ *
+ *    /nodesadmin command ...
+ *    /nda command
+ */
+
+package luna.nodes.commands
+
+import luna.nodes.Message
+import luna.nodes.Nodes
+import luna.nodes.commands.arguments.ArgumentResident
+import luna.nodes.commands.arguments.ArgumentResidentArray
+import luna.nodes.commands.arguments.ArgumentSanitizedString
+import luna.nodes.commands.arguments.ArgumentTerritory
+import luna.nodes.commands.arguments.ArgumentTerritoryArray
+import luna.nodes.commands.arguments.ArgumentTown
+import luna.nodes.commands.arguments.ArgumentTownArray
+import luna.nodes.objects.Command
+import luna.nodes.utils.ChatColor
+import net.kyori.adventure.key.Key
+import net.kyori.adventure.sound.Sound
+import net.minestom.server.adventure.audience.Audiences
+
+class NodesAdminCommand : Command("nodesadmin", "nda") {
+    init{
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "[Nodes] Admin commands:")
+            Message.print(sender, "/nodesadmin war${ChatColor.WHITE}: Enable/disable war")
+            Message.print(sender, "/nodesadmin town${ChatColor.WHITE}: Manage towns (see \"/nodesadmin town help\")")
+            Message.print(sender, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
+            Message.print(sender, "/nodesadmin port${ChatColor.WHITE}: Manage ports (see \"/nodesadmin port help\")")
+            Message.print(sender, "/nodesadmin portgroup${ChatColor.WHITE}: Manage port groups (see \"/nodesadmin portgroup help\")")
+            Message.print(sender, "/nodesadmin enemy${ChatColor.WHITE}: Make two towns/nations enemies")
+            Message.print(sender, "/nodesadmin ally${ChatColor.WHITE}: Sets alliance between two towns/nations")
+            Message.print(sender, "/nodesadmin allyremove${ChatColor.WHITE}: Removes alliance between two towns/nations")
+            Message.print(sender, "/nodesadmin save${ChatColor.WHITE}: Force save world")
+            Message.print(sender, "/nodesadmin load${ChatColor.WHITE}: Force load world")
+            Message.print(sender, "/nodesadmin runincome${ChatColor.WHITE}: Runs income for all towns")
+            Message.print(sender, "/nodesadmin debug${ChatColor.WHITE}: World object debugger")
+        }
+
+        addSubcommand(NodesAdminHelpCommand())
+        addSubcommand(NodesAdminWarCommand())
+        addSubcommand(NodesAdminTownCommand())
+//        addSubcommand(NodesAdminNationCommand())
+//        addSubcommand(NodesAdminPortCommand())
+//        addSubcommand(NodesAdminPortGroupCommand())
+//        addSubcommand(NodesAdminEnemyCommand())
+//        addSubcommand(NodesAdminAllyCommand())
+//        addSubcommand(NodesAdminAllyRemoveCommand())
+//        addSubcommand(NodesAdminSaveCommand())
+//        addSubcommand(NodesAdminLoadCommand())
+//        addSubcommand(NodesAdminRunIncomeCommand())
+//        addSubcommand(NodesAdminDebugCommand())
+    }
+}
+
+class NodesAdminHelpCommand() : Command("help") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "[Nodes] Admin commands:")
+            Message.print(sender, "/nodesadmin war${ChatColor.WHITE}: Enable/disable war")
+            Message.print(sender, "/nodesadmin town${ChatColor.WHITE}: Manage towns (see \"/nodesadmin town help\")")
+            Message.print(sender, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
+            Message.print(sender, "/nodesadmin port${ChatColor.WHITE}: Manage ports (see \"/nodesadmin port help\")")
+            Message.print(sender, "/nodesadmin portgroup${ChatColor.WHITE}: Manage port groups (see \"/nodesadmin portgroup help\")")
+            Message.print(sender, "/nodesadmin enemy${ChatColor.WHITE}: Make two towns/nations enemies")
+            Message.print(sender, "/nodesadmin ally${ChatColor.WHITE}: Sets alliance between two towns/nations")
+            Message.print(sender, "/nodesadmin allyremove${ChatColor.WHITE}: Removes alliance between two towns/nations")
+            Message.print(sender, "/nodesadmin save${ChatColor.WHITE}: Force save world")
+            Message.print(sender, "/nodesadmin load${ChatColor.WHITE}: Force load world")
+            Message.print(sender, "/nodesadmin runincome${ChatColor.WHITE}: Runs income for all towns")
+            Message.print(sender, "/nodesadmin debug${ChatColor.WHITE}: World object debugger")
+        }
+    }
+}
+
+class NodesAdminWarCommand() : Command("war") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Nodes.war.printInfo(sender, true)
+            Message.print(sender, "Toggle state: \"/nodesadmin war [enable|disable|skirmish]\"")
+        }
+
+        addSubcommand(NodesAdminWarEnableCommand())
+        addSubcommand(NodesAdminWarDisableCommand())
+        addSubcommand(NodesAdminWarSkirmishCommand())
+
+    }
+}
+
+class NodesAdminWarEnableCommand() : Command("enable") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin war enable")
+        }
+
+        addSyntax({ player, resident, context ->
+            Nodes.enableWar(true, false, true)
+            Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes war enabled")
+
+            // play MENACING wither spawn sound
+            Audiences.all().playSound(Sound.sound(Key.key("entity.wither.spawn"), Sound.Source.PLAYER, 1.0f, 1.0f))
+        })
+    }
+}
+
+class NodesAdminWarDisableCommand() : Command("disable") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin war disable")
+        }
+
+        addSyntax({ player, resident, context ->
+            if (Nodes.war.enabled) {
+                Nodes.disableWar()
+                Message.broadcast("${ChatColor.BOLD}Nodes war disabled")
+            } else {
+                Message.error(player, "Nodes war already disabled")
+            }
+        })
+    }
+}
+
+class NodesAdminWarSkirmishCommand() : Command("skirmish") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin war skirmish")
+        }
+
+        addSyntax({ player, resident, context ->
+            Nodes.enableWar(false, true, Nodes.config.allowDestructionDuringSkirmish)
+            Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes border skirmishes enabled")
+
+            // play MENACING wither spawn sound
+            Audiences.all().playSound(Sound.sound(Key.key("entity.wither.spawn"), Sound.Source.PLAYER, 1.0f, 1.0f))
+        })
+    }
+}
+
+class NodesAdminTownCommand() : Command("town") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "${ChatColor.BOLD}[Nodes] Admin town management:")
+            Message.print(sender, "/nodesadmin town create${ChatColor.WHITE}: Create a new town")
+            Message.print(sender, "/nodesadmin town delete${ChatColor.WHITE}: Delete existing town")
+            Message.print(sender, "/nodesadmin town addplayer${ChatColor.WHITE}: Add players to town")
+            Message.print(sender, "/nodesadmin town removeplayer${ChatColor.WHITE}: Remove players from town")
+            Message.print(sender, "/nodesadmin town addterritory${ChatColor.WHITE}: Add territories to town")
+            Message.print(sender, "/nodesadmin town removeterritory${ChatColor.WHITE}: Remove territories from town")
+            Message.print(sender, "/nodesadmin town captureterritory${ChatColor.WHITE}: Add captured territories to town")
+            Message.print(sender, "/nodesadmin town releaseterritory${ChatColor.WHITE}: Release captured territories")
+            Message.print(sender, "/nodesadmin town setspawn${ChatColor.WHITE}: Set town's spawn to location")
+            Message.print(sender, "/nodesadmin town spawn${ChatColor.WHITE}: Go to town's spawn")
+            Message.print(sender, "/nodesadmin town addofficer${ChatColor.WHITE}: Add officer to town")
+            Message.print(sender, "/nodesadmin town removeofficer${ChatColor.WHITE}: Remove officer from town")
+            Message.print(sender, "/nodesadmin town leader${ChatColor.WHITE}: Set town leader to player")
+            Message.print(sender, "/nodesadmin town open${ChatColor.WHITE}: Toggle town is open to join")
+            Message.print(sender, "/nodesadmin town income${ChatColor.WHITE}: View a town's income inventory")
+            Message.print(sender, "Run a command with no args to see usage.")
+        }
+
+        addSubcommand(NodesAdminTownCreateCommand())
+        addSubcommand(NodesAdminTownDeleteCommand())
+        addSubcommand(NodesAdminTownAddPlayerCommand())
+        addSubcommand(NodesAdminTownRemovePlayerCommand())
+        addSubcommand(NodesAdminTownAddTerritoryCommand())
+        addSubcommand(NodesAdminTownRemoveTerritoryCommand())
+        addSubcommand(NodesAdminTownCaptureTerritoryCommand())
+        addSubcommand(NodesAdminTownReleaseTerritoryCommand())
+        addSubcommand(NodesAdminTownAddOfficerCommand())
+        addSubcommand(NodesAdminTownRemoveOfficerCommand())
+        addSubcommand(NodesAdminTownLeaderCommand())
+        addSubcommand(NodesAdminTownRemoveLeaderCommand())
+        addSubcommand(NodesAdminTownIncomeCommand())
+        addSubcommand(NodesAdminTownSetHomeCommand())
+        addSubcommand(NodesAdminTownDefaultTownSpawnsCommand())
+    }
+}
+
+class NodesAdminTownCreateCommand() : Command("create") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town create <town-name> <territory-ids>")
+        }
+
+        val townArg = ArgumentSanitizedString.create("town-name")
+        val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
+
+        addSyntax( {player, resident, context ->
+            // first territory is new town home
+            val town = Nodes.createTown(context[townArg], context[territoriesArg][0], null).getOrElse({ err ->
+                Message.error(player, "Failed to create town: ${err.message}")
+                return@addSyntax
+            })
+
+            // add the other territories
+            for (i in 1 until context[territoriesArg].size) {
+                Nodes.addTerritoryToTown(town, context[territoriesArg][i])
+            }
+
+            Message.print(player, "Created town \"${context[townArg]}\" with ${context[territoriesArg].size} territories")
+        }, townArg, territoriesArg)
+    }
+}
+
+class NodesAdminTownDeleteCommand() : Command("delete") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town delete <town-name>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+
+        addSyntax( {player, resident, context ->
+            Nodes.destroyTown(context[townArg])
+            Message.print(player, "Town \"${context[townArg].name}\" has been deleted")
+        }, townArg)
+    }
+}
+
+class NodesAdminTownAddPlayerCommand() : Command("addplayer") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town addplayer <town-name> <player-names>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val playersArg = ArgumentResidentArray.create("player-names")
+
+        addSyntax( {player, resident, context ->
+            for (resident in context[playersArg]) {
+                Nodes.addResidentToTown(context[townArg], resident)
+                Message.print(player, "Added \"${resident.name}\" to town \"${context[townArg].name}\"")
+            }
+        }, townArg, playersArg)
+    }
+}
+
+class NodesAdminTownRemovePlayerCommand() : Command("removeplayer") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town removeplayer <town-name> <player-names>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val playersArg = ArgumentResidentArray.create("player-names")
+
+        addSyntax( {player, resident, context ->
+            for (resident in context[playersArg]) {
+                Nodes.removeResidentFromTown(context[townArg], resident)
+                Message.print(player, "Removed \"${resident.name}\" from town \"${context[townArg].name}\"")
+            }
+        }, townArg, playersArg)
+    }
+}
+
+class NodesAdminTownAddTerritoryCommand() : Command("addterritory") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town addterritory <town-name> <territory-ids>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
+
+        addSyntax( {player, resident, context ->
+            // add territories
+            for (terr in context[territoriesArg]) {
+                Nodes.addTerritoryToTown(context[townArg], terr)
+            }
+
+            Message.print(player, "Added ${context[territoriesArg].size} territories to town \"${context[townArg].name}\"")
+        }, townArg, territoriesArg)
+    }
+}
+
+class NodesAdminTownRemoveTerritoryCommand() : Command("removeterritory") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town removeterritory <town-name> <territory-ids>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
+
+        addSyntax( {player, resident, context ->
+            // remove territories
+            for (terr in context[territoriesArg]) {
+                Nodes.unclaimTerritory(context[townArg], terr)
+            }
+
+            Message.print(player, "Removed ${context[territoriesArg].size} territories from town \"${context[townArg].name}\"")
+        }, townArg, territoriesArg)
+    }
+}
+
+class NodesAdminTownCaptureTerritoryCommand() : Command("captureterritory") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town captureterritory <town-name> <territory-ids>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
+
+        addSyntax( {player, resident, context ->
+            // add territories
+            for (terr in context[territoriesArg]) {
+                Nodes.captureTerritory(context[townArg], terr)
+            }
+
+            Message.print(player, "Captured ${context[territoriesArg].size} territories for town \"${context[townArg].name}\"")
+        }, townArg, territoriesArg)
+    }
+}
+
+class NodesAdminTownReleaseTerritoryCommand() : Command("releaseterritory") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town releaseterritory <territory-ids>")
+        }
+
+        val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
+
+        addSyntax( {player, resident, context ->
+            // add territories
+            for (terr in context[territoriesArg]) {
+                Nodes.releaseTerritory(terr)
+            }
+
+            Message.print(player, "Released ${context[territoriesArg].size} territories under occupation")
+        }, territoriesArg)
+    }
+}
+
+class NodesAdminTownAddOfficerCommand() : Command("addofficer") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town addofficer <town-name> <player-names>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val playersArg = ArgumentResidentArray.create("player-names")
+
+        addSyntax( {player, resident, context ->
+            // make residents officers
+            for (r in context[playersArg]) {
+                Nodes.townAddOfficer(context[townArg], r)
+                Message.print(player, "Made \"${r.name}\" officer of \"${context[townArg].name}\"")
+            }
+        }, townArg, playersArg)
+    }
+}
+
+class NodesAdminTownRemoveOfficerCommand() : Command("removeofficer") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town removeofficer <town-name> <player-names>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val playersArg = ArgumentResidentArray.create("player-names")
+
+        addSyntax( {player, resident, context ->
+            // make residents officers
+            for (r in context[playersArg]) {
+                Nodes.townRemoveOfficer(context[townArg], r)
+                Message.print(player, "Removed \"${r.name}\" as officer of \"${context[townArg].name}\"")
+            }
+        }, townArg, playersArg)
+    }
+}
+
+class NodesAdminTownLeaderCommand() : Command("leader") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town leader <town-name> <player-name>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val playerArg = ArgumentResident.create("player-name")
+
+        addSyntax( {player, resident, context ->
+            if (resident.town !== context[townArg]) {
+                Message.error(player, "Player \"${context[playerArg].name}\" is not a member of \"${context[townArg].name}\"")
+                return@addSyntax
+            }
+
+            Nodes.townSetLeader(context[townArg], resident)
+            Message.print(player, "Player \"${context[playerArg].name}\" is now leader of \"${context[townArg].name}\"")
+        }, townArg, playerArg)
+    }
+}
+
+class NodesAdminTownRemoveLeaderCommand() : Command("removeleader") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town removeleader <town-name>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+
+        addSyntax( {player, resident, context ->
+            Nodes.townSetLeader(context[townArg], null)
+            Message.print(player, "Removed leader of \"${context[townArg].name}\"")
+        }, townArg)
+    }
+}
+
+class NodesAdminTownIncomeCommand() : Command("income") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town income <town-name>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+
+        addSyntax( {player, resident, context ->
+            // open town inventory
+            player.openInventory(Nodes.getTownIncomeInventory(context[townArg]))
+        }, townArg)
+    }
+}
+
+class NodesAdminTownSetSpawnCommand() : Command("setspawn") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town setspawn <town-name>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+
+        addSyntax( {player, resident, context ->
+            val result = Nodes.setTownSpawn(context[townArg], player.position)
+
+            if (result == true) {
+                Message.print(player, "Town \"${context[townArg].name}\" spawn set to current location")
+            } else {
+                Message.error(player, "Spawn location must be within town's home territory")
+            }
+        }, townArg)
+    }
+}
+
+class NodesAdminTownSpawnCommand() : Command("spawn") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town spawn <town-name>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+
+        addSyntax( {player, resident, context ->
+            player.teleport(context[townArg].spawnpoint)
+        }, townArg)
+    }
+}
+
+class NodesAdminTownSetHomeCommand() : Command("sethome") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town sethome <town-name> <territory-id>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val territoryArg = ArgumentTerritory.create("territory-id")
+
+        addSyntax( {player, resident, context ->
+            // set town home territory
+            if (context[townArg] !== context[territoryArg].town) {
+                Message.error(player, "Invalid territory id=${context[territoryArg].id}: does not belong to town")
+                return@addSyntax
+            }
+
+            if (context[townArg].home == context[territoryArg].id) {
+                Message.error(player, "Invalid territory id=${context[territoryArg].id}: already is home territory")
+                return@addSyntax
+            }
+
+            Nodes.setTownHomeTerritory(context[townArg], context[territoryArg])
+            Message.print(player, "Moved \"${context[townArg].name}\" home territory to id = ${context[territoryArg].id}")
+        }, townArg)
+    }
+}
+
+class NodesAdminTownDefaultTownSpawnsCommand() : Command("defaulttownspawns") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town defaulttownspawns <town-names>")
+        }
+
+        val townsArg = ArgumentTownArray.create("town-names")
+
+        addSyntax( {player, resident, context ->
+            // set town home territory
+            for (town in context[townsArg]) {
+                val terrHome = Nodes.territories.get(town.home)
+                if (terrHome !== null) {
+                    val spawnpoint = Nodes.getDefaultSpawnLocation(terrHome)
+                    town.spawnpoint = spawnpoint
+                    town.needsUpdate()
+                    Message.print(player, "Set town \"${town.name}\" spawnpoint to $spawnpoint")
+                } else {
+                    Message.error(player, "Town \"${town.name}\" home territory ${town.home} does not exist")
+                }
+            }
+
+            // TODO: move this out
+            Nodes.needsSave = true
+        }, townsArg)
+    }
+}

@@ -27,6 +27,7 @@ import luna.nodes.chat.ChatMode
 import luna.nodes.commands.AllyChatCommand
 import luna.nodes.commands.GlobalChatCommand
 import luna.nodes.commands.NationChatCommand
+import luna.nodes.commands.NodesAdminCommand
 import luna.nodes.commands.TownChatCommand
 import luna.nodes.constants.DiplomaticRelationship
 import luna.nodes.constants.ErrorAlreadyAllies
@@ -212,7 +213,7 @@ object Nodes {
 //    // register commands
         MinecraftServer.getCommandManager().register(TownCommand())
         MinecraftServer.getCommandManager().register(NationCommand())
-//    this.getCommand("nodesadmin")?.setExecutor(NodesAdminCommand())
+        MinecraftServer.getCommandManager().register(NodesAdminCommand())
         MinecraftServer.getCommandManager().register(AllyCommand())
         MinecraftServer.getCommandManager().register(UnallyCommand())
         MinecraftServer.getCommandManager().register(GlobalChatCommand())
@@ -1279,30 +1280,30 @@ fun getResourceNodeCount(): Int = resourceNodes.size
 
         return Result.success(territory)
     }
-//
-//    // adds a territory to town and bypasses standard claim checks
-//    // (e.g. territory must be connected, ...)
-//    // if successful, returns added territory
-//    public fun addTerritoryToTown(town: Town, territory: Territory): Result<Territory> {
-//        // check territory not already occupied
-//        if (territory.town != null) {
-//            return Result.failure(ErrorTerritoryOwned)
-//        }
-//
-//        // add territory to town
-//        town.territories.add(territory.id)
-//        territory.town = town
-//
-//        // mark dirty
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//
-//        // re-render minimaps
-//        Nodes.renderMinimaps()
-//
-//        return Result.success(territory)
-//    }
-//
+
+    // adds a territory to town and bypasses standard claim checks
+    // (e.g. territory must be connected, ...)
+    // if successful, returns added territory
+    public fun addTerritoryToTown(town: Town, territory: Territory): Result<Territory> {
+        // check territory not already occupied
+        if (territory.town != null) {
+            return Result.failure(ErrorTerritoryOwned)
+        }
+
+        // add territory to town
+        town.territories.add(territory.id)
+        territory.town = town
+
+        // mark dirty
+        town.needsUpdate()
+        Nodes.needsSave = true
+
+        // re-render minimaps
+        Nodes.renderMinimaps()
+
+        return Result.success(territory)
+    }
+
     // makes territory occupied by town
 fun captureTerritory(town: Town, territory: Territory) {
         // check if territory already occupied, remove current occupier
