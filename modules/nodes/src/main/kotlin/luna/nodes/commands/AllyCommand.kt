@@ -23,7 +23,7 @@ class AllyCommand : Command("ally") {
             Message.print(sender, "/unally [nation]${ChatColor.WHITE}: Break alliance with nation")
         }
 
-        val nationArg = ArgumentNation.create("nation")
+        val nationArg = ArgumentNation.create("nation-name")
 
         addSyntax( { player, resident, town, nation, context ->
             if (town !== nation.capital) {

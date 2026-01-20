@@ -83,7 +83,7 @@ class NationOnlineCommand : Command("online") {
             Message.print(sender, "Usage: /nation online [nation]")
         }
 
-        var nationArg = ArgumentNation.create("nation")
+        val nationArg = ArgumentNation.create("nation-name")
 
         addSyntax( { player, resident, town, nation, context ->
             val numPlayersOnline = nation.playersOnline.size
@@ -105,7 +105,7 @@ class NationInfoCommand : Command("info") {
             Message.print(sender, "Usage: /nation info [nation]")
         }
 
-        var nationArg = ArgumentNation.create("nation")
+        val nationArg = ArgumentNation.create("nation-name")
 
         addSyntax( { player, resident, town, nation, context ->
             nation.printInfo(player)

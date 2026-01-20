@@ -166,7 +166,7 @@ class TownPromoteCommand : Command("promote", "officer") {
             Message.error(sender, "Usage: /t promote [player]")
         }
 
-        var targetArg = ArgumentResident.create("player")
+        val playerArg = ArgumentResident.create("player-name")
 
         addSyntax( { player, resident, town, context ->
             // check if player is town leader
@@ -176,28 +176,28 @@ class TownPromoteCommand : Command("promote", "officer") {
                 return@addSyntax
             }
 
-            if (context[targetArg] === resident) {
+            if (context[playerArg] === resident) {
                 Message.error(player, "You are already the town leader")
                 return@addSyntax
             }
 
-            if (context[targetArg].town !== town) {
+            if (context[playerArg].town !== town) {
                 Message.error(player, "Player is not in this town")
                 return@addSyntax
             }
 
-            val targetPlayer = context[targetArg].player()
+            val targetPlayer = context[playerArg].player()
 
             // add officer
-            if (!town.officers.contains(context[targetArg])) {
-                Nodes.townAddOfficer(town, context[targetArg])
-                Message.print(player, "Made ${context[targetArg].name} a town officer")
+            if (!town.officers.contains(context[playerArg])) {
+                Nodes.townAddOfficer(town, context[playerArg])
+                Message.print(player, "Made ${context[playerArg].name} a town officer")
 
                 if (targetPlayer !== null) {
                     Message.print(targetPlayer, "You are now a town officer")
                 }
             }
-        }, targetArg)
+        }, playerArg)
     }
 }
 
@@ -207,7 +207,7 @@ class TownDemoteCommand : Command("demote") {
             Message.error(sender, "Usage: /t demote [player]")
         }
 
-        var targetArg = ArgumentResident.create("player")
+        val playerArg = ArgumentResident.create("player-name")
 
         addSyntax( { player, resident, town, context ->
 
@@ -218,29 +218,29 @@ class TownDemoteCommand : Command("demote") {
                 return@addSyntax
             }
 
-            if (context[targetArg] === resident) {
+            if (context[playerArg] === resident) {
                 Message.error(player, "You are already the town leader")
                 return@addSyntax
             }
 
-            val targetTown = context[targetArg].town
+            val targetTown = context[playerArg].town
             if (targetTown !== town) {
                 Message.error(player, "Player is not in this town")
                 return@addSyntax
             }
 
-            val targetPlayer = context[targetArg].player()
+            val targetPlayer = context[playerArg].player()
 
             // remove officer
-            if (town.officers.contains(context[targetArg])) {
-                Nodes.townRemoveOfficer(town, context[targetArg])
-                Message.print(player, "Removed ${context[targetArg].name} from town officers")
+            if (town.officers.contains(context[playerArg])) {
+                Nodes.townRemoveOfficer(town, context[playerArg])
+                Message.print(player, "Removed ${context[playerArg].name} from town officers")
 
                 if (targetPlayer !== null) {
                     Message.error(targetPlayer, "You are no longer a town officer")
                 }
             }
-        }, targetArg)
+        }, playerArg)
     }
 }
 
@@ -250,7 +250,7 @@ class TownApplyCommand: Command("apply", "join") {
             Message.print(sender, "Usage: /town apply [town]")
         }
 
-        val townArg = ArgumentTown.create("town")
+        val townArg = ArgumentTown.create("town-name")
 
         addSyntax( {player, resident, context ->
             if (resident.town != null) {
@@ -305,10 +305,10 @@ class TownInviteCommand : Command("invite") {
             Message.print(sender, "Usage: /town invite [player]")
         }
 
-        val inviteeArg = ArgumentResident.create("player")
+        val playerArg = ArgumentResident.create("player-name")
 
         addSyntax( {player, resident, town, context ->
-            val invitee: Player? = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(context[inviteeArg].name)
+            val invitee: Player? = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(context[playerArg].name)
             if (invitee == null) {
                 Message.error(player, "That player is not online")
                 return@addSyntax
@@ -317,14 +317,14 @@ class TownInviteCommand : Command("invite") {
                 return@addSyntax
             }
 
-            if (context[inviteeArg].invitingTown == town) {
+            if (context[playerArg].invitingTown == town) {
                 Message.error(player, "This player has already been invited to the town")
                 return@addSyntax
-            } else if (context[inviteeArg].invitingTown != null) {
+            } else if (context[playerArg].invitingTown != null) {
                 Message.error(player, "This player is considering another town invitation")
                 return@addSyntax
             }
-            val inviteeTown = context[inviteeArg].town
+            val inviteeTown = context[playerArg].town
             if (inviteeTown != null) {
                 Message.error(player, "This player is already a member of a town")
                 return@addSyntax
@@ -333,15 +333,15 @@ class TownInviteCommand : Command("invite") {
             if (town.leader === resident || town.officers.contains(resident)) {
                 Message.print(player, "${invitee.username} has been invited to your town.")
                 Message.print(invitee, "You have been invited to become a member of ${town.name}.\nType \"/t accept\" to join the town or \"/t reject\" to refuse the offer.")
-                context[inviteeArg].invitingTown = town
-                context[inviteeArg].invitingPlayer = player
-                context[inviteeArg].inviteThread = MinecraftServer.getSchedulerManager()
+                context[playerArg].invitingTown = town
+                context[playerArg].invitingPlayer = player
+                context[playerArg].inviteThread = MinecraftServer.getSchedulerManager()
                     .buildTask {
-                        if (context[inviteeArg].invitingPlayer == player) {
+                        if (context[playerArg].invitingPlayer == player) {
                             Message.print(player, "${invitee.username} didn't respond to your town invitation!")
-                            context[inviteeArg].invitingTown = null
-                            context[inviteeArg].invitingPlayer = null
-                            context[inviteeArg].inviteThread = null
+                            context[playerArg].invitingTown = null
+                            context[playerArg].invitingPlayer = null
+                            context[playerArg].inviteThread = null
                         }
                     }
                     .delay(TaskSchedule.tick(1200))
@@ -350,7 +350,7 @@ class TownInviteCommand : Command("invite") {
                 Message.error(player, "You are not allowed to invite new members")
             }
 
-        }, inviteeArg)
+        }, playerArg)
     }
 }
 
@@ -360,7 +360,7 @@ class TownAcceptCommand : Command("accept") {
             Message.error(sender, "Usage: /t accept [player]")
         }
 
-        val applicantArg = ArgumentResident.create("player")
+        val playerArg = ArgumentResident.create("player-name")
 
         addSyntax({ player, resident, context ->
             val town = resident.town
@@ -441,12 +441,12 @@ class TownAcceptCommand : Command("accept") {
                     town.applications.forEach { k, v ->
                         applicant = k
                     }
-                    if (context[applicantArg].name != applicant.name) {
+                    if (context[playerArg].name != applicant.name) {
                         Message.error(player, "That player has not applied or their application has expired")
                         return@addSyntax
                     }
                 } else {
-                    applicant = context[applicantArg]
+                    applicant = context[playerArg]
                     if (!town.applications.containsKey(applicant)) {
                         Message.error(player, "That player has not applied or their application has expired")
                         return@addSyntax
@@ -462,7 +462,7 @@ class TownAcceptCommand : Command("accept") {
                 Nodes.addResidentToTown(town, applicant)
                 town.applications.remove(applicant)
             }
-        }, applicantArg)
+        }, playerArg)
     }
 }
 
@@ -472,7 +472,7 @@ class TownDenyCommand : Command("deny", "reject") {
             Message.error(sender, "Usage: /t deny [player]")
         }
 
-        val applicantArg = ArgumentResident.create("player")
+        val playerArg = ArgumentResident.create("player-name")
 
         addSyntax( { player, resident, context ->
             val town = resident.town
@@ -548,12 +548,12 @@ class TownDenyCommand : Command("deny", "reject") {
                     town.applications.forEach { k, v ->
                         applicant = k
                     }
-                    if (context[applicantArg].name != applicant.name) {
+                    if (context[playerArg].name != applicant.name) {
                         Message.error(player, "That player has not applied or their application has expired")
                         return@addSyntax
                     }
                 } else {
-                    applicant = context[applicantArg]
+                    applicant = context[playerArg]
                     if (!town.applications.containsKey(applicant)) {
                         Message.error(player, "That player has not applied or their application has expired")
                         return@addSyntax
@@ -568,7 +568,7 @@ class TownDenyCommand : Command("deny", "reject") {
 
                 town.applications.remove(applicant)
             }
-        }, applicantArg)
+        }, playerArg)
     }
 }
 
@@ -602,7 +602,7 @@ class TownKickCommand : Command("kick") {
             Message.error(sender, "Usage: /t kick [player]")
         }
 
-        val targetArg = ArgumentResident.create("name")
+        val playerArg = ArgumentResident.create("player-name")
 
         addSyntax({ player, resident, town, context ->
             // check if player is leader or officer
@@ -613,32 +613,32 @@ class TownKickCommand : Command("kick") {
             }
 
             // get other resident
-            if (context[targetArg] === null) {
+            if (context[playerArg] === null) {
                 Message.error(player, "Player not found")
                 return@addSyntax
             }
 
-            val targetTown = context[targetArg].town
+            val targetTown = context[playerArg].town
             if (targetTown !== town) {
                 Message.error(player, "Player is not in this town")
                 return@addSyntax
             }
 
             // cannot kick leaders or officers
-            if (context[targetArg] === leader || town.officers.contains(context[targetArg])) {
+            if (context[playerArg] === leader || town.officers.contains(context[playerArg])) {
                 Message.error(player, "You cannot kick the leader or other officers")
                 return@addSyntax
             }
 
-            Message.print(player, "You have kicked ${context[targetArg].name} from the town")
+            Message.print(player, "You have kicked ${context[playerArg].name} from the town")
 
-            val targetPlayer = context[targetArg].player()
+            val targetPlayer = context[playerArg].player()
             if (targetPlayer !== null) {
                 Message.print(targetPlayer, "${ChatColor.DARK_RED}You have been kicked from ${town.name}")
             }
 
-            Nodes.removeResidentFromTown(town, context[targetArg])
-        }, targetArg)
+            Nodes.removeResidentFromTown(town, context[playerArg])
+        }, playerArg)
     }
 }
 
@@ -727,7 +727,7 @@ class TownInfoCommand : Command("info") {
             Message.error(sender, "Usage: /t info [town]")
         }
 
-        val townArg = ArgumentTown.create("town")
+        val townArg = ArgumentTown.create("town-name")
 
         addSyntax({ player, resident, town, context ->
             town.printInfo(player)
@@ -745,7 +745,7 @@ class TownOnlineCommand : Command("online") {
             Message.error(sender, "Usage: /t online [town]")
         }
 
-        val townArg = ArgumentTown.create("town")
+        val townArg = ArgumentTown.create("town-name")
 
         addSyntax({ player, resident, town, context ->
             val numPlayersOnline = town.playersOnline.size
@@ -943,7 +943,7 @@ class TownTrustCommand : Command("trust") {
             Message.error(sender, "Usage: /t trust [player]")
         }
 
-        val targetArg = ArgumentResident.create("player")
+        val playerArg = ArgumentResident.create("player-name")
 
         addSyntax({ player, resident, town, context ->
             // check if player is leader or officer
@@ -953,16 +953,16 @@ class TownTrustCommand : Command("trust") {
                 return@addSyntax
             }
 
-            val targetTown = context[targetArg].town
+            val targetTown = context[playerArg].town
             if (targetTown !== town) {
                 Message.error(player, "Player is not in this town")
                 return@addSyntax
             }
 
             // set player trust
-            Nodes.setResidentTrust(context[targetArg], true)
-            Message.print(player, "${context[targetArg].name} is now marked as trusted")
-        }, targetArg)
+            Nodes.setResidentTrust(context[playerArg], true)
+            Message.print(player, "${context[playerArg].name} is now marked as trusted")
+        }, playerArg)
     }
 }
 
@@ -972,7 +972,7 @@ class TownUntrustCommand : Command("untrust") {
             Message.error(sender, "Usage: /t untrust [player]")
         }
 
-        val targetArg = ArgumentResident.create("player")
+        val playerArg = ArgumentResident.create("player-name")
 
         addSyntax({ player, resident, town, context ->
             // check if player is leader or officer
@@ -983,21 +983,21 @@ class TownUntrustCommand : Command("untrust") {
             }
 
             // get other resident
-            if (context[targetArg] == null) {
+            if (context[playerArg] == null) {
                 Message.error(player, "Player not found")
                 return@addSyntax
             }
 
-            val targetTown = context[targetArg].town
+            val targetTown = context[playerArg].town
             if (targetTown !== town) {
                 Message.error(player, "Player is not in this town")
                 return@addSyntax
             }
 
             // set player trust
-            Nodes.setResidentTrust(context[targetArg], false)
-            Message.print(player, "${ChatColor.DARK_AQUA}${context[targetArg].name} is marked as untrusted")
-        }, targetArg)
+            Nodes.setResidentTrust(context[playerArg], false)
+            Message.print(player, "${ChatColor.DARK_AQUA}${context[playerArg].name} is marked as untrusted")
+        }, playerArg)
     }
 }
 
