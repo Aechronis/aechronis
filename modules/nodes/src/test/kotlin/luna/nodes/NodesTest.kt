@@ -37,8 +37,6 @@ class NodesTest {
         val config = NodesConfig(
             save = false,
             pathPlugin = Paths.get(javaClass.getResource("/nodes/world.json")!!.toURI()).parent.toString(),
-            incomePeriod = 100,
-            canCreateTownDuringWar = true,
         )
 
         // initialize nodes with test config
