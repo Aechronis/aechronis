@@ -11,16 +11,13 @@ import luna.nodes.war.AllianceRequest
 import luna.nodes.war.ErrorAllyRequestAlreadyAllies
 import luna.nodes.war.ErrorAllyRequestAlreadyCreated
 import luna.nodes.war.ErrorAllyRequestEnemies
-import luna.nodes.utils.ChatColor
 import luna.nodes.objects.Command
 
 
 class AllyCommand : Command("ally") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "[Nodes] Ally commands:")
-            Message.print(sender, "/ally [nation]${ChatColor.WHITE}: Offer/accept alliance with nation")
-            Message.print(sender, "/unally [nation]${ChatColor.WHITE}: Break alliance with nation")
+            Message.print(sender, "Usage: /ally <nation-name>")
         }
 
         val nationArg = ArgumentNation.create("nation-name")

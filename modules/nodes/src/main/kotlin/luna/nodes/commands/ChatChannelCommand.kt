@@ -13,7 +13,10 @@ import luna.nodes.objects.Command
 class GlobalChatCommand : Command("globalchat", "gc") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /globalchat [join/leave]")
+            Message.print(sender, "Usage:")
+            Message.print(sender, "/globalchat")
+            Message.print(sender, "/globalchat join")
+            Message.print(sender, "/globalchat leave")
         }
 
         addSyntax( { player, resident, context ->
@@ -28,7 +31,7 @@ class GlobalChatCommand : Command("globalchat", "gc") {
 class GlobalChatJoinCommand : Command("join", "unmute") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /globalchat [join/leave]")
+            Message.print(sender, "Usage: /globalchat join")
         }
 
         addSyntax( { player, resident, context ->
@@ -40,7 +43,7 @@ class GlobalChatJoinCommand : Command("join", "unmute") {
 class GlobalChatLeaveCommand : Command("leave", "mute") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /globalchat [join/leave]")
+            Message.print(sender, "Usage: /globalchat leave")
         }
 
         addSyntax( { player, resident, context ->

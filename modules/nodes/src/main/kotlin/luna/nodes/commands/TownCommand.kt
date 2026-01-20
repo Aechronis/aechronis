@@ -163,7 +163,7 @@ class TownHelpCommand : Command("help") {
 class TownPromoteCommand : Command("promote", "officer") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t promote [player]")
+            Message.print(sender, "Usage: /town promote <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -204,7 +204,7 @@ class TownPromoteCommand : Command("promote", "officer") {
 class TownDemoteCommand : Command("demote") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t demote [player]")
+            Message.print(sender, "Usage: /town demote <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -247,7 +247,7 @@ class TownDemoteCommand : Command("demote") {
 class TownApplyCommand: Command("apply", "join") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town apply [town]")
+            Message.print(sender, "Usage: /town apply <town-name>")
         }
 
         val townArg = ArgumentTown.create("town-name")
@@ -302,7 +302,7 @@ class TownApplyCommand: Command("apply", "join") {
 class TownInviteCommand : Command("invite") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town invite [player]")
+            Message.print(sender, "Usage: /town invite <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -357,7 +357,9 @@ class TownInviteCommand : Command("invite") {
 class TownAcceptCommand : Command("accept") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t accept [player]")
+            Message.print(sender, "Usage:")
+            Message.print(sender, "/town accept")
+            Message.print(sender, "/town accept <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -469,7 +471,9 @@ class TownAcceptCommand : Command("accept") {
 class TownDenyCommand : Command("deny", "reject") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t deny [player]")
+            Message.print(sender, "Usage:")
+            Message.print(sender, "/town deny")
+            Message.print(sender, "/town deny <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -575,7 +579,7 @@ class TownDenyCommand : Command("deny", "reject") {
 class TownLeaveCommand : Command("leave") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t leave")
+            Message.print(sender, "Usage: /town leave")
         }
 
         addSyntax( { player, resident, town, context ->
@@ -599,7 +603,7 @@ class TownLeaveCommand : Command("leave") {
 class TownKickCommand : Command("kick") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t kick [player]")
+            Message.print(sender, "Usage: /town kick <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -645,7 +649,7 @@ class TownKickCommand : Command("kick") {
 class TownSpawn : Command("spawn") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t spawn")
+            Message.print(sender, "Usage: /town spawn")
         }
 
         addSyntax( { player, resident, town, context ->
@@ -683,7 +687,7 @@ class TownSpawn : Command("spawn") {
 class TownSetSpawn : Command("setspawn") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t setspawn")
+            Message.print(sender, "Usage: /town setspawn")
         }
 
         addSyntax({ player, resident, town, context ->
@@ -707,7 +711,7 @@ class TownSetSpawn : Command("setspawn") {
 class TownListCommand : Command("list") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t list")
+            Message.print(sender, "Usage: /town list")
         }
 
         addSyntax({ player, resident, context ->
@@ -724,7 +728,9 @@ class TownListCommand : Command("list") {
 class TownInfoCommand : Command("info") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t info [town]")
+            Message.print(sender, "Usage:")
+            Message.print(sender, "/town info")
+            Message.print(sender, "/town info <town-name>")
         }
 
         val townArg = ArgumentTown.create("town-name")
@@ -742,7 +748,9 @@ class TownInfoCommand : Command("info") {
 class TownOnlineCommand : Command("online") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t online [town]")
+            Message.print(sender, "Usage:")
+            Message.print(sender, "/town online")
+            Message.print(sender, "/town online <town-name>")
         }
 
         val townArg = ArgumentTown.create("town-name")
@@ -764,7 +772,7 @@ class TownOnlineCommand : Command("online") {
 class TownIncomeCommand : Command("income") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t income")
+            Message.print(sender, "Usage: /town income")
         }
 
         addSyntax({ player, resident, town, context ->
@@ -796,7 +804,7 @@ class TownIncomeCommand : Command("income") {
 class TownMapCommand : Command("map") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t map")
+            Message.print(sender, "Usage: /town map")
         }
 
         addSyntax({ player, resident, context ->
@@ -822,7 +830,9 @@ class TownMapCommand : Command("map") {
 class TownMinimapCommand : Command("minimap") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t minimap [3|4|5]")
+            Message.print(sender, "Usage:")
+            Message.print(sender, "/town minimap")
+            Message.print(sender, "/town minimap <size>")
         }
 
         val sizeArg = ArgumentType.Integer("size")
@@ -851,10 +861,9 @@ class TownMinimapCommand : Command("minimap") {
 class TownPermissionsCommand : Command("permissions", "perms") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /town permissions [type] [group] [allow/deny]")
-            Message.error(sender, "[type]: build, destroy, interact, chests, items, income")
-            Message.error(sender, "[group]: town, nation, ally, outsider, trusted")
-            Message.error(sender, "[allow/deny]: either \"allow\" or \"deny\"")
+            Message.print(sender, "Usage:")
+            Message.print(sender, "/town permissions")
+            Message.print(sender, "/town permissions <type> <group> <flag>")
         }
 
         val typeArg = ArgumentType.Word("type").from("build", "destroy", "interact", "chests", "items", "income")
@@ -871,10 +880,9 @@ class TownPermissionsCommand : Command("permissions", "perms") {
 
             // print usage for leader, officers
             if (resident === town.leader || town.officers.contains(resident)) {
-                Message.error(player, "Usage: /town permissions [type] [group] [allow/deny]")
-                Message.error(player, "[type]: build, destroy, interact, chests, items, income")
-                Message.error(player, "[group]: town, nation, ally, outsider, trusted")
-                Message.error(player, "[allow/deny]: either \"allow\" or \"deny\"")
+                Message.print(player, "Usage:")
+                Message.print(player, "/town permissions")
+                Message.print(player, "/town permissions <type> <group> <flag>")
             }
         })
 
@@ -940,7 +948,7 @@ class TownPermissionsCommand : Command("permissions", "perms") {
 class TownTrustCommand : Command("trust") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t trust [player]")
+            Message.print(sender, "Usage: /town trust <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -969,7 +977,7 @@ class TownTrustCommand : Command("trust") {
 class TownUntrustCommand : Command("untrust") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t untrust [player]")
+            Message.print(sender, "Usage: /town untrust <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -1004,7 +1012,7 @@ class TownUntrustCommand : Command("untrust") {
 class TownFlyCommand : Command("fly") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.error(sender, "Usage: /t fly")
+            Message.print(sender, "Usage: /town fly")
         }
 
         addSyntax({ player, resident, town, context ->

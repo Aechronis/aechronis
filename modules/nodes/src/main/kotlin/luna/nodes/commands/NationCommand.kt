@@ -53,7 +53,7 @@ class NationHelpCommand : Command("help") {
 class NationListCommand : Command("list") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /nation list [nation]")
+            Message.print(sender, "Usage: /nation list")
         }
 
         addSyntax( { player, resident, context ->
@@ -80,7 +80,9 @@ class NationListCommand : Command("list") {
 class NationOnlineCommand : Command("online") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /nation online [nation]")
+            Message.print(sender, "Usage:")
+            Message.print(sender, "/nation online")
+            Message.print(sender, "/nation online <nation-name>")
         }
 
         val nationArg = ArgumentNation.create("nation-name")
@@ -102,7 +104,9 @@ class NationOnlineCommand : Command("online") {
 class NationInfoCommand : Command("info") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /nation info [nation]")
+            Message.print(sender, "Usage:")
+            Message.print(sender, "/nation info")
+            Message.print(sender, "/nation info <nation-name>")
         }
 
         val nationArg = ArgumentNation.create("nation-name")

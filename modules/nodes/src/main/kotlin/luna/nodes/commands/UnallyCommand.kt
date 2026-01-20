@@ -15,9 +15,7 @@ import luna.nodes.objects.Command
 class UnallyCommand : Command("unally") {
     init {
         setDefaultExecutor { sender, context ->
-            Message.print(sender, "[Nodes] Ally commands:")
-            Message.print(sender, "/ally [nation]${ChatColor.WHITE}: Offer/accept alliance with nation")
-            Message.print(sender, "/unally [nation]${ChatColor.WHITE}: Break alliance with nation")
+            Message.print(sender, "Usage: /unally <nation-name>")
         }
 
         val nationArg = ArgumentNation.create("nation-name")
