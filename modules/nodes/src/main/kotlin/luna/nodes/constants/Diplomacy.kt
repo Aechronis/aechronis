@@ -22,12 +22,3 @@ enum class DiplomaticRelationship {
     NEUTRAL,
     ENEMY,
 }
-
-// constants for setting enemy (nation-level only)
-val ErrorWarAlly = Exception("Cannot declare war against an ally")
-val ErrorAlreadyEnemies = Exception("Already enemies")
-val ErrorAlreadyAllies = Exception("Already allies")
-val ErrorWarSameNation = Exception("Cannot declare war on your own nation")
-
-// constants for adding/removing ally
-val ErrorNotAllies = Exception("Not allies")

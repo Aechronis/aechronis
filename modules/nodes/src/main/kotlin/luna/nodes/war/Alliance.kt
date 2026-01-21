@@ -12,6 +12,9 @@ package luna.nodes.war
 import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes
+import luna.nodes.constants.ErrorAllyRequestAlreadyAllies
+import luna.nodes.constants.ErrorAllyRequestAlreadyCreated
+import luna.nodes.constants.ErrorAllyRequestEnemies
 import luna.nodes.objects.Nation
 import luna.nodes.objects.NationPair
 import net.minestom.server.MinecraftServer
@@ -23,11 +26,6 @@ enum class AllianceRequest {
     NEW, // new offer created
     ACCEPTED, // offer accepted
 }
-
-// errors
-val ErrorAllyRequestEnemies = Exception("Nations are enemies")
-val ErrorAllyRequestAlreadyAllies = Exception("Already allies")
-val ErrorAllyRequestAlreadyCreated = Exception("Already sent an ally request")
 
 // timeout for ally request to cancel (default 1200 ticks ~ 1 minute)
 private const val ALLY_REQUEST_TIMEOUT: Int = 1200
