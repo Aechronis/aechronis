@@ -6,11 +6,11 @@ package luna.nodes.commands
 
 import luna.nodes.Message
 import luna.nodes.commands.arguments.ArgumentNation
+import luna.nodes.constants.ErrorAllyRequestAlreadyAllies
+import luna.nodes.constants.ErrorAllyRequestAlreadyCreated
+import luna.nodes.constants.ErrorAllyRequestEnemies
 import luna.nodes.war.Alliance
 import luna.nodes.war.AllianceRequest
-import luna.nodes.war.ErrorAllyRequestAlreadyAllies
-import luna.nodes.war.ErrorAllyRequestAlreadyCreated
-import luna.nodes.war.ErrorAllyRequestEnemies
 import luna.nodes.objects.Command
 
 
