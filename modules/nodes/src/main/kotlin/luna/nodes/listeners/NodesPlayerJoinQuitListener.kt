@@ -14,49 +14,51 @@ import luna.nodes.chat.Chat
 //import luna.nodes.objects.Nametag
 import luna.nodes.objects.Resident
 import luna.nodes.war.FlagWar
+import net.minestom.server.event.GlobalEventHandler
 
-fun onPlayerJoin(event: PlayerLoadedEvent) {
-    // create resident wrapper for player
-    // createResident checks if resident already exists
-    val player: Player = event.player
-    Nodes.createResident(player)
+object NodesPlayerJoinQuitListener {
+    fun onPlayerJoin(event: PlayerLoadedEvent) {
+        // create resident wrapper for player
+        // createResident checks if resident already exists
+        val player: Player = event.player
+        Nodes.createResident(player)
 
-    val resident: Resident = Nodes.getResident(player)!!
-    Nodes.setResidentOnline(resident, player)
+        val resident: Resident = Nodes.getResident(player)!!
+        Nodes.setResidentOnline(resident, player)
 
-    // if war enabled, send active chunk attack progress bars
+        // if war enabled, send active chunk attack progress bars
         if (Nodes.war.enabled) {
             Nodes.war.sendWarProgressBarToPlayer(player)
         }
 
-//    // update nametags
-//        Nametag.pipelinedUpdateAllText()
+        //    // update nametags
+        //        Nametag.pipelinedUpdateAllText()
 
-    // if war enabled, add per-player text displays for active attacks
-    if (Nodes.war.enabled) {
-        for (attack in FlagWar.chunkToAttacker.values) {
-            attack.textDisplay.update(player)
+        // if war enabled, add per-player text displays for active attacks
+        if (Nodes.war.enabled) {
+            for (attack in FlagWar.chunkToAttacker.values) {
+                attack.textDisplay.update(player)
+            }
         }
     }
-}
 
-fun onPlayerQuit(event: PlayerDisconnectEvent) {
-    val player: Player = event.player
-    val resident = Nodes.getResident(player)
-    if (resident != null) {
-        resident.destroyMinimap()
-        Nodes.setResidentOffline(resident, player)
-    }
-
-    // remove player from muting global chat
-    Chat.enableGlobalChat(player)
-
-    // if war enabled, remove per-player town name displays for active attacks
-    if (Nodes.war.enabled) {
-        for (attack in FlagWar.chunkToAttacker.values) {
-            attack.textDisplay.removePlayerTextDisplay(player)
+    fun onPlayerQuit(event: PlayerDisconnectEvent) {
+        val player: Player = event.player
+        val resident = Nodes.getResident(player)
+        if (resident != null) {
+            resident.destroyMinimap()
+            Nodes.setResidentOffline(resident, player)
         }
-    }
+
+        // remove player from muting global chat
+        Chat.enableGlobalChat(player)
+
+        // if war enabled, remove per-player town name displays for active attacks
+        if (Nodes.war.enabled) {
+            for (attack in FlagWar.chunkToAttacker.values) {
+                attack.textDisplay.removePlayerTextDisplay(player)
+            }
+        }
 
         // if playing attacking a chunk, stop it
         if (Nodes.war.enabled) {
@@ -67,4 +69,10 @@ fun onPlayerQuit(event: PlayerDisconnectEvent) {
                 }
             }
         }
+    }
+
+    fun init(eventHandler: GlobalEventHandler) {
+        eventHandler.addListener(PlayerLoadedEvent::class.java, this::onPlayerJoin)
+        eventHandler.addListener(PlayerDisconnectEvent::class.java, this::onPlayerQuit)
+    }
 }

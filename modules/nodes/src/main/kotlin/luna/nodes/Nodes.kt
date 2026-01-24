@@ -67,6 +67,12 @@ import luna.nodes.listeners.onPlayerJoin
 import luna.nodes.listeners.onPlayerMove
 import luna.nodes.listeners.onPlayerQuit
 import luna.nodes.listeners.onPlayerTeleport
+import luna.nodes.listeners.NodesChatListener
+import luna.nodes.listeners.NodesIncomeInventoryListener
+import luna.nodes.listeners.NodesPlayerDamageListener
+import luna.nodes.listeners.NodesPlayerJoinQuitListener
+import luna.nodes.listeners.NodesPlayerMoveListener
+import luna.nodes.listeners.NodesWorldListener
 import luna.nodes.objects.Coord
 import luna.nodes.objects.DefaultResourceAttributeLoader
 //import luna.nodes.objects.Nametag
@@ -105,6 +111,7 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerLoadedEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.timer.Task
+import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Files
 //import java.nio.file.Path
 //import java.nio.file.Paths
@@ -212,6 +219,12 @@ object Nodes {
         eventHandler.addListener(PlayerMoveEvent::class.java) { event -> onPlayerMove(event) }
         eventHandler.addListener(EntityTeleportEvent::class.java) { event -> onPlayerTeleport(event) }
         eventHandler.addListener(EntityDamageEvent::class.java) { event -> onDamage(event) }
+        NodesChatListener.init(eventHandler)
+        NodesIncomeInventoryListener.init(eventHandler)
+        NodesPlayerDamageListener.init(eventHandler)
+        NodesPlayerJoinQuitListener.init(eventHandler)
+        NodesPlayerMoveListener.init(eventHandler)
+        NodesWorldListener.init(eventHandler)
 
         // shutdown task
         MinecraftServer.getSchedulerManager().buildShutdownTask { cleanup() }
