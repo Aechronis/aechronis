@@ -27,6 +27,9 @@ data class NodesConfig(
     // period for running world save
     val savePeriod: Long = 30000,
 
+    // period for updating nametags
+    val nametagUpdatePeriod: Long = 1000,
+
     // all long tick cycle values
     // 1 hour = 3600000 ms
     // 2 hour = 7200000 ms

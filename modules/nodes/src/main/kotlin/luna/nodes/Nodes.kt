@@ -65,7 +65,7 @@ import luna.nodes.listeners.NodesPlayerMoveListener
 import luna.nodes.listeners.NodesWorldListener
 import luna.nodes.objects.Coord
 import luna.nodes.objects.DefaultResourceAttributeLoader
-//import luna.nodes.objects.Nametag
+import luna.nodes.objects.Nametag
 import luna.nodes.objects.Nation
 import luna.nodes.objects.NationPair
 import luna.nodes.objects.OreBlockCache
@@ -257,9 +257,11 @@ object Nodes {
     internal fun reloadManagers() {
         SaveManager.stop()
         IncomeManager.stop()
+        Nametag.stop()
 
         SaveManager.start(config.savePeriod)
         IncomeManager.start(config.incomePeriod)
+        Nametag.start(config.nametagUpdatePeriod)
     }
 
     // mark all current players in game as online
@@ -273,9 +275,6 @@ object Nodes {
             val resident = getResident(player)!!
             setResidentOnline(resident, player)
         }
-
-//        // update nametags
-//        Nametag.pipelinedUpdateAllText()
     }
 
     // clean up any world details
@@ -999,9 +998,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
         // re-render minimaps
         renderMinimaps()
 
-        // update nametags
-//        Nametag.pipelinedUpdateAllText()
-
         return Result.success(town)
     }
 
@@ -1157,7 +1153,7 @@ fun getResourceNodeCount(): Int = resourceNodes.size
             r.nation = null
             r.needsUpdate()
 
-            // remove resident nametag, and remove from nation players online list
+            // remove from nation players online list
             val player = r.player()
             if (player !== null) {
                 if (nation !== null) {
@@ -1173,9 +1169,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
 
         // re-render minimaps
         renderMinimaps()
-//
-//        // update nametags
-//        Nametag.pipelinedUpdateAllText()
     }
 
     fun getTownCount(): Int = towns.size
@@ -1499,9 +1492,6 @@ fun captureTerritory(town: Town, territory: Territory) {
         town.needsUpdate()
         resident.needsUpdate()
         needsSave = true
-
-        // update nametags
-//        Nametag.pipelinedUpdateAllText()
     }
 
     fun removeResidentFromTown(town: Town, resident: Resident) {
@@ -1533,9 +1523,6 @@ fun captureTerritory(town: Town, territory: Territory) {
         town.needsUpdate()
         resident.needsUpdate()
         needsSave = true
-
-        // update nametags
-//        Nametag.pipelinedUpdateAllText()
     }
 
     // make player in town an officer
@@ -1751,9 +1738,6 @@ fun captureTerritory(town: Town, territory: Territory) {
         // re-render minimaps
         renderMinimaps()
 
-        // update nametags
-//        Nametag.pipelinedUpdateAllText()
-
         return Result.success(nation)
     }
 
@@ -1832,9 +1816,6 @@ fun captureTerritory(town: Town, territory: Territory) {
 
         // re-render minimaps
         renderMinimaps()
-//
-//        // update nametags
-//        Nametag.pipelinedUpdateAllText()
     }
 
     fun getNationCount(): Int = nations.size
@@ -1868,9 +1849,6 @@ fun captureTerritory(town: Town, territory: Territory) {
 
         // re-render minimaps
         renderMinimaps()
-
-        // update nametags
-//        Nametag.pipelinedUpdateAllText()
 
         return Result.success(town)
     }
@@ -1918,9 +1896,6 @@ fun captureTerritory(town: Town, territory: Territory) {
 
         // re-render minimaps
         renderMinimaps()
-//
-//        // update nametags
-//        Nametag.pipelinedUpdateAllText()
 
         return Result.success(town)
     }

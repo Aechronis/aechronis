@@ -1,15 +1,15 @@
 /**
- * 1.13+ Player town nametag
- *
- * NOTE: this conflicts with any other plugin doing nametag prefix/suffix (e.g. TAB)
- * Make sure all other plugins that affect prefix/suffix are disabled
- *
- * TODO: make sure name is not too long (may cause bukkit error)
+ * Player town nametag
  */
 
 package luna.nodes.objects
 import luna.nodes.Nodes
 import net.minestom.server.entity.Player
+import net.minestom.server.network.packet.server.play.TeamsPacket
+import net.kyori.adventure.text.Component
+import net.minestom.server.MinecraftServer
+import net.minestom.server.timer.Task
+import net.minestom.server.timer.TaskSchedule
 
 /**
  * Get town nametag text as VIEWED by input player
@@ -38,92 +38,89 @@ fun townNametagViewedByPlayer(
     return if (space) "${town.nametagNeutral} " else town.nametagNeutral
 }
 
-//public object Nametag {
-//
-//    // lock for pipelined nametag update
-//    private var updateLock: Boolean = false
-//
-//    /**
-//     * Update nametag text for player
-//     * Sends team packets directly to the client
-//     */
-//    public fun updateTextForPlayer(player: Player) {
-//        // unregister towns
-//        for (town in Nodes.towns.values) {
-//            val townNametagId = "t${town.townNametagId}"
-//            try {
-//                player.sendTeamRemove(townNametagId)
-//            } catch (e: Exception) {
-//                // ignore if team doesn't exist
-//            }
-//        }
-//
-//        // re create teams from town names
-//        for (town in Nodes.towns.values) {
-//            val townNametagId = "t${town.townNametagId}"
-//            val prefix = townNametagViewedByPlayer(town, player)
-//
-//            // create the team with town prefix
-//            player.sendTeamCreate(townNametagId, prefix, "")
-//        }
-//
-//        // add other players to teams
-//        for (otherPlayer in Bukkit.getOnlinePlayers()) {
-//            val town = Nodes.getTownFromPlayer(otherPlayer)
-//            if (town !== null) {
-//                val townNametagId = "t${town.townNametagId}"
-//                player.sendTeamAddPlayers(townNametagId, listOf(otherPlayer.name))
-//            }
-//        }
-//    }
-//
-//    /**
-//     * Update all player nametags using a pipeline:
-//     * - only update subset of online players each time
-//     */
-//    public fun pipelinedUpdateAllText() {
-//        if (Nametag.updateLock == true) {
-//            return
-//        }
-//
-//        val onlinePlayers = Bukkit.getOnlinePlayers().toList()
-//        if (onlinePlayers.size <= 0) {
-//            return
-//        }
-//
-//        Nametag.updateLock = true
-//
-//        val updatesPerTick: Int = Math.max(1, Math.ceil(onlinePlayers.size.toDouble() / Config.nametagPipelineTicks.toDouble()).toInt())
-//        var index = 0
-//        var tickOffset = 1L // folia requires delay > 0
-//
-//        while (index < onlinePlayers.size) {
-//            val idxStart = index
-//            val idxEnd = Math.min(index + updatesPerTick, onlinePlayers.size)
-//            Bukkit.getGlobalRegionScheduler().runDelayed(
-//                Nodes.plugin!!,
-//                { _ ->
-//                    for (i in idxStart until idxEnd) {
-//                        val player = onlinePlayers[i]
-//                        if (player.isOnline()) {
-//                            Nametag.updateTextForPlayer(player)
-//                        }
-//                    }
-//                },
-//                tickOffset,
-//            )
-//
-//            index += updatesPerTick
-//            tickOffset += 1L
-//        }
-//
-//        // finish after next tick
-//        Bukkit.getGlobalRegionScheduler().runDelayed(
-//            Nodes.plugin!!,
-//            { _ ->
-//                Nametag.updateLock = false
-//            },
-//            tickOffset,
-//        )
-//    }
-//}
+object Nametag {
+    private var task: Task? = null
+
+    /**
+     * Start the automatic nametag update scheduler
+     */
+    fun start(period: Long) {
+        if (this.task !== null) {
+            return
+        }
+
+        val runnable = Runnable {
+            updateAllText()
+        }
+
+        this.task = MinecraftServer.getSchedulerManager()
+            .buildTask(runnable)
+            .delay(TaskSchedule.millis(period))
+            .repeat(TaskSchedule.millis(period))
+            .schedule()
+    }
+
+    /**
+     * Stop the automatic nametag update scheduler
+     */
+    fun stop() {
+        val task = this.task
+        if (task === null) {
+            return
+        }
+
+        task.cancel()
+        this.task = null
+    }
+
+    /**
+     * Update nametag text for player
+     * Sends team packets directly to the player so they see customized prefixes
+     */
+    private fun updateTextForPlayer(player: Player) {
+        // remove all existing town teams for this viewer
+        for (town in Nodes.towns.values) {
+            val teamName = "t${town.townNametagId}"
+            player.sendPacket(TeamsPacket(teamName, TeamsPacket.RemoveTeamAction()))
+        }
+
+        // create teams for each town with prefix as viewed by this player
+        for (town in Nodes.towns.values) {
+            val teamName = "t${town.townNametagId}"
+            val prefix = townNametagViewedByPlayer(town, player, space = true)
+
+            // collect all players in this town to add to the team
+            val townMembers = mutableListOf<String>()
+            for (otherPlayer in net.minestom.server.MinecraftServer.getConnectionManager().onlinePlayers) {
+                val otherTown = Nodes.getTownFromPlayer(otherPlayer)
+                if (otherTown === town) {
+                    townMembers.add(otherPlayer.username)
+                }
+            }
+
+            // create team with customized prefix for this viewer
+            val createAction = TeamsPacket.CreateTeamAction(
+                Component.text(teamName), // displayName
+                0, // friendlyFlags (0 = friendly fire enabled)
+                TeamsPacket.NameTagVisibility.ALWAYS, // nameTagVisibility
+                TeamsPacket.CollisionRule.ALWAYS, // collisionRule
+                net.kyori.adventure.text.format.NamedTextColor.WHITE, // teamColor
+                Component.text(prefix), // teamPrefix
+                Component.empty(), // teamSuffix
+                townMembers // entities (players in this town)
+            )
+            player.sendPacket(TeamsPacket(teamName, createAction))
+        }
+    }
+
+    /**
+     * Update all player nametags
+     * Calls updateTextForPlayer for each online player
+     */
+    private fun updateAllText() {
+        val onlinePlayers = net.minestom.server.MinecraftServer.getConnectionManager().onlinePlayers
+        for (player in onlinePlayers) {
+            updateTextForPlayer(player)
+        }
+    }
+}

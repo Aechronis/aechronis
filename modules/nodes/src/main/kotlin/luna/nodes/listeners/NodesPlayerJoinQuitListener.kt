@@ -11,7 +11,6 @@ import net.minestom.server.event.player.PlayerLoadedEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import luna.nodes.Nodes
 import luna.nodes.chat.Chat
-//import luna.nodes.objects.Nametag
 import luna.nodes.objects.Resident
 import luna.nodes.war.FlagWar
 
@@ -29,9 +28,6 @@ object NodesPlayerJoinQuitListener {
         if (Nodes.war.enabled) {
             Nodes.war.sendWarProgressBarToPlayer(player)
         }
-
-        //    // update nametags
-        //        Nametag.pipelinedUpdateAllText()
 
         // if war enabled, add per-player text displays for active attacks
         if (Nodes.war.enabled) {
