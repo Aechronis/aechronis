@@ -1,7 +1,6 @@
 package luna.nodes.listeners
 
 import luna.nodes.Nodes
-import net.minestom.server.event.GlobalEventHandler
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.inventory.click.Click
@@ -27,9 +26,9 @@ object NodesIncomeInventoryListener {
         }
     }
 
-    fun init(eventHandler: GlobalEventHandler) {
-        eventHandler.addListener(InventoryPreClickEvent::class.java, this::onInventoryClick)
-        eventHandler.addListener(InventoryCloseEvent::class.java, this::onInventoryClose)
+    fun init() {
+        Nodes.eventNode.addListener(InventoryPreClickEvent::class.java, this::onInventoryClick)
+        Nodes.eventNode.addListener(InventoryCloseEvent::class.java, this::onInventoryClose)
     }
 }
 

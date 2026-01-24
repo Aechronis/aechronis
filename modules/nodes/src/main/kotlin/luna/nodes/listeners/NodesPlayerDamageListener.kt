@@ -5,7 +5,6 @@ import luna.nodes.Nodes
 import luna.nodes.Nodes.getRelationshipOfPlayerToPlayer
 import luna.nodes.constants.DiplomaticRelationship
 import net.minestom.server.entity.Player
-import net.minestom.server.event.GlobalEventHandler
 import net.minestom.server.event.entity.EntityDamageEvent
 
 object NodesPlayerDamageListener {
@@ -37,7 +36,7 @@ object NodesPlayerDamageListener {
         }
     }
 
-    fun init(eventHandler: GlobalEventHandler) {
-        eventHandler.addListener(EntityDamageEvent::class.java, this::onDamage)
+    fun init() {
+        Nodes.eventNode.addListener(EntityDamageEvent::class.java, this::onDamage)
     }
 }

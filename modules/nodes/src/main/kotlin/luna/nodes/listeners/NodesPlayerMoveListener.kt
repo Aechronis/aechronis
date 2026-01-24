@@ -15,8 +15,6 @@ import luna.nodes.objects.Coord
 import luna.nodes.objects.Resident
 import luna.nodes.objects.Territory
 import luna.nodes.objects.Town
-import net.minestom.server.event.GlobalEventHandler
-import java.beans.EventHandler
 
 object NodesPlayerMoveListener {
     private fun onPlayerMove(event: PlayerMoveEvent) {
@@ -133,9 +131,9 @@ object NodesPlayerMoveListener {
         }
     }
 
-    fun init(eventHandler: GlobalEventHandler) {
-        eventHandler.addListener(PlayerMoveEvent::class.java, this::onPlayerMove)
-        eventHandler.addListener(EntityTeleportEvent::class.java, this::onPlayerTeleport)
+    fun init() {
+        Nodes.eventNode.addListener(PlayerMoveEvent::class.java, this::onPlayerMove)
+        Nodes.eventNode.addListener(EntityTeleportEvent::class.java, this::onPlayerTeleport)
     }
 }
 

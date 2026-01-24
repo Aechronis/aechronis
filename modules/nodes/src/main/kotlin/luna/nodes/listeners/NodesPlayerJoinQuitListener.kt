@@ -14,7 +14,6 @@ import luna.nodes.chat.Chat
 //import luna.nodes.objects.Nametag
 import luna.nodes.objects.Resident
 import luna.nodes.war.FlagWar
-import net.minestom.server.event.GlobalEventHandler
 
 object NodesPlayerJoinQuitListener {
     fun onPlayerJoin(event: PlayerLoadedEvent) {
@@ -71,8 +70,8 @@ object NodesPlayerJoinQuitListener {
         }
     }
 
-    fun init(eventHandler: GlobalEventHandler) {
-        eventHandler.addListener(PlayerLoadedEvent::class.java, this::onPlayerJoin)
-        eventHandler.addListener(PlayerDisconnectEvent::class.java, this::onPlayerQuit)
+    fun init() {
+        Nodes.eventNode.addListener(PlayerLoadedEvent::class.java, this::onPlayerJoin)
+        Nodes.eventNode.addListener(PlayerDisconnectEvent::class.java, this::onPlayerQuit)
     }
 }

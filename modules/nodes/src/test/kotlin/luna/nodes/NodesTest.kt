@@ -4,7 +4,9 @@ import luna.nodes.objects.TerritoryId
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
+import net.minestom.server.event.player.PlayerBlockInteractEvent
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -26,11 +28,23 @@ class NodesTest {
         val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
         instance.setGenerator(TestGenerator())
 
-        MinecraftServer.getGlobalEventHandler().addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
+        val eventNode = EventNode.all("test-node").setPriority(0)
+
+        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
+
+        eventNode.addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
             val player = event.player
             event.spawningInstance = instance
             player.respawnPoint = Pos(27000.0, 60.0, 5700.0)
             player.gameMode = GameMode.CREATIVE
+        }
+
+        eventNode.addListener(PlayerBlockInteractEvent::class.java) { event ->
+            if (!event.isCancelled) {
+                Message.print(event.player, "you would have just interacted")
+            } else {
+                Message.error(event.player, "interact event cancelled")
+            }
         }
 
         // create test config

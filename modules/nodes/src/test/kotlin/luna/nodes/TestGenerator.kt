@@ -16,6 +16,8 @@ class TestGenerator : Generator {
                 for (y in 0..59) {
                     if (ThreadLocalRandom.current().nextInt(100) == 1) {
                         unit.modifier().setBlock(x, y, z, Block.CHEST)
+                    } else if (ThreadLocalRandom.current().nextInt(100) == 1) {
+                        unit.modifier().setBlock(x, y, z, Block.OAK_TRAPDOOR)
                     } else {
                         unit.modifier().setBlock(x, y, z, Block.STONE)
                     }

@@ -24,6 +24,8 @@ import luna.nodes.constants.ErrorSkyBlocked
 import luna.nodes.constants.ErrorTooManyAttacks
 import luna.nodes.constants.ErrorTownBlacklisted
 import luna.nodes.constants.ErrorTownNotWhitelisted
+import luna.nodes.constants.INTERACTIVE_BLOCKS
+import luna.nodes.constants.PROTECTED_BLOCKS
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
 import luna.nodes.objects.Resident
@@ -37,7 +39,6 @@ import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.entity.ItemEntity
 import net.minestom.server.entity.Player
-import net.minestom.server.event.GlobalEventHandler
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.item.ItemStack
@@ -649,6 +650,11 @@ object NodesWorldListener {
         eventHandler.addListener(PlayerBlockBreakEvent::class.java, this::onBlockBreakSuccess)
         eventHandler.addListener(PlayerBlockPlaceEvent::class.java, this::onBlockPlace)
         eventHandler.addListener(PlayerBlockPlaceEvent::class.java, this::onBlockPlaceSuccess)
+    fun init() {
+        Nodes.highPriorityEventNode.addListener(PlayerBlockBreakEvent::class.java, this::onBlockBreak)
+        Nodes.lowPriorityEventNode.addListener(PlayerBlockBreakEvent::class.java, this::onBlockBreakSuccess)
+        Nodes.highPriorityEventNode.addListener(PlayerBlockPlaceEvent::class.java, this::onBlockPlace)
+        Nodes.lowPriorityEventNode.addListener(PlayerBlockPlaceEvent::class.java, this::onBlockPlaceSuccess)
     }
 }
 

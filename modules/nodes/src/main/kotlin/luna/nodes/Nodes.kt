@@ -1,6 +1,6 @@
-///*
-// * Nodes Engine/API
-// */
+/*
+ * Nodes Engine/API
+ */
 
 package luna.nodes
 
@@ -100,6 +100,7 @@ import luna.nodes.utils.Color
 import luna.nodes.utils.loadLongFromFile
 import luna.nodes.utils.saveStringToFile
 import luna.nodes.war.FlagWar
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.entity.EntityDamageEvent
 import net.minestom.server.event.entity.EntityTeleportEvent
 import net.minestom.server.event.inventory.InventoryCloseEvent
@@ -225,6 +226,12 @@ object Nodes {
         NodesPlayerJoinQuitListener.init(eventHandler)
         NodesPlayerMoveListener.init(eventHandler)
         NodesWorldListener.init(eventHandler)
+        NodesChatListener.init()
+        NodesIncomeInventoryListener.init()
+        NodesPlayerDamageListener.init()
+        NodesPlayerJoinQuitListener.init()
+        NodesPlayerMoveListener.init()
+        NodesWorldListener.init()
 
         // shutdown task
         MinecraftServer.getSchedulerManager().buildShutdownTask { cleanup() }
