@@ -1,40 +1,35 @@
-//package luna.nodes.listeners
-//
-//import org.bukkit.entity.Player
-//import org.bukkit.event.EventHandler
-//import org.bukkit.event.Listener
-//import org.bukkit.event.entity.EntityDamageByEntityEvent
-//import luna.nodes.Config
-//import luna.nodes.Message
-//import luna.nodes.Nodes.getRelationshipOfPlayerToPlayer
-//import luna.nodes.constants.DiplomaticRelationship
-//
-//public class NodesPlayerDamageListener : Listener {
-//
-//    @EventHandler
-//    fun onDamage(event: EntityDamageByEntityEvent) {
-//        val victim = event.entity
-//        val attacker = event.damager
-//
-//        if (victim !is Player || attacker !is Player) return
-//
-//        // if relationship is ally, town or nation, and config specifies it, cancel event and notify attacker
-//        val relationship = getRelationshipOfPlayerToPlayer(victim, attacker)
-//        val (cancel, message) = when (relationship) {
-//            DiplomaticRelationship.TOWN, DiplomaticRelationship.NATION -> {
-//                val cancelled = !Config.allowNationFriendlyFire
-//                cancelled to if (cancelled) "You cannot attack members of your nation" else ""
-//            }
-//            DiplomaticRelationship.ALLY -> {
-//                val cancelled = !Config.allowAllyFriendlyFire
-//                cancelled to if (cancelled) "You cannot attack your allies" else ""
-//            }
-//            else -> false to ""
-//        }
-//
-//        if (cancel) {
-//            event.setCancelled(true)
-//            Message.error(attacker, message)
-//        }
-//    }
-//}
+package luna.nodes.listeners
+
+import luna.nodes.Message
+import luna.nodes.Nodes
+import luna.nodes.Nodes.getRelationshipOfPlayerToPlayer
+import luna.nodes.constants.DiplomaticRelationship
+import net.minestom.server.entity.Player
+import net.minestom.server.event.entity.EntityDamageEvent
+
+fun onDamage(event: EntityDamageEvent) {
+    val victim = event.entity
+    val attacker = event.damage.attacker
+
+    if (victim !is Player || attacker !is Player) return
+
+    // if relationship is ally, town or nation, and config specifies it, cancel event and notify attacker
+    val relationship = getRelationshipOfPlayerToPlayer(victim, attacker)
+    val (cancel, message) = when (relationship) {
+        DiplomaticRelationship.TOWN, DiplomaticRelationship.NATION -> {
+            val cancelled = !Nodes.config.allowNationFriendlyFire
+            cancelled to if (cancelled) "You cannot attack members of your nation" else ""
+        }
+        DiplomaticRelationship.ALLY -> {
+            val cancelled = !Nodes.config.allowAllyFriendlyFire
+            cancelled to if (cancelled) "You cannot attack your allies" else ""
+        }
+        else -> false to ""
+    }
+
+    if (cancel) {
+        event.setCancelled(true)
+        Message.error(attacker, message)
+    }
+}
+

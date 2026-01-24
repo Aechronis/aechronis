@@ -59,6 +59,7 @@ import luna.nodes.listeners.onBlockBreak
 import luna.nodes.listeners.onBlockBreakSuccess
 import luna.nodes.listeners.onBlockPlace
 import luna.nodes.listeners.onBlockPlaceSuccess
+import luna.nodes.listeners.onDamage
 import luna.nodes.listeners.onInventoryClick
 import luna.nodes.listeners.onInventoryClose
 import luna.nodes.listeners.onPlayerChat
@@ -93,6 +94,7 @@ import luna.nodes.utils.Color
 import luna.nodes.utils.loadLongFromFile
 import luna.nodes.utils.saveStringToFile
 import luna.nodes.war.FlagWar
+import net.minestom.server.event.entity.EntityDamageEvent
 import net.minestom.server.event.entity.EntityTeleportEvent
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
@@ -209,7 +211,7 @@ object Nodes {
         eventHandler.addListener(PlayerDisconnectEvent::class.java) { event -> onPlayerQuit(event) }
         eventHandler.addListener(PlayerMoveEvent::class.java) { event -> onPlayerMove(event) }
         eventHandler.addListener(EntityTeleportEvent::class.java) { event -> onPlayerTeleport(event) }
-//    pluginManager.registerEvents(NodesPlayerDamageListener(), this)
+        eventHandler.addListener(EntityDamageEvent::class.java) { event -> onDamage(event) }
 
         // shutdown task
         MinecraftServer.getSchedulerManager().buildShutdownTask { cleanup() }
@@ -2299,13 +2301,13 @@ fun captureTerritory(town: Town, territory: Territory) {
         val playerTown = getTownFromPlayer(player)
         return getRelationshipOfTownToTown(playerTown, otherTown)
     }
-//
-//    public fun getRelationshipOfPlayerToPlayer(player: Player, other: Player): DiplomaticRelationship {
-//        val playerTown = Nodes.getTownFromPlayer(player)
-//        val otherTown = Nodes.getTownFromPlayer(other)
-//        return getRelationshipOfTownToTown(playerTown, otherTown)
-//    }
-//
+
+    public fun getRelationshipOfPlayerToPlayer(player: Player, other: Player): DiplomaticRelationship {
+        val playerTown = Nodes.getTownFromPlayer(player)
+        val otherTown = Nodes.getTownFromPlayer(other)
+        return getRelationshipOfTownToTown(playerTown, otherTown)
+    }
+
     // ==============================================
     // Chest protection functions
     // ==============================================
