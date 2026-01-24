@@ -100,6 +100,29 @@ class Resident(val uuid: UUID, val name: String) {
     }
 
     /**
+     * Permissions for town protected chests
+     */
+    fun hasTownProtectedChestPermissions(town: Town): Boolean {
+        if (this.town != town) {
+            return false
+        }
+
+        if (this === this.town?.leader) {
+            return true
+        }
+
+        if (this.town?.officers!!.contains(this)) {
+            return true
+        }
+
+        if (this.trusted) {
+            return true
+        }
+
+        return false
+    }
+
+    /**
      * Immutable save snapshot, must be composed of immutable primitives.
      * Used to generate json string serialization.
      */

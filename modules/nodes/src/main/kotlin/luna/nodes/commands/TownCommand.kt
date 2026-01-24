@@ -128,6 +128,7 @@ class TownCommand : Command("t", "town") {
         addSubcommand(TownMapCommand())
         addSubcommand(TownMinimapCommand())
         addSubcommand(TownPermissionsCommand())
+        addSubcommand(TownProtectCommand())
         addSubcommand(TownTrustCommand())
         addSubcommand(TownUntrustCommand())
         addSubcommand(TownFlyCommand())
@@ -942,6 +943,53 @@ class TownPermissionsCommand : Command("permissions", "perms") {
 
             Message.print(player, "Set permissions for ${town.name}: $permissions $group $flag")
         }, typeArg, groupArg, flagArg)
+    }
+}
+
+class TownProtectCommand : Command("protect") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "[Nodes] Town protect commands:")
+            Message.print(sender, "/town protect${ChatColor.WHITE}: Toggle protecting chests")
+            Message.print(sender, "/town protect show${ChatColor.WHITE}: Show protected chests")
+        }
+
+        addSyntax({ player, resident, town, context ->
+            // check if player is town leader or officer
+            val leader = town.leader
+            if (resident !== leader && !town.officers.contains(resident)) {
+                Message.error(player, "Only leaders and officers can protect chests")
+                return@addSyntax
+            }
+
+            if (resident.isProtectingChests) {
+                Nodes.stopProtectingChests(resident)
+                Message.print(player, "${ChatColor.DARK_AQUA}Stopped protecting chests.")
+            } else {
+                Nodes.startProtectingChests(resident)
+                Message.print(player, "Click on a chest to protect or unprotect it. Use \"/t protect\" again to stop protecting, or click a non-chest block to stop.")
+            }
+        })
+
+        addSubcommand(TownProtectShowCommand())
+    }
+}
+
+class TownProtectShowCommand : Command("show") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /town protect show")
+        }
+
+        addSyntax({ player, resident, town, context ->
+            Message.print(player, "Protected chests:")
+            // print protected chests
+            for (block in town.protectedBlocks) {
+                Message.print(player, "${ChatColor.WHITE}${MinecraftServer.getInstanceManager().instances.first().getBlock(block).name()}: x: ${block.blockX}, y: ${block.blockY}, z: ${block.blockZ}")
+            }
+
+            Nodes.showProtectedChests(town, resident)
+        })
     }
 }
 

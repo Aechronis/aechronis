@@ -20,6 +20,7 @@ import luna.nodes.utils.EnumArrayMap
 import luna.nodes.utils.createEnumArrayMap
 import luna.nodes.utils.stringArrayFromSet
 import luna.nodes.utils.stringMapFromMap
+import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.item.Material
 import net.minestom.server.timer.Task
 import java.util.EnumSet
@@ -73,7 +74,7 @@ class Town(
         createEnumArrayMap<TownPermissions, EnumSet<PermissionsGroup>> { _ -> EnumSet.of(PermissionsGroup.TOWN) }
 
     // protected chest blocks in town (for leader, officers, + trusted players)
-//    val protectedBlocks: HashSet<Block> = hashSetOf()
+    val protectedBlocks: HashSet<BlockVec> = hashSetOf()
 
     // color for displaying on map
     var color: Color = Color(
@@ -185,7 +186,7 @@ class Town(
         val annexed = t.annexed.toList()
         val captured = t.captured.toList()
         val income = t.income.storage.toMutableMap()
-//        public val protectedBlocks: HashSet<Block> = HashSet(t.protectedBlocks)
+        val protectedBlocks: HashSet<BlockVec> = HashSet(t.protectedBlocks)
 
         override var jsonString: String? = null
 
@@ -221,7 +222,7 @@ class Town(
                     "\"annexed\":$annexed," +
                     "\"captured\":$captured," +
                     "\"income\":$income," +
-//                    "\"protect\":${blocksToJsonString(this.protectedBlocks)}," +
+                    "\"protect\":${blocksToJsonString(this.protectedBlocks)}," +
                     "}"
                 )
 
@@ -269,22 +270,22 @@ private fun permissionsToJsonString(permissions: EnumArrayMap<TownPermissions, E
     return s
 }
 
-//// string format for protected blocks HashSet<Block>
-//private fun blocksToJsonString(blocks: HashSet<Block>): String {
-//    val str = StringBuilder()
-//    str.append("[")
-//
-//    var index: Int = 0
-//    for (block in blocks) {
-//        str.append("[${block.x},${block.y},${block.z}]")
-//        if (index < blocks.size - 1) {
-//            str.append(",")
-//        }
-//        index += 1
-//    }
-//
-//    str.append("]")
-//
-//    val s = str.toString()
-//    return s
-//}
+// string format for protected blocks HashSet<BlockVec>
+private fun blocksToJsonString(blocks: HashSet<BlockVec>): String {
+    val str = StringBuilder()
+    str.append("[")
+
+    var index: Int = 0
+    for (block in blocks) {
+        str.append("[${block.blockX},${block.blockY},${block.blockZ}]")
+        if (index < blocks.size - 1) {
+            str.append(",")
+        }
+        index += 1
+    }
+
+    str.append("]")
+
+    val s = str.toString()
+    return s
+}

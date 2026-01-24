@@ -55,19 +55,9 @@ import luna.nodes.constants.ErrorWarAlly
 import luna.nodes.constants.ErrorWarSameNation
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
-import luna.nodes.listeners.onBlockBreak
-import luna.nodes.listeners.onBlockBreakSuccess
-import luna.nodes.listeners.onBlockPlace
-import luna.nodes.listeners.onBlockPlaceSuccess
-import luna.nodes.listeners.onDamage
-import luna.nodes.listeners.onInventoryClick
-import luna.nodes.listeners.onInventoryClose
-import luna.nodes.listeners.onPlayerChat
-import luna.nodes.listeners.onPlayerJoin
-import luna.nodes.listeners.onPlayerMove
-import luna.nodes.listeners.onPlayerQuit
-import luna.nodes.listeners.onPlayerTeleport
 import luna.nodes.listeners.NodesChatListener
+import luna.nodes.listeners.NodesChestProtectionDestroyListener
+import luna.nodes.listeners.NodesChestProtectionListener
 import luna.nodes.listeners.NodesIncomeInventoryListener
 import luna.nodes.listeners.NodesPlayerDamageListener
 import luna.nodes.listeners.NodesPlayerJoinQuitListener
@@ -100,6 +90,8 @@ import luna.nodes.utils.Color
 import luna.nodes.utils.loadLongFromFile
 import luna.nodes.utils.saveStringToFile
 import luna.nodes.war.FlagWar
+import net.minestom.server.coordinate.BlockVec
+import net.minestom.server.coordinate.Vec
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.entity.EntityDamageEvent
 import net.minestom.server.event.entity.EntityTeleportEvent
@@ -111,6 +103,8 @@ import net.minestom.server.event.player.PlayerChatEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerLoadedEvent
 import net.minestom.server.event.player.PlayerMoveEvent
+import net.minestom.server.network.packet.server.play.ParticlePacket
+import net.minestom.server.particle.Particle
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Files
@@ -130,6 +124,11 @@ import kotlin.system.measureNanoTime
  * Nodes container
  */
 object Nodes {
+
+    // event nodes for listeners
+    val lowPriorityEventNode = EventNode.all("nodes-low-priority").setPriority(999)
+    val eventNode = EventNode.all("nodes")
+    val highPriorityEventNode = EventNode.all("nodes-high-priority").setPriority(-999)
 
     // library of resource node definitions
     internal val resourceNodes: HashMap<String, ResourceNode> = hashMapOf()
@@ -202,31 +201,14 @@ object Nodes {
             println("Error loading world: $err")
         }
 
-        val eventHandler = MinecraftServer.getGlobalEventHandler()
+        MinecraftServer.getGlobalEventHandler().addChild(lowPriorityEventNode)
+        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
+        MinecraftServer.getGlobalEventHandler().addChild(highPriorityEventNode)
 
         // register listeners
-        eventHandler.addListener(PlayerChatEvent::class.java) { event -> onPlayerChat(event) }
-//    pluginManager.registerEvents(NodesChestProtectionListener(), this)
-//    pluginManager.registerEvents(NodesChestProtectionDestroyListener(), this)
-        eventHandler.addListener(InventoryPreClickEvent::class.java) { event -> onInventoryClick(event) }
-        eventHandler.addListener(InventoryCloseEvent::class.java) { event -> onInventoryClose(event) }
-        eventHandler.addListener(PlayerBlockBreakEvent::class.java) { event -> onBlockBreak(event) }
-        eventHandler.addListener(PlayerBlockBreakEvent::class.java) { event -> onBlockBreakSuccess(event) }
-        eventHandler.addListener(PlayerBlockPlaceEvent::class.java) { event -> onBlockPlace(event) }
-        eventHandler.addListener(PlayerBlockPlaceEvent::class.java) { event -> onBlockPlaceSuccess(event) }
-//    pluginManager.registerEvents(NodesPlayerJoinQuitListener(), this)
-        eventHandler.addListener(PlayerLoadedEvent::class.java) { event -> onPlayerJoin(event) }
-        eventHandler.addListener(PlayerDisconnectEvent::class.java) { event -> onPlayerQuit(event) }
-        eventHandler.addListener(PlayerMoveEvent::class.java) { event -> onPlayerMove(event) }
-        eventHandler.addListener(EntityTeleportEvent::class.java) { event -> onPlayerTeleport(event) }
-        eventHandler.addListener(EntityDamageEvent::class.java) { event -> onDamage(event) }
-        NodesChatListener.init(eventHandler)
-        NodesIncomeInventoryListener.init(eventHandler)
-        NodesPlayerDamageListener.init(eventHandler)
-        NodesPlayerJoinQuitListener.init(eventHandler)
-        NodesPlayerMoveListener.init(eventHandler)
-        NodesWorldListener.init(eventHandler)
         NodesChatListener.init()
+        NodesChestProtectionListener.init()
+        NodesChestProtectionDestroyListener.init()
         NodesIncomeInventoryListener.init()
         NodesPlayerDamageListener.init()
         NodesPlayerJoinQuitListener.init()
@@ -1039,7 +1021,7 @@ fun getResourceNodeCount(): Int = resourceNodes.size
         annexedTerritoryIds: ArrayList<Int>,
         income: MutableMap<Material, Int>,
         permissions: MutableMap<TownPermissions, EnumSet<PermissionsGroup>>,
-//        protectedBlocks: HashSet<Block>,
+        protectedBlocks: HashSet<BlockVec>,
     ): Town? {
         val leaderAsResident = if (leader != null) {
             getResidentFromUUID(leader)
@@ -1134,8 +1116,8 @@ fun getResourceNodeCount(): Int = resourceNodes.size
             town.permissions[type].addAll(groups)
         }
 
-//        // add protected blocks
-//        town.protectedBlocks.addAll(protectedBlocks)
+        // add protected blocks
+        town.protectedBlocks.addAll(protectedBlocks)
 
         // save new town
         towns.put(name, town)
@@ -2341,161 +2323,121 @@ fun captureTerritory(town: Town, territory: Territory) {
         needsSave = true
     }
 
-//    /**
-//     * Add event listener for protecting/unprotecting chests
-//     * with mouse clicks
-//     */
-//    internal fun startProtectingChests(resident: Resident) {
-//        val player = resident.player()
-//        if (player === null) {
-//            return
-//        }
-//
-//        val town = resident.town
-//        if (town === null) {
-//            return
-//        }
-//
-//        // check that resident is leader or officer
-//        if (resident !== town.leader && !town.officers.contains(resident)) {
-//            return
-//        }
-//
-//        resident.isProtectingChests = true
-//    }
-//
-//    /**
-//     * Remove event listener for protecting chests
-//     */
-//    internal fun stopProtectingChests(resident: Resident) {
-//        val player = resident.player()
-//        if (player === null) {
-//            return
-//        }
-//
-//        // remove resident links
-//        resident.isProtectingChests = false
-//    }
-//
-//    /**
-//     * Mark town chest as protected by town
-//     * Handles checking for connected chests.
-//     * Protect: true/false setting for protecting or unprotecting
-//     */
-//    internal fun protectTownChest(town: Town, block: Block, protect: Boolean) {
-//        // get connected chest blocks
-//        fun getConnectedBlocks(block: Block): List<Block> {
-//            val type = block.type
-//            if (type == Material.CHEST || type == Material.TRAPPED_CHEST) {
-//                val blockState = block.getState()
-//                if (blockState is Chest) {
-//                    val chest = blockState as Chest
-//                    val inventory = chest.getInventory()
-//                    if (inventory is DoubleChestInventory) {
-//                        val doubleChest = inventory.getHolder() as DoubleChest
-//
-//                        // get sides and add to blocks
-//                        val leftSide: Block = (doubleChest.getLeftSide() as Chest).block
-//                        val rightSide: Block = (doubleChest.getRightSide() as Chest).block
-//
-//                        return listOf(leftSide, rightSide)
-//                    }
-//                }
-//            }
-//
-//            return listOf(block)
-//        }
-//
-//        // adding protection: get connected blocks, else only use block
-//        val blocks: List<Block> = if (protect == true) {
-//            getConnectedBlocks(block)
-//        } else {
-//            listOf(block)
-//        }
-//
-//        if (protect == true) {
-//            for (block in blocks) {
-//                town.protectedBlocks.add(block)
-//            }
-//        } else {
-//            for (block in blocks) {
-//                town.protectedBlocks.remove(block)
-//            }
-//        }
-//
-//        town.needsUpdate()
-//        Nodes.needsSave = true
-//    }
-//
-//    /**
-//     * Generate particles at town's protected chests viewed by
-//     * input resident
-//     */
-//    internal fun showProtectedChests(town: Town, resident: Resident) {
-//        val player = resident.player()
-//        if (player === null) {
-//            return
-//        }
-//
-//        val protectedBlocks = town.protectedBlocks
-//
-//        // create repeating event to spawn particles each second
-//        val particle = Particle.HAPPY_VILLAGER
-//        val particleCount = 3
-//        val randomOffsetXZ = 0.05
-//        val randomOffsetY = 0.1
-//
-//        val maxRuns = 10
-//        var runCount = 0
-//
-//        var task: io.papermc.paper.threadedregions.scheduler.ScheduledTask? = null
-//
-//        val runnable = object : Runnable {
-//            override fun run() {
-//                player.scheduler.run(
-//                    Nodes.plugin!!,
-//                    { _ ->
-//                        for (block in protectedBlocks) {
-//                            // corners
-//                            val location1 = Location(block.world, block.x.toDouble() + 0.1, block.y.toDouble() + 0.5, block.z.toDouble() + 0.1)
-//                            val location2 = Location(block.world, block.x.toDouble() + 0.1, block.y.toDouble() + 0.5, block.z.toDouble() + 0.9)
-//                            val location3 = Location(block.world, block.x.toDouble() + 0.9, block.y.toDouble() + 0.5, block.z.toDouble() + 0.1)
-//                            val location4 = Location(block.world, block.x.toDouble() + 0.9, block.y.toDouble() + 0.5, block.z.toDouble() + 0.9)
-//
-//                            // centers
-//                            val location5 = Location(block.world, block.x.toDouble() + 0.5, block.y.toDouble() + 0.5, block.z.toDouble())
-//                            val location6 = Location(block.world, block.x.toDouble(), block.y.toDouble() + 0.5, block.z.toDouble() + 0.5)
-//                            val location7 = Location(block.world, block.x.toDouble() + 0.5, block.y.toDouble() + 0.5, block.z.toDouble() + 1.0)
-//                            val location8 = Location(block.world, block.x.toDouble() + 1.0, block.y.toDouble() + 0.5, block.z.toDouble() + 0.5)
-//
-//                            player.spawnParticle(particle, location1, particleCount, randomOffsetXZ, randomOffsetY, randomOffsetXZ)
-//                            player.spawnParticle(particle, location2, particleCount, randomOffsetXZ, randomOffsetY, randomOffsetXZ)
-//                            player.spawnParticle(particle, location3, particleCount, randomOffsetXZ, randomOffsetY, randomOffsetXZ)
-//                            player.spawnParticle(particle, location4, particleCount, randomOffsetXZ, randomOffsetY, randomOffsetXZ)
-//                            player.spawnParticle(particle, location5, particleCount, randomOffsetXZ, randomOffsetY, randomOffsetXZ)
-//                            player.spawnParticle(particle, location6, particleCount, randomOffsetXZ, randomOffsetY, randomOffsetXZ)
-//                            player.spawnParticle(particle, location7, particleCount, randomOffsetXZ, randomOffsetY, randomOffsetXZ)
-//                            player.spawnParticle(particle, location8, particleCount, randomOffsetXZ, randomOffsetY, randomOffsetXZ)
-//                        }
-//
-//                        runCount += 1
-//                        if (runCount > maxRuns) {
-//                            task?.cancel()
-//                        }
-//                    },
-//                    null,
-//                )
-//            }
-//        }
-//
-//        task = Bukkit.getAsyncScheduler().runAtFixedRate(
-//            Nodes.plugin!!,
-//            { _ -> runnable.run() },
-//            1000,
-//            1000,
-//            TimeUnit.MILLISECONDS,
-//        )
-//    }
+    /**
+     * Add event listener for protecting/unprotecting chests
+     * with mouse clicks
+     */
+    internal fun startProtectingChests(resident: Resident) {
+        val player = resident.player()
+        if (player === null) {
+            return
+        }
+
+        val town = resident.town
+        if (town === null) {
+            return
+        }
+
+        // check that resident is leader or officer
+        if (resident !== town.leader && !town.officers.contains(resident)) {
+            return
+        }
+
+        resident.isProtectingChests = true
+    }
+
+    /**
+     * Remove event listener for protecting chests
+     */
+    internal fun stopProtectingChests(resident: Resident) {
+        val player = resident.player()
+        if (player === null) {
+            return
+        }
+
+        // remove resident links
+        resident.isProtectingChests = false
+    }
+
+    /**
+     * Mark town chest as protected by town
+     * Handles checking for connected chests.
+     * Protect: true/false setting for protecting or unprotecting
+     */
+    internal fun protectTownChest(town: Town, block: BlockVec, protect: Boolean) {
+        if (protect == true) {
+            town.protectedBlocks.add(block)
+        } else {
+            town.protectedBlocks.remove(block)
+        }
+
+        town.needsUpdate()
+        needsSave = true
+    }
+
+    /**
+     * Generate particles at town's protected chests viewed by
+     * input resident
+     */
+    internal fun showProtectedChests(town: Town, resident: Resident) {
+        val player = resident.player()
+        if (player === null) {
+            return
+        }
+
+        val protectedBlocks = town.protectedBlocks
+
+        // create repeating event to spawn particles each second
+        val particle = Particle.HAPPY_VILLAGER
+        val particleCount = 3
+        val randomOffset = Vec(0.1, 0.1, 0.1)
+
+        val maxRuns = 10
+        var runCount = 0
+
+        var task: Task? = null
+
+        val runnable = object : Runnable {
+            override fun run() {
+                for (block in protectedBlocks) {
+                    // corners
+                    val location1 = Pos(block.x() + 0.1, block.y() + 0.5, block.z() + 0.1)
+                    val location2 = Pos(block.x() + 0.1, block.y() + 0.5, block.z() + 0.9)
+                    val location3 = Pos(block.x() + 0.9, block.y() + 0.5, block.z() + 0.1)
+                    val location4 = Pos(block.x() + 0.9, block.y() + 0.5, block.z() + 0.9)
+
+                    // centers
+                    val location5 = Pos(block.x() + 0.5, block.y() + 0.5, block.z())
+                    val location6 = Pos(block.x(), block.y() + 0.5, block.z() + 0.5)
+                    val location7 = Pos(block.x() + 0.5, block.y() + 0.5, block.z() + 1.0)
+                    val location8 = Pos(block.x() + 1.0, block.y() + 0.5, block.z() + 0.5)
+
+
+                    player.sendPackets(
+                        ParticlePacket(particle, location1, randomOffset, 0F, particleCount),
+                        ParticlePacket(particle, location2, randomOffset, 0F, particleCount),
+                        ParticlePacket(particle, location3, randomOffset, 0F, particleCount),
+                        ParticlePacket(particle, location4, randomOffset, 0F, particleCount),
+                        ParticlePacket(particle, location5, randomOffset, 0F, particleCount),
+                        ParticlePacket(particle, location6, randomOffset, 0F, particleCount),
+                        ParticlePacket(particle, location7, randomOffset, 0F, particleCount),
+                        ParticlePacket(particle, location8, randomOffset, 0F, particleCount),
+                    )
+                }
+
+                runCount += 1
+                if (runCount > maxRuns) {
+                    task?.cancel()
+                }
+            }
+        }
+
+        task = MinecraftServer.getSchedulerManager()
+            .buildTask{runnable.run() }
+            .delay(TaskSchedule.millis(1000))
+            .repeat(TaskSchedule.millis(1000))
+            .schedule()
+    }
 
     // ==============================================
     // Port functions

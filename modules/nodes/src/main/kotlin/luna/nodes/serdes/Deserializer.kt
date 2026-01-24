@@ -17,6 +17,7 @@ import luna.nodes.objects.Nation
 import luna.nodes.objects.PortGroup
 import luna.nodes.objects.Town
 import luna.nodes.utils.Color
+import net.minestom.server.coordinate.BlockVec
 import java.io.FileReader
 import java.nio.file.Path
 import java.util.EnumMap
@@ -226,22 +227,21 @@ object Deserializer {
                     }
                 }
 
-//                // parse town protected blocks
-//                val protectedBlocks: HashSet<Block> = hashSetOf()
-//                val protectedBlocksJsonArray = town.get("protect")?.getAsJsonArray()
-//                if (protectedBlocksJsonArray !== null) {
-//                    val world = Bukkit.getWorlds().get(0)
-//                    for (item in protectedBlocksJsonArray) {
-//                        val blockArray = item.getAsJsonArray()
-//                        if (blockArray !== null && blockArray.size() == 3) {
-//                            val x = blockArray[0].getAsInt()
-//                            val y = blockArray[1].getAsInt()
-//                            val z = blockArray[2].getAsInt()
-//                            val block = world.getBlockAt(x, y, z)
-//                            protectedBlocks.add(block)
-//                        }
-//                    }
-//                }
+                // parse town protected blocks
+                val protectedBlocks: HashSet<BlockVec> = hashSetOf()
+                val protectedBlocksJsonArray = town.get("protect")?.getAsJsonArray()
+                if (protectedBlocksJsonArray !== null) {
+                    for (item in protectedBlocksJsonArray) {
+                        val blockArray = item.getAsJsonArray()
+                        if (blockArray !== null && blockArray.size() == 3) {
+                            val x = blockArray[0].getAsInt()
+                            val y = blockArray[1].getAsInt()
+                            val z = blockArray[2].getAsInt()
+                            val block = BlockVec(x,y,z)
+                            protectedBlocks.add(block)
+                        }
+                    }
+                }
 
                 val townObject: Town? = Nodes.loadTown(
                     uuid,
@@ -257,7 +257,7 @@ object Deserializer {
                     annexedIds,
                     income,
                     permissions,
-//                    protectedBlocks,
+                    protectedBlocks,
                 )
 
                 if (townObject !== null) {
