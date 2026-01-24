@@ -4,7 +4,11 @@
 
 package luna.nodes.objects
 
+import luna.nodes.Message
+import luna.nodes.Nodes
 import luna.nodes.serdes.SaveState
+import luna.nodes.utils.ChatColor
+import net.minestom.server.command.CommandSender
 
 /**
  * Player warpable port
@@ -68,6 +72,29 @@ data class Port(
             this._needsUpdate = false
         }
         return this.saveState
+    }
+
+    fun printInfo(sender: CommandSender) {
+        Message.print(sender, "${ChatColor.AQUA}${ChatColor.BOLD}Port ${this.name}:")
+        Message.print(sender, "${ChatColor.AQUA}- (x,z): (${this.locX}, ${this.locZ})")
+        Message.print(sender, "${ChatColor.AQUA}- Groups:")
+        for (group in this.groups) {
+            Message.print(sender, "${ChatColor.AQUA}  - ${group.name}")
+        }
+
+        if (this.isPublic) {
+            Message.print(sender, "${ChatColor.AQUA}- Public")
+        } else {
+            // get owner
+            val owner = Nodes.getPortOwner(this)
+            val ownerName = if (owner !== null) {
+                owner.name
+            } else {
+                "${ChatColor.GRAY}None"
+            }
+            Message.print(sender, "${ChatColor.AQUA}- Owner: $ownerName")
+            Message.print(sender, "${ChatColor.AQUA}- Access: Allies only")
+        }
     }
 }
 
