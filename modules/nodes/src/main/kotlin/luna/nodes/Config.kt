@@ -69,14 +69,10 @@ data class NodesConfig(
     // permissions
     // ===================================
     // interact in area with NO TERRITORIES (build, destroy, etc...)
-    val canInteractInEmpty: Boolean = false,
+    val canInteractInEmpty: Boolean = true,
 
     // interact in territory without town (build, destroy, etc...)
     val canInteractInUnclaimed: Boolean = true,
-
-    // annexation settings
-    // only allow annexing during war time
-    val canOnlyAnnexDuringWar: Boolean = true,
 
     // ===================================
     // town settings
@@ -160,15 +156,7 @@ data class NodesConfig(
     val warPermissions: Boolean = true,
 
     // allow leaving towns/natiosn during war
-    val canLeaveTownDuringWar: Boolean = true,
-
-    // allow creating towns, nation stuff during war
-    val canCreateTownDuringWar: Boolean = false,
-    val canDestroyTownDuringWar: Boolean = false,
-    val canLeaveNationDuringWar: Boolean = false,
-
-    // global disable annexing
-    val annexDisabled: Boolean = false,
+    val canLeaveTownDuringWar: Boolean = false,
 
     // war whitelist: only allow attacking these town UUIDs
     val warWhitelist: Set<UUID> = emptySet(),
@@ -176,13 +164,9 @@ data class NodesConfig(
     // war blacklist: disable attacking these town UUIDs
     val warBlacklist: Set<UUID> = emptySet(),
 
-    // annex blacklist: cannot annex these towns, only occupy
-    val annexBlacklist: Set<UUID> = emptySet(),
-
     // whitelist settings
 
     // only towns in whitelist can annex territories (from other whitelist territories)
-    val onlyWhitelistCanAnnex: Boolean = true,
     val onlyWhitelistCanClaim: Boolean = true,
 
     // multiplier for warping home when occupied
@@ -198,9 +182,7 @@ data class NodesConfig(
     // ===================================
     // port configs
     // ===================================
-    val seaLevel: Double = 62.0,
     val portWarpTime: Long = 10000,
-    val allowPortWarpWithoutBoat: Boolean = false,
 ) {
     // folder for backups of json state files
     val pathBackup: Path get() = Paths.get(pathPlugin, "backup").normalize()
@@ -215,5 +197,4 @@ data class NodesConfig(
     // use whitelist/blacklist for war (derived from list.size > 0 for lists below)
     val warUseWhitelist: Boolean get() = warWhitelist.isNotEmpty()
     val warUseBlacklist: Boolean get() = warBlacklist.isNotEmpty()
-    val useAnnexBlacklist: Boolean get() = annexBlacklist.isNotEmpty()
 }
