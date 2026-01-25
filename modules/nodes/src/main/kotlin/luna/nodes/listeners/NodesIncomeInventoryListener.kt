@@ -31,4 +31,3 @@ object NodesIncomeInventoryListener {
         Nodes.eventNode.addListener(InventoryCloseEvent::class.java, this::onInventoryClose)
     }
 }
-

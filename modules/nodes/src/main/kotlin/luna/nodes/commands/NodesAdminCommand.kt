@@ -31,7 +31,7 @@ import net.minestom.server.command.builder.arguments.ArgumentBoolean
 import net.minestom.server.command.builder.arguments.ArgumentType
 
 class NodesAdminCommand : Command("nodesadmin", "nda") {
-    init{
+    init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "[Nodes] Admin commands:")
             Message.print(sender, "/nodesadmin war${ChatColor.WHITE}: Enable/disable war")
@@ -56,7 +56,7 @@ class NodesAdminCommand : Command("nodesadmin", "nda") {
     }
 }
 
-class NodesAdminHelpCommand() : Command("help") {
+class NodesAdminHelpCommand : Command("help") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "[Nodes] Admin commands:")
@@ -73,7 +73,7 @@ class NodesAdminHelpCommand() : Command("help") {
     }
 }
 
-class NodesAdminWarCommand() : Command("war") {
+class NodesAdminWarCommand : Command("war") {
     init {
         setDefaultExecutor { sender, context ->
             Nodes.war.printInfo(sender, true)
@@ -83,11 +83,10 @@ class NodesAdminWarCommand() : Command("war") {
         addSubcommand(NodesAdminWarEnableCommand())
         addSubcommand(NodesAdminWarDisableCommand())
         addSubcommand(NodesAdminWarSkirmishCommand())
-
     }
 }
 
-class NodesAdminWarEnableCommand() : Command("enable") {
+class NodesAdminWarEnableCommand : Command("enable") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin war enable")
@@ -103,7 +102,7 @@ class NodesAdminWarEnableCommand() : Command("enable") {
     }
 }
 
-class NodesAdminWarDisableCommand() : Command("disable") {
+class NodesAdminWarDisableCommand : Command("disable") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin war disable")
@@ -120,7 +119,7 @@ class NodesAdminWarDisableCommand() : Command("disable") {
     }
 }
 
-class NodesAdminWarSkirmishCommand() : Command("skirmish") {
+class NodesAdminWarSkirmishCommand : Command("skirmish") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin war skirmish")
@@ -130,7 +129,7 @@ class NodesAdminWarSkirmishCommand() : Command("skirmish") {
             Nodes.enableWar(
                 canAnnexTerritories = false,
                 canOnlyAttackBorders = true,
-                destructionEnabled = Nodes.config.allowDestructionDuringSkirmish
+                destructionEnabled = Nodes.config.allowDestructionDuringSkirmish,
             )
             Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes border skirmishes enabled")
 
@@ -140,7 +139,7 @@ class NodesAdminWarSkirmishCommand() : Command("skirmish") {
     }
 }
 
-class NodesAdminTownCommand() : Command("town") {
+class NodesAdminTownCommand : Command("town") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "${ChatColor.BOLD}[Nodes] Admin town management:")
@@ -187,7 +186,7 @@ class NodesAdminTownCommand() : Command("town") {
     }
 }
 
-class NodesAdminTownCreateCommand() : Command("create") {
+class NodesAdminTownCreateCommand : Command("create") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town create <town-name> <territory-ids>")
@@ -196,7 +195,7 @@ class NodesAdminTownCreateCommand() : Command("create") {
         val townArg = ArgumentSanitizedString.create("town-name")
         val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // first territory is new town home
             val town = Nodes.createTown(context[townArg], context[territoriesArg][0], null).getOrElse { err ->
                 Message.error(player, "Failed to create town: ${err.message}")
@@ -213,7 +212,7 @@ class NodesAdminTownCreateCommand() : Command("create") {
     }
 }
 
-class NodesAdminTownDeleteCommand() : Command("delete") {
+class NodesAdminTownDeleteCommand : Command("delete") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town delete <town-name>")
@@ -221,14 +220,14 @@ class NodesAdminTownDeleteCommand() : Command("delete") {
 
         val townArg = ArgumentTown.create("town-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.destroyTown(context[townArg])
             Message.print(player, "Town \"${context[townArg].name}\" has been deleted")
         }, townArg)
     }
 }
 
-class NodesAdminTownRenameCommand() : Command("rename") {
+class NodesAdminTownRenameCommand : Command("rename") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town rename <town-name> <new-name>")
@@ -237,14 +236,14 @@ class NodesAdminTownRenameCommand() : Command("rename") {
         val townArg = ArgumentTown.create("town-name")
         val nameArg = ArgumentSanitizedString.create("new-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.renameTown(context[townArg], context[nameArg])
             Message.print(player, "${context[townArg].name} has been renamed to \"${context[nameArg]}\"")
         }, townArg, nameArg)
     }
 }
 
-class NodesAdminTownAddPlayerCommand() : Command("addplayer") {
+class NodesAdminTownAddPlayerCommand : Command("addplayer") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town addplayer <town-name> <player-names>")
@@ -253,7 +252,7 @@ class NodesAdminTownAddPlayerCommand() : Command("addplayer") {
         val townArg = ArgumentTown.create("town-name")
         val playersArg = ArgumentResidentArray.create("player-names")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             for (resident in context[playersArg]) {
                 Nodes.addResidentToTown(context[townArg], resident)
                 Message.print(player, "Added \"${resident.name}\" to town \"${context[townArg].name}\"")
@@ -262,7 +261,7 @@ class NodesAdminTownAddPlayerCommand() : Command("addplayer") {
     }
 }
 
-class NodesAdminTownRemovePlayerCommand() : Command("removeplayer") {
+class NodesAdminTownRemovePlayerCommand : Command("removeplayer") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town removeplayer <town-name> <player-names>")
@@ -271,7 +270,7 @@ class NodesAdminTownRemovePlayerCommand() : Command("removeplayer") {
         val townArg = ArgumentTown.create("town-name")
         val playersArg = ArgumentResidentArray.create("player-names")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             for (resident in context[playersArg]) {
                 Nodes.removeResidentFromTown(context[townArg], resident)
                 Message.print(player, "Removed \"${resident.name}\" from town \"${context[townArg].name}\"")
@@ -280,7 +279,7 @@ class NodesAdminTownRemovePlayerCommand() : Command("removeplayer") {
     }
 }
 
-class NodesAdminTownAddTerritoryCommand() : Command("addterritory") {
+class NodesAdminTownAddTerritoryCommand : Command("addterritory") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town addterritory <town-name> <territory-ids>")
@@ -289,7 +288,7 @@ class NodesAdminTownAddTerritoryCommand() : Command("addterritory") {
         val townArg = ArgumentTown.create("town-name")
         val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // add territories
             for (terr in context[territoriesArg]) {
                 Nodes.addTerritoryToTown(context[townArg], terr)
@@ -300,7 +299,7 @@ class NodesAdminTownAddTerritoryCommand() : Command("addterritory") {
     }
 }
 
-class NodesAdminTownRemoveTerritoryCommand() : Command("removeterritory") {
+class NodesAdminTownRemoveTerritoryCommand : Command("removeterritory") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town removeterritory <town-name> <territory-ids>")
@@ -309,7 +308,7 @@ class NodesAdminTownRemoveTerritoryCommand() : Command("removeterritory") {
         val townArg = ArgumentTown.create("town-name")
         val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // remove territories
             for (terr in context[territoriesArg]) {
                 Nodes.unclaimTerritory(context[townArg], terr)
@@ -320,7 +319,7 @@ class NodesAdminTownRemoveTerritoryCommand() : Command("removeterritory") {
     }
 }
 
-class NodesAdminTownCaptureTerritoryCommand() : Command("captureterritory") {
+class NodesAdminTownCaptureTerritoryCommand : Command("captureterritory") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town captureterritory <town-name> <territory-ids>")
@@ -329,7 +328,7 @@ class NodesAdminTownCaptureTerritoryCommand() : Command("captureterritory") {
         val townArg = ArgumentTown.create("town-name")
         val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // add territories
             for (terr in context[territoriesArg]) {
                 Nodes.captureTerritory(context[townArg], terr)
@@ -340,7 +339,7 @@ class NodesAdminTownCaptureTerritoryCommand() : Command("captureterritory") {
     }
 }
 
-class NodesAdminTownReleaseTerritoryCommand() : Command("releaseterritory") {
+class NodesAdminTownReleaseTerritoryCommand : Command("releaseterritory") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town releaseterritory <territory-ids>")
@@ -348,7 +347,7 @@ class NodesAdminTownReleaseTerritoryCommand() : Command("releaseterritory") {
 
         val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // add territories
             for (terr in context[territoriesArg]) {
                 Nodes.releaseTerritory(terr)
@@ -359,7 +358,7 @@ class NodesAdminTownReleaseTerritoryCommand() : Command("releaseterritory") {
     }
 }
 
-class NodesAdminTownAddOfficerCommand() : Command("addofficer") {
+class NodesAdminTownAddOfficerCommand : Command("addofficer") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town addofficer <town-name> <player-names>")
@@ -368,7 +367,7 @@ class NodesAdminTownAddOfficerCommand() : Command("addofficer") {
         val townArg = ArgumentTown.create("town-name")
         val playersArg = ArgumentResidentArray.create("player-names")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // make residents officers
             for (r in context[playersArg]) {
                 Nodes.townAddOfficer(context[townArg], r)
@@ -378,7 +377,7 @@ class NodesAdminTownAddOfficerCommand() : Command("addofficer") {
     }
 }
 
-class NodesAdminTownRemoveOfficerCommand() : Command("removeofficer") {
+class NodesAdminTownRemoveOfficerCommand : Command("removeofficer") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town removeofficer <town-name> <player-names>")
@@ -387,7 +386,7 @@ class NodesAdminTownRemoveOfficerCommand() : Command("removeofficer") {
         val townArg = ArgumentTown.create("town-name")
         val playersArg = ArgumentResidentArray.create("player-names")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // make residents officers
             for (r in context[playersArg]) {
                 Nodes.townRemoveOfficer(context[townArg], r)
@@ -397,7 +396,7 @@ class NodesAdminTownRemoveOfficerCommand() : Command("removeofficer") {
     }
 }
 
-class NodesAdminTownLeaderCommand() : Command("leader") {
+class NodesAdminTownLeaderCommand : Command("leader") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town leader <town-name> <player-name>")
@@ -406,7 +405,7 @@ class NodesAdminTownLeaderCommand() : Command("leader") {
         val townArg = ArgumentTown.create("town-name")
         val playerArg = ArgumentResident.create("player-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             if (context[playerArg].town !== context[townArg]) {
                 Message.error(player, "Player \"${context[playerArg].name}\" is not a member of \"${context[townArg].name}\"")
                 return@addSyntax
@@ -418,7 +417,7 @@ class NodesAdminTownLeaderCommand() : Command("leader") {
     }
 }
 
-class NodesAdminTownRemoveLeaderCommand() : Command("removeleader") {
+class NodesAdminTownRemoveLeaderCommand : Command("removeleader") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town removeleader <town-name>")
@@ -426,14 +425,14 @@ class NodesAdminTownRemoveLeaderCommand() : Command("removeleader") {
 
         val townArg = ArgumentTown.create("town-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.townSetLeader(context[townArg], null)
             Message.print(player, "Removed leader of \"${context[townArg].name}\"")
         }, townArg)
     }
 }
 
-class NodesAdminTownColorCommand() : Command("color") {
+class NodesAdminTownColorCommand : Command("color") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town color <town-name> <r> <g> <b>")
@@ -444,14 +443,14 @@ class NodesAdminTownColorCommand() : Command("color") {
         val gArg = ArgumentType.Integer("g")
         val bArg = ArgumentType.Integer("b")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.setTownColor(context[townArg], context[rArg], context[gArg], context[bArg])
             Message.print(player, "Set color of ${context[townArg].name} to (${context[rArg]}, ${context[gArg]}, ${context[bArg]})")
         }, townArg, rArg, gArg, bArg)
     }
 }
 
-class NodesAdminTownIncomeCommand() : Command("income") {
+class NodesAdminTownIncomeCommand : Command("income") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town income <town-name>")
@@ -459,14 +458,14 @@ class NodesAdminTownIncomeCommand() : Command("income") {
 
         val townArg = ArgumentTown.create("town-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // open town inventory
             player.openInventory(Nodes.getTownIncomeInventory(context[townArg]))
         }, townArg)
     }
 }
 
-class NodesAdminTownSetSpawnCommand() : Command("setspawn") {
+class NodesAdminTownSetSpawnCommand : Command("setspawn") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town setspawn <town-name>")
@@ -474,7 +473,7 @@ class NodesAdminTownSetSpawnCommand() : Command("setspawn") {
 
         val townArg = ArgumentTown.create("town-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             val result = Nodes.setTownSpawn(context[townArg], player.position)
 
             if (result) {
@@ -486,7 +485,7 @@ class NodesAdminTownSetSpawnCommand() : Command("setspawn") {
     }
 }
 
-class NodesAdminTownSpawnCommand() : Command("spawn") {
+class NodesAdminTownSpawnCommand : Command("spawn") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town spawn <town-name>")
@@ -494,13 +493,13 @@ class NodesAdminTownSpawnCommand() : Command("spawn") {
 
         val townArg = ArgumentTown.create("town-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             player.teleport(context[townArg].spawnpoint)
         }, townArg)
     }
 }
 
-class NodesAdminTownSetHomeCommand() : Command("sethome") {
+class NodesAdminTownSetHomeCommand : Command("sethome") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town sethome <town-name> <territory-id>")
@@ -509,7 +508,7 @@ class NodesAdminTownSetHomeCommand() : Command("sethome") {
         val townArg = ArgumentTown.create("town-name")
         val territoryArg = ArgumentTerritory.create("territory-id")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // set town home territory
             if (context[townArg] !== context[territoryArg].town) {
                 Message.error(player, "Invalid territory id=${context[territoryArg].id}: does not belong to town")
@@ -527,7 +526,7 @@ class NodesAdminTownSetHomeCommand() : Command("sethome") {
     }
 }
 
-class NodesAdminTownDefaultTownSpawnsCommand() : Command("defaulttownspawns") {
+class NodesAdminTownDefaultTownSpawnsCommand : Command("defaulttownspawns") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin town defaulttownspawns <town-names>")
@@ -535,7 +534,7 @@ class NodesAdminTownDefaultTownSpawnsCommand() : Command("defaulttownspawns") {
 
         val townsArg = ArgumentTownArray.create("town-names")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // set town home territory
             for (town in context[townsArg]) {
                 val terrHome = Nodes.territories.get(town.home)
@@ -555,7 +554,7 @@ class NodesAdminTownDefaultTownSpawnsCommand() : Command("defaulttownspawns") {
     }
 }
 
-class NodesAdminNationCommand() : Command("nation") {
+class NodesAdminNationCommand : Command("nation") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "${ChatColor.BOLD}[Nodes] Admin nation management:")
@@ -587,7 +586,7 @@ class NodesAdminNationCommand() : Command("nation") {
     }
 }
 
-class NodesAdminNationCreateCommand() : Command("create") {
+class NodesAdminNationCreateCommand : Command("create") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation create <nation-name> <town-names>")
@@ -596,7 +595,7 @@ class NodesAdminNationCreateCommand() : Command("create") {
         val nationArg = ArgumentSanitizedString.create("nation-name")
         val townsArg = ArgumentTownArray.create("town-names")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // create new nation from town
             val nation = Nodes.createNation(context[nationArg], context[townsArg][0], context[townsArg][0].leader).getOrElse { err ->
                 Message.error(player, "Failed to create nation: ${err.message}")
@@ -613,7 +612,7 @@ class NodesAdminNationCreateCommand() : Command("create") {
     }
 }
 
-class NodesAdminNationDeleteCommand() : Command("delete") {
+class NodesAdminNationDeleteCommand : Command("delete") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation delete <nation-name>")
@@ -621,14 +620,14 @@ class NodesAdminNationDeleteCommand() : Command("delete") {
 
         val nationArg = ArgumentNation.create("nation-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.destroyNation(context[nationArg])
             Message.print(player, "Nation \"${context[nationArg].name}\" has been deleted")
         }, nationArg)
     }
 }
 
-class NodesAdminNationRenameCommand() : Command("rename") {
+class NodesAdminNationRenameCommand : Command("rename") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation rename <nation-name> <new-name>")
@@ -637,14 +636,14 @@ class NodesAdminNationRenameCommand() : Command("rename") {
         val nationArg = ArgumentNation.create("nation-name")
         val nameArg = ArgumentSanitizedString.create("new-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.renameNation(context[nationArg], context[nameArg])
             Message.print(player, "${context[nationArg].name} has been renamed to \"${context[nameArg]}\"")
         }, nationArg, nameArg)
     }
 }
 
-class NodesAdminNationAddTownCommand() : Command("addtown") {
+class NodesAdminNationAddTownCommand : Command("addtown") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation addtown <nation-name> <town-names>")
@@ -653,7 +652,7 @@ class NodesAdminNationAddTownCommand() : Command("addtown") {
         val nationArg = ArgumentNation.create("nation-name")
         val townsArg = ArgumentTownArray.create("town-names")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // Validate all towns first
             for (town in context[townsArg]) {
                 if (town.nation != null) {
@@ -671,7 +670,7 @@ class NodesAdminNationAddTownCommand() : Command("addtown") {
     }
 }
 
-class NodesAdminNationRemoveTownCommand() : Command("removetown") {
+class NodesAdminNationRemoveTownCommand : Command("removetown") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation removetown <nation-name> <town-names>")
@@ -680,7 +679,7 @@ class NodesAdminNationRemoveTownCommand() : Command("removetown") {
         val nationArg = ArgumentNation.create("nation-name")
         val townsArg = ArgumentTownArray.create("town-names")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             // Validate all towns first
             for (town in context[townsArg]) {
                 if (town.nation != context[nationArg]) {
@@ -698,7 +697,7 @@ class NodesAdminNationRemoveTownCommand() : Command("removetown") {
     }
 }
 
-class NodesAdminNationCapitalCommand() : Command("capital") {
+class NodesAdminNationCapitalCommand : Command("capital") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation capital <nation-name> <town-name>")
@@ -707,7 +706,7 @@ class NodesAdminNationCapitalCommand() : Command("capital") {
         val nationArg = ArgumentNation.create("nation-name")
         val townArg = ArgumentTown.create("town-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             if (context[townArg].nation !== context[nationArg]) {
                 Message.error(player, "Town does not belong to this nation")
                 return@addSyntax
@@ -724,7 +723,7 @@ class NodesAdminNationCapitalCommand() : Command("capital") {
     }
 }
 
-class NodesAdminNationAddAllyCommand() : Command("addally") {
+class NodesAdminNationAddAllyCommand : Command("addally") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation addally <nationA-name> <nationB-name>")
@@ -733,7 +732,7 @@ class NodesAdminNationAddAllyCommand() : Command("addally") {
         val nationAArg = ArgumentNation.create("nationA-name")
         val nationBArg = ArgumentNation.create("nationB-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.addAlly(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to add ally: ${err.message}")
                 return@addSyntax
@@ -744,7 +743,7 @@ class NodesAdminNationAddAllyCommand() : Command("addally") {
     }
 }
 
-class NodesAdminNationRemoveAllyCommand() : Command("removeally") {
+class NodesAdminNationRemoveAllyCommand : Command("removeally") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation removeally <nationA-name> <nationB-name>")
@@ -753,7 +752,7 @@ class NodesAdminNationRemoveAllyCommand() : Command("removeally") {
         val nationAArg = ArgumentNation.create("nationA-name")
         val nationBArg = ArgumentNation.create("nationB-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.removeAlly(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to remove ally: ${err.message}")
                 return@addSyntax
@@ -764,7 +763,7 @@ class NodesAdminNationRemoveAllyCommand() : Command("removeally") {
     }
 }
 
-class NodesAdminNationAddEnemyCommand() : Command("addenemy") {
+class NodesAdminNationAddEnemyCommand : Command("addenemy") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation addenemy <nationA-name> <nationB-name>")
@@ -773,7 +772,7 @@ class NodesAdminNationAddEnemyCommand() : Command("addenemy") {
         val nationAArg = ArgumentNation.create("nationA-name")
         val nationBArg = ArgumentNation.create("nationB-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.addEnemy(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to add enemy: ${err.message}")
                 return@addSyntax
@@ -784,7 +783,7 @@ class NodesAdminNationAddEnemyCommand() : Command("addenemy") {
     }
 }
 
-class NodesAdminNationRemoveEnemyCommand() : Command("removeenemy") {
+class NodesAdminNationRemoveEnemyCommand : Command("removeenemy") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation removeenemy <nationA-name> <nationB-name>")
@@ -793,7 +792,7 @@ class NodesAdminNationRemoveEnemyCommand() : Command("removeenemy") {
         val nationAArg = ArgumentNation.create("nationA-name")
         val nationBArg = ArgumentNation.create("nationB-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.removeEnemy(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to remove enemy: ${err.message}")
                 return@addSyntax
@@ -804,7 +803,7 @@ class NodesAdminNationRemoveEnemyCommand() : Command("removeenemy") {
     }
 }
 
-class NodesAdminNationColorCommand() : Command("color") {
+class NodesAdminNationColorCommand : Command("color") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin nation color <nation-name> <r> <g> <b>")
@@ -815,14 +814,14 @@ class NodesAdminNationColorCommand() : Command("color") {
         val gArg = ArgumentType.Integer("g")
         val bArg = ArgumentType.Integer("b")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.setNationColor(context[nationArg], context[rArg], context[gArg], context[bArg])
             Message.print(player, "Set color of ${context[nationArg].name} to (${context[rArg]}, ${context[gArg]}, ${context[bArg]})")
         }, nationArg, rArg, gArg, bArg)
     }
 }
 
-class NodesAdminPortCommand() : Command("port") {
+class NodesAdminPortCommand : Command("port") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "${ChatColor.AQUA}/nodesadmin port create${ChatColor.WHITE}: Create a new port")
@@ -835,7 +834,7 @@ class NodesAdminPortCommand() : Command("port") {
     }
 }
 
-class NodesAdminPortCreateCommand() : Command("create") {
+class NodesAdminPortCreateCommand : Command("create") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin port create <port-name> <public>")
@@ -844,7 +843,7 @@ class NodesAdminPortCreateCommand() : Command("create") {
         val portArg = ArgumentSanitizedString.create("port-name")
         val publicArg = ArgumentBoolean("public")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.createPort(
                 context[portArg],
                 player.position.blockX(),
@@ -861,7 +860,7 @@ class NodesAdminPortCreateCommand() : Command("create") {
     }
 }
 
-class NodesAdminPortDeleteCommand() : Command("delete") {
+class NodesAdminPortDeleteCommand : Command("delete") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin port delete <port-name>")
@@ -869,7 +868,7 @@ class NodesAdminPortDeleteCommand() : Command("delete") {
 
         val portArg = ArgumentPort.create("port-name")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             // delete the port
             Nodes.destroyPort(context[portArg])
 
@@ -878,7 +877,7 @@ class NodesAdminPortDeleteCommand() : Command("delete") {
     }
 }
 
-class NodesAdminPortGroupCommand() : Command("portgroup") {
+class NodesAdminPortGroupCommand : Command("portgroup") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "${ChatColor.AQUA}/nodesadmin portgroup create${ChatColor.WHITE}: Create a new port group")
@@ -895,7 +894,7 @@ class NodesAdminPortGroupCommand() : Command("portgroup") {
     }
 }
 
-class NodesAdminPortGroupCreateCommand() : Command("create") {
+class NodesAdminPortGroupCreateCommand : Command("create") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage:")
@@ -906,7 +905,7 @@ class NodesAdminPortGroupCreateCommand() : Command("create") {
         val portGroupArg = ArgumentSanitizedString.create("port-group-name")
         val portsArg = ArgumentPortArray.create("port-names")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.createPortGroup(
                 context[portGroupArg],
             ).getOrElse { err ->
@@ -917,7 +916,7 @@ class NodesAdminPortGroupCreateCommand() : Command("create") {
             Message.print(player, "Created group \"${context[portGroupArg]}\"")
         }, portGroupArg)
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             val portGroup = Nodes.createPortGroup(
                 context[portGroupArg],
             ).getOrElse { err ->
@@ -936,7 +935,7 @@ class NodesAdminPortGroupCreateCommand() : Command("create") {
     }
 }
 
-class NodesAdminPortGroupDeleteCommand() : Command("delete") {
+class NodesAdminPortGroupDeleteCommand : Command("delete") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin portgroup delete <port-group-name>")
@@ -944,7 +943,7 @@ class NodesAdminPortGroupDeleteCommand() : Command("delete") {
 
         val portGroupArg = ArgumentPortGroup.create("port-group-name")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             Nodes.destroyPortGroup(context[portGroupArg])
 
             Message.print(player, "Port group \"${context[portGroupArg].name}\" has been deleted")
@@ -952,7 +951,7 @@ class NodesAdminPortGroupDeleteCommand() : Command("delete") {
     }
 }
 
-class NodesAdminPortGroupAddPortCommand() : Command("addport") {
+class NodesAdminPortGroupAddPortCommand : Command("addport") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin portgroup addport <port-group-name> <port-names>")
@@ -961,7 +960,7 @@ class NodesAdminPortGroupAddPortCommand() : Command("addport") {
         val portGroupArg = ArgumentPortGroup.create("port-group-name")
         val portsArg = ArgumentPortArray.create("port-names")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             for (port in context[portsArg]) {
                 Nodes.addPortToGroup(port, context[portGroupArg]).getOrElse { err ->
                     Message.error(player, "Failed to add port \"${port.name}\": ${err.message}")
@@ -973,7 +972,7 @@ class NodesAdminPortGroupAddPortCommand() : Command("addport") {
     }
 }
 
-class NodesAdminPortGroupRemovePortCommand() : Command("removeport") {
+class NodesAdminPortGroupRemovePortCommand : Command("removeport") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin portgroup removeport <port-group-name> <port-names>")
@@ -982,7 +981,7 @@ class NodesAdminPortGroupRemovePortCommand() : Command("removeport") {
         val portGroupArg = ArgumentPortGroup.create("port-group-name")
         val portsArg = ArgumentPortArray.create("port-names")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             for (port in context[portsArg]) {
                 Nodes.removePortFromGroup(port, context[portGroupArg])
                 Message.print(player, "Removed port \"${port.name}\" from group \"${context[portGroupArg].name}\"")
@@ -991,7 +990,7 @@ class NodesAdminPortGroupRemovePortCommand() : Command("removeport") {
     }
 }
 
-class NodesAdminSaveCommand() : Command("save") {
+class NodesAdminSaveCommand : Command("save") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage:")
@@ -1006,8 +1005,8 @@ class NodesAdminSaveCommand() : Command("save") {
             Nodes.saveWorld(checkIfNeedsSave = false, async = true)
         })
 
-        addSyntax( { player, resident, context ->
-            if(context[syncArg]) {
+        addSyntax({ player, resident, context ->
+            if (context[syncArg]) {
                 Message.print(player, "[Nodes] Saving world (sync)")
                 Nodes.saveWorld(checkIfNeedsSave = false, async = false)
             } else {
@@ -1018,26 +1017,26 @@ class NodesAdminSaveCommand() : Command("save") {
     }
 }
 
-class NodesAdminLoadCommand() : Command("load") {
+class NodesAdminLoadCommand : Command("load") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin load")
         }
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             Message.print(player, "[Nodes] Loading world")
             Nodes.loadWorld()
         })
     }
 }
 
-class NodesAdminRunIncomeCommand() : Command("runincome") {
+class NodesAdminRunIncomeCommand : Command("runincome") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /nodesadmin runincome")
         }
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             Message.print(player, "Running incomes for all towns")
             Nodes.runIncome()
         })

@@ -66,7 +66,7 @@ class PortWarpTask(
 
                     Message.announcement(player, "${ChatColor.GREEN}Warped to ${destination.name}")
                 } else {
-                    val progress : Double = 1.0 - (time.toDouble() / timeWarp.toDouble())
+                    val progress: Double = 1.0 - (time.toDouble() / timeWarp.toDouble())
                     Message.announcement(player, "Warping ${ChatColor.GREEN}${progressBar(progress)}")
                 }
             }
@@ -100,5 +100,3 @@ class PortWarpTask(
         else -> ""
     }
 }
-
-

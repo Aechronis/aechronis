@@ -15,11 +15,11 @@
 
 package luna.nodes.objects
 
+import luna.nodes.WorldMap
 import luna.nodes.utils.ChatColor
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 import net.minestom.server.scoreboard.Sidebar
-import luna.nodes.WorldMap
 
 // used to start each line in scoreboard
 // ensures each line name is unique
@@ -88,8 +88,8 @@ class Minimap(
             Sidebar.ScoreboardLine(
                 "header",
                 Component.text(HEADER[size - 3]),
-                size + 1
-            )
+                size + 1,
+            ),
         )
 
         // create map lines
@@ -97,13 +97,13 @@ class Minimap(
         for ((i, y) in (size downTo -size).withIndex()) {
             val lineIdString = LINE_ID[i]
             val renderedLine = WorldMap.renderLine(resident, coord, coord.z - y, coord.x - size, coord.x + size)
-            
+
             this.sidebar.createLine(
                 Sidebar.ScoreboardLine(
                     "line_$i",
                     Component.text("${lineIdString}$renderedLine"),
-                    y
-                )
+                    y,
+                ),
             )
         }
     }

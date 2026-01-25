@@ -6,10 +6,10 @@
 
 package luna.nodes.objects
 
-import net.minestom.server.item.Material
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
+import net.minestom.server.item.Material
 
 class IncomeInventory {
 
@@ -60,7 +60,7 @@ class IncomeInventory {
                 if (remainingAmount <= 0) break
 
                 val existingItem = _inventory.getItemStack(slot)
-                
+
                 // check if slot is empty
                 if (existingItem.isAir) {
                     val stackAmount = minOf(remainingAmount, maxStackSize)

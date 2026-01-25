@@ -1,8 +1,8 @@
 package luna.nodes
 
+import luna.nodes.utils.ChatColor
 import net.kyori.adventure.text.Component
 import net.minestom.server.adventure.audience.Audiences
-import luna.nodes.utils.ChatColor
 import net.minestom.server.command.CommandSender
 import net.minestom.server.entity.Player
 

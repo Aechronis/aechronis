@@ -4,11 +4,11 @@
 
 package luna.nodes.commands
 
-import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.commands.arguments.ArgumentNation
 import luna.nodes.objects.Command
+import luna.nodes.utils.ChatColor
 
 class NationCommand : Command("n", "nation") {
     init {
@@ -20,7 +20,7 @@ class NationCommand : Command("n", "nation") {
         }
 
         // no args, print current nation info
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             // print player's nation info
             if (resident.nation != null) {
                 resident.nation!!.printInfo(player)
@@ -57,7 +57,7 @@ class NationListCommand : Command("list") {
             Message.print(sender, "Usage: /nation list")
         }
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}Nation - Population - Towns")
             val nationsList = ArrayList(Nodes.nations.values)
             nationsList.sortByDescending { it.residents.size }
@@ -88,13 +88,13 @@ class NationOnlineCommand : Command("online") {
 
         val nationArg = ArgumentNation.create("nation-name")
 
-        addSyntax( { player, resident, town, nation, context ->
+        addSyntax({ player, resident, town, nation, context ->
             val numPlayersOnline = nation.playersOnline.size
             val playersOnline = nation.playersOnline.joinToString(", ", transform = { p -> p.username })
             Message.print(player, "Players online in nation ${nation.name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
         })
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             val numPlayersOnline = context[nationArg].playersOnline.size
             val playersOnline = context[nationArg].playersOnline.joinToString(", ", transform = { p -> p.username })
             Message.print(player, "Players online in nation ${context[nationArg].name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
@@ -112,11 +112,11 @@ class NationInfoCommand : Command("info") {
 
         val nationArg = ArgumentNation.create("nation-name")
 
-        addSyntax( { player, resident, town, nation, context ->
+        addSyntax({ player, resident, town, nation, context ->
             nation.printInfo(player)
         })
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             context[nationArg].printInfo(player)
         }, nationArg)
     }

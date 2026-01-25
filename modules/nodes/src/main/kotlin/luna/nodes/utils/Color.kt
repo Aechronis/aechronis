@@ -8,110 +8,110 @@ object ChatColor {
     /**
      * Represents black
      */
-    var BLACK = "§0"
+    const val BLACK = "§0"
 
     /**
      * Represents dark blue
      */
-    var DARK_BLUE = "§1"
+    const val DARK_BLUE = "§1"
 
     /**
      * Represents dark green
      */
-    var DARK_GREEN = "§2"
+    const val DARK_GREEN = "§2"
 
     /**
      * Represents dark blue (aqua)
      */
-    var DARK_AQUA = "§3"
+    const val DARK_AQUA = "§3"
 
     /**
      * Represents dark red
      */
-    var DARK_RED = "§4"
+    const val DARK_RED = "§4"
 
     /**
      * Represents dark purple
      */
-    var DARK_PURPLE = "§5"
+    const val DARK_PURPLE = "§5"
 
     /**
      * Represents gold
      */
-    var GOLD = "§6"
+    const val GOLD = "§6"
 
     /**
      * Represents gray
      */
-    var GRAY = "§7"
+    const val GRAY = "§7"
 
     /**
      * Represents dark gray
      */
-    var DARK_GRAY = "§8"
+    const val DARK_GRAY = "§8"
 
     /**
      * Represents blue
      */
-    var BLUE = "§9"
+    const val BLUE = "§9"
 
     /**
      * Represents green
      */
-    var GREEN = "§a"
+    const val GREEN = "§a"
 
     /**
      * Represents aqua
      */
-    var AQUA = "§b"
+    const val AQUA = "§b"
 
     /**
      * Represents red
      */
-    var RED = "§c"
+    const val RED = "§c"
 
     /**
      * Represents light purple
      */
-    var LIGHT_PURPLE = "§d"
+    const val LIGHT_PURPLE = "§d"
 
     /**
      * Represents yellow
      */
-    var YELLOW = "§e"
+    const val YELLOW = "§e"
 
     /**
      * Represents white
      */
-    var WHITE = "§f"
+    const val WHITE = "§f"
 
     /**
      * Represents magical characters that change around randomly
      */
-    var MAGIC = "§k"
+    const val MAGIC = "§k"
 
     /**
      * Makes the text bold.
      */
-    var BOLD = "§l"
+    const val BOLD = "§l"
 
     /**
      * Makes a line appear through the text.
      */
-    var STRIKETHROUGH = "§m"
+    const val STRIKETHROUGH = "§m"
 
     /**
      * Makes the text appear underlined.
      */
-    var UNDERLINE = "§n"
+    const val UNDERLINE = "§n"
 
     /**
      * Makes the text italic.
      */
-    var ITALIC = "§o"
+    const val ITALIC = "§o"
 
     /**
      * Resets all previous chat colors or formats.
      */
-    var RESET = "§r"
+    const val RESET = "§r"
 }

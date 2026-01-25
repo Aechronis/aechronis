@@ -19,7 +19,7 @@ class GlobalChatCommand : Command("globalchat", "gc") {
             Message.print(sender, "/globalchat leave")
         }
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             Chat.toggleChatMode(player, resident, ChatMode.GLOBAL)
         })
 
@@ -34,7 +34,7 @@ class GlobalChatJoinCommand : Command("join", "unmute") {
             Message.print(sender, "Usage: /globalchat join")
         }
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             Chat.enableGlobalChat(player)
         })
     }
@@ -46,7 +46,7 @@ class GlobalChatLeaveCommand : Command("leave", "mute") {
             Message.print(sender, "Usage: /globalchat leave")
         }
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             Chat.disableGlobalChat(player)
         })
     }
@@ -58,7 +58,7 @@ class TownChatCommand : Command("townchat", "tc") {
             Message.print(sender, "Usage: /townchat")
         }
 
-        addSyntax( { player, resident, town, context ->
+        addSyntax({ player, resident, town, context ->
             Chat.toggleChatMode(player, resident, ChatMode.TOWN)
         })
     }
@@ -70,7 +70,7 @@ class NationChatCommand : Command("nationchat", "nc") {
             Message.print(sender, "Usage: /nationchat")
         }
 
-        addSyntax( { player, resident, town, nation, context ->
+        addSyntax({ player, resident, town, nation, context ->
             Chat.toggleChatMode(player, resident, ChatMode.NATION)
         })
     }
@@ -82,7 +82,7 @@ class AllyChatCommand : Command("allychat", "ac") {
             Message.print(sender, "Usage: /allychat")
         }
 
-        addSyntax( { player, resident, town, nation, context ->
+        addSyntax({ player, resident, town, nation, context ->
             Chat.toggleChatMode(player, resident, ChatMode.ALLY)
         })
     }

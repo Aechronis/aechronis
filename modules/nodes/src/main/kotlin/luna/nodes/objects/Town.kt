@@ -5,20 +5,20 @@
 
 package luna.nodes.objects
 
-import luna.nodes.utils.ChatColor
-import net.minestom.server.coordinate.Pos
-import net.minestom.server.command.CommandSender
-import net.minestom.server.entity.Player
 import luna.nodes.Message
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
 import luna.nodes.serdes.SaveState
+import luna.nodes.utils.ChatColor
 import luna.nodes.utils.Color
 import luna.nodes.utils.EnumArrayMap
 import luna.nodes.utils.createEnumArrayMap
 import luna.nodes.utils.stringArrayFromSet
 import luna.nodes.utils.stringMapFromMap
+import net.minestom.server.command.CommandSender
 import net.minestom.server.coordinate.BlockVec
+import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.Player
 import net.minestom.server.item.Material
 import net.minestom.server.timer.Task
 import java.util.EnumSet
@@ -94,7 +94,7 @@ class Town(
     // json string and memoization flag
     private var saveState: TownSaveState
 
-    private var _needsUpdate = false
+    private var needsUpdate = false
 
     init {
         if (leader != null) {
@@ -230,16 +230,16 @@ class Town(
 
     // function to let client flag this object as dirty
     fun needsUpdate() {
-        this._needsUpdate = true
+        this.needsUpdate = true
     }
 
     // wrapper to return self as savestate
     // - returns memoized copy if needsUpdate false
     // - otherwise, parses self
     fun getSaveState(): TownSaveState {
-        if (this._needsUpdate) {
+        if (this.needsUpdate) {
             this.saveState = TownSaveState(this)
-            this._needsUpdate = false
+            this.needsUpdate = false
         }
         return this.saveState
     }

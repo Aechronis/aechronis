@@ -8,10 +8,10 @@
 package luna.nodes.objects
 
 import com.google.gson.JsonObject
-import luna.nodes.utils.ChatColor
-import net.minestom.server.item.Material
-import net.minestom.server.command.CommandSender
 import luna.nodes.Message
+import luna.nodes.utils.ChatColor
+import net.minestom.server.command.CommandSender
+import net.minestom.server.item.Material
 import kotlin.math.max
 
 /**

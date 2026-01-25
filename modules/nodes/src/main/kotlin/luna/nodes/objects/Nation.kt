@@ -6,12 +6,12 @@
 
 package luna.nodes.objects
 
-import luna.nodes.utils.ChatColor
-import net.minestom.server.command.CommandSender
-import net.minestom.server.entity.Player
 import luna.nodes.Message
 import luna.nodes.serdes.SaveState
+import luna.nodes.utils.ChatColor
 import luna.nodes.utils.Color
+import net.minestom.server.command.CommandSender
+import net.minestom.server.entity.Player
 import java.util.Random
 import java.util.UUID
 
@@ -46,7 +46,7 @@ class Nation(
     // json string and memoization flag
     private var saveState = NationSaveState(this)
 
-    private var _needsUpdate = false
+    private var needsUpdate = false
 
     // prints out nation object info
     fun printInfo(sender: CommandSender) {
@@ -125,16 +125,16 @@ class Nation(
 
     // function to let client flag this object as dirty
     fun needsUpdate() {
-        this._needsUpdate = true
+        this.needsUpdate = true
     }
 
     // wrapper to return self as savestate
     // - returns memoized copy if needsUpdate false
     // - otherwise, parses self
     fun getSaveState(): NationSaveState {
-        if (this._needsUpdate) {
+        if (this.needsUpdate) {
             this.saveState = NationSaveState(this)
-            this._needsUpdate = false
+            this.needsUpdate = false
         }
         return this.saveState
     }

@@ -19,7 +19,7 @@ class TerritoryCommand : Command("territory") {
 
         val territoryArg = ArgumentTerritory.create("territory-id")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             val territory = Nodes.getTerritoryFromPlayer(player)
 
             if (territory == null) {
@@ -30,7 +30,7 @@ class TerritoryCommand : Command("territory") {
             territory.printInfo(player)
         })
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             context[territoryArg].printInfo(player)
         }, territoryArg)
     }

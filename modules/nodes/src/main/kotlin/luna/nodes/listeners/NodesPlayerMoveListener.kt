@@ -1,12 +1,5 @@
 package luna.nodes.listeners
 
-import luna.nodes.utils.ChatColor
-import net.minestom.server.entity.GameMode
-import net.minestom.server.entity.Player
-import net.minestom.server.event.player.PlayerMoveEvent
-import net.minestom.server.event.entity.EntityTeleportEvent
-import net.minestom.server.potion.Potion
-import net.minestom.server.potion.PotionEffect
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.Nodes.getTownFromPlayer
@@ -14,6 +7,13 @@ import luna.nodes.objects.Coord
 import luna.nodes.objects.Resident
 import luna.nodes.objects.Territory
 import luna.nodes.objects.Town
+import luna.nodes.utils.ChatColor
+import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.Player
+import net.minestom.server.event.entity.EntityTeleportEvent
+import net.minestom.server.event.player.PlayerMoveEvent
+import net.minestom.server.potion.Potion
+import net.minestom.server.potion.PotionEffect
 
 object NodesPlayerMoveListener {
     private fun onPlayerMove(event: PlayerMoveEvent) {

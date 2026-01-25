@@ -5,12 +5,12 @@
 package luna.nodes.chat
 
 import luna.nodes.Message
+import luna.nodes.Nodes
+import luna.nodes.objects.Resident
 import luna.nodes.utils.ChatColor
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerChatEvent
-import luna.nodes.Nodes
-import luna.nodes.objects.Resident
 
 enum class ChatMode {
     GLOBAL,

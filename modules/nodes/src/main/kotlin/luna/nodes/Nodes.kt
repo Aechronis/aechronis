@@ -5,24 +5,19 @@
 package luna.nodes
 
 import com.google.gson.JsonObject
-import luna.nodes.commands.AllyCommand
-import luna.nodes.commands.NationCommand
-import luna.nodes.commands.TownCommand
-import luna.nodes.commands.UnallyCommand
-import net.minestom.server.MinecraftServer
-import net.minestom.server.coordinate.Pos
-import net.minestom.server.item.Material
-import net.minestom.server.entity.Player
-import net.minestom.server.inventory.Inventory
 import luna.nodes.chat.ChatMode
 import luna.nodes.commands.AllyChatCommand
+import luna.nodes.commands.AllyCommand
 import luna.nodes.commands.GlobalChatCommand
 import luna.nodes.commands.NationChatCommand
+import luna.nodes.commands.NationCommand
 import luna.nodes.commands.NodesAdminCommand
 import luna.nodes.commands.PlayerCommand
 import luna.nodes.commands.PortCommand
 import luna.nodes.commands.TerritoryCommand
 import luna.nodes.commands.TownChatCommand
+import luna.nodes.commands.TownCommand
+import luna.nodes.commands.UnallyCommand
 import luna.nodes.constants.DiplomaticRelationship
 import luna.nodes.constants.ErrorAlreadyAllies
 import luna.nodes.constants.ErrorAlreadyEnemies
@@ -79,9 +74,14 @@ import luna.nodes.utils.Color
 import luna.nodes.utils.loadLongFromFile
 import luna.nodes.utils.saveStringToFile
 import luna.nodes.war.FlagWar
+import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
+import net.minestom.server.inventory.Inventory
+import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.ParticlePacket
 import net.minestom.server.particle.Particle
 import net.minestom.server.timer.Task
@@ -509,7 +509,6 @@ object Nodes {
                 for (portGroup in portGroups.values) {
                     portGroup.getSaveState()
                 }
-
             } else {
                 System.err.println("No ports found: ${config.pathPorts}")
                 return true
@@ -2106,7 +2105,6 @@ object Nodes {
                 val location7 = Pos(block.x() + 0.5, block.y() + 0.5, block.z() + 1.0)
                 val location8 = Pos(block.x() + 1.0, block.y() + 0.5, block.z() + 0.5)
 
-
                 player.sendPackets(
                     ParticlePacket(particle, location1, randomOffset, 0F, particleCount),
                     ParticlePacket(particle, location2, randomOffset, 0F, particleCount),
@@ -2126,7 +2124,7 @@ object Nodes {
         }
 
         task = MinecraftServer.getSchedulerManager()
-            .buildTask{runnable.run() }
+            .buildTask { runnable.run() }
             .delay(TaskSchedule.millis(1000))
             .repeat(TaskSchedule.millis(1000))
             .schedule()
@@ -2172,7 +2170,7 @@ object Nodes {
 
     fun getPortFromName(name: String): Port? = ports.get(name)
 
-fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
+    fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
 
     // load port group from data
     // used for deserializing from ports.json

@@ -67,7 +67,7 @@ class NodesTest {
 
             bossBar.name(
                 Component.text()
-                    .append(Component.text("MSPT: $tickTime | Mem: ${usedMemory}MB/${maxMemory}MB"))
+                    .append(Component.text("MSPT: $tickTime | Mem: ${usedMemory}MB/${maxMemory}MB")),
             )
             bossBar.progress(min(tickTime / MinecraftServer.TICK_MS, 1.0).toFloat())
 
@@ -77,7 +77,6 @@ class NodesTest {
                 bossBar.color(BossBar.Color.GREEN)
             }
         }
-
 
         // create test config
         val config = NodesConfig(

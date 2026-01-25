@@ -8,13 +8,13 @@
 
 package luna.nodes.objects
 
-import net.minestom.server.MinecraftServer
-import luna.nodes.utils.ChatColor
-import net.minestom.server.command.CommandSender
-import net.minestom.server.entity.Player
 import luna.nodes.Message
 import luna.nodes.chat.ChatMode
 import luna.nodes.serdes.SaveState
+import luna.nodes.utils.ChatColor
+import net.minestom.server.MinecraftServer
+import net.minestom.server.command.CommandSender
+import net.minestom.server.entity.Player
 import net.minestom.server.timer.Task
 import java.util.UUID
 
@@ -45,7 +45,7 @@ class Resident(val uuid: UUID, val name: String) {
     // save state needs update flag
     private var saveState = ResidentSaveState(this)
 
-    private var _needsUpdate = false
+    private var needsUpdate = false
 
     override fun hashCode(): Int = this.uuid.hashCode()
 
@@ -149,16 +149,16 @@ class Resident(val uuid: UUID, val name: String) {
 
     // function to let client flag this object as dirty
     fun needsUpdate() {
-        this._needsUpdate = true
+        this.needsUpdate = true
     }
 
     // wrapper to return self as state
     // - returns memoized copy if needsUpdate false
     // - otherwise, parses self
     fun getSaveState(): ResidentSaveState {
-        if (this._needsUpdate) {
+        if (this.needsUpdate) {
             this.saveState = ResidentSaveState(this)
-            this._needsUpdate = false
+            this.needsUpdate = false
         }
         return this.saveState
     }

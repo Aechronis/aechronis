@@ -6,13 +6,13 @@
 
 package luna.nodes.listeners
 
-import net.minestom.server.entity.Player
-import net.minestom.server.event.player.PlayerLoadedEvent
-import net.minestom.server.event.player.PlayerDisconnectEvent
 import luna.nodes.Nodes
 import luna.nodes.chat.Chat
 import luna.nodes.objects.Resident
 import luna.nodes.war.FlagWar
+import net.minestom.server.entity.Player
+import net.minestom.server.event.player.PlayerDisconnectEvent
+import net.minestom.server.event.player.PlayerLoadedEvent
 
 object NodesPlayerJoinQuitListener {
     fun onPlayerJoin(event: PlayerLoadedEvent) {

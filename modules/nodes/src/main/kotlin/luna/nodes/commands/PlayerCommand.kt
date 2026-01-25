@@ -18,11 +18,11 @@ class PlayerCommand : Command("player", "p") {
 
         val playerArg = ArgumentResident.create("player-name")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             resident.printInfo(player)
         })
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             context[playerArg].printInfo(player)
         }, playerArg)
     }

@@ -8,7 +8,6 @@
 
 package luna.nodes.listeners
 
-import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.Nodes.getRelationshipOfPlayerToTown
@@ -32,6 +31,7 @@ import luna.nodes.objects.Resident
 import luna.nodes.objects.Territory
 import luna.nodes.objects.TerritoryChunk
 import luna.nodes.objects.Town
+import luna.nodes.utils.ChatColor
 import luna.nodes.war.Attack
 import luna.nodes.war.FlagWar
 import net.minestom.server.MinecraftServer
@@ -84,7 +84,7 @@ object NodesWorldListener {
                 event.isCancelled = true
                 Message.error(
                     player,
-                    "[War] Cannot break blocks within ${Nodes.config.flagNoBuildDistance} blocks of war flags"
+                    "[War] Cannot break blocks within ${Nodes.config.flagNoBuildDistance} blocks of war flags",
                 )
                 return
             }
@@ -158,14 +158,13 @@ object NodesWorldListener {
             if (territoryChunk !== null) {
                 // disable block placement in flag no build distance
                 if (territoryChunk.attacker !== null) {
-
                     val attack = FlagWar.chunkToAttacker.get(territoryChunk.coord)
                     if (attack !== null) {
                         if (blockInWarFlagNoBuildRegion(blockPos, attack)) {
                             event.isCancelled = true
                             Message.error(
                                 player,
-                                "[War] Cannot build within ${Nodes.config.flagNoBuildDistance} blocks of war flags"
+                                "[War] Cannot build within ${Nodes.config.flagNoBuildDistance} blocks of war flags",
                             )
                             return
                         }
@@ -195,39 +194,39 @@ object NodesWorldListener {
                                     ErrorAlreadyUnderAttack -> Message.error(player, "[War] Chunk already under attack")
                                     ErrorAlreadyCaptured -> Message.error(
                                         player,
-                                        "[War] Chunk already captured by town or allies"
+                                        "[War] Chunk already captured by town or allies",
                                     )
 
                                     ErrorTownBlacklisted -> Message.error(
                                         player,
-                                        "[War] Cannot attack this town (blacklisted)"
+                                        "[War] Cannot attack this town (blacklisted)",
                                     )
 
                                     ErrorTownNotWhitelisted -> Message.error(
                                         player,
-                                        "[War] Cannot attack this town (not whitelisted)"
+                                        "[War] Cannot attack this town (not whitelisted)",
                                     )
 
                                     ErrorNotEnemy -> Message.error(player, "[War] Chunk does not belong to an enemy")
                                     ErrorNotBorderTerritory -> Message.error(
                                         player,
-                                        "[War] You can only attack border territories"
+                                        "[War] You can only attack border territories",
                                     )
 
                                     ErrorChunkNotEdge -> Message.error(
                                         player,
-                                        "[War] Must attack from territory edge or from captured chunk"
+                                        "[War] Must attack from territory edge or from captured chunk",
                                     )
 
                                     ErrorFlagTooHigh -> Message.error(
                                         player,
-                                        "[War] Flag placement too high, cannot create flag"
+                                        "[War] Flag placement too high, cannot create flag",
                                     )
 
                                     ErrorSkyBlocked -> Message.error(player, "[War] Flag must see the sky")
                                     ErrorTooManyAttacks -> Message.error(
                                         player,
-                                        "[War] You cannot attack any more chunks at the same time"
+                                        "[War] You cannot attack any more chunks at the same time",
                                     )
                                 }
 
@@ -303,8 +302,8 @@ object NodesWorldListener {
     }
 
     private fun onBlockInteract(event: PlayerBlockInteractEvent) {
-        val territory: Territory? = Nodes.getTerritoryFromBlock(event.blockPosition.blockX,event.blockPosition.blockZ)
-        val territoryChunk = Nodes.getTerritoryChunkFromBlock(event.blockPosition.blockX,event.blockPosition.blockZ)
+        val territory: Territory? = Nodes.getTerritoryFromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)
+        val territoryChunk = Nodes.getTerritoryChunkFromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)
         val resident = Nodes.getResident(event.player)
         val town: Town? = territory?.town
 
@@ -417,12 +416,10 @@ private fun hasTownPermissions(perms: TownPermissions, town: Town, player: Resid
  * occupier: town that is occupier of the territory
  * player: player interacting in the territory
  */
-private fun hasOccupierPermissions(perms: TownPermissions, town: Town, occupier: Town, player: Resident): Boolean {
-    return if (Nodes.config.allowControlInOccupiedTownList.contains(town.uuid)) {
-        hasTownPermissions(perms, occupier, player)
-    } else {
-        false
-    }
+private fun hasOccupierPermissions(perms: TownPermissions, town: Town, occupier: Town, player: Resident): Boolean = if (Nodes.config.allowControlInOccupiedTownList.contains(town.uuid)) {
+    hasTownPermissions(perms, occupier, player)
+} else {
+    false
 }
 
 // bypass permissions and allow all interaction in

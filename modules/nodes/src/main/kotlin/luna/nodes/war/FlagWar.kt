@@ -39,6 +39,7 @@ import luna.nodes.objects.Coord
 import luna.nodes.objects.Territory
 import luna.nodes.objects.TerritoryChunk
 import luna.nodes.objects.Town
+import luna.nodes.utils.ChatColor
 import luna.nodes.war.serdes.WarDeserializer
 import luna.nodes.war.serdes.WarSerializer
 import net.kyori.adventure.bossbar.BossBar
@@ -51,7 +52,6 @@ import net.minestom.server.entity.Player
 import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
-import luna.nodes.utils.ChatColor
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -299,7 +299,7 @@ object FlagWar {
         // create task
         saveTask?.cancel()
         saveTask = MinecraftServer.getSchedulerManager()
-            .buildTask{ SaveLoop }
+            .buildTask { SaveLoop }
             .delay(TaskSchedule.tick(saveTaskPeriod))
             .repeat(TaskSchedule.tick(saveTaskPeriod))
             .schedule()
@@ -457,8 +457,8 @@ object FlagWar {
         val flagBaseZ = flagBase.blockZ
         val territory = chunk.territory
 
-        val flagBlock = flagBase.add(0,1,0)
-        val flagTorch = flagBase.add(0,2,0)
+        val flagBlock = flagBase.add(0, 1, 0)
+        val flagTorch = flagBase.add(0, 2, 0)
         val progressBar = BossBar.bossBar(Component.text("Attacking ${territory.town!!.name} at ($flagBaseX, $flagBaseY, $flagBaseZ)"), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS)
 
         // calculate max attack time based on chunk and other modifiers
@@ -653,9 +653,9 @@ object FlagWar {
         val chunkEast = Nodes.getTerritoryChunkFromCoord(Coord(coord.x + 1, coord.z))
 
         return canAttackFromNeighborChunk(chunkNorth, attackingTown) ||
-                canAttackFromNeighborChunk(chunkSouth, attackingTown) ||
-                canAttackFromNeighborChunk(chunkWest, attackingTown) ||
-                canAttackFromNeighborChunk(chunkEast, attackingTown)
+            canAttackFromNeighborChunk(chunkSouth, attackingTown) ||
+            canAttackFromNeighborChunk(chunkWest, attackingTown) ||
+            canAttackFromNeighborChunk(chunkEast, attackingTown)
     }
 
     /**
@@ -792,7 +792,6 @@ object FlagWar {
         MinecraftServer.getInstanceManager().instances.first().setBlock(attack.flagTorch, Block.AIR)
         MinecraftServer.getInstanceManager().instances.first().setBlock(attack.flagBlock, Block.AIR)
         MinecraftServer.getInstanceManager().instances.first().setBlock(attack.flagBase, Block.AIR)
-
 
         // remove sky beacon
         for (block in attack.skyBeaconWireframeBlocks) {

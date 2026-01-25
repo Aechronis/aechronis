@@ -114,7 +114,7 @@ object SaveManager {
         Files.createDirectories(Paths.get(Nodes.config.pathPlugin).normalize())
 
         // scheduler for saving world
-        val runnable =  Runnable {
+        val runnable = Runnable {
             Nodes.saveWorld(
                 checkIfNeedsSave = true,
                 async = true,
@@ -126,7 +126,7 @@ object SaveManager {
             .delay(TaskSchedule.millis(period))
             .repeat(TaskSchedule.millis(period))
             .schedule()
-        }
+    }
 
     fun stop() {
         val task = this.task

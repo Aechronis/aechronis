@@ -9,7 +9,6 @@
 
 package luna.nodes.war
 
-import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.constants.ErrorAllyRequestAlreadyAllies
@@ -17,6 +16,7 @@ import luna.nodes.constants.ErrorAllyRequestAlreadyCreated
 import luna.nodes.constants.ErrorAllyRequestEnemies
 import luna.nodes.objects.Nation
 import luna.nodes.objects.NationPair
+import luna.nodes.utils.ChatColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule

@@ -7,8 +7,6 @@ package luna.nodes.serdes
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import net.minestom.server.coordinate.Pos
-import net.minestom.server.item.Material
 import luna.nodes.Nodes
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
@@ -17,6 +15,8 @@ import luna.nodes.objects.PortGroup
 import luna.nodes.objects.Town
 import luna.nodes.utils.Color
 import net.minestom.server.coordinate.BlockVec
+import net.minestom.server.coordinate.Pos
+import net.minestom.server.item.Material
 import java.io.FileReader
 import java.nio.file.Path
 import java.util.EnumMap
@@ -236,7 +236,7 @@ object Deserializer {
                             val x = blockArray[0].asInt
                             val y = blockArray[1].asInt
                             val z = blockArray[2].asInt
-                            val block = BlockVec(x,y,z)
+                            val block = BlockVec(x, y, z)
                             protectedBlocks.add(block)
                         }
                     }

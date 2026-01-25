@@ -26,7 +26,7 @@ data class Port(
     // json string and memoization flag
     private var saveState = PortSaveState(this)
 
-    private var _needsUpdate = false
+    private var needsUpdate = false
 
     /**
      * Port save state for JSON serialization
@@ -60,16 +60,16 @@ data class Port(
 
     // function to let client flag this object as dirty
     fun needsUpdate() {
-        this._needsUpdate = true
+        this.needsUpdate = true
     }
 
     // wrapper to return self as savestate
     // - returns memoized copy if needsUpdate false
     // - otherwise, parses self
     fun getSaveState(): PortSaveState {
-        if (this._needsUpdate) {
+        if (this.needsUpdate) {
             this.saveState = PortSaveState(this)
-            this._needsUpdate = false
+            this.needsUpdate = false
         }
         return this.saveState
     }
@@ -107,7 +107,7 @@ data class PortGroup(
     // json string and memoization flag
     private var saveState = PortGroupSaveState(this)
 
-    private var _needsUpdate = false
+    private var needsUpdate = false
 
     /**
      * Port group save state for JSON serialization
@@ -130,16 +130,16 @@ data class PortGroup(
 
     // function to let client flag this object as dirty
     fun needsUpdate() {
-        this._needsUpdate = true
+        this.needsUpdate = true
     }
 
     // wrapper to return self as savestate
     // - returns memoized copy if needsUpdate false
     // - otherwise, parses self
     fun getSaveState(): PortGroupSaveState {
-        if (this._needsUpdate) {
+        if (this.needsUpdate) {
             this.saveState = PortGroupSaveState(this)
-            this._needsUpdate = false
+            this.needsUpdate = false
         }
         return this.saveState
     }

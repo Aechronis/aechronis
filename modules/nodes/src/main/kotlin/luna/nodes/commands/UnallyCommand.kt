@@ -5,12 +5,12 @@
 
 package luna.nodes.commands
 
-import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.commands.arguments.ArgumentNation
 import luna.nodes.constants.ErrorNotAllies
 import luna.nodes.objects.Command
+import luna.nodes.utils.ChatColor
 
 class UnallyCommand : Command("unally") {
     init {
@@ -20,7 +20,7 @@ class UnallyCommand : Command("unally") {
 
         val nationArg = ArgumentNation.create("nation-name")
 
-        addSyntax( { player, resident, town, nation, context ->
+        addSyntax({ player, resident, town, nation, context ->
             if (town !== nation.capital) {
                 Message.error(player, "Only the nation's capital town can break alliances")
                 return@addSyntax

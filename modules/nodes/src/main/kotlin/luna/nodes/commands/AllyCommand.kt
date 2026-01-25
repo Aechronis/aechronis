@@ -9,10 +9,9 @@ import luna.nodes.commands.arguments.ArgumentNation
 import luna.nodes.constants.ErrorAllyRequestAlreadyAllies
 import luna.nodes.constants.ErrorAllyRequestAlreadyCreated
 import luna.nodes.constants.ErrorAllyRequestEnemies
+import luna.nodes.objects.Command
 import luna.nodes.war.Alliance
 import luna.nodes.war.AllianceRequest
-import luna.nodes.objects.Command
-
 
 class AllyCommand : Command("ally") {
     init {
@@ -22,7 +21,7 @@ class AllyCommand : Command("ally") {
 
         val nationArg = ArgumentNation.create("nation-name")
 
-        addSyntax( { player, resident, town, nation, context ->
+        addSyntax({ player, resident, town, nation, context ->
             if (town !== nation.capital) {
                 Message.error(player, "Only the nation's capital town can offer/accept alliances")
                 return@addSyntax

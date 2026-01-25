@@ -65,7 +65,7 @@ class PortInfoCommand : Command("info") {
 
         val portArg = ArgumentPort.create("port-name")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             context[portArg].printInfo(player)
         }, portArg)
     }
@@ -79,7 +79,7 @@ class PortWarpCommand : Command("warp") {
 
         val portArg = ArgumentPort.create("port-name")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             // check if player is already warping
             if (Nodes.playerWarpTasks.contains(player)) {
                 Message.print(player, "${ChatColor.RED}You are already warping somewhere")
@@ -115,7 +115,8 @@ class PortWarpCommand : Command("warp") {
                     val canAccess: Boolean = when (relation) {
                         DiplomaticRelationship.TOWN,
                         DiplomaticRelationship.NATION,
-                        DiplomaticRelationship.ALLY, -> true
+                        DiplomaticRelationship.ALLY,
+                        -> true
                         else -> false
                     }
 

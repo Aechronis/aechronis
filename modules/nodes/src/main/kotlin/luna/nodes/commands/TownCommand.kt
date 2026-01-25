@@ -4,22 +4,22 @@
 
 package luna.nodes.commands
 
-import net.minestom.server.MinecraftServer
-import net.minestom.server.command.builder.arguments.ArgumentType
-import net.minestom.server.entity.Player
-import net.minestom.server.potion.Potion
-import net.minestom.server.potion.PotionEffect
-import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes
 import luna.nodes.WorldMap
 import luna.nodes.commands.arguments.ArgumentResident
 import luna.nodes.commands.arguments.ArgumentTown
-import luna.nodes.constants.TownPermissions
 import luna.nodes.constants.PermissionsGroup
+import luna.nodes.constants.TownPermissions
+import luna.nodes.objects.Command
 import luna.nodes.objects.Coord
 import luna.nodes.objects.Resident
-import luna.nodes.objects.Command
+import luna.nodes.utils.ChatColor
+import net.minestom.server.MinecraftServer
+import net.minestom.server.command.builder.arguments.ArgumentType
+import net.minestom.server.entity.Player
+import net.minestom.server.potion.Potion
+import net.minestom.server.potion.PotionEffect
 import net.minestom.server.timer.TaskSchedule
 
 // ==================================================
@@ -55,7 +55,6 @@ val MAP_STR_END = arrayOf(
     "",
 )
 // ==================================================
-
 
 class TownCommand : Command("t", "town") {
     init {
@@ -167,7 +166,7 @@ class TownPromoteCommand : Command("promote", "officer") {
 
         val playerArg = ArgumentResident.create("player-name")
 
-        addSyntax( { player, resident, town, context ->
+        addSyntax({ player, resident, town, context ->
             // check if player is town leader
             val leader = town.leader
             if (resident !== leader) {
@@ -208,7 +207,7 @@ class TownDemoteCommand : Command("demote") {
 
         val playerArg = ArgumentResident.create("player-name")
 
-        addSyntax( { player, resident, town, context ->
+        addSyntax({ player, resident, town, context ->
 
             // check if player is town leader
             val leader = town.leader
@@ -243,7 +242,7 @@ class TownDemoteCommand : Command("demote") {
     }
 }
 
-class TownApplyCommand: Command("apply", "join") {
+class TownApplyCommand : Command("apply", "join") {
     init {
         setDefaultExecutor { sender, context ->
             Message.print(sender, "Usage: /town apply <town-name>")
@@ -251,7 +250,7 @@ class TownApplyCommand: Command("apply", "join") {
 
         val townArg = ArgumentTown.create("town-name")
 
-        addSyntax( {player, resident, context ->
+        addSyntax({ player, resident, context ->
             if (resident.town != null) {
                 Message.error(player, "You are already a member of a town")
                 return@addSyntax
@@ -292,7 +291,7 @@ class TownApplyCommand: Command("apply", "join") {
                         }
                     }
                     .delay(TaskSchedule.tick(1200))
-                    .schedule()
+                    .schedule(),
             )
         }, townArg)
     }
@@ -306,7 +305,7 @@ class TownInviteCommand : Command("invite") {
 
         val playerArg = ArgumentResident.create("player-name")
 
-        addSyntax( {player, resident, town, context ->
+        addSyntax({ player, resident, town, context ->
             val invitee: Player? = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(context[playerArg].name)
             if (invitee == null) {
                 Message.error(player, "That player is not online")
@@ -348,7 +347,6 @@ class TownInviteCommand : Command("invite") {
             } else {
                 Message.error(player, "You are not allowed to invite new members")
             }
-
         }, playerArg)
     }
 }
@@ -411,7 +409,7 @@ class TownAcceptCommand : Command("accept") {
             }
         })
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             val town = resident.town
             if (town == null) {
                 if (resident.invitingTown == null) {
@@ -477,7 +475,7 @@ class TownDenyCommand : Command("deny", "reject") {
 
         val playerArg = ArgumentResident.create("player-name")
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             val town = resident.town
             if (town == null) {
                 if (resident.invitingTown == null) {
@@ -522,7 +520,7 @@ class TownDenyCommand : Command("deny", "reject") {
             }
         })
 
-        addSyntax( { player, resident, context ->
+        addSyntax({ player, resident, context ->
             val town = resident.town
             if (town == null) {
                 if (resident.invitingTown == null) {
@@ -581,7 +579,7 @@ class TownLeaveCommand : Command("leave") {
             Message.print(sender, "Usage: /town leave")
         }
 
-        addSyntax( { player, resident, town, context ->
+        addSyntax({ player, resident, town, context ->
             if (town.leader == resident) {
                 Message.error(player, "You must transfer leadership before leaving the town")
                 return@addSyntax
@@ -651,7 +649,7 @@ class TownSpawn : Command("spawn") {
             Message.print(sender, "Usage: /town spawn")
         }
 
-        addSyntax( { player, resident, town, context ->
+        addSyntax({ player, resident, town, context ->
             // check if already trying to teleport
             if (resident.teleportThread !== null) {
                 Message.error(player, "You are already trying to teleport")
@@ -776,24 +774,20 @@ class TownIncomeCommand : Command("income") {
 
         addSyntax({ player, resident, town, context ->
             // check player permissions
-            val hasPermissions = if ( resident === town.leader || town.officers.contains(resident) ) {
+            val hasPermissions = if (resident === town.leader || town.officers.contains(resident)) {
                 true
-            }
-            else if ( town.permissions[TownPermissions.INCOME].contains(PermissionsGroup.TOWN) && resident.town === town ) {
+            } else if (town.permissions[TownPermissions.INCOME].contains(PermissionsGroup.TOWN) && resident.town === town) {
                 true
-            }
-            else if ( town.permissions[TownPermissions.INCOME].contains(PermissionsGroup.TRUSTED) && resident.town === town && resident.trusted ) {
+            } else if (town.permissions[TownPermissions.INCOME].contains(PermissionsGroup.TRUSTED) && resident.town === town && resident.trusted) {
                 true
-            }
-            else {
+            } else {
                 false
             }
 
             // open town inventory
-            if ( hasPermissions ) {
+            if (hasPermissions) {
                 player.openInventory(Nodes.getTownIncomeInventory(town))
-            }
-            else {
+            } else {
                 Message.error(player, "You do not have permissions to view town income")
             }
         })
@@ -869,7 +863,7 @@ class TownPermissionsCommand : Command("permissions", "perms") {
         val groupArg = ArgumentType.Word("group").from("town", "nation", "ally", "outsider", "trusted")
         val flagArg = ArgumentType.Word("flag").from("allow", "deny")
 
-        addSyntax( { player, resident, town, context ->
+        addSyntax({ player, resident, town, context ->
             // print current town permissions
             Message.print(player, "Town Permissions:")
             for (perm in enumValues<TownPermissions>()) {
@@ -921,13 +915,13 @@ class TownPermissionsCommand : Command("permissions", "perms") {
             val flag = when (context[flagArg].lowercase()) {
                 "allow",
                 "true",
-                    -> {
+                -> {
                     true
                 }
 
                 "deny",
                 "false",
-                    -> {
+                -> {
                     false
                 }
 

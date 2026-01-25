@@ -4,10 +4,10 @@
 
 package luna.nodes.objects
 import luna.nodes.Nodes
-import net.minestom.server.entity.Player
-import net.minestom.server.network.packet.server.play.TeamsPacket
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
+import net.minestom.server.entity.Player
+import net.minestom.server.network.packet.server.play.TeamsPacket
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 
@@ -107,7 +107,7 @@ object Nametag {
                 net.kyori.adventure.text.format.NamedTextColor.WHITE, // teamColor
                 Component.text(prefix), // teamPrefix
                 Component.empty(), // teamSuffix
-                townMembers // entities (players in this town)
+                townMembers, // entities (players in this town)
             )
             player.sendPacket(TeamsPacket(teamName, createAction))
         }

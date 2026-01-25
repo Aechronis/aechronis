@@ -46,7 +46,7 @@ class Attack(
     val noBuildYMax: Int = 255 // temporarily set to height
 
     var thread: Task = MinecraftServer.getSchedulerManager()
-        .buildTask{ this.run() }
+        .buildTask { this.run() }
         .delay(TaskSchedule.tick(FlagWar.ATTACK_TICK))
         .repeat(TaskSchedule.tick(FlagWar.ATTACK_TICK))
         .schedule()

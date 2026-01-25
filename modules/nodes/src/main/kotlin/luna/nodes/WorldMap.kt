@@ -9,9 +9,9 @@
 
 package luna.nodes
 
-import luna.nodes.utils.ChatColor
 import luna.nodes.objects.Coord
 import luna.nodes.objects.Resident
+import luna.nodes.utils.ChatColor
 
 // minimap display primitive glyphs MUST BE SAME ASCII SIZE
 private const val SHADE0 = "\u2592" // medium shade
