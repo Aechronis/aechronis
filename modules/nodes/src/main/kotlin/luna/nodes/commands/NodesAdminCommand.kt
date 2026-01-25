@@ -154,6 +154,8 @@ class NodesAdminTownCommand() : Command("town") {
             Message.print(sender, "/nodesadmin town addofficer${ChatColor.WHITE}: Add officer to town")
             Message.print(sender, "/nodesadmin town removeofficer${ChatColor.WHITE}: Remove officer from town")
             Message.print(sender, "/nodesadmin town leader${ChatColor.WHITE}: Set town leader to player")
+            Message.print(sender, "/nodesadmin town removeleader${ChatColor.WHITE}: Remove leader from a town")
+            Message.print(sender, "/nodesadmin town color${ChatColor.WHITE}: Set the color of a town")
             Message.print(sender, "/nodesadmin town open${ChatColor.WHITE}: Toggle town is open to join")
             Message.print(sender, "/nodesadmin town income${ChatColor.WHITE}: View a town's income inventory")
             Message.print(sender, "Run a command with no args to see usage.")
@@ -174,6 +176,7 @@ class NodesAdminTownCommand() : Command("town") {
         addSubcommand(NodesAdminTownRemoveOfficerCommand())
         addSubcommand(NodesAdminTownLeaderCommand())
         addSubcommand(NodesAdminTownRemoveLeaderCommand())
+        addSubcommand(NodesAdminTownColorCommand())
         addSubcommand(NodesAdminTownIncomeCommand())
         addSubcommand(NodesAdminTownSetHomeCommand())
         addSubcommand(NodesAdminTownDefaultTownSpawnsCommand())
@@ -426,6 +429,24 @@ class NodesAdminTownRemoveLeaderCommand() : Command("removeleader") {
     }
 }
 
+class NodesAdminTownColorCommand() : Command("color") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin town color <town-name> <r> <g> <b>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val rArg = ArgumentType.Integer("r")
+        val gArg = ArgumentType.Integer("g")
+        val bArg = ArgumentType.Integer("b")
+
+        addSyntax( {player, resident, context ->
+            Nodes.setTownColor(context[townArg], context[rArg], context[gArg], context[bArg])
+            Message.print(player, "Set color of ${context[townArg].name} to (${context[rArg]}, ${context[gArg]}, ${context[bArg]})")
+        }, townArg, rArg, gArg, bArg)
+    }
+}
+
 class NodesAdminTownIncomeCommand() : Command("income") {
     init {
         setDefaultExecutor { sender, context ->
@@ -544,6 +565,7 @@ class NodesAdminNationCommand() : Command("nation") {
             Message.print(sender, "/nodesadmin nation addenemy${ChatColor.WHITE}: Add enemy to nation")
             Message.print(sender, "/nodesadmin nation removeenemy${ChatColor.WHITE}: Remove enemy from a nation")
             Message.print(sender, "/nodesadmin nation capital${ChatColor.WHITE}: Set nation's capital town")
+            Message.print(sender, "/nodesadmin nation color${ChatColor.WHITE}: Set the color of a nation")
             Message.print(sender, "Run a command with no args to see usage.")
         }
 
@@ -557,6 +579,7 @@ class NodesAdminNationCommand() : Command("nation") {
         addSubcommand(NodesAdminNationAddEnemyCommand())
         addSubcommand(NodesAdminNationRemoveEnemyCommand())
         addSubcommand(NodesAdminNationCapitalCommand())
+        addSubcommand(NodesAdminNationColorCommand())
     }
 }
 
@@ -774,6 +797,24 @@ class NodesAdminNationRemoveEnemyCommand() : Command("removeenemy") {
 
             Message.print(player, "Removed ${context[nationBArg].name} as enemy of ${context[nationAArg].name}")
         }, nationAArg, nationBArg)
+    }
+}
+
+class NodesAdminNationColorCommand() : Command("color") {
+    init {
+        setDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin nation color <nation-name> <r> <g> <b>")
+        }
+
+        val nationArg = ArgumentNation.create("nation-name")
+        val rArg = ArgumentType.Integer("r")
+        val gArg = ArgumentType.Integer("g")
+        val bArg = ArgumentType.Integer("b")
+
+        addSyntax( {player, resident, context ->
+            Nodes.setNationColor(context[nationArg], context[rArg], context[gArg], context[bArg])
+            Message.print(player, "Set color of ${context[nationArg].name} to (${context[rArg]}, ${context[gArg]}, ${context[bArg]})")
+        }, nationArg, rArg, gArg, bArg)
     }
 }
 
