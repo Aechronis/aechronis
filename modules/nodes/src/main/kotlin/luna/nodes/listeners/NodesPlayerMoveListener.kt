@@ -5,7 +5,6 @@ import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.entity.EntityTeleportEvent
-//import org.bukkit.inventory.ItemStack
 import net.minestom.server.potion.Potion
 import net.minestom.server.potion.PotionEffect
 import luna.nodes.Message

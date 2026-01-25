@@ -40,25 +40,3 @@ fun loadLongFromFile(path: Path): Long? {
 
     return null
 }
-
-/**
- * Runnable task for writing string to a file, with optional callback
- * to run after writing is complete.
- */
-class FileWriteTask(
-    str: String,
-    val path: Path,
-    val callback: (() -> Unit)? = null,
-) : Runnable {
-    val buffer: ByteBuffer = ByteBuffer.wrap(str.toByteArray())
-
-    override fun run() {
-        val fileChannel: AsynchronousFileChannel = AsynchronousFileChannel.open(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
-
-        val operation: Future<Int> = fileChannel.write(buffer, 0)
-
-        operation.get()
-
-        callback?.invoke()
-    }
-}

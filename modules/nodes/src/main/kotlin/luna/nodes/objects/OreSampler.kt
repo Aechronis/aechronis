@@ -142,27 +142,6 @@ private class ItemDistribution(inputItems: List<OreDeposit>) {
 
         return listOf()
     }
-
-    // return item from all ores in this distribution
-    // that satisfy the roll
-    fun sampleAll(): List<ItemStack> {
-        val roll = random.nextDouble()
-        val drops: MutableList<ItemStack> = mutableListOf()
-
-        items.forEach { type ->
-            if (type != null) {
-                // successful drop
-                if (roll < type.dropChance) {
-                    val minAmount = type.minAmount
-                    val maxAmount = type.maxAmount
-                    val amount = minAmount + random.nextInt(maxAmount - minAmount + 1)
-                    drops.add(ItemStack.of(type.material, amount))
-                }
-            }
-        }
-
-        return drops as List<ItemStack>
-    }
 }
 
 /**
@@ -172,14 +151,11 @@ private class ItemDistribution(inputItems: List<OreDeposit>) {
  * Map each y -> ItemDistribution
  */
 class OreSampler(
-    val ores: ArrayList<OreDeposit>,
+    ores: ArrayList<OreDeposit>,
 ) {
     // array maps each y height level -> OreTable
     // array is thus always 256 sized pointers to OreTable
     private val itemsAtHeight: Array<ItemDistribution?> = arrayOfNulls(256)
-
-    // contains any ore at some height
-    val containsOre: Boolean = ores.isNotEmpty()
 
     init {
         // 1. iterate ores and generate array of y-intervals and their ore deposits
@@ -225,20 +201,6 @@ class OreSampler(
             val sampler = this.itemsAtHeight[y]
             if (sampler !== null) {
                 return sampler.sample()
-            }
-        }
-
-        return listOf()
-    }
-
-    // simple sample, iterate all ore types and sample
-    // return every sample which roll < chance
-    fun sampleAll(y: Int): List<ItemStack> {
-        // ensure y in [0, 255]
-        if (y >= Y_WORLD_MIN && y <= Y_WORLD_MAX) {
-            val sampler = this.itemsAtHeight[y]
-            if (sampler !== null) {
-                return sampler.sampleAll()
             }
         }
 

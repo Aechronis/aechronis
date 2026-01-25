@@ -18,8 +18,7 @@ object WarDeserializer {
 
     // parse war.json data file
     fun fromJson(path: Path) {
-        // val json = JsonParser.parseReader(FileReader(path.toString())) // newer gson
-        val json = JsonParser().parse(FileReader(path.toString())) // gson bundled in bukkit/spigot
+        val json = JsonParser.parseReader(FileReader(path.toString()))
         val jsonObj = json.asJsonObject
 
         // parse war state and flags

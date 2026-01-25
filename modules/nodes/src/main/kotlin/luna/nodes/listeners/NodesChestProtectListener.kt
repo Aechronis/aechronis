@@ -60,7 +60,7 @@ object NodesChestProtectionListener {
                 Message.print(player, "You have protected this chest")
             }
 
-            event.setCancelled(true)
+            event.isCancelled = true
             return
         }
 

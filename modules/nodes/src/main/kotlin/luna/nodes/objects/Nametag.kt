@@ -91,7 +91,7 @@ object Nametag {
 
             // collect all players in this town to add to the team
             val townMembers = mutableListOf<String>()
-            for (otherPlayer in net.minestom.server.MinecraftServer.getConnectionManager().onlinePlayers) {
+            for (otherPlayer in MinecraftServer.getConnectionManager().onlinePlayers) {
                 val otherTown = Nodes.getTownFromPlayer(otherPlayer)
                 if (otherTown === town) {
                     townMembers.add(otherPlayer.username)
@@ -118,7 +118,7 @@ object Nametag {
      * Calls updateTextForPlayer for each online player
      */
     private fun updateAllText() {
-        val onlinePlayers = net.minestom.server.MinecraftServer.getConnectionManager().onlinePlayers
+        val onlinePlayers = MinecraftServer.getConnectionManager().onlinePlayers
         for (player in onlinePlayers) {
             updateTextForPlayer(player)
         }

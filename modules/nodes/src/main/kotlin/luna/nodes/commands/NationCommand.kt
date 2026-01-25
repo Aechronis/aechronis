@@ -3,6 +3,7 @@
  */
 
 package luna.nodes.commands
+
 import luna.nodes.utils.ChatColor
 import luna.nodes.Message
 import luna.nodes.Nodes

@@ -15,7 +15,6 @@ import luna.nodes.utils.ChatColor
 import net.minestom.server.item.Material
 import net.minestom.server.command.CommandSender
 import luna.nodes.Message
-//import luna.nodes.Nodes
 
 /**
  * Interface for resource attributes. These are modifiers

@@ -44,7 +44,6 @@ import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.enchant.Enchantment
-import java.beans.EventHandler
 import java.util.concurrent.ThreadLocalRandom
 
 object NodesWorldListener {
@@ -82,12 +81,6 @@ object NodesWorldListener {
                     Message.broadcast("${ChatColor.GOLD}[War] Attack at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ}) defeated by ${player.username}")
                     return
                 }
-                //                // handle breaking within no build region
-                //
-                //                // op bypass
-                //                if (player.isOp()) {
-                //                    return
-                //                }
                 event.isCancelled = true
                 Message.error(
                     player,
@@ -97,15 +90,7 @@ object NodesWorldListener {
             }
         }
 
-        //    // block permissions
-        //
-        //    // op bypass
-        //    if (player.isOp) {
-        //        return
-        //    }
-
-        val territory: Territory? =
-            Nodes.getTerritoryFromChunk(MinecraftServer.getInstanceManager().instances.first().getChunkAt(blockPos)!!)
+        val territory: Territory? = Nodes.getTerritoryFromBlock(blockPos.blockX, blockPos.blockZ)
         val town: Town? = territory?.town
         val resident = Nodes.getResident(player)
 
@@ -173,10 +158,6 @@ object NodesWorldListener {
             if (territoryChunk !== null) {
                 // disable block placement in flag no build distance
                 if (territoryChunk.attacker !== null) {
-                    // op bypass
-                    //                if (player.isOp()) {
-                    //                    return
-                    //                }
 
                     val attack = FlagWar.chunkToAttacker.get(territoryChunk.coord)
                     if (attack !== null) {
@@ -264,13 +245,7 @@ object NodesWorldListener {
             }
         }
 
-        // op bypass
-        //    if (player.isOp()) {
-        //        return
-        //    }
-
-        val territory: Territory? =
-            Nodes.getTerritoryFromChunk(MinecraftServer.getInstanceManager().instances.first().getChunkAt(blockPos)!!)
+        val territory: Territory? = Nodes.getTerritoryFromBlock(blockPos.blockX, blockPos.blockZ)
         val territoryChunk = Nodes.getTerritoryChunkFromBlock(blockPos.blockX, blockPos.blockZ)
         val resident = Nodes.getResident(player)
         val town: Town? = territory?.town
@@ -328,11 +303,6 @@ object NodesWorldListener {
     }
 
     private fun onBlockInteract(event: PlayerBlockInteractEvent) {
-//        // op bypass
-//        if (player.isOp()) {
-//            return
-//        }
-
         val territory: Territory? = Nodes.getTerritoryFromBlock(event.blockPosition.blockX,event.blockPosition.blockZ)
         val territoryChunk = Nodes.getTerritoryChunkFromBlock(event.blockPosition.blockX,event.blockPosition.blockZ)
         val resident = Nodes.getResident(event.player)
@@ -363,7 +333,7 @@ object NodesWorldListener {
                 if (hasTownPermissions(TownPermissions.CHESTS, town, resident)) {
                     // check if chest protected
                     if (town.protectedBlocks.contains(event.blockPosition) && !resident.hasTownProtectedChestPermissions(town)) {
-                        event.setCancelled(true)
+                        event.isCancelled = true
                         Message.error(event.player, "This chest is for trusted residents only")
                     }
 

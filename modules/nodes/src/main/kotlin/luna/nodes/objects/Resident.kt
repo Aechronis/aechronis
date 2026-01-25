@@ -35,7 +35,6 @@ class Resident(val uuid: UUID, val name: String) {
     var teleportThread: Task? = null
 
     // town invite
-    var invitingNation: Nation? = null
     var invitingTown: Town? = null
     var invitingPlayer: Player? = null
     var inviteThread: Task? = null

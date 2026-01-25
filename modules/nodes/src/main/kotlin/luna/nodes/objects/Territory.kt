@@ -350,19 +350,4 @@ data class Territory(
             Message.print(sender, "   - $name")
         }
     }
-
-    // print territory net resources
-    fun printResources(sender: CommandSender) {
-        // print income
-        Message.print(sender, "- Income:")
-        for ((k, v) in this.income) {
-            Message.print(sender, "   - $k: $v")
-        }
-
-        // print ore deposits
-        Message.print(sender, "- Ore:")
-        for (ore in this.ores.ores) {
-            Message.print(sender, "   - ${ore.material}: ${String.format("%.5f", ore.dropChance)}, ${ore.minAmount} - ${ore.maxAmount}")
-        }
-    }
 }

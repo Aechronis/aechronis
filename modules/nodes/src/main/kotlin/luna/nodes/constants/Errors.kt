@@ -26,8 +26,6 @@ val ErrorPortExists = Exception("Port already exists")
 val ErrorPortInGroup = Exception("Port already in this group")
 
 // claim/unclaim errors
-val ErrorTerritoryNotConnected = Exception("Territory not connected to town's claims")
-val ErrorTerritoryHasClaim = Exception("Territory already has town")
 val ErrorTerritoryIsTownHome = Exception("Territory is town home")
 val ErrorTerritoryNotInTown = Exception("Territory does not belong to town")
 

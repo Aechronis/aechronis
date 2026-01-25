@@ -7,9 +7,6 @@
 
 package luna.nodes.utils
 
-//import org.bukkit.Bukkit
-//import luna.nodes.Nodes
-
 inline fun <T> stringArrayFromSet(iter: Set<T>, itemName: (T) -> String): String {
     var s = "["
     for ((i, v) in iter.withIndex()) {

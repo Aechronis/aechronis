@@ -48,7 +48,7 @@ class NodesTest {
         }
 
         eventNode.addListener(PlayerSpawnEvent::class.java) { event ->
-            event.player.showBossBar(bossBar);
+            event.player.showBossBar(bossBar)
         }
 
         eventNode.addListener(PlayerBlockInteractEvent::class.java) { event ->
@@ -59,8 +59,8 @@ class NodesTest {
             }
         }
 
-        eventNode.addListener(ServerTickMonitorEvent::class.java, { e ->
-            val tickTime = floor(e.getTickMonitor().getTickTime() * 100.0) / 100.0
+        eventNode.addListener(ServerTickMonitorEvent::class.java) { e ->
+            val tickTime = floor(e.tickMonitor.tickTime * 100.0) / 100.0
             val runtime = Runtime.getRuntime()
             val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
             val maxMemory = runtime.maxMemory() / 1024 / 1024
@@ -76,7 +76,7 @@ class NodesTest {
             } else {
                 bossBar.color(BossBar.Color.GREEN)
             }
-        })
+        }
 
 
         // create test config
@@ -120,7 +120,7 @@ class NodesTest {
 
     @Test
     fun `can enable war`() {
-        Nodes.enableWar(true, false, true)
+        Nodes.enableWar(canAnnexTerritories = true, canOnlyAttackBorders = false, destructionEnabled = true)
         assertTrue(Nodes.war.enabled, "War should be enabled")
     }
 

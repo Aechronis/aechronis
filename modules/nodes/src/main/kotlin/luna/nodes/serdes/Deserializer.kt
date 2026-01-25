@@ -9,7 +9,6 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.Material
-//import org.bukkit.block.Block
 import luna.nodes.Nodes
 import luna.nodes.constants.PermissionsGroup
 import luna.nodes.constants.TownPermissions
@@ -229,14 +228,14 @@ object Deserializer {
 
                 // parse town protected blocks
                 val protectedBlocks: HashSet<BlockVec> = hashSetOf()
-                val protectedBlocksJsonArray = town.get("protect")?.getAsJsonArray()
+                val protectedBlocksJsonArray = town.get("protect")?.asJsonArray
                 if (protectedBlocksJsonArray !== null) {
                     for (item in protectedBlocksJsonArray) {
-                        val blockArray = item.getAsJsonArray()
+                        val blockArray = item.asJsonArray
                         if (blockArray !== null && blockArray.size() == 3) {
-                            val x = blockArray[0].getAsInt()
-                            val y = blockArray[1].getAsInt()
-                            val z = blockArray[2].getAsInt()
+                            val x = blockArray[0].asInt
+                            val y = blockArray[1].asInt
+                            val z = blockArray[2].asInt
                             val block = BlockVec(x,y,z)
                             protectedBlocks.add(block)
                         }

@@ -31,7 +31,7 @@ object NodesPlayerDamageListener {
         }
 
         if (cancel) {
-            event.setCancelled(true)
+            event.isCancelled = true
             Message.error(attacker, message)
         }
     }

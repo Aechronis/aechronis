@@ -12,10 +12,6 @@ import luna.nodes.constants.DiplomaticRelationship
 import luna.nodes.objects.Command
 import luna.nodes.tasks.PortWarpTask
 import luna.nodes.utils.ChatColor
-import net.minestom.server.MinecraftServer
-import net.minestom.server.command.builder.arguments.ArgumentType
-import net.minestom.server.entity.Entity
-import net.minestom.server.entity.EntityType
 
 class PortCommand : Command("port") {
     init {
@@ -139,7 +135,6 @@ class PortWarpCommand : Command("warp") {
             // do warp
             val task = PortWarpTask(
                 player,
-                vehicle,
                 player.position,
                 context[portArg],
                 Nodes.config.portWarpTime,

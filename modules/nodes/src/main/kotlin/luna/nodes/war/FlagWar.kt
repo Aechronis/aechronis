@@ -131,9 +131,6 @@ object FlagWar {
             if (detailed) {
                 Message.print(sender, "- Using Towns Whitelist${ChatColor.WHITE}: ${Nodes.config.warUseWhitelist}")
                 Message.print(sender, "- Can leave town${ChatColor.WHITE}: ${Nodes.config.canLeaveTownDuringWar}")
-                Message.print(sender, "- Can create town${ChatColor.WHITE}: ${Nodes.config.canCreateTownDuringWar}")
-                Message.print(sender, "- Can destroy town${ChatColor.WHITE}: ${Nodes.config.canDestroyTownDuringWar}")
-                Message.print(sender, "- Annex disabled${ChatColor.WHITE}: ${Nodes.config.annexDisabled}")
             }
         }
     }

@@ -9,20 +9,11 @@ import luna.nodes.commands.AllyCommand
 import luna.nodes.commands.NationCommand
 import luna.nodes.commands.TownCommand
 import luna.nodes.commands.UnallyCommand
-//import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import net.minestom.server.MinecraftServer
-import luna.nodes.utils.ChatColor
-import net.minestom.server.instance.Chunk
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.Material
-//import org.bukkit.Particle
-//import org.bukkit.World
-//import org.bukkit.block.Block
-//import org.bukkit.block.Chest
-//import org.bukkit.block.DoubleChest
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.Inventory
-//import org.bukkit.plugin.Plugin
 import luna.nodes.chat.ChatMode
 import luna.nodes.commands.AllyChatCommand
 import luna.nodes.commands.GlobalChatCommand
@@ -43,9 +34,7 @@ import luna.nodes.constants.ErrorPlayerHasTown
 import luna.nodes.constants.ErrorPlayerNotInTown
 import luna.nodes.constants.ErrorPortExists
 import luna.nodes.constants.ErrorPortInGroup
-import luna.nodes.constants.ErrorTerritoryHasClaim
 import luna.nodes.constants.ErrorTerritoryIsTownHome
-import luna.nodes.constants.ErrorTerritoryNotConnected
 import luna.nodes.constants.ErrorTerritoryNotInTown
 import luna.nodes.constants.ErrorTerritoryOwned
 import luna.nodes.constants.ErrorTownDoesNotExist
@@ -93,31 +82,15 @@ import luna.nodes.war.FlagWar
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.event.EventNode
-import net.minestom.server.event.entity.EntityDamageEvent
-import net.minestom.server.event.entity.EntityTeleportEvent
-import net.minestom.server.event.inventory.InventoryCloseEvent
-import net.minestom.server.event.inventory.InventoryPreClickEvent
-import net.minestom.server.event.player.PlayerBlockBreakEvent
-import net.minestom.server.event.player.PlayerBlockPlaceEvent
-import net.minestom.server.event.player.PlayerChatEvent
-import net.minestom.server.event.player.PlayerDisconnectEvent
-import net.minestom.server.event.player.PlayerLoadedEvent
-import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.network.packet.server.play.ParticlePacket
 import net.minestom.server.particle.Particle
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Files
-//import java.nio.file.Path
-//import java.nio.file.Paths
-//import java.nio.file.StandardCopyOption
-//import java.util.EnumMap
 import java.util.EnumSet
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ThreadLocalRandom
-//import java.util.concurrent.TimeUnit
-//import java.util.logging.Logger
 import kotlin.system.measureNanoTime
 
 /**
@@ -481,34 +454,6 @@ object Nodes {
         }
     }
 
-//    /**
-//     * Wrapper for reloading resources or territories.
-//     * Returns boolean if reload was successful.
-//     */
-//    internal fun reloadWorldJson(
-//        reloadResources: Boolean,
-//        reloadTerritories: Boolean,
-//        territoryIds: List<TerritoryId>? = null,
-//    ): Boolean {
-//        if (Files.exists(config.pathWorld)) {
-//            val (jsonResources, jsonTerritories) = Deserializer.worldFromJson(config.pathWorld)
-//
-//            // if resources are reloaded, ALL territories must be updated (ignore ids input)
-//            if (reloadResources && jsonResources != null) {
-//                Nodes.loadResources(jsonResources)
-//                if (jsonTerritories != null) Nodes.loadTerritories(jsonTerritories)
-//            }
-//            // just reload territories specified
-//            else if (reloadTerritories && jsonTerritories != null) {
-//                Nodes.loadTerritories(jsonTerritories, territoryIds)
-//            }
-//
-//            return true
-//        }
-//
-//        return false
-//    }
-
     // load world from path
     // returns status of world load:
     // true - successful load
@@ -739,12 +684,12 @@ object Nodes {
         }
     }
 
-//    // ==============================================
-//    // Resource Node functions
-//    // ==============================================
-//
+    // ==============================================
+    // Resource Node functions
+    // ==============================================
+
     // return number of resource node types
-fun getResourceNodeCount(): Int = resourceNodes.size
+    fun getResourceNodeCount(): Int = resourceNodes.size
 
     // ==============================================
     // Territory Chunk functions
@@ -777,23 +722,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
     }
 
     fun getTerritoryFromCoord(coord: Coord): Territory? = territoryChunks.get(coord)?.territory
-
-    fun getTerritoryFromChunk(chunk: Chunk): Territory? {
-        val coord = Coord(chunk.chunkX, chunk.chunkZ)
-        return territoryChunks.get(coord)?.territory
-    }
-
-    fun getTerritoryFromChunkCoords(cx: Int, cz: Int): Territory? {
-        val coord = Coord(cx, cz)
-        return territoryChunks.get(coord)?.territory
-    }
-
-//    /**
-//     * Returns an iterable of all (terrId, territory) pairs in world.
-//     */
-//    public fun iterTerritories(): Iterable<kotlin.collections.Map.Entry<TerritoryId, Territory>> = Nodes.territories.asIterable()
-//
-//    public fun getChunkFromCoord(coord: Coord, world: World): Chunk? = Bukkit.getWorld(world.name)?.getChunkAt(coord.x, coord.z)
 
     // default spawn location: returns region ~center of
     // core chunk of home territory
@@ -905,7 +833,7 @@ fun getResourceNodeCount(): Int = resourceNodes.size
     // if already in mode, return to default (global)
     // else, set to new mode
     // return chatmode this is set to
-    public fun toggleChatMode(resident: Resident, mode: ChatMode): ChatMode {
+    fun toggleChatMode(resident: Resident, mode: ChatMode): ChatMode {
         if (resident.chatMode == mode) {
             resident.chatMode = ChatMode.GLOBAL
         } else {
@@ -914,29 +842,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
 
         return resident.chatMode
     }
-//
-//    // update players online in each town, nation
-//    public fun refreshPlayersOnline() {
-//        // remove players online in nations
-//        for (nation in Nodes.nations.values) {
-//            nation.playersOnline.clear()
-//        }
-//
-//        for (town in Nodes.towns.values) {
-//            town.playersOnline.clear()
-//            for (r in town.residents) {
-//                val player = r.player()
-//                if (player !== null) {
-//                    town.playersOnline.add(player)
-//
-//                    val nation = r.nation
-//                    if (nation !== null) {
-//                        nation.playersOnline.add(player)
-//                    }
-//                }
-//            }
-//        }
-//    }
 
     // forces re-render of online player minimaps
     fun renderMinimaps() {
@@ -1184,74 +1089,6 @@ fun getResourceNodeCount(): Int = resourceNodes.size
 
         return null
     }
-//
-//    /**
-//     * If input is "*", return all towns. Otherwise, return list of
-//     * single town.
-//     */
-//    public fun matchTowns(name: String): List<Town> {
-//        val matchedTowns = ArrayList<Town>()
-//
-//        if (name == "*") {
-//            matchedTowns.addAll(towns.values)
-//        } else {
-//            val town = getTownFromName(name)
-//            if (town !== null) {
-//                matchedTowns.add(town)
-//            }
-//        }
-//
-//        return matchedTowns
-//    }
-//
-//    /**
-//     * Return town that owns chunk if it exists
-//     */
-//    public fun getTownAtChunkCoord(cx: Int, cz: Int): Town? {
-//        val terr = Nodes.getTerritoryFromChunkCoords(cx, cz)
-//        if (terr !== null) {
-//            return terr.town
-//        }
-//
-//        return null
-//    }
-
-    /**
-     * Claim territory for a town. Returns result with either Territory
-     * if successful, or an TerritoryClaim error status.
-     */
-    fun claimTerritory(town: Town, territory: Territory): Result<Territory> {
-        // check if territory already claimed
-        if (territory.town != null) {
-            return Result.failure(ErrorTerritoryHasClaim)
-        }
-
-        // check if territory is connected to town's existing territories
-        // iterate this territory neighbors, check if any link to town
-        var isNeighbor = false
-        for (neighborId in territory.neighbors) {
-            if (getTerritoryFromId(neighborId)?.town === town) {
-                isNeighbor = true
-                break
-            }
-        }
-        if (!isNeighbor) {
-            return Result.failure(ErrorTerritoryNotConnected)
-        }
-
-        // passed checks, add territory to town
-        town.territories.add(territory.id)
-        territory.town = town
-
-        // mark dirty
-        town.needsUpdate()
-        needsSave = true
-
-        // re-render minimaps
-        renderMinimaps()
-
-        return Result.success(territory)
-    }
 
     fun unclaimTerritory(town: Town, territory: Territory): Result<Territory> {
         // check if town owns territory
@@ -1285,7 +1122,7 @@ fun getResourceNodeCount(): Int = resourceNodes.size
     // adds a territory to town and bypasses standard claim checks
     // (e.g. territory must be connected, ...)
     // if successful, returns added territory
-    public fun addTerritoryToTown(town: Town, territory: Territory): Result<Territory> {
+    fun addTerritoryToTown(town: Town, territory: Territory): Result<Territory> {
         // check territory not already occupied
         if (territory.town != null) {
             return Result.failure(ErrorTerritoryOwned)
@@ -1297,16 +1134,16 @@ fun getResourceNodeCount(): Int = resourceNodes.size
 
         // mark dirty
         town.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         // re-render minimaps
-        Nodes.renderMinimaps()
+        renderMinimaps()
 
         return Result.success(territory)
     }
 
     // makes territory occupied by town
-fun captureTerritory(town: Town, territory: Territory) {
+    fun captureTerritory(town: Town, territory: Territory) {
         // check if territory already occupied, remove current occupier
         val currentOccupier: Town? = territory.occupier
         if (currentOccupier != null) {
@@ -1326,7 +1163,7 @@ fun captureTerritory(town: Town, territory: Territory) {
         needsSave = true
 
         // re-render minimaps
-    renderMinimaps()
+        renderMinimaps()
     }
 
     // release territory from town occupation
@@ -1345,101 +1182,10 @@ fun captureTerritory(town: Town, territory: Territory) {
         }
     }
 
-    /**
-     * Town annexes a territory:
-     * - add to town's territories and town's annexed territories
-     * Returns boolean on success
-     */
-    fun annexTerritory(town: Town, territory: Territory): Boolean {
-        val occupier: Town? = territory.occupier
-        if (occupier !== town) {
-            return false
-        }
-
-        val oldTown = territory.town
-        if (oldTown === town) {
-            return false
-        }
-
-        // remove from old town
-        if (oldTown !== null) {
-            // check if this is their home territory
-            if (territory.id == oldTown.home) {
-                // can only annex home territory last
-                if (oldTown.territories.size > 1) {
-                    return false
-                }
-
-                // destroy town and broadcast
-                destroyTown(oldTown)
-
-                Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Town ${oldTown.name} was completely annexed by ${town.name}")
-            }
-            // else, just a normal territory
-            else {
-                if (oldTown.annexed.contains(territory.id)) {
-                    oldTown.annexed.remove(territory.id)
-                }
-
-                // remove territory
-                oldTown.territories.remove(territory.id)
-
-                oldTown.needsUpdate()
-            }
-        }
-
-        // add territory to town and annexed territories
-        town.territories.add(territory.id)
-        town.annexed.add(territory.id)
-        town.captured.remove(territory.id)
-
-        // update territory
-        territory.town = town
-        territory.occupier = null
-
-        town.needsUpdate()
-        needsSave = true
-
-        // re-render minimaps
-        renderMinimaps()
-
-        return true
-    }
-
     // adds items to town's income
     // used by taxation events in occupied/captured territories
-    // TODO: cleanup + rename this to "townIncomeAdd"
     fun addToIncome(town: Town, material: Material, amount: Int) {
         town.income.add(material, amount)
-        town.needsUpdate()
-        needsSave = true
-    }
-
-    /**
-     * Removes items from town's income. If Material is null, removes all
-     * items. If amount < 0, removes all items of that type.
-     */
-    fun townIncomeRemove(
-        town: Town,
-        material: Material?,
-        amount: Int = -1,
-    ) {
-        town.income.pushToStorage(force = true) // push items to storage before removing
-
-        if (material !== null) {
-            if (amount >= 0) {
-                val currAmount = town.income.storage[material] ?: 0
-                if (currAmount > amount) {
-                    town.income.storage.put(material, currAmount - amount)
-                } else {
-                    town.income.storage.remove(material)
-                }
-            } else { // remove all
-                town.income.storage.remove(material)
-            }
-        } else {
-            town.income.storage.clear()
-        }
         town.needsUpdate()
         needsSave = true
     }
@@ -1452,7 +1198,7 @@ fun captureTerritory(town: Town, territory: Territory) {
 
     fun setTownSpawn(town: Town, spawnpoint: Pos): Boolean {
         // enforce spawnpoint in town's home territory
-        val territory = getTerritoryFromChunk(MinecraftServer.getInstanceManager().instances.first().getChunk(spawnpoint.chunkX(),spawnpoint.chunkX())!!)
+        val territory = getTerritoryFromBlock(spawnpoint.blockX(), spawnpoint.blockZ())
         if (territory === null || territory.id != town.home) {
             return false
         }
@@ -1556,14 +1302,6 @@ fun captureTerritory(town: Town, territory: Territory) {
 
         return true
     }
-
-//    public fun playerIsOfficer(town: Town, player: Player): Boolean {
-//        val resident = Nodes.getResident(player)
-//        if (resident === town.leader || town.officers.contains(resident)) {
-//            return true
-//        }
-//        return false
-//    }
 
     /**
      * Set town's leader. If input resident is null, try to remove
@@ -1694,8 +1432,7 @@ fun captureTerritory(town: Town, territory: Territory) {
         if (town1 === null || town2 === null) return false
         val nation1 = town1.nation
         val nation2 = town2.nation
-        if (nation1 !== null && nation2 !== null && nation1.enemies.contains(nation2)) return true
-        return false
+        return nation1 !== null && nation2 !== null && nation1.enemies.contains(nation2)
     }
 
     // ==============================================
@@ -2067,26 +1804,9 @@ fun captureTerritory(town: Town, territory: Territory) {
         Message.broadcast("Towns have collected income (use \"/t income\" to get)")
     }
 
-//    // ==============================================
-//    // Handle war and diplomatic relations
-//    //
-//    // Rules for declaring war:
-//    // 1. who can declare war:
-//    //    - town without nation: town
-//    //    - town with nation:
-//    //       - capital town declare war against other towns
-//    //       - internal town declare war on other towns in nation
-//    //    - cannot war an ally
-//    // 2. war on enemy town:
-//    //    - if enemy town has no nation, only war against town
-//    //    - if enemy town has nation, war defaults against enemy nation
-//    //    - if enemy town is in your nation, civil war boogaloo
-//    // 3. war on enemy nation:
-//    //    - all towns in enemy nation become enemies of all
-//    //      towns in your nation
-//    //
-//    // Same rules apply for making allies.
-//    // ==============================================
+    // ==============================================
+    // Handle war and diplomatic relations
+    // ==============================================
 
     fun enableWar(
         canAnnexTerritories: Boolean,
@@ -2279,9 +1999,9 @@ fun captureTerritory(town: Town, territory: Territory) {
         return getRelationshipOfTownToTown(playerTown, otherTown)
     }
 
-    public fun getRelationshipOfPlayerToPlayer(player: Player, other: Player): DiplomaticRelationship {
-        val playerTown = Nodes.getTownFromPlayer(player)
-        val otherTown = Nodes.getTownFromPlayer(other)
+    fun getRelationshipOfPlayerToPlayer(player: Player, other: Player): DiplomaticRelationship {
+        val playerTown = getTownFromPlayer(player)
+        val otherTown = getTownFromPlayer(other)
         return getRelationshipOfTownToTown(playerTown, otherTown)
     }
 
@@ -2340,7 +2060,7 @@ fun captureTerritory(town: Town, territory: Territory) {
      * Protect: true/false setting for protecting or unprotecting
      */
     internal fun protectTownChest(town: Town, block: BlockVec, protect: Boolean) {
-        if (protect == true) {
+        if (protect) {
             town.protectedBlocks.add(block)
         } else {
             town.protectedBlocks.remove(block)
@@ -2372,38 +2092,36 @@ fun captureTerritory(town: Town, territory: Territory) {
 
         var task: Task? = null
 
-        val runnable = object : Runnable {
-            override fun run() {
-                for (block in protectedBlocks) {
-                    // corners
-                    val location1 = Pos(block.x() + 0.1, block.y() + 0.5, block.z() + 0.1)
-                    val location2 = Pos(block.x() + 0.1, block.y() + 0.5, block.z() + 0.9)
-                    val location3 = Pos(block.x() + 0.9, block.y() + 0.5, block.z() + 0.1)
-                    val location4 = Pos(block.x() + 0.9, block.y() + 0.5, block.z() + 0.9)
+        val runnable = Runnable {
+            for (block in protectedBlocks) {
+                // corners
+                val location1 = Pos(block.x() + 0.1, block.y() + 0.5, block.z() + 0.1)
+                val location2 = Pos(block.x() + 0.1, block.y() + 0.5, block.z() + 0.9)
+                val location3 = Pos(block.x() + 0.9, block.y() + 0.5, block.z() + 0.1)
+                val location4 = Pos(block.x() + 0.9, block.y() + 0.5, block.z() + 0.9)
 
-                    // centers
-                    val location5 = Pos(block.x() + 0.5, block.y() + 0.5, block.z())
-                    val location6 = Pos(block.x(), block.y() + 0.5, block.z() + 0.5)
-                    val location7 = Pos(block.x() + 0.5, block.y() + 0.5, block.z() + 1.0)
-                    val location8 = Pos(block.x() + 1.0, block.y() + 0.5, block.z() + 0.5)
+                // centers
+                val location5 = Pos(block.x() + 0.5, block.y() + 0.5, block.z())
+                val location6 = Pos(block.x(), block.y() + 0.5, block.z() + 0.5)
+                val location7 = Pos(block.x() + 0.5, block.y() + 0.5, block.z() + 1.0)
+                val location8 = Pos(block.x() + 1.0, block.y() + 0.5, block.z() + 0.5)
 
 
-                    player.sendPackets(
-                        ParticlePacket(particle, location1, randomOffset, 0F, particleCount),
-                        ParticlePacket(particle, location2, randomOffset, 0F, particleCount),
-                        ParticlePacket(particle, location3, randomOffset, 0F, particleCount),
-                        ParticlePacket(particle, location4, randomOffset, 0F, particleCount),
-                        ParticlePacket(particle, location5, randomOffset, 0F, particleCount),
-                        ParticlePacket(particle, location6, randomOffset, 0F, particleCount),
-                        ParticlePacket(particle, location7, randomOffset, 0F, particleCount),
-                        ParticlePacket(particle, location8, randomOffset, 0F, particleCount),
-                    )
-                }
+                player.sendPackets(
+                    ParticlePacket(particle, location1, randomOffset, 0F, particleCount),
+                    ParticlePacket(particle, location2, randomOffset, 0F, particleCount),
+                    ParticlePacket(particle, location3, randomOffset, 0F, particleCount),
+                    ParticlePacket(particle, location4, randomOffset, 0F, particleCount),
+                    ParticlePacket(particle, location5, randomOffset, 0F, particleCount),
+                    ParticlePacket(particle, location6, randomOffset, 0F, particleCount),
+                    ParticlePacket(particle, location7, randomOffset, 0F, particleCount),
+                    ParticlePacket(particle, location8, randomOffset, 0F, particleCount),
+                )
+            }
 
-                runCount += 1
-                if (runCount > maxRuns) {
-                    task?.cancel()
-                }
+            runCount += 1
+            if (runCount > maxRuns) {
+                task?.cancel()
             }
         }
 
@@ -2441,18 +2159,18 @@ fun captureTerritory(town: Town, territory: Territory) {
         return port
     }
 
-    public fun destroyPort(port: Port) {
+    fun destroyPort(port: Port) {
         // remove from ports map
-        Nodes.ports.remove(port.name)
+        ports.remove(port.name)
 
         // remove chunk mappings
         val chunk = listOf(Math.floorDiv(port.locX, 16), Math.floorDiv(port.locZ, 16))
         chunkToPort.remove(chunk)
 
-        Nodes.needsSave = true
+        needsSave = true
     }
 
-    public fun getPortFromName(name: String): Port? = ports.get(name)
+    fun getPortFromName(name: String): Port? = ports.get(name)
 
 fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
 
@@ -2476,14 +2194,14 @@ fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
         return Result.success(portGroup)
     }
 
-    public fun destroyPortGroup(portGroup: PortGroup) {
+    fun destroyPortGroup(portGroup: PortGroup) {
         // remove from portGroups map
-        Nodes.portGroups.remove(portGroup.name)
+        portGroups.remove(portGroup.name)
 
-        Nodes.needsSave = true
+        needsSave = true
     }
 
-    public fun createPort(
+    fun createPort(
         name: String,
         locX: Int,
         locZ: Int,
@@ -2511,7 +2229,7 @@ fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
         return Result.success(port)
     }
 
-    public fun addPortToGroup(port: Port, group: PortGroup): Result<Port> {
+    fun addPortToGroup(port: Port, group: PortGroup): Result<Port> {
         // check port is not already in this group
         if (port.groups.contains(group)) {
             return Result.failure(ErrorPortInGroup)
@@ -2519,12 +2237,12 @@ fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
 
         port.groups.add(group)
         port.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
 
         return Result.success(port)
     }
 
-    public fun removePortFromGroup(port: Port, group: PortGroup) {
+    fun removePortFromGroup(port: Port, group: PortGroup) {
         // check port is in group
         if (!port.groups.contains(group)) {
             return
@@ -2532,7 +2250,7 @@ fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
 
         port.groups.remove(group)
         port.needsUpdate()
-        Nodes.needsSave = true
+        needsSave = true
     }
 
     /**
@@ -2541,7 +2259,7 @@ fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
      * If chunk is occupied, return occupier
      * Else, return territory town (may be null)
      */
-    public fun getPortOwner(port: Port): Town? {
+    fun getPortOwner(port: Port): Town? {
         if (port.isPublic) {
             return null
         }

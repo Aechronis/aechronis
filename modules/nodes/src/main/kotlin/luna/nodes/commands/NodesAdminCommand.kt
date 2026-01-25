@@ -94,7 +94,7 @@ class NodesAdminWarEnableCommand() : Command("enable") {
         }
 
         addSyntax({ player, resident, context ->
-            Nodes.enableWar(true, false, true)
+            Nodes.enableWar(canAnnexTerritories = true, canOnlyAttackBorders = false, destructionEnabled = true)
             Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes war enabled")
 
             // play MENACING wither spawn sound
@@ -127,7 +127,11 @@ class NodesAdminWarSkirmishCommand() : Command("skirmish") {
         }
 
         addSyntax({ player, resident, context ->
-            Nodes.enableWar(false, true, Nodes.config.allowDestructionDuringSkirmish)
+            Nodes.enableWar(
+                canAnnexTerritories = false,
+                canOnlyAttackBorders = true,
+                destructionEnabled = Nodes.config.allowDestructionDuringSkirmish
+            )
             Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes border skirmishes enabled")
 
             // play MENACING wither spawn sound
@@ -194,10 +198,10 @@ class NodesAdminTownCreateCommand() : Command("create") {
 
         addSyntax( {player, resident, context ->
             // first territory is new town home
-            val town = Nodes.createTown(context[townArg], context[territoriesArg][0], null).getOrElse({ err ->
+            val town = Nodes.createTown(context[townArg], context[territoriesArg][0], null).getOrElse { err ->
                 Message.error(player, "Failed to create town: ${err.message}")
                 return@addSyntax
-            })
+            }
 
             // add the other territories
             for (i in 1 until context[territoriesArg].size) {
@@ -473,7 +477,7 @@ class NodesAdminTownSetSpawnCommand() : Command("setspawn") {
         addSyntax( {player, resident, context ->
             val result = Nodes.setTownSpawn(context[townArg], player.position)
 
-            if (result == true) {
+            if (result) {
                 Message.print(player, "Town \"${context[townArg].name}\" spawn set to current location")
             } else {
                 Message.error(player, "Spawn location must be within town's home territory")
@@ -594,10 +598,10 @@ class NodesAdminNationCreateCommand() : Command("create") {
 
         addSyntax( {player, resident, context ->
             // create new nation from town
-            val nation = Nodes.createNation(context[nationArg], context[townsArg][0], context[townsArg][0].leader).getOrElse({ err ->
+            val nation = Nodes.createNation(context[nationArg], context[townsArg][0], context[townsArg][0].leader).getOrElse { err ->
                 Message.error(player, "Failed to create nation: ${err.message}")
                 return@addSyntax
-            })
+            }
 
             // add other towns
             for (i in 1 until context[townsArg].size) {
@@ -730,10 +734,10 @@ class NodesAdminNationAddAllyCommand() : Command("addally") {
         val nationBArg = ArgumentNation.create("nationB-name")
 
         addSyntax( {player, resident, context ->
-            Nodes.addAlly(context[nationAArg], context[nationBArg]).getOrElse({ err ->
+            Nodes.addAlly(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to add ally: ${err.message}")
                 return@addSyntax
-            })
+            }
 
             Message.print(player, "Added ${context[nationBArg].name} as ally of ${context[nationAArg].name}")
         }, nationAArg, nationBArg)
@@ -750,10 +754,10 @@ class NodesAdminNationRemoveAllyCommand() : Command("removeally") {
         val nationBArg = ArgumentNation.create("nationB-name")
 
         addSyntax( {player, resident, context ->
-            Nodes.removeAlly(context[nationAArg], context[nationBArg]).getOrElse({ err ->
+            Nodes.removeAlly(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to remove ally: ${err.message}")
                 return@addSyntax
-            })
+            }
 
             Message.print(player, "Removed ${context[nationBArg].name} as ally of ${context[nationAArg].name}")
         }, nationAArg, nationBArg)
@@ -770,10 +774,10 @@ class NodesAdminNationAddEnemyCommand() : Command("addenemy") {
         val nationBArg = ArgumentNation.create("nationB-name")
 
         addSyntax( {player, resident, context ->
-            Nodes.addEnemy(context[nationAArg], context[nationBArg]).getOrElse({ err ->
+            Nodes.addEnemy(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to add enemy: ${err.message}")
                 return@addSyntax
-            })
+            }
 
             Message.print(player, "Added ${context[nationBArg].name} as enemy of ${context[nationAArg].name}")
         }, nationAArg, nationBArg)
@@ -790,10 +794,10 @@ class NodesAdminNationRemoveEnemyCommand() : Command("removeenemy") {
         val nationBArg = ArgumentNation.create("nationB-name")
 
         addSyntax( {player, resident, context ->
-            Nodes.removeEnemy(context[nationAArg], context[nationBArg]).getOrElse({ err ->
+            Nodes.removeEnemy(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to remove enemy: ${err.message}")
                 return@addSyntax
-            })
+            }
 
             Message.print(player, "Removed ${context[nationBArg].name} as enemy of ${context[nationAArg].name}")
         }, nationAArg, nationBArg)
@@ -847,10 +851,10 @@ class NodesAdminPortCreateCommand() : Command("create") {
                 player.position.blockZ(),
                 hashSetOf(),
                 context[publicArg],
-            ).getOrElse({ err ->
+            ).getOrElse { err ->
                 Message.error(player, "Failed to create port: ${err.message}")
                 return@addSyntax
-            })
+            }
 
             Message.print(player, "Created port \"${context[portArg]}\"")
         }, portArg, publicArg)
@@ -905,10 +909,10 @@ class NodesAdminPortGroupCreateCommand() : Command("create") {
         addSyntax( { player, resident, context ->
             Nodes.createPortGroup(
                 context[portGroupArg],
-            ).getOrElse({ err ->
+            ).getOrElse { err ->
                 Message.error(player, "Failed to create group: ${err.message}")
                 return@addSyntax
-            })
+            }
 
             Message.print(player, "Created group \"${context[portGroupArg]}\"")
         }, portGroupArg)
@@ -916,15 +920,15 @@ class NodesAdminPortGroupCreateCommand() : Command("create") {
         addSyntax( { player, resident, context ->
             val portGroup = Nodes.createPortGroup(
                 context[portGroupArg],
-            ).getOrElse({ err ->
+            ).getOrElse { err ->
                 Message.error(player, "Failed to create group: ${err.message}")
                 return@addSyntax
-            })
+            }
 
             for (port in context[portsArg]) {
-                Nodes.addPortToGroup(port, portGroup).getOrElse({ err ->
+                Nodes.addPortToGroup(port, portGroup).getOrElse { err ->
                     Message.error(player, "Failed to add port \"${port.name}\": ${err.message}")
-                })
+                }
             }
 
             Message.print(player, "Created group \"${context[portGroupArg]}\" with ${context[portsArg].size} ports")
@@ -959,10 +963,10 @@ class NodesAdminPortGroupAddPortCommand() : Command("addport") {
 
         addSyntax( { player, resident, context ->
             for (port in context[portsArg]) {
-                Nodes.addPortToGroup(port, context[portGroupArg]).getOrElse({ err ->
+                Nodes.addPortToGroup(port, context[portGroupArg]).getOrElse { err ->
                     Message.error(player, "Failed to add port \"${port.name}\": ${err.message}")
                     return@addSyntax
-                })
+                }
                 Message.print(player, "Added port \"${port.name}\" to group \"${context[portGroupArg].name}\"")
             }
         }, portGroupArg, portsArg)

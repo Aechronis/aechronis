@@ -22,8 +22,6 @@ import luna.nodes.objects.Resident
 import luna.nodes.objects.Command
 import net.minestom.server.timer.TaskSchedule
 
-//import java.util.concurrent.TimeUnit
-
 // ==================================================
 // Constants for /t map
 //
@@ -1078,7 +1076,7 @@ class TownFlyCommand : Command("fly") {
                 return@addSyntax
             }
 
-            if (Nodes.getTerritoryFromChunk(player.chunk!!)?.town != town) {
+            if (Nodes.getTerritoryFromPlayer(player)?.town != town) {
                 Message.error(player, "You must be in your town to enable flight")
                 return@addSyntax
             }

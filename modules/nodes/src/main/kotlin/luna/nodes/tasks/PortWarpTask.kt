@@ -6,7 +6,6 @@ import luna.nodes.objects.Port
 import luna.nodes.utils.ChatColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
-import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
@@ -17,7 +16,6 @@ import kotlin.math.roundToInt
  */
 class PortWarpTask(
     val player: Player,
-    val vehicle: Entity,
     val initialPos: Pos,
     val destination: Port,
     val timeWarp: Long,
@@ -28,7 +26,7 @@ class PortWarpTask(
 
     private var task: Task? = null
 
-    private var portPos = Pos(destination.locX.toDouble(), vehicle.position.y, destination.locZ.toDouble())
+    private var portPos = Pos(destination.locX.toDouble(), player.position.y, destination.locZ.toDouble())
 
     fun start(): Task {
         val runnable = object : Runnable {
@@ -87,7 +85,7 @@ class PortWarpTask(
      * Create progress bar string. Input should be double
      * in range [0.0, 1.0] marking progress.
      */
-    internal fun progressBar(progress: Double): String = when ((progress * 10.0).roundToInt().toInt()) {
+    internal fun progressBar(progress: Double): String = when ((progress * 10.0).roundToInt()) {
         0 -> "\u2503\u2592\u2592\u2592\u2592\u2592\u2592\u2592\u2592\u2592\u2592\u2503"
         1 -> "\u2503\u2588\u2592\u2592\u2592\u2592\u2592\u2592\u2592\u2592\u2592\u2503"
         2 -> "\u2503\u2588\u2588\u2592\u2592\u2592\u2592\u2592\u2592\u2592\u2592\u2503"

@@ -7,8 +7,6 @@ package luna.nodes.objects
 
 import luna.nodes.utils.ChatColor
 import net.minestom.server.coordinate.Pos
-//import org.bukkit.Material
-//import org.bukkit.block.Block
 import net.minestom.server.command.CommandSender
 import net.minestom.server.entity.Player
 import luna.nodes.Message
@@ -275,7 +273,7 @@ private fun blocksToJsonString(blocks: HashSet<BlockVec>): String {
     val str = StringBuilder()
     str.append("[")
 
-    var index: Int = 0
+    var index = 0
     for (block in blocks) {
         str.append("[${block.blockX},${block.blockY},${block.blockZ}]")
         if (index < blocks.size - 1) {
