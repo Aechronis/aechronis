@@ -16,7 +16,7 @@ object Message {
     val COL_ERROR = ChatColor.RED
 
     /**
-     * Print generic plugin message to command sender's chat (either console
+     * Print generic message to command sender's chat (either console
      * or player).
      */
     fun print(sender: CommandSender?, s: String) {
@@ -43,7 +43,7 @@ object Message {
     }
 
     /**
-     * Wrapper around Audiences.all().sendMessage to send plugin formatted messages
+     * Wrapper around Audiences.all().sendMessage to send formatted messages
      * to all players.
      */
     fun broadcast(s: String) {

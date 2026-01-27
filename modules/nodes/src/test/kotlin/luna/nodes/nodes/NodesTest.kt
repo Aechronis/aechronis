@@ -81,7 +81,7 @@ class NodesTest {
         // create test config
         val config = NodesConfig(
             save = false,
-            pathPlugin = Paths.get(javaClass.getResource("/nodes/world.json")!!.toURI()).parent.toString(),
+            path = Paths.get(javaClass.getResource("/nodes/world.json")!!.toURI()).parent.toString(),
         )
 
         // initialize nodes with test config

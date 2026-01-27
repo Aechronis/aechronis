@@ -111,7 +111,7 @@ object SaveManager {
         }
 
         // create save folder if it does not exist
-        Files.createDirectories(Paths.get(Nodes.config.pathPlugin).normalize())
+        Files.createDirectories(Paths.get(Nodes.config.path).normalize())
 
         // scheduler for saving world
         val runnable = Runnable {

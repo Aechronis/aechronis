@@ -241,7 +241,7 @@ object FlagWar {
         )
     }
 
-    // cleanup when Nodes plugin disabled
+    // cleanup when server is shutdown
     internal fun cleanup() {
         // stop save task
         saveTask?.cancel()

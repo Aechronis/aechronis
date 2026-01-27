@@ -21,8 +21,8 @@ data class NodesConfig(
     // disable saving (for tests)
     val save: Boolean = true,
 
-    // main plugin path for config and saves
-    val pathPlugin: String = "nodes",
+    // main path for config and saves
+    val path: String = "nodes",
 
     // period for running world save
     val savePeriod: Long = 30000,
@@ -185,14 +185,14 @@ data class NodesConfig(
     val portWarpTime: Long = 10000,
 ) {
     // folder for backups of json state files
-    val pathBackup: Path get() = Paths.get(pathPlugin, "backup").normalize()
+    val pathBackup: Path get() = Paths.get(path, "backup").normalize()
 
     // file names for world, towns, war json files
-    val pathWorld: Path get() = Paths.get(pathPlugin, "world.json").normalize()
-    val pathTowns: Path get() = Paths.get(pathPlugin, "towns.json").normalize()
-    val pathWar: Path get() = Paths.get(pathPlugin, "war.json").normalize()
-    val pathPorts: Path get() = Paths.get(pathPlugin, "ports.json").normalize()
-    val pathLastBackupTime: Path get() = Paths.get(pathPlugin, "lastBackupTime.txt").normalize()
+    val pathWorld: Path get() = Paths.get(path, "world.json").normalize()
+    val pathTowns: Path get() = Paths.get(path, "towns.json").normalize()
+    val pathWar: Path get() = Paths.get(path, "war.json").normalize()
+    val pathPorts: Path get() = Paths.get(path, "ports.json").normalize()
+    val pathLastBackupTime: Path get() = Paths.get(path, "lastBackupTime.txt").normalize()
 
     // use whitelist/blacklist for war (derived from list.size > 0 for lists below)
     val warUseWhitelist: Boolean get() = warWhitelist.isNotEmpty()

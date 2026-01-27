@@ -156,8 +156,7 @@ object Nodes {
         war.initialize(config.flagBlocks)
 
         // try load world
-        val pluginPath = config.pathPlugin
-        println("Loading world from: $pluginPath")
+        println("Loading world from: $config.path")
         try {
             if (loadWorld()) { // successful load
                 // print number of resource nodes and territories loaded
@@ -167,7 +166,7 @@ object Nodes {
                 println("- Towns: ${getTownCount()}")
                 println("- Nations: ${getNationCount()}")
             } else {
-                println("Error loading world: Invalid world file at $pluginPath/${config.pathWorld}")
+                println("Error loading world: Invalid world file at ${config.path}/${config.pathWorld}")
             }
         } catch (err: Exception) {
             err.printStackTrace()
@@ -238,7 +237,7 @@ object Nodes {
     }
 
     // mark all current players in game as online
-    // needed to correctly mark online players after reloading plugin
+    // needed to correctly mark online players after library is initialized
     internal fun initializeOnlinePlayers() {
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
             // create resident for player if it does not exist
@@ -251,7 +250,7 @@ object Nodes {
     }
 
     // clean up any world details
-    // run when plugin disabled
+    // run when server shutdown
     internal fun cleanup() {
         // cleanup residents
         for (r in residents.values) {
