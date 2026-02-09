@@ -87,6 +87,7 @@ class CombatTest {
                 ammo = testAmmo,
                 maxAmmo = 30,
                 damage = 25F,
+                sniper = true,
                 automatic = true,
                 cooldown = 100,
                 reloadTime = 3000,

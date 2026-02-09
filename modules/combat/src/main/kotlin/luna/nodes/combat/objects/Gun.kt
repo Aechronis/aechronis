@@ -32,6 +32,7 @@ class Gun(
     val maxAmmo: Int,
     val damage: Float,
     val automatic: Boolean,
+    val sniper: Boolean,
     val cooldown: Long,
     val reloadTime: Long,
     val recoilMin: Float,
