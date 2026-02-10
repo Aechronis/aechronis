@@ -115,6 +115,10 @@ class Gun(
         // create task
         runReloadTask(player)
 
+        // play sound
+        player.instance.audiences().forEach{p -> p.playSound(soundReload, player.position.x, player.position.y, player.position.z)}
+
+
         return true
     }
 
@@ -186,6 +190,9 @@ class Gun(
             player.position
                 .withView(offsetYaw, offsetPitch)
                 .add(0.0, player.eyeHeight, 0.0)
+
+        // play fire sound
+        player.instance.audiences().forEach{p -> p.playSound(soundFire, player.position.x, player.position.y, player.position.z)}
 
         // create ray with random offsets generated
         val ray = Ray(offsetPos, offsetPos.direction().mul(player.instance.viewDistance() * 16.0))
