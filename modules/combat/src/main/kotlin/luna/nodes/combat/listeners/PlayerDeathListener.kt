@@ -10,7 +10,7 @@ import net.minestom.server.entity.EntityPose
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.metadata.avatar.MannequinMeta
 import net.minestom.server.event.player.PlayerDeathEvent
-import net.minestom.server.event.player.PlayerRespawnEvent
+import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.player.ResolvableProfile
 
 object PlayerDeathListener {
@@ -61,19 +61,11 @@ object PlayerDeathListener {
                 .withY(2.0)
         corpse.pose = EntityPose.SWIMMING
 
-        player.updateViewableRule { false }
-        player.boundingBox = BoundingBox(0.0, 0.0, 0.0)
-    }
-
-    fun onPlayerRespawn(event: PlayerRespawnEvent) {
-        val player = event.player
-
-        player.updateViewableRule { true }
-        player.boundingBox = player.entityType.registry()!!.boundingBox()
+        // set to instantly respawn the player without showing death screen
+        player.sendPacket(ChangeGameStatePacket(ChangeGameStatePacket.Reason.ENABLE_RESPAWN_SCREEN, 1f))
     }
 
     fun init() {
         Combat.eventNode.addListener(PlayerDeathEvent::class.java, PlayerDeathListener::onPlayerDeath)
-        Combat.eventNode.addListener(PlayerRespawnEvent::class.java, PlayerDeathListener::onPlayerRespawn)
     }
 }
