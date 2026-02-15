@@ -11,11 +11,12 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
     mavenCentral()
-    maven("https://repo.hudkit.net/releases")
+    maven("https://repo.hypera.dev/snapshots/") // luckperms (minestom)
 }
 
 dependencies {
     implementation("net.minestom:minestom:2026.01.08-1.21.11")
+    implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
 
     // testing
     testImplementation("org.jetbrains.kotlin:kotlin-test")
