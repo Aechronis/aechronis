@@ -10,13 +10,13 @@ import luna.nodes.nodes.chat.Chat
 import luna.nodes.nodes.chat.ChatMode
 import luna.nodes.nodes.objects.Command
 
-class GlobalChatCommand : Command("globalchat", "gc") {
+class GlobalChatCommand : Command("globalchat", null, "gc") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage:")
-            Message.print(sender, "/globalchat")
-            Message.print(sender, "/globalchat join")
-            Message.print(sender, "/globalchat leave")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage:")
+            Message.print(player, "/globalchat")
+            Message.print(player, "/globalchat join")
+            Message.print(player, "/globalchat leave")
         }
 
         addSyntax({ player, resident, context ->
@@ -28,10 +28,10 @@ class GlobalChatCommand : Command("globalchat", "gc") {
     }
 }
 
-class GlobalChatJoinCommand : Command("join", "unmute") {
+class GlobalChatJoinCommand : Command("join", null, "unmute") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /globalchat join")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /globalchat join")
         }
 
         addSyntax({ player, resident, context ->
@@ -40,10 +40,10 @@ class GlobalChatJoinCommand : Command("join", "unmute") {
     }
 }
 
-class GlobalChatLeaveCommand : Command("leave", "mute") {
+class GlobalChatLeaveCommand : Command("leave", null, "mute") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /globalchat leave")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /globalchat leave")
         }
 
         addSyntax({ player, resident, context ->
@@ -52,10 +52,10 @@ class GlobalChatLeaveCommand : Command("leave", "mute") {
     }
 }
 
-class TownChatCommand : Command("townchat", "tc") {
+class TownChatCommand : Command("townchat", null, "tc") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /townchat")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /townchat")
         }
 
         addSyntax({ player, resident, town, context ->
@@ -64,10 +64,10 @@ class TownChatCommand : Command("townchat", "tc") {
     }
 }
 
-class NationChatCommand : Command("nationchat", "nc") {
+class NationChatCommand : Command("nationchat", null, "nc") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /nationchat")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /nationchat")
         }
 
         addSyntax({ player, resident, town, nation, context ->
@@ -76,10 +76,10 @@ class NationChatCommand : Command("nationchat", "nc") {
     }
 }
 
-class AllyChatCommand : Command("allychat", "ac") {
+class AllyChatCommand : Command("allychat", null, "ac") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /allychat")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /allychat")
         }
 
         addSyntax({ player, resident, town, nation, context ->

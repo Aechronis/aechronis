@@ -15,11 +15,11 @@ import luna.nodes.nodes.utils.ChatColor
 
 class PortCommand : Command("port") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "${ChatColor.BOLD}[Nodes] Port Commands:")
-            Message.print(sender, "/port list${ChatColor.WHITE}: List all ports")
-            Message.print(sender, "/port info${ChatColor.WHITE}: Print info about a port")
-            Message.print(sender, "/port warp${ChatColor.WHITE}: Warp to a port")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "${ChatColor.BOLD}[Nodes] Port Commands:")
+            Message.print(player, "/port list${ChatColor.WHITE}: List all ports")
+            Message.print(player, "/port info${ChatColor.WHITE}: Print info about a port")
+            Message.print(player, "/port warp${ChatColor.WHITE}: Warp to a port")
         }
 
         addSubcommand(PortListCommand())
@@ -30,8 +30,8 @@ class PortCommand : Command("port") {
 
 class PortListCommand : Command("list") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /port list")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /port list")
         }
 
         addSyntax({ player, resident, context ->
@@ -59,8 +59,8 @@ class PortListCommand : Command("list") {
 
 class PortInfoCommand : Command("info") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /port info <port-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /port info <port-name>")
         }
 
         val portArg = ArgumentPort.create("port-name")
@@ -73,8 +73,8 @@ class PortInfoCommand : Command("info") {
 
 class PortWarpCommand : Command("warp") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /port warp <port-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /port warp <port-name>")
         }
 
         val portArg = ArgumentPort.create("port-name")

@@ -11,10 +11,10 @@ import luna.nodes.nodes.objects.Command
 
 class TerritoryCommand : Command("territory") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage:")
-            Message.print(sender, "/territory")
-            Message.print(sender, "/territory <territory-id>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage:")
+            Message.print(player, "/territory")
+            Message.print(player, "/territory <territory-id>")
         }
 
         val territoryArg = ArgumentTerritory.create("territory-id")

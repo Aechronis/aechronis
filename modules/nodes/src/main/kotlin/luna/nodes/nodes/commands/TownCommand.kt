@@ -56,28 +56,28 @@ val MAP_STR_END = arrayOf(
 )
 // ==================================================
 
-class TownCommand : Command("t", "town") {
+class TownCommand : Command("t", null, "town") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "${ChatColor.BOLD}[Nodes] Town commands:")
-            Message.print(sender, "/town promote${ChatColor.WHITE}: Give officer rank to resident")
-            Message.print(sender, "/town demote${ChatColor.WHITE}: Remove officer rank from resident")
-            Message.print(sender, "/town apply${ChatColor.WHITE}: Apply to join a town")
-            Message.print(sender, "/town invite${ChatColor.WHITE}: Invite a player to your town")
-            Message.print(sender, "/town leave${ChatColor.WHITE}: Leave your town")
-            Message.print(sender, "/town kick${ChatColor.WHITE}: Kick player from your town")
-            Message.print(sender, "/town spawn${ChatColor.WHITE}: Teleport to your town spawnpoint")
-            Message.print(sender, "/town setspawn${ChatColor.WHITE}: Set a new town spawnpoint")
-            Message.print(sender, "/town list${ChatColor.WHITE}: List all towns")
-            Message.print(sender, "/town info${ChatColor.WHITE}: View town details")
-            Message.print(sender, "/town online${ChatColor.WHITE}: View town's online players")
-            Message.print(sender, "/town map${ChatColor.WHITE}: View world map")
-            Message.print(sender, "/town minimap${ChatColor.WHITE}: Toggle sidebar world minimap")
-            Message.print(sender, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
-            Message.print(sender, "/town protect${ChatColor.WHITE}: Protect town chests")
-            Message.print(sender, "/town trust${ChatColor.WHITE}: Mark player as trusted")
-            Message.print(sender, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
-            Message.print(sender, "/town fly${ChatColor.WHITE}: Fly inside your town")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "${ChatColor.BOLD}[Nodes] Town commands:")
+            Message.print(player, "/town promote${ChatColor.WHITE}: Give officer rank to resident")
+            Message.print(player, "/town demote${ChatColor.WHITE}: Remove officer rank from resident")
+            Message.print(player, "/town apply${ChatColor.WHITE}: Apply to join a town")
+            Message.print(player, "/town invite${ChatColor.WHITE}: Invite a player to your town")
+            Message.print(player, "/town leave${ChatColor.WHITE}: Leave your town")
+            Message.print(player, "/town kick${ChatColor.WHITE}: Kick player from your town")
+            Message.print(player, "/town spawn${ChatColor.WHITE}: Teleport to your town spawnpoint")
+            Message.print(player, "/town setspawn${ChatColor.WHITE}: Set a new town spawnpoint")
+            Message.print(player, "/town list${ChatColor.WHITE}: List all towns")
+            Message.print(player, "/town info${ChatColor.WHITE}: View town details")
+            Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
+            Message.print(player, "/town map${ChatColor.WHITE}: View world map")
+            Message.print(player, "/town minimap${ChatColor.WHITE}: Toggle sidebar world minimap")
+            Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
+            Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
+            Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
+            Message.print(player, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
+            Message.print(player, "/town fly${ChatColor.WHITE}: Fly inside your town")
         }
 
         // no args, print current town info
@@ -134,34 +134,34 @@ class TownCommand : Command("t", "town") {
 
 class TownHelpCommand : Command("help") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "${ChatColor.BOLD}[Nodes] Town commands:")
-            Message.print(sender, "/town promote${ChatColor.WHITE}: Give officer rank to resident")
-            Message.print(sender, "/town demote${ChatColor.WHITE}: Remove officer rank from resident")
-            Message.print(sender, "/town apply${ChatColor.WHITE}: Apply to join a town")
-            Message.print(sender, "/town invite${ChatColor.WHITE}: Invite a player to your town")
-            Message.print(sender, "/town leave${ChatColor.WHITE}: Leave your town")
-            Message.print(sender, "/town kick${ChatColor.WHITE}: Kick player from your town")
-            Message.print(sender, "/town spawn${ChatColor.WHITE}: Teleport to your town spawnpoint")
-            Message.print(sender, "/town setspawn${ChatColor.WHITE}: Set a new town spawnpoint")
-            Message.print(sender, "/town list${ChatColor.WHITE}: List all towns")
-            Message.print(sender, "/town info${ChatColor.WHITE}: View town details")
-            Message.print(sender, "/town online${ChatColor.WHITE}: View town's online players")
-            Message.print(sender, "/town map${ChatColor.WHITE}: View world map")
-            Message.print(sender, "/town minimap${ChatColor.WHITE}: Toggle sidebar world minimap")
-            Message.print(sender, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
-            Message.print(sender, "/town protect${ChatColor.WHITE}: Protect town chests")
-            Message.print(sender, "/town trust${ChatColor.WHITE}: Mark player as trusted")
-            Message.print(sender, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
-            Message.print(sender, "/town fly${ChatColor.WHITE}: Fly inside your town")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "${ChatColor.BOLD}[Nodes] Town commands:")
+            Message.print(player, "/town promote${ChatColor.WHITE}: Give officer rank to resident")
+            Message.print(player, "/town demote${ChatColor.WHITE}: Remove officer rank from resident")
+            Message.print(player, "/town apply${ChatColor.WHITE}: Apply to join a town")
+            Message.print(player, "/town invite${ChatColor.WHITE}: Invite a player to your town")
+            Message.print(player, "/town leave${ChatColor.WHITE}: Leave your town")
+            Message.print(player, "/town kick${ChatColor.WHITE}: Kick player from your town")
+            Message.print(player, "/town spawn${ChatColor.WHITE}: Teleport to your town spawnpoint")
+            Message.print(player, "/town setspawn${ChatColor.WHITE}: Set a new town spawnpoint")
+            Message.print(player, "/town list${ChatColor.WHITE}: List all towns")
+            Message.print(player, "/town info${ChatColor.WHITE}: View town details")
+            Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
+            Message.print(player, "/town map${ChatColor.WHITE}: View world map")
+            Message.print(player, "/town minimap${ChatColor.WHITE}: Toggle sidebar world minimap")
+            Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
+            Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
+            Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
+            Message.print(player, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
+            Message.print(player, "/town fly${ChatColor.WHITE}: Fly inside your town")
         }
     }
 }
 
-class TownPromoteCommand : Command("promote", "officer") {
+class TownPromoteCommand : Command("promote", null, "officer") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town promote <player-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town promote <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -201,8 +201,8 @@ class TownPromoteCommand : Command("promote", "officer") {
 
 class TownDemoteCommand : Command("demote") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town demote <player-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town demote <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -242,10 +242,10 @@ class TownDemoteCommand : Command("demote") {
     }
 }
 
-class TownApplyCommand : Command("apply", "join") {
+class TownApplyCommand : Command("apply", null, "join") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town apply <town-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town apply <town-name>")
         }
 
         val townArg = ArgumentTown.create("town-name")
@@ -299,8 +299,8 @@ class TownApplyCommand : Command("apply", "join") {
 
 class TownInviteCommand : Command("invite") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town invite <player-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town invite <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -353,10 +353,10 @@ class TownInviteCommand : Command("invite") {
 
 class TownAcceptCommand : Command("accept") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage:")
-            Message.print(sender, "/town accept")
-            Message.print(sender, "/town accept <player-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage:")
+            Message.print(player, "/town accept")
+            Message.print(player, "/town accept <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -465,12 +465,12 @@ class TownAcceptCommand : Command("accept") {
     }
 }
 
-class TownDenyCommand : Command("deny", "reject") {
+class TownDenyCommand : Command("deny", null, "reject") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage:")
-            Message.print(sender, "/town deny")
-            Message.print(sender, "/town deny <player-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage:")
+            Message.print(player, "/town deny")
+            Message.print(player, "/town deny <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -575,8 +575,8 @@ class TownDenyCommand : Command("deny", "reject") {
 
 class TownLeaveCommand : Command("leave") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town leave")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town leave")
         }
 
         addSyntax({ player, resident, town, context ->
@@ -599,8 +599,8 @@ class TownLeaveCommand : Command("leave") {
 
 class TownKickCommand : Command("kick") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town kick <player-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town kick <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -645,8 +645,8 @@ class TownKickCommand : Command("kick") {
 
 class TownSpawn : Command("spawn") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town spawn")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town spawn")
         }
 
         addSyntax({ player, resident, town, context ->
@@ -683,8 +683,8 @@ class TownSpawn : Command("spawn") {
 
 class TownSetSpawn : Command("setspawn") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town setspawn")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town setspawn")
         }
 
         addSyntax({ player, resident, town, context ->
@@ -707,8 +707,8 @@ class TownSetSpawn : Command("setspawn") {
 
 class TownListCommand : Command("list") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town list")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town list")
         }
 
         addSyntax({ player, resident, context ->
@@ -724,10 +724,10 @@ class TownListCommand : Command("list") {
 
 class TownInfoCommand : Command("info") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage:")
-            Message.print(sender, "/town info")
-            Message.print(sender, "/town info <town-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage:")
+            Message.print(player, "/town info")
+            Message.print(player, "/town info <town-name>")
         }
 
         val townArg = ArgumentTown.create("town-name")
@@ -744,10 +744,10 @@ class TownInfoCommand : Command("info") {
 
 class TownOnlineCommand : Command("online") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage:")
-            Message.print(sender, "/town online")
-            Message.print(sender, "/town online <town-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage:")
+            Message.print(player, "/town online")
+            Message.print(player, "/town online <town-name>")
         }
 
         val townArg = ArgumentTown.create("town-name")
@@ -768,8 +768,8 @@ class TownOnlineCommand : Command("online") {
 
 class TownIncomeCommand : Command("income") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town income")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town income")
         }
 
         addSyntax({ player, resident, town, context ->
@@ -796,8 +796,8 @@ class TownIncomeCommand : Command("income") {
 
 class TownMapCommand : Command("map") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town map")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town map")
         }
 
         addSyntax({ player, resident, context ->
@@ -822,10 +822,10 @@ class TownMapCommand : Command("map") {
 
 class TownMinimapCommand : Command("minimap") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage:")
-            Message.print(sender, "/town minimap")
-            Message.print(sender, "/town minimap <size>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage:")
+            Message.print(player, "/town minimap")
+            Message.print(player, "/town minimap <size>")
         }
 
         val sizeArg = ArgumentType.Integer("size")
@@ -853,10 +853,10 @@ class TownMinimapCommand : Command("minimap") {
 
 class TownPermissionsCommand : Command("permissions", "perms") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage:")
-            Message.print(sender, "/town permissions")
-            Message.print(sender, "/town permissions <type> <group> <flag>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage:")
+            Message.print(player, "/town permissions")
+            Message.print(player, "/town permissions <type> <group> <flag>")
         }
 
         val typeArg = ArgumentType.Word("type").from("build", "destroy", "interact", "chests", "items", "income")
@@ -940,10 +940,10 @@ class TownPermissionsCommand : Command("permissions", "perms") {
 
 class TownProtectCommand : Command("protect") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "[Nodes] Town protect commands:")
-            Message.print(sender, "/town protect${ChatColor.WHITE}: Toggle protecting chests")
-            Message.print(sender, "/town protect show${ChatColor.WHITE}: Show protected chests")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "[Nodes] Town protect commands:")
+            Message.print(player, "/town protect${ChatColor.WHITE}: Toggle protecting chests")
+            Message.print(player, "/town protect show${ChatColor.WHITE}: Show protected chests")
         }
 
         addSyntax({ player, resident, town, context ->
@@ -969,8 +969,8 @@ class TownProtectCommand : Command("protect") {
 
 class TownProtectShowCommand : Command("show") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town protect show")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town protect show")
         }
 
         addSyntax({ player, resident, town, context ->
@@ -987,8 +987,8 @@ class TownProtectShowCommand : Command("show") {
 
 class TownTrustCommand : Command("trust") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town trust <player-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town trust <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -1016,8 +1016,8 @@ class TownTrustCommand : Command("trust") {
 
 class TownUntrustCommand : Command("untrust") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town untrust <player-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town untrust <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
@@ -1051,8 +1051,8 @@ class TownUntrustCommand : Command("untrust") {
 
 class TownFlyCommand : Command("fly") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /town fly")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /town fly")
         }
 
         addSyntax({ player, resident, town, context ->

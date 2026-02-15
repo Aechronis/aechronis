@@ -15,8 +15,8 @@ import luna.nodes.nodes.war.AllianceRequest
 
 class AllyCommand : Command("ally") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /ally <nation-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /ally <nation-name>")
         }
 
         val nationArg = ArgumentNation.create("nation-name")

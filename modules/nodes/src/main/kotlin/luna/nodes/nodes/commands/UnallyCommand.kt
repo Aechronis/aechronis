@@ -14,8 +14,8 @@ import luna.nodes.nodes.utils.ChatColor
 
 class UnallyCommand : Command("unally") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage: /unally <nation-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /unally <nation-name>")
         }
 
         val nationArg = ArgumentNation.create("nation-name")

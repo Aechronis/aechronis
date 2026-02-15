@@ -8,12 +8,12 @@ import luna.nodes.nodes.Message
 import luna.nodes.nodes.commands.arguments.ArgumentResident
 import luna.nodes.nodes.objects.Command
 
-class PlayerCommand : Command("player", "p") {
+class PlayerCommand : Command("player", null,"p") {
     init {
-        setDefaultExecutor { sender, context ->
-            Message.print(sender, "Usage:")
-            Message.print(sender, "/player")
-            Message.print(sender, "/player <player-name>")
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage:")
+            Message.print(player, "/player")
+            Message.print(player, "/player <player-name>")
         }
 
         val playerArg = ArgumentResident.create("player-name")
