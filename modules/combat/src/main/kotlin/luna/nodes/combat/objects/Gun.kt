@@ -18,7 +18,7 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.RelativeFlags
-import net.minestom.server.entity.damage.DamageType
+import net.minestom.server.entity.damage.Damage
 import net.minestom.server.item.Material
 import net.minestom.server.timer.TaskSchedule
 import kotlin.random.Random
@@ -216,7 +216,7 @@ class Gun(
             // blood
             Particles.bloodParticle(player.instance, entityHit.point.asPos())
 
-            target.damage(DamageType.ARROW, damage)
+            target.damage(Damage.fromProjectile(player, null, damage))
         } else { // block hit
             Particles.dustParticle(player.instance, blockHit!!.point.asPos())
         }
