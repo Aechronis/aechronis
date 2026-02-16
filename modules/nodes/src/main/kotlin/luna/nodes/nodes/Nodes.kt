@@ -626,6 +626,9 @@ object Nodes {
         towns: ArrayList<Town>,
         townAllies: ArrayList<ArrayList<String>>,
         townEnemies: ArrayList<ArrayList<String>>,
+        nations: ArrayList<Nation>,
+        nationAllies: ArrayList<ArrayList<String>>,
+        nationEnemies: ArrayList<ArrayList<String>>,
     ) {
         // load nation-level diplomacy from town data
         // towns inherit alliance/enemy status from their nation
@@ -679,6 +682,28 @@ object Nodes {
 
             nation1.enemies.add(nation2)
             nation2.enemies.add(nation1)
+        }
+
+        // process nation-level diplomatic relations from JSON
+        for ((i, nation) in nations.withIndex()) {
+            val allies = nationAllies[i]
+            val enemies = nationEnemies[i]
+
+            // add allies
+            for (name in allies) {
+                val otherNation = Nodes.nations.get(name)
+                if (otherNation !== null) {
+                    nation.allies.add(otherNation)
+                }
+            }
+
+            // add enemies
+            for (name in enemies) {
+                val otherNation = Nodes.nations.get(name)
+                if (otherNation !== null) {
+                    nation.enemies.add(otherNation)
+                }
+            }
         }
     }
 

@@ -345,6 +345,9 @@ object Deserializer {
             towns,
             townAllies,
             townEnemies,
+            nations,
+            nationAllies,
+            nationEnemies,
         )
     }
 
