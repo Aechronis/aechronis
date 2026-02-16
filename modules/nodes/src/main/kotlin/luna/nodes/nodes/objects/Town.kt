@@ -220,7 +220,7 @@ class Town(
                     "\"annexed\":$annexed," +
                     "\"captured\":$captured," +
                     "\"income\":$income," +
-                    "\"protect\":${blocksToJsonString(this.protectedBlocks)}," +
+                    "\"protect\":${blocksToJsonString(this.protectedBlocks)}" +
                     "}"
                 )
 
