@@ -140,7 +140,7 @@ class Resident(val uuid: UUID, val name: String) {
                     "\"name\":\"${this.name}\"," +
                     "\"town\":${ if (this.town !== null) "\"${this.town}\"" else null }," +
                     "\"nation\":${ if (this.nation !== null) "\"${this.nation}\"" else null }," +
-                    "\"trust\":${this.trusted}," +
+                    "\"trust\":${this.trusted}" +
                     "}"
                 )
             return jsonString
