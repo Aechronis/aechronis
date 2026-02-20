@@ -3,7 +3,7 @@ version = System.getenv("GITHUB_SHA")?.take(7) ?: ""
 
 plugins {
     `maven-publish`
-    id("org.jetbrains.kotlin.jvm") version "2.3.0"
+    id("org.jetbrains.kotlin.jvm") version "2.3.10"
     id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
 }
 
