@@ -21,6 +21,7 @@ import net.minestom.server.entity.RelativeFlags
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.item.Material
 import net.minestom.server.timer.TaskSchedule
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 class Gun(
@@ -81,15 +82,11 @@ class Gun(
     fun hasAmmo(player: Player): Boolean = getAmmo(player) > 0
 
     private fun damageToAmmo(damage: Int): Int {
-        if (damage == 1) return maxAmmo
-        if (damage == 99) return 0
-        val damagePercent = 100 - damage
-        return ((damagePercent.toFloat() / 100) * maxAmmo).toInt()
+        return ((99 - damage) * maxAmmo.toDouble() / 98).roundToInt().coerceIn(0, maxAmmo)
     }
 
     private fun ammoToDamage(amount: Int): Int {
-        val ammoPercent = (amount * 100) / maxAmmo
-        return (100 - ammoPercent).coerceIn(1, 99)
+        return (99 - (amount * 98.0 / maxAmmo).roundToInt()).coerceIn(1, 99)
     }
 
     // ================
