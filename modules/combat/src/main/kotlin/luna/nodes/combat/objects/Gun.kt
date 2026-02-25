@@ -14,11 +14,13 @@ import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.RelativeFlags
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.item.Material
-import net.minestom.server.network.packet.server.play.PlayerRotationPacket
+import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket
 import net.minestom.server.timer.TaskSchedule
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -232,6 +234,6 @@ class Gun(
     }
 
     fun recoil(player: Player) {
-        player.sendPacket(PlayerRotationPacket(0F, true, -(Random.nextFloat() * (recoilMax - recoilMin) + recoilMin), false))
+        player.sendPacket(PlayerPositionAndLookPacket(-1, Pos.ZERO, Pos.ZERO, 0F, -(Random.nextFloat() * (recoilMax - recoilMin) + recoilMin), RelativeFlags.VIEW or RelativeFlags.COORD or RelativeFlags.DELTA_COORD))
     }
 }
