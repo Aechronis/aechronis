@@ -82,13 +82,9 @@ class Gun(
 
     fun hasAmmo(player: Player): Boolean = getAmmo(player) > 0
 
-    private fun damageToAmmo(damage: Int): Int {
-        return ((99 - damage) * maxAmmo.toDouble() / 98).roundToInt().coerceIn(0, maxAmmo)
-    }
+    private fun damageToAmmo(damage: Int): Int = ((99 - damage) * maxAmmo.toDouble() / 98).roundToInt().coerceIn(0, maxAmmo)
 
-    private fun ammoToDamage(amount: Int): Int {
-        return (99 - (amount * 98.0 / maxAmmo).roundToInt()).coerceIn(1, 99)
-    }
+    private fun ammoToDamage(amount: Int): Int = (99 - (amount * 98.0 / maxAmmo).roundToInt()).coerceIn(1, 99)
 
     // ================
     // RELOAD FUNCTIONS
@@ -234,6 +230,15 @@ class Gun(
     }
 
     fun recoil(player: Player) {
-        player.sendPacket(PlayerPositionAndLookPacket(-1, Pos.ZERO, Pos.ZERO, 0F, -(Random.nextFloat() * (recoilMax - recoilMin) + recoilMin), RelativeFlags.VIEW or RelativeFlags.COORD or RelativeFlags.DELTA_COORD))
+        player.sendPacket(
+            PlayerPositionAndLookPacket(
+                -1,
+                Pos.ZERO,
+                Pos.ZERO,
+                0F,
+                -(Random.nextFloat() * (recoilMax - recoilMin) + recoilMin),
+                RelativeFlags.VIEW or RelativeFlags.COORD or RelativeFlags.DELTA_COORD,
+            ),
+        )
     }
 }

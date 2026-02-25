@@ -67,6 +67,13 @@ object Combat {
         ActionBarManager.start()
         CooldownManager.start()
 
+        // we send time updates ourselves so don't use instances built in method
+        MinecraftServer
+            .getInstanceManager()
+            .instances
+            .firstOrNull()
+            ?.timeSynchronizationTicks = 0
+
         // print load time
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart

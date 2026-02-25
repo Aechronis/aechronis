@@ -4,7 +4,6 @@ import luna.nodes.combat.Combat
 import luna.nodes.combat.objects.Gun
 import luna.nodes.combat.objects.Item
 import net.minestom.server.MinecraftServer
-import net.minestom.server.event.player.PlayerHandAnimationEvent
 import net.minestom.server.event.player.PlayerStartSneakingEvent
 import net.minestom.server.event.player.PlayerStopSneakingEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
@@ -30,16 +29,6 @@ object AimingListener {
                 .schedule()
     }
 
-    private fun onHandAnimation(event: PlayerHandAnimationEvent) {
-        val player = event.player
-        val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun ?: return
-        if (!gun.automatic) return
-        Combat.aimingResetTasks[player]?.cancel()
-        if (player.isSneaking) return // sneaking already handling aiming, dont override
-
-        Combat.playerAiming[event.player] = !(Combat.playerAiming[event.player] ?: false)
-    }
-
     private fun onPlayerStartSneaking(event: PlayerStartSneakingEvent) {
         Combat.playerAiming[event.player] = true
     }
@@ -50,7 +39,6 @@ object AimingListener {
 
     fun init() {
         Combat.eventNode.addListener(PlayerUseItemEvent::class.java, AimingListener::onPlayerUseItem)
-        Combat.eventNode.addListener(PlayerHandAnimationEvent::class.java, AimingListener::onHandAnimation)
         Combat.eventNode.addListener(PlayerStartSneakingEvent::class.java, AimingListener::onPlayerStartSneaking)
         Combat.eventNode.addListener(PlayerStopSneakingEvent::class.java, AimingListener::onPlayerStopSneaking)
     }
