@@ -400,6 +400,14 @@ data class Ray(
             val results = ArrayList<Intersection<Block>>()
             if (blockIterator.hasNext()) {
                 val p = blockIterator.next()
+
+                // check if chunk is loaded
+                if (blockGetter is net.minestom.server.instance.Instance) {
+                    if (!blockGetter.isChunkLoaded(p.chunkX(), p.chunkZ())) {
+                        return emptyList()
+                    }
+                }
+
                 val b = blockGetter.getBlock(p)
                 val hitboxes = hitboxGetter(b)
                 if (hitboxes.isNotEmpty()) {
