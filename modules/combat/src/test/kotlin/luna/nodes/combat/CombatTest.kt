@@ -5,6 +5,7 @@ import luna.nodes.combat.objects.ArmorPiece
 import luna.nodes.combat.objects.Gun
 import luna.nodes.combat.objects.Hat
 import luna.nodes.combat.objects.Item
+import luna.nodes.combat.objects.Vehicle
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -130,7 +131,13 @@ class CombatTest {
                 assetId = "combat:test-armor",
             )
 
-        Item.registerItems(testAmmo, testGun, testHat, testChestplate, testLeggings, testBoots)
+        val drone =
+            Vehicle(
+                name = "drone",
+                itemName = Component.text("DRONE", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            )
+
+        Item.registerItems(testAmmo, testGun, testHat, testChestplate, testLeggings, testBoots, drone)
 
         // initialize combat with test config
         Combat.initialize()

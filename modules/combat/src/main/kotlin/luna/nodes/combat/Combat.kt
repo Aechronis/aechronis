@@ -9,6 +9,7 @@ import luna.nodes.combat.listeners.MannequinDamageListener
 import luna.nodes.combat.listeners.PlayerDeathListener
 import luna.nodes.combat.listeners.PlayerDisconnectListener
 import luna.nodes.combat.listeners.ReloadListener
+import luna.nodes.combat.listeners.VehiclePlaceListener
 import luna.nodes.combat.tasks.ActionBarManager
 import luna.nodes.combat.tasks.CooldownManager
 import luna.nodes.combat.tasks.ModelManager
@@ -40,6 +41,8 @@ object Combat {
 
     val playerCooldowns = HashMap<Player, Long>()
 
+    val placeTasks = HashMap<Player, Task>()
+
     fun initialize() {
         // measure load time
         val timeStart = System.currentTimeMillis()
@@ -57,6 +60,7 @@ object Combat {
         CooldownResetListener.init()
         ArmorProtectionListener.init()
         MannequinDamageListener.init()
+        VehiclePlaceListener.init()
 
         // register commands
         MinecraftServer.getCommandManager().register(CombatAdminCommand())
