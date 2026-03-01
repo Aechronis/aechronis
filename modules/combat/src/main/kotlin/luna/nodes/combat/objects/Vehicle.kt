@@ -94,7 +94,7 @@ open class Vehicle(
                 .schedule()
     }
 
-    fun spawn(instance: Instance, pos: Pos) {
+    open fun spawn(instance: Instance, pos: Pos) {
         val armorStand = LivingEntity(EntityType.ARMOR_STAND)
 
         armorStand.setInstance(instance, pos)
