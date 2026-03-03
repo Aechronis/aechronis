@@ -9,7 +9,7 @@ object VehiclePlaceListener {
     fun onPlayerUseItemOnBlock(event: PlayerUseItemOnBlockEvent) {
         val player = event.player
         val vehicle = Item.getFromItemStack(player.itemInMainHand) as? Vehicle ?: return
-        vehicle.place(player, event.position.asPos().add(0.5,-0.35,0.5))
+        vehicle.place(player, event.position.asPos().add(0.5, 1.0,0.5))
     }
 
     fun init() {

@@ -74,7 +74,7 @@ open class Vehicle(
 
                     // successful reload
                     if (time <= 0) {
-                        spawn(player.instance, pos)
+                        spawn(player, pos)
 
                         Combat.placeTasks[player]!!.cancel()
                         Combat.placeTasks.remove(player)
@@ -94,10 +94,10 @@ open class Vehicle(
                 .schedule()
     }
 
-    open fun spawn(instance: Instance, pos: Pos) {
+    open fun spawn(player: Player, pos: Pos) {
         val armorStand = LivingEntity(EntityType.ARMOR_STAND)
 
-        armorStand.setInstance(instance, pos)
+        armorStand.setInstance(player.instance, pos)
 
         armorStand.helmet = ItemStack.of(Material.BONE).withItemModel(model)
 
@@ -108,5 +108,13 @@ open class Vehicle(
         meta.isHasNoGravity = !gravity
 
         armorStand.spawn()
+
+        playerVehicle[player] = this
+    }
+
+    open fun onTick(player: Player) { }
+
+    companion object {
+        var playerVehicle: HashMap<Player, Vehicle> = HashMap()
     }
 }
