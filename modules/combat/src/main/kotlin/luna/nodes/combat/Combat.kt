@@ -14,6 +14,7 @@ import luna.nodes.combat.tasks.ActionBarManager
 import luna.nodes.combat.tasks.CooldownManager
 import luna.nodes.combat.tasks.ModelManager
 import luna.nodes.combat.tasks.PlayerPositionManager
+import luna.nodes.combat.tasks.ProjectileTickManager
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
@@ -70,6 +71,7 @@ object Combat {
         PlayerPositionManager.start()
         ActionBarManager.start()
         CooldownManager.start()
+        ProjectileTickManager.start()
 
         // we send time updates ourselves so don't use instances built in method
         MinecraftServer

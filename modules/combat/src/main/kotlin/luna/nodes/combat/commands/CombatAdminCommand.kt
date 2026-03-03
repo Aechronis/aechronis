@@ -11,6 +11,7 @@ package luna.nodes.combat.commands
 
 import luna.nodes.combat.commands.arguments.ArgumentItem
 import luna.nodes.combat.objects.Explosion
+import luna.nodes.combat.objects.Projectile
 import luna.nodes.combat.utils.Message
 import luna.nodes.nodes.utils.hasPermission
 import net.minestom.server.command.builder.Command
@@ -31,6 +32,7 @@ class CombatAdminCommand : Command("combatadmin", "ca") {
 
         addSubcommand(CombatAdminGiveCommand())
         addSubcommand(CombatAdminExplosionCommand())
+        addSubcommand(CombatAdminProjectileCommand())
     }
 }
 
