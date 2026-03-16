@@ -1,0 +1,9 @@
+[book]
+title = "Aechronis"
+authors = ["error11O"]
+language = "en"
+src = "src"
+
+[output.html]
+mathjax-support = true
+preferred-dark-theme = "rust"
