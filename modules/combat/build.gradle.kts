@@ -1,4 +1,4 @@
-group = "luna.nodes"
+group = "net.aechronis"
 version = System.getenv("GITHUB_SHA")?.take(7) ?: ""
 
 plugins {

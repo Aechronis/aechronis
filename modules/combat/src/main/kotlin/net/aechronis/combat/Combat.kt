@@ -1,0 +1,91 @@
+package net.aechronis.combat
+
+import net.aechronis.combat.commands.CombatAdminCommand
+import net.aechronis.combat.listeners.AimingListener
+import net.aechronis.combat.listeners.ArmorProtectionListener
+import net.aechronis.combat.listeners.CooldownResetListener
+import net.aechronis.combat.listeners.FireListener
+import net.aechronis.combat.listeners.MannequinDamageListener
+import net.aechronis.combat.listeners.PlayerDeathListener
+import net.aechronis.combat.listeners.PlayerDisconnectListener
+import net.aechronis.combat.listeners.ReloadListener
+import net.aechronis.combat.listeners.VehiclePlaceListener
+import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.tasks.ActionBarManager
+import net.aechronis.combat.tasks.CooldownManager
+import net.aechronis.combat.tasks.ModelManager
+import net.aechronis.combat.tasks.PlayerPositionManager
+import net.aechronis.combat.tasks.ProjectileTickManager
+import net.aechronis.combat.tasks.VehicleTickManager
+import net.minestom.server.MinecraftServer
+import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.Player
+import net.minestom.server.event.EventNode
+import net.minestom.server.timer.Task
+
+object Combat {
+    // event nodes for listeners
+    val lowPriorityEventNode = EventNode.all("combat-low-priority").setPriority(999)
+    val eventNode = EventNode.all("combat")
+    val highPriorityEventNode = EventNode.all("combat-high-priority").setPriority(-999)
+
+    val playerAiming = HashMap<Player, Boolean>()
+    val aimingResetTasks = HashMap<Player, Task>()
+
+    val playerFiring = HashMap<Player, Boolean>()
+    val firingResetTasks = HashMap<Player, Task>()
+
+    val reloadTasks = HashMap<Player, Task>()
+
+    val playerPreviousPositions = HashMap<Player, ArrayDeque<Pos>>()
+    val playerSpeeds = HashMap<Player, Float>()
+
+    val playerKillers = HashMap<Player, Player?>()
+
+    val playerCooldowns = HashMap<Player, Long>()
+
+    val placeTasks = HashMap<Player, Task>()
+
+    fun initialize() {
+        // measure load time
+        val timeStart = System.currentTimeMillis()
+
+        MinecraftServer.getGlobalEventHandler().addChild(lowPriorityEventNode)
+        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
+        MinecraftServer.getGlobalEventHandler().addChild(highPriorityEventNode)
+
+        // register listeners
+        AimingListener.init()
+        ReloadListener.init()
+        FireListener.init()
+        PlayerDeathListener.init()
+        PlayerDisconnectListener.init()
+        CooldownResetListener.init()
+        ArmorProtectionListener.init()
+        MannequinDamageListener.init()
+        VehiclePlaceListener.init()
+
+        // register commands
+        MinecraftServer.getCommandManager().register(CombatAdminCommand())
+
+        // run background schedulers/tasks
+        ModelManager.start()
+        PlayerPositionManager.start()
+        ActionBarManager.start()
+        CooldownManager.start()
+        VehicleTickManager.start()
+        ProjectileTickManager.start()
+
+        // we send time updates ourselves so don't use instances built in method
+        MinecraftServer
+            .getInstanceManager()
+            .instances
+            .firstOrNull()
+            ?.timeSynchronizationTicks = 0
+
+        // print load time
+        val timeEnd = System.currentTimeMillis()
+        val timeLoad = timeEnd - timeStart
+        println("Enabled in ${timeLoad}ms")
+    }
+}
