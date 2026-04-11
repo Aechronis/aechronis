@@ -1,4 +1,4 @@
-group = "luna.nodes"
+group = "net.aechronis"
 version = System.getenv("GITHUB_SHA")?.take(7) ?: ""
 
 plugins {
@@ -39,7 +39,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/d-z4/nodes")
+            url = uri("https://maven.pkg.github.com/Aechronis/minestom-nodes")
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")
