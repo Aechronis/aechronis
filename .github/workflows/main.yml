@@ -12,3 +12,6 @@ jobs:
       - run: |
           chmod +x gradlew
           ./gradlew build
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
