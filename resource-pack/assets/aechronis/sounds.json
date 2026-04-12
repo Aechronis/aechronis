@@ -1,0 +1,12 @@
+{
+  "ak47.fire": {
+    "sounds": [
+      "aechronis:ak47-fire"
+    ]
+  },
+  "ak47.reload": {
+    "sounds": [
+      "aechronis:ak47-reload"
+    ]
+  }
+}
