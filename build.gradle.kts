@@ -2,7 +2,7 @@ group = "net.aechronis"
 
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.3.0"
+    id("org.jetbrains.kotlin.jvm") version "2.3.20"
     id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
     id("com.gradleup.shadow") version "9.2.2"
 }
