@@ -32,6 +32,6 @@ dependencies {
     implementation("net.aechronis:nodes:90fddf7")
     implementation("net.aechronis:combat:8e47ed9")
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
-    implementation("com.h2database:h2:2.1.214") // needed for luckperms
+    implementation("com.h2database:h2:2.4.240") // needed for luckperms
     implementation("org.slf4j:slf4j-simple:2.0.17")
 }
