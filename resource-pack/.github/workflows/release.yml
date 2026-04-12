@@ -1,0 +1,14 @@
+on: push
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+      - run: zip -r "${{ env.SHA }}.zip" . -x '.git/*' '.github/*'
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.SHA }}
+          files: "${{ env.SHA }}.zip"
