@@ -4,6 +4,6 @@ import net.minestom.server.tag.Tag
 
 object Tags {
     // general
-    val namespace = "combat"
+    val namespace = "aechronis"
     val name = Tag.String("$namespace:name")
 }
