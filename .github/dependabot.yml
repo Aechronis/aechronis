@@ -1,7 +1,16 @@
 version: 2
+
+registries:
+  github-maven:
+    type: maven-repository
+    url: https://maven.pkg.github.com/Aechronis/aechronis
+    username: dependabot
+    password: ${{ secrets.DEPENDABOT_GH_TOKEN }}
 updates:
   - package-ecosystem: "gradle"
     directory: "/"
+    registries:
+      - github-maven
     schedule:
       interval: "daily"
     rebase-strategy: "auto"
