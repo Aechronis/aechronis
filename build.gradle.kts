@@ -28,7 +28,7 @@ repositories {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2026.01.08-1.21.11")
+    implementation("net.minestom:minestom:2026.04.11-1.21.11")
     implementation("net.aechronis:nodes:90fddf7")
     implementation("net.aechronis:combat:8e47ed9")
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
