@@ -3,7 +3,7 @@ group = "net.aechronis"
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.3.20"
-    id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
     id("com.gradleup.shadow") version "9.4.1"
 }
 
