@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2026.04.11-1.21.11")
+    implementation("net.minestom:minestom:2026.04.13-1.21.11")
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
 
     // testing
