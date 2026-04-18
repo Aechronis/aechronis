@@ -9,7 +9,6 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 
-
 class Projectile(
     val instance: Instance,
     val pos: Pos,

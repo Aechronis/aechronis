@@ -142,7 +142,8 @@ object MeleeListener {
             currentVel = target.velocity
             newVelX = currentVel.x / 2.0 - yawDx * 10
             newVelZ = currentVel.z / 2.0 - yawDz * 10
-            newVelY = if (target.isOnGround) {
+            newVelY =
+                if (target.isOnGround) {
                     min(8.0, currentVel.y / 2.0 + 10.0)
                 } else {
                     currentVel.y

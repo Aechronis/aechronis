@@ -12,11 +12,9 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
-import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.timer.TaskSchedule
-
 
 open class Vehicle(
     name: String,
@@ -28,16 +26,18 @@ open class Vehicle(
     val gravity: Boolean = false,
     val placeTime: Long = 3000,
 ) : Item(
-    name,
-    itemName,
-    itemLore,
-    itemModel,
-) {
-
+        name,
+        itemName,
+        itemLore,
+        itemModel,
+    ) {
     // ================
     // PLACE FUNCTIONS
     // ================
-    fun place(player: Player, pos: Pos): Boolean {
+    fun place(
+        player: Player,
+        pos: Pos,
+    ): Boolean {
         if (Combat.placeTasks[player] != null) return false // already placing
 
         // create task
@@ -46,7 +46,10 @@ open class Vehicle(
         return true
     }
 
-    private fun runPlaceTask(player: Player, pos: Pos) {
+    private fun runPlaceTask(
+        player: Player,
+        pos: Pos,
+    ) {
         var time = placeTime
 
         Combat.placeTasks[player] =
@@ -94,7 +97,10 @@ open class Vehicle(
                 .schedule()
     }
 
-    open fun spawn(player: Player, pos: Pos) {
+    open fun spawn(
+        player: Player,
+        pos: Pos,
+    ) {
         val armorStand = LivingEntity(EntityType.ARMOR_STAND)
 
         armorStand.setInstance(player.instance, pos)

@@ -37,8 +37,8 @@ class Explosion(
                                 p,
                                 Pos(1.0, 1.0, 1.0),
                                 0.05F,
-                                1
-                            )
+                                1,
+                            ),
                         )
 
                         instance.sendGroupedPacket(
@@ -47,8 +47,8 @@ class Explosion(
                                 p,
                                 Pos(1.0, 1.0, 1.0),
                                 0.1F,
-                                1
-                            )
+                                1,
+                            ),
                         )
                     }
                 }

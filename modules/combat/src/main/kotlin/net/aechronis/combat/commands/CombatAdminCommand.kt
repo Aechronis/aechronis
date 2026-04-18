@@ -11,7 +11,6 @@ package net.aechronis.combat.commands
 
 import net.aechronis.combat.commands.arguments.ArgumentItem
 import net.aechronis.combat.objects.Explosion
-import net.aechronis.combat.objects.Projectile
 import net.aechronis.combat.utils.Message
 import net.aechronis.nodes.utils.hasPermission
 import net.minestom.server.command.builder.Command

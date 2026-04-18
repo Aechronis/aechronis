@@ -6,7 +6,6 @@ import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Melee
-import net.aechronis.combat.objects.Vehicle
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor

@@ -11,7 +11,6 @@ import net.aechronis.combat.listeners.PlayerDeathListener
 import net.aechronis.combat.listeners.PlayerDisconnectListener
 import net.aechronis.combat.listeners.ReloadListener
 import net.aechronis.combat.listeners.VehiclePlaceListener
-import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.tasks.ActionBarManager
 import net.aechronis.combat.tasks.CooldownManager
 import net.aechronis.combat.tasks.ModelManager
