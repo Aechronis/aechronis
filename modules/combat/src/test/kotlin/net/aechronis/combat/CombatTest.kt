@@ -5,6 +5,7 @@ import net.aechronis.combat.objects.ArmorPiece
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
+import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.objects.Vehicle
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
@@ -131,13 +132,17 @@ class CombatTest {
                 assetId = "combat:test-armor",
             )
 
-        val drone =
-            Vehicle(
-                name = "drone",
-                itemName = Component.text("DRONE", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+        val testSword =
+            Melee(
+                name = "test-sword",
+                itemName = Component.text("Test Sword", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+                itemModel = "minecraft:diamond_sword",
+                damage = 1.0,
+                attackSpeed = 1.6,
+                sweepable = true,
             )
 
-        Item.registerItems(testAmmo, testGun, testHat, testChestplate, testLeggings, testBoots, drone)
+        Item.registerItems(testAmmo, testGun, testHat, testChestplate, testLeggings, testBoots, testSword)
 
         // initialize combat with test config
         Combat.initialize()

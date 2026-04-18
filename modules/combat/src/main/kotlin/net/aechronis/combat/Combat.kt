@@ -6,6 +6,7 @@ import net.aechronis.combat.listeners.ArmorProtectionListener
 import net.aechronis.combat.listeners.CooldownResetListener
 import net.aechronis.combat.listeners.FireListener
 import net.aechronis.combat.listeners.MannequinDamageListener
+import net.aechronis.combat.listeners.MeleeListener
 import net.aechronis.combat.listeners.PlayerDeathListener
 import net.aechronis.combat.listeners.PlayerDisconnectListener
 import net.aechronis.combat.listeners.ReloadListener
@@ -19,6 +20,7 @@ import net.aechronis.combat.tasks.ProjectileTickManager
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.timer.Task
@@ -46,6 +48,8 @@ object Combat {
 
     val placeTasks = HashMap<Player, Task>()
 
+    val entityLastDamageTime = HashMap<LivingEntity, Long>()
+
     fun initialize() {
         // measure load time
         val timeStart = System.currentTimeMillis()
@@ -58,6 +62,7 @@ object Combat {
         AimingListener.init()
         ReloadListener.init()
         FireListener.init()
+        MeleeListener.init()
         PlayerDeathListener.init()
         PlayerDisconnectListener.init()
         CooldownResetListener.init()
