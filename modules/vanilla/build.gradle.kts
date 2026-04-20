@@ -36,7 +36,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/Aechronis/library")
+            url = uri("https://maven.pkg.github.com/Aechronis/vanilla")
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")
