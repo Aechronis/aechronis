@@ -11,10 +11,13 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
     mavenCentral()
+    maven("https://repo.hypera.dev/snapshots/") // luckperms (minestom) & Spark
 }
 
 dependencies {
-    compileOnly("net.minestom:minestom:2026.03.25-1.21.11")
+    implementation("net.minestom:minestom:2026.03.25-1.21.11")
+    implementation("com.google.code.gson:gson:2.13.2")
+    implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
 
     // testing
     testImplementation("org.jetbrains.kotlin:kotlin-test")
