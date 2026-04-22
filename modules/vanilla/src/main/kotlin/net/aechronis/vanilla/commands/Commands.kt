@@ -1,26 +1,22 @@
-package net.aechronis.vanilla.essentials
+package net.aechronis.vanilla.commands
 
-import net.aechronis.vanilla.Main
-import net.aechronis.vanilla.essentials.commands.BanCommand
-import net.aechronis.vanilla.essentials.commands.FlyCommand
-import net.aechronis.vanilla.essentials.commands.GameModeCommand
-import net.aechronis.vanilla.essentials.commands.GiveCommand
-import net.aechronis.vanilla.essentials.commands.IgnoreCommand
-import net.aechronis.vanilla.essentials.commands.MessageCommand
-import net.aechronis.vanilla.essentials.commands.MuteCommand
-import net.aechronis.vanilla.essentials.commands.ReplyCommand
-import net.aechronis.vanilla.essentials.commands.TeleportCommand
-import net.aechronis.vanilla.essentials.commands.UnBanCommand
-import net.aechronis.vanilla.essentials.commands.UnMuteCommand
-import net.aechronis.vanilla.essentials.objects.User
 import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import java.util.UUID
-import kotlin.collections.get
-import kotlin.collections.set
 
-object Essentials {
+data class User(
+    val uuid: UUID, // player's UUID
+    val name: String, // username
+    val mutedTime: Long, // timestamp of mute time
+    val bannedTime: Long, // timestamp of ban time
+    val mutes: HashMap<Long, String>, // timestamp of mute time to reason
+    val bans: HashMap<Long, String>, // timestamp of ban time to reason
+    val ignored: HashSet<UUID>, // ignored players
+    val lastMessage: UUID?, // last player messaged
+)
+
+object Commands {
     val users: LinkedHashMap<UUID, User> = LinkedHashMap()
 
     fun init() {
@@ -52,10 +48,10 @@ object Essentials {
             false
         }
 
-    fun Player.getUser(): User? = Essentials.users[this.uuid]
+    fun Player.getUser(): User? = Commands.users[this.uuid]
 
     fun Player.newUser() {
-        Essentials.users[this.uuid] =
+        Commands.users[this.uuid] =
             User(
                 uuid = this.uuid,
                 name = this.username,

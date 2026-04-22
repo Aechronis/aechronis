@@ -1,8 +1,6 @@
-package net.aechronis.vanilla.essentials.commands
+package net.aechronis.vanilla.commands
 
-import net.aechronis.vanilla.Main
-import net.aechronis.vanilla.essentials.Essentials
-import net.aechronis.vanilla.essentials.Essentials.getUser
+import net.aechronis.vanilla.commands.Commands.getUser
 import net.aechronis.vanilla.utils.ChatColor
 import net.aechronis.vanilla.utils.Message
 import net.minestom.server.MinecraftServer
@@ -53,8 +51,8 @@ class MessageCommand : Command("message", "msg", "tell", "w") {
             )
 
             val senderUser = sender.getUser() ?: return@addSyntax
-            Essentials.users[sender.uuid] = senderUser.copy(lastMessage = receiver.uuid)
-            Essentials.users[receiver.uuid] = receiverUser.copy(lastMessage = sender.uuid)
+            Commands.users[sender.uuid] = senderUser.copy(lastMessage = receiver.uuid)
+            Commands.users[receiver.uuid] = receiverUser.copy(lastMessage = sender.uuid)
         }, targetArg, messageArg)
     }
 }
@@ -109,8 +107,8 @@ class ReplyCommand : Command("reply", "r") {
                 "${ChatColor.AQUA}${sender.username} ${ChatColor.WHITE}-> ${ChatColor.AQUA}You: ${ChatColor.WHITE}$message",
             )
 
-            Essentials.users[sender.uuid] = senderUser.copy(lastMessage = target.uuid)
-            Essentials.users[target.uuid] = targetUser.copy(lastMessage = sender.uuid)
+            Commands.users[sender.uuid] = senderUser.copy(lastMessage = target.uuid)
+            Commands.users[target.uuid] = targetUser.copy(lastMessage = sender.uuid)
         }, messageArg)
     }
 }
@@ -140,11 +138,11 @@ class IgnoreCommand : Command("ignore") {
 
             val newIgnored = HashSet(senderUser.ignored)
             if (newIgnored.remove(target.uuid)) {
-                Essentials.users[sender.uuid] = senderUser.copy(ignored = newIgnored)
+                Commands.users[sender.uuid] = senderUser.copy(ignored = newIgnored)
                 Message.print(sender, "You are no longer ignoring ${target.username}.")
             } else {
                 newIgnored.add(target.uuid)
-                Essentials.users[sender.uuid] = senderUser.copy(ignored = newIgnored)
+                Commands.users[sender.uuid] = senderUser.copy(ignored = newIgnored)
                 Message.print(sender, "You are now ignoring ${target.username}.")
             }
         }, targetArg)

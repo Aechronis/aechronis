@@ -1,7 +1,6 @@
-package net.aechronis.vanilla.essentials.commands
+package net.aechronis.vanilla.commands
 
-import net.aechronis.vanilla.essentials.Essentials
-import net.aechronis.vanilla.essentials.Essentials.getUser
+import net.aechronis.vanilla.commands.Commands.getUser
 import net.aechronis.vanilla.utils.Message
 import net.kyori.adventure.text.Component
 import net.minestom.server.command.CommandSender
@@ -39,7 +38,7 @@ class MuteCommand : Command("mute") {
             val now = System.currentTimeMillis()
             val newMutes = HashMap(targetUser.mutes)
             newMutes[now] = reason
-            Essentials.users[target.uuid] = targetUser.copy(mutedTime = now, mutes = newMutes)
+            Commands.users[target.uuid] = targetUser.copy(mutedTime = now, mutes = newMutes)
 
             Message.print(sender, "Muted ${target.username}.")
             Message.error(target, "You have been muted.")
@@ -67,7 +66,7 @@ class MuteCommand : Command("mute") {
             val now = System.currentTimeMillis()
             val newMutes = HashMap(targetUser.mutes)
             newMutes[now] = ""
-            Essentials.users[target.uuid] = targetUser.copy(mutedTime = now, mutes = newMutes)
+            Commands.users[target.uuid] = targetUser.copy(mutedTime = now, mutes = newMutes)
 
             Message.print(sender, "Muted ${target.username}.")
             Message.error(target, "You have been muted.")
@@ -103,7 +102,7 @@ class UnMuteCommand : Command("unmute") {
                 return@addSyntax
             }
 
-            Essentials.users[target.uuid] = targetUser.copy(mutedTime = 0L)
+            Commands.users[target.uuid] = targetUser.copy(mutedTime = 0L)
 
             Message.print(sender, "Unmuted ${target.username}.")
             Message.print(target, "You have been unmuted.")
