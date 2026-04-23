@@ -35,7 +35,7 @@ object MeleeListener {
         val lastDamageTime = Combat.entityLastDamageTime[target] ?: 0L
         if (currentTime - lastDamageTime < 500) {
             // target is invincible
-            playAttackSound(attacker, false, false, 0.0)
+            playAttackSound(attacker, isStrong = false, isCritical = false, cooldownProgress = 0.0)
             return
         }
 

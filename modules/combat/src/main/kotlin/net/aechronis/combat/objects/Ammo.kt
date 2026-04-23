@@ -9,7 +9,7 @@ class Ammo(
     name: String,
     itemName: Component,
     itemLore: List<Component> = emptyList(),
-    itemModel: String = "${Tags.namespace}:$name",
+    itemModel: String = "${Tags.NAMESPACE}:$name",
 ) : Item(
         name,
         itemName,

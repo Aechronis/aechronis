@@ -14,10 +14,10 @@ class ArmorPiece(
     name: String,
     itemName: Component,
     itemLore: List<Component> = emptyList(),
-    itemModel: String = "${Tags.namespace}:$name",
+    itemModel: String = "${Tags.NAMESPACE}:$name",
     val slot: EquipmentSlot,
     val protection: Float,
-    val assetId: String = "${Tags.namespace}:$name",
+    val assetId: String = "${Tags.NAMESPACE}:$name",
 ) : Item(
         name,
         itemName,

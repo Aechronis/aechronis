@@ -9,7 +9,7 @@ open class Item(
     val name: String,
     val itemName: Component,
     val itemLore: List<Component> = emptyList(),
-    val itemModel: String = "${Tags.namespace}:$name",
+    val itemModel: String = "${Tags.NAMESPACE}:$name",
     val material: Material = Material.ECHO_SHARD,
 ) {
     open fun toItemStack(): ItemStack =

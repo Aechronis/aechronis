@@ -14,7 +14,7 @@ class Melee(
     name: String,
     itemName: Component,
     itemLore: List<Component> = emptyList(),
-    itemModel: String = "${Tags.namespace}:$name",
+    itemModel: String = "${Tags.NAMESPACE}:$name",
     val damage: Double,
     val attackSpeed: Double = 4.0,
     val knockback: Double = 0.4,
@@ -31,7 +31,7 @@ class Melee(
                 AttributeList.Modifier(
                     Attribute.ATTACK_DAMAGE,
                     AttributeModifier(
-                        "${Tags.namespace}:attack_damage",
+                        "${Tags.NAMESPACE}:attack_damage",
                         damage,
                         AttributeOperation.ADD_VALUE,
                     ),
@@ -40,7 +40,7 @@ class Melee(
                 AttributeList.Modifier(
                     Attribute.ATTACK_SPEED,
                     AttributeModifier(
-                        "${Tags.namespace}:attack_speed",
+                        "${Tags.NAMESPACE}:attack_speed",
                         attackSpeed - 4.0,
                         AttributeOperation.ADD_VALUE,
                     ),

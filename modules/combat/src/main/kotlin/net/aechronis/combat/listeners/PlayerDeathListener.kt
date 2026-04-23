@@ -41,13 +41,13 @@ object PlayerDeathListener {
 
         val corpse = EntityCreature(EntityType.MANNEQUIN)
 
-        corpse.editEntityMeta(MannequinMeta::class.java, { meta ->
+        corpse.editEntityMeta(MannequinMeta::class.java) { meta ->
             val profile =
                 ResolvableProfile(
                     player.skin,
                 )
-            meta.setProfile(profile)
-        })
+            meta.profile = profile
+        }
 
         corpse.setInstance(player.instance, player.position)
         corpse.boundingBox = BoundingBox(0.0, 0.0, 0.0)

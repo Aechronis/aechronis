@@ -30,8 +30,8 @@ class Plane(
     name: String,
     itemName: Component,
     itemLore: List<Component> = emptyList(),
-    itemModel: String = "${Tags.namespace}:$name",
-    model: String = "${Tags.namespace}:$name",
+    itemModel: String = "${Tags.NAMESPACE}:$name",
+    model: String = "${Tags.NAMESPACE}:$name",
     hitbox: Hitbox,
     health: Float = 1000F,
     placeTime: Long = 3000,
@@ -128,7 +128,7 @@ class Plane(
         }
 
         if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
-            entity.teleport(position.add(direction.mul(0.5  )).withYaw(position.yaw + roll * 0.05f))
+            entity.teleport(position.add(direction.mul(0.5)).withYaw(position.yaw + roll * 0.05f))
         }
 
         if (inputEvent == null) return
