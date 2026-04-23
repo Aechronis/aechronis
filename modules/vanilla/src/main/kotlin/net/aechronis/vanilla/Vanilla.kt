@@ -1,8 +1,9 @@
 package net.aechronis.vanilla
 
 import net.aechronis.vanilla.commands.Commands
-import net.aechronis.vanilla.nbt.NBT
+import net.aechronis.vanilla.playerdata.PlayerData
 import net.aechronis.vanilla.recpies.Recpies
+import java.nio.file.Path
 
 object Vanilla {
     fun init(config: VanillaConfig = VanillaConfig()) {
@@ -11,7 +12,7 @@ object Vanilla {
 
         // init
         Commands.init()
-        NBT.init()
+        PlayerData.init(Path.of(config.playerDataPath))
         Recpies.init()
 
         // print load time
