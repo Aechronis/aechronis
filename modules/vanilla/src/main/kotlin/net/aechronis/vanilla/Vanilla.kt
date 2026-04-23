@@ -5,7 +5,7 @@ import net.aechronis.vanilla.nbt.NBT
 import net.aechronis.vanilla.recpies.Recpies
 
 object Vanilla {
-    fun init(config: Config = Config()) {
+    fun init(config: VanillaConfig = VanillaConfig()) {
         // measure load time
         val timeStart = System.currentTimeMillis()
 
