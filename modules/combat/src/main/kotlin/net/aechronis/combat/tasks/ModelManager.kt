@@ -33,21 +33,12 @@ object ModelManager {
 
     fun updateModel(player: Player) {
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
-        if (gun != null) {
+        if (gun != null || VehicleTickManager.playerLookingAtVehicle[player] != null) {
             disableHitAnimation(player)
 
-            if (Combat.playerFiring[player] == true) {
-                gun.fire(player)
-            }
-
-            val item = player.itemInMainHand
-
-            // hide block outline
-            player.sendPacket(TimeUpdatePacket(11000, player.instance.time, false))
-
-            // when gun is automatic show player fake blocks so they keep sending animation packets when holding down left click
-            // we hide the block + outline with a resource pack
-            if (gun.automatic) {
+            // when gun is automatic, or looking at vehicle, show player fake blocks so they keep sending animation packets when holding down left/right click
+            // we hide the block + outline with a resource pack shader
+            if (gun?.automatic == true || VehicleTickManager.playerLookingAtVehicle[player] != null) {
                 for (y in 1..2) {
                     for (x in -2..2) {
                         for (z in -2..2) {
@@ -64,6 +55,17 @@ object ModelManager {
                     }
                 }
             }
+
+            // hide block outline
+            player.sendPacket(TimeUpdatePacket(11000, player.instance.time, false))
+
+            if (gun == null) return
+
+            if (Combat.playerFiring[player] == true) {
+                gun.fire(player)
+            }
+
+            val item = player.itemInMainHand
 
             // sniper scope
             if (gun.sniper && Combat.playerAiming[player] == true && gun.hasAmmo(player)) {

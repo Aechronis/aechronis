@@ -4,8 +4,12 @@ import net.aechronis.combat.objects.Ammo
 import net.aechronis.combat.objects.ArmorPiece
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Hat
+import net.aechronis.combat.objects.Hitbox
+import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Melee
+import net.aechronis.combat.objects.Plane
+import net.aechronis.combat.objects.PlaneWeapon
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -13,12 +17,14 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
+import net.minestom.server.particle.Particle
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -96,6 +102,7 @@ class CombatTest {
                 recoilMax = 7F,
                 spreadMin = 0.0F,
                 spreadMax = 3F,
+                bulletTrailParticle = Particle.SMALL_GUST,
             )
 
         val testHat =
@@ -141,7 +148,38 @@ class CombatTest {
                 sweepable = true,
             )
 
-        Item.registerItems(testAmmo, testGun, testHat, testChestplate, testLeggings, testBoots, testSword)
+        val testPlaneHitbox =
+            Hitbox(
+                listOf(
+                    HitboxPart(
+                        offset = Vec(0.0, 0.0, -2.0),
+                        size = Vec(1.0, 1.0, 8.0),
+                        name = "body",
+                    ),
+                    HitboxPart(
+                        offset = Vec.ZERO,
+                        size = Vec(8.0, 1.0, 2.0),
+                        name = "wing",
+                    ),
+                ),
+            )
+
+        val testPlaneWeapon =
+            PlaneWeapon(
+                testGun,
+                listOf(Vec(4.0, 0.0, 6.0), Vec(-4.0, 0.0, 6.0)),
+            )
+
+        val testPlane =
+            Plane(
+                name = "test-plane",
+                itemName = Component.text("Test Plane", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+                model = "aechronis:biplane",
+                hitbox = testPlaneHitbox,
+                weapons = listOf(testPlaneWeapon),
+            )
+
+        Item.registerItems(testAmmo, testGun, testHat, testChestplate, testLeggings, testBoots, testSword, testPlane)
 
         // initialize combat with test config
         Combat.initialize()

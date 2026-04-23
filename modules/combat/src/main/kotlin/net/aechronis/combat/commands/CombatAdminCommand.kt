@@ -11,6 +11,7 @@ package net.aechronis.combat.commands
 
 import net.aechronis.combat.commands.arguments.ArgumentItem
 import net.aechronis.combat.objects.Explosion
+import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.utils.Message
 import net.aechronis.nodes.utils.hasPermission
 import net.minestom.server.command.builder.Command
@@ -27,10 +28,12 @@ class CombatAdminCommand : Command("combatadmin", "ca") {
             Message.print(sender, "[Combat] Admin commands:")
             Message.print(sender, "/combatadmin give: Give yourself various items")
             Message.print(sender, "/combatadmin explosion: Make an explosion")
+            Message.print(sender, "/combatadmin hitbox: Toggle hitbox visualization")
         }
 
         addSubcommand(CombatAdminGiveCommand())
         addSubcommand(CombatAdminExplosionCommand())
+        addSubcommand(CombatAdminHitboxCommand())
     }
 }
 
@@ -76,5 +79,23 @@ class CombatAdminExplosionCommand : Command("explosion") {
 
             Explosion(sender.instance, sender.position, context[radisuArg], context[fireArg])
         }, radisuArg, fireArg)
+    }
+}
+
+class CombatAdminHitboxCommand : Command("hitbox") {
+    init {
+        setDefaultExecutor { sender, _ ->
+            if (!hasPermission((sender as Player), "combat.admin")) {
+                return@setDefaultExecutor
+            }
+
+            if (Hitbox.viewingHitboxes.contains(sender)) {
+                Hitbox.viewingHitboxes.remove(sender)
+                Message.print(sender, "Hitbox visualization disabled")
+            } else {
+                Hitbox.viewingHitboxes.add(sender)
+                Message.print(sender, "Hitbox visualization enabled")
+            }
+        }
     }
 }

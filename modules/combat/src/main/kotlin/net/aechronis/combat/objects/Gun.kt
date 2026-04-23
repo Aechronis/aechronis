@@ -15,12 +15,16 @@ import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.Entity
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.RelativeFlags
 import net.minestom.server.entity.damage.Damage
+import net.minestom.server.instance.Instance
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket
+import net.minestom.server.particle.Particle
 import net.minestom.server.timer.TaskSchedule
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -46,6 +50,7 @@ class Gun(
     val itemModelEmpty: String = "$itemModel-empty",
     val itemModelReloading: String = "$itemModel-reloading",
     val itemModelAiming: String = "$itemModel-aiming",
+    val bulletTrailParticle: Particle? = null,
 ) : Item(
         name,
         itemName,
@@ -168,36 +173,62 @@ class Gun(
     // ==============
     // FIRE FUNCTIONS
     // ==============
-    fun fire(player: Player) {
-        if ((Combat.playerCooldowns[player] ?: 0) < cooldown) return
+    fun fire(
+        player: Player,
+        firePos: Pos? = null,
+        ignoreCooldown: Boolean = false,
+        ignoreAmmo: Boolean = false,
+    ) {
+        if ((Combat.playerCooldowns[player] ?: 0) < cooldown && !ignoreCooldown) return
         if (Combat.reloadTasks[player] != null) return
         Combat.playerCooldowns[player] = 0
-        if (!hasAmmo(player)) return
+        if (!hasAmmo(player) && !ignoreAmmo) return
 
         // calculate position to fire bullet (ray) from
         val speed = Combat.playerSpeeds[player] ?: 0F
-        val offsetYaw = player.position.yaw + spread(speed)
-        val offsetPitch = player.position.pitch + spread(speed)
+        val offsetYaw = (firePos?.yaw ?: player.position.yaw) + spread(speed)
+        val offsetPitch = (firePos?.pitch ?: player.position.pitch) + spread(speed)
 
         val offsetPos =
-            player.position
-                .withView(offsetYaw, offsetPitch)
-                .add(0.0, player.eyeHeight, 0.0)
+            if (firePos != null) {
+                firePos.withView(offsetYaw, offsetPitch)
+            } else {
+                player.position
+                    .withView(offsetYaw, offsetPitch)
+                    .add(0.0, player.eyeHeight, 0.0)
+            }
 
         // play fire sound
-        player.instance.playSound(soundFire, player.position.x, player.position.y, player.position.z)
+        player.instance.playSound(soundFire, offsetPos.x, offsetPos.y, offsetPos.z)
 
         // create ray with random offsets generated
         val ray = Ray(offsetPos, offsetPos.direction().mul(player.instance.viewDistance() * 16.0))
 
         val blockHit = ray.findBlocks(player.instance!!).nextClosest()
         val entityHit = ray.firstEntity(player.instance.entities.filter { it != player })
+        val vehicleHit = checkVehicleHit(player.instance, offsetPos, offsetPos.direction(), ray.distance)
 
         val blockHitDistance = blockHit?.t ?: 999.9
         val entityHitDistance = entityHit?.t ?: 999.9
+        val vehicleHitDistance = vehicleHit?.first ?: 999.9
 
         // determine which is hit first
-        if (blockHitDistance == 999.9 && entityHitDistance == 999.9) { // no hit
+        val trailEndPoint: Pos
+        if (blockHitDistance == 999.9 && entityHitDistance == 999.9 && vehicleHitDistance == 999.9) { // no hit
+            trailEndPoint = offsetPos.add(ray.direction.mul(ray.distance))
+        } else if (vehicleHitDistance < blockHitDistance && vehicleHitDistance < entityHitDistance) { // vehicle hit
+            val vehicleEntity = vehicleHit!!.second
+            val vehicle = vehicleHit.third
+
+            // ding sound
+            player.playSound(Sound.sound(Key.key("entity.experience_orb.pickup"), Sound.Source.PLAYER, 1.0f, 1.0f))
+
+            // dust particle
+            val hitPoint = offsetPos.add(offsetPos.direction().mul(vehicleHitDistance))
+            Particles.dustParticle(player.instance, hitPoint)
+
+            vehicle.takeDamage(vehicleEntity, damage, player)
+            trailEndPoint = hitPoint
         } else if (blockHitDistance > entityHitDistance) { // entity hit
             val target = (entityHit!!.obj as LivingEntity)
             if (target as? Player != null) {
@@ -211,8 +242,15 @@ class Gun(
             Particles.bloodParticle(player.instance, entityHit.point.asPos())
 
             target.damage(Damage.fromProjectile(player, null, damage))
+            trailEndPoint = entityHit.point.asPos()
         } else { // block hit
             Particles.dustParticle(player.instance, blockHit!!.point.asPos())
+            trailEndPoint = blockHit.point.asPos()
+        }
+
+        // draw bullet trail particle if set
+        if (bulletTrailParticle != null) {
+            Particles.particleLine(player.instance, bulletTrailParticle, offsetPos, trailEndPoint)
         }
 
         // send recoil packet to player
@@ -240,5 +278,48 @@ class Gun(
                 RelativeFlags.VIEW or RelativeFlags.COORD or RelativeFlags.DELTA_COORD,
             ),
         )
+    }
+
+    private fun checkVehicleHit(
+        instance: Instance,
+        origin: Pos,
+        direction: Vec,
+        maxDistance: Double,
+    ): Triple<Double, Entity, Vehicle>? {
+        val step = 0.25
+        var distance = 0.0
+
+        while (distance <= maxDistance) {
+            val checkPoint =
+                Vec(
+                    origin.x + direction.x * distance,
+                    origin.y + direction.y * distance,
+                    origin.z + direction.z * distance,
+                )
+
+            for ((entity, vehicle) in Vehicle.entityVehicle) {
+                if (entity.instance != instance) continue
+                val vehiclePos = entity.position
+
+                // for planes get the roll; for other vehicles just use 0
+                val roll = if (vehicle is Plane) Plane.playerRoll.values.firstOrNull() ?: 0f else 0f
+
+                val hitPart =
+                    vehicle.hitbox.containsPoint(
+                        checkPoint,
+                        vehiclePos,
+                        vehiclePos.yaw,
+                        vehiclePos.pitch,
+                        roll,
+                    )
+
+                if (hitPart != null) {
+                    return Triple(distance, entity, vehicle)
+                }
+            }
+
+            distance += step
+        }
+        return null
     }
 }

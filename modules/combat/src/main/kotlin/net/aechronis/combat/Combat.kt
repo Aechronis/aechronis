@@ -5,12 +5,13 @@ import net.aechronis.combat.listeners.AimingListener
 import net.aechronis.combat.listeners.ArmorProtectionListener
 import net.aechronis.combat.listeners.CooldownResetListener
 import net.aechronis.combat.listeners.FireListener
+import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.listeners.MannequinDamageListener
 import net.aechronis.combat.listeners.MeleeListener
 import net.aechronis.combat.listeners.PlayerDeathListener
 import net.aechronis.combat.listeners.PlayerDisconnectListener
 import net.aechronis.combat.listeners.ReloadListener
-import net.aechronis.combat.listeners.VehiclePlaceListener
+import net.aechronis.combat.listeners.VehicleListener
 import net.aechronis.combat.tasks.ActionBarManager
 import net.aechronis.combat.tasks.CooldownManager
 import net.aechronis.combat.tasks.ModelManager
@@ -67,7 +68,8 @@ object Combat {
         CooldownResetListener.init()
         ArmorProtectionListener.init()
         MannequinDamageListener.init()
-        VehiclePlaceListener.init()
+        VehicleListener.init()
+        KeyPressListener.init()
 
         // register commands
         MinecraftServer.getCommandManager().register(CombatAdminCommand())
