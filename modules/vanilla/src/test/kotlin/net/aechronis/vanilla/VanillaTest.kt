@@ -20,7 +20,7 @@ import kotlin.math.min
 import kotlin.test.Test
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class MainTest {
+class VanillaTest {
     @BeforeAll
     fun testInit() {
         // start server
@@ -34,7 +34,7 @@ class MainTest {
         tpsBar(instance)
 
         // init main
-        Main.init()
+        Vanilla.init()
     }
 
     private fun tpsBar(instance: InstanceContainer) {
