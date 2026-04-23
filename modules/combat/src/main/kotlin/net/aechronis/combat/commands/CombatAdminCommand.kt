@@ -13,7 +13,7 @@ import net.aechronis.combat.commands.arguments.ArgumentItem
 import net.aechronis.combat.objects.Explosion
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.utils.Message
-import net.aechronis.nodes.utils.hasPermission
+import net.aechronis.combat.utils.hasPermission
 import net.minestom.server.command.builder.Command
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player

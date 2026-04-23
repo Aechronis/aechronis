@@ -1,4 +1,4 @@
-package net.aechronis.nodes.utils
+package net.aechronis.combat.utils
 
 import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.entity.Player
