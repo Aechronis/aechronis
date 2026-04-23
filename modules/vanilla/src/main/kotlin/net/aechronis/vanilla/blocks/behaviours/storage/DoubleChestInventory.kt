@@ -1,4 +1,3 @@
 package net.aechronis.vanilla.blocks.behaviours.storage
 
-class DoubleChestInventory {
-}
+class DoubleChestInventory

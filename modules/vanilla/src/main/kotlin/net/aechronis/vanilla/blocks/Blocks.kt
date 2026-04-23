@@ -7,7 +7,10 @@ import net.minestom.server.instance.block.Block
 object Blocks {
     private val entries = mutableListOf<Pair<Block, (Block) -> BlockBehaviour>>()
 
-    fun register(block: Block, factory: (Block) -> BlockBehaviour) {
+    fun register(
+        block: Block,
+        factory: (Block) -> BlockBehaviour,
+    ) {
         entries.add(block to factory)
     }
 
