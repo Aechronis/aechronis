@@ -1,5 +1,8 @@
 package net.aechronis.aechronis
 
+import fr.ghostrider584.axiom.AxiomMinestom
+import fr.ghostrider584.axiom.restrictions.AxiomPermission
+import fr.ghostrider584.axiom.restrictions.AxiomPermissions
 import me.lucko.luckperms.minestom.CommandRegistry
 import me.lucko.luckperms.minestom.LuckPermsMinestom
 import net.aechronis.aechronis.constants.Ammo
@@ -14,14 +17,17 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.NodesConfig
 import net.luckperms.api.LuckPerms
+import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
+import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.DimensionType
 import java.nio.file.Path
+
 
 object Aechronis {
     lateinit var instance: InstanceContainer
@@ -49,6 +55,8 @@ fun main(args: Array<String>) {
             .build()
 
     Aechronis.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
+
+    AxiomMinestom.initialize();
 
     server.start("0.0.0.0", port)
 
@@ -83,6 +91,19 @@ fun main(args: Array<String>) {
             .builder(Path.of("luckperms"))
             .commandRegistry(CommandRegistry.minestom()) // enables registration of LuckPerms commands
             .enable()
+
+    // Set axiom permission logic
+    AxiomPermissions.setPermissionPredicate { player: Player, permission: AxiomPermission ->
+        LuckPermsProvider
+            .get()
+            .userManager
+            .getUser(player.uuid)
+            ?.cachedData
+            ?.permissionData
+            ?.checkPermission(permission.permissionNode)
+            ?.asBoolean()
+            ?: false
+    }
 
     Combat.initialize()
 
