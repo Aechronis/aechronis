@@ -28,7 +28,6 @@ import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.DimensionType
 import java.nio.file.Path
 
-
 object Aechronis {
     lateinit var instance: InstanceContainer
     lateinit var fullbrightKey: RegistryKey<DimensionType>
@@ -56,7 +55,7 @@ fun main(args: Array<String>) {
 
     Aechronis.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
 
-    AxiomMinestom.initialize();
+    AxiomMinestom.initialize()
 
     server.start("0.0.0.0", port)
 
