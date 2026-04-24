@@ -8,5 +8,10 @@
     "sounds": [
       "aechronis:ak47-reload"
     ]
+  },
+  "fighter-gun.fire": {
+    "sounds": [
+      "aechronis:fighter-gun-fire"
+    ]
   }
 }
