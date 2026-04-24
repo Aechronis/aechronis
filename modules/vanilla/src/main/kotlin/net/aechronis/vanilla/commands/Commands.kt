@@ -20,10 +20,6 @@ object Commands {
     val users: LinkedHashMap<UUID, User> = LinkedHashMap()
 
     fun init() {
-        MinecraftServer.getCommandManager().register(MuteCommand())
-        MinecraftServer.getCommandManager().register(BanCommand())
-        MinecraftServer.getCommandManager().register(UnMuteCommand())
-        MinecraftServer.getCommandManager().register(UnBanCommand())
         MinecraftServer.getCommandManager().register(GameModeCommand())
         MinecraftServer.getCommandManager().register(FlyCommand())
         MinecraftServer.getCommandManager().register(GiveCommand())
