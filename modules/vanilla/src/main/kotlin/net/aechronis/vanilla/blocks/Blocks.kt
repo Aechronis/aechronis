@@ -1,17 +1,26 @@
 package net.aechronis.vanilla.blocks
 
+import net.aechronis.vanilla.blocks.updates.BlockUpdates
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.instance.block.Block
 
 object Blocks {
     private val entries = mutableListOf<Pair<Block, (Block) -> BlockBehaviour>>()
+    private val blockUpdates: HashMap<Int, BlockUpdates> = HashMap()
 
-    fun register(
+    fun registerBlock(
         block: Block,
         factory: (Block) -> BlockBehaviour,
     ) {
         entries.add(block to factory)
+    }
+
+    fun registerBlockUpdate(
+        block: Block,
+        update: BlockUpdates,
+    ) {
+        blockUpdates[block.stateId()] = update
     }
 
     fun init() {

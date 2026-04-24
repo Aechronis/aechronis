@@ -1,6 +1,5 @@
 package net.aechronis.vanilla.commands
 
-import net.aechronis.vanilla.commands.Commands.getUser
 import net.aechronis.vanilla.utils.Message
 import net.kyori.adventure.text.Component
 import net.minestom.server.command.CommandSender
@@ -9,111 +8,6 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
-
-class MuteCommand : Command("mute") {
-    private val targetArg = ArgumentType.Entity("target").singleEntity(true).onlyPlayers(true)
-    private val reasonArg = ArgumentType.StringArray("reason")
-
-    init {
-        addSyntax({ sender, ctx ->
-            val instance = if (sender is Player) sender.instance else null
-            val target =
-                ctx.get(targetArg).findFirstPlayer(instance, sender as? Player) ?: run {
-                    Message.error(sender, "Player not found.")
-                    return@addSyntax
-                }
-            val reason = ctx.get(reasonArg).joinToString(" ")
-
-            val targetUser =
-                target.getUser() ?: run {
-                    Message.error(sender, "An error occurred.")
-                    return@addSyntax
-                }
-
-            if (targetUser.mutedTime != 0L) {
-                Message.error(sender, "${target.username} is already muted.")
-                return@addSyntax
-            }
-
-            val now = System.currentTimeMillis()
-            val newMutes = HashMap(targetUser.mutes)
-            newMutes[now] = reason
-            Commands.users[target.uuid] = targetUser.copy(mutedTime = now, mutes = newMutes)
-
-            Message.print(sender, "Muted ${target.username}.")
-            Message.error(target, "You have been muted.")
-        }, targetArg, reasonArg)
-
-        addSyntax({ sender, ctx ->
-            val instance = if (sender is Player) sender.instance else null
-            val target =
-                ctx.get(targetArg).findFirstPlayer(instance, sender as? Player) ?: run {
-                    Message.error(sender, "Player not found.")
-                    return@addSyntax
-                }
-
-            val targetUser =
-                target.getUser() ?: run {
-                    Message.error(sender, "An error occurred.")
-                    return@addSyntax
-                }
-
-            if (targetUser.mutedTime != 0L) {
-                Message.error(sender, "${target.username} is already muted.")
-                return@addSyntax
-            }
-
-            val now = System.currentTimeMillis()
-            val newMutes = HashMap(targetUser.mutes)
-            newMutes[now] = ""
-            Commands.users[target.uuid] = targetUser.copy(mutedTime = now, mutes = newMutes)
-
-            Message.print(sender, "Muted ${target.username}.")
-            Message.error(target, "You have been muted.")
-        }, targetArg)
-    }
-}
-
-class BanCommand : Command("ban") {
-    init {
-    }
-}
-
-class UnMuteCommand : Command("unmute") {
-    private val targetArg = ArgumentType.Entity("target").singleEntity(true).onlyPlayers(true)
-
-    init {
-        addSyntax({ sender, ctx ->
-            val instance = if (sender is Player) sender.instance else null
-            val target =
-                ctx.get(targetArg).findFirstPlayer(instance, sender as? Player) ?: run {
-                    Message.error(sender, "Player not found.")
-                    return@addSyntax
-                }
-
-            val targetUser =
-                target.getUser() ?: run {
-                    Message.error(sender, "An error occurred.")
-                    return@addSyntax
-                }
-
-            if (targetUser.mutedTime == 0L) {
-                Message.error(sender, "${target.username} is not muted.")
-                return@addSyntax
-            }
-
-            Commands.users[target.uuid] = targetUser.copy(mutedTime = 0L)
-
-            Message.print(sender, "Unmuted ${target.username}.")
-            Message.print(target, "You have been unmuted.")
-        }, targetArg)
-    }
-}
-
-class UnBanCommand : Command("unban") {
-    init {
-    }
-}
 
 class GameModeCommand : Command("gmc", "gms", "gma", "gmsp") {
     private val targetArg = ArgumentType.Entity("target").singleEntity(true).onlyPlayers(true)
