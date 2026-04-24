@@ -9,6 +9,7 @@ import net.aechronis.aechronis.constants.Ammo
 import net.aechronis.aechronis.constants.Armor
 import net.aechronis.aechronis.constants.Guns
 import net.aechronis.aechronis.constants.Hats
+import net.aechronis.aechronis.constants.Planes
 import net.aechronis.aechronis.listeners.PlayerJoinListener
 import net.aechronis.aechronis.listeners.ServerListPingListener
 import net.aechronis.aechronis.tasks.TabManager
@@ -84,6 +85,9 @@ fun main(args: Array<String>) {
 
     // hats
     Item.registerItems(Hats.gasMask)
+
+    // planes
+    Item.registerItems(Planes.fighter)
 
     // initialize LuckPerms
     Aechronis.luckPerms =
