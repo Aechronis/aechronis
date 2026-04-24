@@ -82,6 +82,7 @@ fun main(args: Array<String>) {
     // armor
     Item.registerItems(Armor.jacket, Armor.trousers, Armor.boots)
 
+    // hats
     Item.registerItems(Hats.gasMask)
 
     // initialize LuckPerms
