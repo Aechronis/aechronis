@@ -7,6 +7,7 @@ import me.lucko.luckperms.minestom.CommandRegistry
 import me.lucko.luckperms.minestom.LuckPermsMinestom
 import net.aechronis.aechronis.constants.Ammo
 import net.aechronis.aechronis.constants.Armor
+import net.aechronis.aechronis.constants.Cars
 import net.aechronis.aechronis.constants.Guns
 import net.aechronis.aechronis.constants.Hats
 import net.aechronis.aechronis.constants.Planes
@@ -88,6 +89,9 @@ fun main(args: Array<String>) {
 
     // planes
     Item.registerItems(Planes.fighter)
+
+    // cars
+    Item.registerItems(Cars.truck)
 
     // initialize LuckPerms
     Aechronis.luckPerms =
