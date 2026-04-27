@@ -29,9 +29,10 @@ object Cars {
             placeTime = 2000,
             scale = 3.0,
             maxClimbHeight = 1.5f,
-            seatOffsets = listOf(
-                Vec.ZERO,
-                Vec(1.0, 0.0, 0.0),
-            ),
+            seatOffsets =
+                listOf(
+                    Vec.ZERO,
+                    Vec(1.0, 0.0, 0.0),
+                ),
         )
 }
