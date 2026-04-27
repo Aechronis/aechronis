@@ -25,6 +25,7 @@ open class Vehicle(
     itemLore: List<Component> = emptyList(),
     itemModel: String = "${Tags.NAMESPACE}:$name",
     val model: String = "${Tags.NAMESPACE}:$name",
+    val scale: Double,
     val hitbox: Hitbox,
     val health: Float = 20F,
     val placeTime: Long = 3000,
@@ -112,7 +113,7 @@ open class Vehicle(
 
         val meta = entity.entityMeta as ItemDisplayMeta
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(model)
-        meta.scale = Vec(7.0, 7.0, 7.0)
+        meta.scale = Vec(scale)
         meta.isHasNoGravity = true
 
         entity.spawn()
