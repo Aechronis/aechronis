@@ -15,12 +15,19 @@ object VehicleListener {
 
         // check if player is already in a vehicle
         if (Vehicle.playerVehicle[player] != null) return
+        if (Vehicle.passengerVehicle[player] != null) return
 
         // check if player is looking at a vehicle
         val lookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player]
         val lookingAtEntity = VehicleTickManager.playerLookingAtEntity[player]
         if (lookingAtVehicle != null && lookingAtEntity != null) {
-            lookingAtVehicle.onEnter(player, lookingAtEntity)
+            // check if vehicle already has a driver, if so, enter as passenger
+            val hasDriver = Vehicle.playerVehicleEntity.values.any { it == lookingAtEntity }
+            if (hasDriver) {
+                lookingAtVehicle.onPassengerEnter(player, lookingAtEntity)
+            } else {
+                lookingAtVehicle.onEnter(player, lookingAtEntity)
+            }
             return
         }
 
@@ -30,7 +37,7 @@ object VehicleListener {
             player,
             event.position
                 .asPos()
-                .add(0.5, 2.0, 0.5)
+                .add(0.5, 1.0, 0.5)
                 .withYaw(player.position.yaw),
         )
     }
@@ -54,6 +61,12 @@ object VehicleListener {
             } else {
                 vehicle.onExit(player)
             }
+        }
+
+        // clean up passenger state
+        val passengerVehicle = Vehicle.passengerVehicle[player]
+        if (passengerVehicle != null) {
+            passengerVehicle.onPassengerExit(player)
         }
 
         VehicleTickManager.playerLookingAtVehicle.remove(player)

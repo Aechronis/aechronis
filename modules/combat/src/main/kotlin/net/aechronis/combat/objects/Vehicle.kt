@@ -18,6 +18,8 @@ import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.timer.TaskSchedule
+import kotlin.math.cos
+import kotlin.math.sin
 
 open class Vehicle(
     name: String,
@@ -29,6 +31,7 @@ open class Vehicle(
     val hitbox: Hitbox,
     val health: Float = 20F,
     val placeTime: Long = 3000,
+    val seatOffsets: List<Vec> = listOf(Vec.ZERO),
 ) : Item(
         name,
         itemName,
@@ -143,10 +146,86 @@ open class Vehicle(
 
     // called every tick
     open fun onTick(player: Player) {
+        val entity = playerVehicleEntity[player] ?: return
         val inputEvent = KeyPressListener.playerInputEvent[player]
         if (inputEvent?.isHoldingShiftKey == true) {
             onExit(player)
+            return
         }
+
+        // update passenger seat positions
+        entityPassengers[entity]?.toList()?.forEachIndexed { index, passenger ->
+            val passengerInput = KeyPressListener.playerInputEvent[passenger]
+            if (passengerInput?.isHoldingShiftKey == true) {
+                onPassengerExit(passenger)
+            } else {
+                val seatEntity = passengerSeatEntity[passenger]
+                if (seatEntity != null) {
+                    val seatPos = getSeatWorldPos(entity, index + 1)
+                    seatEntity.teleport(seatPos.withYaw(entity.position.yaw))
+                }
+            }
+        }
+    }
+
+    // called when a player enters as a passenger
+    open fun onPassengerEnter(
+        player: Player,
+        entity: Entity,
+    ) {
+        if (playerVehicle[player] != null || passengerVehicle[player] != null) return
+
+        val passengers = entityPassengers.getOrPut(entity) { mutableListOf() }
+
+        // seatOffsets[0] is driver seat, remaining are passengers
+        if (passengers.size >= seatOffsets.size - 1) return
+
+        val seatIndex = passengers.size + 1
+        val seatPos = getSeatWorldPos(entity, seatIndex)
+        val seatEntity = Entity(EntityType.ITEM_DISPLAY)
+
+        val instance = entity.instance ?: return
+        seatEntity.setInstance(instance, seatPos)
+
+        val meta = seatEntity.entityMeta as ItemDisplayMeta
+        meta.itemStack = ItemStack.AIR
+        meta.isHasNoGravity = true
+
+        seatEntity.spawn()
+        seatEntity.addPassenger(player)
+
+        passengers.add(player)
+        passengerVehicle[player] = this
+        passengerVehicleEntity[player] = entity
+        passengerSeatEntity[player] = seatEntity
+    }
+
+    // called when a passenger exits vehicle
+    open fun onPassengerExit(player: Player) {
+        val entity = passengerVehicleEntity[player] ?: return
+        entityPassengers[entity]?.remove(player)
+        passengerVehicle.remove(player)
+        passengerVehicleEntity.remove(player)
+
+        // destroy seat entity
+        val seatEntity = passengerSeatEntity.remove(player)
+        if (seatEntity != null) {
+            seatEntity.removePassenger(player)
+            seatEntity.remove()
+        }
+    }
+
+    // get world position for a seat
+    protected fun getSeatWorldPos(
+        entity: Entity,
+        seatIndex: Int,
+    ): Pos {
+        val vehiclePos = entity.position
+        val localOffset = seatOffsets.getOrElse(seatIndex) { Vec.ZERO }
+        val yawRad = Math.toRadians(vehiclePos.yaw.toDouble())
+        val rotatedX = localOffset.x * cos(yawRad) - localOffset.z * sin(yawRad)
+        val rotatedZ = localOffset.x * sin(yawRad) + localOffset.z * cos(yawRad)
+        return vehiclePos.add(rotatedX, localOffset.y, rotatedZ)
     }
 
     // called when the vehicle takes damage
@@ -168,7 +247,10 @@ open class Vehicle(
 
     // called when vehicle is destroyed
     open fun destroy(entity: Entity) {
-        // Eject all passengers that are in this specific entity
+        // Eject all passengers
+        entityPassengers.remove(entity)?.forEach { onPassengerExit(it) }
+
+        // eject driver
         for ((player, playerEntity) in playerVehicleEntity.toList()) {
             if (playerEntity == entity) {
                 onExit(player)
@@ -188,5 +270,11 @@ open class Vehicle(
         var playerVehicleEntity: HashMap<Player, Entity> = HashMap()
         var entityVehicle: HashMap<Entity, Vehicle> = HashMap()
         var entityHealth: HashMap<Entity, Float> = HashMap()
+
+        // passenger tracking
+        val entityPassengers: HashMap<Entity, MutableList<Player>> = HashMap()
+        val passengerVehicle: HashMap<Player, Vehicle> = HashMap()
+        val passengerVehicleEntity: HashMap<Player, Entity> = HashMap()
+        val passengerSeatEntity: HashMap<Player, Entity> = HashMap()
     }
 }

@@ -2,6 +2,7 @@ package net.aechronis.combat
 
 import net.aechronis.combat.objects.Ammo
 import net.aechronis.combat.objects.ArmorPiece
+import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Hitbox
@@ -177,9 +178,31 @@ class CombatTest {
                 model = "aechronis:biplane",
                 hitbox = testPlaneHitbox,
                 weapons = listOf(testPlaneWeapon),
+                scale = 7.0,
             )
 
-        Item.registerItems(testAmmo, testGun, testHat, testChestplate, testLeggings, testBoots, testSword, testPlane)
+        val testCarHitbox =
+            Hitbox(
+                listOf(
+                    HitboxPart(
+                        offset = Vec(0.4, 0.0, -1.0),
+                        size = Vec(1.4, 1.0, 3.0),
+                        name = "body",
+                    ),
+                ),
+            )
+
+        val testCar =
+            Car(
+                name = "test-car",
+                itemName = Component.text("Test Car", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+                model = "aechronis:truck",
+                hitbox = testCarHitbox,
+                scale = 3.0,
+                seatOffsets = listOf(Vec.ZERO, Vec(1.0, 0.0, 0.0)),
+            )
+
+        Item.registerItems(testAmmo, testGun, testHat, testChestplate, testLeggings, testBoots, testSword, testPlane, testCar)
 
         // initialize combat with test config
         Combat.initialize()
