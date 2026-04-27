@@ -3,8 +3,6 @@ package net.aechronis.aechronis
 import fr.ghostrider584.axiom.AxiomMinestom
 import fr.ghostrider584.axiom.restrictions.AxiomPermission
 import fr.ghostrider584.axiom.restrictions.AxiomPermissions
-import me.lucko.luckperms.minestom.CommandRegistry
-import me.lucko.luckperms.minestom.LuckPermsMinestom
 import net.aechronis.aechronis.constants.Ammo
 import net.aechronis.aechronis.constants.Armor
 import net.aechronis.aechronis.constants.Cars
@@ -12,13 +10,11 @@ import net.aechronis.aechronis.constants.Guns
 import net.aechronis.aechronis.constants.Hats
 import net.aechronis.aechronis.constants.Planes
 import net.aechronis.aechronis.listeners.PlayerJoinListener
-import net.aechronis.aechronis.listeners.ServerListPingListener
 import net.aechronis.aechronis.tasks.TabManager
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.NodesConfig
-import net.luckperms.api.LuckPerms
 import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
@@ -28,12 +24,10 @@ import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.DimensionType
-import java.nio.file.Path
 
 object Aechronis {
     lateinit var instance: InstanceContainer
     lateinit var fullbrightKey: RegistryKey<DimensionType>
-    var luckPerms: LuckPerms? = null
     val eventNode = EventNode.all("aechronis")
 }
 
@@ -73,7 +67,6 @@ fun main(args: Array<String>) {
 
     // register listeners
     PlayerJoinListener.init()
-    ServerListPingListener.init()
 
     // ammo
     Item.registerItems(Ammo.ammo762x39mm)
@@ -92,13 +85,6 @@ fun main(args: Array<String>) {
 
     // cars
     Item.registerItems(Cars.truck)
-
-    // initialize LuckPerms
-    Aechronis.luckPerms =
-        LuckPermsMinestom
-            .builder(Path.of("luckperms"))
-            .commandRegistry(CommandRegistry.minestom()) // enables registration of LuckPerms commands
-            .enable()
 
     // Set axiom permission logic
     AxiomPermissions.setPermissionPredicate { player: Player, permission: AxiomPermission ->

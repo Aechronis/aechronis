@@ -33,7 +33,6 @@ dependencies {
     implementation("net.aechronis:nodes:139c100")
     implementation("net.aechronis:combat:2ec1b64")
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
-    implementation("com.h2database:h2:2.4.240") // needed for luckperms
     implementation("org.slf4j:slf4j-simple:2.0.17")
     implementation("fr.ghostrider584:axiom-minestom:0.0.4")
 }
