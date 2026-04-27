@@ -25,15 +25,15 @@ object PlayerJoinListener {
         val ashen =
             ResourcePackInfo
                 .resourcePackInfo()
-                .uri(URI("https://cdn.modrinth.com/data/LSmohupN/versions/9l7XdWVM/Ashen_16x.zip"))
-                .hash("cfe67709602dd99461b8e0720f4b81d6ba44a8e7")
+                .uri(URI("https://cdn.modrinth.com/data/LSmohupN/versions/zewiXtmr/Ashen_16x.zip"))
+                .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build()
 
         val aechronis =
             ResourcePackInfo
                 .resourcePackInfo()
-                .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/56c1679/56c1679.zip"))
-                .hash("80C400EA8EBFF9B394A4F90B6248E075D091A890")
+                .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/f39d692/f39d692.zip"))
+                .hash("c9fbbc287959e3e966c23c4c8ec527762c9598e3")
                 .build()
 
         player.sendResourcePacks(
