@@ -31,7 +31,7 @@ repositories {
 dependencies {
     implementation("net.minestom:minestom:2026.04.13-1.21.11")
     implementation("net.aechronis:nodes:139c100")
-    implementation("net.aechronis:combat:5c56c12")
+    implementation("net.aechronis:combat:2ec1b64")
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
     implementation("com.h2database:h2:2.4.240") // needed for luckperms
     implementation("org.slf4j:slf4j-simple:2.0.17")

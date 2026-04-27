@@ -60,5 +60,6 @@ object Planes {
             health = 800F,
             placeTime = 2000,
             weapons = listOf(fighterWeapon),
+            scale = 7.0,
         )
 }
