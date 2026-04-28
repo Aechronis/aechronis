@@ -9,7 +9,7 @@ plugins {
 
 tasks.withType<Jar> {
     manifest {
-        attributes["Main-Class"] = "net.aechronis.aechronis.MainKt"
+        attributes["Main-Class"] = "net.aechronis.aechronis.AechronisKt"
     }
 }
 
