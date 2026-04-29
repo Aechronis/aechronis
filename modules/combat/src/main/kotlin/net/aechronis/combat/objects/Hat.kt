@@ -5,7 +5,10 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.item.ItemStack
+import net.minestom.server.item.component.EnchantmentList
 import net.minestom.server.item.component.Equippable
+import net.minestom.server.item.component.TooltipDisplay
+import net.minestom.server.item.enchant.Enchantment
 import net.minestom.server.registry.RegistryTag
 
 class Hat(
@@ -43,4 +46,8 @@ class Hat(
             .withTag(Tags.name, name)
             .with(DataComponents.EQUIPPABLE, equippable)
             .withMaxStackSize(1)
+            // we cancel any movement of the item in hatlistener, but this stops it clientside
+            .with(DataComponents.ENCHANTMENTS, EnchantmentList(Enchantment.BINDING_CURSE, 1))
+            .with(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, false)
+            .with(DataComponents.TOOLTIP_DISPLAY, TooltipDisplay(false, setOf(DataComponents.ENCHANTMENTS)))
 }

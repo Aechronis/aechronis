@@ -3,6 +3,7 @@ package net.aechronis.combat.tasks
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
+import net.aechronis.combat.storage.HatCollection
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.EquipmentSlot
@@ -26,9 +27,14 @@ object ModelManager {
             .buildTask {
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
                     updateModel(player)
+                    updateHat(player)
                 }
             }.repeat(TaskSchedule.tick(1))
             .schedule()
+    }
+
+    fun updateHat(player: Player) {
+        player.helmet = HatCollection.getEquippedHat(player.uuid)?.toItemStack() ?: ItemStack.AIR
     }
 
     fun updateModel(player: Player) {
@@ -74,7 +80,7 @@ object ModelManager {
                 )
                 player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.0)
             } else {
-                player.sendPacket(EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to ItemStack.AIR)))
+                player.sendPacket(EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to player.helmet)))
                 player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.1)
             }
 

@@ -112,6 +112,13 @@ class CombatTest {
                 itemName = Component.text("Test hat", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             )
 
+        val testHat2 =
+            Hat(
+                name = "test-hat2",
+                itemName = Component.text("Test hat 2", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+                itemModel = "minecraft:diamond"
+            )
+
         val testChestplate =
             ArmorPiece(
                 name = "test-chestplate",
@@ -202,7 +209,7 @@ class CombatTest {
                 seatOffsets = listOf(Vec.ZERO, Vec(1.0, 0.0, 0.0)),
             )
 
-        Item.registerItems(testAmmo, testGun, testHat, testChestplate, testLeggings, testBoots, testSword, testPlane, testCar)
+        Item.registerItems(testAmmo, testGun, testHat, testHat2, testChestplate, testLeggings, testBoots, testSword, testPlane, testCar)
 
         // initialize combat with test config
         Combat.initialize()

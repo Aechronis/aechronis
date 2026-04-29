@@ -3,6 +3,7 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.storage.HatCollection
 import net.minestom.server.event.player.PlayerDisconnectEvent
 
 object PlayerDisconnectListener {
@@ -32,6 +33,13 @@ object PlayerDisconnectListener {
         Vehicle.passengerVehicle.remove(player)
         Vehicle.passengerVehicleEntity.remove(player)
         Vehicle.passengerSeatEntity.remove(player)?.remove()
+
+        // clean up hat menu entities
+        HatListener.playerCamera.remove(player.uuid)?.remove()
+        HatListener.playerMannequin.remove(player.uuid)?.remove()
+
+        // save and unload hat collection
+        HatCollection.unload(player.uuid)
     }
 
     fun init() {
