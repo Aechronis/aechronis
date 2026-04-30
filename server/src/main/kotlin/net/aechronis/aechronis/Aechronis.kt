@@ -3,6 +3,9 @@ package net.aechronis.aechronis
 import fr.ghostrider584.axiom.AxiomMinestom
 import fr.ghostrider584.axiom.restrictions.AxiomPermission
 import fr.ghostrider584.axiom.restrictions.AxiomPermissions
+import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfigAdapter
+import me.lucko.luckperms.minestom.CommandRegistry
+import me.lucko.luckperms.minestom.LuckPermsMinestom
 import net.aechronis.aechronis.constants.Ammo
 import net.aechronis.aechronis.constants.Armor
 import net.aechronis.aechronis.constants.Cars
@@ -24,6 +27,7 @@ import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.DimensionType
+import java.nio.file.Path
 
 object Aechronis {
     lateinit var instance: InstanceContainer
@@ -85,6 +89,14 @@ fun main(args: Array<String>) {
 
     // cars
     Item.registerItems(Cars.truck)
+
+    // initialize luckperms
+    LuckPermsMinestom
+        .builder(Path.of("luckperms"))
+        .commandRegistry(CommandRegistry.minestom())
+        .configurationAdapter { plugin ->
+            EnvironmentVariableConfigAdapter(plugin)
+        }.enable()
 
     // Set axiom permission logic
     AxiomPermissions.setPermissionPredicate { player: Player, permission: AxiomPermission ->
