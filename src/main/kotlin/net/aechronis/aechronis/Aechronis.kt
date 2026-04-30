@@ -18,6 +18,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.NodesConfig
+import net.aechronis.vanilla.Vanilla
 import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
@@ -116,4 +117,6 @@ fun main(args: Array<String>) {
     val nodesConfig = NodesConfig()
 
     Nodes.initialize(nodesConfig)
+
+    Vanilla.init()
 }
