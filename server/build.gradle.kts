@@ -20,6 +20,7 @@ repositories {
     maven("https://repo.hypera.dev/snapshots/") // luckperms (minestom) & Spark
     maven("https://repo.lucko.me/") // spark-common
     maven("https://repo.smolder.fr/public/") // axiom minestom component
+    maven("https://mvn.everbuild.org/public") // blocks and stuff
     maven {
         url = uri("https://maven.pkg.github.com/Aechronis/aechronis")
         credentials {
@@ -41,4 +42,6 @@ dependencies {
     implementation("fr.ghostrider584:axiom-minestom:0.0.4")
     implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
     implementation("io.github.4drian3d:signedvelocity-minestom:1.4.1")
+    implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.9.1-SNAPSHOT")
+    implementation("org.everbuild.blocksandstuff:blocksandstuff-fluids:1.9.1-SNAPSHOT")
 }
