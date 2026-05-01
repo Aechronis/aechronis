@@ -101,10 +101,11 @@ fun main(args: Array<String>) {
         }.enable()
 
     // initialize spark
-    SparkMinestom.builder(Path.of("spark"))
+    SparkMinestom
+        .builder(Path.of("spark"))
         .commands(true)
         .permissionHandler({ player, permission ->
-            if(player is Player) {
+            if (player is Player) {
                 LuckPermsProvider
                     .get()
                     .userManager
