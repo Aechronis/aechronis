@@ -30,6 +30,11 @@ import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.DimensionType
+import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
+import org.everbuild.blocksandstuff.blocks.BlockPickup
+import org.everbuild.blocksandstuff.blocks.BlockPlacementRuleRegistrations
+import org.everbuild.blocksandstuff.blocks.PlacedHandlerRegistration
+import org.everbuild.blocksandstuff.fluids.MinestomFluids
 import java.nio.file.Path
 
 object Aechronis {
@@ -136,6 +141,15 @@ fun main(args: Array<String>) {
             ?.asBoolean()
             ?: false
     }
+
+    // blocks and stuff
+    BlockPlacementRuleRegistrations.registerDefault()
+    BlockBehaviorRuleRegistrations.registerDefault()
+    PlacedHandlerRegistration.registerDefault()
+    BlockPickup.enable()
+    MinestomFluids.enableFluids()
+    MinestomFluids.enableVanillaFluids()
+    MinestomFluids.enableAutoIngestion()
 
     Combat.initialize()
 
