@@ -18,6 +18,7 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 repositories {
     mavenCentral()
     maven("https://repo.hypera.dev/snapshots/") // luckperms (minestom) & Spark
+    maven("https://repo.lucko.me/") // spark-common
     maven("https://repo.smolder.fr/public/") // axiom minestom component
     maven {
         url = uri("https://maven.pkg.github.com/Aechronis/aechronis")
@@ -38,4 +39,5 @@ dependencies {
     implementation("com.zaxxer:HikariCP:7.0.2")
     implementation("org.slf4j:slf4j-simple:2.0.17")
     implementation("fr.ghostrider584:axiom-minestom:0.0.4")
+    implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
 }
