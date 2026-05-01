@@ -3,6 +3,7 @@ package net.aechronis.aechronis
 import fr.ghostrider584.axiom.AxiomMinestom
 import fr.ghostrider584.axiom.restrictions.AxiomPermission
 import fr.ghostrider584.axiom.restrictions.AxiomPermissions
+import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
 import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfigAdapter
 import me.lucko.luckperms.minestom.CommandRegistry
 import me.lucko.luckperms.minestom.LuckPermsMinestom
@@ -120,6 +121,8 @@ fun main(args: Array<String>) {
             }
         })
         .enable()
+
+    SignedVelocity.initialize()
 
     // Set axiom permission logic
     AxiomPermissions.setPermissionPredicate { player: Player, permission: AxiomPermission ->

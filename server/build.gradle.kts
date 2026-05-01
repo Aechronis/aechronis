@@ -40,4 +40,5 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:2.0.17")
     implementation("fr.ghostrider584:axiom-minestom:0.0.4")
     implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
+    implementation("io.github.4drian3d:signedvelocity-minestom:1.4.1")
 }
