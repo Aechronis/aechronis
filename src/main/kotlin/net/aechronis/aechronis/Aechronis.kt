@@ -6,6 +6,7 @@ import fr.ghostrider584.axiom.restrictions.AxiomPermissions
 import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfigAdapter
 import me.lucko.luckperms.minestom.CommandRegistry
 import me.lucko.luckperms.minestom.LuckPermsMinestom
+import me.lucko.spark.minestom.SparkMinestom
 import net.aechronis.aechronis.constants.Ammo
 import net.aechronis.aechronis.constants.Armor
 import net.aechronis.aechronis.constants.Cars
@@ -98,6 +99,26 @@ fun main(args: Array<String>) {
         .configurationAdapter { plugin ->
             EnvironmentVariableConfigAdapter(plugin)
         }.enable()
+
+    // initialize spark
+    SparkMinestom.builder(Path.of("spark"))
+        .commands(true)
+        .permissionHandler({ player, permission ->
+            if(player is Player) {
+                LuckPermsProvider
+                    .get()
+                    .userManager
+                    .getUser(player.uuid)
+                    ?.cachedData
+                    ?.permissionData
+                    ?.checkPermission(permission)
+                    ?.asBoolean()
+                    ?: false
+            } else {
+                true // console
+            }
+        })
+        .enable()
 
     // Set axiom permission logic
     AxiomPermissions.setPermissionPredicate { player: Player, permission: AxiomPermission ->
