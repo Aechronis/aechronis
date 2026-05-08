@@ -1,7 +1,3 @@
-/**
- * Utility class to reduce boilerplate in command handlers
- */
-
 package net.aechronis.vanilla.commands
 
 import net.aechronis.vanilla.utils.Message
@@ -17,13 +13,10 @@ open class Command(
     val permission: String? = null,
     vararg aliases: String,
 ) : Command(name, *aliases) {
-
     /**
      * Add a default executor that requires the sender to be a player.
      */
-    fun setDefaultExecutor(
-        executor: (player: Player, context: CommandContext) -> Unit,
-    ) {
+    fun setDefaultExecutor(executor: (player: Player, context: CommandContext) -> Unit) {
         super.setDefaultExecutor { sender: CommandSender, context ->
             if (sender !is Player) {
                 Message.error(sender, "This command can only be used by players")

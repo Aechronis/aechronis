@@ -30,6 +30,18 @@ object Message {
         sender.sendMessage(msg)
     }
 
+    fun print(
+        sender: CommandSender?,
+        component: Component,
+    ) {
+        if (sender === null) {
+            println("$PREFIX Message called with null sender")
+            return
+        }
+
+        sender.sendMessage(component.colorIfAbsent(NamedTextColor.DARK_GREEN))
+    }
+
     /**
      * Print error message to a command sender's chat (either console or player).
      */

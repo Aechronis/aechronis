@@ -6,7 +6,7 @@ import net.aechronis.vanilla.commands.MessageCommand
 import net.aechronis.vanilla.commands.ReplyCommand
 import net.aechronis.vanilla.commands.TeleportCommand
 import net.aechronis.vanilla.playerdata.PlayerData
-import net.aechronis.vanilla.recpies.Recpies
+import net.aechronis.vanilla.recipes.Recipes
 import net.minestom.server.MinecraftServer
 import java.nio.file.Path
 
@@ -25,7 +25,7 @@ object Vanilla {
         )
 
         PlayerData.init(Path.of(config.playerDataPath))
-        Recpies.init()
+        Recipes.init()
         // print load time
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart

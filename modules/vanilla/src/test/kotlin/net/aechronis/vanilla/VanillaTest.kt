@@ -83,7 +83,7 @@ class VanillaTest {
 
     @AfterAll
     fun keepRunning() {
-        // if -DkeepRunning=true is set keep server running for manual testing
+        // if   is set keep server running for manual testing
         if (System.getProperty("keepRunning") == "true") {
             Thread.currentThread().join()
         }

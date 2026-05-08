@@ -1,7 +1,8 @@
 package net.aechronis.vanilla.commands
 
-import net.aechronis.vanilla.utils.ChatColor
 import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 import kotlin.collections.joinToString
@@ -20,12 +21,12 @@ private fun sendMessage(
 
     Message.print(
         sender,
-        "${ChatColor.AQUA}You ${ChatColor.WHITE}-> ${ChatColor.AQUA}${receiver.username}: ${ChatColor.WHITE}$message",
+        Component.text("You Whispered to ${receiver.username}: $message").color(NamedTextColor.LIGHT_PURPLE),
     )
 
     Message.print(
         receiver,
-        "${ChatColor.AQUA}${sender.username} ${ChatColor.WHITE}-> ${ChatColor.AQUA}You: ${ChatColor.WHITE}$message",
+        Component.text("${sender.username} Whispered: $message").color(NamedTextColor.LIGHT_PURPLE),
     )
 
     playerLastSender[receiver] = sender
