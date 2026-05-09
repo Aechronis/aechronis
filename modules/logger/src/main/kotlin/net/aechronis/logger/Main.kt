@@ -1,4 +1,4 @@
-package net.aechronis.library
+package net.aechronis.logger
 
 import net.minestom.server.MinecraftServer
 

@@ -1,4 +1,4 @@
-package net.aechronis.library
+package net.aechronis.logger
 
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
@@ -20,7 +20,7 @@ import kotlin.math.min
 import kotlin.test.Test
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class LibraryTest {
+class LoggerTest {
     @BeforeAll
     fun testInit() {
         // start server
