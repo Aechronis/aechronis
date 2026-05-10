@@ -11,10 +11,16 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
     mavenCentral()
+    maven("https://repo.hypera.dev/snapshots/") // luckperms
 }
 
 dependencies {
     implementation("net.minestom:minestom:2026.03.25-1.21.11")
+    implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
+
+    // database
+    implementation("org.mariadb.jdbc:mariadb-java-client:3.5.1")
+    implementation("com.zaxxer:HikariCP:6.2.1")
 
     // testing
     testImplementation("org.jetbrains.kotlin:kotlin-test")

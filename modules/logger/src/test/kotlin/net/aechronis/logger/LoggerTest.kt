@@ -33,8 +33,11 @@ class LoggerTest {
         // tps bar
         tpsBar(instance)
 
-        // init main
-        Main.init()
+        // init logger
+        val jdbcUrl = "jdbc:mariadb://localhost:3306/logger_test"
+        val jdbcUser = "logger_test"
+        val jdbcPass = "logger_test"
+        Logger.init(LoggerConfig(jdbcUrl = jdbcUrl, username = jdbcUser, password = jdbcPass))
     }
 
     private fun tpsBar(instance: InstanceContainer) {
@@ -48,7 +51,7 @@ class LoggerTest {
             val player = event.player
             event.spawningInstance = instance
             player.respawnPoint = Pos(27000.0, 60.0, 5700.0)
-            player.gameMode = GameMode.SURVIVAL
+            player.gameMode = GameMode.CREATIVE
         }
 
         eventNode.addListener(PlayerSpawnEvent::class.java) { event ->
