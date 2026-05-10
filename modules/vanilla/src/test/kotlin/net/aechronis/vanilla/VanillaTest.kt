@@ -11,6 +11,7 @@ import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
 import net.minestom.server.instance.InstanceContainer
+import net.minestom.server.item.ItemStack
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
@@ -48,7 +49,7 @@ class VanillaTest {
             val player = event.player
             event.spawningInstance = instance
             player.respawnPoint = Pos(27000.0, 60.0, 5700.0)
-            player.gameMode = GameMode.CREATIVE
+            player.gameMode = GameMode.SURVIVAL
         }
 
         eventNode.addListener(PlayerSpawnEvent::class.java) { event ->

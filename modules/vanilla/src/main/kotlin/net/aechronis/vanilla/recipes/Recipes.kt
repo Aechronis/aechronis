@@ -1,6 +1,5 @@
 package net.aechronis.vanilla.recipes
 
-import net.aechronis.vanilla.recipes.Listeners.listeners
 import net.aechronis.vanilla.recipes.craft.Ingredient
 import net.aechronis.vanilla.recipes.craft.Recipe
 import net.aechronis.vanilla.recipes.craft.Shaped
