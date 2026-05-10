@@ -116,6 +116,7 @@ open class Vehicle(
 
         val meta = entity.entityMeta as ItemDisplayMeta
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(model)
+        meta.posRotInterpolationDuration = 3
         meta.scale = Vec(scale)
         meta.isHasNoGravity = true
 

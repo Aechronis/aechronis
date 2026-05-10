@@ -11,6 +11,7 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneWeapon
+import net.aechronis.combat.utils.permissionBypass
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -21,6 +22,7 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
@@ -40,6 +42,8 @@ class CombatTest {
     fun setup() {
         // start server
         MinecraftServer.init(Auth.Online()).start("0.0.0.0", 25565)
+
+        permissionBypass.add("Error110")
 
         // create instance
         val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
@@ -116,7 +120,7 @@ class CombatTest {
             Hat(
                 name = "test-hat2",
                 itemName = Component.text("Test hat 2", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-                itemModel = "minecraft:diamond"
+                itemModel = "minecraft:diamond",
             )
 
         val testChestplate =

@@ -3,11 +3,14 @@ package net.aechronis.combat.utils
 import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.entity.Player
 
+val permissionBypass: MutableSet<String> = mutableSetOf()
+
 fun hasPermission(
     player: Player,
     permission: String,
-): Boolean =
-    try {
+): Boolean {
+    if (player.username in permissionBypass) return true
+    return try {
         LuckPermsProvider
             .get()
             .userManager
@@ -20,3 +23,4 @@ fun hasPermission(
     } catch (_: Exception) {
         false
     }
+}

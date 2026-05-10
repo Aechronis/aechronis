@@ -22,7 +22,9 @@ class HatsCommand : Command("hats", "hat", "h") {
 
             val pos = player.position
             HatListener.playerMannequin[player.uuid]?.teleport(pos)
-            HatListener.playerCamera[player.uuid]?.teleport(pos.withView(pos.yaw + 180f, 40F).add(pos.direction().mul(2.0)).withY(pos.y + 3))
+            HatListener.playerCamera[player.uuid]?.teleport(
+                pos.withView(pos.yaw + 180f, 40F).add(pos.direction().mul(2.0)).withY(pos.y + 3),
+            )
 
             (HatListener.playerMannequin[player.uuid]?.entityMeta as MannequinMeta).profile = ResolvableProfile(player.skin)
 
