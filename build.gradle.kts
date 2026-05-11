@@ -31,7 +31,7 @@ repositories {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2026.04.13-1.21.11")
+    implementation("net.minestom:minestom:2026.05.11-1.21.11")
     implementation("net.aechronis:nodes:139c100")
     implementation("net.aechronis:combat:2ec1b64")
     implementation("net.aechronis:vanilla:9719b6f")
