@@ -2,7 +2,7 @@
 
 ---
 
-Buildings are player-made structures that generate materials. Before a building can be used, it must be submitted in the building submissions channel, where an admin will review it, approve it, and assign its tier. Once a building has been approved, it will produce
+Buildings are player-made structures that generate materials. Before a building can be used, it must be submitted in the building submissions channel, where an admin will review it, approve it, and assign its tier.
 
 Buildings come in two types: passive and active.
 
@@ -10,7 +10,7 @@ Passive buildings operate automatically without any input, sending their output 
 
 Active buildings require an input to run, and their finished output drops on the ground instead of being collected automatically. Because their progress is visible on the map, other players may attempt to steal the output.
 
-Every building has a tier from 1 to 3, with the effects of each tier varying by building type (listed below).
+Every building has a tier from 1 to 3, with the effects of each tier varying by building type (listed below). Regardless of a buildings tier, it will take one hour to produce its materials.
 
 ## Passive buildings
 
