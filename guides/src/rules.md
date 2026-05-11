@@ -61,14 +61,7 @@
 * Chunk forts must be fully navigable and functional—not spammed gank-and-trench designs.
 * Ambush forts (“ganks”) larger than **5×5 blocks** are prohibited.
 
-### 4.2 Ports
-* Ports must remain open and accessible. To qualify, a port must:
-  * Be located on open water (sea, gulf, or delta)
-  * Include a proper dock
-  * Contain at least one boat block
-  * Have a small themed structure
-
-### 4.3 Griefing 
+### 4.2 Griefing 
 * Excessive griefing of structures—including wilderness builds and ports—is prohibited.
 
 ## 5. Nation Rules
