@@ -214,3 +214,38 @@ Land factories convert oil into various land vehicles. Requires territory tier 3
 * 48 oil -> M1A1 Abrams
 
 ---
+## Air factory
+Air factories convert oil into various air vehicles. Requires territory tier 3.
+
+<img src="buildings/air-factory/1.webp" align="right" height="165">
+
+### Tier 1
+* 16 oil -> UH-60 Black Hawk
+  <br>
+  <br>
+  <br>
+  <br>
+
+<img src="buildings/air-factory/2.webp" align="right" height="230">
+
+### Tier 2
+* 16 oil -> UH-60 Black Hawk
+
+**or**
+* 32 oil -> F-117 Nighthawk
+
+**or**
+* 48 oil -> Su-34 Fullback
+
+<img src="buildings/air-factory/3.webp" align="right" height="230">
+
+### Tier 3
+* 8 oil -> UH-60 Black Hawk
+
+**or**
+* 32 oil -> F-35 Lightning II
+
+**or**
+* 48 oil -> B-2 Spirit
+
+---
