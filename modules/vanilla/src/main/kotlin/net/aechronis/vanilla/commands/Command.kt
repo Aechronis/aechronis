@@ -1,7 +1,7 @@
 package net.aechronis.vanilla.commands
 
 import net.aechronis.vanilla.utils.Message
-import net.aechronis.vanilla.utils.hasPermission
+import net.aechronis.vanilla.utils.PlayerAddons.hasPermission
 import net.minestom.server.command.CommandSender
 import net.minestom.server.command.builder.Command
 import net.minestom.server.command.builder.CommandContext
@@ -24,7 +24,7 @@ open class Command(
             }
 
             if (permission != null) {
-                if (!hasPermission(sender, permission)) {
+                if (!sender.hasPermission(permission)) {
                     Message.error(sender, "You don't have permission to use this command")
                     return@setDefaultExecutor
                 }
@@ -48,7 +48,7 @@ open class Command(
             }
 
             if (permission != null) {
-                if (!hasPermission(sender, permission)) {
+                if (!sender.hasPermission(permission)) {
                     Message.error(sender, "You don't have permission to use this command")
                     return@addSyntax
                 }

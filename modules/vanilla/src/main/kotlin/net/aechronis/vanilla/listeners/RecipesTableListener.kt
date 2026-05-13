@@ -1,9 +1,9 @@
-package net.aechronis.vanilla.recipes.listeners
+package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.recipes.Recipes.recipes
-import net.aechronis.vanilla.recipes.Recipes.workspaces
-import net.aechronis.vanilla.recipes.craft.Workspace
+import net.aechronis.vanilla.managers.Recipes.recipes
+import net.aechronis.vanilla.managers.Recipes.workspaces
+import net.aechronis.vanilla.objects.RecipesWorkspace
 import net.kyori.adventure.text.Component
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.inventory.Inventory
@@ -11,7 +11,7 @@ import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.Material
 import kotlin.collections.set
 
-object TableListener {
+object RecipesTableListener {
     fun onInteract(event: PlayerBlockInteractEvent) {
         if (event.block.registry()?.material() != Material.CRAFTING_TABLE) return
 
@@ -20,8 +20,8 @@ object TableListener {
                 InventoryType.CRAFTING,
                 Component.translatable("container.crafting"),
             )
-        val workspace =
-            Workspace(
+        val recipesWorkspace =
+            RecipesWorkspace(
                 craftingInv,
                 event.player,
                 0,
@@ -30,12 +30,12 @@ object TableListener {
                 3,
                 recipes,
             )
-        workspaces[craftingInv] = workspace
-        workspace.refresh()
+        workspaces[craftingInv] = recipesWorkspace
+        recipesWorkspace.refresh()
         event.player.openInventory(craftingInv)
     }
 
     fun init() {
-        Vanilla.eventNode.addListener(PlayerBlockInteractEvent::class.java, TableListener::onInteract)
+        Vanilla.eventNode.addListener(PlayerBlockInteractEvent::class.java, RecipesTableListener::onInteract)
     }
 }

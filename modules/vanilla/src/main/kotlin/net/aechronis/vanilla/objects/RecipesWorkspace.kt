@@ -1,12 +1,11 @@
-package net.aechronis.vanilla.recipes.craft
+package net.aechronis.vanilla.objects
 
-import net.aechronis.vanilla.recipes.grid.Grid
-import net.aechronis.vanilla.recipes.grid.GridSlot
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.item.ItemStack
+import kotlin.collections.iterator
 
-class Workspace(
+class RecipesWorkspace(
     val inventory: AbstractInventory,
     val owner: Player,
     val slot: Int,
@@ -21,7 +20,7 @@ class Workspace(
         private set
     var updatingResult: Boolean = false
         private set
-    var result: Result? = null
+    var recipesResult: RecipesResult? = null
         private set
 
     fun isGridSlot(slot: Int): Boolean = slot in slotSet
@@ -31,27 +30,27 @@ class Workspace(
 
         for (recipe in recipes) {
             val match = recipe.match(grid) ?: continue
-            result = match
+            recipesResult = match
             updateResult(match.result)
             return
         }
 
-        result = null
+        recipesResult = null
         updateResult(ItemStack.AIR)
     }
 
-    private fun createGrid(): Grid {
+    private fun createGrid(): RecipesGrid {
         val tmp =
             Array(slots.size) { i ->
                 val slotIndex = slots[i]
-                GridSlot(slotIndex, inventory.getItemStack(slotIndex))
+                RecipesGridSlot(slotIndex, inventory.getItemStack(slotIndex))
             }
-        return Grid(width, height, tmp)
+        return RecipesGrid(width, height, tmp)
     }
 
     fun craft(player: Player) {
-        val recipeResult = result ?: return
-        result = null
+        val recipeResult = recipesResult ?: return
+        recipesResult = null
         updatingGrid = true
 
         try {
@@ -64,8 +63,8 @@ class Workspace(
         refresh()
     }
 
-    private fun consumeInputs(result: Result) {
-        for ((index, amount) in result.usage) {
+    private fun consumeInputs(recipesResult: RecipesResult) {
+        for ((index, amount) in recipesResult.usage) {
             if (amount <= 0) continue
             val slotItem = inventory.getItemStack(index)
             inventory.setItemStack(index, slotItem.consume(amount))
@@ -74,10 +73,10 @@ class Workspace(
 
     private fun handleRemainders(
         player: Player,
-        recipeMatch: Result,
+        recipeMatch: RecipesResult,
     ) {
-        val remainders = recipeMatch.recipe.remainingItems(recipeMatch.grid)
-        val gridSlots = recipeMatch.grid.slots
+        val remainders = recipeMatch.recipe.remainingItems(recipeMatch.recipesGrid)
+        val gridSlots = recipeMatch.recipesGrid.slots
 
         for (i in gridSlots.indices) {
             val remainder = remainders[i]

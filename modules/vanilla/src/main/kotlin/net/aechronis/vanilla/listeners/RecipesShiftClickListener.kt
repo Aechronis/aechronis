@@ -1,11 +1,11 @@
-package net.aechronis.vanilla.recipes.listeners
+package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.recipes.Recipes.workspaces
+import net.aechronis.vanilla.managers.Recipes.workspaces
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.inventory.click.Click
 
-object ShiftClickListener {
+object RecipesShiftClickListener {
     fun onInvClick(event: InventoryPreClickEvent) {
         val click = event.click
         val slot = event.slot
@@ -31,7 +31,7 @@ object ShiftClickListener {
         // shift craft - loop while inventory has space
         if (click is Click.LeftShift || click is Click.RightShift) {
             while (true) {
-                val match = workspace.result ?: break
+                val match = workspace.recipesResult ?: break
                 if (!player.inventory.addItemStack(match.result)) break
                 workspace.craft(player)
             }
@@ -39,7 +39,7 @@ object ShiftClickListener {
         }
 
         // normal click on result slot
-        val match = workspace.result ?: return
+        val match = workspace.recipesResult ?: return
         val resultStack = match.result
         if (resultStack.isAir) return
 
@@ -67,6 +67,6 @@ object ShiftClickListener {
     }
 
     fun init() {
-        Vanilla.eventNode.addListener(InventoryPreClickEvent::class.java, ShiftClickListener::onInvClick)
+        Vanilla.eventNode.addListener(InventoryPreClickEvent::class.java, RecipesShiftClickListener::onInvClick)
     }
 }

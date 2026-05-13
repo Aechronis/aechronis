@@ -1,8 +1,8 @@
-package net.aechronis.vanilla.recipes.grid
+package net.aechronis.vanilla.objects
 
 import net.minestom.server.item.ItemStack
 
-data class GridSlot(
+data class RecipesGridSlot(
     val slot: Int,
     val item: ItemStack,
 )

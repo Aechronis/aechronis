@@ -1,10 +1,10 @@
-package net.aechronis.vanilla.recipes.listeners
+package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.recipes.Recipes.workspaces
+import net.aechronis.vanilla.managers.Recipes.workspaces
 import net.minestom.server.event.inventory.InventoryItemChangeEvent
 
-object GridListener {
+object RecipesGridListener {
     fun onInvChange(event: InventoryItemChangeEvent) {
         val workspace = workspaces[event.inventory] ?: return
         if (workspace.updatingGrid || workspace.updatingResult) return
@@ -12,6 +12,6 @@ object GridListener {
     }
 
     fun init() {
-        Vanilla.eventNode.addListener(InventoryItemChangeEvent::class.java, GridListener::onInvChange)
+        Vanilla.eventNode.addListener(InventoryItemChangeEvent::class.java, RecipesGridListener::onInvChange)
     }
 }

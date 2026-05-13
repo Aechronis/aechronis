@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.playerdata
+package net.aechronis.vanilla.serds
 
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag

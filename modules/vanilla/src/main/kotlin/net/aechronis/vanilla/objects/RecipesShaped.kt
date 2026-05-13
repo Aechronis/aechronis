@@ -1,32 +1,30 @@
-package net.aechronis.vanilla.recipes.craft
+package net.aechronis.vanilla.objects
 
-import net.aechronis.vanilla.recipes.grid.Grid
-import net.aechronis.vanilla.recipes.grid.TrimmedGrid
 import net.minestom.server.item.ItemStack
 
 class Shaped(
     private val patternWidth: Int,
     private val patternHeight: Int,
-    private val pattern: Array<Ingredient?>,
+    private val pattern: Array<RecipesIngredient?>,
     private val output: ItemStack,
 ) : Recipe {
     private val requiredCount = pattern.count { it != null }
 
-    override fun match(grid: Grid): Result? {
-        val trimmed = grid.trim() ?: return null
+    override fun match(recipesGrid: RecipesGrid): RecipesResult? {
+        val trimmed = recipesGrid.trim() ?: return null
 
         if (trimmed.count != requiredCount) return null
         if (trimmed.width != patternWidth || trimmed.height != patternHeight) return null
 
-        return tryMatch(grid, trimmed, mirror = false)
-            ?: tryMatch(grid, trimmed, mirror = true)
+        return tryMatch(recipesGrid, trimmed, mirror = false)
+            ?: tryMatch(recipesGrid, trimmed, mirror = true)
     }
 
     private fun tryMatch(
-        grid: Grid,
-        trimmed: TrimmedGrid,
+        recipesGrid: RecipesGrid,
+        trimmed: RecipesTrimmedGrid,
         mirror: Boolean,
-    ): Result? {
+    ): RecipesResult? {
         val usage = HashMap<Int, Int>()
 
         for (row in 0..<patternHeight) {
@@ -53,11 +51,11 @@ class Shaped(
             }
         }
 
-        return Result(this, output, usage, grid)
+        return RecipesResult(this, output, usage, recipesGrid)
     }
 }
 
-private fun Grid.trim(): TrimmedGrid? {
+private fun RecipesGrid.trim(): RecipesTrimmedGrid? {
     var minCol = width
     var minRow = height
     var maxCol = -1
@@ -84,5 +82,5 @@ private fun Grid.trim(): TrimmedGrid? {
             slot(minCol + (i % trimWidth), minRow + (i / trimWidth))
         }
 
-    return TrimmedGrid(trimWidth, trimHeight, trimSlots, count)
+    return RecipesTrimmedGrid(trimWidth, trimHeight, trimSlots, count)
 }

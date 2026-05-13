@@ -1,11 +1,10 @@
-package net.aechronis.vanilla.recipes.craft
+package net.aechronis.vanilla.objects
 
-import net.aechronis.vanilla.recipes.grid.Grid
 import net.minestom.server.item.ItemStack
 
-data class Result(
+data class RecipesResult(
     val recipe: Recipe,
     val result: ItemStack,
     val usage: HashMap<Int, Int>, // slot -> items consumed
-    val grid: Grid,
+    val recipesGrid: RecipesGrid,
 )

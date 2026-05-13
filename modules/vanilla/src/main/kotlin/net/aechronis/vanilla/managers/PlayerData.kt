@@ -1,5 +1,7 @@
-package net.aechronis.vanilla.playerdata
+package net.aechronis.vanilla.managers
 
+import net.aechronis.vanilla.serds.PlayerDataDeserializer
+import net.aechronis.vanilla.serds.PlayerDataSerializer
 import net.kyori.adventure.nbt.BinaryTagIO
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
@@ -13,6 +15,7 @@ import java.util.Map
 // loosely based on https://github.com/Quiet-Terminal-Interactive/Cattlelog
 object PlayerData {
     fun init(path: Path) {
+        val timeStart = System.currentTimeMillis()
         Files.createDirectories(path)
 
         val node = EventNode.all("vanilla-playerdata")
@@ -27,6 +30,9 @@ object PlayerData {
         }
 
         MinecraftServer.getGlobalEventHandler().addChild(node)
+        val timeEnd = System.currentTimeMillis()
+        val timeLoad = timeEnd - timeStart
+        println("Playerdata enabled in ${timeLoad}ms")
     }
 
     fun loadPlayer(

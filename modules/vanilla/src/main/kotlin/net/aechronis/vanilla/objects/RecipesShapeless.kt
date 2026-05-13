@@ -1,18 +1,17 @@
-package net.aechronis.vanilla.recipes.craft
+package net.aechronis.vanilla.objects
 
-import net.aechronis.vanilla.recipes.grid.Grid
 import net.minestom.server.item.ItemStack
 
-class Shapeless(
-    val ingredients: List<Ingredient>,
+class RecipesShapeless(
+    val recipesIngredients: List<RecipesIngredient>,
     val output: ItemStack,
 ) : Recipe {
-    override fun match(grid: Grid): Result? {
-        val nonEmpty = grid.nonEmptySlots()
+    override fun match(recipesGrid: RecipesGrid): RecipesResult? {
+        val nonEmpty = recipesGrid.nonEmptySlots()
 
-        if (nonEmpty.size != ingredients.size) return null
+        if (nonEmpty.size != recipesIngredients.size) return null
 
-        val remaining = ArrayList(ingredients)
+        val remaining = ArrayList(recipesIngredients)
         val usage = HashMap<Int, Int>()
 
         for (gridSlot in nonEmpty) {
@@ -33,6 +32,6 @@ class Shapeless(
 
         if (remaining.isNotEmpty()) return null
 
-        return Result(this, output, usage, grid)
+        return RecipesResult(this, output, usage, recipesGrid)
     }
 }
