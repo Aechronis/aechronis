@@ -1,7 +1,7 @@
 package net.aechronis.vanilla.managers
 
-import net.aechronis.vanilla.serds.PlayerDataDeserializer
-import net.aechronis.vanilla.serds.PlayerDataSerializer
+import net.aechronis.vanilla.serdes.PlayerDataDeserializer
+import net.aechronis.vanilla.serdes.PlayerDataSerializer
 import net.kyori.adventure.nbt.BinaryTagIO
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player

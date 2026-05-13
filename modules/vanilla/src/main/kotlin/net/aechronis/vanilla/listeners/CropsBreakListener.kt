@@ -2,7 +2,7 @@ package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Crops
-import net.aechronis.vanilla.objects.CropKey
+import net.aechronis.vanilla.objects.BlockKey
 import net.aechronis.vanilla.objects.CropType
 import net.aechronis.vanilla.utils.PlayerAddons.giveDrops
 import net.minestom.server.event.player.PlayerBlockBreakEvent
@@ -19,10 +19,12 @@ object CropsBreakListener {
         if (cropType != null) {
             event.isCancelled = true
             val age = block.getProperty("age")?.toIntOrNull() ?: 0
-            Crops.crops.remove(CropKey(instance, pos.asVec()))
+            Crops.crops.remove(BlockKey(instance, pos.asVec()))
             instance.setBlock(pos, Block.AIR)
             val drops = CropType.drops(cropType, age)
-            event.player.giveDrops(drops)
+            if (!event.player.giveDrops(drops)) {
+                event.isCancelled = true
+            }
             return
         }
         // crop block broken
@@ -31,9 +33,11 @@ object CropsBreakListener {
             val aboveBlock = instance.getBlock(abovePos)
             val aboveCrop = CropType.fromBlock(aboveBlock) ?: return
             val age = aboveBlock.getProperty("age")?.toIntOrNull() ?: 0
-            Crops.crops.remove(CropKey(instance, abovePos.asVec()))
+            Crops.crops.remove(BlockKey(instance, abovePos.asVec()))
             instance.setBlock(abovePos, Block.AIR)
-            event.player.giveDrops(CropType.drops(aboveCrop, age))
+            if (!event.player.giveDrops(CropType.drops(aboveCrop, age))) {
+                event.isCancelled = true
+            }
             return
         }
     }

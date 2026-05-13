@@ -10,6 +10,7 @@ import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.PlayerData
 import net.aechronis.vanilla.managers.Recipes
+import net.aechronis.vanilla.managers.Storage
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Path
@@ -37,6 +38,7 @@ object Vanilla {
         Recipes.init()
         Crops.init(config)
         Elevator.init()
+        Storage.init(Path.of(config.storagePath))
         // print load time
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart

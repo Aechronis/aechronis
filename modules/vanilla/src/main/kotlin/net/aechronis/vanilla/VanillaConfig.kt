@@ -3,6 +3,7 @@ package net.aechronis.vanilla
 data class VanillaConfig(
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",
+    val storagePath: String = "storage",
     val cropGrowthCheckSeconds: Long = 20L,
     val wheatMsPerStage: Long = 72_000L,
     val carrotMsPerStage: Long = 72_000L,

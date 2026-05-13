@@ -17,6 +17,10 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
+### Testing ###
+storage/
+playerdata/
+
 ### Kotlin ###
 .kotlin
 

@@ -2,7 +2,7 @@ package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Crops
-import net.aechronis.vanilla.objects.CropKey
+import net.aechronis.vanilla.objects.BlockKey
 import net.aechronis.vanilla.objects.CropType
 import net.aechronis.vanilla.objects.CropsPlantedCrop
 import net.minestom.server.coordinate.BlockVec
@@ -27,7 +27,7 @@ object CropsPlantListener {
         if (!block.compare(Block.FARMLAND)) return
 
         instance.setBlock(cropPos, cropType.cropBlock.withProperty("age", "0"))
-        Crops.crops[CropKey(instance, cropPos.asVec())] = CropsPlantedCrop(cropType, System.currentTimeMillis(), 0)
+        Crops.crops[BlockKey(instance, cropPos.asVec())] = CropsPlantedCrop(cropType, System.currentTimeMillis(), 0)
 
         if (player.gameMode == GameMode.CREATIVE) return
 

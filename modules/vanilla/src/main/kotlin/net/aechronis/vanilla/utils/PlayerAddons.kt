@@ -11,19 +11,20 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 
 object PlayerAddons {
-    fun Player.giveDrops(drops: List<ItemStack>) {
+    fun Player.giveDrops(drops: List<ItemStack>): Boolean {
+        var status = false
         for (stack in drops) {
             if (stack.isAir || stack.amount() <= 0) continue
             if (!this.inventory.addItemStack(stack)) {
                 this.sendNotification(
-                    Notification(
-                        Component.text("Your inventory is full!").color(NamedTextColor.RED),
-                        FrameType.TASK,
-                        Material.BARRIER,
-                    ),
+                    Notifications.fullInv,
                 )
+                status = false
+            } else {
+                status = true
             }
         }
+        return status
     }
 
     fun Player.hasPermission(permission: String): Boolean =

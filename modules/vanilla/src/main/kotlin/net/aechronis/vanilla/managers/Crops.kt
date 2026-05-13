@@ -3,7 +3,7 @@ package net.aechronis.vanilla.managers
 import net.aechronis.vanilla.VanillaConfig
 import net.aechronis.vanilla.listeners.CropsBreakListener
 import net.aechronis.vanilla.listeners.CropsPlantListener
-import net.aechronis.vanilla.objects.CropKey
+import net.aechronis.vanilla.objects.BlockKey
 import net.aechronis.vanilla.objects.CropType
 import net.aechronis.vanilla.objects.CropsPlantedCrop
 import net.minestom.server.MinecraftServer
@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.iterator
 
 object Crops {
-    val crops = ConcurrentHashMap<CropKey, CropsPlantedCrop>()
+    val crops = ConcurrentHashMap<BlockKey, CropsPlantedCrop>()
     val msPerState = mutableMapOf<CropType, Long>()
 
     fun init(config: VanillaConfig) {
@@ -39,7 +39,7 @@ object Crops {
 
     private fun growthTick() {
         val now = System.currentTimeMillis()
-        val toRemove = mutableListOf<CropKey>()
+        val toRemove = mutableListOf<BlockKey>()
         for ((key, planted) in crops) {
             val mps = msPerState[planted.cropType] ?: continue
             val targetAge =
