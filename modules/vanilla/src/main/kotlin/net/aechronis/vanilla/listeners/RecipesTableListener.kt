@@ -23,7 +23,6 @@ object RecipesTableListener {
         val recipesWorkspace =
             RecipesWorkspace(
                 craftingInv,
-                event.player,
                 0,
                 intArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9),
                 3,
