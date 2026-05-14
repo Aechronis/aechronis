@@ -166,6 +166,12 @@
                         <a href="https://map.aechronis.net" title="Map" aria-label="Map">
                             <i id="map-button" class="fa fa-map"></i>
                         </a>
+                        <a href="https://bans.aechronis.net" title="Bans" aria-label="Bans">
+                            <i id="bans-button" class="fa fa-ban"></i>
+                        </a>
+                        <a href="https://github.com/aechronis" title="GitHub" aria-label="GitHub">
+                            <i id="github-button" class="fab fa-github"></i>
+                        </a>
                     </div>
                 </div>
 
@@ -195,8 +201,39 @@
                     <main>
                         {{{ content }}}
                     </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        {{#if previous}}
+                        <a rel="prev" href="{{ path_to_root }}{{previous.link}}" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                        {{/if}}
+
+                        {{#if next}}
+                        <a rel="next prefetch" href="{{ path_to_root }}{{next.link}}" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                        {{/if}}
+
+                        <div style="clear: both"></div>
+                    </nav>
                 </div>
             </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                {{#if previous}}
+                <a rel="prev" href="{{ path_to_root }}{{previous.link}}" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <i class="fa fa-angle-left"></i>
+                </a>
+                {{/if}}
+
+                {{#if next}}
+                <a rel="next prefetch" href="{{ path_to_root }}{{next.link}}" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                {{/if}}
+            </nav>
         </div>
 
         {{#if live_reload_endpoint}}
