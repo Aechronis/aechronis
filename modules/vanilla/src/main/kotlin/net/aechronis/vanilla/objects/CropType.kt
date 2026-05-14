@@ -4,6 +4,7 @@ import net.minestom.server.instance.block.Block
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 
+// TODO try implement this into config so we can edit values.
 sealed class CropType {
     abstract val cropBlock: Block
     abstract val seedMaterial: Material

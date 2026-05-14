@@ -2,7 +2,9 @@ package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Recipes.workspaces
+import net.aechronis.vanilla.objects.RecipesWorkspace
 import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.inventory.click.Click
 
 object RecipesShiftClickListener {
@@ -10,17 +12,18 @@ object RecipesShiftClickListener {
         val click = event.click
         val slot = event.slot
         val player = event.player
-        val workspace = workspaces[event.inventory]
+        val workspace = workspaces[event.inventory] ?: return
 
-        // shift click in player inventory while crafting table is open
-        if (workspace == null) {
-            if (click !is Click.LeftShift && click !is Click.RightShift) return
-            val openInv = player.openInventory ?: return
-            workspaces[openInv] ?: return
-            event.isCancelled = true
-            val button = if (click is Click.RightShift) 1 else 0
-            player.inventory.shiftClick(player, slot, button)
-            return
+        if (click is Click.LeftShift || click is Click.RightShift) {
+            val openInv = player.openInventory
+            if (openInv != null && event.inventory === player.inventory) {
+                val openWorkspace = workspaces[openInv]
+                if (openWorkspace != null) {
+                    event.isCancelled = true
+                    depositIntoGrid(player.inventory, slot, openInv, openWorkspace)
+                    return
+                }
+            }
         }
 
         // clicks outside result slot - let default handle
@@ -64,6 +67,40 @@ object RecipesShiftClickListener {
             }
 
         workspace.craft(player)
+    }
+
+    private fun depositIntoGrid(
+        source: AbstractInventory,
+        sourceSlot: Int,
+        target: AbstractInventory,
+        targetWorkspace: RecipesWorkspace,
+    ) {
+        var stack = source.getItemStack(sourceSlot)
+        if (stack.isAir) return
+
+        for (gridSlot in targetWorkspace.slots) {
+            if (stack.isAir) break
+            val current = target.getItemStack(gridSlot)
+            if (current.isAir || !current.isSimilar(stack)) continue
+            val maxSize = current.maxStackSize()
+            if (current.amount() >= maxSize) continue
+            val space = maxSize - current.amount()
+            val moved = minOf(space, stack.amount())
+            target.setItemStack(gridSlot, current.withAmount(current.amount() + moved))
+            stack = stack.consume(moved)
+        }
+
+        for (gridSlot in targetWorkspace.slots) {
+            if (stack.isAir) break
+            val current = target.getItemStack(gridSlot)
+            if (!current.isAir) continue
+            val maxSize = stack.maxStackSize()
+            val moved = minOf(maxSize, stack.amount())
+            target.setItemStack(gridSlot, stack.withAmount(moved))
+            stack = stack.consume(moved)
+        }
+
+        source.setItemStack(sourceSlot, stack)
     }
 
     fun init() {

@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.VanillaConfig
 import net.aechronis.vanilla.listeners.CropsBreakListener
 import net.aechronis.vanilla.listeners.CropsPlantListener
@@ -18,11 +19,11 @@ object Crops {
     val crops = ConcurrentHashMap<BlockKey, CropsPlantedCrop>()
     val msPerState = mutableMapOf<CropType, Long>()
 
-    fun init(config: VanillaConfig) {
+    fun init() {
         val timeStart = System.currentTimeMillis()
-        msPerState[CropType.Wheat] = config.wheatMsPerStage
-        msPerState[CropType.Carrots] = config.carrotMsPerStage
-        msPerState[CropType.Potatoes] = config.potatoMsPerStage
+        msPerState[CropType.Wheat] = Vanilla.config!!.wheatMsPerStage
+        msPerState[CropType.Carrots] = Vanilla.config!!.carrotMsPerStage
+        msPerState[CropType.Potatoes] = Vanilla.config!!.potatoMsPerStage
 
         CropsPlantListener.init()
         CropsBreakListener.init()
@@ -30,7 +31,7 @@ object Crops {
         MinecraftServer
             .getSchedulerManager()
             .buildTask(::growthTick)
-            .repeat(TaskSchedule.seconds(config.cropGrowthCheckSeconds))
+            .repeat(TaskSchedule.seconds(Vanilla.config!!.cropGrowthCheckSeconds))
             .schedule()
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart

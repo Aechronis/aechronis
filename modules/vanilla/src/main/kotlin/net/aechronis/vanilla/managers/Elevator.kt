@@ -6,25 +6,18 @@ import net.minestom.server.event.player.PlayerInputEvent
 import net.minestom.server.instance.block.Block
 
 // based on ccnet elevators
+// TODO optmise this from doing 120 searches to x and z key -> List elevator blocks in column,
+//  then search that list for the next one above or below
 object Elevator {
-    private const val MAX_SEARCH = 220
     private val IRON = Block.IRON_BLOCK
     private val TYPE = Block.Getter.Condition.TYPE
 
     fun onInput(event: PlayerInputEvent) {
         val step =
             when {
-                event.hasPressedJumpKey() -> {
-                    1
-                }
-
-                event.hasPressedShiftKey() -> {
-                    -1
-                }
-
-                else -> {
-                    return
-                }
+                event.hasPressedJumpKey() -> 1
+                event.hasPressedShiftKey() -> -1
+                else -> return
             }
         val player = event.player
         val instance = player.instance ?: return
@@ -35,17 +28,15 @@ object Elevator {
 
         if (instance.getBlock(bx, floorY, bz, TYPE) !== IRON) return
 
-        for (dy in 1..MAX_SEARCH) {
+        for (dy in 1..Vanilla.config!!.elevatorMaxSearch) {
             val targetY = floorY + dy * step
             if (instance.getBlock(bx, targetY, bz, TYPE) !== IRON) {
-                println("relooping $targetY")
                 continue
             }
 
             if (instance.getBlock(bx, targetY + 1, bz, TYPE)?.isAir == true &&
                 instance.getBlock(bx, targetY + 2, bz, TYPE)?.isAir == true
             ) {
-                println("teleporting $player $targetY")
                 player.teleport(Pos(pos.x(), (targetY + 1).toDouble(), pos.z(), pos.yaw(), pos.pitch()))
             }
             return

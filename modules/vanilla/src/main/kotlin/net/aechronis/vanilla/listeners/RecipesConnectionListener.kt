@@ -7,6 +7,7 @@ import net.aechronis.vanilla.objects.RecipesWorkspace
 import net.aechronis.vanilla.utils.Notifications
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
+import net.minestom.server.utils.inventory.PlayerInventoryUtils
 
 object RecipesConnectionListener {
     fun onPlayerQuit(event: PlayerDisconnectEvent) {
@@ -19,9 +20,13 @@ object RecipesConnectionListener {
         val recipesWorkspace =
             RecipesWorkspace(
                 player.inventory,
-                player,
-                0,
-                intArrayOf(1, 2, 3, 4),
+                PlayerInventoryUtils.CRAFT_RESULT,
+                intArrayOf(
+                    PlayerInventoryUtils.CRAFT_SLOT_1,
+                    PlayerInventoryUtils.CRAFT_SLOT_2,
+                    PlayerInventoryUtils.CRAFT_SLOT_3,
+                    PlayerInventoryUtils.CRAFT_SLOT_4,
+                ),
                 2,
                 2,
                 recipes,

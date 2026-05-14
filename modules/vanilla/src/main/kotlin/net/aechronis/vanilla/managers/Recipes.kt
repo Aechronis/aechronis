@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.RecipesCloseListener
 import net.aechronis.vanilla.listeners.RecipesConnectionListener
 import net.aechronis.vanilla.listeners.RecipesGridListener
@@ -27,26 +28,7 @@ object Recipes {
         RecipesShiftClickListener.init()
         RecipesTableListener.init()
 
-        val plank = RecipesIngredient.Companion.of(Material.OAK_PLANKS)!!
-        val log = RecipesIngredient.Companion.of(Material.OAK_LOG)!!
-
-        // workbench
-        recipes.add(
-            Shaped(
-                2,
-                2,
-                arrayOf(plank, plank, plank, plank),
-                ItemStack.of(Material.CRAFTING_TABLE),
-            ),
-        )
-
-        // planks
-        recipes.add(
-            RecipesShapeless(
-                listOf(log),
-                ItemStack.of(Material.OAK_PLANKS, 4),
-            ),
-        )
+        recipes.addAll(Vanilla.config!!.recpies)
 
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart

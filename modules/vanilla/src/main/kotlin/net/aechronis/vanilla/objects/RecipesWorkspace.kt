@@ -7,7 +7,6 @@ import kotlin.collections.iterator
 
 class RecipesWorkspace(
     val inventory: AbstractInventory,
-    val owner: Player,
     val slot: Int,
     val slots: IntArray,
     val width: Int,
