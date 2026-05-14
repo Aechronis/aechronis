@@ -232,7 +232,7 @@ object Nodes {
         Nametag.stop()
 
         SaveManager.start(config.savePeriod)
-        IncomeManager.start(config.incomePeriod)
+        IncomeManager.start()
         Nametag.start(config.nametagUpdatePeriod)
     }
 

@@ -38,9 +38,8 @@ data class NodesConfig(
     // ===================================
     // resource configs
     // ===================================
-    // territory do income enabled and income time
+    // territory income enabled
     val incomeEnabled: Boolean = true,
-    val incomePeriod: Long = 3600000,
 
     // global resource node in all territories
     val globalResources: TerritoryResources = TerritoryResources(),
