@@ -26,7 +26,11 @@ class PortWarpTask(
 
     private var task: Task? = null
 
-    private var portPos = Pos(destination.locX.toDouble(), player.position.y, destination.locZ.toDouble())
+    private var portPos = Pos(
+        (destination.chunkX * 16 + 8).toDouble(),
+        player.position.y,
+        (destination.chunkZ * 16 + 8).toDouble(),
+    )
 
     fun start(): Task {
         val runnable = object : Runnable {

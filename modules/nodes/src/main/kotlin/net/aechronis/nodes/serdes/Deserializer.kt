@@ -11,7 +11,6 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.objects.Nation
-import net.aechronis.nodes.objects.PortGroup
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.utils.Color
 import net.minestom.server.coordinate.BlockVec
@@ -351,60 +350,63 @@ object Deserializer {
         )
     }
 
-    // parse ports.json
-    fun portsFromJson(path: Path) {
+    // parse buildings.json
+    // entries are a JSON array; each is dispatched on its "type" discriminator
+    fun buildingsFromJson(path: Path) {
         val json = JsonParser.parseReader(FileReader(path.toString()))
         val jsonObj = json.asJsonObject
 
-        val groups = jsonObj.getAsJsonArray("groups")
-        if (groups !== null) {
-            for (group in groups) {
-                val name = group?.asString
-                if (name == null) {
-                    System.err.println("Cannot create port group: missing name")
-                    continue
-                }
-                Nodes.loadPortGroup(name)
+        val jsonBuildings = jsonObj.get("buildings")?.asJsonArray ?: return
+        for (element in jsonBuildings) {
+            val building = element.asJsonObject
+
+            val type = building.get("type")?.asString
+            if (type == null) {
+                System.err.println("Cannot create building: missing type")
+                continue
+            }
+
+            when (type) {
+                "port" -> loadPort(building)
+                "farm" -> loadFarm(building)
+                else -> System.err.println("Cannot create building: unknown type \"$type\"")
             }
         }
+    }
 
-        val jsonPorts = jsonObj.get("ports")?.asJsonObject
-        if (jsonPorts !== null) {
-            jsonPorts.keySet().forEach { name ->
-                val port = jsonPorts[name].asJsonObject
-
-                // parse location (x,z)
-                val x = port.get("x")?.asInt
-                val z = port.get("z")?.asInt
-                if (x == null || z == null) {
-                    System.err.println("Cannot create port $name: missing x or z coordinate")
-                    return@forEach
-                }
-
-                // get port groups
-                val groups: HashSet<PortGroup> = hashSetOf()
-                val groupsArray = port.get("groups")?.asJsonArray
-                if (groupsArray !== null) {
-                    for (groupElement in groupsArray) {
-                        val groupName = groupElement.asString
-                        val group = Nodes.getPortGroupFromName(groupName)
-                        if (group !== null) {
-                            groups.add(group)
-                        }
-                    }
-                }
-
-                // parse port isPublic
-                val isPublic: Boolean = port.get("isPublic")?.asBoolean ?: false
-
-                Nodes.loadPort(
-                    name,
-                    x,
-                    z,
-                    groups,
-                    isPublic,
-                )
-            }
+    private fun loadFarm(farm: JsonObject) {
+        val chunkX = farm.get("chunkX")?.asInt
+        val chunkZ = farm.get("chunkZ")?.asInt
+        if (chunkX == null || chunkZ == null) {
+            System.err.println("Cannot create farm: missing chunkX or chunkZ coordinate")
+            return
         }
+        val tier: Int = farm.get("tier")?.asInt ?: 1
+        Nodes.loadFarm(chunkX, chunkZ, tier)
+    }
+
+    private fun loadPort(port: JsonObject) {
+        val name = port.get("name")?.asString
+        if (name == null) {
+            System.err.println("Cannot create port: missing name")
+            return
+        }
+        val chunkX = port.get("chunkX")?.asInt
+        val chunkZ = port.get("chunkZ")?.asInt
+        if (chunkX == null || chunkZ == null) {
+            System.err.println("Cannot create port $name: missing chunkX or chunkZ coordinate")
+            return
+        }
+
+        val tier: Int = port.get("tier")?.asInt ?: 1
+        val isPublic: Boolean = port.get("isPublic")?.asBoolean ?: false
+
+        Nodes.loadPort(
+            name,
+            chunkX,
+            chunkZ,
+            tier,
+            isPublic,
+        )
     }
 }

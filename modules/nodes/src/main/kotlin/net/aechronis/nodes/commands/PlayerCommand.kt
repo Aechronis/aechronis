@@ -8,7 +8,7 @@ import net.aechronis.nodes.Message
 import net.aechronis.nodes.commands.arguments.ArgumentResident
 import net.aechronis.nodes.objects.Command
 
-class PlayerCommand : Command("player", null,"p") {
+class PlayerCommand : Command("player", null, "p") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")

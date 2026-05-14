@@ -12,9 +12,6 @@ package net.aechronis.nodes.commands
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentNation
-import net.aechronis.nodes.commands.arguments.ArgumentPort
-import net.aechronis.nodes.commands.arguments.ArgumentPortArray
-import net.aechronis.nodes.commands.arguments.ArgumentPortGroup
 import net.aechronis.nodes.commands.arguments.ArgumentResident
 import net.aechronis.nodes.commands.arguments.ArgumentResidentArray
 import net.aechronis.nodes.commands.arguments.ArgumentSanitizedString
@@ -37,8 +34,7 @@ class NodesAdminCommand : Command("nodesadmin", "nodes.admin", "nda") {
             Message.print(player, "/nodesadmin war${ChatColor.WHITE}: Enable/disable war")
             Message.print(player, "/nodesadmin town${ChatColor.WHITE}: Manage towns (see \"/nodesadmin town help\")")
             Message.print(player, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
-            Message.print(player, "/nodesadmin port${ChatColor.WHITE}: Manage ports (see \"/nodesadmin port help\")")
-            Message.print(player, "/nodesadmin portgroup${ChatColor.WHITE}: Manage port groups (see \"/nodesadmin portgroup help\")")
+            Message.print(player, "/nodesadmin building${ChatColor.WHITE}: Manage buildings (see \"/nodesadmin building help\")")
             Message.print(player, "/nodesadmin save${ChatColor.WHITE}: Force save world")
             Message.print(player, "/nodesadmin load${ChatColor.WHITE}: Force load world")
             Message.print(player, "/nodesadmin runincome${ChatColor.WHITE}: Runs income for all towns")
@@ -48,8 +44,7 @@ class NodesAdminCommand : Command("nodesadmin", "nodes.admin", "nda") {
         addSubcommand(NodesAdminWarCommand())
         addSubcommand(NodesAdminTownCommand())
         addSubcommand(NodesAdminNationCommand())
-        addSubcommand(NodesAdminPortCommand())
-        addSubcommand(NodesAdminPortGroupCommand())
+        addSubcommand(NodesAdminBuildingCommand())
         addSubcommand(NodesAdminSaveCommand())
         addSubcommand(NodesAdminLoadCommand())
         addSubcommand(NodesAdminRunIncomeCommand())
@@ -63,8 +58,7 @@ class NodesAdminHelpCommand : Command("help", "nodes.admin") {
             Message.print(player, "/nodesadmin war${ChatColor.WHITE}: Enable/disable war")
             Message.print(player, "/nodesadmin town${ChatColor.WHITE}: Manage towns (see \"/nodesadmin town help\")")
             Message.print(player, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
-            Message.print(player, "/nodesadmin port${ChatColor.WHITE}: Manage ports (see \"/nodesadmin port help\")")
-            Message.print(player, "/nodesadmin portgroup${ChatColor.WHITE}: Manage port groups (see \"/nodesadmin portgroup help\")")
+            Message.print(player, "/nodesadmin building${ChatColor.WHITE}: Manage buildings (see \"/nodesadmin building help\")")
             Message.print(player, "/nodesadmin save${ChatColor.WHITE}: Force save world")
             Message.print(player, "/nodesadmin load${ChatColor.WHITE}: Force load world")
             Message.print(player, "/nodesadmin runincome${ChatColor.WHITE}: Runs income for all towns")
@@ -821,172 +815,100 @@ class NodesAdminNationColorCommand : Command("color", "nodes.admin") {
     }
 }
 
-class NodesAdminPortCommand : Command("port", "nodes.admin") {
+class NodesAdminBuildingCommand : Command("building", "nodes.admin") {
     init {
         setDefaultExecutor { player, resident, context ->
-            Message.print(player, "${ChatColor.AQUA}/nodesadmin port create${ChatColor.WHITE}: Create a new port")
-            Message.print(player, "${ChatColor.AQUA}/nodesadmin port delete${ChatColor.WHITE}: Delete a port")
+            Message.print(player, "${ChatColor.AQUA}/nodesadmin building create${ChatColor.WHITE}: Create a new building")
+            Message.print(player, "${ChatColor.AQUA}/nodesadmin building delete${ChatColor.WHITE}: Delete the building in your current chunk")
+            Message.print(player, "${ChatColor.AQUA}/nodesadmin building settier${ChatColor.WHITE}: Set tier of the building in your current chunk")
             Message.print(player, "Run a command with no args to see usage.")
         }
 
-        addSubcommand(NodesAdminPortCreateCommand())
-        addSubcommand(NodesAdminPortDeleteCommand())
+        addSubcommand(NodesAdminBuildingCreateCommand())
+        addSubcommand(NodesAdminBuildingDeleteCommand())
+        addSubcommand(NodesAdminBuildingSetTierCommand())
     }
 }
 
-class NodesAdminPortCreateCommand : Command("create", "nodes.admin") {
+class NodesAdminBuildingCreateCommand : Command("create", "nodes.admin") {
     init {
         setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin port create <port-name> <public>")
+            Message.print(player, "Usage:")
+            Message.print(player, "/nodesadmin building create port <name> <public> [tier]")
+            Message.print(player, "/nodesadmin building create farm [tier]")
         }
 
-        val portArg = ArgumentSanitizedString.create("port-name")
+        val portLit = ArgumentType.Literal("port")
+        val farmLit = ArgumentType.Literal("farm")
+        val nameArg = ArgumentSanitizedString.create("name")
         val publicArg = ArgumentBoolean("public")
+        val tierArg = ArgumentType.Integer("tier").between(1, 3)
 
         addSyntax({ player, resident, context ->
             Nodes.createPort(
-                context[portArg],
-                player.position.blockX(),
-                player.position.blockZ(),
-                hashSetOf(),
+                name,
+                Math.floorDiv(player.position.blockX(), 16),
+                Math.floorDiv(player.position.blockZ(), 16),
+                context[tierArg],
                 context[publicArg],
             ).getOrElse { err ->
                 Message.error(player, "Failed to create port: ${err.message}")
                 return@addSyntax
             }
-
-            Message.print(player, "Created port \"${context[portArg]}\"")
-        }, portArg, publicArg)
-    }
-}
-
-class NodesAdminPortDeleteCommand : Command("delete", "nodes.admin") {
-    init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin port delete <port-name>")
-        }
-
-        val portArg = ArgumentPort.create("port-name")
+            Message.print(player, "Created port \"$name\" (tier ${context[tierArg]})")
+        }, portLit, nameArg, publicArg, tierArg)
 
         addSyntax({ player, resident, context ->
-            // delete the port
-            Nodes.destroyPort(context[portArg])
-
-            Message.print(player, "Port \"${context[portArg].name}\" has been deleted")
-        }, portArg)
-    }
-}
-
-class NodesAdminPortGroupCommand : Command("portgroup", "nodes.admin") {
-    init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "${ChatColor.AQUA}/nodesadmin portgroup create${ChatColor.WHITE}: Create a new port group")
-            Message.print(player, "${ChatColor.AQUA}/nodesadmin portgroup delete${ChatColor.WHITE}: Delete a port group")
-            Message.print(player, "${ChatColor.AQUA}/nodesadmin portgroup addport${ChatColor.WHITE}: Add a port to a group")
-            Message.print(player, "${ChatColor.AQUA}/nodesadmin portgroup removeport${ChatColor.WHITE}: Remove a port from a group")
-            Message.print(player, "Run a command with no args to see usage.")
-        }
-
-        addSubcommand(NodesAdminPortGroupCreateCommand())
-        addSubcommand(NodesAdminPortGroupDeleteCommand())
-        addSubcommand(NodesAdminPortGroupAddPortCommand())
-        addSubcommand(NodesAdminPortGroupRemovePortCommand())
-    }
-}
-
-class NodesAdminPortGroupCreateCommand : Command("create", "nodes.admin") {
-    init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/nodesadmin portgroup create <port-group-name>")
-            Message.print(player, "/nodesadmin portgroup create <port-group-name> <port-names>")
-        }
-
-        val portGroupArg = ArgumentSanitizedString.create("port-group-name")
-        val portsArg = ArgumentPortArray.create("port-names")
-
-        addSyntax({ player, resident, context ->
-            Nodes.createPortGroup(
-                context[portGroupArg],
+            Nodes.createFarm(
+                Math.floorDiv(player.position.blockX(), 16),
+                Math.floorDiv(player.position.blockZ(), 16),
+                context[tierArg],
             ).getOrElse { err ->
-                Message.error(player, "Failed to create group: ${err.message}")
+                Message.error(player, "Failed to create farm: ${err.message}")
                 return@addSyntax
             }
+            Message.print(player, "Created farm (tier $context[tierArg])")
+        }, farmLit, tierArg)
+    }
+}
 
-            Message.print(player, "Created group \"${context[portGroupArg]}\"")
-        }, portGroupArg)
+private fun buildingAtPlayer(player: net.minestom.server.entity.Player): net.aechronis.nodes.objects.Building? {
+    val chunkX = Math.floorDiv(player.position.blockX(), 16)
+    val chunkZ = Math.floorDiv(player.position.blockZ(), 16)
+    return Nodes.getBuildingAt(chunkX, chunkZ)
+}
+
+class NodesAdminBuildingDeleteCommand : Command("delete", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, resident, context ->
+            val building = buildingAtPlayer(player)
+            if (building === null) {
+                Message.error(player, "No building in this chunk")
+                return@setDefaultExecutor
+            }
+            Nodes.destroyBuilding(building)
+            Message.print(player, "Deleted ${building.type} in chunk (${building.chunkX}, ${building.chunkZ})")
+        }
+    }
+}
+
+class NodesAdminBuildingSetTierCommand : Command("settier", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /nodesadmin building settier <tier>")
+        }
+
+        val tierArg = ArgumentType.Integer("tier").between(1, 3)
 
         addSyntax({ player, resident, context ->
-            val portGroup = Nodes.createPortGroup(
-                context[portGroupArg],
-            ).getOrElse { err ->
-                Message.error(player, "Failed to create group: ${err.message}")
+            val building = buildingAtPlayer(player)
+            if (building === null) {
+                Message.error(player, "No building in this chunk")
                 return@addSyntax
             }
-
-            for (port in context[portsArg]) {
-                Nodes.addPortToGroup(port, portGroup).getOrElse { err ->
-                    Message.error(player, "Failed to add port \"${port.name}\": ${err.message}")
-                }
-            }
-
-            Message.print(player, "Created group \"${context[portGroupArg]}\" with ${context[portsArg].size} ports")
-        }, portGroupArg, portsArg)
-    }
-}
-
-class NodesAdminPortGroupDeleteCommand : Command("delete", "nodes.admin") {
-    init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin portgroup delete <port-group-name>")
-        }
-
-        val portGroupArg = ArgumentPortGroup.create("port-group-name")
-
-        addSyntax({ player, resident, context ->
-            Nodes.destroyPortGroup(context[portGroupArg])
-
-            Message.print(player, "Port group \"${context[portGroupArg].name}\" has been deleted")
-        }, portGroupArg)
-    }
-}
-
-class NodesAdminPortGroupAddPortCommand : Command("addport", "nodes.admin") {
-    init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin portgroup addport <port-group-name> <port-names>")
-        }
-
-        val portGroupArg = ArgumentPortGroup.create("port-group-name")
-        val portsArg = ArgumentPortArray.create("port-names")
-
-        addSyntax({ player, resident, context ->
-            for (port in context[portsArg]) {
-                Nodes.addPortToGroup(port, context[portGroupArg]).getOrElse { err ->
-                    Message.error(player, "Failed to add port \"${port.name}\": ${err.message}")
-                    return@addSyntax
-                }
-                Message.print(player, "Added port \"${port.name}\" to group \"${context[portGroupArg].name}\"")
-            }
-        }, portGroupArg, portsArg)
-    }
-}
-
-class NodesAdminPortGroupRemovePortCommand : Command("removeport", "nodes.admin") {
-    init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin portgroup removeport <port-group-name> <port-names>")
-        }
-
-        val portGroupArg = ArgumentPortGroup.create("port-group-name")
-        val portsArg = ArgumentPortArray.create("port-names")
-
-        addSyntax({ player, resident, context ->
-            for (port in context[portsArg]) {
-                Nodes.removePortFromGroup(port, context[portGroupArg])
-                Message.print(player, "Removed port \"${port.name}\" from group \"${context[portGroupArg].name}\"")
-            }
-        }, portGroupArg, portsArg)
+            Nodes.setBuildingTier(building, context[tierArg])
+            Message.print(player, "${building.type} in chunk (${building.chunkX}, ${building.chunkZ}) set to tier ${building.tier}")
+        }, tierArg)
     }
 }
 

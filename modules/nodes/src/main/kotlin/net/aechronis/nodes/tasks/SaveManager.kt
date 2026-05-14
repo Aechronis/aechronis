@@ -11,9 +11,8 @@
 package net.aechronis.nodes.tasks
 
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.objects.BuildingSaveState
 import net.aechronis.nodes.objects.Nation.NationSaveState
-import net.aechronis.nodes.objects.Port.PortSaveState
-import net.aechronis.nodes.objects.PortGroup.PortGroupSaveState
 import net.aechronis.nodes.objects.Resident.ResidentSaveState
 import net.aechronis.nodes.objects.Town.TownSaveState
 import net.aechronis.nodes.serdes.Serializer
@@ -81,19 +80,13 @@ internal class TaskSaveBackup(
     }
 }
 
-class TaskSavePorts(
-    val portsSnapshot: List<PortSaveState>,
-    val portGroupsSnapshot: List<PortGroupSaveState>,
-    val pathPortSave: Path,
+class TaskSaveBuildings(
+    val buildingsSnapshot: List<BuildingSaveState>,
+    val pathBuildingsSave: Path,
 ) : Runnable {
     override fun run() {
-        // serialize port state
-        val jsonStr = Serializer.portsToJson(
-            portGroupsSnapshot,
-            portsSnapshot,
-        )
-
-        saveStringToFile(jsonStr, pathPortSave)
+        val jsonStr = Serializer.buildingsToJson(buildingsSnapshot)
+        saveStringToFile(jsonStr, pathBuildingsSave)
     }
 }
 

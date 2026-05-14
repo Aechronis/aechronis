@@ -21,6 +21,7 @@ import net.aechronis.nodes.commands.UnallyCommand
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.constants.ErrorAlreadyAllies
 import net.aechronis.nodes.constants.ErrorAlreadyEnemies
+import net.aechronis.nodes.constants.ErrorChunkHasBuilding
 import net.aechronis.nodes.constants.ErrorNationDoesNotHaveTown
 import net.aechronis.nodes.constants.ErrorNationExists
 import net.aechronis.nodes.constants.ErrorNotAllies
@@ -28,7 +29,6 @@ import net.aechronis.nodes.constants.ErrorPlayerHasNation
 import net.aechronis.nodes.constants.ErrorPlayerHasTown
 import net.aechronis.nodes.constants.ErrorPlayerNotInTown
 import net.aechronis.nodes.constants.ErrorPortExists
-import net.aechronis.nodes.constants.ErrorPortInGroup
 import net.aechronis.nodes.constants.ErrorTerritoryIsTownHome
 import net.aechronis.nodes.constants.ErrorTerritoryNotInTown
 import net.aechronis.nodes.constants.ErrorTerritoryOwned
@@ -47,15 +47,16 @@ import net.aechronis.nodes.listeners.NodesPlayerDamageListener
 import net.aechronis.nodes.listeners.NodesPlayerJoinQuitListener
 import net.aechronis.nodes.listeners.NodesPlayerMoveListener
 import net.aechronis.nodes.listeners.NodesWorldListener
+import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.DefaultResourceAttributeLoader
+import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.NationPair
 import net.aechronis.nodes.objects.OreBlockCache
 import net.aechronis.nodes.objects.OreSampler
 import net.aechronis.nodes.objects.Port
-import net.aechronis.nodes.objects.PortGroup
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.ResourceNode
 import net.aechronis.nodes.objects.Territory
@@ -68,7 +69,7 @@ import net.aechronis.nodes.serdes.Deserializer
 import net.aechronis.nodes.tasks.IncomeManager
 import net.aechronis.nodes.tasks.SaveManager
 import net.aechronis.nodes.tasks.TaskSaveBackup
-import net.aechronis.nodes.tasks.TaskSavePorts
+import net.aechronis.nodes.tasks.TaskSaveBuildings
 import net.aechronis.nodes.tasks.TaskSaveWorld
 import net.aechronis.nodes.utils.Color
 import net.aechronis.nodes.utils.loadLongFromFile
@@ -121,15 +122,14 @@ object Nodes {
     // map player UUID -> Resident player wrapper
     internal val residents: LinkedHashMap<UUID, Resident> = LinkedHashMap()
 
-    // ports system
-    internal val ports: LinkedHashMap<String, Port> = LinkedHashMap()
-    internal val portGroups: LinkedHashMap<String, PortGroup> = LinkedHashMap()
+    // buildings system
+    internal val buildings: MutableList<Building> = mutableListOf()
 
     // map of player -> task for warping
     var playerWarpTasks: HashMap<Player, Task> = hashMapOf()
 
-    // map chunk coords -> port, assumes one chunk only has 1 port
-    var chunkToPort: HashMap<List<Int>, Port> = hashMapOf()
+    // map chunk coords -> building
+    var chunkToBuilding: HashMap<List<Int>, Building> = hashMapOf()
 
     // last time backup occurred: NOTE this is accessed async
     internal var lastBackupTime: Long = 0 // milliseconds
@@ -465,7 +465,8 @@ object Nodes {
         towns.clear()
         nations.clear()
         residents.clear()
-        ports.clear()
+        buildings.clear()
+        chunkToBuilding.clear()
 
         // load world from JSON storage
         if (Files.exists(config.pathWorld)) {
@@ -496,20 +497,17 @@ object Nodes {
                 return true
             }
 
-            // load ports from json
-            if (Files.exists(config.pathPorts)) {
-                Deserializer.portsFromJson(config.pathPorts)
+            // load buildings from json
+            if (Files.exists(config.pathBuildings)) {
+                Deserializer.buildingsFromJson(config.pathBuildings)
 
-                // pre-generate initial json strings for all port objects
+                // pre-generate initial json strings for all buildings
                 // (speeds up first save)
-                for (port in ports.values) {
-                    port.getSaveState()
-                }
-                for (portGroup in portGroups.values) {
-                    portGroup.getSaveState()
+                for (building in buildings) {
+                    building.getSaveState()
                 }
             } else {
-                System.err.println("No ports found: ${config.pathPorts}")
+                System.err.println("No buildings found: ${config.pathBuildings}")
                 return true
             }
         } else {
@@ -576,21 +574,18 @@ object Nodes {
 
             println("[Nodes] Saving world: ${timeUpdate}ns")
 
-            // save ports
-            // create a snapshot of port objects state
-            val portGroupsSnapshot = portGroups.values.map { it.getSaveState() }
-            val portsSnapshot = ports.values.map { it.getSaveState() }
+            // save buildings
+            val buildingsSnapshot = buildings.map { it.getSaveState() }
 
-            val taskSavePorts = TaskSavePorts(
-                portsSnapshot,
-                portGroupsSnapshot,
-                config.pathPorts,
+            val taskSaveBuildings = TaskSaveBuildings(
+                buildingsSnapshot,
+                config.pathBuildings,
             )
 
             if (async) {
-                CompletableFuture.runAsync { taskSavePorts.run() }
+                CompletableFuture.runAsync { taskSaveBuildings.run() }
             } else {
-                taskSavePorts.run()
+                taskSaveBuildings.run()
             }
         }
         // no new save needed...just do backup if we reached backup interval
@@ -1786,18 +1781,30 @@ object Nodes {
                         continue
                     }
 
+                    // collect per-material rates from this territory:
+                    //   - territory.income (resource nodes)
+                    //   - buildings in any of the territory's chunks
+                    val territoryIncome = mutableMapOf<Material, Double>()
+                    for ((material, amount) in territory.income) {
+                        territoryIncome[material] = (territoryIncome[material] ?: 0.0) + amount
+                    }
+                    for (chunk in territory.chunks) {
+                        val building = chunkToBuilding[listOf(chunk.x, chunk.z)] ?: continue
+                        for ((material, amount) in building.income()) {
+                            territoryIncome[material] = (territoryIncome[material] ?: 0.0) + amount
+                        }
+                    }
+
                     val occupier = territory.occupier
                     if (occupier != null) {
                         val occupierIncome = townIncomes.getOrPut(occupier) { mutableMapOf() }
 
-                        // regular item income
-                        for ((material, amount) in territory.income) {
+                        for ((material, amount) in territoryIncome) {
                             occupierIncome[material] = (occupierIncome[material] ?: 0.0) + (amount * taxRate)
                             thisTownIncome[material] = (thisTownIncome[material] ?: 0.0) + (amount * keptRate)
                         }
                     } else {
-                        // regular item income
-                        for ((material, amount) in territory.income) {
+                        for ((material, amount) in territoryIncome) {
                             thisTownIncome[material] = (thisTownIncome[material] ?: 0.0) + amount
                         }
                     }
@@ -2155,123 +2162,108 @@ object Nodes {
     }
 
     // ==============================================
+    // Building functions
+    // ==============================================
+    fun getBuildingAt(chunkX: Int, chunkZ: Int): Building? = chunkToBuilding[listOf(chunkX, chunkZ)]
+
+    private fun chunkHasBuilding(chunkX: Int, chunkZ: Int): Boolean = chunkToBuilding.containsKey(listOf(chunkX, chunkZ))
+
+    private fun registerBuilding(building: Building) {
+        buildings.add(building)
+        val chunk = listOf(building.chunkX, building.chunkZ)
+        chunkToBuilding.put(chunk, building)
+        building.needsUpdate()
+    }
+
+    private fun unregisterBuilding(building: Building) {
+        buildings.remove(building)
+        val chunk = listOf(building.chunkX, building.chunkZ)
+        // only clear chunk slot if it still points at this building
+        if (chunkToBuilding[chunk] === building) {
+            chunkToBuilding.remove(chunk)
+        }
+    }
+
+    fun destroyBuilding(building: Building) {
+        unregisterBuilding(building)
+        needsSave = true
+    }
+
+    // ==============================================
     // Port functions
     // ==============================================
-    // load port from data
-    // used for deserializing from ports.json
+    // load port from data (used for deserializing from buildings.json)
     fun loadPort(
         name: String,
-        locX: Int,
-        locZ: Int,
-        groups: HashSet<PortGroup>,
+        chunkX: Int,
+        chunkZ: Int,
+        tier: Int,
         isPublic: Boolean,
     ): Port? {
-        val port = Port(name, locX, locZ, groups, isPublic)
-
-        // save new port
-        ports.put(name, port)
-
-        // for each port, map the chunk its in to it
-        val chunk = listOf(locX.floorDiv(16), locZ.floorDiv(16))
-        chunkToPort.put(chunk, port)
-
-        // mark dirty
-        port.needsUpdate()
-
+        val port = Port(name, chunkX, chunkZ, tier, isPublic)
+        registerBuilding(port)
         return port
     }
 
-    fun destroyPort(port: Port) {
-        // remove from ports map
-        ports.remove(port.name)
+    val ports: Sequence<Port>
+        get() = buildings.asSequence().filterIsInstance<Port>()
 
-        // remove chunk mappings
-        val chunk = listOf(Math.floorDiv(port.locX, 16), Math.floorDiv(port.locZ, 16))
-        chunkToPort.remove(chunk)
-
-        needsSave = true
-    }
-
-    fun getPortFromName(name: String): Port? = ports.get(name)
-
-    fun getPortGroupFromName(name: String): PortGroup? = portGroups.get(name)
-
-    // load port group from data
-    // used for deserializing from ports.json
-    fun loadPortGroup(name: String): PortGroup {
-        val portGroup = PortGroup(name)
-        portGroups.put(name, portGroup)
-        portGroup.needsUpdate()
-        return portGroup
-    }
-
-    fun createPortGroup(name: String): Result<PortGroup> {
-        if (portGroups.containsKey(name)) {
-            return Result.failure(ErrorPortExists)
-        }
-
-        val portGroup = PortGroup(name)
-        portGroups.put(name, portGroup)
-
-        return Result.success(portGroup)
-    }
-
-    fun destroyPortGroup(portGroup: PortGroup) {
-        // remove from portGroups map
-        portGroups.remove(portGroup.name)
-
-        needsSave = true
-    }
+    fun getPortFromName(name: String): Port? = ports.firstOrNull { it.name == name }
 
     fun createPort(
         name: String,
-        locX: Int,
-        locZ: Int,
-        groups: HashSet<PortGroup>,
+        chunkX: Int,
+        chunkZ: Int,
+        tier: Int,
         isPublic: Boolean,
     ): Result<Port> {
-        // check if port already exists
-        if (ports.containsKey(name)) {
+        // reject duplicate port names so /port warp <name> stays unambiguous
+        if (ports.any { it.name == name }) {
             return Result.failure(ErrorPortExists)
         }
+        if (chunkHasBuilding(chunkX, chunkZ)) {
+            return Result.failure(ErrorChunkHasBuilding)
+        }
 
-        val port = Port(name, locX, locZ, groups, isPublic)
-
-        // save new port
-        ports.put(name, port)
-
-        // for each port, map the chunk its in to it
-        val chunk = listOf(locX.floorDiv(16), locZ.floorDiv(16))
-        chunkToPort.put(chunk, port)
-
-        // mark dirty
-        port.needsUpdate()
+        val port = Port(name, chunkX, chunkZ, tier, isPublic)
+        registerBuilding(port)
         needsSave = true
 
         return Result.success(port)
     }
 
-    fun addPortToGroup(port: Port, group: PortGroup): Result<Port> {
-        // check port is not already in this group
-        if (port.groups.contains(group)) {
-            return Result.failure(ErrorPortInGroup)
-        }
-
-        port.groups.add(group)
-        port.needsUpdate()
-        needsSave = true
-
-        return Result.success(port)
+    // ==============================================
+    // Farm functions
+    // ==============================================
+    // load farm from data (used for deserializing from buildings.json)
+    fun loadFarm(
+        chunkX: Int,
+        chunkZ: Int,
+        tier: Int,
+    ): Farm? {
+        val farm = Farm(chunkX, chunkZ, tier)
+        registerBuilding(farm)
+        return farm
     }
 
-    fun removePortFromGroup(port: Port, group: PortGroup) {
-        // check port is in group
-        if (!port.groups.contains(group)) {
-            return
+    fun createFarm(
+        chunkX: Int,
+        chunkZ: Int,
+        tier: Int,
+    ): Result<Farm> {
+        if (chunkHasBuilding(chunkX, chunkZ)) {
+            return Result.failure(ErrorChunkHasBuilding)
         }
 
-        port.groups.remove(group)
-        port.needsUpdate()
+        val farm = Farm(chunkX, chunkZ, tier)
+        registerBuilding(farm)
+        needsSave = true
+
+        return Result.success(farm)
+    }
+
+    fun setBuildingTier(building: Building, tier: Int) {
+        building.setTier(tier)
         needsSave = true
     }
 
@@ -2298,9 +2290,4 @@ object Nodes {
 
         return chunk.territory.town
     }
-
-    /**
-     * Check if two ports share a group
-     */
-    fun sharePortGroups(port1: Port, port2: Port): Boolean = port1.groups.any { it in port2.groups }
 }

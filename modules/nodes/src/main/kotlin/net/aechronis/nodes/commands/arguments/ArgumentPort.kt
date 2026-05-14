@@ -16,7 +16,7 @@ object ArgumentPort {
         word.setSuggestionCallback { sender, context, suggestion ->
             val input = suggestion.input.substringAfterLast(" ").lowercase()
 
-            Nodes.ports.values
+            Nodes.ports
                 .filter { it.name.lowercase().startsWith(input) }
                 .forEach { port ->
                     suggestion.addEntry(SuggestionEntry(port.name))

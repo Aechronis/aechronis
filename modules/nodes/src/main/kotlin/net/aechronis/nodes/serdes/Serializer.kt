@@ -2,7 +2,7 @@
  * Serializer
  *
  * Performs manual JSON string serialization of
- * player-editable game structures (resident, town, nation)
+ * player-editable game structures (resident, town, nation, building)
  *
  * Manual JSON string serialization is for performance
  * of world state writes, to generate a minified JSON String.
@@ -12,9 +12,8 @@
 
 package net.aechronis.nodes.serdes
 
+import net.aechronis.nodes.objects.BuildingSaveState
 import net.aechronis.nodes.objects.Nation.NationSaveState
-import net.aechronis.nodes.objects.Port.PortSaveState
-import net.aechronis.nodes.objects.PortGroup.PortGroupSaveState
 import net.aechronis.nodes.objects.Resident.ResidentSaveState
 import net.aechronis.nodes.objects.Town.TownSaveState
 
@@ -114,60 +113,29 @@ object Serializer {
     }
 
     /**
-     * Serialize ports to JSON string
+     * Serialize buildings to JSON string
      */
-    fun portsToJson(
-        portGroups: List<PortGroupSaveState>,
-        ports: List<PortSaveState>,
+    fun buildingsToJson(
+        buildings: List<BuildingSaveState>,
     ): String {
-        // will add arbitrary extra margin and up size to 200
         var bufferSize = 200
-
-        // groups array
-        for (v in portGroups) {
-            bufferSize += (4 + v.name.length + v.toJsonString().length)
-        }
-
-        // ports array - rough estimate
-        for (v in ports) {
-            bufferSize += (4 + v.name.length + v.toJsonString().length)
+        for (v in buildings) {
+            bufferSize += (1 + v.toJsonString().length)
         }
 
         val jsonString = StringBuilder(bufferSize)
 
-        // ===============================
-        // Metadata (for web editor)
-        // ===============================
-        jsonString.append("{\"meta\":{\"type\":\"ports\"},")
+        jsonString.append("{\"meta\":{\"type\":\"buildings\"},")
+        jsonString.append("\"buildings\":[")
 
-        // ===============================
-        // Port Groups
-        // ===============================
-        jsonString.append("\"groups\":[")
-
-        for ((i, group) in portGroups.withIndex()) {
-            jsonString.append("\"${group.name}\"")
-            if (i < portGroups.size - 1) {
+        for ((i, building) in buildings.withIndex()) {
+            jsonString.append(building.toJsonString())
+            if (i < buildings.size - 1) {
                 jsonString.append(",")
             }
         }
 
-        jsonString.append("],")
-
-        // ===============================
-        // Ports
-        // ===============================
-        jsonString.append("\"ports\":{")
-
-        for ((i, port) in ports.withIndex()) {
-            jsonString.append("\"${port.name}\":")
-            jsonString.append(port.toJsonString())
-            if (i < ports.size - 1) {
-                jsonString.append(",")
-            }
-        }
-
-        jsonString.append("}}")
+        jsonString.append("]}")
 
         return jsonString.toString()
     }

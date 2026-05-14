@@ -23,7 +23,9 @@ val ErrorTerritoryOwned = Exception("Territory already has town")
 
 // ports
 val ErrorPortExists = Exception("Port already exists")
-val ErrorPortInGroup = Exception("Port already in this group")
+
+// buildings
+val ErrorChunkHasBuilding = Exception("This chunk already has a building")
 
 // claim/unclaim errors
 val ErrorTerritoryIsTownHome = Exception("Territory is town home")

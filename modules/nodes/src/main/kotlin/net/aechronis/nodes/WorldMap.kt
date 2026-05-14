@@ -23,7 +23,6 @@ private const val CONQUERED0 = "\u255E" // captured chunk flag symbol
 private const val CONQUERED1 = "\u255F" // other chunk flag symbol
 private const val PLAYER_TOKEN = "\u253C" // player token
 private const val PLAYER_IN_OCCUPIED_TOKEN = "\u256C" // player token in occupied chunk
-private val PORT_TOKEN = "${ChatColor.BOLD}\u2693" // port anchor symbol, bold so it has the same width as other chars
 
 // minimap display tokens
 private val EMPTY = "${ChatColor.BLACK}$SHADE0"
@@ -178,7 +177,8 @@ object WorldMap {
 
         for (x in xMin..xMax) {
             val coord = Coord(x, z)
-            val port = Nodes.chunkToPort.get(listOf(x, z))
+            val building = Nodes.chunkToBuilding.get(listOf(x, z))
+            val buildingToken = building?.takeIf { it.showOnMinimap }?.minimapToken
             val territoryChunk = Nodes.getTerritoryChunkFromCoord(coord)
 
             // get token for current coordinate
@@ -313,10 +313,10 @@ object WorldMap {
                     // take coord token color and append player token
                     val color = coordToken.substring(0 until (coordToken.length - 1))
                     "${getAlternativeColor(color)}$playerToken"
-                } else if (port?.chunkX == x && port?.chunkZ == z) {
-                    // take coord token color and append player token
+                } else if (buildingToken !== null) {
+                    // take coord token color and append building's minimap char
                     val color = coordToken.substring(0 until (coordToken.length - 1))
-                    "${getAlternativeColor(color)}$PORT_TOKEN"
+                    "${getAlternativeColor(color)}$buildingToken"
                 } else {
                     coordToken
                 }

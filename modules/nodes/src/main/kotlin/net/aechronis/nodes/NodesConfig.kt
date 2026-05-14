@@ -191,7 +191,7 @@ data class NodesConfig(
     val pathWorld: Path get() = Paths.get(path, "world.json").normalize()
     val pathTowns: Path get() = Paths.get(path, "towns.json").normalize()
     val pathWar: Path get() = Paths.get(path, "war.json").normalize()
-    val pathPorts: Path get() = Paths.get(path, "ports.json").normalize()
+    val pathBuildings: Path get() = Paths.get(path, "buildings.json").normalize()
     val pathLastBackupTime: Path get() = Paths.get(path, "lastBackupTime.txt").normalize()
 
     // use whitelist/blacklist for war (derived from list.size > 0 for lists below)
