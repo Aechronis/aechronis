@@ -191,56 +191,6 @@ object FlagWar {
         occupiedChunks.add(terrChunk.coord)
     }
 
-    // load an in-progress attack from json
-    // attacker - player UUID
-    // coord - chunk coord
-    // flagBase - flag fence block
-    // progress - current progress in ticks
-    internal fun loadAttack(
-        attacker: UUID,
-        coord: Coord,
-        flagBase: BlockVec,
-        progress: Long,
-    ) {
-        val skyBeaconColorBlocks: MutableList<BlockVec> = mutableListOf()
-        val skyBeaconWireframeBlocks: MutableList<BlockVec> = mutableListOf()
-
-        // recreate sky beacon
-        createAttackBeacon(
-            skyBeaconColorBlocks,
-            skyBeaconWireframeBlocks,
-            coord,
-            flagBase.blockY,
-        )
-
-        // get resident and their town
-        val attackerResident = Nodes.getResidentFromUUID(attacker)
-        if (attackerResident == null) {
-            return
-        }
-        val attackingTown = attackerResident.town
-        if (attackingTown == null) {
-            return
-        }
-
-        // get territory chunk
-        val chunk = Nodes.getTerritoryChunkFromCoord(coord)
-        if (chunk == null) {
-            return
-        }
-
-        // create attack
-        createAttack(
-            attacker,
-            attackingTown,
-            chunk,
-            flagBase,
-            progress,
-            skyBeaconColorBlocks,
-            skyBeaconWireframeBlocks,
-        )
-    }
-
     // cleanup when server is shutdown
     internal fun cleanup() {
         // stop save task
@@ -429,7 +379,6 @@ object FlagWar {
                 attackingTown,
                 chunk,
                 flagBase,
-                0L,
             )
 
             // mark that save required
@@ -442,13 +391,11 @@ object FlagWar {
     }
 
     // actually creates attack instance
-    // shared between beginAttack() and loadAttack()
     internal fun createAttack(
         attacker: UUID,
         attackingTown: Town,
         chunk: TerritoryChunk,
         flagBase: BlockVec,
-        progress: Long,
         skyBeaconColorBlocksInput: MutableList<BlockVec>? = null,
         skyBeaconWireframeBlocksInput: MutableList<BlockVec>? = null,
     ): Attack {
@@ -479,6 +426,8 @@ object FlagWar {
                 territory.attackerTimeMultiplier
             }
         }
+
+        val progress = 0L
 
         // get sky beacon blocks
         val skyBeaconColorBlocks: MutableList<BlockVec> = if (skyBeaconColorBlocksInput === null) {

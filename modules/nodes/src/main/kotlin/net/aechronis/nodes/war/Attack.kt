@@ -82,7 +82,7 @@ class Attack(
         )
 
         // full json StringBuilder, initialize capacity to be
-        // base capacity + room for progress ticks length
+        // base capacity + room for completion timestamp length
         val jsonStringBufferSize = this.jsonStringBase.capacity() + 20
         this.jsonString = StringBuilder(jsonStringBufferSize)
     }
@@ -105,8 +105,11 @@ class Attack(
         // add base
         this.jsonString.append(this.jsonStringBase)
 
-        // add progress in ticks
-        this.jsonString.append("\"p\":${this.progress}")
+        // add completion time
+        val now = System.currentTimeMillis() / 1000
+        val remainingSeconds = (this.attackTime - this.progress) / FlagWar.ATTACK_TICK
+        val completionTime = now + remainingSeconds
+        this.jsonString.append("\"t\":$completionTime")
         this.jsonString.append("}")
 
         return this.jsonString
