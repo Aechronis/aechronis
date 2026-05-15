@@ -15,6 +15,7 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.floor
 import kotlin.math.min
@@ -78,10 +79,17 @@ class NodesTest {
             }
         }
 
+        val dir = Paths.get(javaClass.getResource("/nodes/world.json")!!.toURI()).parent
+        val tmpDir = Files.createTempDirectory("nodes-test")
+        Files.walk(dir).forEach { src ->
+            val dest = tmpDir.resolve(dir.relativize(src))
+            if (Files.isDirectory(src)) Files.createDirectories(dest)
+            else Files.copy(src, dest)
+        }
+
         // create test config
         val config = NodesConfig(
-            save = false,
-            path = Paths.get(javaClass.getResource("/nodes/world.json")!!.toURI()).parent.toString(),
+            path = tmpDir.toString(),
         )
 
         // initialize nodes with test config
