@@ -9,10 +9,8 @@ import com.google.gson.JsonParser
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.war.FlagWar
-import net.minestom.server.coordinate.BlockVec
 import java.io.FileReader
 import java.nio.file.Path
-import java.util.UUID
 
 object WarDeserializer {
 
@@ -49,54 +47,6 @@ object WarDeserializer {
 
                     FlagWar.loadOccupiedChunk(townName, coord)
                 }
-            }
-        }
-
-        // ===============================
-        // Attacks
-        // ===============================
-        val jsonAttackList = jsonObj.get("attacks")?.asJsonArray
-        if (jsonAttackList !== null) {
-            for (jsonAttack in jsonAttackList) {
-                val attack = jsonAttack.asJsonObject
-
-                // parse attacker player uuid
-                val uuidJson = attack.get("id")
-                if (uuidJson == null) {
-                    break
-                }
-                val uuid: UUID = UUID.fromString(uuidJson.asString)
-
-                // parse attack coord
-                val coordJson = attack.get("c")?.asJsonArray
-                if (coordJson == null) {
-                    break
-                }
-                val coord = Coord(coordJson[0].asInt, coordJson[1].asInt)
-
-                // parse attack flagBase block
-                val blockJson = attack.get("b")?.asJsonArray
-                if (blockJson == null) {
-                    break
-                }
-                val flagBase = BlockVec(
-                    blockJson[0].asInt,
-                    blockJson[1].asInt,
-                    blockJson[2].asInt,
-                )
-
-                // parse progress
-                val progress = attack.get("p")?.asLong
-                if (progress == null) {
-                    break
-                }
-
-                FlagWar.loadAttack(
-                    uuid,
-                    coord,
-                    flagBase,
-                    progress,
-                )
             }
         }
     }
