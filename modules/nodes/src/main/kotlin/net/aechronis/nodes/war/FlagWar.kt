@@ -299,7 +299,7 @@ object FlagWar {
         // create task
         saveTask?.cancel()
         saveTask = MinecraftServer.getSchedulerManager()
-            .buildTask { SaveLoop }
+            .buildTask(SaveLoop)
             .delay(TaskSchedule.tick(saveTaskPeriod))
             .repeat(TaskSchedule.tick(saveTaskPeriod))
             .schedule()
