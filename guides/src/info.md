@@ -21,7 +21,7 @@ Enjoy the srvr!
 - Texture Pack: [github.com/aechronis/reasource-pack](https://github.com/Aechronis/resource-pack/releases/)
 
 #### Contact
-- Email: **Aechronis@protonmail.com**
+- Email: **aechronissupport@proton.me**
 - Players: Contact us via discord cucks 
 
 #### Affiliation Disclaimer
