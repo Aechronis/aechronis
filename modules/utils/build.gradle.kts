@@ -10,21 +10,13 @@ plugins {
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
+    maven("https://repo.hypera.dev/snapshots/")
     mavenCentral()
 }
 
 dependencies {
+    implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
     implementation("net.minestom:minestom:2026.03.25-1.21.11")
-
-    // testing
-    testImplementation("org.jetbrains.kotlin:kotlin-test")
-    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
-    testImplementation("org.slf4j:slf4j-simple:2.0.17") // logging (only used while testing at the moment)
-}
-
-tasks.test {
-    useJUnitPlatform()
-    systemProperty("keepRunning", System.getProperty("keepRunning", "false"))
 }
 
 publishing {
@@ -36,7 +28,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/Aechronis/library")
+            url = uri("https://maven.pkg.github.com/Aechronis/utils")
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")
