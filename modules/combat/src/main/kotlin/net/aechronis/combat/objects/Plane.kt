@@ -53,7 +53,7 @@ class Plane(
         entity: Entity,
     ) {
         // only allow one pilot at a time
-        if (entity.passengers.isNotEmpty()) return
+        if (playerVehicleEntity.values.any { it == entity }) return
 
         super.onEnter(player, entity)
         playerRoll[player] = 0f

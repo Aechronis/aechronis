@@ -13,7 +13,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
-class Car(
+open class Car(
     name: String,
     itemName: Component,
     itemLore: List<Component> = emptyList(),
@@ -47,7 +47,7 @@ class Car(
         entity: Entity,
     ) {
         // only allow one driver at a time
-        if (entity.passengers.isNotEmpty()) return
+        if (playerVehicleEntity.values.any { it == entity }) return
 
         super.onEnter(player, entity)
         playerSpeed[player] = 0f

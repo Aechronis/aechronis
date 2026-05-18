@@ -133,14 +133,31 @@ open class Vehicle(
         player: Player,
         entity: Entity,
     ) {
-        entity.addPassenger(player)
+        val instance = entity.instance ?: return
+        val seatPos = getSeatWorldPos(entity, 0)
+        val seatEntity = Entity(EntityType.ITEM_DISPLAY)
+        seatEntity.setInstance(instance, seatPos)
+
+        val meta = seatEntity.entityMeta as ItemDisplayMeta
+        meta.itemStack = ItemStack.AIR
+        meta.posRotInterpolationDuration = 3
+        meta.isHasNoGravity = true
+
+        seatEntity.spawn()
+        seatEntity.addPassenger(player)
+
         playerVehicle[player] = this
         playerVehicleEntity[player] = entity
+        playerSeatEntity[player] = seatEntity
     }
 
     // called when a player exits this vehicle
     open fun onExit(player: Player) {
-        playerVehicleEntity[player]?.removePassenger(player)
+        val seatEntity = playerSeatEntity.remove(player)
+        if (seatEntity != null) {
+            seatEntity.removePassenger(player)
+            seatEntity.remove()
+        }
         playerVehicle.remove(player)
         playerVehicleEntity.remove(player)
     }
@@ -153,6 +170,8 @@ open class Vehicle(
             onExit(player)
             return
         }
+
+        playerSeatEntity[player]?.teleport(getSeatWorldPos(entity, 0))
 
         // update passenger seat positions
         entityPassengers[entity]?.toList()?.forEachIndexed { index, passenger ->
@@ -190,6 +209,7 @@ open class Vehicle(
 
         val meta = seatEntity.entityMeta as ItemDisplayMeta
         meta.itemStack = ItemStack.AIR
+        meta.posRotInterpolationDuration = 3
         meta.isHasNoGravity = true
 
         seatEntity.spawn()
@@ -271,6 +291,9 @@ open class Vehicle(
         var playerVehicleEntity: HashMap<Player, Entity> = HashMap()
         var entityVehicle: HashMap<Entity, Vehicle> = HashMap()
         var entityHealth: HashMap<Entity, Float> = HashMap()
+
+        // driver seat
+        val playerSeatEntity: HashMap<Player, Entity> = HashMap()
 
         // passenger tracking
         val entityPassengers: HashMap<Entity, MutableList<Player>> = HashMap()

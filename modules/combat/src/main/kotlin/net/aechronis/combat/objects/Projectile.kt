@@ -17,6 +17,7 @@ class Projectile(
     val speed: Double = 1.0,
     val explosionRadius: Int = 4,
     val explosionFire: Double = .33,
+    val gravity: Double = 0.05,
 ) {
     private val entity: Entity
     private var velocity: Vec = direction.mul(speed)
@@ -25,7 +26,7 @@ class Projectile(
     init {
         val itemDisplay = Entity(EntityType.ITEM_DISPLAY)
 
-        itemDisplay.setInstance(instance, pos)
+        itemDisplay.setInstance(instance, pos.withDirection(velocity))
 
         val meta = itemDisplay.entityMeta as ItemDisplayMeta
 
@@ -42,6 +43,9 @@ class Projectile(
 
     fun onTick() {
         if (!isActive) return
+
+        // accelerate downward so the projectile arcs over time
+        velocity = velocity.sub(0.0, gravity, 0.0)
 
         val nextPos = entity.position.add(velocity)
 
@@ -63,7 +67,7 @@ class Projectile(
         }
 
         // move the entity
-        entity.teleport(nextPos)
+        entity.teleport(nextPos.withDirection(velocity))
     }
 
     fun remove() {

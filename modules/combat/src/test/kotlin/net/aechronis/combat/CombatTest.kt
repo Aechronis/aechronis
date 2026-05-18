@@ -11,6 +11,7 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneWeapon
+import net.aechronis.combat.objects.Tank
 import net.aechronis.combat.utils.permissionBypass
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
@@ -22,7 +23,6 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
-import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
@@ -213,7 +213,40 @@ class CombatTest {
                 seatOffsets = listOf(Vec.ZERO, Vec(1.0, 0.0, 0.0)),
             )
 
-        Item.registerItems(testAmmo, testGun, testHat, testHat2, testChestplate, testLeggings, testBoots, testSword, testPlane, testCar)
+        val testTankHitbox =
+            Hitbox(
+                listOf(
+                    HitboxPart(
+                        offset = Vec(0.0, 0.0, 0.0),
+                        size = Vec(1.6, 1.5, 2.6),
+                        name = "body",
+                    ),
+                ),
+            )
+
+        val testTank =
+            Tank(
+                name = "t34",
+                itemName = Component.text("Test Tank", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+                model = "aechronis:t34",
+                hitbox = testTankHitbox,
+                scale = 3.0,
+                seatOffsets = listOf(Vec(0.0, 1.0, 0.0)),
+            )
+
+        Item.registerItems(
+            testAmmo,
+            testGun,
+            testHat,
+            testHat2,
+            testChestplate,
+            testLeggings,
+            testBoots,
+            testSword,
+            testPlane,
+            testCar,
+            testTank,
+        )
 
         // initialize combat with test config
         Combat.initialize()
