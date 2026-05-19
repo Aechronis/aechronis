@@ -155,16 +155,16 @@ class Tank(
     }
 
     private fun fire(
-        hull: Entity,
+        body: Entity,
         barrelPos: Pos,
         yaw: Float,
         pitch: Float,
     ) {
         val now = System.currentTimeMillis()
-        val last = lastFireTime[hull] ?: 0L
+        val last = lastFireTime[body] ?: 0L
         if (now - last < fireCooldown) return
 
-        val instance = hull.instance ?: return
+        val instance = body.instance ?: return
 
         val tip = rotatePoint(barrelTipOffset, yaw, pitch, 0f)
         val muzzle = barrelPos.add(tip.x, tip.y, tip.z)
@@ -180,7 +180,7 @@ class Tank(
             projectileExplosionFire,
         )
 
-        lastFireTime[hull] = now
+        lastFireTime[body] = now
     }
 
     override fun destroy(entity: Entity) {
