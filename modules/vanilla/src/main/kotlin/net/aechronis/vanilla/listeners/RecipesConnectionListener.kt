@@ -4,7 +4,6 @@ import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Recipes.recipes
 import net.aechronis.vanilla.managers.Recipes.workspaces
 import net.aechronis.vanilla.objects.RecipesWorkspace
-import net.aechronis.vanilla.utils.Notifications
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.utils.inventory.PlayerInventoryUtils

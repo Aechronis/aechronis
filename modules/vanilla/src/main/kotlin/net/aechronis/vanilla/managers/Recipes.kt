@@ -7,13 +7,8 @@ import net.aechronis.vanilla.listeners.RecipesGridListener
 import net.aechronis.vanilla.listeners.RecipesShiftClickListener
 import net.aechronis.vanilla.listeners.RecipesTableListener
 import net.aechronis.vanilla.objects.Recipe
-import net.aechronis.vanilla.objects.RecipesIngredient
-import net.aechronis.vanilla.objects.RecipesShapeless
 import net.aechronis.vanilla.objects.RecipesWorkspace
-import net.aechronis.vanilla.objects.Shaped
 import net.minestom.server.inventory.AbstractInventory
-import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
 
 object Recipes {
     val recipes: MutableList<Recipe> = ArrayList()

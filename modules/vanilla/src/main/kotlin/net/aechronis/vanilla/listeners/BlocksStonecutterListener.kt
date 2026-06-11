@@ -10,7 +10,10 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.network.packet.client.play.ClientClickWindowButtonPacket
 
 object BlocksStonecutterListener {
-    private fun onButton(packet: ClientClickWindowButtonPacket, player: Player) {
+    private fun onButton(
+        packet: ClientClickWindowButtonPacket,
+        player: Player,
+    ) {
         val open = player.openInventory as? Inventory ?: return
         if (open !in Blocks.stonecutters) return
 

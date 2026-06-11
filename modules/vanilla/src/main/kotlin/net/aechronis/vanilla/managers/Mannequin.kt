@@ -10,8 +10,7 @@ import net.minestom.server.inventory.InventoryType
 object Mannequin {
     val inventories = mutableMapOf<EntityCreature, Inventory>()
 
-    fun newLootInventory(deadName: String): Inventory =
-        Inventory(InventoryType.CHEST_6_ROW, Component.text("$deadName's body"))
+    fun newLootInventory(deadName: String): Inventory = Inventory(InventoryType.CHEST_6_ROW, Component.text("$deadName's body"))
 
     fun init() {
         MannequinDamageListener.init()

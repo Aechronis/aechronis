@@ -16,6 +16,7 @@ import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.PlayerData
 import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Storage
+import net.aechronis.vanilla.managers.TreeFeller
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Path
@@ -50,7 +51,7 @@ object Vanilla {
         Elevator.init()
         Mannequin.init()
         Blocks.init()
-
+        TreeFeller.init()
         PlayerBreakListener.init()
         // print load time
         val timeEnd = System.currentTimeMillis()

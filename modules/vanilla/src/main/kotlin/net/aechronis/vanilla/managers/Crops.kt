@@ -1,7 +1,6 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.VanillaConfig
 import net.aechronis.vanilla.listeners.CropsBreakListener
 import net.aechronis.vanilla.listeners.CropsPlantListener
 import net.aechronis.vanilla.objects.BlockKey
@@ -9,7 +8,6 @@ import net.aechronis.vanilla.objects.CropType
 import net.aechronis.vanilla.objects.CropsPlantedCrop
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
-import net.minestom.server.instance.block.Block
 import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.timer.TaskSchedule
 import java.util.concurrent.ConcurrentHashMap

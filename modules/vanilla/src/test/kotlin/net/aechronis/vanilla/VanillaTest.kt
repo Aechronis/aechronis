@@ -1,5 +1,6 @@
 package net.aechronis.vanilla
 
+import net.aechronis.vanilla.utils.Notifications
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.minestom.server.Auth
@@ -11,11 +12,11 @@ import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
 import net.minestom.server.instance.InstanceContainer
-import net.minestom.server.item.ItemStack
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.TestInstance
+import kotlin.concurrent.thread
 import kotlin.math.floor
 import kotlin.math.min
 import kotlin.test.Test
@@ -53,7 +54,16 @@ class VanillaTest {
         }
 
         eventNode.addListener(PlayerSpawnEvent::class.java) { event ->
-            event.player.showBossBar(bossBar)
+            val player = event.player
+            player.showBossBar(bossBar)
+
+//            // playtesting only: spam fullInv toast notifications so we can see what it looks like
+//            thread(isDaemon = true, name = "notification-spam-${player.username}") {
+//                while (player.isOnline) {
+//                    player.sendNotification(Notifications.fullInv)
+//                    Thread.sleep(200)
+//                }
+//            }
         }
 
         eventNode.addListener(ServerTickMonitorEvent::class.java) { e ->

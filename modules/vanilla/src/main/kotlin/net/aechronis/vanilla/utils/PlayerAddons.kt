@@ -1,14 +1,8 @@
 package net.aechronis.vanilla.utils
 
-import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.format.NamedTextColor
 import net.luckperms.api.LuckPermsProvider
-import net.minestom.server.advancements.FrameType
-import net.minestom.server.advancements.Notification
-import net.minestom.server.entity.ItemEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
 
 object PlayerAddons {
     fun Player.giveDrops(drops: List<ItemStack>): Boolean {

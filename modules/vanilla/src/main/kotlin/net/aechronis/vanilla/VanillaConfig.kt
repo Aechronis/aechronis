@@ -43,6 +43,9 @@ data class VanillaConfig(
             Material.ACACIA_PLANKS,
             Material.DARK_OAK_PLANKS,
         ),
+    // TreeFeller
+    val treeFellerMaxSize: Int = 120,
+    val treeFellerMaxHeight: Int = 26,
     // Recipes
     val recpies: List<Recipe> =
         listOf(
