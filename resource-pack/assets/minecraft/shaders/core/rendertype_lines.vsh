@@ -45,8 +45,6 @@ void main() {
     sphericalVertexDistance = fog_spherical_distance(Position);
     cylindricalVertexDistance = fog_cylindrical_distance(Position);
     vertexColor = Color;
-
-    // Скрытие обводки блоков
 	
 	int tickGameTime = int(GameTime * 24000);
 	if ((tickGameTime / 1000) % 10 == 1) {

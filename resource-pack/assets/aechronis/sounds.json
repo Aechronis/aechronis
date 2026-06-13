@@ -13,5 +13,10 @@
     "sounds": [
       "aechronis:fighter-gun-fire"
     ]
+  },
+  "drone.buzz": {
+    "sounds": [
+      "aechronis:drone-buzz"
+    ]
   }
 }

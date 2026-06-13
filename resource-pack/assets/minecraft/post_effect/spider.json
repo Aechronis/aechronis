@@ -1,0 +1,111 @@
+{
+    "targets": {
+        "telem": { "width": 1, "height": 1, "persistent": true },
+        "telem_prev": { "width": 1, "height": 1, "persistent": true },
+        "composite": { "width": 910, "height": 525 },
+        "lineinfo": { "width": 1, "height": 525 },
+        "comb": { "width": 910, "height": 525 },
+        "decoded": { "width": 754, "height": 525 }
+    },
+    "passes": [
+        {
+            "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "aechronis:post/ntsc_telemetry",
+            "inputs": [
+                {
+                    "sampler_name": "TelemPrev",
+                    "target": "telem_prev"
+                }
+            ],
+            "output": "telem"
+        },
+        {
+            "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "minecraft:post/blit",
+            "inputs": [
+                {
+                    "sampler_name": "In",
+                    "target": "telem"
+                }
+            ],
+            "output": "telem_prev",
+            "uniforms": {
+                "BlitConfig": [
+                    {
+                        "name": "ColorModulate",
+                        "type": "vec4",
+                        "value": [ 1.0, 1.0, 1.0, 1.0 ]
+                    }
+                ]
+            }
+        },
+        {
+            "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "aechronis:post/ntsc_encode",
+            "inputs": [
+                {
+                    "sampler_name": "In",
+                    "target": "minecraft:main",
+                    "bilinear": true
+                },
+                {
+                    "sampler_name": "Telem",
+                    "target": "telem"
+                }
+            ],
+            "output": "composite"
+        },
+        {
+            "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "aechronis:post/ntsc_sync",
+            "inputs": [
+                {
+                    "sampler_name": "Composite",
+                    "target": "composite"
+                }
+            ],
+            "output": "lineinfo"
+        },
+        {
+            "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "aechronis:post/ntsc_comb",
+            "inputs": [
+                {
+                    "sampler_name": "Composite",
+                    "target": "composite"
+                }
+            ],
+            "output": "comb"
+        },
+        {
+            "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "aechronis:post/ntsc_decode",
+            "inputs": [
+                {
+                    "sampler_name": "Comb",
+                    "target": "comb"
+                },
+                {
+                    "sampler_name": "LineInfo",
+                    "target": "lineinfo"
+                }
+            ],
+            "output": "decoded"
+        },
+        {
+            "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "aechronis:post/ntsc_display",
+            "inputs": [
+                {
+                    "sampler_name": "Decoded",
+                    "target": "decoded"
+                },
+                {
+                    "sampler_name": "LineInfo",
+                    "target": "lineinfo"
+                }
+            ],
+            "output": "minecraft:main"
+        }
+    ]
+}
