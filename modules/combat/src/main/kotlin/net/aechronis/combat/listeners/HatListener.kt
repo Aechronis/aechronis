@@ -2,6 +2,8 @@ package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
+import net.aechronis.combat.objects.Hat
+import net.aechronis.combat.objects.Item
 import net.aechronis.combat.storage.HatCollection
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.GameMode
@@ -56,7 +58,7 @@ object HatListener {
 
     // prevent moving hats
     private fun onInventoryClick(event: InventoryPreClickEvent) {
-        if (event.clickedItem.getTag(Tags.name) != null) {
+        if ((Item.getFromItemStack(event.clickedItem) as? Hat) != null) {
             event.isCancelled = true
         }
     }
