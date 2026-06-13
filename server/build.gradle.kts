@@ -39,7 +39,7 @@ dependencies {
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")
     implementation("com.zaxxer:HikariCP:7.0.2")
     implementation("org.slf4j:slf4j-simple:2.0.17")
-    implementation("fr.ghostrider584:axiom-minestom:0.0.4")
+    implementation("fr.ghostrider584:axiom-minestom:0.0.3")
     implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
     implementation("io.github.4drian3d:signedvelocity-minestom:1.4.1")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.9.1-SNAPSHOT")
