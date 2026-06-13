@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.serdes
 
+import net.aechronis.vanilla.managers.Shop
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
 import net.minestom.server.coordinate.Pos
@@ -16,6 +17,8 @@ object PlayerDataDeserializer {
         player.food = data.getInt("Food", 20)
 
         player.foodSaturation = data.getFloat("FoodSaturation", 20f)
+
+        player.setTag(Shop.POINTS_TAG, data.getInt("Points", 0))
 
         val position = data.getCompound("Position")
         deserializePosition(player, position)

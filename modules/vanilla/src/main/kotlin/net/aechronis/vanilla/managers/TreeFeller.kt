@@ -2,13 +2,9 @@ package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.TreeFellerBreakListener
-import net.aechronis.vanilla.utils.PlayerAddons.giveDrops
 import net.minestom.server.coordinate.Point
-import net.minestom.server.entity.GameMode
-import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
-import net.minestom.server.item.ItemStack
 
 // https://github.com/IDev-mc/TreeFeller
 object TreeFeller {

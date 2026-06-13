@@ -1,7 +1,6 @@
 package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.managers.TreeFeller
 import net.aechronis.vanilla.managers.TreeFeller.getTree
 import net.aechronis.vanilla.managers.TreeFeller.isLog
 import net.aechronis.vanilla.managers.TreeFeller.isTree

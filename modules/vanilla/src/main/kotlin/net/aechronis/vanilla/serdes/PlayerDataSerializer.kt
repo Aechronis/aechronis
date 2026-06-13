@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.serdes
 
+import net.aechronis.vanilla.managers.Shop
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
@@ -14,6 +15,7 @@ object PlayerDataSerializer {
             .putFloat("Health", player.getHealth())
             .putInt("Food", player.food)
             .putFloat("FoodSaturation", player.foodSaturation)
+            .putInt("Points", player.getTag(Shop.POINTS_TAG) ?: 0)
             .put("Position", serializePosition(player.position))
             .put("Inventory", serializeInventory(player.inventory))
             .build()

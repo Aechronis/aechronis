@@ -7,14 +7,18 @@ import net.aechronis.vanilla.commands.GiveCommand
 import net.aechronis.vanilla.commands.KillCommand
 import net.aechronis.vanilla.commands.MessageCommand
 import net.aechronis.vanilla.commands.ReplyCommand
+import net.aechronis.vanilla.commands.ShopCommand
 import net.aechronis.vanilla.commands.TeleportCommand
+import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.managers.Blocks
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Elevator
+import net.aechronis.vanilla.managers.Food
 import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.PlayerData
 import net.aechronis.vanilla.managers.Recipes
+import net.aechronis.vanilla.managers.Shop
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.TreeFeller
 import net.minestom.server.MinecraftServer
@@ -42,6 +46,7 @@ object Vanilla {
             FlyCommand(),
             KillCommand(),
             ConvertCommand(),
+            ShopCommand(),
         )
 
         PlayerData.init(Path.of(config!!.path, config!!.playerDataPath))
@@ -52,7 +57,10 @@ object Vanilla {
         Mannequin.init()
         Blocks.init()
         TreeFeller.init()
+        Food.init()
+        Shop.init()
         PlayerBreakListener.init()
+        FallDamageListener.init()
         // print load time
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart

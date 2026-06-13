@@ -1,6 +1,5 @@
 package net.aechronis.vanilla
 
-import net.aechronis.vanilla.utils.Notifications
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.minestom.server.Auth
@@ -16,7 +15,6 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.TestInstance
-import kotlin.concurrent.thread
 import kotlin.math.floor
 import kotlin.math.min
 import kotlin.test.Test
