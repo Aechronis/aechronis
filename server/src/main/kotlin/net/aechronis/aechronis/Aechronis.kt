@@ -11,9 +11,11 @@ import me.lucko.spark.minestom.SparkMinestom
 import net.aechronis.aechronis.constants.Ammo
 import net.aechronis.aechronis.constants.Armor
 import net.aechronis.aechronis.constants.Cars
+import net.aechronis.aechronis.constants.Drones
 import net.aechronis.aechronis.constants.Guns
 import net.aechronis.aechronis.constants.Hats
 import net.aechronis.aechronis.constants.Planes
+import net.aechronis.aechronis.constants.Tanks
 import net.aechronis.aechronis.listeners.PlayerJoinListener
 import net.aechronis.aechronis.tasks.TabManager
 import net.aechronis.combat.Combat
@@ -22,6 +24,7 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.NodesConfig
 import net.aechronis.vanilla.Vanilla
 import net.luckperms.api.LuckPermsProvider
+import net.luckperms.api.node.Node
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
@@ -34,7 +37,6 @@ import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.BlockPickup
 import org.everbuild.blocksandstuff.blocks.BlockPlacementRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.PlacedHandlerRegistration
-import org.everbuild.blocksandstuff.fluids.MinestomFluids
 import java.nio.file.Path
 
 object Aechronis {
@@ -46,6 +48,8 @@ object Aechronis {
 fun main(args: Array<String>) {
     val port = args.getOrNull(0)?.toInt() ?: 25565
     val velocitySecret = args.getOrNull(1)
+
+    val allPermsForTesting = System.getProperty("aechronis.allperms")?.toBoolean() == true
 
     val server =
         if (velocitySecret == null) {
@@ -98,6 +102,12 @@ fun main(args: Array<String>) {
     // cars
     Item.registerItems(Cars.truck)
 
+    // tanks
+    Item.registerItems(Tanks.m1a1Abrams)
+
+    // drones
+    Item.registerItems(Drones.scoutDrone, Drones.kamikazeDrone)
+
     // initialize luckperms
     LuckPermsMinestom
         .builder(Path.of("luckperms"))
@@ -105,6 +115,14 @@ fun main(args: Array<String>) {
         .configurationAdapter { plugin ->
             EnvironmentVariableConfigAdapter(plugin)
         }.enable()
+
+    if (allPermsForTesting) {
+        LuckPermsProvider.get().groupManager.loadGroup("default").thenAccept { group ->
+            group.ifPresent {
+                it.transientData().add(Node.builder("*").value(true).build())
+            }
+        }
+    }
 
     // initialize spark
     SparkMinestom
