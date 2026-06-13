@@ -8,6 +8,8 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.particle.Particle
+import kotlin.math.max
+import kotlin.math.min
 
 data class HitboxPart(
     val offset: Vec,
@@ -29,6 +31,46 @@ class Hitbox(
             }
         }
         return -lowestY
+    }
+
+    // local-space centre of the combined bounding box of all parts
+    fun getCenterOffset(): Vec {
+        if (parts.isEmpty()) return Vec.ZERO
+
+        var minX = Double.MAX_VALUE
+        var minY = Double.MAX_VALUE
+        var minZ = Double.MAX_VALUE
+        var maxX = -Double.MAX_VALUE
+        var maxY = -Double.MAX_VALUE
+        var maxZ = -Double.MAX_VALUE
+
+        for (part in parts) {
+            minX = min(minX, part.offset.x - part.size.x)
+            maxX = max(maxX, part.offset.x + part.size.x)
+            minY = min(minY, part.offset.y - part.size.y)
+            maxY = max(maxY, part.offset.y + part.size.y)
+            minZ = min(minZ, part.offset.z - part.size.z)
+            maxZ = max(maxZ, part.offset.z + part.size.z)
+        }
+
+        return Vec((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2)
+    }
+
+    // worldspace centre of the hitbox for a given orientation
+    fun getWorldCenter(
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): Pos {
+        val center = rotatePoint(getCenterOffset(), yaw, pitch, roll)
+        return Pos(
+            position.x + center.x,
+            position.y + center.y,
+            position.z + center.z,
+            position.yaw,
+            position.pitch,
+        )
     }
 
     companion object {

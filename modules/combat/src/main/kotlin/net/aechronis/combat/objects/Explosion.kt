@@ -1,6 +1,12 @@
 package net.aechronis.combat.objects
 
+import net.aechronis.combat.Combat
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.EntityType
+import net.minestom.server.entity.LivingEntity
+import net.minestom.server.entity.Player
+import net.minestom.server.entity.damage.Damage
+import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.network.packet.server.play.ParticlePacket
@@ -13,8 +19,12 @@ class Explosion(
     val pos: Pos,
     val radius: Int,
     val fire: Double,
+    val damage: Float = 0f,
+    val source: Player? = null,
 ) {
     init {
+        if (damage > 0f) applyDamage()
+
         CompletableFuture.runAsync {
             val radiusSquared = radius * radius
             val positions = mutableListOf<Pos>()
@@ -67,6 +77,31 @@ class Explosion(
                         instance.setBlock(p, Block.FIRE)
                     }
                 }
+            }
+        }
+    }
+
+    private fun applyDamage() {
+        val type = if (source != null) DamageType.PLAYER_EXPLOSION else DamageType.EXPLOSION
+        val blast = Damage(type, source, source, pos, damage)
+
+        for ((entity, vehicle) in Vehicle.entityVehicle.toList()) {
+            if (entity.position.distance(pos) <= radius) {
+                vehicle.takeDamage(entity, damage, source)
+            }
+        }
+
+        for (player in instance.players.toList()) {
+            if (player.position.distance(pos) <= radius) {
+                if (source != null && player != source) Combat.playerKillers[player] = source
+                player.damage(blast)
+            }
+        }
+
+        for (entity in instance.entities.toList()) {
+            if (entity.entityType != EntityType.MANNEQUIN || entity !is LivingEntity) continue
+            if (entity.position.distance(pos) <= radius) {
+                entity.damage(blast)
             }
         }
     }

@@ -2,8 +2,6 @@ package net.aechronis.combat.storage
 
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
-import net.minestom.server.entity.Player
-import net.minestom.server.item.ItemStack
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID

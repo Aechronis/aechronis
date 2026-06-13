@@ -3,6 +3,7 @@ package net.aechronis.combat
 import net.aechronis.combat.objects.Ammo
 import net.aechronis.combat.objects.ArmorPiece
 import net.aechronis.combat.objects.Car
+import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Hitbox
@@ -226,12 +227,34 @@ class CombatTest {
 
         val testTank =
             Tank(
-                name = "t34",
+                name = "m1a1-abrams",
                 itemName = Component.text("Test Tank", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-                model = "aechronis:t34",
+                model = "aechronis:m1a1-abrams",
                 hitbox = testTankHitbox,
                 scale = 3.0,
                 seatOffsets = listOf(Vec(0.0, 1.0, 0.0)),
+            )
+
+        val testDroneHitbox =
+            Hitbox(
+                listOf(
+                    HitboxPart(
+                        offset = Vec(0.0, -0.5, 0.0),
+                        size = Vec(1.0, 0.5, 1.0),
+                        name = "drone",
+                    ),
+                ),
+            )
+
+        val testDrone =
+            Drone(
+                name = "drone",
+                itemName = Component.text("drone"),
+                scale = 1.5,
+                hitbox = testDroneHitbox,
+                projectileModel = "aechronis:rpg-rocket",
+                projectileScale = 0.5,
+                projectileMountOffset = Vec(0.0, -0.5, 0.0),
             )
 
         Item.registerItems(
@@ -246,6 +269,7 @@ class CombatTest {
             testPlane,
             testCar,
             testTank,
+            testDrone,
         )
 
         // initialize combat with test config

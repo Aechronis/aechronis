@@ -2,6 +2,7 @@ package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Car
+import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.storage.HatCollection
 import net.minestom.server.event.player.PlayerDisconnectEvent
@@ -33,6 +34,13 @@ object PlayerDisconnectListener {
         Vehicle.passengerVehicle.remove(player)
         Vehicle.passengerVehicleEntity.remove(player)
         Vehicle.passengerSeatEntity.remove(player)?.remove()
+
+        // clean up the drone operator clone if the pilot vanished mid-flight
+        Drone.playerOperatorMannequin.remove(player)?.let { mannequin ->
+            Drone.mannequinPilot.remove(mannequin)
+            mannequin.remove()
+        }
+        Drone.playerOriginalBoundingBox.remove(player)
 
         // clean up hat menu entities
         HatListener.playerCamera.remove(player.uuid)?.remove()

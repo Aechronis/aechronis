@@ -5,6 +5,7 @@ import net.aechronis.combat.commands.HatsCommand
 import net.aechronis.combat.listeners.AimingListener
 import net.aechronis.combat.listeners.ArmorProtectionListener
 import net.aechronis.combat.listeners.CooldownResetListener
+import net.aechronis.combat.listeners.DroneListener
 import net.aechronis.combat.listeners.FireListener
 import net.aechronis.combat.listeners.HatListener
 import net.aechronis.combat.listeners.KeyPressListener
@@ -75,6 +76,7 @@ object Combat {
         ArmorProtectionListener.init()
         MannequinDamageListener.init()
         VehicleListener.init()
+        DroneListener.init()
         KeyPressListener.init()
         HatListener.init()
 
