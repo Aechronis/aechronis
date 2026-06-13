@@ -147,9 +147,6 @@ fun main(args: Array<String>) {
     BlockBehaviorRuleRegistrations.registerDefault()
     PlacedHandlerRegistration.registerDefault()
     BlockPickup.enable()
-    MinestomFluids.enableFluids()
-    MinestomFluids.enableVanillaFluids()
-    MinestomFluids.enableAutoIngestion()
 
     Combat.initialize()
 
