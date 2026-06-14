@@ -182,6 +182,8 @@ fun main(args: Array<String>) {
         VanillaConfig(
             shopItems =
                 listOf(
+                    ShopItem(ItemStack.of(Material.COBBLESTONE, 64), cooldownTicks = 1200L, cost = 0),
+                    ShopItem(ItemStack.of(Material.OAK_FENCE, 64), cooldownTicks = 1200L, cost = 0),
                     ShopItem(ItemStack.of(Material.COOKED_BEEF, 64), cooldownTicks = 1200L, cost = 0),
                     ShopItem(Armor.russianDesertJacket.toItemStack(), cooldownTicks = 1200L, cost = 0),
                     ShopItem(Armor.russianDesertTrousers.toItemStack(), cooldownTicks = 1200L, cost = 0),
