@@ -11,21 +11,28 @@ import net.minestom.server.event.player.PlayerSpawnEvent
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Map
+import java.util.concurrent.ConcurrentHashMap
 
 // loosely based on https://github.com/Quiet-Terminal-Interactive/Cattlelog
 object PlayerData {
+    private val tracked: MutableSet<Player> = ConcurrentHashMap.newKeySet<Player>()
+    private lateinit var dataPath: Path
+
     fun init(path: Path) {
         val timeStart = System.currentTimeMillis()
         Files.createDirectories(path)
+        dataPath = path
 
         val node = EventNode.all("vanilla-playerdata")
 
         node.addListener(PlayerSpawnEvent::class.java) { event ->
-            if (!event!!.isFirstSpawn) return@addListener
+            tracked.add(event.player)
+            if (!event.isFirstSpawn) return@addListener
             loadPlayer(event.player, path)
         }
 
         node.addListener(PlayerDisconnectEvent::class.java) { event ->
+            tracked.remove(event.player)
             savePlayer(event.player, path)
         }
 
@@ -33,6 +40,17 @@ object PlayerData {
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
         println("Playerdata enabled in ${timeLoad}ms")
+    }
+
+    fun saveAll() {
+        if (!::dataPath.isInitialized) return
+        for (player in tracked) {
+            try {
+                savePlayer(player, dataPath)
+            } catch (e: Exception) {
+                System.err.println("Failed to save player data for ${player.uuid}: ${e.message}")
+            }
+        }
     }
 
     fun loadPlayer(

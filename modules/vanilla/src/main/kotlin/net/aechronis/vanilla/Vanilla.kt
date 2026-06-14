@@ -63,6 +63,16 @@ object Vanilla {
         Items.init()
         PlayerBreakListener.init()
         FallDamageListener.init()
+
+        Runtime.getRuntime().addShutdownHook(
+            Thread({
+                println("Vanilla: saving data before shutdown...")
+                PlayerData.saveAll()
+                Storage.saveAll()
+                println("Vanilla: data saved.")
+            }, "vanilla-shutdown-save"),
+        )
+
         // print load time
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart

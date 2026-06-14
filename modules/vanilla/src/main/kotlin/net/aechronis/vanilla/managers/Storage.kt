@@ -88,6 +88,16 @@ object Storage {
         }
     }
 
+    fun saveAll() {
+        for (key in barrels.keys) {
+            try {
+                save(key)
+            } catch (e: Exception) {
+                System.err.println("Failed to save storage at $key: ${e.message}")
+            }
+        }
+    }
+
     fun remove(key: BlockKey) {
         val contents = barrels.remove(key)
         if (contents != null) {
