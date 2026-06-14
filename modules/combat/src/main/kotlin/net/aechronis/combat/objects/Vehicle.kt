@@ -86,6 +86,10 @@ open class Vehicle(
                     if (time <= 0) {
                         spawn(player, pos)
 
+                        val held = player.itemInMainHand
+                        player.itemInMainHand =
+                            if (held.amount() <= 1) ItemStack.AIR else held.withAmount(held.amount() - 1)
+
                         Combat.placeTasks[player]!!.cancel()
                         Combat.placeTasks.remove(player)
                     } else {
