@@ -31,7 +31,7 @@ object PlayerAddons {
                 ?.permissionData
                 ?.checkPermission(permission)
                 ?.asBoolean()
-                ?: true
+                ?: false
         } catch (_: Exception) {
             false
         }
