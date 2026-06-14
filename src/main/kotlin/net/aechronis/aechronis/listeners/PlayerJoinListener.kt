@@ -33,7 +33,7 @@ object PlayerJoinListener {
             ResourcePackInfo
                 .resourcePackInfo()
                 .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/0fa8d87/0fa8d87.zip"))
-                .hash("3fb38db2af2ed8fb1ea27275019ef4bf3f55d6be")
+                .hash("673f9b5aec856a40ce5f0e30957cd0086c6ea83d")
                 .build()
 
         player.sendResourcePacks(
