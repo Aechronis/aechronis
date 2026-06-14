@@ -15,6 +15,7 @@ import net.aechronis.vanilla.managers.Blocks
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.Food
+import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.PlayerData
 import net.aechronis.vanilla.managers.Recipes
@@ -59,6 +60,7 @@ object Vanilla {
         TreeFeller.init()
         Food.init()
         Shop.init()
+        Items.init()
         PlayerBreakListener.init()
         FallDamageListener.init()
         // print load time

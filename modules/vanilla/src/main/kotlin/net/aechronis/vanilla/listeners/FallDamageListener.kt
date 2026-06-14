@@ -22,6 +22,11 @@ object FallDamageListener {
             return
         }
 
+        if (player.vehicle != null) {
+            fallStartY.remove(player.uuid)
+            return
+        }
+
         val newY = event.newPosition.y
 
         if (!event.isOnGround) {

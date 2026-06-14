@@ -21,6 +21,12 @@ data class VanillaConfig(
     val potatoMsPerStage: Long = 72_000L,
     // Mannequins
     val mannequinDespawnTime: Int = 60,
+    // Items (drop & pickup)
+    val dropPickupDelayMs: Long = 2_000L,
+    val dropDespawnSeconds: Long = 300L,
+    val dropThrowVelocity: Double = 6.0,
+    val dropThrowUpwardVelocity: Double = 2.0,
+    val dropSpawnHeight: Double = 1.3,
     // Elevator
     val elevatorMaxSearch: Int = 120,
     // Blocks
