@@ -31,6 +31,7 @@ import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
+import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.item.ItemStack
@@ -53,7 +54,14 @@ fun main(args: Array<String>) {
     val port = args.getOrNull(0)?.toInt() ?: 25565
     val velocitySecret = args.getOrNull(1)
 
-    val allPermsForTesting = System.getProperty("aechronis.allperms")?.toBoolean() == true
+    val allPermsPlayers =
+        System
+            .getProperty("aechronis.allperms")
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?.toSet()
+            ?: emptySet()
 
     val server =
         if (velocitySecret == null) {
@@ -119,10 +127,13 @@ fun main(args: Array<String>) {
             EnvironmentVariableConfigAdapter(plugin)
         }.enable()
 
-    if (allPermsForTesting) {
-        LuckPermsProvider.get().groupManager.loadGroup("default").thenAccept { group ->
-            group.ifPresent {
-                it.transientData().add(Node.builder("*").value(true).build())
+    if (allPermsPlayers.isNotEmpty()) {
+        Aechronis.eventNode.addListener(PlayerSpawnEvent::class.java) { event ->
+            val player = event.player
+            if (allPermsPlayers.any { it.equals(player.username, ignoreCase = true) }) {
+                LuckPermsProvider.get().userManager.getUser(player.uuid)?.let { user ->
+                    user.transientData().add(Node.builder("*").value(true).build())
+                }
             }
         }
     }
