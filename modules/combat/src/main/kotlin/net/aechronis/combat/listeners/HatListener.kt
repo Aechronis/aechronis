@@ -65,7 +65,7 @@ object HatListener {
 
     // prevent dropping hats
     private fun onItemDrop(event: ItemDropEvent) {
-        if (event.itemStack.getTag(Tags.name) != null) {
+        if ((Item.getFromItemStack(event.clickedItem) as? Hat) != null) {
             event.isCancelled = true
         }
     }
