@@ -32,14 +32,14 @@ object PlayerJoinListener {
         val aechronis =
             ResourcePackInfo
                 .resourcePackInfo()
-                .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/f39d692/f39d692.zip"))
-                .hash("c9fbbc287959e3e966c23c4c8ec527762c9598e3")
+                .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/c6fedf9/c6fedf9.zip"))
+                .hash("3fb38db2af2ed8fb1ea27275019ef4bf3f55d6be")
                 .build()
 
         player.sendResourcePacks(
             ResourcePackRequest
                 .resourcePackRequest()
-                .packs(ashen, aechronis)
+                .packs(ashen)
                 .prompt(Component.text("A resource pack is required to play"))
                 .required(true)
                 .build(),

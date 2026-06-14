@@ -33,8 +33,8 @@ repositories {
 dependencies {
     implementation("net.minestom:minestom:2026.04.13-1.21.11")
     implementation("net.aechronis:nodes:4d702e2")
-    implementation("net.aechronis:combat:dc36416")
-    implementation("net.aechronis:vanilla:324224d")
+    implementation("net.aechronis:combat:35f4a4e")
+    implementation("net.aechronis:vanilla:78d8f47")
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")
     implementation("com.h2database:h2:2.2.220")

@@ -12,29 +12,29 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.particle.Particle
 
 object Planes {
-    val fighterHitbox =
+    val f16Hitbox =
         Hitbox(
             listOf(
                 HitboxPart(
-                    offset = Vec(0.0, 0.0, -2.0),
-                    size = Vec(1.0, 1.0, 8.0),
+                    offset = Vec(0.0, 0.2, -2.0),
+                    size = Vec(1.0, 1.0, 6.0),
                     name = "body",
                 ),
                 HitboxPart(
-                    offset = Vec(0.0, -0.5, 0.0),
-                    size = Vec(8.0, 0.5, 2.0),
+                    offset = Vec(0.0, 0.5, -3.0),
+                    size = Vec(5.0, 0.5, 2.0),
                     name = "wing",
                 ),
             ),
         )
 
-    val fighterGun =
+    val f16Gun =
         Gun(
-            name = "fighter-gun",
+            name = "f16-gun",
             itemName = Component.empty(),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 30,
-            damage = 10F,
+            damage = 15F,
             sniper = false,
             automatic = true,
             cooldown = 200,
@@ -46,20 +46,20 @@ object Planes {
             bulletTrailParticle = Particle.ELECTRIC_SPARK,
         )
 
-    val fighterWeapon =
+    val f16Weapon =
         PlaneWeapon(
-            gun = fighterGun,
-            firePoints = listOf(Vec(4.0, -.5, 6.0), Vec(-4.0, -.5, 6.0)),
+            gun = f16Gun,
+            firePoints = listOf(Vec(1.75, 0.0, 2.0), Vec(-1.75, 0.0, 2.0)),
         )
 
-    val fighter =
+    val f16 =
         Plane(
-            name = "fighter",
-            itemName = Component.text("Fighter", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            hitbox = fighterHitbox,
+            name = "f16",
+            itemName = Component.text("F-16", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            hitbox = f16Hitbox,
             health = 800F,
             placeTime = 2000,
-            weapons = listOf(fighterWeapon),
+            weapons = listOf(f16Weapon),
             scale = 7.0,
         )
 }

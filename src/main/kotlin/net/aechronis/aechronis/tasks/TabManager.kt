@@ -33,7 +33,7 @@ object TabManager {
                         .appendNewline()
                         .appendNewline()
                         .appendNewline()
-                        .append(Component.text("Iteration name goes here").color(NamedTextColor.GRAY))
+                        .append(Component.text("The Korean War").color(NamedTextColor.GRAY))
                         .appendNewline()
                         .append(Component.text("                                      ")) // force tab width
 

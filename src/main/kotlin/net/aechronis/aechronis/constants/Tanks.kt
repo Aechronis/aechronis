@@ -28,5 +28,6 @@ object Tanks {
             hitbox = m1a1AbramsHitbox,
             scale = 3.0,
             seatOffsets = listOf(Vec(0.0, 1.0, 0.0)),
+            projectileModel = "aechronis:shell"
         )
 }
