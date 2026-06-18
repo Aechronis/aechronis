@@ -72,14 +72,6 @@ object HatCollection {
         }
     }
 
-    fun get(uuid: UUID): List<Hat> {
-        val collection = playerCollections[uuid] ?: return emptyList()
-        return collection.mapNotNull { name ->
-            val item = Item.getFromName(name)
-            item as? Hat
-        }
-    }
-
     fun equip(
         uuid: UUID,
         hat: Hat?,
