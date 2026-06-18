@@ -24,7 +24,7 @@ class Tank(
     itemLore: List<Component> = emptyList(),
     itemModel: String = "${Tags.NAMESPACE}:$name",
     model: String = "${Tags.NAMESPACE}:$name",
-    val bodyModel: String = "$model-body",
+    bodyModel: String = "$model-body",
     val turretModel: String = "$model-turret",
     val barrelModel: String = "$model-barrel",
     scale: Double,
