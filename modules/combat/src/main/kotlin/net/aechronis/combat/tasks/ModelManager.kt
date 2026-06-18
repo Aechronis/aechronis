@@ -67,10 +67,6 @@ object ModelManager {
 
             if (gun == null) return
 
-            if (Combat.playerFiring[player] == true) {
-                gun.fire(player)
-            }
-
             val item = player.itemInMainHand
 
             // sniper scope

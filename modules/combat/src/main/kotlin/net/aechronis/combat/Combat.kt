@@ -38,7 +38,6 @@ object Combat {
     val playerAiming = HashMap<Player, Boolean>()
     val aimingResetTasks = HashMap<Player, Task>()
 
-    val playerFiring = HashMap<Player, Boolean>()
     val firingResetTasks = HashMap<Player, Task>()
 
     val reloadTasks = HashMap<Player, Task>()

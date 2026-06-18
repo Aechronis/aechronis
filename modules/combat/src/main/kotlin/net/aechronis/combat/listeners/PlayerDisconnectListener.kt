@@ -19,7 +19,6 @@ object PlayerDisconnectListener {
         // remove player from all hashmaps to prevent memory leaks
         Combat.playerAiming.remove(player)
         Combat.aimingResetTasks.remove(player)
-        Combat.playerFiring.remove(player)
         Combat.firingResetTasks.remove(player)
         Combat.reloadTasks.remove(player)
         Combat.playerPreviousPositions.remove(player)
