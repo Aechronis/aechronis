@@ -70,12 +70,6 @@ class Projectile(
         entity.teleport(nextPos.withDirection(velocity))
     }
 
-    fun remove() {
-        activeProjectiles.remove(this)
-        isActive = false
-        entity.remove()
-    }
-
     companion object {
         val activeProjectiles: MutableList<Projectile> = mutableListOf()
     }
