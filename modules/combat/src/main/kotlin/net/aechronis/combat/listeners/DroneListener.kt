@@ -7,7 +7,6 @@ import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 
 object DroneListener {
-
     fun onScroll(event: PlayerChangeHeldSlotEvent) {
         val player = event.player
         if (Vehicle.playerVehicle[player] !is Drone) return
