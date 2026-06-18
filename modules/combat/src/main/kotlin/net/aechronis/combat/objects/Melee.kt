@@ -48,12 +48,8 @@ class Melee(
                 ),
             )
 
-        return ItemStack
-            .of(material)
-            .withItemModel(itemModel)
-            .withCustomName(itemName)
-            .withLore(itemLore)
-            .withTag(Tags.name, name)
+        return super
+            .toItemStack()
             .with(DataComponents.ATTRIBUTE_MODIFIERS, AttributeList(modifiers))
     }
 }

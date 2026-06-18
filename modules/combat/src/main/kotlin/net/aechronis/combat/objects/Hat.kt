@@ -38,12 +38,8 @@ class Hat(
         )
 
     override fun toItemStack(): ItemStack =
-        ItemStack
-            .of(material)
-            .withItemModel(itemModel)
-            .withCustomName(itemName)
-            .withLore(itemLore)
-            .withTag(Tags.name, name)
+        super
+            .toItemStack()
             .with(DataComponents.EQUIPPABLE, equippable)
             .withMaxStackSize(1)
             // we cancel any movement of the item in hatlistener, but this stops it clientside

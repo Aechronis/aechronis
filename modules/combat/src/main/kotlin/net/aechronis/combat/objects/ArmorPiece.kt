@@ -41,12 +41,8 @@ class ArmorPiece(
         )
 
     override fun toItemStack(): ItemStack =
-        ItemStack
-            .of(material)
-            .withItemModel(itemModel)
-            .withCustomName(itemName)
-            .withLore(itemLore)
-            .withTag(Tags.name, name)
+        super
+            .toItemStack()
             .with(DataComponents.EQUIPPABLE, equippable)
 
     companion object {
