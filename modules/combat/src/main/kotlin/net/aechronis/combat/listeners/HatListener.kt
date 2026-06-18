@@ -29,12 +29,12 @@ object HatListener {
 
         if (playerMannequin[player.uuid] != null) {
             if (event.isHoldingLeftKey) {
-                HatCollection.decrementSelectedHat(player.uuid)
+                HatCollection.cycleSelectedHat(player.uuid, false)
                 playerMannequin[player.uuid]?.helmet = HatCollection.getSelectedHat(player.uuid)?.toItemStack()
             }
 
             if (event.isHoldingRightKey) {
-                HatCollection.incrementSelectedHat(player.uuid)
+                HatCollection.cycleSelectedHat(player.uuid, true)
                 playerMannequin[player.uuid]?.helmet = HatCollection.getSelectedHat(player.uuid)?.toItemStack()
             }
 

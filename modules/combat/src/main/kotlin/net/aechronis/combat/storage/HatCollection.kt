@@ -96,28 +96,24 @@ object HatCollection {
         return Item.getFromName(hat) as? Hat
     }
 
-    fun incrementSelectedHat(uuid: UUID) {
+    fun cycleSelectedHat(
+        uuid: UUID,
+        forward: Boolean,
+    ) {
         val collection = playerCollections[uuid] ?: return
         if (collection.isEmpty()) return
 
         val hatsList = collection.toList()
         val currentSelected = playerSelectedHat[uuid]
 
-        val currentIndex = if (currentSelected != null) hatsList.indexOf(currentSelected) else -1
-        val nextIndex = (currentIndex + 1) % hatsList.size
-
-        playerSelectedHat[uuid] = hatsList[nextIndex]
-    }
-
-    fun decrementSelectedHat(uuid: UUID) {
-        val collection = playerCollections[uuid] ?: return
-        if (collection.isEmpty()) return
-
-        val hatsList = collection.toList()
-        val currentSelected = playerSelectedHat[uuid]
-
-        val currentIndex = if (currentSelected != null) hatsList.indexOf(currentSelected) else 0
-        val nextIndex = if (currentIndex <= 0) hatsList.size - 1 else currentIndex - 1
+        val nextIndex =
+            if (forward) {
+                val currentIndex = if (currentSelected != null) hatsList.indexOf(currentSelected) else -1
+                (currentIndex + 1) % hatsList.size
+            } else {
+                val currentIndex = if (currentSelected != null) hatsList.indexOf(currentSelected) else 0
+                if (currentIndex <= 0) hatsList.size - 1 else currentIndex - 1
+            }
 
         playerSelectedHat[uuid] = hatsList[nextIndex]
     }
