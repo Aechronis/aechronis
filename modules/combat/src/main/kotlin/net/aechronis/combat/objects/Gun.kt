@@ -204,7 +204,7 @@ class Gun(
         // create ray with random offsets generated
         val ray = Ray(offsetPos, offsetPos.direction().mul(player.instance.viewDistance() * 16.0))
 
-        val blockHit = ray.findBlocks(player.instance!!).nextClosest()
+        val blockHit = ray.firstBlock(player.instance!!)
         val entityHit = ray.firstEntity(player.instance.entities.filter { it != player })
         val vehicleHit = checkVehicleHit(player.instance, offsetPos, offsetPos.direction(), ray.distance)
 
