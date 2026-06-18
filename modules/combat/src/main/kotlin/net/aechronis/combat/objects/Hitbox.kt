@@ -14,7 +14,6 @@ import kotlin.math.min
 data class HitboxPart(
     val offset: Vec,
     val size: Vec,
-    val name: String = "default",
 )
 
 // collection of hitbox parts that make up a vehicles collision shape

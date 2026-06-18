@@ -167,12 +167,10 @@ class CombatTest {
                     HitboxPart(
                         offset = Vec(0.0, 0.0, -2.0),
                         size = Vec(1.0, 1.0, 8.0),
-                        name = "body",
                     ),
                     HitboxPart(
                         offset = Vec.ZERO,
                         size = Vec(8.0, 1.0, 2.0),
-                        name = "wing",
                     ),
                 ),
             )
@@ -199,7 +197,6 @@ class CombatTest {
                     HitboxPart(
                         offset = Vec(0.4, 0.0, -1.0),
                         size = Vec(1.4, 1.0, 3.0),
-                        name = "body",
                     ),
                 ),
             )
@@ -220,7 +217,6 @@ class CombatTest {
                     HitboxPart(
                         offset = Vec(0.0, 0.0, 0.0),
                         size = Vec(1.6, 1.5, 2.6),
-                        name = "body",
                     ),
                 ),
             )
@@ -241,7 +237,6 @@ class CombatTest {
                     HitboxPart(
                         offset = Vec(0.0, -0.5, 0.0),
                         size = Vec(1.0, 0.5, 1.0),
-                        name = "drone",
                     ),
                 ),
             )
