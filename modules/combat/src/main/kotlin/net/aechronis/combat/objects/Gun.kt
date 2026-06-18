@@ -150,7 +150,7 @@ class Gun(
                     // successful reload
                     if (time <= 0) {
                         setAmmo(player, maxAmmo)
-                        ammo.take(player, 1)
+                        ammo[player] -= 1
 
                         Combat.reloadTasks[player]!!.cancel()
                         Combat.reloadTasks.remove(player)
