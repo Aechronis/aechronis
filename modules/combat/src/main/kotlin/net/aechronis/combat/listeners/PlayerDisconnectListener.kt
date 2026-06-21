@@ -1,15 +1,41 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
-import net.aechronis.combat.objects.Car
-import net.aechronis.combat.objects.Drone
+import net.aechronis.combat.objects.Plane
+import net.aechronis.combat.objects.PlaneState
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.storage.HatCollection
+import net.aechronis.combat.tasks.VehicleTickManager
 import net.minestom.server.event.player.PlayerDisconnectEvent
 
 object PlayerDisconnectListener {
     private fun onPlayerDisconnect(event: PlayerDisconnectEvent) {
         val player = event.player
+
+        // vehicle
+        val vehicle = Vehicle.playerVehicle[player]
+        if (vehicle != null) {
+            if (vehicle is Plane) {
+                val state = Plane.playerState[player]
+                if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
+                    val entity = Vehicle.playerVehicleEntity[player]
+                    if (entity != null) {
+                        vehicle.destroy(entity)
+                    } else {
+                        vehicle.onExit(player)
+                    }
+                } else {
+                    vehicle.onExit(player)
+                }
+            } else {
+                vehicle.onExit(player)
+            }
+        }
+
+        Vehicle.passengerVehicle[player]?.onPassengerExit(player)
+
+        VehicleTickManager.playerLookingAtVehicle.remove(player)
+        VehicleTickManager.playerLookingAtEntity.remove(player)
 
         // cancel any active tasks before removing
         Combat.aimingResetTasks[player]?.cancel()
@@ -23,21 +49,6 @@ object PlayerDisconnectListener {
         Combat.playerSpeeds.remove(player)
         Combat.playerKillers.remove(player)
         Combat.playerLastActionTimes.remove(player)
-
-        // clean up car state
-        Car.playerSpeed.remove(player)
-
-        // clean up vehicle passenger state
-        Vehicle.passengerVehicle.remove(player)
-        Vehicle.passengerVehicleEntity.remove(player)
-        Vehicle.passengerSeatEntity.remove(player)?.remove()
-
-        // clean up the drone operator clone if the pilot vanished mid-flight
-        Drone.playerOperatorMannequin.remove(player)?.let { mannequin ->
-            Drone.mannequinPilot.remove(mannequin)
-            mannequin.remove()
-        }
-        Drone.playerOriginalBoundingBox.remove(player)
 
         // clean up hat menu entities
         HatListener.playerCamera.remove(player.uuid)?.remove()

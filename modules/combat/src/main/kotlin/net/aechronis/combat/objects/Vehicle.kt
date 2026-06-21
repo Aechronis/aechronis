@@ -227,10 +227,10 @@ open class Vehicle(
 
     // called when a passenger exits vehicle
     open fun onPassengerExit(player: Player) {
-        val entity = passengerVehicleEntity[player] ?: return
-        entityPassengers[entity]?.remove(player)
+        passengerVehicleEntity.remove(player)?.let { entity ->
+            entityPassengers[entity]?.remove(player)
+        }
         passengerVehicle.remove(player)
-        passengerVehicleEntity.remove(player)
 
         // destroy seat entity
         val seatEntity = passengerSeatEntity.remove(player)
