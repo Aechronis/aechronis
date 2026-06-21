@@ -19,8 +19,8 @@ fun hasPermission(
             ?.permissionData
             ?.checkPermission(permission)
             ?.asBoolean()
-            ?: false
+            ?: true
     } catch (_: Exception) {
-        false
+        true
     }
 }

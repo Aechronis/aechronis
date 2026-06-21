@@ -179,9 +179,10 @@ class Gun(
         ignoreCooldown: Boolean = false,
         ignoreAmmo: Boolean = false,
     ) {
-        if ((Combat.playerCooldowns[player] ?: 0) < cooldown && !ignoreCooldown) return
+        val now = System.currentTimeMillis()
+        if (now - (Combat.playerLastActionTimes[player] ?: 0L) < cooldown && !ignoreCooldown) return
         if (Combat.reloadTasks[player] != null) return
-        Combat.playerCooldowns[player] = 0
+        Combat.playerLastActionTimes[player] = now
         if (!hasAmmo(player) && !ignoreAmmo) return
 
         // calculate position to fire bullet (ray) from

@@ -17,7 +17,6 @@ import net.aechronis.combat.listeners.ReloadListener
 import net.aechronis.combat.listeners.VehicleListener
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.tasks.ActionBarManager
-import net.aechronis.combat.tasks.CooldownManager
 import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.tasks.PlayerPositionManager
 import net.aechronis.combat.tasks.ProjectileTickManager
@@ -45,7 +44,7 @@ object Combat {
 
     val playerKillers = HashMap<Player, Player?>()
 
-    val playerCooldowns = HashMap<Player, Long>()
+    val playerLastActionTimes = HashMap<Player, Long>()
 
     val placeTasks = HashMap<Player, Task>()
 
@@ -85,7 +84,6 @@ object Combat {
         ModelManager.start()
         PlayerPositionManager.start()
         ActionBarManager.start()
-        CooldownManager.start()
         VehicleTickManager.start()
         ProjectileTickManager.start()
 

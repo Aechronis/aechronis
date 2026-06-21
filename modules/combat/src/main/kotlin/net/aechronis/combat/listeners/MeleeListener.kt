@@ -25,13 +25,13 @@ object MeleeListener {
         val target = event.target as? LivingEntity ?: return
 
         // reset cooldown on any attack to prevent accumulation
-        val cooldownMs = Combat.playerCooldowns[attacker] ?: 0L
-        Combat.playerCooldowns[attacker] = 0
+        val currentTime = System.currentTimeMillis()
+        val cooldownMs = currentTime - (Combat.playerLastActionTimes[attacker] ?: 0L)
+        Combat.playerLastActionTimes[attacker] = currentTime
 
         val melee = Item.getFromItemStack(attacker.itemInMainHand) as? Melee ?: return
 
         // check invincibility frames
-        val currentTime = System.currentTimeMillis()
         val lastDamageTime = Combat.entityLastDamageTime[target] ?: 0L
         if (currentTime - lastDamageTime < 500) {
             // target is invincible
@@ -302,7 +302,7 @@ object MeleeListener {
         val player = event.player
         if (Item.getFromItemStack(player.itemInMainHand) !is Melee) return
         // reset cooldown on swing
-        Combat.playerCooldowns[player] = 0
+        Combat.playerLastActionTimes[player] = System.currentTimeMillis()
     }
 
     fun init() {

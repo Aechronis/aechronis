@@ -22,7 +22,7 @@ object PlayerDisconnectListener {
         Combat.playerPreviousPositions.remove(player)
         Combat.playerSpeeds.remove(player)
         Combat.playerKillers.remove(player)
-        Combat.playerCooldowns.remove(player)
+        Combat.playerLastActionTimes.remove(player)
 
         // clean up car state
         Car.playerSpeed.remove(player)
