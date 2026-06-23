@@ -6,7 +6,7 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 
-class GameModeCommand : Command("gamemode", "vanilla.gamemode") {
+class GameMode : Command("gamemode", "vanilla.gamemode") {
     init {
         setDefaultExecutor { player: Player, _ ->
             Message.print(player, "Usage:")

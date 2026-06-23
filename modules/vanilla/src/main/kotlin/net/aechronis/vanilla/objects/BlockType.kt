@@ -4,4 +4,6 @@ enum class BlockType {
     Stone,
     Wood,
     Grass,
+    Dyes,
+    Plants,
 }

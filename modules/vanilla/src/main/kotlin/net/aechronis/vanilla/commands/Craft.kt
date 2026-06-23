@@ -8,7 +8,7 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import kotlin.collections.set
 
-class WorkBenchCommand : Command("craft", "vanilla.craft") {
+class Craft : Command("craft", "vanilla.craft") {
     init {
         setDefaultExecutor { player, _ ->
             val craftingInv =

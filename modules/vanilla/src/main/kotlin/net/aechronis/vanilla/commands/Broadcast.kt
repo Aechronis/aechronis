@@ -7,7 +7,7 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
 
-class BroadcastCommand : Command("broadcast", "vanilla.broadcast") {
+class Broadcast : Command("broadcast", "vanilla.broadcast") {
     val messageArg = ArgumentType.StringArray("message")
 
     init {

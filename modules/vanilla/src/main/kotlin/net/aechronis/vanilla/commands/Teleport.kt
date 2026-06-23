@@ -5,7 +5,7 @@ import net.aechronis.vanilla.utils.Message
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class TeleportCommand : Command("teleport", "vanilla.teleport", "tp") {
+class Teleport : Command("teleport", "vanilla.teleport", "tp") {
     init {
         setDefaultExecutor { player: Player, _ ->
             Message.print(player, "Usage:")

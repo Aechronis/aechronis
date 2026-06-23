@@ -14,12 +14,15 @@ object Blocks {
             BlockType.Stone to mutableListOf(),
             BlockType.Wood to mutableListOf(),
             BlockType.Grass to mutableListOf(),
+            BlockType.Dyes to mutableListOf(),
+            BlockType.Plants to mutableListOf(),
         )
 
     val stonecutters: MutableSet<Inventory> = mutableSetOf()
     val outputsByInput: MutableMap<Material, MutableList<Material>> = mutableMapOf()
 
     fun init() {
+        val timeStart = System.currentTimeMillis()
         variants[BlockType.Stone]!!.addAll(
             Vanilla.config!!.blocksStoneType,
         )
@@ -45,5 +48,9 @@ object Blocks {
         }
 
         BlocksListener.init()
+
+        val timeEnd = System.currentTimeMillis()
+        val timeLoad = timeEnd - timeStart
+        println("Blocks enabled in ${timeLoad}ms")
     }
 }

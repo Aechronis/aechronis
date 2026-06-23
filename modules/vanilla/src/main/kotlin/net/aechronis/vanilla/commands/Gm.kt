@@ -4,7 +4,7 @@ import net.aechronis.vanilla.utils.Command
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 
-class GmCommand : Command("gmc", "vanilla.gamemode", "gms", "gmsp", "gma") {
+class Gm : Command("gmc", "vanilla.gamemode", "gms", "gmsp", "gma") {
     init {
         setDefaultExecutor { player: Player, context ->
             val gameMode =

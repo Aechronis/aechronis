@@ -14,7 +14,7 @@ import net.minestom.server.tag.Tag
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-object Shop {
+object KillShop {
     val POINTS_TAG: Tag<Int> = Tag.Integer("shop_points")
     val openInventories = ConcurrentHashMap<Inventory, UUID>()
     val playerCooldowns = ConcurrentHashMap<UUID, ConcurrentHashMap<Int, Long>>()

@@ -7,8 +7,9 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import kotlin.collections.List
 
-class ClearCommand : Command("clear", "vanilla.clear") {
+class Clear : Command("clear", "vanilla.clear") {
     private val targetArg = ArgumentType.Word("target")
     private val whitelistArg = ArgumentType.StringArray("whitelist")
 

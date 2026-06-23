@@ -7,7 +7,7 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 
 // TODO replace with stone cutter interact event
-class ConvertCommand : Command("convert", "vanilla.convert") {
+class Convert : Command("convert", "vanilla.convert") {
     init {
         setDefaultExecutor { player, _ ->
             val inv = Inventory(InventoryType.STONE_CUTTER, Component.text("Block Converter"))

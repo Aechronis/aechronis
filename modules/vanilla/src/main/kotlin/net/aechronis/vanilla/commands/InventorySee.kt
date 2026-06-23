@@ -6,7 +6,7 @@ import net.aechronis.vanilla.utils.Message
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class InventorySeeCommand : Command("invsee", "vanilla.invsee", "inventorysee") {
+class InventorySee : Command("invsee", "vanilla.invsee", "inventorysee") {
     private val playerArg = ArgumentType.Entity("player").singleEntity(true).onlyPlayers(true)
 
     init {

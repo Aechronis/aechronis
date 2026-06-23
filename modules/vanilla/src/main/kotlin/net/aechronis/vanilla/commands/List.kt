@@ -4,7 +4,7 @@ import net.aechronis.vanilla.utils.Command
 import net.aechronis.vanilla.utils.Message
 import net.minestom.server.MinecraftServer
 
-class ListCommand : Command("list", "vanilla.list", "list") {
+class List : Command("list", "vanilla.list", "list") {
     init {
         setDefaultExecutor { sender, _ ->
             val onlinePlayers = MinecraftServer.getConnectionManager().onlinePlayers

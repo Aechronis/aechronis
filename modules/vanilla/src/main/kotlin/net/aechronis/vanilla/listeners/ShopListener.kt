@@ -1,7 +1,7 @@
 package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.managers.Shop
+import net.aechronis.vanilla.managers.KillShop
 import net.aechronis.vanilla.utils.Message
 import net.minestom.server.entity.Player
 import net.minestom.server.event.inventory.InventoryCloseEvent
@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 object ShopListener {
     fun onPreClick(event: InventoryPreClickEvent) {
         val inv = event.inventory as? Inventory ?: return
-        if (!Shop.openInventories.containsKey(inv)) return
+        if (!KillShop.openInventories.containsKey(inv)) return
         event.isCancelled = true
 
         val player = event.player
@@ -23,7 +23,7 @@ object ShopListener {
 
         val shopItem = items[slot]
         val now = System.currentTimeMillis()
-        val cooldowns = Shop.playerCooldowns.getOrPut(player.uuid) { ConcurrentHashMap() }
+        val cooldowns = KillShop.playerCooldowns.getOrPut(player.uuid) { ConcurrentHashMap() }
         val lastPurchase = cooldowns[slot]
         val cooldownMs = shopItem.cooldownTicks * 50L
 
@@ -33,7 +33,7 @@ object ShopListener {
             return
         }
 
-        val points = player.getTag(Shop.POINTS_TAG) ?: 0
+        val points = player.getTag(KillShop.POINTS_TAG) ?: 0
         if (points < shopItem.cost) {
             Message.error(player, "You need ${shopItem.cost} points but only have $points")
             return
@@ -44,18 +44,18 @@ object ShopListener {
             return
         }
 
-        player.setTag(Shop.POINTS_TAG, points - shopItem.cost)
+        player.setTag(KillShop.POINTS_TAG, points - shopItem.cost)
         cooldowns[slot] = now
     }
 
     fun onClose(event: InventoryCloseEvent) {
         val inv = event.inventory as? Inventory ?: return
-        Shop.openInventories.remove(inv)
+        KillShop.openInventories.remove(inv)
     }
 
     fun onDeath(event: PlayerDeathEvent) {
         val killer = event.player.lastDamageSource?.attacker as? Player ?: return
-        killer.setTag(Shop.POINTS_TAG, (killer.getTag(Shop.POINTS_TAG) ?: 0) + 1)
+        killer.setTag(KillShop.POINTS_TAG, (killer.getTag(KillShop.POINTS_TAG) ?: 0) + 1)
     }
 
     fun init() {

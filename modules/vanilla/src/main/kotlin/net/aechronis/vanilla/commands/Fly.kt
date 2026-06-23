@@ -5,7 +5,7 @@ import net.aechronis.vanilla.utils.Message
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class FlyCommand : Command("fly", "vanilla.fly") {
+class Fly : Command("fly", "vanilla.fly") {
     init {
         setDefaultExecutor { player: Player, _ ->
             Message.print(player, "Usage:")
