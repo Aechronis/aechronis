@@ -1,7 +1,7 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.TreeFellerBreakListener
+import net.aechronis.vanilla.listeners.TreeFellerListener
 import net.minestom.server.coordinate.Point
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
@@ -98,7 +98,7 @@ object TreeFeller {
 
     fun init() {
         val timeStart = System.currentTimeMillis()
-        TreeFellerBreakListener.init()
+        TreeFellerListener.init()
         val timeEnd = System.currentTimeMillis()
         println("TreeFeller enabled in ${timeEnd - timeStart}ms")
     }

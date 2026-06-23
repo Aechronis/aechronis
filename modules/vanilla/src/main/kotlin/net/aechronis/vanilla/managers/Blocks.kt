@@ -1,7 +1,7 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.BlocksStonecutterListener
+import net.aechronis.vanilla.listeners.BlocksListener
 import net.aechronis.vanilla.objects.BlockType
 import net.aechronis.vanilla.objects.StonecutterConversionRecipe
 import net.minestom.server.MinecraftServer
@@ -44,6 +44,6 @@ object Blocks {
             }
         }
 
-        BlocksStonecutterListener.init()
+        BlocksListener.init()
     }
 }

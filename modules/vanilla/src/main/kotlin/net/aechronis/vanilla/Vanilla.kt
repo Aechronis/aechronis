@@ -1,17 +1,26 @@
 package net.aechronis.vanilla
 
+import net.aechronis.vanilla.commands.BackCommand
+import net.aechronis.vanilla.commands.BroadcastCommand
+import net.aechronis.vanilla.commands.ClearCommand
 import net.aechronis.vanilla.commands.ConvertCommand
 import net.aechronis.vanilla.commands.FlyCommand
 import net.aechronis.vanilla.commands.GameModeCommand
 import net.aechronis.vanilla.commands.GiveCommand
+import net.aechronis.vanilla.commands.GmCommand
+import net.aechronis.vanilla.commands.IgnoreCommand
+import net.aechronis.vanilla.commands.InventorySeeCommand
 import net.aechronis.vanilla.commands.KillCommand
+import net.aechronis.vanilla.commands.ListCommand
 import net.aechronis.vanilla.commands.MessageCommand
 import net.aechronis.vanilla.commands.ReplyCommand
 import net.aechronis.vanilla.commands.ShopCommand
 import net.aechronis.vanilla.commands.TeleportCommand
+import net.aechronis.vanilla.commands.WorkBenchCommand
 import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.managers.Blocks
+import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.Food
@@ -39,6 +48,7 @@ object Vanilla {
 
         // init commands
         MinecraftServer.getCommandManager().register(
+            BackCommand(),
             MessageCommand(),
             ReplyCommand(),
             GameModeCommand(),
@@ -47,7 +57,14 @@ object Vanilla {
             FlyCommand(),
             KillCommand(),
             ConvertCommand(),
+            WorkBenchCommand(),
+            BroadcastCommand(),
+            ClearCommand(),
+            InventorySeeCommand(),
+            IgnoreCommand(),
             ShopCommand(),
+            GmCommand(),
+            ListCommand(),
         )
 
         PlayerData.init(Path.of(config!!.path, config!!.playerDataPath))

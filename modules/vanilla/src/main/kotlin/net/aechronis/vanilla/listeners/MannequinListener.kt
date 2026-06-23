@@ -7,12 +7,27 @@ import net.minestom.server.collision.BoundingBox
 import net.minestom.server.entity.EntityCreature
 import net.minestom.server.entity.EntityPose
 import net.minestom.server.entity.EntityType
+import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.metadata.avatar.MannequinMeta
+import net.minestom.server.event.entity.EntityDamageEvent
 import net.minestom.server.event.player.PlayerDeathEvent
+import net.minestom.server.event.player.PlayerEntityInteractEvent
 import net.minestom.server.network.player.ResolvableProfile
 import net.minestom.server.timer.TaskSchedule
 
-object MannequinPlayerListener {
+object MannequinListener {
+    fun onEntityDamage(event: EntityDamageEvent) {
+        if (event.entity.entityType == EntityType.MANNEQUIN) event.isCancelled = true
+    }
+
+    fun onInteract(event: PlayerEntityInteractEvent) {
+        if (event.hand != PlayerHand.MAIN) return
+        val target = event.target as? EntityCreature ?: return
+        if (target.entityType != EntityType.MANNEQUIN) return
+        val inv = Mannequin.inventories[target] ?: return
+        event.player.openInventory(inv)
+    }
+
     private const val DESPAWN_SECONDS = 60L
 
     fun onDeath(event: PlayerDeathEvent) {
@@ -57,6 +72,8 @@ object MannequinPlayerListener {
     }
 
     fun init() {
-        Vanilla.eventNode.addListener(PlayerDeathEvent::class.java, MannequinPlayerListener::onDeath)
+        Vanilla.eventNode.addListener(PlayerDeathEvent::class.java, MannequinListener::onDeath)
+        Vanilla.eventNode.addListener(EntityDamageEvent::class.java, MannequinListener::onEntityDamage)
+        Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, MannequinListener::onInteract)
     }
 }

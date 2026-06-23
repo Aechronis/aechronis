@@ -1,8 +1,7 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.FoodEatListener
-import net.aechronis.vanilla.listeners.FoodMovementListener
+import net.aechronis.vanilla.listeners.FoodListener
 import net.aechronis.vanilla.objects.FoodItem
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.GameMode
@@ -26,8 +25,7 @@ object Food {
         for (item in config.foodItems) {
             foodItems[item.material] = item
         }
-        FoodEatListener.init()
-        FoodMovementListener.init()
+        FoodListener.init()
         MinecraftServer
             .getSchedulerManager()
             .buildTask(::tick)

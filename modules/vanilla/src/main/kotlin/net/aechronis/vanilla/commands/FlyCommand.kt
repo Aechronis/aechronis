@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.commands
 
+import net.aechronis.vanilla.utils.Command
 import net.aechronis.vanilla.utils.Message
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
@@ -21,7 +22,7 @@ class FlyCommand : Command("fly", "vanilla.fly") {
         })
 
         addSyntax({ sender: Player, context ->
-            sender.flyingSpeed = context[speed] / 20 // default is .05
+            sender.flyingSpeed = context[speed] / 20
             Message.print(sender, "Fly speed set to ${context[speed]}")
         }, speed)
     }

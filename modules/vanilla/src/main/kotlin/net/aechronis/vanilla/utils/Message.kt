@@ -26,7 +26,7 @@ object Message {
             return
         }
 
-        val msg = Component.text(s, NamedTextColor.DARK_GREEN)
+        val msg = Component.text(s, NamedTextColor.LIGHT_PURPLE)
         sender.sendMessage(msg)
     }
 
@@ -39,7 +39,7 @@ object Message {
             return
         }
 
-        sender.sendMessage(component.colorIfAbsent(NamedTextColor.DARK_GREEN))
+        sender.sendMessage(component.colorIfAbsent(NamedTextColor.LIGHT_PURPLE))
     }
 
     /**

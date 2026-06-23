@@ -1,8 +1,7 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.ItemDropListener
-import net.aechronis.vanilla.listeners.ItemPickupListener
+import net.aechronis.vanilla.listeners.ItemListener
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.ItemEntity
@@ -14,8 +13,7 @@ import java.time.Duration
 object Items {
     fun init() {
         val timeStart = System.currentTimeMillis()
-        ItemDropListener.init()
-        ItemPickupListener.init()
+        ItemListener.init()
         val timeEnd = System.currentTimeMillis()
         println("Items enabled in ${timeEnd - timeStart}ms")
     }

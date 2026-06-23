@@ -1,6 +1,7 @@
 package net.aechronis.vanilla.commands
 
 import net.aechronis.vanilla.managers.Shop
+import net.aechronis.vanilla.utils.Command
 import net.aechronis.vanilla.utils.Message
 import net.aechronis.vanilla.utils.PlayerAddons.hasPermission
 import net.minestom.server.command.builder.arguments.ArgumentType

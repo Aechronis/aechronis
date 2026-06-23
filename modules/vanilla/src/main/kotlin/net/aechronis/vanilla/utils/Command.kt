@@ -1,6 +1,5 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.vanilla.utils
 
-import net.aechronis.vanilla.utils.Message
 import net.aechronis.vanilla.utils.PlayerAddons.hasPermission
 import net.minestom.server.command.CommandSender
 import net.minestom.server.command.builder.Command

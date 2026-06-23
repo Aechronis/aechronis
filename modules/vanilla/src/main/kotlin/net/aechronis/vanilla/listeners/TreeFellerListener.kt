@@ -10,7 +10,7 @@ import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.instance.block.Block
 import net.minestom.server.item.ItemStack
 
-object TreeFellerBreakListener {
+object TreeFellerListener {
     fun onBreakLog(event: PlayerBlockBreakEvent) {
         val player = event.player
         if (player.gameMode != GameMode.SURVIVAL) return
@@ -28,6 +28,6 @@ object TreeFellerBreakListener {
     }
 
     fun init() {
-        Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java, TreeFellerBreakListener::onBreakLog)
+        Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java, TreeFellerListener::onBreakLog)
     }
 }

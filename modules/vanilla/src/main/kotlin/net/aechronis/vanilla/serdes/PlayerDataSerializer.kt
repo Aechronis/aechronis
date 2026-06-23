@@ -1,24 +1,36 @@
 package net.aechronis.vanilla.serdes
 
+import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.Shop
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
+import net.kyori.adventure.nbt.StringBinaryTag
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.PlayerInventory
 
 object PlayerDataSerializer {
-    fun serialize(player: Player): CompoundBinaryTag =
-        CompoundBinaryTag
-            .builder()
-            .putFloat("Health", player.getHealth())
-            .putInt("Food", player.food)
-            .putFloat("FoodSaturation", player.foodSaturation)
-            .putInt("Points", player.getTag(Shop.POINTS_TAG) ?: 0)
-            .put("Position", serializePosition(player.position))
-            .put("Inventory", serializeInventory(player.inventory))
-            .build()
+    fun serialize(player: Player): CompoundBinaryTag {
+        val builder =
+            CompoundBinaryTag
+                .builder()
+                .putFloat("Health", player.getHealth())
+                .putInt("Food", player.food)
+                .putFloat("FoodSaturation", player.foodSaturation)
+                .putInt("Points", player.getTag(Shop.POINTS_TAG) ?: 0)
+                .put("Position", serializePosition(player.position))
+                .put("Inventory", serializeInventory(player.inventory))
+
+        val ignored = Commands.getIgnored(player)
+        if (ignored.isNotEmpty()) {
+            val list = ListBinaryTag.builder(BinaryTagTypes.STRING)
+            ignored.forEach { list.add(StringBinaryTag.stringBinaryTag(it.toString())) }
+            builder.put("Ignored", list.build())
+        }
+
+        return builder.build()
+    }
 
     private fun serializePosition(position: Pos): CompoundBinaryTag =
         CompoundBinaryTag

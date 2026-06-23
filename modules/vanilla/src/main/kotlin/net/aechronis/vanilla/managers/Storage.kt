@@ -1,9 +1,6 @@
 package net.aechronis.vanilla.managers
 
-import net.aechronis.vanilla.listeners.StorageBreakListener
-import net.aechronis.vanilla.listeners.StorageCloseListener
-import net.aechronis.vanilla.listeners.StorageOpenListener
-import net.aechronis.vanilla.listeners.StoragePlaceListener
+import net.aechronis.vanilla.listeners.StorageListener
 import net.aechronis.vanilla.objects.BlockKey
 import net.aechronis.vanilla.objects.StorageContents
 import net.aechronis.vanilla.serdes.StorageDeserializer
@@ -33,11 +30,7 @@ object Storage {
         val timeStart = System.currentTimeMillis()
         Files.createDirectories(root)
         this.root = root
-
-        StorageOpenListener.init()
-        StorageBreakListener.init()
-        StoragePlaceListener.init()
-        StorageCloseListener.init()
+        StorageListener.init()
 
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart

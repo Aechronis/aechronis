@@ -1,11 +1,7 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.RecipesCloseListener
-import net.aechronis.vanilla.listeners.RecipesConnectionListener
-import net.aechronis.vanilla.listeners.RecipesGridListener
-import net.aechronis.vanilla.listeners.RecipesShiftClickListener
-import net.aechronis.vanilla.listeners.RecipesTableListener
+import net.aechronis.vanilla.listeners.RecipesListener
 import net.aechronis.vanilla.objects.Recipe
 import net.aechronis.vanilla.objects.RecipesWorkspace
 import net.minestom.server.inventory.AbstractInventory
@@ -17,11 +13,7 @@ object Recipes {
     fun init() {
         // measure load time
         val timeStart = System.currentTimeMillis()
-        RecipesCloseListener.init()
-        RecipesConnectionListener.init()
-        RecipesGridListener.init()
-        RecipesShiftClickListener.init()
-        RecipesTableListener.init()
+        RecipesListener.init()
 
         recipes.addAll(Vanilla.config!!.recpies)
 

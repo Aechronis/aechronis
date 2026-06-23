@@ -3,13 +3,35 @@ package net.aechronis.vanilla.listeners
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Food
 import net.minestom.server.entity.GameMode
+import net.minestom.server.event.item.PlayerFinishItemUseEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
+import net.minestom.server.event.player.PlayerUseItemEvent
+import net.minestom.server.item.ItemStack
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.sqrt
 
-object FoodMovementListener {
+object FoodListener {
+    fun onUseItem(event: PlayerUseItemEvent) {
+        val foodItem = Food.foodItems[event.itemStack.material()] ?: return
+        if (event.player.food >= 20 && !foodItem.canAlwaysEat) event.isCancelled = true
+    }
+
+    fun onEat(event: PlayerFinishItemUseEvent) {
+        val player = event.player
+        val foodItem = Food.foodItems[event.itemStack.material()] ?: return
+        if (player.food >= 20 && !foodItem.canAlwaysEat) return
+        Food.onEat(player, foodItem)
+        val item = player.getItemInHand(event.hand)
+        if (!item.isAir) {
+            player.setItemInHand(
+                event.hand,
+                if (item.amount() > 1) item.withAmount(item.amount() - 1) else ItemStack.AIR,
+            )
+        }
+    }
+
     private val wasOnGround = ConcurrentHashMap<UUID, Boolean>()
 
     fun onMove(event: PlayerMoveEvent) {
@@ -37,7 +59,9 @@ object FoodMovementListener {
     }
 
     fun init() {
-        Vanilla.eventNode.addListener(PlayerMoveEvent::class.java, FoodMovementListener::onMove)
-        Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, FoodMovementListener::onDisconnect)
+        Vanilla.eventNode.addListener(PlayerMoveEvent::class.java, FoodListener::onMove)
+        Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, FoodListener::onDisconnect)
+        Vanilla.eventNode.addListener(PlayerUseItemEvent::class.java, FoodListener::onUseItem)
+        Vanilla.eventNode.addListener(PlayerFinishItemUseEvent::class.java, FoodListener::onEat)
     }
 }

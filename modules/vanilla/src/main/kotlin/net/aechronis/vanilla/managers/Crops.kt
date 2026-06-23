@@ -1,7 +1,6 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.CropsBreakListener
 import net.aechronis.vanilla.listeners.CropsPlantListener
 import net.aechronis.vanilla.objects.BlockKey
 import net.aechronis.vanilla.objects.CropType
@@ -24,7 +23,6 @@ object Crops {
         msPerState[CropType.Potatoes] = Vanilla.config!!.potatoMsPerStage
 
         CropsPlantListener.init()
-        CropsBreakListener.init()
 
         MinecraftServer
             .getSchedulerManager()

@@ -9,7 +9,7 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.item.ItemStack
 import net.minestom.server.network.packet.client.play.ClientClickWindowButtonPacket
 
-object BlocksStonecutterListener {
+object BlocksListener {
     private fun onButton(
         packet: ClientClickWindowButtonPacket,
         player: Player,
@@ -50,6 +50,6 @@ object BlocksStonecutterListener {
         MinecraftServer
             .getPacketListenerManager()
             .setPlayListener(ClientClickWindowButtonPacket::class.java, ::onButton)
-        Vanilla.eventNode.addListener(InventoryCloseEvent::class.java, BlocksStonecutterListener::onClose)
+        Vanilla.eventNode.addListener(InventoryCloseEvent::class.java, BlocksListener::onClose)
     }
 }

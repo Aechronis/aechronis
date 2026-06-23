@@ -1,8 +1,7 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.ShopClickListener
-import net.aechronis.vanilla.listeners.ShopKillListener
+import net.aechronis.vanilla.listeners.ShopListener
 import net.aechronis.vanilla.objects.ShopItem
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -22,8 +21,7 @@ object Shop {
 
     fun init() {
         val timeStart = System.currentTimeMillis()
-        ShopClickListener.init()
-        ShopKillListener.init()
+        ShopListener.init()
         val timeEnd = System.currentTimeMillis()
         println("Shop enabled in ${timeEnd - timeStart}ms")
     }
