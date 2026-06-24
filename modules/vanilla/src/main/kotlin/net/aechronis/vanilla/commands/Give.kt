@@ -3,6 +3,7 @@ package net.aechronis.vanilla.commands
 import net.aechronis.vanilla.utils.Command
 import net.aechronis.vanilla.utils.Message
 import net.minestom.server.command.builder.arguments.ArgumentType
+import net.minestom.server.entity.Player
 
 class Give : Command("give", "vanilla.give") {
     init {
@@ -10,11 +11,11 @@ class Give : Command("give", "vanilla.give") {
         val itemArg = ArgumentType.ItemStack("item")
         val amountArg = ArgumentType.Integer("amount").min(1).max(64 * 36)
 
-        setDefaultExecutor { player, _ ->
+        setDefaultExecutor { player: Player, _ ->
             Message.print(player, "Usage: /give <player> <item> [amount]")
         }
 
-        addSyntax({ sender, context ->
+        addSyntax({ sender: Player, context ->
             val target =
                 context[playerArg].findFirstPlayer(sender) ?: run {
                     Message.error(sender, "Player not found.")
@@ -25,7 +26,7 @@ class Give : Command("give", "vanilla.give") {
             Message.print(sender, "Gave ${item.amount()} ${item.material().name()} to ${target.username}")
         }, playerArg, itemArg)
 
-        addSyntax({ sender, context ->
+        addSyntax({ sender: Player, context ->
             val target =
                 context[playerArg].findFirstPlayer(sender) ?: run {
                     Message.error(sender, "Player not found.")

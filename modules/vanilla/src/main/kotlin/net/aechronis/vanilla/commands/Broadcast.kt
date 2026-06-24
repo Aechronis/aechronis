@@ -6,6 +6,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
+import net.minestom.server.entity.Player
 
 class Broadcast : Command("broadcast", "vanilla.broadcast") {
     val messageArg = ArgumentType.StringArray("message")
@@ -16,7 +17,7 @@ class Broadcast : Command("broadcast", "vanilla.broadcast") {
             Message.print(player, "/broadcast <message>")
         }
 
-        addSyntax({ _, context ->
+        addSyntax({ sender: Player, context ->
             val text = context.get(messageArg).joinToString(" ")
             val component =
                 Component
