@@ -19,6 +19,10 @@ data class VanillaConfig(
     val wheatMsPerStage: Long = 72_000L,
     val carrotMsPerStage: Long = 72_000L,
     val potatoMsPerStage: Long = 72_000L,
+    // Saplings
+    val saplingGrowthMs: Long = 600_000L,
+    val saplingGrowthCheckSeconds: Long = 20L,
+    val saplingBoneMealAmount: Int = 3,
     // Mannequins
     val mannequinDespawnTime: Int = 60,
     // Items (drop & pickup)
@@ -54,6 +58,13 @@ data class VanillaConfig(
     // TreeFeller
     val treeFellerMaxSize: Int = 120,
     val treeFellerMaxHeight: Int = 26,
+    val treeFellerBreakLeaves: Boolean = true,
+    val treeFellerLeafMaxDistance: Int = 6,
+    val treeFellerMaxLeaves: Int = 600,
+    val treeFellerBlocksPerTick: Int = 8,
+    val treeFellerTickInterval: Int = 1,
+    val treeFellerSaplingChance: Double = 0.05,
+    val treeFellerStickChance: Double = 0.02,
     // Food
     val foodItems: List<FoodItem> =
         listOf(

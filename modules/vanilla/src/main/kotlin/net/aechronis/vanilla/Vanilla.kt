@@ -28,6 +28,7 @@ import net.aechronis.vanilla.managers.KillShop
 import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.PlayerData
 import net.aechronis.vanilla.managers.Recipes
+import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.TreeFeller
 import net.minestom.server.MinecraftServer
@@ -70,6 +71,7 @@ object Vanilla {
         Storage.init(Path.of(config!!.path, config!!.storagePath))
         Recipes.init()
         Crops.init()
+        Saplings.init()
         Elevator.init()
         Mannequin.init()
         Blocks.init()
