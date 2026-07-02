@@ -11,12 +11,11 @@ class Database(
     private val pool: HikariDataSource =
         HikariDataSource(
             HikariConfig().apply {
-                jdbcUrl = config.jdbcUrl
-                username = config.username
-                password = config.password
+                jdbcUrl = "jdbc:sqlite:${config.databasePath}"
                 maximumPoolSize = config.poolSize
                 poolName = "logger-pool"
-                driverClassName = "org.mariadb.jdbc.Driver"
+                driverClassName = "org.sqlite.JDBC"
+                connectionInitSql = "PRAGMA busy_timeout = 5000"
             },
         )
 
@@ -25,25 +24,29 @@ class Database(
     val tableName: String get() = config.tableName
 
     fun create() {
+        val table = config.tableName
         val ddl =
             """
-            CREATE TABLE IF NOT EXISTS `${config.tableName}` (
-                id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                ts BIGINT NOT NULL,
-                player_uuid CHAR(36) NOT NULL,
-                player_name VARCHAR(16) NOT NULL,
-                x INT NOT NULL,
-                y INT NOT NULL,
-                z INT NOT NULL,
-                block_old VARCHAR(255) NOT NULL,
-                block_new VARCHAR(255) NOT NULL,
-                action TINYINT NOT NULL,
-                INDEX idx_pos (x, y, z, ts),
-                INDEX idx_player (player_uuid, ts)
+            CREATE TABLE IF NOT EXISTS `$table` (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts INTEGER NOT NULL,
+                player_uuid TEXT NOT NULL,
+                player_name TEXT NOT NULL,
+                x INTEGER NOT NULL,
+                y INTEGER NOT NULL,
+                z INTEGER NOT NULL,
+                block_old TEXT NOT NULL,
+                block_new TEXT NOT NULL,
+                action INTEGER NOT NULL
             )
             """.trimIndent()
         pool.connection.use { conn ->
-            conn.createStatement().use { it.execute(ddl) }
+            conn.createStatement().use { stmt ->
+                stmt.execute("PRAGMA journal_mode=WAL")
+                stmt.execute(ddl)
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_pos ON `$table` (x, y, z, ts)")
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_player ON `$table` (player_uuid, ts)")
+            }
         }
     }
 

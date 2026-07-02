@@ -19,7 +19,7 @@ dependencies {
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
 
     // database
-    implementation("org.mariadb.jdbc:mariadb-java-client:3.5.1")
+    implementation("org.xerial:sqlite-jdbc:3.49.1.0")
     implementation("com.zaxxer:HikariCP:6.2.1")
 
     // testing

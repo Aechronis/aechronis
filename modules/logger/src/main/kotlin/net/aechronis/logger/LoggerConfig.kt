@@ -1,9 +1,8 @@
 package net.aechronis.logger
 
 data class LoggerConfig(
-    val jdbcUrl: String,
-    val username: String,
-    val password: String,
+    val databasePath: String = "logger.db",
     val poolSize: Int = 4,
     val tableName: String = "block_log",
+    val featureTableName: String = "feature_log",
 )

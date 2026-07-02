@@ -34,10 +34,7 @@ class LoggerTest {
         tpsBar(instance)
 
         // init logger
-        val jdbcUrl = "jdbc:mariadb://localhost:3306/logger_test"
-        val jdbcUser = "logger_test"
-        val jdbcPass = "logger_test"
-        Logger.init(LoggerConfig(jdbcUrl = jdbcUrl, username = jdbcUser, password = jdbcPass))
+        Logger.init(LoggerConfig(databasePath = "build/logger_test.db"))
     }
 
     private fun tpsBar(instance: InstanceContainer) {
