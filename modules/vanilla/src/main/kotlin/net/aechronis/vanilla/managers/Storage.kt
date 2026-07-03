@@ -5,14 +5,10 @@ import net.aechronis.vanilla.objects.BlockKey
 import net.aechronis.vanilla.objects.StorageContents
 import net.aechronis.vanilla.serdes.StorageDeserializer
 import net.aechronis.vanilla.serdes.StorageSerializer
-import net.kyori.adventure.nbt.BinaryTag
 import net.kyori.adventure.nbt.BinaryTagIO
-import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.instance.Instance
 import net.minestom.server.inventory.Inventory
-import net.minestom.server.item.ItemStack
-import net.minestom.server.tag.Tag
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Map
@@ -21,8 +17,6 @@ import java.util.concurrent.ConcurrentHashMap
 object Storage {
     val barrels = ConcurrentHashMap<BlockKey, StorageContents>()
     val inventoryToKey = ConcurrentHashMap<Inventory, BlockKey>()
-
-    val CONTENTS_TAG: Tag<BinaryTag> = Tag.NBT("BarrelContents")
 
     private lateinit var root: Path
 
@@ -98,18 +92,6 @@ object Storage {
         }
         val file = fileFor(key)
         Files.deleteIfExists(file)
-    }
-
-    fun buildBarrelItem(contents: StorageContents): ItemStack {
-        val base = ItemStack.of(net.minestom.server.item.Material.BARREL)
-        if (contents.isEmpty()) return base
-        val payload = StorageSerializer.serialize(contents.inventory)
-        return base.withTag(CONTENTS_TAG, payload)
-    }
-
-    fun extractContentsTag(item: ItemStack): CompoundBinaryTag? {
-        val tag = item.getTag(CONTENTS_TAG) as? CompoundBinaryTag ?: return null
-        return tag
     }
 
     private fun fileFor(key: BlockKey): Path {

@@ -31,6 +31,8 @@ data class VanillaConfig(
     val dropThrowVelocity: Double = 6.0,
     val dropThrowUpwardVelocity: Double = 2.0,
     val dropSpawnHeight: Double = 1.3,
+    val dropMagnetRadius: Double = 4.0,
+    val dropMagnetSpeed: Double = 3.0,
     // Elevator
     val elevatorMaxSearch: Int = 120,
     // Blocks

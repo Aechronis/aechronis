@@ -33,8 +33,9 @@ object ItemListener {
             return
         }
 
-        // addItemStack is all-or-nothing, so a full inventory leaves the item on the ground.
-        event.isCancelled = !player.inventory.addItemStack(event.itemStack)
+        val stack = event.itemStack
+        val distributable = stack.withMaxStackSize(stack.material().maxStackSize())
+        event.isCancelled = !player.inventory.addItemStack(distributable)
     }
 
     fun init() {
