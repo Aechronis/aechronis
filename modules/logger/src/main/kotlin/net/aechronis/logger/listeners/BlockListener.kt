@@ -76,12 +76,17 @@ object BlockListener {
 
     private fun onInteract(event: PlayerBlockInteractEvent) {
         val pos = event.blockPosition
+        val blockKey = event.block.key().asString()
+
+        LastInteractionTracker.record(event.player.uuid, pos.blockX(), pos.blockY(), pos.blockZ(), blockKey)
 
         if (playerInspectMode[event.player.uuid] == true) {
             event.isCancelled = true
             show(event.player, pos.blockX(), pos.blockY(), pos.blockZ())
             return
         }
+
+        if (!isLoggedInteraction(blockKey)) return
 
         record(
             BlockLogEntry(
@@ -91,8 +96,8 @@ object BlockListener {
                 x = pos.blockX(),
                 y = pos.blockY(),
                 z = pos.blockZ(),
-                blockOld = event.block.key().asString(),
-                blockNew = event.block.key().asString(),
+                blockOld = blockKey,
+                blockNew = blockKey,
                 action = BlockAction.INTERACT,
                 instanceUuid = event.instance.uuid,
                 blockOldState = event.block.state(),
@@ -100,6 +105,10 @@ object BlockListener {
             ),
         )
     }
+
+    private val loggedInteractSuffixes = listOf("_door", "_trapdoor", "_fence_gate")
+
+    private fun isLoggedInteraction(blockKey: String): Boolean = loggedInteractSuffixes.any { blockKey.endsWith(it) }
 
     private fun record(entry: BlockLogEntry) {
         Logger.repository.insertAsync(entry).exceptionally { exception ->
