@@ -25,6 +25,7 @@ object ParamManager {
         val rawActionTokens = mutableListOf<String>()
         var include: List<String> = emptyList()
         var exclude: List<String> = emptyList()
+        var source: String? = null
 
         for (token in tokens) {
             if (token.isBlank()) continue
@@ -67,7 +68,21 @@ object ParamManager {
                 ParamKey.EXCLUDE -> {
                     exclude = value.split(',').filter { it.isNotBlank() }.map(::normalizeBlock)
                 }
+
+                ParamKey.SOURCE -> {
+                    source = value.trim()
+                }
             }
+        }
+
+        if (source != null) {
+            if (include.isNotEmpty() || exclude.isNotEmpty()) {
+                return ParseResult.Err("i:/e: are not supported with s:<source> lookups")
+            }
+            val featureActions = rawActionTokens.flatMap { it.split(',') }.map { it.trim() }.filter { it.isNotBlank() }
+            return ParseResult.Ok(
+                LookupQuery.Feature(FeatureLookupParams(source, users, since, radius, chunkRadius, featureActions)),
+            )
         }
 
         var actions: MutableSet<BlockAction>? = null

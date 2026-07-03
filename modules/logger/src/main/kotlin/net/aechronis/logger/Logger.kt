@@ -3,14 +3,21 @@ package net.aechronis.logger
 import net.aechronis.logger.commands.LoggerCommand
 import net.aechronis.logger.db.BlockLogRepository
 import net.aechronis.logger.db.Database
+import net.aechronis.logger.db.FeatureLogRepository
 import net.aechronis.logger.db.RollbackRepository
 import net.aechronis.logger.listeners.BlockListener
+import net.aechronis.logger.objects.FeatureLogEntry
+import net.aechronis.logger.params.FeatureSourceRegistry
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
+import java.util.concurrent.CompletableFuture
 
 object Logger {
     lateinit var repository: BlockLogRepository
+    lateinit var featureRepository: FeatureLogRepository
     lateinit var rollbackRepository: RollbackRepository
+
+    private var initialized = false
 
     val eventNode = EventNode.all("logger")
 
@@ -20,9 +27,11 @@ object Logger {
         val database = Database(config)
         database.create()
         database.migrateBlockLog()
+        database.createFeatureLog()
         database.createRollbackTables()
 
         repository = BlockLogRepository(database)
+        featureRepository = FeatureLogRepository(database)
         rollbackRepository = RollbackRepository(database)
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
@@ -30,9 +39,22 @@ object Logger {
 
         MinecraftServer.getCommandManager().register(LoggerCommand())
 
+        initialized = true
+
         // print load time
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
         println("Logger enabled in ${timeLoad}ms")
+    }
+
+    fun log(entry: FeatureLogEntry): CompletableFuture<Void> {
+        check(initialized) { "Logger.log() was called before Logger.init(config)" }
+
+        FeatureSourceRegistry.record(entry.source, entry.action)
+
+        return featureRepository.insertAsync(entry).exceptionally { exception ->
+            println("[Logger] failed to record feature log entry (source=${entry.source}): $exception")
+            null
+        }
     }
 }

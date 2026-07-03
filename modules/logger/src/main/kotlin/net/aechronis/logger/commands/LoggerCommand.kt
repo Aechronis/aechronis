@@ -9,6 +9,7 @@ import net.aechronis.logger.objects.RollbackChangeKind
 import net.aechronis.logger.objects.RollbackOperation
 import net.aechronis.logger.objects.RollbackPlan
 import net.aechronis.logger.objects.RollbackStatus
+import net.aechronis.logger.objects.showFeatureLookup
 import net.aechronis.logger.objects.showLookup
 import net.aechronis.logger.objects.showRollbackPreview
 import net.aechronis.logger.objects.showRollbackResult
@@ -39,7 +40,8 @@ private val redoableOperation = HashMap<UUID, Long>()
 private val rollbackExecutor = Executors.newVirtualThreadPerTaskExecutor()
 
 private const val LOOKUP_USAGE =
-    "Usage: /logger lookup u:<user> t:<time> r:<radius> a:<action> i:<include> e:<exclude>"
+    "Usage: /logger lookup u:<user> t:<time> r:<radius> a:<action> i:<include> e:<exclude>" +
+        "  |  s:<source> u:<user> t:<time> r:<radius> a:<action>"
 
 private const val ROLLBACK_USAGE =
     "Usage: /logger rollback u:<user> t:<time> r:<radius> a:<action>  (t: is required)"
@@ -103,6 +105,19 @@ class LoggerLookupCommand : Command("lookup", "logger", "l") {
                                     showLookup(sender, entries, query.params.human())
                                 }
                         }
+
+                        is LookupQuery.Feature -> {
+                            Logger.featureRepository
+                                .searchAsync(query.params, pos.blockX(), pos.blockY(), pos.blockZ())
+                                .whenComplete { entries, ex ->
+                                    if (ex != null) {
+                                        println("lookup failed: $ex")
+                                        sender.sendMessage(Component.text("[Logger] lookup failed", NamedTextColor.RED))
+                                        return@whenComplete
+                                    }
+                                    showFeatureLookup(sender, entries, query.params.human())
+                                }
+                        }
                     }
                 }
             }
@@ -153,6 +168,10 @@ class LoggerRollbackCommand : Command("rollback", "logger.rollback", "rb", failC
 
                 is ParseResult.Ok -> {
                     when (val query = result.query) {
+                        is LookupQuery.Feature -> {
+                            sender.sendMessage(Component.text("rollback of s:<source> lookups is not supported", NamedTextColor.RED))
+                        }
+
                         is LookupQuery.Block -> {
                             val targetTs = query.params.since
                             if (targetTs == null) {

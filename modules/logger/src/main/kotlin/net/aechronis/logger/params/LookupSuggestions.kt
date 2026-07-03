@@ -46,7 +46,13 @@ object LookupSuggestions {
             }
 
             ParamKey.ACTION -> {
-                addValues(suggestion, keyPart, value, actionValues)
+                val source = sourceTokenIn(input)
+                val candidates = if (source != null) FeatureSourceRegistry.actionsFor(source) else actionValues
+                addValues(suggestion, keyPart, value, candidates)
+            }
+
+            ParamKey.SOURCE -> {
+                addValues(suggestion, keyPart, value, FeatureSourceRegistry.sources())
             }
 
             ParamKey.TIME -> {
@@ -66,6 +72,16 @@ object LookupSuggestions {
             }
         }
     }
+
+    private fun sourceTokenIn(input: String): String? =
+        input
+            .split(' ')
+            .firstNotNullOfOrNull { word ->
+                val colon = word.indexOf(':')
+                if (colon < 0) return@firstNotNullOfOrNull null
+                val key = ParamKey.fromKey(word.substring(0, colon))
+                if (key == ParamKey.SOURCE) word.substring(colon + 1) else null
+            }
 
     private fun addValues(
         suggestion: Suggestion,

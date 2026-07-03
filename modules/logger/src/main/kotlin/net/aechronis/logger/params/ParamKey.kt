@@ -11,6 +11,7 @@ enum class ParamKey(
     ACTION(listOf("a", "actions"), "action(s)"),
     INCLUDE(listOf("i", "include"), "include block(s)"),
     EXCLUDE(listOf("e", "exclude"), "exclude block(s)"),
+    SOURCE(listOf("s", "source"), "feature source (routes lookup to feature log)"),
     ;
 
     companion object {

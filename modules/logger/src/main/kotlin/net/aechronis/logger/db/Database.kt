@@ -23,6 +23,8 @@ class Database(
 
     val tableName: String get() = config.tableName
 
+    val featureTableName: String get() = config.featureTableName
+
     fun create() {
         val table = config.tableName
         val ddl =
@@ -66,6 +68,34 @@ class Database(
             addColumnIfMissing(conn, table, "block_new_nbt", "BLOB")
             conn.createStatement().use { stmt ->
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_instance ON `$table` (instance_uuid, ts)")
+            }
+        }
+    }
+
+    fun createFeatureLog() {
+        val table = config.featureTableName
+        val ddl =
+            """
+            CREATE TABLE IF NOT EXISTS `$table` (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts INTEGER NOT NULL,
+                player_uuid TEXT,
+                player_name TEXT,
+                source TEXT NOT NULL,
+                action TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                x INTEGER,
+                y INTEGER,
+                z INTEGER,
+                data TEXT NOT NULL DEFAULT ''
+            )
+            """.trimIndent()
+        pool.connection.use { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.execute(ddl)
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_source ON `$table` (source, ts)")
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_player ON `$table` (player_uuid, ts)")
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_pos ON `$table` (x, y, z, ts)")
             }
         }
     }
