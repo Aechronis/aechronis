@@ -2,9 +2,9 @@ package net.aechronis.logger.listeners
 
 import net.aechronis.logger.Logger
 import net.aechronis.logger.commands.playerInspectMode
-import net.aechronis.logger.inspect.show
 import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
+import net.aechronis.logger.objects.show
 import net.aechronis.logger.utils.ItemCodec
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent

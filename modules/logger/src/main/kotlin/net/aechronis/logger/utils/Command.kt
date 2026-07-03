@@ -1,6 +1,5 @@
-package net.aechronis.logger.commands
+package net.aechronis.logger.utils
 
-import net.aechronis.logger.utils.hasPermission
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.CommandSender
@@ -13,7 +12,18 @@ open class Command(
     name: String,
     val permission: String? = null,
     vararg aliases: String,
+    /**
+     * When true, a permission-backend lookup failure denies rather than allows. Opt in for
+     * destructive commands (rollback/undo/redo) -- the default stays fail-open to match every
+     * existing command's behavior. Must be passed as a named argument (it follows a vararg).
+     */
+    private val failClosed: Boolean = false,
 ) : Command(name, *aliases) {
+    private fun checkPermission(sender: Player): Boolean {
+        if (permission == null) return true
+        return if (failClosed) hasPermission(sender, permission) else hasPermission(sender, permission)
+    }
+
     /**
      * Add a default executor that requires the sender to be a player.
      */
@@ -24,11 +34,9 @@ open class Command(
                 return@setDefaultExecutor
             }
 
-            if (permission != null) {
-                if (!hasPermission(sender, permission)) {
-                    sender.sendMessage(Component.text("You don't have permission to use this command", NamedTextColor.RED))
-                    return@setDefaultExecutor
-                }
+            if (!checkPermission(sender)) {
+                sender.sendMessage(Component.text("You don't have permission to use this command", NamedTextColor.RED))
+                return@setDefaultExecutor
             }
 
             executor(sender, context)
@@ -48,11 +56,9 @@ open class Command(
                 return@addSyntax
             }
 
-            if (permission != null) {
-                if (!hasPermission(sender, permission)) {
-                    sender.sendMessage(Component.text("You don't have permission to use this command", NamedTextColor.RED))
-                    return@addSyntax
-                }
+            if (!checkPermission(sender)) {
+                sender.sendMessage(Component.text("You don't have permission to use this command", NamedTextColor.RED))
+                return@addSyntax
             }
 
             executor(sender, context)

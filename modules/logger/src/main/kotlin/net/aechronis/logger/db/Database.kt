@@ -70,6 +70,46 @@ class Database(
         }
     }
 
+    fun createRollbackTables() {
+        val operationDdl =
+            """
+            CREATE TABLE IF NOT EXISTS rollback_operation (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts INTEGER NOT NULL,
+                actor_uuid TEXT NOT NULL,
+                actor_name TEXT NOT NULL,
+                instance_uuid TEXT NOT NULL,
+                query_desc TEXT NOT NULL,
+                target_ts INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                block_change_count INTEGER NOT NULL
+            )
+            """.trimIndent()
+        val changeDdl =
+            """
+            CREATE TABLE IF NOT EXISTS rollback_change (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                operation_id INTEGER NOT NULL REFERENCES rollback_operation(id),
+                change_kind TEXT NOT NULL,
+                x INTEGER,
+                y INTEGER,
+                z INTEGER,
+                before_block_state TEXT,
+                before_block_nbt BLOB,
+                after_block_state TEXT,
+                after_block_nbt BLOB
+            )
+            """.trimIndent()
+        pool.connection.use { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.execute(operationDdl)
+                stmt.execute(changeDdl)
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_rollback_actor ON rollback_operation (actor_uuid, ts)")
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_rollback_change_op ON rollback_change (operation_id)")
+            }
+        }
+    }
+
     private fun columnExists(
         conn: java.sql.Connection,
         table: String,

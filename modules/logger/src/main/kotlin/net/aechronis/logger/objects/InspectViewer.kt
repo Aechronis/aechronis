@@ -1,9 +1,10 @@
-package net.aechronis.logger.inspect
+package net.aechronis.logger.objects
 
 import net.aechronis.logger.Logger
-import net.aechronis.logger.objects.BlockAction
-import net.aechronis.logger.objects.BlockLogEntry
+import net.aechronis.logger.utils.Pages
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.event.ClickEvent
+import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
 import java.time.Duration
@@ -16,35 +17,28 @@ fun show(
     z: Int,
 ) {
     Logger.repository
-        .lookupAsync(x, y, z, 32)
+        .lookupAsync(x, y, z, 200)
         .whenComplete { entries, exception ->
             if (exception != null) {
                 println("inspect lookup failed: $exception")
                 player.sendMessage(Component.text("[Logger] lookup failed", NamedTextColor.RED))
                 return@whenComplete
             }
-            player.sendMessage(header(x, y, z, entries.size))
-            if (entries.isEmpty()) {
-                player.sendMessage(Component.text("  no recorded actions", NamedTextColor.GRAY))
-            } else {
-                entries.forEach { player.sendMessage(line(it)) }
-            }
+            Pages.send(player, "$x,$y,$z", entries.map { line(it) })
         }
 }
 
-private fun header(
-    x: Int,
-    y: Int,
-    z: Int,
-    count: Int,
-): Component =
-    Component
-        .text("[Logger] ", NamedTextColor.GOLD)
-        .append(Component.text("$x,$y,$z ", NamedTextColor.YELLOW))
-        .append(Component.text("($count)", NamedTextColor.GRAY))
+fun showLookup(
+    player: Player,
+    entries: List<BlockLogEntry>,
+    summary: String,
+) {
+    Pages.send(player, summary, entries.map { line(it, withCoords = true) })
+}
 
 private fun line(
     entry: BlockLogEntry,
+    withCoords: Boolean = false,
 ): Component {
     val ago = formatAgo(Duration.between(Instant.ofEpochMilli(entry.timestamp), Instant.now()))
     val verb =
@@ -59,11 +53,18 @@ private fun line(
             BlockAction.PLACE -> entry.blockNew
             BlockAction.INTERACT -> entry.blockNew
         }
-    return Component
-        .text("  $ago ago ", NamedTextColor.GRAY)
-        .append(Component.text(entry.playerName, NamedTextColor.AQUA))
-        .append(Component.text(" $verb ", NamedTextColor.WHITE))
-        .append(Component.text(target, NamedTextColor.GREEN))
+    var component =
+        Component
+            .text("  $ago ago ", NamedTextColor.GRAY)
+            .append(Component.text(entry.playerName, NamedTextColor.AQUA))
+            .append(Component.text(" $verb ", NamedTextColor.WHITE))
+            .append(Component.text(target, NamedTextColor.GREEN))
+    if (withCoords) {
+        component = component.append(Component.text(" @ ${entry.x},${entry.y},${entry.z}", NamedTextColor.DARK_GRAY))
+    }
+    return component
+        .hoverEvent(HoverEvent.showText(Component.text("Click to teleport to ${entry.x},${entry.y},${entry.z}")))
+        .clickEvent(ClickEvent.runCommand("/tp ${entry.x} ${entry.y} ${entry.z}"))
 }
 
 private fun formatAgo(d: Duration): String {

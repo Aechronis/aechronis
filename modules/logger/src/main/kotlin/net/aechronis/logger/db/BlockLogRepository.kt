@@ -2,6 +2,7 @@ package net.aechronis.logger.db
 
 import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
+import net.aechronis.logger.params.LookupParams
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.sql.Types
@@ -102,6 +103,141 @@ class BlockLogRepository(
         }
         return out
     }
+
+    fun searchAsync(
+        params: LookupParams,
+        centerX: Int,
+        centerY: Int,
+        centerZ: Int,
+        limit: Int = 200,
+    ): CompletableFuture<List<BlockLogEntry>> =
+        CompletableFuture.supplyAsync({ search(params, centerX, centerY, centerZ, limit) }, executor)
+
+    private fun search(
+        params: LookupParams,
+        centerX: Int,
+        centerY: Int,
+        centerZ: Int,
+        limit: Int,
+    ): List<BlockLogEntry> {
+        val (sql, args) = buildWhereClause(params, centerX, centerY, centerZ)
+        sql.append(" ORDER BY ts DESC LIMIT ?")
+        args += limit
+        return runQuery(sql.toString(), args)
+    }
+
+    fun searchForRollbackAsync(
+        params: LookupParams,
+        targetTs: Long,
+        instanceUuid: UUID,
+        centerX: Int,
+        centerY: Int,
+        centerZ: Int,
+        limit: Int = 5000,
+    ): CompletableFuture<List<BlockLogEntry>> =
+        CompletableFuture.supplyAsync({ searchForRollback(params, targetTs, instanceUuid, centerX, centerY, centerZ, limit) }, executor)
+
+    private fun searchForRollback(
+        params: LookupParams,
+        targetTs: Long,
+        instanceUuid: UUID,
+        centerX: Int,
+        centerY: Int,
+        centerZ: Int,
+        limit: Int,
+    ): List<BlockLogEntry> {
+        val (sql, args) = buildWhereClause(params, centerX, centerY, centerZ)
+        sql.append(" AND ts >= ? AND instance_uuid = ?")
+        args += targetTs
+        args += instanceUuid.toString()
+        sql.append(" ORDER BY ts ASC LIMIT ?")
+        args += limit
+        return runQuery(sql.toString(), args)
+    }
+
+    private fun buildWhereClause(
+        params: LookupParams,
+        centerX: Int,
+        centerY: Int,
+        centerZ: Int,
+    ): Pair<StringBuilder, MutableList<Any>> {
+        val sql = StringBuilder("SELECT $selectColumns FROM `$table` WHERE 1=1")
+        val args = mutableListOf<Any>()
+
+        if (params.users.isNotEmpty()) {
+            sql.append(" AND LOWER(player_name) IN (${placeholders(params.users.size)})")
+            params.users.forEach { args += it.lowercase() }
+        }
+        params.since?.let {
+            sql.append(" AND ts >= ?")
+            args += it
+        }
+        params.radius?.let { r ->
+            sql.append(" AND x BETWEEN ? AND ? AND y BETWEEN ? AND ? AND z BETWEEN ? AND ?")
+            args += centerX - r
+            args += centerX + r
+            args += centerY - r
+            args += centerY + r
+            args += centerZ - r
+            args += centerZ + r
+        }
+        params.chunkRadius?.let { cr ->
+            val expand = cr - 1
+            val minX = ((centerX shr 4) - expand) shl 4
+            val maxX = (((centerX shr 4) + expand) shl 4) + 15
+            val minZ = ((centerZ shr 4) - expand) shl 4
+            val maxZ = (((centerZ shr 4) + expand) shl 4) + 15
+            sql.append(" AND x BETWEEN ? AND ? AND z BETWEEN ? AND ?")
+            args += minX
+            args += maxX
+            args += minZ
+            args += maxZ
+        }
+        params.actions?.let { acts ->
+            sql.append(" AND action IN (${placeholders(acts.size)})")
+            acts.forEach { args += it.id }
+        }
+        if (params.include.isNotEmpty()) {
+            val ph = placeholders(params.include.size)
+            sql.append(" AND (block_old IN ($ph) OR block_new IN ($ph))")
+            params.include.forEach { args += it }
+            params.include.forEach { args += it }
+        }
+        if (params.exclude.isNotEmpty()) {
+            val ph = placeholders(params.exclude.size)
+            sql.append(" AND block_old NOT IN ($ph) AND block_new NOT IN ($ph)")
+            params.exclude.forEach { args += it }
+            params.exclude.forEach { args += it }
+        }
+        return sql to args
+    }
+
+    private fun runQuery(
+        sql: String,
+        args: List<Any>,
+    ): List<BlockLogEntry> {
+        val out = mutableListOf<BlockLogEntry>()
+        database.dataSource.connection.use { conn ->
+            conn.prepareStatement(sql).use { ps ->
+                args.forEachIndexed { i, a ->
+                    val idx = i + 1
+                    when (a) {
+                        is Int -> ps.setInt(idx, a)
+                        is Long -> ps.setLong(idx, a)
+                        is Byte -> ps.setByte(idx, a)
+                        is String -> ps.setString(idx, a)
+                        else -> throw IllegalArgumentException("unsupported bind type: ${a::class}")
+                    }
+                }
+                ps.executeQuery().use { rs ->
+                    while (rs.next()) out += mapRow(rs)
+                }
+            }
+        }
+        return out
+    }
+
+    private fun placeholders(n: Int): String = (1..n).joinToString(",") { "?" }
 
     private fun mapRow(rs: ResultSet): BlockLogEntry =
         BlockLogEntry(
