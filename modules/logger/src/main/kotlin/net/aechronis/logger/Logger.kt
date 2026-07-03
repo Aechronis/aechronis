@@ -6,6 +6,7 @@ import net.aechronis.logger.db.Database
 import net.aechronis.logger.db.FeatureLogRepository
 import net.aechronis.logger.db.RollbackRepository
 import net.aechronis.logger.listeners.BlockListener
+import net.aechronis.logger.listeners.EntityListener
 import net.aechronis.logger.objects.FeatureLogEntry
 import net.aechronis.logger.params.FeatureSourceRegistry
 import net.minestom.server.MinecraftServer
@@ -36,6 +37,7 @@ object Logger {
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         BlockListener.init()
+        EntityListener.init()
 
         MinecraftServer.getCommandManager().register(LoggerCommand())
 
