@@ -1,8 +1,5 @@
 package io.github.openminigameserver.worldedit.platform.actors
 
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonObject
 import com.sk89q.worldedit.blocks.BaseItemStack
 import com.sk89q.worldedit.entity.BaseEntity
 import com.sk89q.worldedit.extension.platform.AbstractPlayerActor
@@ -20,30 +17,25 @@ import io.github.openminigameserver.worldedit.platform.MinestomPlatform
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomPermissionsProvider
 import io.github.openminigameserver.worldedit.platform.misc.SessionKeyImpl
-import net.minestom.server.chat.JsonMessage
+import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.Player
-import java.util.*
+import java.util.Locale
+import java.util.UUID
+import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer as AdventureGsonSerializer
 
-class MinestomPlayer(private val platform: MinestomPlatform, private val player: Player) : AbstractPlayerActor() {
-    override fun getUniqueId(): UUID {
-        return player.uuid
-    }
+class MinestomPlayer(
+    private val platform: MinestomPlatform,
+    private val player: Player,
+) : AbstractPlayerActor() {
+    override fun getUniqueId(): UUID = player.uuid
 
-    override fun getGroups(): Array<String> {
-        return emptyArray()
-    }
+    override fun getGroups(): Array<String> = emptyArray()
 
-    override fun hasPermission(permission: String): Boolean {
-        return MinestomPermissionsProvider.hasPermission(player, permission)
-    }
+    override fun hasPermission(permission: String): Boolean = MinestomPermissionsProvider.hasPermission(player, permission)
 
-    override fun getSessionKey(): SessionKey {
-        return SessionKeyImpl(player.uuid, player.username)
-    }
+    override fun getSessionKey(): SessionKey = SessionKeyImpl(player.uuid, player.username)
 
-    override fun getName(): String {
-        return player.username
-    }
+    override fun getName(): String = player.username
 
     override fun printRaw(msg: String) {
         sendColorized(msg, TextColor.YELLOW)
@@ -57,31 +49,21 @@ class MinestomPlayer(private val platform: MinestomPlatform, private val player:
         sendColorized(msg, TextColor.WHITE)
     }
 
-    val gson: Gson = GsonComponentSerializer.populate(GsonBuilder()).create()
     override fun print(component: Component) {
         val newComponent = WorldEditText.format(component, locale)
-        player.sendMessage(object : JsonMessage() {
-            override fun getJsonObject(): JsonObject {
-                return gson.toJsonTree(newComponent).asJsonObject
-            }
-        })
+        val json = GsonComponentSerializer.INSTANCE.serialize(newComponent)
+        player.sendMessage(AdventureGsonSerializer.gson().deserialize(json))
     }
 
     override fun printError(msg: String) {
         sendColorized(msg, TextColor.RED)
     }
 
-    override fun getLocale(): Locale {
-        return Locale.getDefault()
-    }
+    override fun getLocale(): Locale = Locale.getDefault()
 
-    override fun <T : Any?> getFacet(cls: Class<out T>?): T? {
-        return null
-    }
+    override fun <T : Any?> getFacet(cls: Class<out T>?): T? = null
 
-    override fun getLocation(): Location {
-        return MinestomAdapter.asLocation(world, player.position)
-    }
+    override fun getLocation(): Location = MinestomAdapter.asLocation(world, player.position)
 
     override fun setLocation(location: Location): Boolean {
         player.teleport(MinestomAdapter.toPosition(location))
@@ -92,15 +74,14 @@ class MinestomPlayer(private val platform: MinestomPlatform, private val player:
         TODO("Not yet implemented")
     }
 
-    override fun getWorld(): World {
-        return MinestomAdapter.asWorld(player.instance!!)
-    }
+    override fun getWorld(): World = MinestomAdapter.asWorld(player.instance!!)
 
     override fun getItemInHand(handSide: HandSide?): BaseItemStack {
-        val item = when (handSide) {
-            HandSide.OFF_HAND -> player.itemInOffHand
-            else -> player.inventory.itemInMainHand
-        }
+        val item =
+            when (handSide) {
+                HandSide.OFF_HAND -> player.getEquipment(EquipmentSlot.OFF_HAND)
+                else -> player.getEquipment(EquipmentSlot.MAIN_HAND)
+            }
         return MinestomAdapter.asBaseItemStack(item)
     }
 
@@ -108,11 +89,12 @@ class MinestomPlayer(private val platform: MinestomPlatform, private val player:
         player.inventory.addItemStack(MinestomAdapter.toItemStack(itemStack))
     }
 
-    override fun getInventoryBlockBag(): BlockBag? {
-        return null
-    }
+    override fun getInventoryBlockBag(): BlockBag? = null
 
-    private fun sendColorized(msg: String, formatting: TextColor) {
+    private fun sendColorized(
+        msg: String,
+        formatting: TextColor,
+    ) {
         for (part in msg.split("\n").toTypedArray()) {
             print(TextComponent.of(part, formatting))
         }

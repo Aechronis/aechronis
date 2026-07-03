@@ -1,3 +1,3 @@
 object BuildInfo {
-    const val version: String = "${version}"
+    const val VERSION: String = "${version}"
 }

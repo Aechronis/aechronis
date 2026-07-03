@@ -1,45 +1,48 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
     idea
     java
     `java-library`
-    kotlin("jvm") version "1.4.30-M1"
-    id("com.github.johnrengelman.shadow") version "6.1.0"
-    maven
+    `maven-publish`
+    kotlin("jvm") version "2.3.20"
+    id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
 }
 
 group = "io.github.openminigameserver"
-version = "1.1.3-SNAPSHOT"
+version = "2.0.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
-    maven("https://jitpack.io")
     maven("https://maven.enginehub.org/repo/")
-    maven("https://libraries.minecraft.net")
-    maven("https://repo.spongepowered.org/maven")
-    maven("https://oss.sonatype.org/content/repositories/snapshots/")
-    maven("https://dl.bintray.com/kotlin/kotlin-eap")
 }
 
-val configurateVersion = "4.0.0"
 dependencies {
-    compileOnly(minestom("7a54b4162d"))
-    testApi(minestom("7a54b4162d"))
-    api("com.sk89q.worldedit:worldedit-core:7.3.0-SNAPSHOT")
-    compileOnly(kotlin("stdlib-jdk8"))
-
-    implementation("org.spongepowered:configurate-yaml:$configurateVersion") {
-        exclude(module = "geantyref")
-    }
-    implementation("org.spongepowered:configurate-extra-kotlin:$configurateVersion")
-
+    compileOnly("net.minestom:minestom:2026.03.25-1.21.11")
+    testImplementation("net.minestom:minestom:2026.03.25-1.21.11")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.12.1")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    api("com.sk89q.worldedit:worldedit-core:7.4.3")
+    api("com.google.guava:guava:33.5.0-jre")
+    api("com.google.code.gson:gson:2.13.2")
+    api("it.unimi.dsi:fastutil:8.5.18")
+    compileOnly(kotlin("stdlib"))
 }
 
+kotlin {
+    jvmToolchain(25)
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
+    withSourcesJar()
+}
 
 tasks {
-    shadowJar {
-        archiveClassifier.set("")
+    test {
+        useJUnitPlatform()
+        systemProperty("keepRunning", System.getProperty("keepRunning", "false"))
+        maxHeapSize = "4g"
     }
 
     val templateContext = mapOf("version" to project.version.toString())
@@ -47,31 +50,37 @@ tasks {
         expand(*templateContext.toList().toTypedArray())
     }
 
-    create<Copy>("generateKotlinBuildInfo") {
-        inputs.properties(templateContext) // for gradle up-to-date check
+    register<Copy>("generateKotlinBuildInfo") {
+        inputs.properties(templateContext)
         from("src/template/kotlin/")
-        into("$buildDir/generated/kotlin/")
+        into(layout.buildDirectory.dir("generated/kotlin/"))
         expand(*templateContext.toList().toTypedArray())
     }
 
-    kotlin.sourceSets["main"].kotlin.srcDir("$buildDir/generated/kotlin")
+    kotlin.sourceSets["main"].kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin"))
     compileKotlin.get().dependsOn(get("generateKotlinBuildInfo"))
-
+    named("sourcesJar").get().dependsOn(get("generateKotlinBuildInfo"))
+    withType<org.jlleitschuh.gradle.ktlint.tasks.BaseKtLintCheckTask>().configureEach {
+        dependsOn(get("generateKotlinBuildInfo"))
+    }
 }
 
-fun minestom(commit: String): String {
-    return "com.github.Minestom:Minestom:$commit"
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
-val compileKotlin: KotlinCompile by tasks
-compileKotlin.kotlinOptions {
-    jvmTarget = "1.8"
-}
-val compileTestKotlin: KotlinCompile by tasks
-compileTestKotlin.kotlinOptions {
-    jvmTarget = "1.8"
+publishing {
+    publications {
+        create<MavenPublication>("gpr") {
+            from(components["java"])
+            groupId = "io.github.openminigameserver"
+            artifactId = "MinestomWorldEdit"
+        }
+    }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/OpenMinigameServer/MinestomWorldEdit")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR") ?: findProperty("gpr.user") as String?
+                password = System.getenv("GITHUB_TOKEN") ?: findProperty("gpr.key") as String?
+            }
+        }
+    }
 }

@@ -4,7 +4,11 @@ import BuildInfo
 import com.sk89q.worldedit.LocalConfiguration
 import com.sk89q.worldedit.WorldEdit
 import com.sk89q.worldedit.entity.Player
-import com.sk89q.worldedit.extension.platform.*
+import com.sk89q.worldedit.extension.platform.AbstractPlatform
+import com.sk89q.worldedit.extension.platform.Actor
+import com.sk89q.worldedit.extension.platform.Capability
+import com.sk89q.worldedit.extension.platform.MultiUserPlatform
+import com.sk89q.worldedit.extension.platform.Preference
 import com.sk89q.worldedit.internal.Constants
 import com.sk89q.worldedit.util.SideEffect
 import com.sk89q.worldedit.world.World
@@ -16,40 +20,37 @@ import io.github.openminigameserver.worldedit.platform.adapters.MinestomWorld
 import io.github.openminigameserver.worldedit.platform.misc.WorldEditCommand
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.EntityType
-import net.minestom.server.entity.Player.Hand
+import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.GlobalEventHandler
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.instance.Instance
 import org.enginehub.piston.CommandManager
-import java.util.*
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
-class MinestomPlatform(val extension: MinestomWorldEdit) : AbstractPlatform(), MultiUserPlatform {
-
-
+class MinestomPlatform(
+    val extension: MinestomWorldEdit,
+) : AbstractPlatform(),
+    MultiUserPlatform {
     override fun reload() {
         configuration.load()
         super.reload()
     }
 
-    override fun getRegistries(): Registries {
-        return MinestomRegistries
+    override fun getRegistries(): Registries = MinestomRegistries
+
+    override fun getDataVersion(): Int = Constants.DATA_VERSION_MC_1_21_11
+
+    override fun setGameHooksEnabled(enabled: Boolean) {
     }
 
-    override fun getDataVersion(): Int = Constants.DATA_VERSION_MC_1_16
+    override fun isValidMobType(type: String): Boolean = EntityType.values().any { it.key().asString() == type }
 
-    override fun isValidMobType(type: String): Boolean {
-        return EntityType.values().any { it.namespaceID == type }
-    }
+    override fun matchPlayer(player: Player): Player = player
 
-    override fun matchPlayer(player: Player): Player {
-        return player
-    }
-
-    override fun matchWorld(world: World): World {
-        return world
-    }
+    override fun matchWorld(world: World): World = world
 
     override fun registerCommands(commandManager: CommandManager) {
         commandManager.allCommands.forEach {
@@ -61,7 +62,7 @@ class MinestomPlatform(val extension: MinestomWorldEdit) : AbstractPlatform(), M
         val handler = MinecraftServer.getGlobalEventHandler()
         val we = WorldEdit.getInstance()
 
-        handler.addEventCallback(PlayerDisconnectEvent::class.java) {
+        handler.addListener(PlayerDisconnectEvent::class.java) {
             playerMap.remove(it.player.uuid)
         }
         handleRightClickEvent(handler, we)
@@ -70,18 +71,18 @@ class MinestomPlatform(val extension: MinestomWorldEdit) : AbstractPlatform(), M
 
     private fun handleLeftClickEvent(
         handler: GlobalEventHandler,
-        we: WorldEdit
+        we: WorldEdit,
     ) {
-        handler.addEventCallback(PlayerBlockBreakEvent::class.java) {
+        handler.addListener(PlayerBlockBreakEvent::class.java) {
             val actor = MinestomAdapter.asActor(it.player) as Player
 
             if (we.handleBlockLeftClick(
                     actor,
                     MinestomAdapter.asLocation(
-                        MinestomAdapter.asWorld(it.player.instance!!),
-                        it.blockPosition.toPosition()
+                        MinestomAdapter.asWorld(it.player.instance),
+                        it.blockPosition,
                     ),
-                    null
+                    null,
                 )
             ) {
                 it.isCancelled = true
@@ -91,18 +92,19 @@ class MinestomPlatform(val extension: MinestomWorldEdit) : AbstractPlatform(), M
 
     private fun handleRightClickEvent(
         handler: GlobalEventHandler,
-        we: WorldEdit
+        we: WorldEdit,
     ) {
-        handler.addEventCallback(PlayerBlockInteractEvent::class.java) {
+        handler.addListener(PlayerBlockInteractEvent::class.java) {
             val actor = MinestomAdapter.asActor(it.player) as Player
 
-            if (it.hand == Hand.MAIN && we.handleBlockRightClick(
+            if (it.hand == PlayerHand.MAIN &&
+                we.handleBlockRightClick(
                     actor,
                     MinestomAdapter.asLocation(
-                        MinestomAdapter.asWorld(it.player.instance!!),
-                        it.blockPosition.toPosition()
+                        MinestomAdapter.asWorld(it.player.instance),
+                        it.blockPosition,
                     ),
-                    MinestomAdapter.asDirection(it.blockFace)
+                    MinestomAdapter.asDirection(it.blockFace),
                 )
             ) {
                 it.isCancelled = true
@@ -110,40 +112,37 @@ class MinestomPlatform(val extension: MinestomWorldEdit) : AbstractPlatform(), M
         }
     }
 
-    override fun getConfiguration(): LocalConfiguration {
-        return extension.config
-    }
+    override fun getConfiguration(): LocalConfiguration = extension.config
 
-    override fun getSupportedSideEffects(): MutableSet<SideEffect> {
-        return mutableSetOf()
-    }
+    override fun getSupportedSideEffects(): MutableSet<SideEffect> = mutableSetOf()
 
-    override fun getConnectedUsers(): MutableCollection<Actor> {
-        return MinecraftServer.getConnectionManager().onlinePlayers.map { MinestomAdapter.asActor(it) }.toMutableList()
-    }
+    override fun getConnectedUsers(): MutableCollection<Actor> =
+        MinecraftServer
+            .getConnectionManager()
+            .onlinePlayers
+            .map {
+                MinestomAdapter.asActor(it)
+            }.toMutableList()
 
     override fun getVersion(): String = platformVersion
 
     override fun getPlatformName(): String = "WorldEdit-Minestom"
 
-    override fun getPlatformVersion(): String = BuildInfo.version
+    override fun getPlatformVersion(): String = BuildInfo.VERSION
 
-    override fun getCapabilities(): MutableMap<Capability, Preference> {
-        return mutableMapOf(
+    override fun getCapabilities(): MutableMap<Capability, Preference> =
+        mutableMapOf(
             Capability.CONFIGURATION to Preference.NORMAL,
             Capability.WORLD_EDITING to Preference.NORMAL,
             Capability.GAME_HOOKS to Preference.NORMAL,
             Capability.PERMISSIONS to Preference.NORMAL,
             Capability.WORLDEDIT_CUI to Preference.NORMAL,
-            Capability.USER_COMMANDS to Preference.NORMAL
+            Capability.USER_COMMANDS to Preference.NORMAL,
         )
-    }
 
-    fun getWorld(instance: Instance): World {
-        return MinestomWorld(instance)
-    }
+    fun getWorld(instance: Instance): World = MinestomWorld(instance)
 
-    private val playerMap = mutableMapOf<UUID, MinestomPlayer>()
+    private val playerMap = ConcurrentHashMap<UUID, MinestomPlayer>()
 
     fun getPlayer(commandSender: net.minestom.server.entity.Player) =
         playerMap.getOrPut(commandSender.uuid, { MinestomPlayer(this, commandSender) })

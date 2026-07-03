@@ -4,7 +4,7 @@ import com.sk89q.worldedit.EditSession
 import com.sk89q.worldedit.WorldEditException
 import com.sk89q.worldedit.blocks.BaseItemStack
 import com.sk89q.worldedit.entity.BaseEntity
-import com.sk89q.worldedit.entity.Entity
+import com.sk89q.worldedit.extent.Extent
 import com.sk89q.worldedit.function.operation.Operation
 import com.sk89q.worldedit.function.operation.RunContext
 import com.sk89q.worldedit.internal.block.BlockStateIdAccess
@@ -16,21 +16,43 @@ import com.sk89q.worldedit.util.SideEffect
 import com.sk89q.worldedit.util.SideEffectSet
 import com.sk89q.worldedit.util.TreeGenerator
 import com.sk89q.worldedit.world.AbstractWorld
+import com.sk89q.worldedit.world.World
 import com.sk89q.worldedit.world.WorldUnloadedException
 import com.sk89q.worldedit.world.block.BaseBlock
 import com.sk89q.worldedit.world.block.BlockState
 import com.sk89q.worldedit.world.block.BlockStateHolder
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.ItemEntity
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.InstanceContainer
-import net.minestom.server.utils.Position
-import net.minestom.server.utils.chunk.ChunkUtils
 import java.lang.ref.WeakReference
-import java.util.concurrent.CountDownLatch
+import com.sk89q.worldedit.entity.Entity as WorldEditEntity
 
+private class MinestomEntityAdapter(
+    private val entity: net.minestom.server.entity.Entity,
+    private val world: World,
+) : WorldEditEntity {
+    override fun getLocation(): Location = MinestomAdapter.asLocation(world, entity.position)
 
-class MinestomWorld(world: Instance) : AbstractWorld() {
+    override fun setLocation(location: Location): Boolean {
+        entity.teleport(MinestomAdapter.toPosition(location))
+        return true
+    }
 
+    override fun getExtent(): Extent = world
+
+    override fun <T : Any?> getFacet(cls: Class<out T>?): T? = null
+
+    override fun getState(): BaseEntity? {
+        TODO("Not yet implemented")
+    }
+
+    override fun remove(): Boolean = entity.remove().let { true }
+}
+
+class MinestomWorld(
+    world: Instance,
+) : AbstractWorld() {
     private val worldRef = WeakReference(world)
     val nativeAccess = MinestomWorldNativeAccess(worldRef, getWorld() is InstanceContainer)
 
@@ -67,74 +89,64 @@ class MinestomWorld(world: Instance) : AbstractWorld() {
 
             override fun cancel() {
             }
-
         }
     }
 
     override fun checkLoadedChunk(pt: BlockVector3) {
-        val chunkX = ChunkUtils.getChunkCoordinate(pt.x)
-        val chunkZ = ChunkUtils.getChunkCoordinate(pt.z)
+        val chunkX = Math.floorDiv(pt.x(), 16)
+        val chunkZ = Math.floorDiv(pt.z(), 16)
         if (!getWorld().isChunkLoaded(chunkX, chunkZ)) {
-            val latch = CountDownLatch(1)
-            getWorld().loadChunk(chunkX, chunkZ) {
-                latch.countDown()
-            }
-            latch.await()
+            getWorld().loadChunk(chunkX, chunkZ).join()
         }
     }
 
     override fun getBlock(position: BlockVector3): BlockState {
         checkLoadedChunk(position)
-        val stateId = getWorld().getBlockStateId(MinestomAdapter.asBlockPosition(position))
-        return BlockStateIdAccess.getBlockStateById(stateId.toInt())!!
+        val block = getWorld().getBlock(position.x(), position.y(), position.z())
+        return BlockStateIdAccess.getBlockStateById(block.stateId())!!
     }
 
-    override fun getFullBlock(position: BlockVector3): BaseBlock {
-        return getBlock(position).toBaseBlock()
-    }
+    override fun getFullBlock(position: BlockVector3): BaseBlock = getBlock(position).toBaseBlock()
 
     override fun <B : BlockStateHolder<B>?> setBlock(
         position: BlockVector3?,
         block: B,
-        sideEffects: SideEffectSet?
-    ): Boolean {
-        return nativeAccess.setBlock(position, block, sideEffects)
-    }
+        sideEffects: SideEffectSet?,
+    ): Boolean = nativeAccess.setBlock(position, block, sideEffects)
 
-    override fun getEntities(region: Region?): MutableList<out Entity> {
+    override fun getEntities(region: Region?): MutableList<out WorldEditEntity> {
         TODO("Not yet implemented")
     }
 
-    override fun getEntities(): MutableList<out Entity> {
+    override fun getEntities(): MutableList<out WorldEditEntity> =
+        getWorld().entities.map { MinestomEntityAdapter(it, this) }.toMutableList()
+
+    override fun createEntity(
+        location: Location?,
+        entity: BaseEntity?,
+    ): WorldEditEntity? {
         TODO("Not yet implemented")
     }
 
-    override fun createEntity(location: Location?, entity: BaseEntity?): Entity? {
-        TODO("Not yet implemented")
-    }
+    override fun id(): String = getWorld().uuid.toString()
 
-    override fun getId(): String {
-        return getWorld().uniqueId.toString()
-    }
-
-    override fun getName(): String {
-        return id
-    }
+    override fun getName(): String = id()
 
     override fun applySideEffects(
         position: BlockVector3?,
         previousType: BlockState?,
-        sideEffectSet: SideEffectSet?
+        sideEffectSet: SideEffectSet?,
     ): MutableSet<SideEffect> = mutableSetOf()
 
-    override fun getBlockLightLevel(position: BlockVector3?): Int {
-        return 0
-    }
+    override fun getBlockLightLevel(position: BlockVector3?): Int = 0
 
     override fun clearContainerBlockContents(position: BlockVector3?): Boolean = false
 
-    override fun dropItem(position: Vector3, item: BaseItemStack) {
-        ItemEntity(MinestomAdapter.toItemStack(item), MinestomAdapter.toPosition(position), getWorld())
+    override fun dropItem(
+        position: Vector3,
+        item: BaseItemStack,
+    ) {
+        ItemEntity(MinestomAdapter.toItemStack(item)).setInstance(getWorld(), MinestomAdapter.toPosition(position))
     }
 
     override fun simulateBlockMine(position: BlockVector3?) {
@@ -143,12 +155,16 @@ class MinestomWorld(world: Instance) : AbstractWorld() {
     override fun generateTree(
         type: TreeGenerator.TreeType?,
         editSession: EditSession?,
-        position: BlockVector3?
+        position: BlockVector3?,
     ): Boolean = false
 
-    override fun getSpawnPosition(): BlockVector3 {
-        return MinestomAdapter.asBlockVector(Position(0.0, 0.0, 0.0))
-    }
+    override fun generateTree(
+        type: com.sk89q.worldedit.world.generation.TreeType?,
+        editSession: EditSession?,
+        position: BlockVector3?,
+    ): Boolean = false
+
+    override fun getSpawnPosition(): BlockVector3 = MinestomAdapter.asBlockVector(Pos(0.0, 0.0, 0.0))
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -156,14 +172,10 @@ class MinestomWorld(world: Instance) : AbstractWorld() {
 
         other as MinestomWorld
 
-        if (worldRef.get()?.uniqueId != other.worldRef.get()?.uniqueId) return false
+        if (worldRef.get()?.uuid != other.worldRef.get()?.uuid) return false
 
         return true
     }
 
-    override fun hashCode(): Int {
-        return worldRef.get().hashCode()
-    }
-
-
+    override fun hashCode(): Int = worldRef.get().hashCode()
 }

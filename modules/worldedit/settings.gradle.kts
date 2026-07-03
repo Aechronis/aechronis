@@ -1,9 +1,7 @@
 pluginManagement {
     repositories {
-        maven("https://dl.bintray.com/kotlin/kotlin-eap")
+        gradlePluginPortal()
         mavenCentral()
-        maven("https://plugins.gradle.org/m2/")
     }
 }
 rootProject.name = "MinestomWorldEdit"
-

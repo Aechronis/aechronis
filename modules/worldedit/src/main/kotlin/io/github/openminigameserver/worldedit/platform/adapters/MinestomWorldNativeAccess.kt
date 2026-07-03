@@ -1,85 +1,116 @@
 package io.github.openminigameserver.worldedit.platform.adapters
 
-import com.sk89q.jnbt.CompoundTag
 import com.sk89q.worldedit.internal.block.BlockStateIdAccess
 import com.sk89q.worldedit.internal.wna.WorldNativeAccess
 import com.sk89q.worldedit.world.block.BlockState
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
-import net.minestom.server.instance.batch.BlockBatch
-import net.minestom.server.utils.Position
+import net.minestom.server.instance.batch.AbsoluteBlockBatch
+import net.minestom.server.instance.block.Block
+import org.enginehub.linbus.tree.LinCompoundTag
 import java.lang.ref.WeakReference
 
-class MinestomWorldNativeAccess(private val worldRef: WeakReference<Instance>, val useBlockBatch: Boolean) :
-    WorldNativeAccess<Chunk, Short, Position> {
-
+class MinestomWorldNativeAccess(
+    private val worldRef: WeakReference<Instance>,
+    val useBlockBatch: Boolean,
+) : WorldNativeAccess<Chunk, Block, Pos> {
     private var currentBlockBatch = newBlockBatch()
 
-    private fun newBlockBatch(): BlockBatch? = if (!useBlockBatch) null else getWorld().createBlockBatch()
+    private fun newBlockBatch(): AbsoluteBlockBatch? = if (!useBlockBatch) null else AbsoluteBlockBatch()
 
-    private fun getWorld(): Instance {
-        return worldRef.get() ?: throw RuntimeException("World is unloaded")
+    private fun getWorld(): Instance = worldRef.get() ?: throw RuntimeException("World is unloaded")
+
+    override fun getChunk(
+        x: Int,
+        z: Int,
+    ): Chunk = getWorld().getChunk(x, z) ?: throw RuntimeException("Chunk $x,$z is not loaded")
+
+    override fun toNative(state: BlockState): Block {
+        val stateId = BlockStateIdAccess.getBlockStateId(state)
+        return Block.fromStateId(stateId) ?: Block.AIR
     }
 
-    override fun getChunk(x: Int, z: Int): Chunk? {
-        return getWorld().getChunk(x, z)
-    }
+    override fun getBlockState(
+        chunk: Chunk,
+        position: Pos,
+    ): Block = getWorld().getBlock(position.blockX(), position.blockY(), position.blockZ())
 
-    override fun toNative(state: BlockState): Short {
-        return BlockStateIdAccess.getBlockStateId(state).toShort()
-    }
-
-    override fun getBlockState(chunk: Chunk, position: Position): Short {
-        val pos = position.toBlockPosition()
-        return chunk.getBlockStateId(pos.x, pos.y, pos.z)
-    }
-
-    override fun setBlockState(chunk: Chunk, position: Position, state: Short): Short {
-        return if (useBlockBatch && currentBlockBatch != null) {
-            currentBlockBatch!!.setBlockStateId(position.toBlockPosition(), state).let { state }
+    override fun setBlockState(
+        chunk: Chunk,
+        position: Pos,
+        state: Block,
+    ): Block {
+        val batch = currentBlockBatch
+        if (useBlockBatch && batch != null) {
+            batch.setBlock(position.blockX(), position.blockY(), position.blockZ(), state)
         } else {
-            getWorld().setBlockStateId(position.toBlockPosition(), state).let { state }
+            getWorld().setBlock(position.blockX(), position.blockY(), position.blockZ(), state)
         }
+        return state
     }
 
+    override fun getPosition(
+        x: Int,
+        y: Int,
+        z: Int,
+    ): Pos = Pos(x.toDouble(), y.toDouble(), z.toDouble())
 
-    override fun getPosition(x: Int, y: Int, z: Int): Position {
-        return Position(x.toDouble(), y.toDouble(), z.toDouble())
+    override fun getValidBlockForPosition(
+        block: Block,
+        position: Pos,
+    ): Block = block
+
+    override fun updateLightingForBlock(position: Pos) {
     }
 
-    override fun getValidBlockForPosition(block: Short, position: Position?): Short {
-        return block
-    }
-
-    override fun updateLightingForBlock(position: Position?) {
-    }
-
-    override fun updateTileEntity(position: Position?, tag: CompoundTag?): Boolean {
-        //TODO
+    override fun updateTileEntity(
+        position: Pos,
+        tag: LinCompoundTag,
+    ): Boolean {
+        // TODO
         return false
     }
 
-    override fun notifyBlockUpdate(position: Position?, oldState: Short?, newState: Short?) {
+    override fun notifyBlockUpdate(
+        chunk: Chunk,
+        position: Pos,
+        oldState: Block,
+        newState: Block,
+    ) {
     }
 
-    override fun isChunkTicking(chunk: Chunk?): Boolean {
-        return chunk != null
+    override fun isChunkTicking(chunk: Chunk): Boolean = chunk.isLoaded
+
+    override fun markBlockChanged(
+        chunk: Chunk,
+        position: Pos,
+    ) {
     }
 
-    override fun markBlockChanged(position: Position?) {
+    override fun notifyNeighbors(
+        pos: Pos,
+        oldState: Block,
+        newState: Block,
+    ) {
     }
 
-    override fun notifyNeighbors(pos: Position?, oldState: Short?, newState: Short?) {
+    override fun updateNeighbors(
+        pos: Pos,
+        oldState: Block,
+        newState: Block,
+        recursionLimit: Int,
+    ) {
     }
 
-    override fun updateNeighbors(pos: Position?, oldState: Short?, newState: Short?, recursionLimit: Int) {
-    }
-
-    override fun onBlockStateChange(pos: Position?, oldState: Short?, newState: Short?) {
+    override fun onBlockStateChange(
+        pos: Pos,
+        oldState: Block,
+        newState: Block,
+    ) {
     }
 
     fun flush() {
-        currentBlockBatch?.flush {}
+        currentBlockBatch?.apply(getWorld()) { }
     }
-
 }

@@ -2,60 +2,45 @@ package io.github.openminigameserver.worldedit
 
 import com.sk89q.worldedit.WorldEdit
 import com.sk89q.worldedit.event.platform.PlatformReadyEvent
+import com.sk89q.worldedit.event.platform.PlatformsRegisteredEvent
 import com.sk89q.worldedit.internal.block.BlockStateIdAccess
 import com.sk89q.worldedit.world.block.BlockType
 import com.sk89q.worldedit.world.item.ItemType
 import io.github.openminigameserver.worldedit.platform.MinestomPlatform
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
+import io.github.openminigameserver.worldedit.platform.config.WorldEditConfig
 import io.github.openminigameserver.worldedit.platform.config.WorldEditConfiguration
-import net.minestom.server.MinecraftServer
-import net.minestom.server.extensions.Extension
+import io.github.openminigameserver.worldedit.platform.misc.WorldEditExecutor
+import net.minestom.server.instance.block.Block
 import net.minestom.server.item.Material
-import net.minestom.server.registry.Registries
-import org.spongepowered.configurate.yaml.NodeStyle
-import org.spongepowered.configurate.yaml.YamlConfigurationLoader
-import java.io.File
+import org.slf4j.LoggerFactory
 
-
-class MinestomWorldEdit : Extension() {
-    companion object {
-        val dataFolder by lazy {
-            File(
-                MinecraftServer.getExtensionManager().extensionFolder,
-                "WorldEdit"
-            ).also { it.mkdirs() }
-        }
-    }
+class MinestomWorldEdit {
+    val logger = LoggerFactory.getLogger(MinestomWorldEdit::class.java)!!
 
     private val platform = MinestomPlatform(this)
-    override fun initialize() {
+
+    lateinit var config: WorldEditConfiguration
+
+    fun init(config: WorldEditConfig = WorldEditConfig()) {
+        config.dataFolder.mkdirs()
         MinestomAdapter.platform = platform
-        loadConfig()
+        this.config = WorldEditConfiguration(config).apply { load() }
 
         WorldEdit.getInstance().platformManager.register(platform)
+        WorldEdit.getInstance().eventBus.post(PlatformsRegisteredEvent())
 
         registerBlocks()
         registerItems()
 
-        WorldEdit.getInstance().eventBus.post(PlatformReadyEvent())
+        WorldEdit.getInstance().eventBus.post(PlatformReadyEvent(platform))
         logger.info("Finished loading WorldEdit")
-    }
-
-    lateinit var config: WorldEditConfiguration
-    private fun loadConfig() {
-        val file = File(dataFolder, "config.yml")
-        config = WorldEditConfiguration(
-            YamlConfigurationLoader.builder()
-                .file(file)
-                .nodeStyle(NodeStyle.BLOCK).build(), logger
-        )
-        config.load()
     }
 
     private fun registerItems() {
         logger.info("Registering items with WorldEdit")
         for (itemType in Material.values()) {
-            val id: String = itemType.getName()
+            val id: String = itemType.key().asString()
             if (!ItemType.REGISTRY.keySet().contains(id)) {
                 ItemType.REGISTRY.register(id, ItemType(id))
             }
@@ -64,14 +49,14 @@ class MinestomWorldEdit : Extension() {
 
     private fun registerBlocks() {
         logger.info("Registering blocks with WorldEdit")
-        Registries.blocks.forEach { (t, it) ->
+        Block.values().forEach { minestomBlock ->
             try {
-                val id: String = t.toString()
+                val id: String = minestomBlock.key().asString()
                 if (!BlockType.REGISTRY.keySet().contains(id)) {
                     val block = BlockType(id)
-                    if (it.alternatives.isEmpty()) {
+                    if (minestomBlock.possibleStates().size <= 1) {
                         val state = block.defaultState
-                        BlockStateIdAccess.register(state, it.blockId.toInt())
+                        BlockStateIdAccess.register(state, minestomBlock.stateId())
                     }
                     BlockType.REGISTRY.register(id, block)
                 }
@@ -81,9 +66,10 @@ class MinestomWorldEdit : Extension() {
         }
     }
 
-    override fun terminate() {
+    fun shutdown() {
         val worldEdit = WorldEdit.getInstance()
         worldEdit.sessionManager.unload()
         worldEdit.platformManager.unregister(platform)
+        WorldEditExecutor.shutdown()
     }
 }
