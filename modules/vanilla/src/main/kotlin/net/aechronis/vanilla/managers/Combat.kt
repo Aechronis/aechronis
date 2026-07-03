@@ -2,6 +2,7 @@ package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.CombatListener
+import net.aechronis.vanilla.listeners.TreeFellerListener
 import net.aechronis.vanilla.utils.Message
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
@@ -18,12 +19,15 @@ object Combat {
     private val bossBars = ConcurrentHashMap<UUID, BossBar>()
 
     fun init() {
+        val timeStart = System.currentTimeMillis()
         CombatListener.init()
         MinecraftServer
             .getSchedulerManager()
             .buildTask(::tick)
             .repeat(TaskSchedule.seconds(Vanilla.config!!.combatTickSeconds))
             .schedule()
+        val timeEnd = System.currentTimeMillis()
+        println("├─ Combat enabled in ${timeEnd - timeStart}ms")
     }
 
     fun tag(

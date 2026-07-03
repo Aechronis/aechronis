@@ -32,7 +32,7 @@ object Food {
             .repeat(TaskSchedule.seconds(config.foodTickSeconds))
             .schedule()
         val timeEnd = System.currentTimeMillis()
-        println("Food enabled in ${timeEnd - timeStart}ms")
+        println("├─ Food enabled in ${timeEnd - timeStart}ms")
     }
 
     fun onEat(

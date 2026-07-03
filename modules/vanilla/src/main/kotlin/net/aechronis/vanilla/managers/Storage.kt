@@ -28,7 +28,7 @@ object Storage {
 
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
-        println("Storage enabled in ${timeLoad}ms")
+        println("├─ Storage enabled in ${timeLoad}ms")
     }
 
     fun keyFor(

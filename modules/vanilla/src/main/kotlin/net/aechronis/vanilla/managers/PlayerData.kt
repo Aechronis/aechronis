@@ -39,7 +39,7 @@ object PlayerData {
         MinecraftServer.getGlobalEventHandler().addChild(node)
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
-        println("Playerdata enabled in ${timeLoad}ms")
+        println("├─ Playerdata enabled in ${timeLoad}ms")
     }
 
     fun saveAll() {

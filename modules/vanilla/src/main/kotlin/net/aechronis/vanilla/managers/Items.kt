@@ -19,7 +19,7 @@ object Items {
         ItemListener.init()
         startMagnetTask()
         val timeEnd = System.currentTimeMillis()
-        println("Items enabled in ${timeEnd - timeStart}ms")
+        println("├─ Items enabled in ${timeEnd - timeStart}ms")
     }
 
     fun spawn(

@@ -25,8 +25,6 @@ object CombatListener {
     }
 
     fun init() {
-        // Dedicated, low-priority child node: EventNode priority is per-node (not per-listener), so this is the
-        // closest approximation to a "low priority" damage listener the API allows.
         val combatEventNode = EventNode.all("vanilla-combat").setPriority(1000)
         Vanilla.eventNode.addChild(combatEventNode)
         combatEventNode.addListener(EntityDamageEvent::class.java, CombatListener::onDamage)

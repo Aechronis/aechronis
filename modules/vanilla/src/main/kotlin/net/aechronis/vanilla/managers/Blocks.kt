@@ -60,6 +60,6 @@ object Blocks {
 
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
-        println("Blocks enabled in ${timeLoad}ms")
+        println("├─ Blocks enabled in ${timeLoad}ms")
     }
 }

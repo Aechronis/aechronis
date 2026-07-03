@@ -81,6 +81,6 @@ object Elevator {
                 columns[iid]?.get(key)?.remove(event.blockPosition.blockY())
             }
         }
-        println("Elevators enabled in ${System.currentTimeMillis() - timeStart}ms")
+        println("├─ Elevators enabled in ${System.currentTimeMillis() - timeStart}ms")
     }
 }

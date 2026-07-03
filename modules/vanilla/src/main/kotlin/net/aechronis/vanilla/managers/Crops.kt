@@ -31,7 +31,7 @@ object Crops {
             .schedule()
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
-        println("Crops enabled in ${timeLoad}ms")
+        println("├─ Crops enabled in ${timeLoad}ms")
     }
 
     private fun growthTick() {

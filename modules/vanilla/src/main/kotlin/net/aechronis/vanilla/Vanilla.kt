@@ -34,10 +34,10 @@ import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.TreeFeller
-import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Path
+import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
 object Vanilla {
     val eventNode = EventNode.all("vanilla")
@@ -71,7 +71,7 @@ object Vanilla {
             List(),
             Whitelist(),
         )
-
+        println("Loading Vanilla")
         PlayerData.init(Path.of(config!!.path, config!!.playerDataPath))
         Storage.init(Path.of(config!!.path, config!!.storagePath))
         WhitelistManager.init(Path.of(config!!.path, config!!.whitelistPath))
@@ -102,9 +102,6 @@ object Vanilla {
         // print load time
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
-        println(
-            "Vanilla " +
-                "Enabled in ${timeLoad}ms",
-        )
+        println("└─ Vanilla Loaded in ${timeLoad}ms")
     }
 }

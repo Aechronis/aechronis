@@ -19,6 +19,6 @@ object Recipes {
 
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
-        println("Recpies enabled in ${timeLoad}ms")
+        println("├─ Recpies enabled in ${timeLoad}ms")
     }
 }

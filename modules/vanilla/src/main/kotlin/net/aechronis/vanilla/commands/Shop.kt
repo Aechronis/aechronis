@@ -9,7 +9,7 @@ import net.minestom.server.entity.Player
 
 class Shop : Command("shop") {
     init {
-        setDefaultExecutor { player, _ ->
+        setDefaultExecutor { player: Player, _ ->
             if (!player.hasPermission("vanilla.shop")) {
                 Message.error(player, "You don't have permission to use this command")
                 return@setDefaultExecutor
@@ -17,11 +17,7 @@ class Shop : Command("shop") {
             KillShop.openShop(player)
         }
 
-        addSyntax({ sender, _ ->
-            if (sender !is Player) {
-                Message.error(sender, "This command can only be used by players")
-                return@addSyntax
-            }
+        addSyntax({ sender: Player, _ ->
             if (!sender.hasPermission("vanilla.admin")) {
                 Message.error(sender, "You don't have permission to use this command")
                 return@addSyntax

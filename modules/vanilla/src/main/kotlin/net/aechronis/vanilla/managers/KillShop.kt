@@ -23,7 +23,7 @@ object KillShop {
         val timeStart = System.currentTimeMillis()
         ShopListener.init()
         val timeEnd = System.currentTimeMillis()
-        println("Shop enabled in ${timeEnd - timeStart}ms")
+        println("├─ Shop enabled in ${timeEnd - timeStart}ms")
     }
 
     fun openShop(player: Player) {

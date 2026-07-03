@@ -32,7 +32,7 @@ object Saplings {
             .schedule()
 
         val timeEnd = System.currentTimeMillis()
-        println("Saplings enabled in ${timeEnd - timeStart}ms")
+        println("├─ Saplings enabled in ${timeEnd - timeStart}ms")
     }
 
     private fun growthTick() {
