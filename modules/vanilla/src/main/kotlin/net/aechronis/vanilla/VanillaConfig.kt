@@ -14,6 +14,7 @@ data class VanillaConfig(
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",
     val storagePath: String = "storage",
+    val whitelistPath: String = "whitelist.json",
     // Crops
     val cropGrowthCheckSeconds: Long = 20L,
     val wheatMsPerStage: Long = 72_000L,

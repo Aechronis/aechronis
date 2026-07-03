@@ -17,6 +17,7 @@ import net.aechronis.vanilla.commands.Message
 import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Teleport
+import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.listeners.ServerLinksListener
@@ -32,6 +33,7 @@ import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.TreeFeller
+import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Path
@@ -66,10 +68,12 @@ object Vanilla {
             Shop(),
             Gm(),
             List(),
+            Whitelist(),
         )
 
         PlayerData.init(Path.of(config!!.path, config!!.playerDataPath))
         Storage.init(Path.of(config!!.path, config!!.storagePath))
+        WhitelistManager.init(Path.of(config!!.path, config!!.whitelistPath))
         Recipes.init()
         Crops.init()
         Saplings.init()
