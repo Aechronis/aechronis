@@ -121,4 +121,9 @@ data class VanillaConfig(
                 ItemStack.of(Material.OAK_PLANKS, 4),
             ),
         ),
+    // Server Links
+    val serverLinks: List<Pair<String, String>> =
+        listOf(
+            "Website" to "https://example.com",
+        ),
 )

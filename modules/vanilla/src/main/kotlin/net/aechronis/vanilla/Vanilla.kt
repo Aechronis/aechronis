@@ -19,6 +19,7 @@ import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
+import net.aechronis.vanilla.listeners.ServerLinksListener
 import net.aechronis.vanilla.managers.Blocks
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Elevator
@@ -81,6 +82,7 @@ object Vanilla {
         Items.init()
         PlayerBreakListener.init()
         FallDamageListener.init()
+        ServerLinksListener.init()
 
         Runtime.getRuntime().addShutdownHook(
             Thread({
