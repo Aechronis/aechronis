@@ -13,7 +13,14 @@ object PlayerBreakListener {
         val instance = player.instance ?: return
         val material = event.block.registry()?.material() ?: return
 
-        val drops = Vanilla.config!!.blockDrops[material] ?: listOf(ItemStack.of(material))
+        val config = Vanilla.config!!
+        if (material in config.blocksRequiringTool) {
+            val heldMaterial = player.itemInMainHand.material()
+            val canMine = config.toolMinableBlocks[heldMaterial]?.contains(material) == true
+            if (!canMine) return
+        }
+
+        val drops = config.blockDrops[material] ?: listOf(ItemStack.of(material))
         val dropPos = event.blockPosition.add(0.5, 0.5, 0.5).asPos()
         for (stack in drops) {
             if (!stack.isAir && stack.amount() > 0) Items.spawn(instance, dropPos, stack)

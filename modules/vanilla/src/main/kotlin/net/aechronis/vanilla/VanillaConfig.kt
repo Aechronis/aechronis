@@ -9,6 +9,63 @@ import net.aechronis.vanilla.objects.ShopItem
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 
+private val PickaxeBlocks =
+    listOf(
+        Material.STONE,
+        Material.COBBLESTONE,
+        Material.DEEPSLATE,
+        Material.COBBLED_DEEPSLATE,
+        Material.GRANITE,
+        Material.DIORITE,
+        Material.ANDESITE,
+        Material.POLISHED_GRANITE,
+        Material.POLISHED_DIORITE,
+        Material.POLISHED_ANDESITE,
+        Material.SANDSTONE,
+        Material.RED_SANDSTONE,
+        Material.COAL_ORE,
+        Material.DEEPSLATE_COAL_ORE,
+        Material.NETHER_QUARTZ_ORE,
+        Material.NETHERRACK,
+        Material.BASALT,
+        Material.BLACKSTONE,
+        Material.NETHER_BRICKS,
+        Material.STONE_BRICKS,
+        Material.END_STONE,
+        Material.PRISMARINE,
+        Material.COAL_BLOCK,
+        Material.QUARTZ_BLOCK,
+        Material.IRON_ORE,
+        Material.DEEPSLATE_IRON_ORE,
+        Material.COPPER_ORE,
+        Material.DEEPSLATE_COPPER_ORE,
+        Material.LAPIS_ORE,
+        Material.DEEPSLATE_LAPIS_ORE,
+        Material.LAPIS_BLOCK,
+        Material.RAW_IRON_BLOCK,
+        Material.RAW_COPPER_BLOCK,
+        Material.DIAMOND_ORE,
+        Material.DEEPSLATE_DIAMOND_ORE,
+        Material.EMERALD_ORE,
+        Material.DEEPSLATE_EMERALD_ORE,
+        Material.GOLD_ORE,
+        Material.DEEPSLATE_GOLD_ORE,
+        Material.NETHER_GOLD_ORE,
+        Material.REDSTONE_ORE,
+        Material.DEEPSLATE_REDSTONE_ORE,
+        Material.RAW_GOLD_BLOCK,
+        Material.GOLD_BLOCK,
+        Material.REDSTONE_BLOCK,
+        Material.OBSIDIAN,
+        Material.CRYING_OBSIDIAN,
+        Material.ANCIENT_DEBRIS,
+        Material.RESPAWN_ANCHOR,
+        Material.NETHERITE_BLOCK,
+        Material.DIAMOND_BLOCK,
+        Material.EMERALD_BLOCK,
+        Material.IRON_BLOCK,
+    )
+
 data class VanillaConfig(
     // Paths
     val path: String = "vanilla",
@@ -58,6 +115,7 @@ data class VanillaConfig(
             Material.ACACIA_PLANKS,
             Material.DARK_OAK_PLANKS,
         ),
+    // Block drops
     val blockDrops: Map<Material, List<ItemStack>> =
         mapOf(
             Material.STONE to listOf(ItemStack.of(Material.COBBLESTONE)),
@@ -67,11 +125,21 @@ data class VanillaConfig(
             Material.SEA_LANTERN to listOf(ItemStack.of(Material.PRISMARINE_CRYSTALS, 3)),
             Material.AMETHYST_CLUSTER to listOf(ItemStack.of(Material.AMETHYST_SHARD, 4)),
             Material.CLAY to listOf(ItemStack.of(Material.CLAY_BALL, 4)),
-            Material.MELON to listOf(ItemStack.of(Material.MELON_SLICE, 6)),
+            Material.MELON to listOf(ItemStack.of(Material.MELON_SLICE, 5)),
             Material.SNOW to listOf(ItemStack.of(Material.SNOWBALL, 1)),
             Material.GLASS to listOf(),
             Material.GLASS_PANE to listOf(),
             Material.ICE to listOf(),
+        ),
+    val blocksRequiringTool: Set<Material> = PickaxeBlocks.toSet(),
+    val toolMinableBlocks: Map<Material, List<Material>> =
+        mapOf(
+            Material.WOODEN_PICKAXE to PickaxeBlocks,
+            Material.GOLDEN_PICKAXE to PickaxeBlocks,
+            Material.STONE_PICKAXE to PickaxeBlocks,
+            Material.IRON_PICKAXE to PickaxeBlocks,
+            Material.DIAMOND_PICKAXE to PickaxeBlocks,
+            Material.NETHERITE_PICKAXE to PickaxeBlocks,
         ),
     // TreeFeller
     val treeFellerMaxSize: Int = 120,
@@ -140,10 +208,13 @@ data class VanillaConfig(
     // Server Links
     val serverLinks: List<Pair<String, String>> =
         listOf(
-            "Website" to "https://example.com",
+            "Map" to "https://map.aechronis.net",
+            "Website" to "https://aechronis.net",
+            "Discord" to "https://discord.aechronis.net",
+            "Store" to "https://store.aechronis.net",
         ),
     // Combat
-    val combatDurationSeconds: Long = 15L,
+    val combatDurationSeconds: Long = 40L,
     val combatTickSeconds: Long = 1L,
     val combatAllowedCommands: List<String> = listOf("msg", "reply"),
 )
