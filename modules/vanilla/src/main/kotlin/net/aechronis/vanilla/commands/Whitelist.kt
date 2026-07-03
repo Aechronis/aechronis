@@ -1,13 +1,14 @@
 package net.aechronis.vanilla.commands
 
-import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 import net.aechronis.vanilla.utils.Command
 import net.aechronis.vanilla.utils.Message
 import net.minestom.server.command.builder.arguments.ArgumentType
+import net.minestom.server.entity.Player
+import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
 class Whitelist : Command("whitelist", "vanilla.whitelist") {
     init {
-        setDefaultExecutor { player, _ ->
+        setDefaultExecutor { player: Player, _ ->
             Message.print(player, "Usage:")
             Message.print(player, "/whitelist <toggle|enforce|add|remove> [player]")
         }
@@ -18,23 +19,23 @@ class Whitelist : Command("whitelist", "vanilla.whitelist") {
         val removeArg = ArgumentType.Literal("remove")
         val playerArg = ArgumentType.Word("player")
 
-        addSyntax({ sender, _ ->
+        addSyntax({ sender: Player, _ ->
             val enabled = WhitelistManager.toggle()
             Message.print(sender, "Whitelist is now ${if (enabled) "enabled" else "disabled"}")
         }, toggleArg)
 
-        addSyntax({ sender, _ ->
+        addSyntax({ sender: Player, _ ->
             WhitelistManager.enforce()
             Message.print(sender, "Whitelist enforced. Non-whitelisted players have been kicked.")
         }, enforceArg)
 
-        addSyntax({ sender, context ->
+        addSyntax({ sender: Player, context ->
             val name = context[playerArg]
             WhitelistManager.add(name)
             Message.print(sender, "Added $name to the whitelist")
         }, addArg, playerArg)
 
-        addSyntax({ sender, context ->
+        addSyntax({ sender: Player, context ->
             val name = context[playerArg]
             WhitelistManager.remove(name)
             Message.print(sender, "Removed $name from the whitelist")
