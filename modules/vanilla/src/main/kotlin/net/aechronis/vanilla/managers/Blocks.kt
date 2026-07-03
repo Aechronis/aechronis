@@ -4,8 +4,11 @@ import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.BlocksListener
 import net.aechronis.vanilla.objects.BlockType
 import net.aechronis.vanilla.objects.StonecutterConversionRecipe
+import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
+import net.minestom.server.entity.Player
 import net.minestom.server.inventory.Inventory
+import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.Material
 
 object Blocks {
@@ -20,6 +23,12 @@ object Blocks {
 
     val stonecutters: MutableSet<Inventory> = mutableSetOf()
     val outputsByInput: MutableMap<Material, MutableList<Material>> = mutableMapOf()
+
+    fun openConverter(player: Player) {
+        val inv = Inventory(InventoryType.STONE_CUTTER, Component.text("Block Converter"))
+        stonecutters.add(inv)
+        player.openInventory(inv)
+    }
 
     fun init() {
         val timeStart = System.currentTimeMillis()

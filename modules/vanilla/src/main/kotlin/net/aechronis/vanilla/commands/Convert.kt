@@ -2,17 +2,11 @@ package net.aechronis.vanilla.commands
 
 import net.aechronis.vanilla.managers.Blocks
 import net.aechronis.vanilla.utils.Command
-import net.kyori.adventure.text.Component
-import net.minestom.server.inventory.Inventory
-import net.minestom.server.inventory.InventoryType
 
-// TODO replace with stone cutter interact event
 class Convert : Command("convert", "vanilla.convert") {
     init {
         setDefaultExecutor { player, _ ->
-            val inv = Inventory(InventoryType.STONE_CUTTER, Component.text("Block Converter"))
-            Blocks.stonecutters.add(inv)
-            player.openInventory(inv)
+            Blocks.openConverter(player)
         }
     }
 }

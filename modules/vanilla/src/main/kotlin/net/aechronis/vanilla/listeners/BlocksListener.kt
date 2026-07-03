@@ -4,7 +4,10 @@ import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Blocks
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.inventory.InventoryCloseEvent
+import net.minestom.server.event.player.PlayerBlockInteractEvent
+import net.minestom.server.instance.block.Block
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.item.ItemStack
 import net.minestom.server.network.packet.client.play.ClientClickWindowButtonPacket
@@ -36,6 +39,14 @@ object BlocksListener {
         }
     }
 
+    fun onInteract(event: PlayerBlockInteractEvent) {
+        if (event.hand != PlayerHand.MAIN) return
+        if (!event.block.compare(Block.STONECUTTER)) return
+
+        event.isCancelled = true
+        Blocks.openConverter(event.player)
+    }
+
     fun onClose(event: InventoryCloseEvent) {
         val inv = event.inventory as? Inventory ?: return
         if (!Blocks.stonecutters.remove(inv)) return
@@ -51,5 +62,6 @@ object BlocksListener {
             .getPacketListenerManager()
             .setPlayListener(ClientClickWindowButtonPacket::class.java, ::onButton)
         Vanilla.eventNode.addListener(InventoryCloseEvent::class.java, BlocksListener::onClose)
+        Vanilla.eventNode.addListener(PlayerBlockInteractEvent::class.java, BlocksListener::onInteract)
     }
 }
