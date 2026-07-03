@@ -58,6 +58,21 @@ data class VanillaConfig(
             Material.ACACIA_PLANKS,
             Material.DARK_OAK_PLANKS,
         ),
+    val blockDrops: Map<Material, List<ItemStack>> =
+        mapOf(
+            Material.STONE to listOf(ItemStack.of(Material.COBBLESTONE)),
+            Material.DEEPSLATE to listOf(ItemStack.of(Material.COBBLED_DEEPSLATE)),
+            Material.GRASS_BLOCK to listOf(ItemStack.of(Material.DIRT)),
+            Material.GLOWSTONE to listOf(ItemStack.of(Material.GLOWSTONE_DUST, 3)),
+            Material.SEA_LANTERN to listOf(ItemStack.of(Material.PRISMARINE_CRYSTALS, 3)),
+            Material.AMETHYST_CLUSTER to listOf(ItemStack.of(Material.AMETHYST_SHARD, 4)),
+            Material.CLAY to listOf(ItemStack.of(Material.CLAY_BALL, 4)),
+            Material.MELON to listOf(ItemStack.of(Material.MELON_SLICE, 6)),
+            Material.SNOW to listOf(ItemStack.of(Material.SNOWBALL, 1)),
+            Material.GLASS to listOf(),
+            Material.GLASS_PANE to listOf(),
+            Material.ICE to listOf(),
+        ),
     // TreeFeller
     val treeFellerMaxSize: Int = 120,
     val treeFellerMaxHeight: Int = 26,

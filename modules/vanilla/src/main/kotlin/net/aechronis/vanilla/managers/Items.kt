@@ -71,7 +71,7 @@ object Items {
                         item.velocity = toTarget.normalize().mul(config.dropMagnetSpeed)
                     }
                 }
-            }.repeat(TaskSchedule.tick(2))
+            }.repeat(TaskSchedule.tick(20))
             .schedule()
     }
 }

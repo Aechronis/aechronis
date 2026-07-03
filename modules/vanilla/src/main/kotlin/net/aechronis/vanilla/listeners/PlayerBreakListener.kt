@@ -1,7 +1,7 @@
 package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.utils.Notifications
+import net.aechronis.vanilla.managers.Items
 import net.minestom.server.entity.GameMode
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.item.ItemStack
@@ -9,13 +9,14 @@ import net.minestom.server.item.ItemStack
 object PlayerBreakListener {
     fun onBlockBreak(event: PlayerBlockBreakEvent) {
         val player = event.player
-        val block = event.block
         if (player.gameMode == GameMode.CREATIVE) return
-        val material = block.registry()?.material() ?: return
-        if (!player.inventory.addItemStack(ItemStack.of(material))) {
-            event.isCancelled = true
-            player.sendNotification(Notifications.fullInv)
-            return
+        val instance = player.instance ?: return
+        val material = event.block.registry()?.material() ?: return
+
+        val drops = Vanilla.config!!.blockDrops[material] ?: listOf(ItemStack.of(material))
+        val dropPos = event.blockPosition.add(0.5, 0.5, 0.5).asPos()
+        for (stack in drops) {
+            if (!stack.isAir && stack.amount() > 0) Items.spawn(instance, dropPos, stack)
         }
     }
 

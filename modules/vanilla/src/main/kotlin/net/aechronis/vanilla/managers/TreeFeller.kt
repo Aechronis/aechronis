@@ -3,10 +3,10 @@ package net.aechronis.vanilla.managers
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.TreeFellerListener
 import net.aechronis.vanilla.objects.SaplingType
-import net.aechronis.vanilla.utils.PlayerAddons.giveDrops
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Point
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
@@ -233,7 +233,10 @@ object TreeFeller {
                         WorldEventPacket(2001, BlockVec(x, y, z), stateId, false),
                     )
                 val drops = if (leaf) rollLeafDrop(saplingMaterial) else logMaterial?.let { listOf(ItemStack.of(it)) }
-                if (!drops.isNullOrEmpty()) player.giveDrops(drops)
+                if (!drops.isNullOrEmpty()) {
+                    val dropPos = Pos(x + 0.5, y + 0.5, z + 0.5)
+                    for (stack in drops) Items.spawn(instance, dropPos, stack)
+                }
             }
             if (index >= ordered.size) TaskSchedule.stop() else TaskSchedule.tick(interval)
         }

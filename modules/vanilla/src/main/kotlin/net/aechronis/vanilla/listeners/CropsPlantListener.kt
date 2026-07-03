@@ -5,7 +5,7 @@ import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.objects.BlockKey
 import net.aechronis.vanilla.objects.CropType
 import net.aechronis.vanilla.objects.CropsPlantedCrop
-import net.aechronis.vanilla.utils.PlayerAddons.giveDrops
+import net.aechronis.vanilla.managers.Items
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.PlayerHand
@@ -67,8 +67,9 @@ object CropsPlantListener {
             Crops.crops.remove(BlockKey(instance, pos.asVec()))
             instance.setBlock(pos, Block.AIR)
             val drops = CropType.drops(cropType, age)
-            if (!event.player.giveDrops(drops)) {
-                event.isCancelled = true
+            val dropPos = pos.add(0.5, 0.5, 0.5).asPos()
+            for (stack in drops) {
+                if (!stack.isAir && stack.amount() > 0) Items.spawn(instance, dropPos, stack)
             }
             return
         }
@@ -80,8 +81,9 @@ object CropsPlantListener {
             val age = aboveBlock.getProperty("age")?.toIntOrNull() ?: 0
             Crops.crops.remove(BlockKey(instance, abovePos.asVec()))
             instance.setBlock(abovePos, Block.AIR)
-            if (!event.player.giveDrops(CropType.drops(aboveCrop, age))) {
-                event.isCancelled = true
+            val aboveDropPos = abovePos.add(0.5, 0.5, 0.5).asPos()
+            for (stack in CropType.drops(aboveCrop, age)) {
+                if (!stack.isAir && stack.amount() > 0) Items.spawn(instance, aboveDropPos, stack)
             }
             return
         }
