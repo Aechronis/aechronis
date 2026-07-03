@@ -132,6 +132,7 @@ data class VanillaConfig(
             Material.ICE to listOf(),
         ),
     val blocksRequiringTool: Set<Material> = PickaxeBlocks.toSet(),
+    val blocksSilkTouchable: Set<Material> = PickaxeBlocks.toSet(),
     val toolMinableBlocks: Map<Material, List<Material>> =
         mapOf(
             Material.WOODEN_PICKAXE to PickaxeBlocks,
