@@ -127,4 +127,8 @@ data class VanillaConfig(
         listOf(
             "Website" to "https://example.com",
         ),
+    // Combat
+    val combatDurationSeconds: Long = 15L,
+    val combatTickSeconds: Long = 1L,
+    val combatAllowedCommands: List<String> = listOf("msg", "reply"),
 )

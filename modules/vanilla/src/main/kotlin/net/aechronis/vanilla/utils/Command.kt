@@ -1,5 +1,7 @@
 package net.aechronis.vanilla.utils
 
+import net.aechronis.vanilla.Vanilla
+import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.utils.PlayerAddons.hasPermission
 import net.minestom.server.command.CommandSender
 import net.minestom.server.command.builder.Command
@@ -29,6 +31,11 @@ open class Command(
                 }
             }
 
+            if (Combat.isInCombat(sender) && name !in Vanilla.config!!.combatAllowedCommands) {
+                Message.error(sender, "You can't use that command while in combat")
+                return@setDefaultExecutor
+            }
+
             executor(sender, context)
         }
     }
@@ -51,6 +58,11 @@ open class Command(
                     Message.error(sender, "You don't have permission to use this command")
                     return@addSyntax
                 }
+            }
+
+            if (Combat.isInCombat(sender) && name !in Vanilla.config!!.combatAllowedCommands) {
+                Message.error(sender, "You can't use that command while in combat")
+                return@addSyntax
             }
 
             executor(sender, context)

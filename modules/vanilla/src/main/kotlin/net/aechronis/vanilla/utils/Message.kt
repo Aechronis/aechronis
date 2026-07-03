@@ -69,6 +69,13 @@ object Message {
         player.sendActionBar(Component.text(s))
     }
 
+    fun announcement(
+        player: Player,
+        component: Component,
+    ) {
+        player.sendActionBar(component)
+    }
+
     /**
      * Create progress bar string. Input should be double
      * in range [0.0, 1.0] marking progress.
