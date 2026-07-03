@@ -1,4 +1,4 @@
-package net.aechronis.logger
+package net.aechronis.logger.objects
 
 enum class BlockAction(
     val id: Byte,

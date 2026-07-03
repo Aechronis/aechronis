@@ -1,13 +1,15 @@
 package net.aechronis.logger.listeners
 
-import net.aechronis.logger.BlockAction
-import net.aechronis.logger.BlockLogEntry
 import net.aechronis.logger.Logger
 import net.aechronis.logger.commands.playerInspectMode
 import net.aechronis.logger.inspect.show
+import net.aechronis.logger.objects.BlockAction
+import net.aechronis.logger.objects.BlockLogEntry
+import net.aechronis.logger.utils.ItemCodec
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
+import net.minestom.server.instance.block.Block
 
 object BlockListener {
     private fun onBreak(event: PlayerBlockBreakEvent) {
@@ -19,6 +21,9 @@ object BlockListener {
             return
         }
 
+        val blockKey = event.block.key().asString()
+        val instanceUuid = event.instance.uuid
+
         record(
             BlockLogEntry(
                 timestamp = System.currentTimeMillis(),
@@ -27,9 +32,14 @@ object BlockListener {
                 x = pos.blockX(),
                 y = pos.blockY(),
                 z = pos.blockZ(),
-                blockOld = event.block.key().asString(),
+                blockOld = blockKey,
                 blockNew = "minecraft:air",
                 action = BlockAction.BREAK,
+                instanceUuid = instanceUuid,
+                blockOldState = event.block.state(),
+                blockNewState = Block.AIR.state(),
+                blockOldNbt = ItemCodec.encodeBlockNbt(event.block.nbt()),
+                blockNewNbt = null,
             ),
         )
     }
@@ -55,6 +65,11 @@ object BlockListener {
                 blockOld = previous.key().asString(),
                 blockNew = event.block.key().asString(),
                 action = BlockAction.PLACE,
+                instanceUuid = event.instance.uuid,
+                blockOldState = previous.state(),
+                blockNewState = event.block.state(),
+                blockOldNbt = ItemCodec.encodeBlockNbt(previous.nbt()),
+                blockNewNbt = ItemCodec.encodeBlockNbt(event.block.nbt()),
             ),
         )
     }
@@ -79,6 +94,9 @@ object BlockListener {
                 blockOld = event.block.key().asString(),
                 blockNew = event.block.key().asString(),
                 action = BlockAction.INTERACT,
+                instanceUuid = event.instance.uuid,
+                blockOldState = event.block.state(),
+                blockNewState = event.block.state(),
             ),
         )
     }

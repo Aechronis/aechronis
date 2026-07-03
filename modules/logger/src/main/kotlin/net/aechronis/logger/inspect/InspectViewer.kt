@@ -1,8 +1,8 @@
 package net.aechronis.logger.inspect
 
-import net.aechronis.logger.BlockAction
-import net.aechronis.logger.BlockLogEntry
 import net.aechronis.logger.Logger
+import net.aechronis.logger.objects.BlockAction
+import net.aechronis.logger.objects.BlockLogEntry
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player

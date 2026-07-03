@@ -17,7 +17,7 @@ object Logger {
 
         val database = Database(config)
         database.create()
-
+        database.migrateBlockLog()
 
         repository = BlockLogRepository(database)
 
