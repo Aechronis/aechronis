@@ -1,6 +1,5 @@
 package io.github.openminigameserver.worldedit.platform
 
-import BuildInfo
 import com.sk89q.worldedit.LocalConfiguration
 import com.sk89q.worldedit.WorldEdit
 import com.sk89q.worldedit.entity.Player
@@ -128,7 +127,7 @@ class MinestomPlatform(
 
     override fun getPlatformName(): String = "WorldEdit-Minestom"
 
-    override fun getPlatformVersion(): String = BuildInfo.VERSION
+    override fun getPlatformVersion(): String = "minestom"
 
     override fun getCapabilities(): MutableMap<Capability, Preference> =
         mutableMapOf(

@@ -1,14 +1,13 @@
+group = "io.github.openminigameserver"
+version = System.getenv("GITHUB_SHA")?.take(7) ?: "local"
+
 plugins {
-    idea
-    java
-    `java-library`
     `maven-publish`
-    kotlin("jvm") version "2.3.20"
+    id("org.jetbrains.kotlin.jvm") version "2.3.20"
     id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
 }
 
-group = "io.github.openminigameserver"
-version = System.getenv("GITHUB_SHA")?.take(7) ?: "local"
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
     mavenCentral()
@@ -27,50 +26,15 @@ dependencies {
     compileOnly(kotlin("stdlib"))
 }
 
-kotlin {
-    jvmToolchain(25)
-}
-
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(25))
-    }
-    withSourcesJar()
-}
-
-tasks {
-    test {
-        useJUnitPlatform()
-        systemProperty("keepRunning", System.getProperty("keepRunning", "false"))
-        maxHeapSize = "4g"
-    }
-
-    val templateContext = mapOf("version" to project.version.toString())
-    processResources {
-        expand(*templateContext.toList().toTypedArray())
-    }
-
-    register<Copy>("generateKotlinBuildInfo") {
-        inputs.properties(templateContext)
-        from("src/template/kotlin/")
-        into(layout.buildDirectory.dir("generated/kotlin/"))
-        expand(*templateContext.toList().toTypedArray())
-    }
-
-    kotlin.sourceSets["main"].kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin"))
-    compileKotlin.get().dependsOn(get("generateKotlinBuildInfo"))
-    named("sourcesJar").get().dependsOn(get("generateKotlinBuildInfo"))
-    withType<org.jlleitschuh.gradle.ktlint.tasks.BaseKtLintCheckTask>().configureEach {
-        dependsOn(get("generateKotlinBuildInfo"))
-    }
+tasks.test {
+    useJUnitPlatform()
+    systemProperty("keepRunning", System.getProperty("keepRunning", "false"))
 }
 
 publishing {
     publications {
-        create<MavenPublication>("gpr") {
+        create<MavenPublication>("maven") {
             from(components["java"])
-            groupId = "io.github.openminigameserver"
-            artifactId = "MinestomWorldEdit"
         }
     }
     repositories {
@@ -78,8 +42,8 @@ publishing {
             name = "GitHubPackages"
             url = uri("https://maven.pkg.github.com/Aechronis/worldedit")
             credentials {
-                username = System.getenv("GITHUB_ACTOR") ?: findProperty("gpr.user") as String?
-                password = System.getenv("GITHUB_TOKEN") ?: findProperty("gpr.key") as String?
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
             }
         }
     }
