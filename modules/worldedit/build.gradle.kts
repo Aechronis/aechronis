@@ -76,7 +76,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/Aechronis/MinestomWorldEdit")
+            url = uri("https://maven.pkg.github.com/Aechronis/worldedit")
             credentials {
                 username = System.getenv("GITHUB_ACTOR") ?: findProperty("gpr.user") as String?
                 password = System.getenv("GITHUB_TOKEN") ?: findProperty("gpr.key") as String?
