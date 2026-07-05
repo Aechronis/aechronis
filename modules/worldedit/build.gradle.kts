@@ -1,4 +1,4 @@
-group = "io.github.openminigameserver"
+group = "net.aechronis"
 version = System.getenv("GITHUB_SHA")?.take(7) ?: "local"
 
 plugins {
