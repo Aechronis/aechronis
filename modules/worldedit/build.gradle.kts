@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "io.github.openminigameserver"
-version = "2.0.0-SNAPSHOT"
+version = System.getenv("GITHUB_SHA")?.take(7) ?: "local"
 
 repositories {
     mavenCentral()
