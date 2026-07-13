@@ -14,36 +14,31 @@ import net.minestom.server.network.packet.server.play.UpdateViewDistancePacket
 import java.net.URI
 
 object PlayerJoinListener {
+    private val resourcePackRequest =
+        ResourcePackRequest
+            .resourcePackRequest()
+            .packs(
+                ResourcePackInfo
+                    .resourcePackInfo()
+                    .uri(URI("https://cdn.modrinth.com/data/LSmohupN/versions/zewiXtmr/Ashen_16x.zip"))
+                    .hash("d312836c38143301b7ba6a1247372b3f467116db")
+                    .build(),
+                ResourcePackInfo
+                    .resourcePackInfo()
+                    .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/f39d692/f39d692.zip"))
+                    .hash("c9fbbc287959e3e966c23c4c8ec527762c9598e3")
+                    .build(),
+            ).prompt(Component.text("A resource pack is required to play"))
+            .required(true)
+            .build()
+
     private fun onAsyncPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
         val player = event.player
 
         event.spawningInstance = Aechronis.instance
         player.respawnPoint = Nodes.getTownFromPlayer(player)?.spawnpoint ?: Pos(0.0, 64.0, 0.0)
         player.gameMode = GameMode.SURVIVAL
-
-        // set packs
-        val ashen =
-            ResourcePackInfo
-                .resourcePackInfo()
-                .uri(URI("https://cdn.modrinth.com/data/LSmohupN/versions/zewiXtmr/Ashen_16x.zip"))
-                .hash("d312836c38143301b7ba6a1247372b3f467116db")
-                .build()
-
-        val aechronis =
-            ResourcePackInfo
-                .resourcePackInfo()
-                .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/f39d692/f39d692.zip"))
-                .hash("c9fbbc287959e3e966c23c4c8ec527762c9598e3")
-                .build()
-
-        player.sendResourcePacks(
-            ResourcePackRequest
-                .resourcePackRequest()
-                .packs(ashen, aechronis)
-                .prompt(Component.text("A resource pack is required to play"))
-                .required(true)
-                .build(),
-        )
+        player.sendResourcePacks(resourcePackRequest)
     }
 
     private fun onPlayerJoin(event: PlayerSpawnEvent) {
