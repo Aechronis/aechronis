@@ -73,7 +73,6 @@ import net.aechronis.nodes.tasks.TaskSaveBuildings
 import net.aechronis.nodes.tasks.TaskSaveWorld
 import net.aechronis.nodes.utils.Color
 import net.aechronis.nodes.utils.loadLongFromFile
-import net.aechronis.nodes.utils.saveStringToFile
 import net.aechronis.nodes.war.FlagWar
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
@@ -277,7 +276,7 @@ object Nodes {
 
         // save backup, income current time
         val currTimeString = System.currentTimeMillis().toString()
-        saveStringToFile(currTimeString, config.pathLastBackupTime)
+        Files.writeString(config.pathLastBackupTime, currTimeString)
     }
 
     /**

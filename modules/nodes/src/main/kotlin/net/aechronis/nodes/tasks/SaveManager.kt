@@ -16,7 +16,6 @@ import net.aechronis.nodes.objects.Nation.NationSaveState
 import net.aechronis.nodes.objects.Resident.ResidentSaveState
 import net.aechronis.nodes.objects.Town.TownSaveState
 import net.aechronis.nodes.serdes.Serializer
-import net.aechronis.nodes.utils.saveStringToFile
 import net.minestom.server.MinecraftServer
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
@@ -45,7 +44,7 @@ class TaskSaveWorld(
             nationsSnapshot,
         )
 
-        saveStringToFile(jsonStr, Nodes.config.pathTowns)
+        Files.writeString(Nodes.config.pathTowns, jsonStr)
 
         // if backup timestamp millis timestamp (using System.currentTimeMillis())
         // was provided, copy this saved world state to backup folder
@@ -76,7 +75,7 @@ internal class TaskSaveBackup(
         }
 
         // save last backup timestamp to file
-        saveStringToFile(timestamp.toString(), Nodes.config.pathLastBackupTime)
+        Files.writeString(Nodes.config.pathLastBackupTime, timestamp.toString())
     }
 }
 
@@ -86,7 +85,7 @@ class TaskSaveBuildings(
 ) : Runnable {
     override fun run() {
         val jsonStr = Serializer.buildingsToJson(buildingsSnapshot)
-        saveStringToFile(jsonStr, pathBuildingsSave)
+        Files.writeString(pathBuildingsSave, jsonStr)
     }
 }
 
