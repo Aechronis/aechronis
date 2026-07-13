@@ -16,7 +16,9 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.Comparator
 import kotlin.math.floor
 import kotlin.math.min
 import kotlin.test.assertEquals
@@ -25,6 +27,7 @@ import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class NodesTest {
+    private lateinit var tmpDir: Path
 
     @BeforeAll
     fun setup() {
@@ -80,13 +83,15 @@ class NodesTest {
         }
 
         val dir = Paths.get(javaClass.getResource("/nodes/world.json")!!.toURI()).parent
-        val tmpDir = Files.createTempDirectory("nodes-test")
-        Files.walk(dir).forEach { src ->
-            val dest = tmpDir.resolve(dir.relativize(src))
-            if (Files.isDirectory(src)) {
-                Files.createDirectories(dest)
-            } else {
-                Files.copy(src, dest)
+        tmpDir = Files.createTempDirectory("nodes-test")
+        Files.walk(dir).use { resources ->
+            resources.forEach { src ->
+                val dest = tmpDir.resolve(dir.relativize(src))
+                if (Files.isDirectory(src)) {
+                    Files.createDirectories(dest)
+                } else {
+                    Files.copy(src, dest)
+                }
             }
         }
 
@@ -135,10 +140,14 @@ class NodesTest {
     }
 
     @AfterAll
-    fun keepRunning() {
+    fun tearDown() {
         // if -DkeepRunning=true is set keep server running for manual testing
         if (System.getProperty("keepRunning") == "true") {
             Thread.currentThread().join()
+        }
+        MinecraftServer.stopCleanly()
+        Files.walk(tmpDir).use { paths ->
+            paths.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists)
         }
     }
 }
