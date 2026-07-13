@@ -18,10 +18,10 @@ object CombatListener {
 
     fun onDisconnect(event: PlayerDisconnectEvent) {
         val player = event.player
-        if (!Combat.isInCombat(player)) return
+        val wasInCombat = Combat.isInCombat(player)
 
         Combat.clear(player)
-        player.kill()
+        if (wasInCombat) player.kill()
     }
 
     fun init() {
