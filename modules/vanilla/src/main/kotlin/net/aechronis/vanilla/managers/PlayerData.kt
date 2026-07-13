@@ -10,7 +10,7 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Map
+import java.util.AbstractMap.SimpleImmutableEntry
 import java.util.concurrent.ConcurrentHashMap
 
 // loosely based on https://github.com/Quiet-Terminal-Interactive/Cattlelog
@@ -79,7 +79,7 @@ object PlayerData {
 
         Files.newOutputStream(path).use { out ->
             BinaryTagIO.writer().writeNamed(
-                Map.entry("", data),
+                SimpleImmutableEntry("", data),
                 out,
                 BinaryTagIO.Compression.GZIP,
             )

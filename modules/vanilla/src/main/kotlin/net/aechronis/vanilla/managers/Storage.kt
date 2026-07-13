@@ -11,7 +11,7 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.inventory.Inventory
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Map
+import java.util.AbstractMap.SimpleImmutableEntry
 import java.util.concurrent.ConcurrentHashMap
 
 object Storage {
@@ -68,7 +68,7 @@ object Storage {
         Files.createDirectories(file.parent)
         Files.newOutputStream(file).use { out ->
             BinaryTagIO.writer().writeNamed(
-                Map.entry("", data),
+                SimpleImmutableEntry("", data),
                 out,
                 BinaryTagIO.Compression.GZIP,
             )
