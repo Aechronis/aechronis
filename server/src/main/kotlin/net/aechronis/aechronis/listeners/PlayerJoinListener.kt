@@ -44,8 +44,8 @@ object PlayerJoinListener {
     private fun onPlayerJoin(event: PlayerSpawnEvent) {
         val player = event.player
 
-        player.sendPacket(UpdateViewDistancePacket(32))
-        player.sendPacket(UpdateSimulationDistancePacket(32))
+        player.sendPacket(UpdateViewDistancePacket(Aechronis.VIEW_DISTANCE))
+        player.sendPacket(UpdateSimulationDistancePacket(Aechronis.VIEW_DISTANCE))
     }
 
     fun init() {
