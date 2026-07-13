@@ -28,11 +28,14 @@ import kotlin.test.assertTrue
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class NodesTest {
     private lateinit var tmpDir: Path
+    private var serverInitialized = false
 
     @BeforeAll
     fun setup() {
         // start server
-        MinecraftServer.init().start("0.0.0.0", 55555)
+        val server = MinecraftServer.init()
+        serverInitialized = true
+        server.start("0.0.0.0", 55555)
 
         // create instance
         val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
@@ -145,7 +148,7 @@ class NodesTest {
         if (System.getProperty("keepRunning") == "true") {
             Thread.currentThread().join()
         }
-        MinecraftServer.stopCleanly()
+        if (serverInitialized) MinecraftServer.stopCleanly()
         if (::tmpDir.isInitialized) {
             Files.walk(tmpDir).use { paths ->
                 paths.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists)
