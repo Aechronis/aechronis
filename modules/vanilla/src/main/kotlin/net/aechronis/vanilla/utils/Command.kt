@@ -19,24 +19,8 @@ open class Command(
      */
     fun setDefaultExecutor(executor: (player: Player, context: CommandContext) -> Unit) {
         super.setDefaultExecutor { sender: CommandSender, context ->
-            if (sender !is Player) {
-                Message.error(sender, "This command can only be used by players")
-                return@setDefaultExecutor
-            }
-
-            if (permission != null) {
-                if (!sender.hasPermission(permission)) {
-                    Message.error(sender, "You don't have permission to use this command")
-                    return@setDefaultExecutor
-                }
-            }
-
-            if (Combat.isInCombat(sender) && name !in Vanilla.config.combatAllowedCommands) {
-                Message.error(sender, "You can't use that command while in combat")
-                return@setDefaultExecutor
-            }
-
-            executor(sender, context)
+            val player = validatedPlayer(sender) ?: return@setDefaultExecutor
+            executor(player, context)
         }
     }
 
@@ -48,24 +32,27 @@ open class Command(
         vararg args: Argument<*>,
     ) {
         super.addSyntax({ sender, context ->
-            if (sender !is Player) {
-                Message.error(sender, "This command can only be used by players")
-                return@addSyntax
-            }
-
-            if (permission != null) {
-                if (!sender.hasPermission(permission)) {
-                    Message.error(sender, "You don't have permission to use this command")
-                    return@addSyntax
-                }
-            }
-
-            if (Combat.isInCombat(sender) && name !in Vanilla.config.combatAllowedCommands) {
-                Message.error(sender, "You can't use that command while in combat")
-                return@addSyntax
-            }
-
-            executor(sender, context)
+            val player = validatedPlayer(sender) ?: return@addSyntax
+            executor(player, context)
         }, *args)
+    }
+
+    private fun validatedPlayer(sender: CommandSender): Player? {
+        if (sender !is Player) {
+            Message.error(sender, "This command can only be used by players")
+            return null
+        }
+
+        if (permission != null && !sender.hasPermission(permission)) {
+            Message.error(sender, "You don't have permission to use this command")
+            return null
+        }
+
+        if (Combat.isInCombat(sender) && name !in Vanilla.config.combatAllowedCommands) {
+            Message.error(sender, "You can't use that command while in combat")
+            return null
+        }
+
+        return sender
     }
 }
