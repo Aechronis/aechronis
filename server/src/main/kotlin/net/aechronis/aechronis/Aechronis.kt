@@ -45,6 +45,17 @@ object Aechronis {
     val eventNode = EventNode.all("aechronis")
 }
 
+private fun Player.hasPermission(permission: String): Boolean =
+    LuckPermsProvider
+        .get()
+        .userManager
+        .getUser(uuid)
+        ?.cachedData
+        ?.permissionData
+        ?.checkPermission(permission)
+        ?.asBoolean()
+        ?: false
+
 fun main(args: Array<String>) {
     val port = args.getOrNull(0)?.toInt() ?: 25565
     val velocitySecret = args.getOrNull(1)
@@ -130,15 +141,7 @@ fun main(args: Array<String>) {
         .commands(true)
         .permissionHandler({ player, permission ->
             if (player is Player) {
-                LuckPermsProvider
-                    .get()
-                    .userManager
-                    .getUser(player.uuid)
-                    ?.cachedData
-                    ?.permissionData
-                    ?.checkPermission(permission)
-                    ?.asBoolean()
-                    ?: false
+                player.hasPermission(permission)
             } else {
                 true // console
             }
@@ -149,15 +152,7 @@ fun main(args: Array<String>) {
 
     // Set axiom permission logic
     AxiomPermissions.setPermissionPredicate { player: Player, permission: AxiomPermission ->
-        LuckPermsProvider
-            .get()
-            .userManager
-            .getUser(player.uuid)
-            ?.cachedData
-            ?.permissionData
-            ?.checkPermission(permission.permissionNode)
-            ?.asBoolean()
-            ?: false
+        player.hasPermission(permission.permissionNode)
     }
 
     // blocks and stuff
