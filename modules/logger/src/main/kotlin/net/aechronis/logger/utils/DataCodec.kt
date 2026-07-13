@@ -1,6 +1,5 @@
 package net.aechronis.logger.utils
 
-// aied larp
 object DataCodec {
     fun encode(data: Map<String, String>): String = data.entries.joinToString(";") { (k, v) -> "${escape(k)}=${escape(v)}" }
 
