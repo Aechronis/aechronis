@@ -23,7 +23,7 @@ object Combat {
         MinecraftServer
             .getSchedulerManager()
             .buildTask(::tick)
-            .repeat(TaskSchedule.seconds(Vanilla.config!!.combatTickSeconds))
+            .repeat(TaskSchedule.seconds(Vanilla.config.combatTickSeconds))
             .schedule()
         val timeEnd = System.currentTimeMillis()
         println("├─ Combat enabled in ${timeEnd - timeStart}ms")
@@ -46,7 +46,7 @@ object Combat {
 
     private fun tagOne(player: Player) {
         val wasInCombat = isInCombat(player)
-        expiresAt[player.uuid] = System.currentTimeMillis() + Vanilla.config!!.combatDurationSeconds * 1000
+        expiresAt[player.uuid] = System.currentTimeMillis() + Vanilla.config.combatDurationSeconds * 1000
 
         if (!wasInCombat) {
             val bar = BossBar.bossBar(Component.empty(), 1f, BossBar.Color.RED, BossBar.Overlay.PROGRESS)
@@ -57,7 +57,7 @@ object Combat {
 
     private fun tick() {
         val now = System.currentTimeMillis()
-        val durationMs = Vanilla.config!!.combatDurationSeconds * 1000
+        val durationMs = Vanilla.config.combatDurationSeconds * 1000
 
         for ((uuid, expiry) in expiresAt) {
             val player =

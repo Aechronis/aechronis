@@ -16,7 +16,7 @@ object PlayerBreakListener {
         val instance = player.instance ?: return
         val material = event.block.registry()?.material() ?: return
 
-        val config = Vanilla.config!!
+        val config = Vanilla.config
         val heldItem = player.itemInMainHand
         val hasSilkTouch = heldItem.get(DataComponents.ENCHANTMENTS, EnchantmentList.EMPTY).has(Enchantment.SILK_TOUCH)
         val silkTouchApplies = hasSilkTouch && material in config.blocksSilkTouchable

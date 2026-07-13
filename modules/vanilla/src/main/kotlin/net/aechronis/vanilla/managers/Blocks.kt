@@ -33,15 +33,15 @@ object Blocks {
     fun init() {
         val timeStart = System.currentTimeMillis()
         variants[BlockType.Stone]!!.addAll(
-            Vanilla.config!!.blocksStoneType,
+            Vanilla.config.blocksStoneType,
         )
 
         variants[BlockType.Wood]!!.addAll(
-            Vanilla.config!!.blocksWoodType,
+            Vanilla.config.blocksWoodType,
         )
 
         variants[BlockType.Grass]!!.addAll(
-            Vanilla.config!!.blocksGrassType,
+            Vanilla.config.blocksGrassType,
         )
 
         val rm = MinecraftServer.getRecipeManager()

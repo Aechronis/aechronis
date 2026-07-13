@@ -72,7 +72,7 @@ object TreeFeller {
         instance: Instance,
         logBlock: Block,
     ): Boolean {
-        val maxHeight = Vanilla.config!!.treeFellerMaxHeight
+        val maxHeight = Vanilla.config.treeFellerMaxHeight
         val x = origin.blockX()
         val z = origin.blockZ()
         var y = origin.blockY()
@@ -94,7 +94,7 @@ object TreeFeller {
         instance: Instance,
         logBlock: Block,
     ): List<Triple<Int, Int, Int>> {
-        val maxSize = Vanilla.config!!.treeFellerMaxSize
+        val maxSize = Vanilla.config.treeFellerMaxSize
         val found = mutableListOf(Triple(origin.blockX(), origin.blockY(), origin.blockZ()))
         val visited = HashSet(found)
         var i = 0
@@ -122,8 +122,8 @@ object TreeFeller {
         logs: List<Triple<Int, Int, Int>>,
         instance: Instance,
     ): List<Triple<Int, Int, Int>> {
-        val maxDistance = Vanilla.config!!.treeFellerLeafMaxDistance
-        val maxLeaves = Vanilla.config!!.treeFellerMaxLeaves
+        val maxDistance = Vanilla.config.treeFellerLeafMaxDistance
+        val maxLeaves = Vanilla.config.treeFellerMaxLeaves
         val logSet = HashSet(logs)
 
         fun distanceToNearestLog(
@@ -181,8 +181,8 @@ object TreeFeller {
             ?.material()
 
     private fun rollLeafDrop(saplingMaterial: Material?): List<ItemStack> {
-        val saplingChance = Vanilla.config!!.treeFellerSaplingChance
-        val stickChance = Vanilla.config!!.treeFellerStickChance
+        val saplingChance = Vanilla.config.treeFellerSaplingChance
+        val stickChance = Vanilla.config.treeFellerStickChance
         val roll = ThreadLocalRandom.current().nextDouble()
         return when {
             saplingMaterial != null && roll < saplingChance -> listOf(ItemStack.of(saplingMaterial))
@@ -215,8 +215,8 @@ object TreeFeller {
 
         val logMaterial = logBlock.registry()?.material()
         val saplingMaterial = saplingMaterial(logBlock)
-        val perTick = Vanilla.config!!.treeFellerBlocksPerTick.coerceAtLeast(1)
-        val interval = Vanilla.config!!.treeFellerTickInterval.coerceAtLeast(1)
+        val perTick = Vanilla.config.treeFellerBlocksPerTick.coerceAtLeast(1)
+        val interval = Vanilla.config.treeFellerTickInterval.coerceAtLeast(1)
 
         var index = 0
         MinecraftServer.getSchedulerManager().submitTask {

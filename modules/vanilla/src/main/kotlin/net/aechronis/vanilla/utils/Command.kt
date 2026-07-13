@@ -31,7 +31,7 @@ open class Command(
                 }
             }
 
-            if (Combat.isInCombat(sender) && name !in Vanilla.config!!.combatAllowedCommands) {
+            if (Combat.isInCombat(sender) && name !in Vanilla.config.combatAllowedCommands) {
                 Message.error(sender, "You can't use that command while in combat")
                 return@setDefaultExecutor
             }
@@ -60,7 +60,7 @@ open class Command(
                 }
             }
 
-            if (Combat.isInCombat(sender) && name !in Vanilla.config!!.combatAllowedCommands) {
+            if (Combat.isInCombat(sender) && name !in Vanilla.config.combatAllowedCommands) {
                 Message.error(sender, "You can't use that command while in combat")
                 return@addSyntax
             }

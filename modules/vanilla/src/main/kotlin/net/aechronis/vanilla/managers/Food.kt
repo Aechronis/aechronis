@@ -21,7 +21,7 @@ object Food {
 
     fun init() {
         val timeStart = System.currentTimeMillis()
-        val config = Vanilla.config!!
+        val config = Vanilla.config
         for (item in config.foodItems) {
             foodItems[item.material] = item
         }
@@ -59,7 +59,7 @@ object Food {
     }
 
     private fun tick() {
-        val config = Vanilla.config!!
+        val config = Vanilla.config
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
             if (player.gameMode == GameMode.CREATIVE || player.gameMode == GameMode.SPECTATOR) continue
             applyHealing(player, config.foodHealAmount, config.foodHealSaturationCost)

@@ -41,7 +41,8 @@ import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
 object Vanilla {
     val eventNode = EventNode.all("vanilla")
-    var config: VanillaConfig? = null
+    lateinit var config: VanillaConfig
+        private set
 
     fun init(c: VanillaConfig = VanillaConfig()) {
         config = c
@@ -72,9 +73,9 @@ object Vanilla {
             Whitelist(),
         )
         println("Loading Vanilla")
-        PlayerData.init(Path.of(config!!.path, config!!.playerDataPath))
-        Storage.init(Path.of(config!!.path, config!!.storagePath))
-        WhitelistManager.init(Path.of(config!!.path, config!!.whitelistPath))
+        PlayerData.init(Path.of(config.path, config.playerDataPath))
+        Storage.init(Path.of(config.path, config.storagePath))
+        WhitelistManager.init(Path.of(config.path, config.whitelistPath))
         Recipes.init()
         Crops.init()
         Saplings.init()

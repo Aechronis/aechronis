@@ -27,7 +27,7 @@ object KillShop {
     }
 
     fun openShop(player: Player) {
-        val items = Vanilla.config!!.shopItems
+        val items = Vanilla.config.shopItems
         val inv = Inventory(InventoryType.CHEST_3_ROW, Component.text("Shop"))
         val points = player.getTag(POINTS_TAG) ?: 0
         val cooldowns = playerCooldowns.getOrPut(player.uuid) { ConcurrentHashMap() }

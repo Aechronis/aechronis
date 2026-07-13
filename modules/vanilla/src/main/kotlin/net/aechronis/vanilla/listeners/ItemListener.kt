@@ -16,7 +16,7 @@ object ItemListener {
                 return
             }
 
-        val config = Vanilla.config!!
+        val config = Vanilla.config
         val direction = player.position.direction()
         val velocity = direction.mul(config.dropThrowVelocity).add(0.0, config.dropThrowUpwardVelocity, 0.0)
         val position = player.position.add(0.0, config.dropSpawnHeight, 0.0)

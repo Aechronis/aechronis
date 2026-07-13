@@ -33,7 +33,7 @@ object SaplingsListener {
         val planted = Saplings.saplings.getOrPut(key) { SaplingsPlanted(type, System.currentTimeMillis()) }
 
         planted.boneMeal++
-        if (planted.boneMeal >= Vanilla.config!!.saplingBoneMealAmount) {
+        if (planted.boneMeal >= Vanilla.config.saplingBoneMealAmount) {
             if (planted.type.giant && Saplings.tryGiant(instance, key.pos, planted.type)) {
                 return
             }

@@ -18,7 +18,7 @@ object ShopListener {
 
         val player = event.player
         val slot = event.slot
-        val items = Vanilla.config!!.shopItems
+        val items = Vanilla.config.shopItems
         if (slot < 0 || slot >= items.size) return
 
         val shopItem = items[slot]

@@ -55,7 +55,7 @@ object Elevator {
 
         val col = getOrScanColumn(instance, bx, bz)
         val targetY = if (step > 0) col.higher(floorY) else col.lower(floorY)
-        if (targetY == null || abs(targetY - floorY) > Vanilla.config!!.elevatorMaxSearch) return
+        if (targetY == null || abs(targetY - floorY) > Vanilla.config.elevatorMaxSearch) return
 
         if (instance.getBlock(bx, targetY + 1, bz, TYPE)?.isAir == true &&
             instance.getBlock(bx, targetY + 2, bz, TYPE)?.isAir == true

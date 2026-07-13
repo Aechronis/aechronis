@@ -28,7 +28,7 @@ object Items {
         stack: ItemStack,
         velocity: Vec = Vec.ZERO,
     ): ItemEntity {
-        val config = Vanilla.config!!
+        val config = Vanilla.config
         val item = ItemEntity(stack.withMaxStackSize(UNLIMITED_STACK_SIZE))
         item.isPickable = false
         item.setInstance(instance, position)
@@ -46,7 +46,7 @@ object Items {
         MinecraftServer
             .getSchedulerManager()
             .buildTask {
-                val config = Vanilla.config!!
+                val config = Vanilla.config
                 for (instance in MinecraftServer.getInstanceManager().instances) {
                     val items = instance.entities.filterIsInstance<ItemEntity>()
                     for (item in items) {

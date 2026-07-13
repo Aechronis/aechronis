@@ -28,7 +28,7 @@ object Saplings {
         MinecraftServer
             .getSchedulerManager()
             .buildTask(::growthTick)
-            .repeat(TaskSchedule.seconds(Vanilla.config!!.saplingGrowthCheckSeconds))
+            .repeat(TaskSchedule.seconds(Vanilla.config.saplingGrowthCheckSeconds))
             .schedule()
 
         val timeEnd = System.currentTimeMillis()
@@ -43,7 +43,7 @@ object Saplings {
                 toRemove.add(key)
                 continue
             }
-            if (now - planted.plantedAt < Vanilla.config!!.saplingGrowthMs) continue
+            if (now - planted.plantedAt < Vanilla.config.saplingGrowthMs) continue
             if (planted.type.giant && tryGiant(key.instance, key.pos, planted.type)) {
                 toRemove.add(key)
                 continue

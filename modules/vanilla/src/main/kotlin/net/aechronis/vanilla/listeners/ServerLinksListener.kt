@@ -10,7 +10,7 @@ object ServerLinksListener {
         if (!event.isFirstSpawn) return
 
         val entries =
-            Vanilla.config!!.serverLinks.map { (title, url) ->
+            Vanilla.config.serverLinks.map { (title, url) ->
                 ServerLinksPacket.Entry(Component.text(title), url)
             }
         event.player.sendPacket(ServerLinksPacket(entries))

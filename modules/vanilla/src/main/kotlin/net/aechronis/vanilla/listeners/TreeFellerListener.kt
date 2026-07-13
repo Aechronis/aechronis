@@ -20,7 +20,7 @@ object TreeFellerListener {
         if (tree.isEmpty()) return
 
         val logs = tree.drop(1)
-        val leaves = if (Vanilla.config!!.treeFellerBreakLeaves) TreeFeller.collectLeaves(tree, instance) else emptyList()
+        val leaves = if (Vanilla.config.treeFellerBreakLeaves) TreeFeller.collectLeaves(tree, instance) else emptyList()
         TreeFeller.fell(player, instance, logs, leaves, block)
     }
 
