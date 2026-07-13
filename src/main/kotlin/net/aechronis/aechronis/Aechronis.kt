@@ -80,8 +80,6 @@ fun main(args: Array<String>) {
 
     AxiomMinestom.initialize()
 
-    server.start("0.0.0.0", port)
-
     MinecraftServer.getGlobalEventHandler().addChild(Aechronis.eventNode)
 
     // create instance
@@ -168,4 +166,6 @@ fun main(args: Array<String>) {
     Nodes.initialize(nodesConfig)
 
     Vanilla.init()
+
+    server.start("0.0.0.0", port)
 }
