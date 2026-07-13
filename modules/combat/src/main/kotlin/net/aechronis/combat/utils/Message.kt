@@ -65,24 +65,16 @@ object Message {
         progress: Double,
         color1: TextColor = NamedTextColor.GRAY,
         color2: TextColor = NamedTextColor.DARK_GRAY,
-    ): Component =
-        when (
-            (
-                progress *
-                    10.0
-            ).roundToInt()
-        ) {
-            0 -> Component.text("..........").color(color2)
-            1 -> Component.text(".").color(color1).append(Component.text(".........", color2))
-            2 -> Component.text("..").color(color1).append(Component.text("........", color2))
-            3 -> Component.text("...").color(color1).append(Component.text(".......", color2))
-            4 -> Component.text("....").color(color1).append(Component.text("......", color2))
-            5 -> Component.text(".....").color(color1).append(Component.text(".....", color2))
-            6 -> Component.text("......").color(color1).append(Component.text("....", color2))
-            7 -> Component.text(".......").color(color1).append(Component.text("...", color2))
-            8 -> Component.text("........").color(color1).append(Component.text("..", color2))
-            9 -> Component.text(".........").color(color1).append(Component.text(".", color2))
-            10 -> Component.text("..........").color(color1)
+    ): Component {
+        val completed = (progress * 10.0).roundToInt()
+        return when (completed) {
+            0 -> Component.text("..........", color2)
+            10 -> Component.text("..........", color1)
+            in 1..9 ->
+                Component
+                    .text(".".repeat(completed), color1)
+                    .append(Component.text(".".repeat(10 - completed), color2))
             else -> Component.empty()
         }
+    }
 }
