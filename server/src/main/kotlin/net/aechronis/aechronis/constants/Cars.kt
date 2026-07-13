@@ -9,7 +9,7 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
 
 object Cars {
-    val truckHitbox =
+    private val truckHitbox =
         Hitbox(
             listOf(
                 HitboxPart(

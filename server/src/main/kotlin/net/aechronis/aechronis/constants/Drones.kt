@@ -7,7 +7,7 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Vec
 
 object Drones {
-    val droneHitbox =
+    private val droneHitbox =
         Hitbox(
             listOf(
                 HitboxPart(

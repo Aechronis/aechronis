@@ -9,7 +9,7 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
 
 object Tanks {
-    val m1a1AbramsHitbox =
+    private val m1a1AbramsHitbox =
         Hitbox(
             listOf(
                 HitboxPart(
