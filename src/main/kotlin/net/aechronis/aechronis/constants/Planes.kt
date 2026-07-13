@@ -12,7 +12,7 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.particle.Particle
 
 object Planes {
-    val fighterHitbox =
+    private val fighterHitbox =
         Hitbox(
             listOf(
                 HitboxPart(
@@ -28,7 +28,7 @@ object Planes {
             ),
         )
 
-    val fighterGun =
+    private val fighterGun =
         Gun(
             name = "fighter-gun",
             itemName = Component.empty(),
@@ -46,10 +46,10 @@ object Planes {
             bulletTrailParticle = Particle.ELECTRIC_SPARK,
         )
 
-    val fighterWeapon =
+    private val fighterWeapon =
         PlaneWeapon(
             gun = fighterGun,
-            firePoints = listOf(Vec(4.0, -.5, 6.0), Vec(-4.0, -.5, 6.0)),
+            firePoints = listOf(Vec(4.0, -0.5, 6.0), Vec(-4.0, -0.5, 6.0)),
         )
 
     val fighter =
