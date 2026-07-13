@@ -146,8 +146,10 @@ class NodesTest {
             Thread.currentThread().join()
         }
         MinecraftServer.stopCleanly()
-        Files.walk(tmpDir).use { paths ->
-            paths.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists)
+        if (::tmpDir.isInitialized) {
+            Files.walk(tmpDir).use { paths ->
+                paths.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists)
+            }
         }
     }
 }
