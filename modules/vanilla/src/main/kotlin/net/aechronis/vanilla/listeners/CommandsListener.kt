@@ -8,6 +8,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.event.entity.EntityTeleportEvent
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryItemChangeEvent
+import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.inventory.Inventory
 
 object CommandsListener {
@@ -33,9 +34,16 @@ object CommandsListener {
         }
     }
 
+    fun onDisconnect(event: PlayerDisconnectEvent) {
+        Commands.playerLastSender.entries.removeIf { (sender, receiver) ->
+            sender === event.player || receiver === event.player
+        }
+    }
+
     fun init() {
         Vanilla.eventNode.addListener(InventoryItemChangeEvent::class.java, CommandsListener::onChange)
         Vanilla.eventNode.addListener(InventoryCloseEvent::class.java, CommandsListener::onClose)
         Vanilla.eventNode.addListener(EntityTeleportEvent::class.java, CommandsListener::onTeleport)
+        Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, CommandsListener::onDisconnect)
     }
 }
