@@ -128,10 +128,11 @@ class LoggerLookupCommand : Command("lookup", "logger", "l") {
 class LoggerInspectCommand : Command("inspect", "logger", "i") {
     init {
         addSyntax({ sender: Player, _ ->
-            playerInspectMode[sender.uuid] = !(playerInspectMode[sender.uuid] ?: false)
+            val enabled = !(playerInspectMode[sender.uuid] ?: false)
+            playerInspectMode[sender.uuid] = enabled
 
             sender.sendMessage(
-                Component.text("Inspect mode ${if (playerInspectMode[sender.uuid]!!) "enabled" else "disabled"}.", NamedTextColor.GOLD),
+                Component.text("Inspect mode ${if (enabled) "enabled" else "disabled"}.", NamedTextColor.GOLD),
             )
         })
     }
