@@ -11,6 +11,6 @@ enum class BlockAction(
     companion object {
         fun fromId(id: Byte): BlockAction =
             entries.firstOrNull { it.id == id }
-                ?: throw IllegalArgumentException()
+                ?: throw IllegalArgumentException("Unknown block action id: $id")
     }
 }
