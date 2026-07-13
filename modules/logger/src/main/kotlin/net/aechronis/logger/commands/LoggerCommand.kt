@@ -30,12 +30,13 @@ import net.minestom.server.entity.Player
 import net.minestom.server.instance.block.Block
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
-val playerInspectMode = HashMap<UUID, Boolean>()
+val playerInspectMode = ConcurrentHashMap<UUID, Boolean>()
 
-private val lastRollbackOperation = HashMap<UUID, Long>()
-private val redoableOperation = HashMap<UUID, Long>()
+private val lastRollbackOperation = ConcurrentHashMap<UUID, Long>()
+private val redoableOperation = ConcurrentHashMap<UUID, Long>()
 
 private val rollbackExecutor = Executors.newVirtualThreadPerTaskExecutor()
 
