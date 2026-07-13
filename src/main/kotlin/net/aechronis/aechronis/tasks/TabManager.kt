@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 object TabManager {
     private const val BYTES_PER_MEBIBYTE = 1024L * 1024L
+    private const val UPDATE_INTERVAL_TICKS = 20
 
     private val runtime = Runtime.getRuntime()
     private val maxMemory = runtime.maxMemory() / BYTES_PER_MEBIBYTE
@@ -41,7 +42,7 @@ object TabManager {
                 val footer = createFooter(tickTime, usedMemory)
 
                 Audiences.players().sendPlayerListHeaderAndFooter(header, footer)
-            }.repeat(TaskSchedule.tick(1))
+            }.repeat(TaskSchedule.tick(UPDATE_INTERVAL_TICKS))
             .schedule()
     }
 
