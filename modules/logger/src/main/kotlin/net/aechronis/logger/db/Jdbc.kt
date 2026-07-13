@@ -1,6 +1,7 @@
 package net.aechronis.logger.db
 
 import java.sql.PreparedStatement
+import java.sql.ResultSet
 import java.sql.Types
 
 internal fun placeholders(count: Int): String = List(count) { "?" }.joinToString(",")
@@ -36,4 +37,9 @@ internal fun PreparedStatement.setNullableBytes(
     value: ByteArray?,
 ) {
     if (value != null) setBytes(index, value) else setNull(index, Types.BLOB)
+}
+
+internal fun ResultSet.getNullableInt(columnLabel: String): Int? {
+    val value = getInt(columnLabel)
+    return if (wasNull()) null else value
 }

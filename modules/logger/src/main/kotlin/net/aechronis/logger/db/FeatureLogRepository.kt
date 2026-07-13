@@ -116,23 +116,19 @@ class FeatureLogRepository(
         return out
     }
 
-    private fun mapRow(rs: ResultSet): FeatureLogEntry {
-        val x = rs.getInt("x").let { if (rs.wasNull()) null else it }
-        val y = rs.getInt("y").let { if (rs.wasNull()) null else it }
-        val z = rs.getInt("z").let { if (rs.wasNull()) null else it }
-        return FeatureLogEntry(
+    private fun mapRow(rs: ResultSet): FeatureLogEntry =
+        FeatureLogEntry(
             timestamp = rs.getLong("ts"),
             playerUuid = rs.getString("player_uuid")?.let(UUID::fromString),
             playerName = rs.getString("player_name"),
             source = rs.getString("source"),
             action = rs.getString("action"),
             summary = rs.getString("summary"),
-            x = x,
-            y = y,
-            z = z,
+            x = rs.getNullableInt("x"),
+            y = rs.getNullableInt("y"),
+            z = rs.getNullableInt("z"),
             data = DataCodec.decode(rs.getString("data")),
         )
-    }
 
     override fun close() {
         executor.shutdown()
