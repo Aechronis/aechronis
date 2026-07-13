@@ -11,7 +11,12 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
     mavenCentral()
-    maven("https://repo.hypera.dev/snapshots/") // luckperms (minestom)
+    maven("https://repo.hypera.dev/snapshots/") {
+        name = "HyperaSnapshots"
+        content {
+            includeGroup("dev.lu15")
+        }
+    }
 }
 
 dependencies {
