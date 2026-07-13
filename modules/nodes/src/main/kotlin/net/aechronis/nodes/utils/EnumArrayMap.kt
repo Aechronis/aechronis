@@ -1,12 +1,12 @@
 package net.aechronis.nodes.utils
 
+import kotlin.enums.enumEntries
+
 /**
  * Wrapper to create EnumArrayMap from an initializer function.
- * Note this internally uses `enumValues` and `map` so that
- * allocated lists during initialization, so avoid using this
- * repeatedly in hot paths.
+ * This allocates during initialization, so avoid using it repeatedly in hot paths.
  */
-inline fun <reified K : Enum<K>, reified T> createEnumArrayMap(init: (K) -> T): EnumArrayMap<K, T> = EnumArrayMap(enumValues<K>().map(init).toTypedArray())
+inline fun <reified K : Enum<K>, reified T> createEnumArrayMap(init: (K) -> T): EnumArrayMap<K, T> = EnumArrayMap(enumEntries<K>().map(init).toTypedArray())
 
 /**
  * Alternative to EnumMap where all enum values must be mapped
