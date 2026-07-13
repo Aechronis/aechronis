@@ -22,9 +22,11 @@ object VehicleTickManager {
                     vehicle.onTick(player)
                 }
 
+                val vehicles = Vehicle.entityVehicle.toList()
+
                 // render hitboxes for all vehicles
                 if (Hitbox.viewingHitboxes.isNotEmpty()) {
-                    for ((entity, vehicle) in Vehicle.entityVehicle.toList()) {
+                    for ((entity, vehicle) in vehicles) {
                         val pos = entity.position
                         vehicle.hitbox.render(
                             entity.instance ?: continue,
@@ -62,7 +64,7 @@ object VehicleTickManager {
                                 eyePos.z + direction.z * distance,
                             )
 
-                        for ((entity, vehicle) in Vehicle.entityVehicle.toList()) {
+                        for ((entity, vehicle) in vehicles) {
                             val vehiclePos = entity.position
 
                             val hitPart =
