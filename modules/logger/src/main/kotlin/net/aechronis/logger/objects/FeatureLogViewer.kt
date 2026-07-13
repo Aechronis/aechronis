@@ -1,6 +1,7 @@
 package net.aechronis.logger.objects
 
 import net.aechronis.logger.utils.Pages
+import net.aechronis.logger.utils.formatAgo
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
@@ -40,14 +41,4 @@ private fun line(entry: FeatureLogEntry): Component {
     }
 
     return component
-}
-
-private fun formatAgo(d: Duration): String {
-    val s = d.seconds
-    return when {
-        s < 60 -> "${s}s"
-        s < 3600 -> "${s / 60}m"
-        s < 86400 -> "${s / 3600}h"
-        else -> "${s / 86400}d"
-    }
 }
