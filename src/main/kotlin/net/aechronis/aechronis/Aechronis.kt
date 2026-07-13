@@ -91,29 +91,19 @@ fun main(args: Array<String>) {
     // register listeners
     PlayerJoinListener.init()
 
-    // ammo
-    Item.registerItems(Ammo.ammo762x39mm)
-
-    // guns
-    Item.registerItems(Guns.ak47)
-
-    // armor
-    Item.registerItems(Armor.jacket, Armor.trousers, Armor.boots)
-
-    // hats
-    Item.registerItems(Hats.gasMask)
-
-    // planes
-    Item.registerItems(Planes.fighter)
-
-    // cars
-    Item.registerItems(Cars.truck)
-
-    // tanks
-    Item.registerItems(Tanks.m1a1Abrams)
-
-    // drones
-    Item.registerItems(Drones.scoutDrone, Drones.kamikazeDrone)
+    Item.registerItems(
+        Ammo.ammo762x39mm,
+        Guns.ak47,
+        Armor.jacket,
+        Armor.trousers,
+        Armor.boots,
+        Hats.gasMask,
+        Planes.fighter,
+        Cars.truck,
+        Tanks.m1a1Abrams,
+        Drones.scoutDrone,
+        Drones.kamikazeDrone,
+    )
 
     // initialize luckperms
     LuckPermsMinestom
