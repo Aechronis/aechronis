@@ -18,6 +18,7 @@ import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.Whitelist
+import net.aechronis.vanilla.listeners.CommandsListener
 import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.listeners.ServerLinksListener
@@ -86,6 +87,7 @@ object Vanilla {
         Food.init()
         KillShop.init()
         Items.init()
+        CommandsListener.init()
         PlayerBreakListener.init()
         FallDamageListener.init()
         ServerLinksListener.init()
