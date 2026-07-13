@@ -31,7 +31,6 @@ import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
-import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.DimensionType
 import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.BlockPickup
@@ -41,7 +40,6 @@ import java.nio.file.Path
 
 object Aechronis {
     lateinit var instance: InstanceContainer
-    lateinit var fullbrightKey: RegistryKey<DimensionType>
     val eventNode = EventNode.all("aechronis")
 }
 
@@ -76,14 +74,14 @@ fun main(args: Array<String>) {
             .ambientLight(1.0f)
             .build()
 
-    Aechronis.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
+    val fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
 
     AxiomMinestom.initialize()
 
     MinecraftServer.getGlobalEventHandler().addChild(Aechronis.eventNode)
 
     // create instance
-    Aechronis.instance = MinecraftServer.getInstanceManager().createInstanceContainer(Aechronis.fullbrightKey)
+    Aechronis.instance = MinecraftServer.getInstanceManager().createInstanceContainer(fullbrightKey)
     Aechronis.instance.chunkLoader = AnvilLoader("world")
     Aechronis.instance.viewDistance(32)
 
