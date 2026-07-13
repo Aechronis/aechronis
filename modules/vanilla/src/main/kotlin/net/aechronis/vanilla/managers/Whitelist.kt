@@ -3,14 +3,17 @@ package net.aechronis.vanilla.managers
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import net.aechronis.vanilla.listeners.WhitelistListener
-import net.minestom.server.MinecraftServer
 import net.kyori.adventure.text.Component
+import net.minestom.server.MinecraftServer
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
 object Whitelist {
-    data class Entry(val uuid: String?, val name: String)
+    data class Entry(
+        val uuid: String?,
+        val name: String,
+    )
 
     var enabled: Boolean = false
         private set
@@ -61,7 +64,9 @@ object Whitelist {
     }
 
     private fun resolveUuid(name: String): String? =
-        MinecraftServer.getConnectionManager().onlinePlayers
+        MinecraftServer
+            .getConnectionManager()
+            .onlinePlayers
             .firstOrNull { it.username.equals(name, ignoreCase = true) }
             ?.uuid
             ?.toString()

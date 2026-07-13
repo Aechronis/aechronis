@@ -2,7 +2,6 @@ package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.CombatListener
-import net.aechronis.vanilla.listeners.TreeFellerListener
 import net.aechronis.vanilla.utils.Message
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
