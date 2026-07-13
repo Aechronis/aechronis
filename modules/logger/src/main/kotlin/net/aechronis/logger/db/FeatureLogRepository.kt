@@ -4,7 +4,6 @@ import net.aechronis.logger.objects.FeatureLogEntry
 import net.aechronis.logger.params.FeatureLookupParams
 import net.aechronis.logger.utils.DataCodec
 import java.sql.ResultSet
-import java.sql.Types
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
@@ -29,14 +28,14 @@ class FeatureLogRepository(
         database.dataSource.connection.use { conn ->
             conn.prepareStatement(insertSql).use { ps ->
                 ps.setLong(1, entry.timestamp)
-                ps.setString(2, entry.playerUuid?.toString())
-                ps.setString(3, entry.playerName)
+                ps.setNullableString(2, entry.playerUuid?.toString())
+                ps.setNullableString(3, entry.playerName)
                 ps.setString(4, entry.source)
                 ps.setString(5, entry.action)
                 ps.setString(6, entry.summary)
-                if (entry.x != null) ps.setInt(7, entry.x) else ps.setNull(7, Types.INTEGER)
-                if (entry.y != null) ps.setInt(8, entry.y) else ps.setNull(8, Types.INTEGER)
-                if (entry.z != null) ps.setInt(9, entry.z) else ps.setNull(9, Types.INTEGER)
+                ps.setNullableInt(7, entry.x)
+                ps.setNullableInt(8, entry.y)
+                ps.setNullableInt(9, entry.z)
                 ps.setString(10, DataCodec.encode(entry.data))
                 ps.executeUpdate()
             }
@@ -108,15 +107,7 @@ class FeatureLogRepository(
         val out = mutableListOf<FeatureLogEntry>()
         database.dataSource.connection.use { conn ->
             conn.prepareStatement(sql.toString()).use { ps ->
-                args.forEachIndexed { i, a ->
-                    val idx = i + 1
-                    when (a) {
-                        is Int -> ps.setInt(idx, a)
-                        is Long -> ps.setLong(idx, a)
-                        is String -> ps.setString(idx, a)
-                        else -> throw IllegalArgumentException("unsupported bind type: ${a::class}")
-                    }
-                }
+                ps.bindAll(args)
                 ps.executeQuery().use { rs ->
                     while (rs.next()) out += mapRow(rs)
                 }
@@ -124,8 +115,6 @@ class FeatureLogRepository(
         }
         return out
     }
-
-    private fun placeholders(n: Int): String = (1..n).joinToString(",") { "?" }
 
     private fun mapRow(rs: ResultSet): FeatureLogEntry {
         val x = rs.getInt("x").let { if (rs.wasNull()) null else it }

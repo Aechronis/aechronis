@@ -3,9 +3,7 @@ package net.aechronis.logger.db
 import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
 import net.aechronis.logger.params.LookupParams
-import java.sql.PreparedStatement
 import java.sql.ResultSet
-import java.sql.Types
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
@@ -60,20 +58,6 @@ class BlockLogRepository(
                 ps.executeUpdate()
             }
         }
-    }
-
-    private fun PreparedStatement.setNullableString(
-        index: Int,
-        value: String?,
-    ) {
-        if (value != null) setString(index, value) else setNull(index, Types.VARCHAR)
-    }
-
-    private fun PreparedStatement.setNullableBytes(
-        index: Int,
-        value: ByteArray?,
-    ) {
-        if (value != null) setBytes(index, value) else setNull(index, Types.BLOB)
     }
 
     fun lookupAsync(
@@ -219,16 +203,7 @@ class BlockLogRepository(
         val out = mutableListOf<BlockLogEntry>()
         database.dataSource.connection.use { conn ->
             conn.prepareStatement(sql).use { ps ->
-                args.forEachIndexed { i, a ->
-                    val idx = i + 1
-                    when (a) {
-                        is Int -> ps.setInt(idx, a)
-                        is Long -> ps.setLong(idx, a)
-                        is Byte -> ps.setByte(idx, a)
-                        is String -> ps.setString(idx, a)
-                        else -> throw IllegalArgumentException("unsupported bind type: ${a::class}")
-                    }
-                }
+                ps.bindAll(args)
                 ps.executeQuery().use { rs ->
                     while (rs.next()) out += mapRow(rs)
                 }
@@ -236,8 +211,6 @@ class BlockLogRepository(
         }
         return out
     }
-
-    private fun placeholders(n: Int): String = (1..n).joinToString(",") { "?" }
 
     private fun mapRow(rs: ResultSet): BlockLogEntry =
         BlockLogEntry(

@@ -6,7 +6,6 @@ import net.aechronis.logger.objects.RollbackOperation
 import net.aechronis.logger.objects.RollbackStatus
 import java.sql.ResultSet
 import java.sql.Statement
-import java.sql.Types
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
@@ -88,41 +87,17 @@ class RollbackRepository(
                 for (change in changes) {
                     ps.setLong(1, operationId)
                     ps.setString(2, change.changeKind.value)
-                    setNullableInt(ps, 3, change.x)
-                    setNullableInt(ps, 4, change.y)
-                    setNullableInt(ps, 5, change.z)
-                    setNullableString(ps, 6, change.beforeBlockState)
-                    setNullableBytes(ps, 7, change.beforeBlockNbt)
-                    setNullableString(ps, 8, change.afterBlockState)
-                    setNullableBytes(ps, 9, change.afterBlockNbt)
+                    ps.setNullableInt(3, change.x)
+                    ps.setNullableInt(4, change.y)
+                    ps.setNullableInt(5, change.z)
+                    ps.setNullableString(6, change.beforeBlockState)
+                    ps.setNullableBytes(7, change.beforeBlockNbt)
+                    ps.setNullableString(8, change.afterBlockState)
+                    ps.setNullableBytes(9, change.afterBlockNbt)
                     ps.addBatch()
                 }
                 ps.executeBatch()
             }
-    }
-
-    private fun setNullableInt(
-        ps: java.sql.PreparedStatement,
-        index: Int,
-        value: Int?,
-    ) {
-        if (value != null) ps.setInt(index, value) else ps.setNull(index, Types.INTEGER)
-    }
-
-    private fun setNullableString(
-        ps: java.sql.PreparedStatement,
-        index: Int,
-        value: String?,
-    ) {
-        if (value != null) ps.setString(index, value) else ps.setNull(index, Types.VARCHAR)
-    }
-
-    private fun setNullableBytes(
-        ps: java.sql.PreparedStatement,
-        index: Int,
-        value: ByteArray?,
-    ) {
-        if (value != null) ps.setBytes(index, value) else ps.setNull(index, Types.BLOB)
     }
 
     fun updateStatusAsync(
