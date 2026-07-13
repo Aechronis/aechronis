@@ -46,6 +46,7 @@ object HatCollection {
         save(uuid)
         playerCollections.remove(uuid)
         playerEquippedHat.remove(uuid)
+        playerSelectedHat.remove(uuid)
     }
 
     fun give(
@@ -67,6 +68,9 @@ object HatCollection {
             // unequip if the removed hat was equipped
             if (playerEquippedHat[uuid] == hat.name) {
                 playerEquippedHat.remove(uuid)
+            }
+            if (playerSelectedHat[uuid] == hat.name) {
+                playerSelectedHat.remove(uuid)
             }
             save(uuid)
         }
