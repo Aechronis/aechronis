@@ -37,6 +37,9 @@ val playerInspectMode = ConcurrentHashMap<UUID, Boolean>()
 
 private val lastRollbackOperation = ConcurrentHashMap<UUID, Long>()
 private val redoableOperation = ConcurrentHashMap<UUID, Long>()
+private val historyLock = Any()
+private val historyGenerations = HashMap<UUID, Long>()
+private val historyOperationsInFlight = HashMap<UUID, Long>()
 
 private val rollbackExecutor = Executors.newVirtualThreadPerTaskExecutor()
 
@@ -238,17 +241,30 @@ class LoggerRollbackCommand : Command("rollback", "logger.rollback", "rb") {
 class LoggerUndoCommand : Command("undo", "logger.undo") {
     init {
         setDefaultExecutor { sender, _ ->
-            val operationId = lastRollbackOperation[sender.uuid]
-            if (operationId == null) {
+            val claim = claimOperation(lastRollbackOperation, sender.uuid)
+            if (claim == null) {
                 sender.sendMessage(Component.text("[Logger] nothing to undo", NamedTextColor.GRAY))
                 return@setDefaultExecutor
             }
-            replayOperation(sender, operationId, useBefore = true) {
-                Logger.rollbackRepository.updateStatusAsync(operationId, RollbackStatus.UNDONE)
-                lastRollbackOperation.remove(sender.uuid)
-                redoableOperation[sender.uuid] = operationId
-                sender.sendMessage(Component.text("[Logger] undo complete. Use /logger redo to reapply.", NamedTextColor.GOLD))
-            }
+            val operationId = claim.operationId
+            replayOperation(
+                sender,
+                operationId,
+                useBefore = true,
+                generation = claim.generation,
+                onDone = {
+                    finishHistoryOperation(
+                        sender,
+                        operationId,
+                        claim.generation,
+                        RollbackStatus.UNDONE,
+                        redoableOperation,
+                    ) { canRedo ->
+                        if (canRedo) "[Logger] undo complete. Use /logger redo to reapply." else "[Logger] undo complete."
+                    }
+                },
+                onFailure = { restoreOperation(lastRollbackOperation, sender.uuid, claim) },
+            )
         }
     }
 }
@@ -256,18 +272,141 @@ class LoggerUndoCommand : Command("undo", "logger.undo") {
 class LoggerRedoCommand : Command("redo", "logger.redo") {
     init {
         setDefaultExecutor { sender, _ ->
-            val operationId = redoableOperation[sender.uuid]
-            if (operationId == null) {
+            val claim = claimOperation(redoableOperation, sender.uuid)
+            if (claim == null) {
                 sender.sendMessage(Component.text("[Logger] nothing to redo", NamedTextColor.GRAY))
                 return@setDefaultExecutor
             }
-            replayOperation(sender, operationId, useBefore = false) {
-                Logger.rollbackRepository.updateStatusAsync(operationId, RollbackStatus.APPLIED)
-                redoableOperation.remove(sender.uuid)
-                lastRollbackOperation[sender.uuid] = operationId
-                sender.sendMessage(Component.text("[Logger] redo complete.", NamedTextColor.GOLD))
-            }
+            val operationId = claim.operationId
+            replayOperation(
+                sender,
+                operationId,
+                useBefore = false,
+                generation = claim.generation,
+                onDone = {
+                    finishHistoryOperation(
+                        sender,
+                        operationId,
+                        claim.generation,
+                        RollbackStatus.APPLIED,
+                        lastRollbackOperation,
+                    ) { "[Logger] redo complete." }
+                },
+                onFailure = { restoreOperation(redoableOperation, sender.uuid, claim) },
+            )
         }
+    }
+}
+
+private data class ClaimedOperation(
+    val operationId: Long,
+    val generation: Long,
+)
+
+private fun nextHistoryGeneration(uuid: UUID): Long {
+    val generation = (historyGenerations[uuid] ?: 0L) + 1L
+    historyGenerations[uuid] = generation
+    return generation
+}
+
+private fun isCurrentHistoryOperation(
+    uuid: UUID,
+    generation: Long,
+): Boolean = historyGenerations[uuid] == generation && historyOperationsInFlight[uuid] == generation
+
+private fun beginRollbackHistory(uuid: UUID): Long? =
+    synchronized(historyLock) {
+        if (historyOperationsInFlight.containsKey(uuid)) return@synchronized null
+        val generation = nextHistoryGeneration(uuid)
+        historyOperationsInFlight[uuid] = generation
+        lastRollbackOperation.remove(uuid)
+        redoableOperation.remove(uuid)
+        generation
+    }
+
+private fun completeRollbackHistory(
+    uuid: UUID,
+    generation: Long,
+    operationId: Long,
+) {
+    synchronized(historyLock) {
+        if (!isCurrentHistoryOperation(uuid, generation)) return@synchronized
+        lastRollbackOperation[uuid] = operationId
+        redoableOperation.remove(uuid)
+        historyOperationsInFlight.remove(uuid)
+    }
+}
+
+private fun cancelHistoryOperation(
+    uuid: UUID,
+    generation: Long,
+) {
+    synchronized(historyLock) {
+        if (isCurrentHistoryOperation(uuid, generation)) {
+            historyOperationsInFlight.remove(uuid)
+        }
+    }
+}
+
+private fun claimOperation(
+    operations: MutableMap<UUID, Long>,
+    uuid: UUID,
+): ClaimedOperation? =
+    synchronized(historyLock) {
+        if (historyOperationsInFlight.containsKey(uuid)) return@synchronized null
+        val operationId = operations.remove(uuid) ?: return@synchronized null
+        val generation = nextHistoryGeneration(uuid)
+        historyOperationsInFlight[uuid] = generation
+        ClaimedOperation(operationId, generation)
+    }
+
+private fun restoreOperation(
+    operations: MutableMap<UUID, Long>,
+    uuid: UUID,
+    claim: ClaimedOperation,
+) {
+    synchronized(historyLock) {
+        if (!isCurrentHistoryOperation(uuid, claim.generation)) return@synchronized
+        operations.putIfAbsent(uuid, claim.operationId)
+        historyOperationsInFlight.remove(uuid)
+    }
+}
+
+private fun moveOperation(
+    destination: MutableMap<UUID, Long>,
+    uuid: UUID,
+    operationId: Long,
+    generation: Long,
+): Boolean =
+    synchronized(historyLock) {
+        if (!isCurrentHistoryOperation(uuid, generation)) return@synchronized false
+        destination[uuid] = operationId
+        historyOperationsInFlight.remove(uuid)
+        true
+    }
+
+private fun finishHistoryOperation(
+    sender: Player,
+    operationId: Long,
+    generation: Long,
+    status: RollbackStatus,
+    destination: MutableMap<UUID, Long>,
+    successMessage: (Boolean) -> String,
+) {
+    fun complete(exception: Throwable?) {
+        val moved = moveOperation(destination, sender.uuid, operationId, generation)
+        if (exception == null) {
+            sender.sendMessage(Component.text(successMessage(moved), NamedTextColor.GOLD))
+        } else {
+            println("failed to update rollback operation status: $exception")
+            sender.sendMessage(Component.text("[Logger] operation complete, but failed to update its saved status", NamedTextColor.RED))
+        }
+    }
+
+    try {
+        Logger.rollbackRepository.updateStatusAsync(operationId, status).whenComplete { _, exception -> complete(exception) }
+    } catch (exception: Exception) {
+        complete(exception)
     }
 }
 
@@ -331,16 +470,28 @@ private fun applyRollback(
             return@scheduleNextTick
         }
 
+        val generation = beginRollbackHistory(sender.uuid)
+        if (generation == null) {
+            sender.sendMessage(Component.text("[Logger] another rollback history operation is still in progress", NamedTextColor.GRAY))
+            return@scheduleNextTick
+        }
         val appliedBlocks = mutableListOf<AppliedBlockChange>()
-        for (change in plan.blockChanges) {
-            val before = instance.getBlock(change.x, change.y, change.z)
-            val base = change.restoreState?.let { Block.fromState(it) } ?: Block.fromKey(change.restoreMaterialKey) ?: continue
-            val after = base.withNbt(ItemCodec.decodeBlockNbt(change.restoreNbt))
-            instance.setBlock(change.x, change.y, change.z, after)
-            appliedBlocks += AppliedBlockChange(change.x, change.y, change.z, before, after)
+        try {
+            for (change in plan.blockChanges) {
+                val before = instance.getBlock(change.x, change.y, change.z)
+                val base = change.restoreState?.let { Block.fromState(it) } ?: Block.fromKey(change.restoreMaterialKey) ?: continue
+                val after = base.withNbt(ItemCodec.decodeBlockNbt(change.restoreNbt))
+                instance.setBlock(change.x, change.y, change.z, after)
+                appliedBlocks += AppliedBlockChange(change.x, change.y, change.z, before, after)
+            }
+        } catch (exception: Exception) {
+            cancelHistoryOperation(sender.uuid, generation)
+            println("failed to apply rollback operation: $exception")
+            sender.sendMessage(Component.text("[Logger] failed to apply rollback", NamedTextColor.RED))
+            return@scheduleNextTick
         }
 
-        persistAndReport(sender, plan, appliedBlocks)
+        persistAndReport(sender, plan, appliedBlocks, generation)
     }
 }
 
@@ -348,6 +499,7 @@ private fun persistAndReport(
     sender: Player,
     plan: RollbackPlan,
     appliedBlocks: List<AppliedBlockChange>,
+    generation: Long,
 ) {
     CompletableFuture
         .runAsync({
@@ -382,12 +534,12 @@ private fun persistAndReport(
 
             val operationId = Logger.rollbackRepository.insertOperationAsync(operation, changes).get()
 
-            lastRollbackOperation[sender.uuid] = operationId
-            redoableOperation.remove(sender.uuid)
+            completeRollbackHistory(sender.uuid, generation, operationId)
 
             showRollbackResult(sender, plan)
         }, rollbackExecutor)
         .exceptionally { exception ->
+            cancelHistoryOperation(sender.uuid, generation)
             println("failed to persist rollback operation: $exception")
             sender.sendMessage(Component.text("[Logger] rollback applied but failed to save undo history", NamedTextColor.RED))
             null
@@ -398,7 +550,9 @@ private fun replayOperation(
     sender: Player,
     operationId: Long,
     useBefore: Boolean,
+    generation: Long,
     onDone: () -> Unit,
+    onFailure: () -> Unit,
 ) {
     CompletableFuture
         .supplyAsync({
@@ -409,32 +563,49 @@ private fun replayOperation(
         .thenAccept { result ->
             if (result == null) {
                 sender.sendMessage(Component.text("[Logger] operation no longer exists", NamedTextColor.RED))
+                onFailure()
                 return@thenAccept
             }
             val (operation, changes) = result
 
             MinecraftServer.getSchedulerManager().scheduleNextTick {
-                val instance = MinecraftServer.getInstanceManager().getInstance(operation.instanceUuid)
-                if (instance == null) {
-                    sender.sendMessage(Component.text("[Logger] failed: instance no longer exists", NamedTextColor.RED))
-                    return@scheduleNextTick
-                }
+                val isCurrent = synchronized(historyLock) { isCurrentHistoryOperation(sender.uuid, generation) }
+                if (!isCurrent) return@scheduleNextTick
 
-                for (change in changes) {
-                    when (change.changeKind) {
-                        RollbackChangeKind.BLOCK -> {
-                            val x = change.x ?: continue
-                            val y = change.y ?: continue
-                            val z = change.z ?: continue
-                            val stateStr = if (useBefore) change.beforeBlockState else change.afterBlockState
-                            val nbtBytes = if (useBefore) change.beforeBlockNbt else change.afterBlockNbt
-                            val base = stateStr?.let { Block.fromState(it) } ?: continue
-                            instance.setBlock(x, y, z, base.withNbt(ItemCodec.decodeBlockNbt(nbtBytes)))
+                try {
+                    val instance = MinecraftServer.getInstanceManager().getInstance(operation.instanceUuid)
+                    if (instance == null) {
+                        onFailure()
+                        sender.sendMessage(Component.text("[Logger] failed: instance no longer exists", NamedTextColor.RED))
+                        return@scheduleNextTick
+                    }
+
+                    for (change in changes) {
+                        when (change.changeKind) {
+                            RollbackChangeKind.BLOCK -> {
+                                val x = change.x ?: continue
+                                val y = change.y ?: continue
+                                val z = change.z ?: continue
+                                val stateStr = if (useBefore) change.beforeBlockState else change.afterBlockState
+                                val nbtBytes = if (useBefore) change.beforeBlockNbt else change.afterBlockNbt
+                                val base = stateStr?.let { Block.fromState(it) } ?: continue
+                                instance.setBlock(x, y, z, base.withNbt(ItemCodec.decodeBlockNbt(nbtBytes)))
+                            }
                         }
                     }
+                } catch (exception: Exception) {
+                    println("failed to replay rollback operation: $exception")
+                    onFailure()
+                    sender.sendMessage(Component.text("[Logger] failed to replay operation", NamedTextColor.RED))
+                    return@scheduleNextTick
                 }
 
                 onDone()
             }
+        }.exceptionally { exception ->
+            println("failed to replay rollback operation: $exception")
+            onFailure()
+            sender.sendMessage(Component.text("[Logger] failed to replay operation", NamedTextColor.RED))
+            null
         }
 }
