@@ -12,14 +12,5 @@ interface SaveState {
     fun createJsonString(): String
 
     // memoized access to json string
-    fun toJsonString(): String {
-        val jsonString = this.jsonString
-        if (jsonString === null) {
-            val json = this.createJsonString()
-            this.jsonString = json
-            return json
-        } else {
-            return jsonString
-        }
-    }
+    fun toJsonString(): String = jsonString ?: createJsonString().also { jsonString = it }
 }
