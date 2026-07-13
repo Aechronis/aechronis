@@ -10,12 +10,12 @@ object Particles {
     fun bloodParticle(
         instance: Instance,
         pos: Pos,
-    ) = instance.sendGroupedPacket(ParticlePacket(Particle.FALLING_DUST.withBlock(Block.REDSTONE_BLOCK), pos, Pos(0.0, 0.0, 0.0), 0F, 10))
+    ) = instance.sendGroupedPacket(ParticlePacket(Particle.FALLING_DUST.withBlock(Block.REDSTONE_BLOCK), pos, Pos.ZERO, 0F, 10))
 
     fun dustParticle(
         instance: Instance,
         pos: Pos,
-    ) = instance.sendGroupedPacket(ParticlePacket(Particle.DUST, pos, Pos(0.0, 0.0, 0.0), 0F, 10))
+    ) = instance.sendGroupedPacket(ParticlePacket(Particle.DUST, pos, Pos.ZERO, 0F, 10))
 
     fun particleLine(
         instance: Instance,
