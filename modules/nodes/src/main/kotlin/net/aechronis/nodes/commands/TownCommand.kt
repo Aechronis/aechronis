@@ -393,7 +393,7 @@ class TownAcceptCommand : Command("accept") {
                         applicant = k
                     }
                 } else {
-                    val applicantsString = town.applications.map { application -> application.key.name }.joinToString(", ")
+                    val applicantsString = town.applications.keys.joinToString(", ") { applicant -> applicant.name }
                     Message.print(player, "There are multiple town applications. Please use \"/town accept [player]\".\nCurrent applicants: $applicantsString")
                     return@addSyntax
                 }
@@ -505,7 +505,7 @@ class TownDenyCommand : Command("deny", null, "reject") {
                         applicant = k
                     }
                 } else {
-                    val applicantsString = town.applications.map { application -> application.key.name }.joinToString(", ")
+                    val applicantsString = town.applications.keys.joinToString(", ") { applicant -> applicant.name }
                     Message.print(player, "There are multiple town applications. Please use \"/town accept [player]\".\nCurrent applicants: $applicantsString")
                     return@addSyntax
                 }

@@ -104,9 +104,9 @@ class Nation(
         override var jsonString: String? = null
 
         override fun createJsonString(): String {
-            val towns = this.towns.asSequence().map { x -> "\"${x}\"" }.joinToString(",", "[", "]")
-            val allies = this.allies.asSequence().map { x -> "\"${x}\"" }.joinToString(",", "[", "]")
-            val enemies = this.enemies.asSequence().map { x -> "\"${x}\"" }.joinToString(",", "[", "]")
+            val towns = this.towns.joinToString(",", "[", "]") { x -> "\"$x\"" }
+            val allies = this.allies.joinToString(",", "[", "]") { x -> "\"$x\"" }
+            val enemies = this.enemies.joinToString(",", "[", "]") { x -> "\"$x\"" }
 
             val jsonString = (
                 "{" +

@@ -190,8 +190,8 @@ class Town(
 
         override fun createJsonString(): String {
             val leaderUUID = if (this.leader != null) "\"${this.leader}\"" else null
-            val officers = this.officers.asSequence().map { x -> "\"$x\"" }.joinToString(",", "[", "]")
-            val residents = this.residents.asSequence().map { x -> "\"$x\"" }.joinToString(",", "[", "]")
+            val officers = this.officers.joinToString(",", "[", "]") { x -> "\"$x\"" }
+            val residents = this.residents.joinToString(",", "[", "]") { x -> "\"$x\"" }
             val territories = this.territories.joinToString(",", "[", "]")
             val annexed = this.annexed.joinToString(",", "[", "]")
             val captured = this.captured.joinToString(",", "[", "]")
