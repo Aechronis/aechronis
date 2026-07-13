@@ -39,60 +39,64 @@ object ModelManager {
 
     fun updateModel(player: Player) {
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
-        if (gun != null || VehicleTickManager.playerLookingAtVehicle[player] != null) {
-            disableHitAnimation(player)
+        val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
+        if (gun == null && !isLookingAtVehicle) {
+            enableHitAnimation(player)
+            player.sendPacket(TimeUpdatePacket(10000, player.instance?.time ?: 0, false))
+            return
+        }
 
-            // when gun is automatic, or looking at vehicle, show player fake blocks so they keep sending animation packets when holding down left/right click
-            // we hide the block + outline with a resource pack shader
-            if (gun?.automatic == true || VehicleTickManager.playerLookingAtVehicle[player] != null) {
-                for (y in 1..2) {
-                    for (x in -2..2) {
-                        for (z in -2..2) {
-                            val pos: Pos = player.position.add(x.toDouble(), y.toDouble(), z.toDouble())
-                            if (player.instance?.getBlock(pos)?.isAir ?: false) {
-                                player.sendPacket(BlockChangePacket(pos, Block.GLOW_LICHEN))
-                                MinecraftServer
-                                    .getSchedulerManager()
-                                    .buildTask { player.sendPacket(BlockChangePacket(pos, Block.AIR)) }
-                                    .delay(TaskSchedule.tick(1))
-                                    .schedule()
-                            }
+        disableHitAnimation(player)
+
+        // when gun is automatic, or looking at vehicle, show player fake blocks so they keep sending animation packets when holding down left/right click
+        // we hide the block + outline with a resource pack shader
+        if (gun?.automatic == true || isLookingAtVehicle) {
+            for (y in 1..2) {
+                for (x in -2..2) {
+                    for (z in -2..2) {
+                        val pos: Pos = player.position.add(x.toDouble(), y.toDouble(), z.toDouble())
+                        if (player.instance?.getBlock(pos)?.isAir ?: false) {
+                            player.sendPacket(BlockChangePacket(pos, Block.GLOW_LICHEN))
+                            MinecraftServer
+                                .getSchedulerManager()
+                                .buildTask { player.sendPacket(BlockChangePacket(pos, Block.AIR)) }
+                                .delay(TaskSchedule.tick(1))
+                                .schedule()
                         }
                     }
                 }
             }
+        }
 
-            // hide block outline
-            player.sendPacket(TimeUpdatePacket(11000, player.instance.time, false))
+        // hide block outline
+        player.sendPacket(TimeUpdatePacket(11000, player.instance.time, false))
 
-            if (gun == null) return
+        if (gun == null) return
 
-            val item = player.itemInMainHand
+        val item = player.itemInMainHand
+        val isAiming = Combat.playerAiming[player] == true
+        val hasAmmo = gun.hasAmmo(player)
 
-            // sniper scope
-            if (gun.sniper && Combat.playerAiming[player] == true && gun.hasAmmo(player)) {
-                player.sendPacket(
-                    EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to ItemStack.of(Material.CARVED_PUMPKIN))),
-                )
-                player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.0)
-            } else {
-                player.sendPacket(EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to player.helmet)))
-                player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.1)
-            }
-
-            // set correct model
-            if (Combat.reloadTasks[player] != null) {
-                player.itemInMainHand = item.withItemModel(gun.itemModelReloading)
-            } else if (!gun.hasAmmo(player)) {
-                player.itemInMainHand = item.withItemModel(gun.itemModelEmpty)
-            } else if (Combat.playerAiming[player] == true) {
-                player.itemInMainHand = item.withItemModel(gun.itemModelAiming)
-            } else {
-                player.itemInMainHand = item.withItemModel(gun.itemModel)
-            }
+        // sniper scope
+        if (gun.sniper && isAiming && hasAmmo) {
+            player.sendPacket(
+                EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to ItemStack.of(Material.CARVED_PUMPKIN))),
+            )
+            player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.0)
         } else {
-            enableHitAnimation(player)
-            player.sendPacket(TimeUpdatePacket(10000, player.instance?.time ?: 0, false))
+            player.sendPacket(EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to player.helmet)))
+            player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.1)
+        }
+
+        // set correct model
+        if (Combat.reloadTasks[player] != null) {
+            player.itemInMainHand = item.withItemModel(gun.itemModelReloading)
+        } else if (!hasAmmo) {
+            player.itemInMainHand = item.withItemModel(gun.itemModelEmpty)
+        } else if (isAiming) {
+            player.itemInMainHand = item.withItemModel(gun.itemModelAiming)
+        } else {
+            player.itemInMainHand = item.withItemModel(gun.itemModel)
         }
     }
 
