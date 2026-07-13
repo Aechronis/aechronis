@@ -64,7 +64,7 @@ object MeleeListener {
 
         // set killer for death messages
         if (target is Player) {
-            Combat.playerKillers[target] = attacker
+            Combat.recordKiller(target, attacker)
         }
 
         // apply damage and set invincibility frames
@@ -198,7 +198,7 @@ object MeleeListener {
 
             // track killer for death messages
             if (livingEntity is Player) {
-                Combat.playerKillers[livingEntity] = attacker
+                Combat.recordKiller(livingEntity, attacker)
             }
 
             // apply sweeping damage and set iframes

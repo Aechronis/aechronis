@@ -44,6 +44,23 @@ object Combat {
 
     val playerKillers = HashMap<Player, Player?>()
 
+    internal fun recordKiller(
+        victim: Player,
+        killer: Player,
+    ) {
+        synchronized(playerKillers) {
+            playerKillers[victim] = killer
+        }
+    }
+
+    internal fun takeKiller(victim: Player): Player? = synchronized(playerKillers) { playerKillers.remove(victim) }
+
+    internal fun removeKillerReferences(player: Player) {
+        synchronized(playerKillers) {
+            playerKillers.entries.removeIf { (victim, killer) -> victim === player || killer === player }
+        }
+    }
+
     val playerLastActionTimes = HashMap<Player, Long>()
 
     val placeTasks = HashMap<Player, Task>()

@@ -19,8 +19,7 @@ import net.minestom.server.network.player.ResolvableProfile
 object PlayerDeathListener {
     fun onPlayerDeath(event: PlayerDeathEvent) {
         val player = event.player
-        val killer = Combat.playerKillers[player]
-        Combat.playerKillers[player] = null
+        val killer = Combat.takeKiller(player)
 
         val damageType = player.lastDamageSource?.type
         val isExplosion = damageType == DamageType.PLAYER_EXPLOSION || damageType == DamageType.EXPLOSION

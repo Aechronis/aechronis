@@ -93,7 +93,7 @@ class Explosion(
 
         for (player in instance.players.toList()) {
             if (player.position.distance(pos) <= radius) {
-                if (source != null && player != source) Combat.playerKillers[player] = source
+                if (source != null && player != source) Combat.recordKiller(player, source)
                 player.damage(blast)
             }
         }

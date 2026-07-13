@@ -233,7 +233,7 @@ class Gun(
         } else if (blockHitDistance > entityHitDistance) { // entity hit
             val target = (entityHit!!.obj as LivingEntity)
             if (target as? Player != null) {
-                Combat.playerKillers[target] = player
+                Combat.recordKiller(target, player)
             }
 
             // ding sound

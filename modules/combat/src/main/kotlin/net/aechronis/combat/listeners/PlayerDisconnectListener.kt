@@ -47,7 +47,7 @@ object PlayerDisconnectListener {
         Combat.playerAiming.remove(player)
         Combat.playerPreviousPositions.remove(player)
         Combat.playerSpeeds.remove(player)
-        Combat.playerKillers.entries.removeIf { (victim, killer) -> victim === player || killer === player }
+        Combat.removeKillerReferences(player)
         Combat.playerLastActionTimes.remove(player)
         Combat.entityLastDamageTime.remove(player)
         KeyPressListener.playerInputEvent.remove(player)

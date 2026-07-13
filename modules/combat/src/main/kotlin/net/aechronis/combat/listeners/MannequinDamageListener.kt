@@ -18,7 +18,7 @@ object MannequinDamageListener {
         val pilot = entity.let { Drone.mannequinPilot[it] }
         if (pilot != null) {
             event.isCancelled = true
-            (event.damage.attacker as? Player)?.let { Combat.playerKillers[pilot] = it }
+            (event.damage.attacker as? Player)?.let { Combat.recordKiller(pilot, it) }
 
             if (pilot.health - event.damage.amount <= 0f) {
                 (Vehicle.playerVehicle[pilot] as? Drone)?.onExit(pilot)
