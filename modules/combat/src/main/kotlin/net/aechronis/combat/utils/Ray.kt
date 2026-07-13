@@ -71,7 +71,7 @@ class Ray(
         var best: Hit<E>? = null
         for (entity in entities) {
             val hit = cast(entity, entity.position) ?: continue
-            if (best == null || hit.t < best!!.t) best = hit
+            if (best == null || hit.t < best.t) best = hit
         }
         return best
     }
@@ -89,7 +89,7 @@ class Ray(
             var best: Hit<Block>? = null
             for (hitbox in hitboxes) {
                 val hit = cast(hitbox, pos.asVec()) ?: continue
-                if (best == null || hit.t < best!!.t) best = Hit(hit.t, hit.point, block)
+                if (best == null || hit.t < best.t) best = Hit(hit.t, hit.point, block)
             }
             if (best != null) return best
         }
