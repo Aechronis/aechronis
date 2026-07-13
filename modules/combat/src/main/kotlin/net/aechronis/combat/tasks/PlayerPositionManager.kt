@@ -20,13 +20,18 @@ object PlayerPositionManager {
                     while (positions.size > 20) positions.removeFirst()
 
                     // calculate speed by summing distances between consecutive positions
-                    val speed =
-                        positions
-                            .zipWithNext { a, b -> a.distance(b) }
-                            .sum()
-                            .toFloat()
+                    var speed = 0.0
+                    val iterator = positions.iterator()
+                    if (iterator.hasNext()) {
+                        var previous = iterator.next()
+                        while (iterator.hasNext()) {
+                            val current = iterator.next()
+                            speed += previous.distance(current)
+                            previous = current
+                        }
+                    }
 
-                    Combat.playerSpeeds[player] = speed
+                    Combat.playerSpeeds[player] = speed.toFloat()
                 }
             }.repeat(TaskSchedule.tick(1))
             .schedule()
