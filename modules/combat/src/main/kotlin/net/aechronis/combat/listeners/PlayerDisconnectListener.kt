@@ -1,6 +1,7 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneState
 import net.aechronis.combat.objects.Vehicle
@@ -38,17 +39,19 @@ object PlayerDisconnectListener {
         VehicleTickManager.playerLookingAtEntity.remove(player)
 
         // cancel any active tasks before removing
-        Combat.aimingResetTasks[player]?.cancel()
-        Combat.reloadTasks[player]?.cancel()
+        Combat.aimingResetTasks.remove(player)?.cancel()
+        Combat.reloadTasks.remove(player)?.cancel()
+        Combat.placeTasks.remove(player)?.cancel()
 
         // remove player from all hashmaps to prevent memory leaks
         Combat.playerAiming.remove(player)
-        Combat.aimingResetTasks.remove(player)
-        Combat.reloadTasks.remove(player)
         Combat.playerPreviousPositions.remove(player)
         Combat.playerSpeeds.remove(player)
-        Combat.playerKillers.remove(player)
+        Combat.playerKillers.entries.removeIf { (victim, killer) -> victim === player || killer === player }
         Combat.playerLastActionTimes.remove(player)
+        Combat.entityLastDamageTime.remove(player)
+        KeyPressListener.playerInputEvent.remove(player)
+        Hitbox.viewingHitboxes.remove(player)
 
         // clean up hat menu entities
         HatListener.playerCamera.remove(player.uuid)?.remove()
