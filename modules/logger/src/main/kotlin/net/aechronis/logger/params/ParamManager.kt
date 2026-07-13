@@ -75,11 +75,11 @@ object ParamManager {
             }
         }
 
-        val actionTokens =
+        val splitActionTokens =
             rawActionTokens
                 .flatMap { it.split(',') }
                 .map { it.trim() }
-                .filter { it.isNotBlank() }
+        val actionTokens = splitActionTokens.filter { it.isNotBlank() }
 
         if (source != null) {
             if (include.isNotEmpty() || exclude.isNotEmpty()) {
@@ -88,6 +88,10 @@ object ParamManager {
             return ParseResult.Ok(
                 LookupQuery.Feature(FeatureLookupParams(source, users, since, radius, chunkRadius, actionTokens)),
             )
+        }
+
+        if (splitActionTokens.any { it.isBlank() }) {
+            return ParseResult.Err("Invalid action: ''")
         }
 
         var actions: MutableSet<BlockAction>? = null
