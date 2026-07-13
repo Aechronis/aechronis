@@ -75,19 +75,24 @@ object ParamManager {
             }
         }
 
+        val actionTokens =
+            rawActionTokens
+                .flatMap { it.split(',') }
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+
         if (source != null) {
             if (include.isNotEmpty() || exclude.isNotEmpty()) {
                 return ParseResult.Err("i:/e: are not supported with s:<source> lookups")
             }
-            val featureActions = rawActionTokens.flatMap { it.split(',') }.map { it.trim() }.filter { it.isNotBlank() }
             return ParseResult.Ok(
-                LookupQuery.Feature(FeatureLookupParams(source, users, since, radius, chunkRadius, featureActions)),
+                LookupQuery.Feature(FeatureLookupParams(source, users, since, radius, chunkRadius, actionTokens)),
             )
         }
 
         var actions: MutableSet<BlockAction>? = null
-        for (rawToken in rawActionTokens) {
-            val mapped = mapAction(rawToken) ?: return ParseResult.Err("Invalid action: '$rawToken'")
+        for (actionToken in actionTokens) {
+            val mapped = mapAction(actionToken) ?: return ParseResult.Err("Invalid action: '$actionToken'")
             actions = (actions ?: mutableSetOf()).apply { addAll(mapped) }
         }
 
