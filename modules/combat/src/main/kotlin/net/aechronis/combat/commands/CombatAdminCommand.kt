@@ -74,7 +74,7 @@ class CombatAdminExplosionCommand : Command("explosion") {
             Message.print(sender, "Usage: /combatadmin explosion <radius> <fire>")
         }
 
-        val radisuArg = ArgumentType.Integer("radius")
+        val radiusArg = ArgumentType.Integer("radius")
         val fireArg = ArgumentType.Double("fire")
 
         addSyntax({ sender, context ->
@@ -82,8 +82,8 @@ class CombatAdminExplosionCommand : Command("explosion") {
                 return@addSyntax
             }
 
-            Explosion(sender.instance, sender.position, context[radisuArg], context[fireArg])
-        }, radisuArg, fireArg)
+            Explosion(sender.instance, sender.position, context[radiusArg], context[fireArg])
+        }, radiusArg, fireArg)
     }
 }
 
