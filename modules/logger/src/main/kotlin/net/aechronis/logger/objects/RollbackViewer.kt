@@ -7,10 +7,10 @@ import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
 import java.time.Instant
-import java.time.ZoneOffset
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private val timeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.systemDefault())
+private val timeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
 
 fun showRollbackPreview(
     player: Player,
