@@ -1,6 +1,6 @@
 package net.aechronis.vanilla.commands
 
-import net.aechronis.vanilla.managers.Commands.playerLastSender
+import net.aechronis.vanilla.managers.Commands.getLastSender
 import net.aechronis.vanilla.managers.Commands.sendMessage
 import net.aechronis.vanilla.utils.Command
 import net.aechronis.vanilla.utils.Message
@@ -17,7 +17,7 @@ class Reply : Command("reply", null, "r") {
         }
 
         addSyntax({ sender: Player, context ->
-            sendMessage(sender, playerLastSender[sender], context[messageArg].joinToString(" "))
+            sendMessage(sender, getLastSender(sender), context[messageArg].joinToString(" "))
         }, messageArg)
     }
 }

@@ -35,9 +35,7 @@ object CommandsListener {
     }
 
     fun onDisconnect(event: PlayerDisconnectEvent) {
-        Commands.playerLastSender.entries.removeIf { (sender, receiver) ->
-            sender === event.player || receiver === event.player
-        }
+        Commands.removeLastSenderReferences(event.player)
     }
 
     fun init() {

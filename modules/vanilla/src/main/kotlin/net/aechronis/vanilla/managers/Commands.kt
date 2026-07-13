@@ -32,6 +32,14 @@ object Commands {
         ignored[a.uuid]?.contains(b.uuid) == true ||
             ignored[b.uuid]?.contains(a.uuid) == true
 
+    internal fun getLastSender(player: Player): Player? = synchronized(playerLastSender) { playerLastSender[player] }
+
+    internal fun removeLastSenderReferences(player: Player) {
+        synchronized(playerLastSender) {
+            playerLastSender.entries.removeIf { (sender, receiver) -> sender === player || receiver === player }
+        }
+    }
+
     fun sendMessage(
         sender: Player,
         receiver: Player?,
@@ -57,8 +65,10 @@ object Commands {
             Component.text("${sender.username} Whispered: $message").color(NamedTextColor.LIGHT_PURPLE),
         )
 
-        playerLastSender[receiver] = sender
-        playerLastSender[sender] = receiver
+        synchronized(playerLastSender) {
+            playerLastSender[receiver] = sender
+            playerLastSender[sender] = receiver
+        }
     }
 
     fun saveLastLocation(player: Player) {
