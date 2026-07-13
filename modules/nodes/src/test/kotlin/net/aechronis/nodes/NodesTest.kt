@@ -83,8 +83,11 @@ class NodesTest {
         val tmpDir = Files.createTempDirectory("nodes-test")
         Files.walk(dir).forEach { src ->
             val dest = tmpDir.resolve(dir.relativize(src))
-            if (Files.isDirectory(src)) Files.createDirectories(dest)
-            else Files.copy(src, dest)
+            if (Files.isDirectory(src)) {
+                Files.createDirectories(dest)
+            } else {
+                Files.copy(src, dest)
+            }
         }
 
         // create test config
