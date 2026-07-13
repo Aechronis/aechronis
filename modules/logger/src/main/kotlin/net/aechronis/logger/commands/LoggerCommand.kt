@@ -137,7 +137,7 @@ class LoggerInspectCommand : Command("inspect", "logger", "i") {
     }
 }
 
-class LoggerRollbackCommand : Command("rollback", "logger.rollback", "rb", failClosed = true) {
+class LoggerRollbackCommand : Command("rollback", "logger.rollback", "rb") {
     init {
         setDefaultExecutor { sender, _ ->
             sender.sendMessage(Component.text(ROLLBACK_USAGE, NamedTextColor.GOLD))
@@ -234,7 +234,7 @@ class LoggerRollbackCommand : Command("rollback", "logger.rollback", "rb", failC
     }
 }
 
-class LoggerUndoCommand : Command("undo", "logger.undo", failClosed = true) {
+class LoggerUndoCommand : Command("undo", "logger.undo") {
     init {
         setDefaultExecutor { sender, _ ->
             val operationId = lastRollbackOperation[sender.uuid]
@@ -252,7 +252,7 @@ class LoggerUndoCommand : Command("undo", "logger.undo", failClosed = true) {
     }
 }
 
-class LoggerRedoCommand : Command("redo", "logger.redo", failClosed = true) {
+class LoggerRedoCommand : Command("redo", "logger.redo") {
     init {
         setDefaultExecutor { sender, _ ->
             val operationId = redoableOperation[sender.uuid]
