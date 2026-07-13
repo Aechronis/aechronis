@@ -10,8 +10,13 @@ plugins {
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
-    maven("https://repo.hypera.dev/snapshots/")
     mavenCentral()
+    maven("https://repo.hypera.dev/snapshots/") {
+        name = "HyperaSnapshots"
+        content {
+            includeGroup("dev.lu15")
+        }
+    }
 }
 
 dependencies {
