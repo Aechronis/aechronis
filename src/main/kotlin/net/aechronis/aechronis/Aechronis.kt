@@ -39,6 +39,8 @@ import org.everbuild.blocksandstuff.blocks.PlacedHandlerRegistration
 import java.nio.file.Path
 
 object Aechronis {
+    internal const val VIEW_DISTANCE = 32
+
     lateinit var instance: InstanceContainer
     val eventNode = EventNode.all("aechronis")
 }
@@ -83,7 +85,7 @@ fun main(args: Array<String>) {
     // create instance
     Aechronis.instance = MinecraftServer.getInstanceManager().createInstanceContainer(fullbrightKey)
     Aechronis.instance.chunkLoader = AnvilLoader("world")
-    Aechronis.instance.viewDistance(32)
+    Aechronis.instance.viewDistance(Aechronis.VIEW_DISTANCE)
 
     // tasks
     TabManager.start()
