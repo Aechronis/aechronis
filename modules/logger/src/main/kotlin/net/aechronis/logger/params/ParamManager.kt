@@ -117,16 +117,20 @@ object ParamManager {
         if (!durationRegex.matches(value)) return null
         var millis = 0L
         for (m in durationUnit.findAll(value)) {
-            val amount = m.groupValues[1].toLong()
-            millis +=
+            val amount = m.groupValues[1].toLongOrNull() ?: return null
+            val unitMillis =
                 when (m.groupValues[2]) {
-                    "w" -> amount * 7 * 24 * 60 * 60 * 1000
-                    "d" -> amount * 24 * 60 * 60 * 1000
-                    "h" -> amount * 60 * 60 * 1000
-                    "m" -> amount * 60 * 1000
-                    "s" -> amount * 1000
-                    else -> 0
+                    "w" -> 7 * 24 * 60 * 60 * 1000L
+                    "d" -> 24 * 60 * 60 * 1000L
+                    "h" -> 60 * 60 * 1000L
+                    "m" -> 60 * 1000L
+                    "s" -> 1000L
+                    else -> return null
                 }
+            if (amount > Long.MAX_VALUE / unitMillis) return null
+            val partMillis = amount * unitMillis
+            if (millis > Long.MAX_VALUE - partMillis) return null
+            millis += partMillis
         }
         return millis
     }
