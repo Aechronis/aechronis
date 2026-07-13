@@ -506,7 +506,7 @@ class TownDenyCommand : Command("deny", null, "reject") {
                     }
                 } else {
                     val applicantsString = town.applications.keys.joinToString(", ") { applicant -> applicant.name }
-                    Message.print(player, "There are multiple town applications. Please use \"/town accept [player]\".\nCurrent applicants: $applicantsString")
+                    Message.print(player, "There are multiple town applications. Please use \"/town deny [player]\".\nCurrent applicants: $applicantsString")
                     return@addSyntax
                 }
 
