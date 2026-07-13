@@ -1,5 +1,5 @@
 group = "net.aechronis"
-version = System.getenv("GITHUB_SHA")?.take(7) ?: ""
+version = System.getenv("GITHUB_SHA")?.take(7) ?: "local"
 
 plugins {
     `maven-publish`
