@@ -26,32 +26,32 @@ object HatListener {
     // equip menu
     private fun onPlayerInput(event: PlayerInputEvent) {
         val player = event.player
+        val uuid = player.uuid
+        val mannequin = playerMannequin[uuid] ?: return
 
-        if (playerMannequin[player.uuid] != null) {
-            if (event.isHoldingLeftKey) {
-                HatCollection.cycleSelectedHat(player.uuid, false)
-                playerMannequin[player.uuid]?.helmet = HatCollection.getSelectedHat(player.uuid)?.toItemStack()
-            }
+        if (event.isHoldingLeftKey) {
+            HatCollection.cycleSelectedHat(uuid, false)
+            mannequin.helmet = HatCollection.getSelectedHat(uuid)?.toItemStack()
+        }
 
-            if (event.isHoldingRightKey) {
-                HatCollection.cycleSelectedHat(player.uuid, true)
-                playerMannequin[player.uuid]?.helmet = HatCollection.getSelectedHat(player.uuid)?.toItemStack()
-            }
+        if (event.isHoldingRightKey) {
+            HatCollection.cycleSelectedHat(uuid, true)
+            mannequin.helmet = HatCollection.getSelectedHat(uuid)?.toItemStack()
+        }
 
-            if (event.isHoldingJumpKey) {
-                HatCollection.resetSelectedHat(player.uuid)
-                playerMannequin[player.uuid]?.helmet = ItemStack.AIR
-            }
+        if (event.isHoldingJumpKey) {
+            HatCollection.resetSelectedHat(uuid)
+            mannequin.helmet = ItemStack.AIR
+        }
 
-            if (event.isHoldingShiftKey) {
-                HatCollection.equip(player.uuid, HatCollection.getSelectedHat(player.uuid))
+        if (event.isHoldingShiftKey) {
+            HatCollection.equip(uuid, HatCollection.getSelectedHat(uuid))
 
-                player.gameMode = GameMode.SURVIVAL
-                player.teleport(playerMannequin[player.uuid]?.position)
-                player.spectate(player)
-                playerCamera[player.uuid]?.remove()
-                playerMannequin[player.uuid]?.remove()
-            }
+            player.gameMode = GameMode.SURVIVAL
+            player.teleport(mannequin.position)
+            player.spectate(player)
+            playerCamera.remove(uuid)?.remove()
+            playerMannequin.remove(uuid)?.remove()
         }
     }
 
