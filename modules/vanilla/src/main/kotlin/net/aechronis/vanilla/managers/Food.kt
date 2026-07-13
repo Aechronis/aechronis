@@ -58,6 +58,10 @@ object Food {
         exhaustion[player.uuid] = current
     }
 
+    internal fun removePlayer(player: Player) {
+        exhaustion.remove(player.uuid)
+    }
+
     private fun tick() {
         val config = Vanilla.config
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {

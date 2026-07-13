@@ -55,7 +55,9 @@ object FoodListener {
     }
 
     fun onDisconnect(event: PlayerDisconnectEvent) {
-        wasOnGround.remove(event.player.uuid)
+        val player = event.player
+        wasOnGround.remove(player.uuid)
+        Food.removePlayer(player)
     }
 
     fun init() {
