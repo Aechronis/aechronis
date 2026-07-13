@@ -10,19 +10,14 @@ import java.nio.file.Path
  * Load long number from file
  */
 fun loadLongFromFile(path: Path): Long? {
-    if (Files.exists(path)) {
-        try {
-            val numString = String(Files.readAllBytes(path))
-            try {
-                val num = numString.toLong()
-                return num
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+    if (!Files.exists(path)) {
+        return null
     }
 
-    return null
+    return try {
+        Files.readString(path).toLong()
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
 }
