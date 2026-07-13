@@ -46,6 +46,7 @@ object VehicleTickManager {
                     // skip players already in a vehicle
                     if (Vehicle.playerVehicle[player] != null) {
                         playerLookingAtVehicle.remove(player)
+                        playerLookingAtEntity.remove(player)
                         continue
                     }
 
