@@ -6,6 +6,7 @@ package net.aechronis.nodes.objects
 import net.aechronis.nodes.Nodes
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
+import net.minestom.server.color.TeamColor
 import net.minestom.server.entity.Player
 import net.minestom.server.network.packet.server.play.TeamsPacket
 import net.minestom.server.timer.Task
@@ -100,13 +101,15 @@ object Nametag {
 
             // create team with customized prefix for this viewer
             val createAction = TeamsPacket.CreateTeamAction(
-                Component.text(teamName), // displayName
-                0, // friendlyFlags (0 = friendly fire enabled)
-                TeamsPacket.NameTagVisibility.ALWAYS, // nameTagVisibility
-                TeamsPacket.CollisionRule.ALWAYS, // collisionRule
-                net.kyori.adventure.text.format.NamedTextColor.WHITE, // teamColor
-                Component.text(prefix), // teamPrefix
-                Component.empty(), // teamSuffix
+                TeamsPacket.Settings(
+                    Component.text(teamName), // displayName
+                    Component.text(prefix), // displayName
+                    Component.empty(), // teamSuffix
+                    TeamsPacket.NameTagVisibility.ALWAYS, // nameTagVisibility
+                    TeamsPacket.CollisionRule.ALWAYS, // collisionRule
+                    TeamColor.WHITE, // teamColor
+                    0, // friendlyFlags (I don't think is actually does anything visible clientside)
+                ),
                 townMembers, // entities (players in this town)
             )
             player.sendPacket(TeamsPacket(teamName, createAction))
