@@ -27,7 +27,7 @@ dependencies {
 
     // database
     implementation("org.xerial:sqlite-jdbc:3.53.2.0")
-    implementation("com.zaxxer:HikariCP:6.2.1")
+    implementation("com.zaxxer:HikariCP:7.1.0")
 
     // testing
     testImplementation("org.jetbrains.kotlin:kotlin-test")
