@@ -18,10 +18,10 @@ import net.aechronis.logger.params.LookupQuery
 import net.aechronis.logger.params.LookupSuggestions
 import net.aechronis.logger.params.ParamManager
 import net.aechronis.logger.params.ParseResult
-import net.aechronis.logger.utils.Command
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.Pages
-import net.aechronis.logger.utils.hasPermission
+import net.aechronis.utils.Command
+import net.aechronis.utils.hasPermission
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
@@ -215,7 +215,7 @@ class LoggerRollbackCommand : Command("rollback", "logger.rollback", "rb") {
         sender: Player,
         token: String,
     ) {
-        if (!hasPermission(sender, "logger.rollback.confirm")) {
+        if (!sender.hasPermission("logger.rollback.confirm")) {
             sender.sendMessage(Component.text("You don't have permission to confirm rollbacks", NamedTextColor.RED))
             return
         }
