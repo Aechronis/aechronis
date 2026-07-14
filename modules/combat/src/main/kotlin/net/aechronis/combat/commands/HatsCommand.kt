@@ -1,19 +1,17 @@
 package net.aechronis.combat.commands
 
 import net.aechronis.combat.listeners.HatListener
-import net.minestom.server.command.builder.Command
+import net.aechronis.utils.Command
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.LivingEntity
-import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.avatar.MannequinMeta
 import net.minestom.server.network.player.ResolvableProfile
 
-class HatsCommand : Command("hats", "hat", "h") {
+class HatsCommand : Command("hats", null, "hat", "h") {
     init {
-        setDefaultExecutor { sender, context ->
-            val player = sender as? Player ?: return@setDefaultExecutor
+        setDefaultExecutor { player, _ ->
             HatListener.playerCamera[player.uuid] = Entity(EntityType.ITEM_DISPLAY)
             HatListener.playerMannequin[player.uuid] = LivingEntity(EntityType.MANNEQUIN)
 

@@ -13,7 +13,6 @@ import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneWeapon
 import net.aechronis.combat.objects.Tank
-import net.aechronis.combat.utils.permissionBypass
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -43,8 +42,6 @@ class CombatTest {
     fun setup() {
         // start server
         MinecraftServer.init(Auth.Online()).start("0.0.0.0", 25565)
-
-        permissionBypass.add("Error110")
 
         // create instance
         val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
