@@ -6,8 +6,10 @@ import net.aechronis.combat.objects.Melee
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.event.entity.EntityAttackEvent
@@ -17,23 +19,21 @@ import net.minestom.server.particle.Particle
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
-import kotlin.math.sqrt
 
 object MeleeListener {
     private fun onEntityAttack(event: EntityAttackEvent) {
         val attacker = event.entity as? Player ?: return
         val target = event.target as? LivingEntity ?: return
+        if (attacker.isDead || attacker.gameMode == GameMode.SPECTATOR) return
+        if (target.isDead || (target as? Player)?.gameMode == GameMode.SPECTATOR) return
 
-        // reset cooldown on any attack to prevent accumulation
         val currentTime = System.currentTimeMillis()
-        val cooldownMs = currentTime - (Combat.playerLastActionTimes[attacker] ?: 0L)
-        Combat.playerLastActionTimes[attacker] = currentTime
-
         val melee = Item.getFromItemStack(attacker.itemInMainHand) as? Melee ?: return
+        val cooldownMs = currentTime - (Combat.meleeLastAttackTimes[attacker] ?: 0L)
+        Combat.meleeLastAttackTimes[attacker] = currentTime
 
         // check invincibility frames
-        val lastDamageTime = Combat.entityLastDamageTime[target] ?: 0L
-        if (currentTime - lastDamageTime < 500) {
+        if (!Combat.canDamage(target, currentTime)) {
             // target is invincible
             playAttackSound(attacker, isStrong = false, isCritical = false, cooldownProgress = 0.0)
             return
@@ -59,17 +59,18 @@ object MeleeListener {
 
         if (isCritical) {
             damage *= 1.5
-            playCriticalParticles(target)
-        }
-
-        // set killer for death messages
-        if (target is Player) {
-            Combat.recordKiller(target, attacker)
         }
 
         // apply damage and set invincibility frames
-        target.damage(Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, damage.toFloat()))
-        Combat.entityLastDamageTime[target] = currentTime
+        val didDamage = target.damage(Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, damage.toFloat()))
+        if (!didDamage) return
+        Combat.recordDamage(target, currentTime)
+        if (target is Player) {
+            Combat.recordKiller(target, attacker)
+        }
+        if (isCritical) {
+            playCriticalParticles(target)
+        }
 
         // check for sprint hit
         val isSprintAttack = isStrongAttack && attacker.isSprinting
@@ -110,47 +111,30 @@ object MeleeListener {
         baseKnockback: Double,
         isSprintAttack: Boolean,
     ) {
-        var dx = attacker.position.x - target.position.x
-        var dz = attacker.position.z - target.position.z
+        val yawRad = Math.toRadians(attacker.position.yaw.toDouble())
+        var dx = -sin(yawRad)
+        var dz = cos(yawRad)
+        if (dx * dx + dz * dz < 1.0e-6) {
+            dx = 0.0
+            dz = 1.0
+        }
 
-        val dist = sqrt(dx * dx + dz * dz)
-        dx /= dist
-        dz /= dist
+        val resistance =
+            target.getAttribute(Attribute.KNOCKBACK_RESISTANCE)?.value?.coerceIn(0.0, 1.0) ?: 0.0
+        val horizontalKb = (baseKnockback * 20.0 + if (isSprintAttack) 10.0 else 0.0) * (1.0 - resistance)
 
-        val horizontalKb = baseKnockback * 20
+        val currentVel = target.velocity
 
-        var currentVel = target.velocity
-
-        // apply base knockback
-        var newVelX = currentVel.x / 2.0 - dx * horizontalKb
-        var newVelZ = currentVel.z / 2.0 - dz * horizontalKb
-        var newVelY =
+        val newVelX = currentVel.x / 2.0 + dx * horizontalKb
+        val newVelZ = currentVel.z / 2.0 + dz * horizontalKb
+        val newVelY =
             if (target.isOnGround) {
-                min(8.0, currentVel.y / 2.0 + 8.0)
+                min(8.0, currentVel.y / 2.0 + 8.0 * (1.0 - resistance))
             } else {
                 currentVel.y
             }
 
         target.velocity = Vec(newVelX, newVelY, newVelZ)
-
-        // apply additional sprint knockback
-        if (isSprintAttack) {
-            val yawRad = Math.toRadians(attacker.position.yaw.toDouble())
-            val yawDx = sin(yawRad)
-            val yawDz = -cos(yawRad)
-
-            currentVel = target.velocity
-            newVelX = currentVel.x / 2.0 - yawDx * 10
-            newVelZ = currentVel.z / 2.0 - yawDz * 10
-            newVelY =
-                if (target.isOnGround) {
-                    min(8.0, currentVel.y / 2.0 + 10.0)
-                } else {
-                    currentVel.y
-                }
-
-            target.velocity = Vec(newVelX, newVelY, newVelZ)
-        }
     }
 
     private fun performSweepingAttack(
@@ -166,7 +150,6 @@ object MeleeListener {
 
         // get entities within range of the primary target
         val targetPos = primaryTarget.position
-        val targetBox = primaryTarget.boundingBox
         val currentTime = System.currentTimeMillis()
         val nearbyEntities =
             attacker.instance
@@ -174,36 +157,26 @@ object MeleeListener {
                 ?.filter { entity ->
                     if (entity == attacker || entity == primaryTarget) return@filter false
                     if (entity !is LivingEntity) return@filter false
-                    // check distance from target
-                    if (entity.position.distance(targetPos) > 2.0) return@filter false
-                    // check attacker distance
-                    if (attacker.position.distanceSquared(entity.position) >= 9.0) return@filter false
-                    // check bounding box intersection
-                    val dx = kotlin.math.abs(entity.position.x - targetPos.x)
-                    val dy = kotlin.math.abs(entity.position.y - targetPos.y)
-                    val dz = kotlin.math.abs(entity.position.z - targetPos.z)
-                    dx <= targetBox.width() / 2 + 1.0 &&
-                        dy <= targetBox.height() + 0.25 &&
-                        dz <= targetBox.depth() / 2 + 1.0
+                    if (entity.position.distanceSquared(targetPos) > 4.0) return@filter false
+                    entity.intersectBox(targetPos, primaryTarget.boundingBox.grow(1.0, 0.25, 1.0))
                 }
 
         nearbyEntities?.forEach { entity ->
             val livingEntity = entity as LivingEntity
 
             // invincibility frames
-            val lastDamageTime = Combat.entityLastDamageTime[livingEntity] ?: 0L
-            if (currentTime - lastDamageTime < 500) {
+            if (!Combat.canDamage(livingEntity, currentTime)) {
                 return@forEach // Skip this entity, still invincible
             }
 
-            // track killer for death messages
+            // apply sweeping damage and set iframes
+            if (!livingEntity.damage(Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, 1F))) {
+                return@forEach
+            }
+            Combat.recordDamage(livingEntity, currentTime)
             if (livingEntity is Player) {
                 Combat.recordKiller(livingEntity, attacker)
             }
-
-            // apply sweeping damage and set iframes
-            livingEntity.damage(Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, 1F))
-            Combat.entityLastDamageTime[livingEntity] = currentTime
 
             // apply sweeping knockback
             applySweepingKnockback(attacker, livingEntity)
@@ -219,12 +192,15 @@ object MeleeListener {
         val dz = cos(yawRad)
 
         val currentVel = target.velocity
-        val newVelX = currentVel.x / 2.0 + dx * 4
-        val newVelZ = currentVel.z / 2.0 + dz * 4
+        val resistance =
+            target.getAttribute(Attribute.KNOCKBACK_RESISTANCE)?.value?.coerceIn(0.0, 1.0) ?: 0.0
+        val knockback = 4.0 * (1.0 - resistance)
+        val newVelX = currentVel.x / 2.0 + dx * knockback
+        val newVelZ = currentVel.z / 2.0 + dz * knockback
 
         val newVelY =
             if (target.isOnGround) {
-                min(8.0, currentVel.y / 2.0 + 8.0)
+                min(8.0, currentVel.y / 2.0 + 8.0 * (1.0 - resistance))
             } else {
                 currentVel.y
             }
@@ -234,13 +210,13 @@ object MeleeListener {
 
     private fun isPlayerFalling(player: Player): Boolean {
         val positions = Combat.playerPreviousPositions[player]
-        if (positions == null || positions.size < 2) return true
+        if (positions == null || positions.size < 2) return player.velocity.y < 0.0
 
         // get distance moved in last tick
         val lastY = positions.last().y
         val prevY = positions.elementAtOrNull(positions.size - 2)?.y ?: return true
 
-        return prevY >= lastY
+        return prevY > lastY
     }
 
     private fun isPlayerStationary(player: Player): Boolean {
@@ -301,8 +277,7 @@ object MeleeListener {
     private fun onHandAnimation(event: PlayerHandAnimationEvent) {
         val player = event.player
         if (Item.getFromItemStack(player.itemInMainHand) !is Melee) return
-        // reset cooldown on swing
-        Combat.playerLastActionTimes[player] = System.currentTimeMillis()
+        Combat.meleeLastAttackTimes[player] = System.currentTimeMillis()
     }
 
     fun init() {

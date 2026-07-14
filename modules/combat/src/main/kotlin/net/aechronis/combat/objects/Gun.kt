@@ -232,9 +232,6 @@ class Gun(
             trailEndPoint = hitPoint
         } else if (blockHitDistance > entityHitDistance) { // entity hit
             val target = (entityHit!!.obj as LivingEntity)
-            if (target as? Player != null) {
-                Combat.recordKiller(target, player)
-            }
 
             // ding sound
             player.playSound(Sound.sound(Key.key("entity.experience_orb.pickup"), Sound.Source.PLAYER, 1.0f, 1.0f))
@@ -242,7 +239,13 @@ class Gun(
             // blood
             Particles.bloodParticle(player.instance, entityHit.point.asPos())
 
-            target.damage(Damage.fromProjectile(player, null, damage))
+            if (Combat.canDamage(target)) {
+                val damaged = target.damage(Damage.fromProjectile(player, null, damage))
+                if (damaged) {
+                    Combat.recordDamage(target)
+                    if (target is Player) Combat.recordKiller(target, player)
+                }
+            }
             trailEndPoint = entityHit.point.asPos()
         } else { // block hit
             Particles.dustParticle(player.instance, blockHit!!.point.asPos())

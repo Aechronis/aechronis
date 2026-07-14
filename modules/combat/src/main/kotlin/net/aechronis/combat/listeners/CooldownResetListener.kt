@@ -2,7 +2,6 @@ package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
 import net.minestom.server.entity.Player
-import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 
 object CooldownResetListener {
@@ -10,16 +9,13 @@ object CooldownResetListener {
         resetCooldown(event.player)
     }
 
-    fun onInventoryClick(event: InventoryPreClickEvent) {
-        resetCooldown(event.player)
-    }
-
     private fun resetCooldown(player: Player) {
-        Combat.playerLastActionTimes[player] = System.currentTimeMillis()
+        val now = System.currentTimeMillis()
+        Combat.playerLastActionTimes[player] = now
+        Combat.meleeLastAttackTimes[player] = now
     }
 
     fun init() {
         Combat.eventNode.addListener(PlayerChangeHeldSlotEvent::class.java, CooldownResetListener::onPlayerSwap)
-        Combat.eventNode.addListener(InventoryPreClickEvent::class.java, CooldownResetListener::onInventoryClick)
     }
 }

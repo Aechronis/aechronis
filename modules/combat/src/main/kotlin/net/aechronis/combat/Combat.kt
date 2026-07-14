@@ -63,9 +63,25 @@ object Combat {
 
     val playerLastActionTimes = HashMap<Player, Long>()
 
+    val meleeLastAttackTimes = HashMap<Player, Long>()
+
     val placeTasks = HashMap<Player, Task>()
 
     val entityLastDamageTime = HashMap<LivingEntity, Long>()
+
+    private const val DAMAGE_IMMUNITY_MS = 500L
+
+    fun canDamage(
+        entity: LivingEntity,
+        now: Long = System.currentTimeMillis(),
+    ): Boolean = now - (entityLastDamageTime[entity] ?: 0L) >= DAMAGE_IMMUNITY_MS
+
+    fun recordDamage(
+        entity: LivingEntity,
+        now: Long = System.currentTimeMillis(),
+    ) {
+        entityLastDamageTime[entity] = now
+    }
 
     fun initialize() {
         // measure load time

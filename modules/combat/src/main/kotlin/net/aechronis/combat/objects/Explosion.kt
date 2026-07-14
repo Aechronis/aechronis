@@ -83,7 +83,6 @@ class Explosion(
 
     private fun applyDamage() {
         val type = if (source != null) DamageType.PLAYER_EXPLOSION else DamageType.EXPLOSION
-        val blast = Damage(type, source, source, pos, damage)
 
         for ((entity, vehicle) in Vehicle.entityVehicle.toList()) {
             if (entity.position.distance(pos) <= radius) {
@@ -93,15 +92,22 @@ class Explosion(
 
         for (player in instance.players.toList()) {
             if (player.position.distance(pos) <= radius) {
-                if (source != null && player != source) Combat.recordKiller(player, source)
-                player.damage(blast)
+                if (Combat.canDamage(player)) {
+                    val damaged = player.damage(Damage(type, source, source, pos, damage))
+                    if (damaged) {
+                        Combat.recordDamage(player)
+                        if (source != null && player != source) Combat.recordKiller(player, source)
+                    }
+                }
             }
         }
 
         for (entity in instance.entities.toList()) {
             if (entity.entityType != EntityType.MANNEQUIN || entity !is LivingEntity) continue
             if (entity.position.distance(pos) <= radius) {
-                entity.damage(blast)
+                if (Combat.canDamage(entity) && entity.damage(Damage(type, source, source, pos, damage))) {
+                    Combat.recordDamage(entity)
+                }
             }
         }
     }

@@ -47,11 +47,12 @@ class ArmorPiece(
 
     companion object {
         fun getTotalProtection(player: Player): Float {
+            val helmetProtection = (getFromItemStack(player.getEquipment(EquipmentSlot.HELMET)) as? ArmorPiece)?.protection ?: 0F
             val chestplateProtection = (getFromItemStack(player.getEquipment(EquipmentSlot.CHESTPLATE)) as? ArmorPiece)?.protection ?: 0F
             val leggingsProtection = (getFromItemStack(player.getEquipment(EquipmentSlot.LEGGINGS)) as? ArmorPiece)?.protection ?: 0F
             val bootsProtection = (getFromItemStack(player.getEquipment(EquipmentSlot.BOOTS)) as? ArmorPiece)?.protection ?: 0F
 
-            return 1 - (chestplateProtection + leggingsProtection + bootsProtection)
+            return (1 - (helmetProtection + chestplateProtection + leggingsProtection + bootsProtection)).coerceIn(0F, 1F)
         }
     }
 }

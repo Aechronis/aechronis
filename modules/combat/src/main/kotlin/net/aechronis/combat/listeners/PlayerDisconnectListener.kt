@@ -49,6 +49,7 @@ object PlayerDisconnectListener {
         Combat.playerSpeeds.remove(player)
         Combat.removeKillerReferences(player)
         Combat.playerLastActionTimes.remove(player)
+        Combat.meleeLastAttackTimes.remove(player)
         Combat.entityLastDamageTime.remove(player)
         KeyPressListener.playerInputEvent.remove(player)
         Hitbox.viewingHitboxes.remove(player)
