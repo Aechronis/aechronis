@@ -1,7 +1,7 @@
 package net.aechronis.vanilla.commands
 
-import net.aechronis.vanilla.utils.Command
 import net.aechronis.vanilla.utils.Message
+import net.aechronis.vanilla.utils.VanillaCommand
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
@@ -9,7 +9,7 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import kotlin.collections.List
 
-class Clear : Command("clear", "vanilla.clear") {
+class Clear : VanillaCommand("clear", "vanilla.clear") {
     private val targetArg = ArgumentType.Word("target")
     private val whitelistArg = ArgumentType.StringArray("whitelist")
 

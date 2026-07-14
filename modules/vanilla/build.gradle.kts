@@ -12,12 +12,19 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 repositories {
     mavenCentral()
     maven("https://repo.hypera.dev/snapshots/") // luckperms (minestom) & Spark
+    maven {
+        url = uri("https://maven.pkg.github.com/Aechronis/aechronis")
+        credentials {
+            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.token") as String? ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
 }
 
 dependencies {
     implementation("net.minestom:minestom:2026.03.25-1.21.11")
     implementation("com.google.code.gson:gson:2.13.2")
-    implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
+    implementation("net.aechronis:utils:b480abf")
 
     // testing
     testImplementation("org.jetbrains.kotlin:kotlin-test")

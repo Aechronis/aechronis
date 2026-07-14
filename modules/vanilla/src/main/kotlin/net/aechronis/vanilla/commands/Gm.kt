@@ -1,10 +1,10 @@
 package net.aechronis.vanilla.commands
 
-import net.aechronis.vanilla.utils.Command
+import net.aechronis.vanilla.utils.VanillaCommand
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 
-class Gm : Command("gmc", "vanilla.gamemode", "gms", "gmsp", "gma") {
+class Gm : VanillaCommand("gmc", "vanilla.gamemode", "gms", "gmsp", "gma") {
     init {
         setDefaultExecutor { player: Player, context ->
             val gameMode =

@@ -1,11 +1,11 @@
 package net.aechronis.vanilla.commands
 
 import net.aechronis.vanilla.managers.Commands
-import net.aechronis.vanilla.utils.Command
 import net.aechronis.vanilla.utils.Message
+import net.aechronis.vanilla.utils.VanillaCommand
 import net.minestom.server.entity.Player
 
-class Back : Command("back", "vanilla.back", "return") {
+class Back : VanillaCommand("back", "vanilla.back", "return") {
     init {
         setDefaultExecutor { player: Player, _ ->
             val last =

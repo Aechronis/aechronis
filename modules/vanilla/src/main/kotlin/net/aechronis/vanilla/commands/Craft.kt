@@ -2,13 +2,13 @@ package net.aechronis.vanilla.commands
 
 import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.objects.RecipesWorkspace
-import net.aechronis.vanilla.utils.Command
+import net.aechronis.vanilla.utils.VanillaCommand
 import net.kyori.adventure.text.Component
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import kotlin.collections.set
 
-class Craft : Command("craft", "vanilla.craft") {
+class Craft : VanillaCommand("craft", "vanilla.craft") {
     init {
         setDefaultExecutor { player, _ ->
             val craftingInv =

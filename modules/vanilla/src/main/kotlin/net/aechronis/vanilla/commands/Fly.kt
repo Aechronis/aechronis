@@ -1,11 +1,11 @@
 package net.aechronis.vanilla.commands
 
-import net.aechronis.vanilla.utils.Command
 import net.aechronis.vanilla.utils.Message
+import net.aechronis.vanilla.utils.VanillaCommand
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class Fly : Command("fly", "vanilla.fly") {
+class Fly : VanillaCommand("fly", "vanilla.fly") {
     init {
         setDefaultExecutor { player: Player, _ ->
             Message.print(player, "Usage:")
