@@ -11,8 +11,8 @@ import net.aechronis.nodes.commands.arguments.ArgumentResident
 import net.aechronis.nodes.commands.arguments.ArgumentTown
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
-import net.aechronis.nodes.objects.Command
 import net.aechronis.nodes.objects.Coord
+import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.utils.ChatColor
 import net.minestom.server.MinecraftServer
@@ -56,7 +56,7 @@ val MAP_STR_END = arrayOf(
 )
 // ==================================================
 
-class TownCommand : Command("t", null, "town") {
+class TownCommand : NodesCommand("t", null, "town") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}[Nodes] Town commands:")
@@ -132,7 +132,7 @@ class TownCommand : Command("t", null, "town") {
     }
 }
 
-class TownHelpCommand : Command("help") {
+class TownHelpCommand : NodesCommand("help") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}[Nodes] Town commands:")
@@ -158,7 +158,7 @@ class TownHelpCommand : Command("help") {
     }
 }
 
-class TownPromoteCommand : Command("promote", null, "officer") {
+class TownPromoteCommand : NodesCommand("promote", null, "officer") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town promote <player-name>")
@@ -199,7 +199,7 @@ class TownPromoteCommand : Command("promote", null, "officer") {
     }
 }
 
-class TownDemoteCommand : Command("demote") {
+class TownDemoteCommand : NodesCommand("demote") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town demote <player-name>")
@@ -242,7 +242,7 @@ class TownDemoteCommand : Command("demote") {
     }
 }
 
-class TownApplyCommand : Command("apply", null, "join") {
+class TownApplyCommand : NodesCommand("apply", null, "join") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town apply <town-name>")
@@ -297,7 +297,7 @@ class TownApplyCommand : Command("apply", null, "join") {
     }
 }
 
-class TownInviteCommand : Command("invite") {
+class TownInviteCommand : NodesCommand("invite") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town invite <player-name>")
@@ -351,7 +351,7 @@ class TownInviteCommand : Command("invite") {
     }
 }
 
-class TownAcceptCommand : Command("accept") {
+class TownAcceptCommand : NodesCommand("accept") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")
@@ -465,7 +465,7 @@ class TownAcceptCommand : Command("accept") {
     }
 }
 
-class TownDenyCommand : Command("deny", null, "reject") {
+class TownDenyCommand : NodesCommand("deny", null, "reject") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")
@@ -573,7 +573,7 @@ class TownDenyCommand : Command("deny", null, "reject") {
     }
 }
 
-class TownLeaveCommand : Command("leave") {
+class TownLeaveCommand : NodesCommand("leave") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town leave")
@@ -597,7 +597,7 @@ class TownLeaveCommand : Command("leave") {
     }
 }
 
-class TownKickCommand : Command("kick") {
+class TownKickCommand : NodesCommand("kick") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town kick <player-name>")
@@ -643,7 +643,7 @@ class TownKickCommand : Command("kick") {
     }
 }
 
-class TownSpawn : Command("spawn") {
+class TownSpawn : NodesCommand("spawn") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town spawn")
@@ -681,7 +681,7 @@ class TownSpawn : Command("spawn") {
     }
 }
 
-class TownSetSpawn : Command("setspawn") {
+class TownSetSpawn : NodesCommand("setspawn") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town setspawn")
@@ -705,7 +705,7 @@ class TownSetSpawn : Command("setspawn") {
     }
 }
 
-class TownListCommand : Command("list") {
+class TownListCommand : NodesCommand("list") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town list")
@@ -722,7 +722,7 @@ class TownListCommand : Command("list") {
     }
 }
 
-class TownInfoCommand : Command("info") {
+class TownInfoCommand : NodesCommand("info") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")
@@ -742,7 +742,7 @@ class TownInfoCommand : Command("info") {
     }
 }
 
-class TownOnlineCommand : Command("online") {
+class TownOnlineCommand : NodesCommand("online") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")
@@ -766,7 +766,7 @@ class TownOnlineCommand : Command("online") {
     }
 }
 
-class TownIncomeCommand : Command("income") {
+class TownIncomeCommand : NodesCommand("income") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town income")
@@ -794,7 +794,7 @@ class TownIncomeCommand : Command("income") {
     }
 }
 
-class TownMapCommand : Command("map") {
+class TownMapCommand : NodesCommand("map") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town map")
@@ -820,7 +820,7 @@ class TownMapCommand : Command("map") {
     }
 }
 
-class TownMinimapCommand : Command("minimap") {
+class TownMinimapCommand : NodesCommand("minimap") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")
@@ -851,7 +851,7 @@ class TownMinimapCommand : Command("minimap") {
     }
 }
 
-class TownPermissionsCommand : Command("permissions", "perms") {
+class TownPermissionsCommand : NodesCommand("permissions", "perms") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")
@@ -938,7 +938,7 @@ class TownPermissionsCommand : Command("permissions", "perms") {
     }
 }
 
-class TownProtectCommand : Command("protect") {
+class TownProtectCommand : NodesCommand("protect") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "[Nodes] Town protect commands:")
@@ -967,7 +967,7 @@ class TownProtectCommand : Command("protect") {
     }
 }
 
-class TownProtectShowCommand : Command("show") {
+class TownProtectShowCommand : NodesCommand("show") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town protect show")
@@ -985,7 +985,7 @@ class TownProtectShowCommand : Command("show") {
     }
 }
 
-class TownTrustCommand : Command("trust") {
+class TownTrustCommand : NodesCommand("trust") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town trust <player-name>")
@@ -1014,7 +1014,7 @@ class TownTrustCommand : Command("trust") {
     }
 }
 
-class TownUntrustCommand : Command("untrust") {
+class TownUntrustCommand : NodesCommand("untrust") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town untrust <player-name>")
@@ -1049,7 +1049,7 @@ class TownUntrustCommand : Command("untrust") {
     }
 }
 
-class TownFlyCommand : Command("fly") {
+class TownFlyCommand : NodesCommand("fly") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town fly")

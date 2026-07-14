@@ -7,9 +7,9 @@ package net.aechronis.nodes.commands
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentTerritory
-import net.aechronis.nodes.objects.Command
+import net.aechronis.nodes.objects.NodesCommand
 
-class TerritoryCommand : Command("territory") {
+class TerritoryCommand : NodesCommand("territory") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")

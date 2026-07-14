@@ -9,11 +9,11 @@ import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentPort
 import net.aechronis.nodes.constants.DiplomaticRelationship
-import net.aechronis.nodes.objects.Command
+import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.tasks.PortWarpTask
 import net.aechronis.nodes.utils.ChatColor
 
-class PortCommand : Command("port") {
+class PortCommand : NodesCommand("port") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}[Nodes] Port Commands:")
@@ -28,7 +28,7 @@ class PortCommand : Command("port") {
     }
 }
 
-class PortListCommand : Command("list") {
+class PortListCommand : NodesCommand("list") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /port list")
@@ -44,7 +44,7 @@ class PortListCommand : Command("list") {
     }
 }
 
-class PortInfoCommand : Command("info") {
+class PortInfoCommand : NodesCommand("info") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /port info <port-name>")
@@ -58,7 +58,7 @@ class PortInfoCommand : Command("info") {
     }
 }
 
-class PortWarpCommand : Command("warp") {
+class PortWarpCommand : NodesCommand("warp") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /port warp <port-name>")

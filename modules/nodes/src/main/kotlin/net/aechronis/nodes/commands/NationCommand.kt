@@ -7,10 +7,10 @@ package net.aechronis.nodes.commands
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentNation
-import net.aechronis.nodes.objects.Command
+import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.utils.ChatColor
 
-class NationCommand : Command("n", null, "nation") {
+class NationCommand : NodesCommand("n", null, "nation") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}[Nodes] Nation commands:")
@@ -40,7 +40,7 @@ class NationCommand : Command("n", null, "nation") {
     }
 }
 
-class NationHelpCommand : Command("help") {
+class NationHelpCommand : NodesCommand("help") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}[Nodes] Nation commands:")
@@ -51,7 +51,7 @@ class NationHelpCommand : Command("help") {
     }
 }
 
-class NationListCommand : Command("list") {
+class NationListCommand : NodesCommand("list") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /nation list")
@@ -78,7 +78,7 @@ class NationListCommand : Command("list") {
     }
 }
 
-class NationOnlineCommand : Command("online") {
+class NationOnlineCommand : NodesCommand("online") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")
@@ -102,7 +102,7 @@ class NationOnlineCommand : Command("online") {
     }
 }
 
-class NationInfoCommand : Command("info") {
+class NationInfoCommand : NodesCommand("info") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")

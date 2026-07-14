@@ -9,11 +9,11 @@ import net.aechronis.nodes.commands.arguments.ArgumentNation
 import net.aechronis.nodes.constants.ErrorAllyRequestAlreadyAllies
 import net.aechronis.nodes.constants.ErrorAllyRequestAlreadyCreated
 import net.aechronis.nodes.constants.ErrorAllyRequestEnemies
-import net.aechronis.nodes.objects.Command
+import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.war.Alliance
 import net.aechronis.nodes.war.AllianceRequest
 
-class AllyCommand : Command("ally") {
+class AllyCommand : NodesCommand("ally") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /ally <nation-name>")

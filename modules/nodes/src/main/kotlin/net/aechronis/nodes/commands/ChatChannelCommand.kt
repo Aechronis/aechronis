@@ -8,9 +8,9 @@ package net.aechronis.nodes.commands
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.chat.Chat
 import net.aechronis.nodes.chat.ChatMode
-import net.aechronis.nodes.objects.Command
+import net.aechronis.nodes.objects.NodesCommand
 
-class GlobalChatCommand : Command("globalchat", null, "gc") {
+class GlobalChatCommand : NodesCommand("globalchat", null, "gc") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")
@@ -28,7 +28,7 @@ class GlobalChatCommand : Command("globalchat", null, "gc") {
     }
 }
 
-class GlobalChatJoinCommand : Command("join", null, "unmute") {
+class GlobalChatJoinCommand : NodesCommand("join", null, "unmute") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /globalchat join")
@@ -40,7 +40,7 @@ class GlobalChatJoinCommand : Command("join", null, "unmute") {
     }
 }
 
-class GlobalChatLeaveCommand : Command("leave", null, "mute") {
+class GlobalChatLeaveCommand : NodesCommand("leave", null, "mute") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /globalchat leave")
@@ -52,7 +52,7 @@ class GlobalChatLeaveCommand : Command("leave", null, "mute") {
     }
 }
 
-class TownChatCommand : Command("townchat", null, "tc") {
+class TownChatCommand : NodesCommand("townchat", null, "tc") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /townchat")
@@ -64,7 +64,7 @@ class TownChatCommand : Command("townchat", null, "tc") {
     }
 }
 
-class NationChatCommand : Command("nationchat", null, "nc") {
+class NationChatCommand : NodesCommand("nationchat", null, "nc") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /nationchat")
@@ -76,7 +76,7 @@ class NationChatCommand : Command("nationchat", null, "nc") {
     }
 }
 
-class AllyChatCommand : Command("allychat", null, "ac") {
+class AllyChatCommand : NodesCommand("allychat", null, "ac") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /allychat")

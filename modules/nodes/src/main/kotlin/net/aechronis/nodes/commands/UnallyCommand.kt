@@ -9,10 +9,10 @@ import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentNation
 import net.aechronis.nodes.constants.ErrorNotAllies
-import net.aechronis.nodes.objects.Command
+import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.utils.ChatColor
 
-class UnallyCommand : Command("unally") {
+class UnallyCommand : NodesCommand("unally") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /unally <nation-name>")
