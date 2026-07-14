@@ -25,7 +25,7 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket
 import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
-import net.minestom.server.network.packet.server.play.TimeUpdatePacket
+import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.network.player.ResolvableProfile
 import kotlin.math.abs
 import kotlin.math.cos
@@ -567,7 +567,7 @@ class Drone(
                 link = linkQuality(distance),
                 inverted = inverted,
             )
-        player.sendPacket(TimeUpdatePacket(time, instance.time, false))
+        player.sendPacket(SetTimePacket(time, player.instance.createTimePacket().clocks))
     }
 
     // video link quality; full next to the controller, zero at maxRange

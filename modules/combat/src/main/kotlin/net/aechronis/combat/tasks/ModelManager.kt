@@ -14,7 +14,7 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.network.packet.server.play.EntityEquipmentPacket
-import net.minestom.server.network.packet.server.play.TimeUpdatePacket
+import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.potion.Potion
 import net.minestom.server.potion.PotionEffect
 import net.minestom.server.timer.TaskSchedule
@@ -42,7 +42,7 @@ object ModelManager {
         val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
         if (gun == null && !isLookingAtVehicle) {
             enableHitAnimation(player)
-            player.sendPacket(TimeUpdatePacket(10000, player.instance?.time ?: 0, false))
+            player.sendPacket(SetTimePacket(10000, player.instance.createTimePacket().clocks))
             return
         }
 
@@ -69,7 +69,7 @@ object ModelManager {
         }
 
         // hide block outline
-        player.sendPacket(TimeUpdatePacket(11000, player.instance.time, false))
+        player.sendPacket(SetTimePacket(11000, player.instance.createTimePacket().clocks))
 
         if (gun == null) return
 

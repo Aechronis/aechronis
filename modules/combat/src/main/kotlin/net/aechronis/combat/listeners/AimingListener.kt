@@ -4,8 +4,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.minestom.server.MinecraftServer
-import net.minestom.server.event.player.PlayerStartSneakingEvent
-import net.minestom.server.event.player.PlayerStopSneakingEvent
+import net.minestom.server.event.player.PlayerInputEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.timer.TaskSchedule
 import kotlin.collections.set
@@ -29,17 +28,12 @@ object AimingListener {
                 .schedule()
     }
 
-    private fun onPlayerStartSneaking(event: PlayerStartSneakingEvent) {
-        Combat.playerAiming[event.player] = true
-    }
-
-    private fun onPlayerStopSneaking(event: PlayerStopSneakingEvent) {
-        Combat.playerAiming[event.player] = false
+    private fun onPlayerInput(event: PlayerInputEvent) {
+        Combat.playerAiming[event.player] = event.isHoldingShiftKey
     }
 
     fun init() {
         Combat.eventNode.addListener(PlayerUseItemEvent::class.java, AimingListener::onPlayerUseItem)
-        Combat.eventNode.addListener(PlayerStartSneakingEvent::class.java, AimingListener::onPlayerStartSneaking)
-        Combat.eventNode.addListener(PlayerStopSneakingEvent::class.java, AimingListener::onPlayerStopSneaking)
+        Combat.eventNode.addListener(PlayerInputEvent::class.java, AimingListener::onPlayerInput)
     }
 }
