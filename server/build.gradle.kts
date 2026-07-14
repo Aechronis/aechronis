@@ -31,9 +31,10 @@ repositories {
 
 dependencies {
     implementation("net.minestom:minestom:2026.04.13-1.21.11")
-    implementation("net.aechronis:nodes:4d702e2")
-    implementation("net.aechronis:combat:48326f9")
-    implementation("net.aechronis:vanilla:ad0180e")
+    implementation("net.aechronis:utils:b480abf")
+    implementation("net.aechronis:nodes:acbec61")
+    implementation("net.aechronis:combat:8c84260")
+    implementation("net.aechronis:vanilla:a95ad8d")
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")
     implementation("com.h2database:h2:2.2.220")

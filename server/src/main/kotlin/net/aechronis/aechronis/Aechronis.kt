@@ -22,6 +22,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.NodesConfig
+import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
 import net.luckperms.api.LuckPermsProvider
 import net.luckperms.api.node.Node
@@ -44,17 +45,6 @@ object Aechronis {
     lateinit var instance: InstanceContainer
     val eventNode = EventNode.all("aechronis")
 }
-
-private fun Player.hasPermission(permission: String): Boolean =
-    LuckPermsProvider
-        .get()
-        .userManager
-        .getUser(uuid)
-        ?.cachedData
-        ?.permissionData
-        ?.checkPermission(permission)
-        ?.asBoolean()
-        ?: false
 
 fun main(args: Array<String>) {
     val port = args.getOrNull(0)?.toInt() ?: 25565

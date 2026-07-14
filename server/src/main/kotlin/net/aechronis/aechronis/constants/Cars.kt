@@ -15,7 +15,6 @@ object Cars {
                 HitboxPart(
                     offset = Vec(0.4, 0.0, -1.0),
                     size = Vec(1.4, 1.0, 3.0),
-                    name = "body",
                 ),
             ),
         )
