@@ -15,7 +15,6 @@ object Tanks {
                 HitboxPart(
                     offset = Vec(0.0, 0.0, 0.0),
                     size = Vec(1.6, 1.5, 2.6),
-                    name = "body",
                 ),
             ),
         )
