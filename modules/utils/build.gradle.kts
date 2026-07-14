@@ -22,6 +22,14 @@ repositories {
 dependencies {
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
     implementation("net.minestom:minestom:2026.03.25-1.21.11")
+
+    testImplementation("org.jetbrains.kotlin:kotlin-test")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 publishing {
