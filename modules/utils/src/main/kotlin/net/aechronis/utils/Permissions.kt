@@ -4,7 +4,7 @@ import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.entity.Player
 
 object Perms {
-    var debug: Boolean = false
+    val debug: Boolean = System.getenv("DEBUG")?.toBoolean() == true
 }
 
 /**
