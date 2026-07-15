@@ -3,6 +3,10 @@ package net.aechronis.utils
 import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.entity.Player
 
+object Perms {
+    var debug: Boolean = false
+}
+
 /**
  * Checks this player's LuckPerms data for [permission].
  *
@@ -22,6 +26,6 @@ fun Player.hasPermission(permission: String?): Boolean {
             ?.checkPermission(permission)
             ?.asBoolean() == true
     } catch (_: Exception) {
-        false
+        Perms.debug
     }
 }
