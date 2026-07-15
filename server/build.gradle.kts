@@ -43,6 +43,6 @@ dependencies {
     implementation("fr.ghostrider584:axiom-minestom:0.0.3")
     implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
     implementation("io.github.4drian3d:signedvelocity-minestom:1.4.1")
-    implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.9.1-SNAPSHOT")
-    implementation("org.everbuild.blocksandstuff:blocksandstuff-fluids:1.9.1-SNAPSHOT")
+    implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
+    implementation("org.everbuild.blocksandstuff:blocksandstuff-fluids:1.10.2-SNAPSHOT")
 }
