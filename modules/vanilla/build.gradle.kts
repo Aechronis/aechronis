@@ -22,7 +22,7 @@ repositories {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2026.03.25-1.21.11")
+    implementation("net.minestom:minestom:2026.07.12-26.2")
     implementation("com.google.code.gson:gson:2.14.0")
     implementation("net.aechronis:utils:b480abf")
 
