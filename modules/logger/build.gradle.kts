@@ -22,7 +22,7 @@ repositories {
 }
 
 dependencies {
-    implementation("net.aechronis:utils:b480abf")
+    implementation("net.aechronis:utils:09c12e5")
     implementation("net.minestom:minestom:2026.07.12-26.2")
 
     // database
