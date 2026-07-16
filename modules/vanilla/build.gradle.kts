@@ -24,7 +24,7 @@ repositories {
 dependencies {
     implementation("net.minestom:minestom:2026.07.12-26.2")
     implementation("com.google.code.gson:gson:2.14.0")
-    implementation("net.aechronis:utils:b480abf")
+    implementation("net.aechronis:utils:09c12e5")
 
     // testing
     testImplementation("org.jetbrains.kotlin:kotlin-test")
