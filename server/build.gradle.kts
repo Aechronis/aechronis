@@ -37,7 +37,7 @@ dependencies {
     implementation("net.aechronis:vanilla:a95ad8d")
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")
-    implementation("com.h2database:h2:2.2.220")
+    implementation("com.h2database:h2:2.4.240")
     implementation("com.zaxxer:HikariCP:7.0.2")
     implementation("org.slf4j:slf4j-simple:2.0.17")
     implementation("fr.ghostrider584:axiom-minestom:0.0.3")
