@@ -11,7 +11,9 @@ package net.aechronis.nodes
 
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Resident
+import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.utils.ChatColor
+import net.aechronis.nodes.war.FlagWar
 
 // minimap display primitive glyphs MUST BE SAME ASCII SIZE
 private const val SHADE0 = "\u2592" // medium shade
@@ -179,7 +181,7 @@ object WorldMap {
             val coord = Coord(x, z)
             val building = Nodes.chunkToBuilding.get(listOf(x, z))
             val buildingToken = building?.takeIf { it.showOnMinimap }?.minimapToken
-            val territoryChunk = Nodes.getTerritoryChunkFromCoord(coord)
+            val territoryChunk = TerritoryChunk.fromCoord(coord)
 
             // get token for current coordinate
             val token = if (territoryChunk == null) {
@@ -202,7 +204,7 @@ object WorldMap {
                 val chunkOccupier = Nodes.territoryChunks.get(coord)?.occupier
 
                 // special tokens during war for captured chunks
-                val coordToken = if (Nodes.war.enabled && residentTown !== null && chunkOccupier !== null) {
+                val coordToken = if (FlagWar.enabled && residentTown !== null && chunkOccupier !== null) {
                     playerToken = PLAYER_IN_OCCUPIED_TOKEN // overwrite player token with different occupied chunk token
 
                     val chunkOccupierNation = chunkOccupier.nation

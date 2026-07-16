@@ -21,7 +21,7 @@ fun townNametagViewedByPlayer(
     space: Boolean = true, // append space to the end of string
 ): String {
     // get input player relation to this.player
-    val otherTown = Nodes.getResident(viewer)?.town
+    val otherTown = Resident.fromPlayer(viewer)?.town
     if (otherTown !== null) {
         val townNation = town.nation
         val otherNation = otherTown.nation
@@ -93,7 +93,7 @@ object Nametag {
             // collect all players in this town to add to the team
             val townMembers = mutableListOf<String>()
             for (otherPlayer in MinecraftServer.getConnectionManager().onlinePlayers) {
-                val otherTown = Nodes.getTownFromPlayer(otherPlayer)
+                val otherTown = Town.fromPlayer(otherPlayer)
                 if (otherTown === town) {
                     townMembers.add(otherPlayer.username)
                 }

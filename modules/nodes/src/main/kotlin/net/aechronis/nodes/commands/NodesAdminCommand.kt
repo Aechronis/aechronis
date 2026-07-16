@@ -19,8 +19,15 @@ import net.aechronis.nodes.commands.arguments.ArgumentTerritory
 import net.aechronis.nodes.commands.arguments.ArgumentTerritoryArray
 import net.aechronis.nodes.commands.arguments.ArgumentTown
 import net.aechronis.nodes.commands.arguments.ArgumentTownArray
+import net.aechronis.nodes.objects.Building
+import net.aechronis.nodes.objects.Farm
+import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.NodesCommand
+import net.aechronis.nodes.objects.Port
+import net.aechronis.nodes.objects.Territory
+import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.utils.ChatColor
+import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.minestom.server.adventure.audience.Audiences
@@ -70,7 +77,7 @@ class NodesAdminHelpCommand : NodesCommand("help", "nodes.admin") {
 class NodesAdminWarCommand : NodesCommand("war", "nodes.admin") {
     init {
         setDefaultExecutor { player, resident, context ->
-            Nodes.war.printInfo(player, true)
+            FlagWar.printInfo(player, true)
             Message.print(player, "Toggle state: \"/nodesadmin war [enable|disable|skirmish]\"")
         }
 
@@ -87,7 +94,7 @@ class NodesAdminWarEnableCommand : NodesCommand("enable", "nodes.admin") {
         }
 
         addSyntax({ player, resident, context ->
-            Nodes.enableWar(canAnnexTerritories = true, canOnlyAttackBorders = false, destructionEnabled = true)
+            FlagWar.enable(canAnnexTerritories = true, canOnlyAttackBorders = false, destructionEnabled = true)
             Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes war enabled")
 
             // play MENACING wither spawn sound
@@ -103,8 +110,8 @@ class NodesAdminWarDisableCommand : NodesCommand("disable", "nodes.admin") {
         }
 
         addSyntax({ player, resident, context ->
-            if (Nodes.war.enabled) {
-                Nodes.disableWar()
+            if (FlagWar.enabled) {
+                FlagWar.disable()
                 Message.broadcast("${ChatColor.BOLD}Nodes war disabled")
             } else {
                 Message.error(player, "Nodes war already disabled")
@@ -120,7 +127,7 @@ class NodesAdminWarSkirmishCommand : NodesCommand("skirmish", "nodes.admin") {
         }
 
         addSyntax({ player, resident, context ->
-            Nodes.enableWar(
+            FlagWar.enable(
                 canAnnexTerritories = false,
                 canOnlyAttackBorders = true,
                 destructionEnabled = Nodes.config.allowDestructionDuringSkirmish,
@@ -155,6 +162,7 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
             Message.print(player, "/nodesadmin town color${ChatColor.WHITE}: Set the color of a town")
             Message.print(player, "/nodesadmin town open${ChatColor.WHITE}: Toggle town is open to join")
             Message.print(player, "/nodesadmin town income${ChatColor.WHITE}: View a town's income inventory")
+            Message.print(player, "/nodesadmin town plot${ChatColor.WHITE}: Manage a town's plots")
             Message.print(player, "Run a command with no args to see usage.")
         }
 
@@ -177,6 +185,7 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
         addSubcommand(NodesAdminTownIncomeCommand())
         addSubcommand(NodesAdminTownSetHomeCommand())
         addSubcommand(NodesAdminTownDefaultTownSpawnsCommand())
+        addSubcommand(NodesAdminTownPlotCommand())
     }
 }
 
@@ -191,14 +200,14 @@ class NodesAdminTownCreateCommand : NodesCommand("create", "nodes.admin") {
 
         addSyntax({ player, resident, context ->
             // first territory is new town home
-            val town = Nodes.createTown(context[townArg], context[territoriesArg][0], null).getOrElse { err ->
+            val town = Town.create(context[townArg], context[territoriesArg][0], null).getOrElse { err ->
                 Message.error(player, "Failed to create town: ${err.message}")
                 return@addSyntax
             }
 
             // add the other territories
             for (i in 1 until context[territoriesArg].size) {
-                Nodes.addTerritoryToTown(town, context[territoriesArg][i])
+                Town.addTerritory(town, context[territoriesArg][i])
             }
 
             Message.print(player, "Created town \"${context[townArg]}\" with ${context[territoriesArg].size} territories")
@@ -215,7 +224,7 @@ class NodesAdminTownDeleteCommand : NodesCommand("delete", "nodes.admin") {
         val townArg = ArgumentTown.create("town-name")
 
         addSyntax({ player, resident, context ->
-            Nodes.destroyTown(context[townArg])
+            Town.destroy(context[townArg])
             Message.print(player, "Town \"${context[townArg].name}\" has been deleted")
         }, townArg)
     }
@@ -231,7 +240,7 @@ class NodesAdminTownRenameCommand : NodesCommand("rename", "nodes.admin") {
         val nameArg = ArgumentSanitizedString.create("new-name")
 
         addSyntax({ player, resident, context ->
-            Nodes.renameTown(context[townArg], context[nameArg])
+            Town.rename(context[townArg], context[nameArg])
             Message.print(player, "${context[townArg].name} has been renamed to \"${context[nameArg]}\"")
         }, townArg, nameArg)
     }
@@ -248,7 +257,7 @@ class NodesAdminTownAddPlayerCommand : NodesCommand("addplayer", "nodes.admin") 
 
         addSyntax({ player, resident, context ->
             for (resident in context[playersArg]) {
-                Nodes.addResidentToTown(context[townArg], resident)
+                Town.addResident(context[townArg], resident)
                 Message.print(player, "Added \"${resident.name}\" to town \"${context[townArg].name}\"")
             }
         }, townArg, playersArg)
@@ -266,7 +275,7 @@ class NodesAdminTownRemovePlayerCommand : NodesCommand("removeplayer", "nodes.ad
 
         addSyntax({ player, resident, context ->
             for (resident in context[playersArg]) {
-                Nodes.removeResidentFromTown(context[townArg], resident)
+                Town.removeResident(context[townArg], resident)
                 Message.print(player, "Removed \"${resident.name}\" from town \"${context[townArg].name}\"")
             }
         }, townArg, playersArg)
@@ -285,7 +294,7 @@ class NodesAdminTownAddTerritoryCommand : NodesCommand("addterritory", "nodes.ad
         addSyntax({ player, resident, context ->
             // add territories
             for (terr in context[territoriesArg]) {
-                Nodes.addTerritoryToTown(context[townArg], terr)
+                Town.addTerritory(context[townArg], terr)
             }
 
             Message.print(player, "Added ${context[territoriesArg].size} territories to town \"${context[townArg].name}\"")
@@ -305,7 +314,7 @@ class NodesAdminTownRemoveTerritoryCommand : NodesCommand("removeterritory", "no
         addSyntax({ player, resident, context ->
             // remove territories
             for (terr in context[territoriesArg]) {
-                Nodes.unclaimTerritory(context[townArg], terr)
+                Town.unclaim(context[townArg], terr)
             }
 
             Message.print(player, "Removed ${context[territoriesArg].size} territories from town \"${context[townArg].name}\"")
@@ -325,7 +334,7 @@ class NodesAdminTownCaptureTerritoryCommand : NodesCommand("captureterritory", "
         addSyntax({ player, resident, context ->
             // add territories
             for (terr in context[territoriesArg]) {
-                Nodes.captureTerritory(context[townArg], terr)
+                Town.capture(context[townArg], terr)
             }
 
             Message.print(player, "Captured ${context[territoriesArg].size} territories for town \"${context[townArg].name}\"")
@@ -344,7 +353,7 @@ class NodesAdminTownReleaseTerritoryCommand : NodesCommand("releaseterritory", "
         addSyntax({ player, resident, context ->
             // add territories
             for (terr in context[territoriesArg]) {
-                Nodes.releaseTerritory(terr)
+                Town.release(terr)
             }
 
             Message.print(player, "Released ${context[territoriesArg].size} territories under occupation")
@@ -364,7 +373,7 @@ class NodesAdminTownAddOfficerCommand : NodesCommand("addofficer", "nodes.admin"
         addSyntax({ player, resident, context ->
             // make residents officers
             for (r in context[playersArg]) {
-                Nodes.townAddOfficer(context[townArg], r)
+                Town.addOfficer(context[townArg], r)
                 Message.print(player, "Made \"${r.name}\" officer of \"${context[townArg].name}\"")
             }
         }, townArg, playersArg)
@@ -383,7 +392,7 @@ class NodesAdminTownRemoveOfficerCommand : NodesCommand("removeofficer", "nodes.
         addSyntax({ player, resident, context ->
             // make residents officers
             for (r in context[playersArg]) {
-                Nodes.townRemoveOfficer(context[townArg], r)
+                Town.removeOfficer(context[townArg], r)
                 Message.print(player, "Removed \"${r.name}\" as officer of \"${context[townArg].name}\"")
             }
         }, townArg, playersArg)
@@ -405,7 +414,7 @@ class NodesAdminTownLeaderCommand : NodesCommand("leader", "nodes.admin") {
                 return@addSyntax
             }
 
-            Nodes.townSetLeader(context[townArg], context[playerArg])
+            Town.setLeader(context[townArg], context[playerArg])
             Message.print(player, "Player \"${context[playerArg].name}\" is now leader of \"${context[townArg].name}\"")
         }, townArg, playerArg)
     }
@@ -420,7 +429,7 @@ class NodesAdminTownRemoveLeaderCommand : NodesCommand("removeleader", "nodes.ad
         val townArg = ArgumentTown.create("town-name")
 
         addSyntax({ player, resident, context ->
-            Nodes.townSetLeader(context[townArg], null)
+            Town.setLeader(context[townArg], null)
             Message.print(player, "Removed leader of \"${context[townArg].name}\"")
         }, townArg)
     }
@@ -438,7 +447,7 @@ class NodesAdminTownColorCommand : NodesCommand("color", "nodes.admin") {
         val bArg = ArgumentType.Integer("b")
 
         addSyntax({ player, resident, context ->
-            Nodes.setTownColor(context[townArg], context[rArg], context[gArg], context[bArg])
+            Town.setColor(context[townArg], context[rArg], context[gArg], context[bArg])
             Message.print(player, "Set color of ${context[townArg].name} to (${context[rArg]}, ${context[gArg]}, ${context[bArg]})")
         }, townArg, rArg, gArg, bArg)
     }
@@ -454,7 +463,7 @@ class NodesAdminTownIncomeCommand : NodesCommand("income", "nodes.admin") {
 
         addSyntax({ player, resident, context ->
             // open town inventory
-            player.openInventory(Nodes.getTownIncomeInventory(context[townArg]))
+            player.openInventory(Town.incomeInventory(context[townArg]))
         }, townArg)
     }
 }
@@ -468,7 +477,7 @@ class NodesAdminTownSetSpawnCommand : NodesCommand("setspawn", "nodes.admin") {
         val townArg = ArgumentTown.create("town-name")
 
         addSyntax({ player, resident, context ->
-            val result = Nodes.setTownSpawn(context[townArg], player.position)
+            val result = Town.setSpawn(context[townArg], player.position)
 
             if (result) {
                 Message.print(player, "Town \"${context[townArg].name}\" spawn set to current location")
@@ -514,7 +523,7 @@ class NodesAdminTownSetHomeCommand : NodesCommand("sethome", "nodes.admin") {
                 return@addSyntax
             }
 
-            Nodes.setTownHomeTerritory(context[townArg], context[territoryArg])
+            Town.setHome(context[townArg], context[territoryArg])
             Message.print(player, "Moved \"${context[townArg].name}\" home territory to id = ${context[territoryArg].id}")
         }, townArg, territoryArg)
     }
@@ -533,7 +542,7 @@ class NodesAdminTownDefaultTownSpawnsCommand : NodesCommand("defaulttownspawns",
             for (town in context[townsArg]) {
                 val terrHome = Nodes.territories.get(town.home)
                 if (terrHome !== null) {
-                    val spawnpoint = Nodes.getDefaultSpawnLocation(terrHome)
+                    val spawnpoint = Territory.defaultSpawnLocation(terrHome)
                     town.spawnpoint = spawnpoint
                     town.needsUpdate()
                     Message.print(player, "Set town \"${town.name}\" spawnpoint to $spawnpoint")
@@ -591,14 +600,14 @@ class NodesAdminNationCreateCommand : NodesCommand("create", "nodes.admin") {
 
         addSyntax({ player, resident, context ->
             // create new nation from town
-            val nation = Nodes.createNation(context[nationArg], context[townsArg][0], context[townsArg][0].leader).getOrElse { err ->
+            val nation = Nation.create(context[nationArg], context[townsArg][0], context[townsArg][0].leader).getOrElse { err ->
                 Message.error(player, "Failed to create nation: ${err.message}")
                 return@addSyntax
             }
 
             // add other towns
             for (i in 1 until context[townsArg].size) {
-                Nodes.addTownToNation(nation, context[townsArg][i])
+                Nation.addTown(nation, context[townsArg][i])
             }
 
             Message.print(player, "Created nation \"${context[nationArg]}\" with ${context[townsArg].size} towns")
@@ -615,7 +624,7 @@ class NodesAdminNationDeleteCommand : NodesCommand("delete", "nodes.admin") {
         val nationArg = ArgumentNation.create("nation-name")
 
         addSyntax({ player, resident, context ->
-            Nodes.destroyNation(context[nationArg])
+            Nation.destroy(context[nationArg])
             Message.print(player, "Nation \"${context[nationArg].name}\" has been deleted")
         }, nationArg)
     }
@@ -631,7 +640,7 @@ class NodesAdminNationRenameCommand : NodesCommand("rename", "nodes.admin") {
         val nameArg = ArgumentSanitizedString.create("new-name")
 
         addSyntax({ player, resident, context ->
-            Nodes.renameNation(context[nationArg], context[nameArg])
+            Nation.rename(context[nationArg], context[nameArg])
             Message.print(player, "${context[nationArg].name} has been renamed to \"${context[nameArg]}\"")
         }, nationArg, nameArg)
     }
@@ -657,7 +666,7 @@ class NodesAdminNationAddTownCommand : NodesCommand("addtown", "nodes.admin") {
 
             // Process all towns if validation passed
             for (town in context[townsArg]) {
-                Nodes.addTownToNation(context[nationArg], town)
+                Nation.addTown(context[nationArg], town)
                 Message.print(player, "Added town \"${town.name}\" to nation \"${context[nationArg].name}\"")
             }
         }, nationArg, townsArg)
@@ -684,7 +693,7 @@ class NodesAdminNationRemoveTownCommand : NodesCommand("removetown", "nodes.admi
 
             // Process all towns if validation passed
             for (town in context[townsArg]) {
-                Nodes.removeTownFromNation(context[nationArg], town)
+                Nation.removeTown(context[nationArg], town)
                 Message.print(player, "Removed town \"${town.name}\" from nation \"${context[nationArg].name}\"")
             }
         }, nationArg, townsArg)
@@ -710,7 +719,7 @@ class NodesAdminNationCapitalCommand : NodesCommand("capital", "nodes.admin") {
                 return@addSyntax
             }
 
-            Nodes.setNationCapital(context[nationArg], context[townArg])
+            Nation.setCapital(context[nationArg], context[townArg])
 
             Message.print(player, "${context[townArg].name} is now the capital of ${context[nationArg].name}")
         }, nationArg, townArg)
@@ -727,7 +736,7 @@ class NodesAdminNationAddAllyCommand : NodesCommand("addally", "nodes.admin") {
         val nationBArg = ArgumentNation.create("nationB-name")
 
         addSyntax({ player, resident, context ->
-            Nodes.addAlly(context[nationAArg], context[nationBArg]).getOrElse { err ->
+            Nation.addAlly(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to add ally: ${err.message}")
                 return@addSyntax
             }
@@ -747,7 +756,7 @@ class NodesAdminNationRemoveAllyCommand : NodesCommand("removeally", "nodes.admi
         val nationBArg = ArgumentNation.create("nationB-name")
 
         addSyntax({ player, resident, context ->
-            Nodes.removeAlly(context[nationAArg], context[nationBArg]).getOrElse { err ->
+            Nation.removeAlly(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to remove ally: ${err.message}")
                 return@addSyntax
             }
@@ -767,7 +776,7 @@ class NodesAdminNationAddEnemyCommand : NodesCommand("addenemy", "nodes.admin") 
         val nationBArg = ArgumentNation.create("nationB-name")
 
         addSyntax({ player, resident, context ->
-            Nodes.addEnemy(context[nationAArg], context[nationBArg]).getOrElse { err ->
+            Nation.addEnemy(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to add enemy: ${err.message}")
                 return@addSyntax
             }
@@ -787,7 +796,7 @@ class NodesAdminNationRemoveEnemyCommand : NodesCommand("removeenemy", "nodes.ad
         val nationBArg = ArgumentNation.create("nationB-name")
 
         addSyntax({ player, resident, context ->
-            Nodes.removeEnemy(context[nationAArg], context[nationBArg]).getOrElse { err ->
+            Nation.removeEnemy(context[nationAArg], context[nationBArg]).getOrElse { err ->
                 Message.error(player, "Failed to remove enemy: ${err.message}")
                 return@addSyntax
             }
@@ -809,7 +818,7 @@ class NodesAdminNationColorCommand : NodesCommand("color", "nodes.admin") {
         val bArg = ArgumentType.Integer("b")
 
         addSyntax({ player, resident, context ->
-            Nodes.setNationColor(context[nationArg], context[rArg], context[gArg], context[bArg])
+            Nation.setColor(context[nationArg], context[rArg], context[gArg], context[bArg])
             Message.print(player, "Set color of ${context[nationArg].name} to (${context[rArg]}, ${context[gArg]}, ${context[bArg]})")
         }, nationArg, rArg, gArg, bArg)
     }
@@ -845,7 +854,7 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
         val tierArg = ArgumentType.Integer("tier").between(1, 3)
 
         addSyntax({ player, resident, context ->
-            Nodes.createPort(
+            Port.create(
                 name,
                 Math.floorDiv(player.position.blockX(), 16),
                 Math.floorDiv(player.position.blockZ(), 16),
@@ -859,7 +868,7 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
         }, portLit, nameArg, publicArg, tierArg)
 
         addSyntax({ player, resident, context ->
-            Nodes.createFarm(
+            Farm.create(
                 Math.floorDiv(player.position.blockX(), 16),
                 Math.floorDiv(player.position.blockZ(), 16),
                 context[tierArg],
@@ -875,7 +884,7 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
 private fun buildingAtPlayer(player: net.minestom.server.entity.Player): net.aechronis.nodes.objects.Building? {
     val chunkX = Math.floorDiv(player.position.blockX(), 16)
     val chunkZ = Math.floorDiv(player.position.blockZ(), 16)
-    return Nodes.getBuildingAt(chunkX, chunkZ)
+    return Building.getAt(chunkX, chunkZ)
 }
 
 class NodesAdminBuildingDeleteCommand : NodesCommand("delete", "nodes.admin") {
@@ -886,7 +895,7 @@ class NodesAdminBuildingDeleteCommand : NodesCommand("delete", "nodes.admin") {
                 Message.error(player, "No building in this chunk")
                 return@setDefaultExecutor
             }
-            Nodes.destroyBuilding(building)
+            Building.destroy(building)
             Message.print(player, "Deleted ${building.type} in chunk (${building.chunkX}, ${building.chunkZ})")
         }
     }
@@ -906,7 +915,7 @@ class NodesAdminBuildingSetTierCommand : NodesCommand("settier", "nodes.admin") 
                 Message.error(player, "No building in this chunk")
                 return@addSyntax
             }
-            Nodes.setBuildingTier(building, context[tierArg])
+            Building.setTier(building, context[tierArg])
             Message.print(player, "${building.type} in chunk (${building.chunkX}, ${building.chunkZ}) set to tier ${building.tier}")
         }, tierArg)
     }

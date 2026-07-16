@@ -8,6 +8,8 @@
 
 package net.aechronis.nodes
 
+import net.aechronis.nodes.constants.PermissionsGroup
+import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.objects.TerritoryResources
 import net.minestom.server.instance.block.Block
 import java.nio.file.Path
@@ -60,6 +62,11 @@ data class NodesConfig(
 
     // allow getting ore in captured territory
     val allowOreInCaptured: Boolean = true,
+
+    // maximum dimensions for a town plot cuboid
+    val plotMaxWidth: Int = 256,
+    val plotMaxHeight: Int = 384,
+    val plotMaxDepth: Int = 256,
 
     // allow mining in other towns in nation
     val allowOreInNationTowns: Boolean = true,
@@ -182,6 +189,10 @@ data class NodesConfig(
     // port configs
     // ===================================
     val portWarpTime: Long = 10000,
+
+    // default allowed groups for each town permission
+    val defaultTownPermissions: Map<TownPermissions, Set<PermissionsGroup>> =
+        enumValues<TownPermissions>().associateWith { setOf(PermissionsGroup.TOWN) },
 ) {
     // folder for backups of json state files
     val pathBackup: Path get() = Paths.get(path, "backup").normalize()

@@ -23,7 +23,7 @@ object ArgumentNation {
                 }
         }
         return word.map { input ->
-            Nodes.getNationFromName(input)
+            Nation.fromName(input)
                 ?: throw ArgumentSyntaxException("Nation not found", input, 1)
         }
     }

@@ -9,8 +9,12 @@ package net.aechronis.nodes.objects
 
 import com.google.gson.JsonObject
 import net.aechronis.nodes.Message
+import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.Nodes.territories
 import net.aechronis.nodes.utils.ChatColor
+import net.minestom.server.MinecraftServer
 import net.minestom.server.command.CommandSender
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.Material
 import kotlin.math.max
 
@@ -312,6 +316,37 @@ data class Territory(
     var town: Town? = null, // town owner
     var occupier: Town? = null, // town occupier (after being captured in war)
 ) {
+    companion object {
+        fun count(): Int = Nodes.territories.size
+
+        fun fromId(id: TerritoryId): Territory? = territories[id]
+
+        fun fromCoord(coord: Coord): Territory? = Nodes.territoryChunks[coord]?.territory
+
+        fun fromBlock(blockX: Int, blockZ: Int): Territory? = fromCoord(Coord.fromBlockCoords(blockX, blockZ))
+
+        fun fromPlayer(player: net.minestom.server.entity.Player): Territory? {
+            val position = player.position
+            return fromCoord(Coord.fromBlockCoords(position.x.toInt(), position.z.toInt()))
+        }
+
+        fun defaultSpawnLocation(territory: Territory): Pos {
+            val homeChunk = territory.core
+            val x = homeChunk.x * 16 + 8
+            val z = homeChunk.z * 16 + 8
+            var y = 255
+            try {
+                while (y > 0) {
+                    if (MinecraftServer.getInstanceManager().instances.first().getBlock(x, y, z).isAir) break
+                    y -= 1
+                }
+            } catch (_: NullPointerException) {
+                // chunk is not loaded
+            }
+            return Pos(x.toDouble(), y.toDouble(), z.toDouble())
+        }
+    }
+
     // Returns territory structural properties (chunks, id, neighbors, etc.)
     // as a TerritoryPreprocessing object. Used when rebuilding territories
     // in territory hot reloading.

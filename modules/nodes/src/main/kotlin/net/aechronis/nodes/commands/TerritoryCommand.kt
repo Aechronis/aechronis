@@ -5,9 +5,9 @@
 package net.aechronis.nodes.commands
 
 import net.aechronis.nodes.Message
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentTerritory
 import net.aechronis.nodes.objects.NodesCommand
+import net.aechronis.nodes.objects.Territory
 
 class TerritoryCommand : NodesCommand("territory") {
     init {
@@ -20,7 +20,7 @@ class TerritoryCommand : NodesCommand("territory") {
         val territoryArg = ArgumentTerritory.create("territory-id")
 
         addSyntax({ player, resident, context ->
-            val territory = Nodes.getTerritoryFromPlayer(player)
+            val territory = Territory.fromPlayer(player)
 
             if (territory == null) {
                 Message.error(player, "No territory at current location")

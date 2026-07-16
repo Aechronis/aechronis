@@ -2,7 +2,6 @@ package net.aechronis.nodes.listeners
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
-import net.aechronis.nodes.Nodes.getTownFromPlayer
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
@@ -30,7 +29,7 @@ object NodesPlayerMoveListener {
 
         // handle event effects
         val player = event.player
-        val resident = Nodes.getResident(player)
+        val resident = Resident.fromPlayer(player)
         if (resident == null) {
             return
         }
@@ -73,7 +72,7 @@ object NodesPlayerMoveListener {
 
         // handle event effects
 
-        val resident = Nodes.getResident(player)
+        val resident = Resident.fromPlayer(player)
         if (resident == null) {
             return
         }
@@ -89,8 +88,8 @@ object NodesPlayerMoveListener {
 
     // handle player changing to new chunk
     private fun onPlayerMoveChunk(player: Player, resident: Resident, fromCoord: Coord, toCoord: Coord) {
-        val fromTerritory = Nodes.getTerritoryFromCoord(fromCoord)
-        val toTerritory = Nodes.getTerritoryFromCoord(toCoord)
+        val fromTerritory = Territory.fromCoord(fromCoord)
+        val toTerritory = Territory.fromCoord(toCoord)
 
         if (fromTerritory != null && toTerritory != null) {
             val toTown = toTerritory.town
@@ -119,7 +118,7 @@ object NodesPlayerMoveListener {
         // ignore admins in creative and spectator
         if (player.gameMode in listOf(GameMode.CREATIVE, GameMode.SPECTATOR)) return
 
-        val playerTown = getTownFromPlayer(player)
+        val playerTown = Town.fromPlayer(player)
 
         // if player leaves their own town while flying, disable flight
         if (player.isAllowFlying && toTerritory?.town != playerTown) {

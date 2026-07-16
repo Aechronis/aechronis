@@ -1,5 +1,7 @@
 package net.aechronis.nodes.objects
 
+import net.aechronis.nodes.Nodes
+
 /**
  * TerritoryChunk
  *
@@ -19,4 +21,10 @@ data class TerritoryChunk(
     // flags for war
     var attacker: Town? = null, // town currently attacking chunk
     var occupier: Town? = null, // town occupying chunk
-)
+) {
+    companion object {
+        fun fromBlock(blockX: Int, blockZ: Int): TerritoryChunk? = fromCoord(Coord.fromBlockCoords(blockX, blockZ))
+
+        fun fromCoord(coord: Coord): TerritoryChunk? = Nodes.territoryChunks[coord]
+    }
+}

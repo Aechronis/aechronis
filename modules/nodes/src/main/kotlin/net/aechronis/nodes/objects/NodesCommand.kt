@@ -5,7 +5,6 @@
 package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.Message
-import net.aechronis.nodes.Nodes
 import net.aechronis.utils.Command
 import net.minestom.server.command.builder.CommandContext
 import net.minestom.server.command.builder.arguments.Argument
@@ -24,7 +23,7 @@ open class NodesCommand(
         executor: (player: Player, resident: Resident, context: CommandContext) -> Unit,
     ) {
         super.setDefaultExecutor { player: Player, context ->
-            val resident = Nodes.getResident(player)
+            val resident = Resident.fromPlayer(player)
             executor(player, resident!!, context)
         }
     }
@@ -37,7 +36,7 @@ open class NodesCommand(
         vararg args: Argument<*>,
     ) {
         super.addSyntax({ player: Player, context ->
-            val resident = Nodes.getResident(player)
+            val resident = Resident.fromPlayer(player)
             executor(player, resident!!, context)
         }, *args)
     }
@@ -50,13 +49,13 @@ open class NodesCommand(
         vararg args: Argument<*>,
     ) {
         super.addSyntax({ player: Player, context ->
-            val resident = Nodes.getResident(player)
+            val resident = Resident.fromPlayer(player)
             if (resident == null) {
                 Message.error(player, "This command can only be used by players")
                 return@addSyntax
             }
 
-            val town = Nodes.getTownFromPlayer(player)
+            val town = Town.fromPlayer(player)
             if (town == null) {
                 Message.error(player, "You must be in a town to use this command")
                 return@addSyntax
@@ -74,7 +73,7 @@ open class NodesCommand(
         vararg args: Argument<*>,
     ) {
         super.addSyntax({ player: Player, context ->
-            val resident = Nodes.getResident(player)
+            val resident = Resident.fromPlayer(player)
             if (resident == null) {
                 Message.error(player, "This command can only be used by players")
                 return@addSyntax

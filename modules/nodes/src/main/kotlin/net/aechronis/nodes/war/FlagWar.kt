@@ -27,6 +27,7 @@ import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.ErrorAlreadyCaptured
 import net.aechronis.nodes.constants.ErrorAlreadyUnderAttack
+import net.aechronis.nodes.constants.ErrorAnnexDisabled
 import net.aechronis.nodes.constants.ErrorChunkNotEdge
 import net.aechronis.nodes.constants.ErrorFlagTooHigh
 import net.aechronis.nodes.constants.ErrorNotBorderTerritory
@@ -36,6 +37,7 @@ import net.aechronis.nodes.constants.ErrorTooManyAttacks
 import net.aechronis.nodes.constants.ErrorTownBlacklisted
 import net.aechronis.nodes.constants.ErrorTownNotWhitelisted
 import net.aechronis.nodes.objects.Coord
+import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.Town
@@ -114,6 +116,7 @@ object FlagWar {
     internal var saveTask: Task? = null
 
     fun initialize(flagBlocks: Set<Block>) {
+        this.flagBlocks.clear()
         FlagWar.flagBlocks.addAll(flagBlocks)
         skyBeaconSize = Nodes.config.flagBeaconSize.coerceIn(2, 16)
     }
@@ -122,12 +125,12 @@ object FlagWar {
      * Print info to sender about current war state
      */
     fun printInfo(sender: CommandSender, detailed: Boolean = false) {
-        val status = if (Nodes.war.enabled) "enabled" else "${ChatColor.GRAY}disabled"
+        val status = if (enabled) "enabled" else "${ChatColor.GRAY}disabled"
         Message.print(sender, "${ChatColor.BOLD}Nodes war status: $status")
-        if (Nodes.war.enabled) {
-            Message.print(sender, "- Can Annex Territories${ChatColor.WHITE}: ${Nodes.war.canAnnexTerritories}")
-            Message.print(sender, "- Can Only Attack Borders${ChatColor.WHITE}: ${Nodes.war.canOnlyAttackBorders}")
-            Message.print(sender, "- Destruction Enabled${ChatColor.WHITE}: ${Nodes.war.destructionEnabled}")
+        if (enabled) {
+            Message.print(sender, "- Can Annex Territories${ChatColor.WHITE}: $canAnnexTerritories")
+            Message.print(sender, "- Can Only Attack Borders${ChatColor.WHITE}: $canOnlyAttackBorders")
+            Message.print(sender, "- Destruction Enabled${ChatColor.WHITE}: $destructionEnabled")
             if (detailed) {
                 Message.print(sender, "- Using Towns Whitelist${ChatColor.WHITE}: ${Nodes.config.warUseWhitelist}")
                 Message.print(sender, "- Can leave town${ChatColor.WHITE}: ${Nodes.config.canLeaveTownDuringWar}")
@@ -175,13 +178,13 @@ object FlagWar {
      */
     internal fun loadOccupiedChunk(townName: String, coord: Coord) {
         // get town
-        val town = Nodes.towns.get(townName)
+        val town = Town.fromName(townName)
         if (town == null) {
             return
         }
 
         // get territory chunk
-        val terrChunk = Nodes.getTerritoryChunkFromCoord(coord)
+        val terrChunk = TerritoryChunk.fromCoord(coord)
         if (terrChunk == null) {
             return
         }
@@ -212,7 +215,7 @@ object FlagWar {
 
         // iterate chunks and stop current attacks
         for ((coord, attack) in chunkToAttacker) {
-            val chunk = Nodes.getTerritoryChunkFromCoord(coord)
+            val chunk = TerritoryChunk.fromCoord(coord)
             if (chunk !== null) {
                 chunk.attacker = null
                 chunk.occupier = null
@@ -223,7 +226,7 @@ object FlagWar {
 
         // clear occupied chunks
         for (coord in occupiedChunks) {
-            val chunk = Nodes.getTerritoryChunkFromCoord(coord)
+            val chunk = TerritoryChunk.fromCoord(coord)
             if (chunk !== null) {
                 chunk.attacker = null
                 chunk.occupier = null
@@ -268,7 +271,7 @@ object FlagWar {
 
         // iterate chunks and stop current attacks
         for ((coord, attack) in chunkToAttacker) {
-            val chunk = Nodes.getTerritoryChunkFromCoord(coord)
+            val chunk = TerritoryChunk.fromCoord(coord)
             if (chunk !== null) {
                 chunk.attacker = null
                 chunk.occupier = null
@@ -279,7 +282,7 @@ object FlagWar {
 
         // clear occupied chunks
         for (coord in occupiedChunks) {
-            val chunk = Nodes.getTerritoryChunkFromCoord(coord)
+            val chunk = TerritoryChunk.fromCoord(coord)
             if (chunk !== null) {
                 chunk.attacker = null
                 chunk.occupier = null
@@ -341,6 +344,10 @@ object FlagWar {
         // 2. town chunk occupied by enemy
         // 3. allied chunk occupied by enemy
         if (chunkIsEnemy(chunk, territory, attackingTown)) {
+            if (!canAnnexTerritories && chunk.coord == territory.core) {
+                return Result.failure(ErrorAnnexDisabled)
+            }
+
             // check for only attacking border territories
             if (canOnlyAttackBorders && !isBorderTerritory(territory)) {
                 return Result.failure(ErrorNotBorderTerritory)
@@ -420,7 +427,7 @@ object FlagWar {
             if (territory.id == terrTown.home) {
                 attackTime *= Nodes.config.chunkAttackHomeMultiplier
             }
-            attackTime *= if (terrTown.uuid == attackingTown.uuid || Nodes.areTownsAllied(terrTown, attackingTown)) {
+            attackTime *= if (terrTown.uuid == attackingTown.uuid || Town.areAllied(terrTown, attackingTown)) {
                 territory.defenderTimeMultiplier
             } else {
                 territory.attackerTimeMultiplier
@@ -464,6 +471,7 @@ object FlagWar {
             attacker,
             attackingTown,
             chunk.coord,
+            territory,
             flagBase,
             flagBlock,
             flagTorch,
@@ -500,6 +508,25 @@ object FlagWar {
         return attack
     }
 
+    internal fun loadAttack(attacker: UUID, coord: Coord, flagBase: BlockVec, completionTime: Long) {
+        val resident = Resident.fromUuid(attacker) ?: return
+        val attackingTown = resident.town ?: return
+        val chunk = TerritoryChunk.fromCoord(coord) ?: return
+        if (chunk.attacker !== null || chunk.territory.town === null) return
+        if (!canAnnexTerritories && chunk.coord == chunk.territory.core) return
+
+        val attack = createAttack(attacker, attackingTown, chunk, flagBase)
+        val now = System.currentTimeMillis() / 1000
+        val remainingTicks = ((completionTime - now) * ATTACK_TICK).coerceAtLeast(0)
+        attack.progress = (attack.attackTime - remainingTicks).coerceIn(0, attack.attackTime)
+        attack.progressBar.progress(attack.progress.toFloat() / attack.attackTime.toFloat())
+
+        if (attack.progress >= attack.attackTime) {
+            attack.thread.cancel()
+            finishAttack(attack)
+        }
+    }
+
     // check if territory is a border territory of a town, requirements:
     // any adjacent territory is not of the same town
     internal fun isBorderTerritory(territory: Territory): Boolean {
@@ -532,14 +559,14 @@ object FlagWar {
         val territoryOccupier = territory.occupier
         val chunkOccupier = chunk.occupier
 
-        if (territoryOccupier === attackingTown || Nodes.areTownsAllied(attackingTown, territoryOccupier)) {
-            if (!Nodes.areTownsEnemies(attackingTown, chunkOccupier)) {
+        if (territoryOccupier === attackingTown || Town.areAllied(attackingTown, territoryOccupier)) {
+            if (!Town.areEnemies(attackingTown, chunkOccupier)) {
                 return true
             }
         }
 
         if (chunkOccupier !== null) {
-            if (chunkOccupier === attackingTown || Nodes.areTownsAllied(attackingTown, chunkOccupier)) {
+            if (chunkOccupier === attackingTown || Town.areAllied(attackingTown, chunkOccupier)) {
                 return true
             }
         }
@@ -554,7 +581,7 @@ object FlagWar {
     // 4. town's occupied territory, chunk occupied by enemy
     // 5. ally's occupied territory, chunk occupied by enemy
     internal fun chunkIsEnemy(chunk: TerritoryChunk, territory: Territory, attackingTown: Town): Boolean {
-        if (Nodes.areTownsEnemies(attackingTown, territory.town)) {
+        if (Town.areEnemies(attackingTown, territory.town)) {
             return true
         }
 
@@ -564,12 +591,12 @@ object FlagWar {
         // your town, nation, or ally town chunk occupied by enemy
         if ((territory.town === attackingTown) ||
             (attackingNation !== null && attackingNation === territoryNation) ||
-            (Nodes.areTownsAllied(attackingTown, territory.town))
+            (Town.areAllied(attackingTown, territory.town))
         ) {
-            if (Nodes.areTownsEnemies(attackingTown, territory.occupier)) {
+            if (Town.areEnemies(attackingTown, territory.occupier)) {
                 return true
             }
-            if (Nodes.areTownsEnemies(attackingTown, chunk.occupier)) {
+            if (Town.areEnemies(attackingTown, chunk.occupier)) {
                 return true
             }
         }
@@ -580,9 +607,9 @@ object FlagWar {
         val occupierNation = occupier?.nation
         if (occupier === attackingTown ||
             (attackingNation !== null && attackingNation === occupierNation) ||
-            Nodes.areTownsAllied(attackingTown, occupier)
+            Town.areAllied(attackingTown, occupier)
         ) {
-            if (Nodes.areTownsEnemies(attackingTown, chunk.occupier)) {
+            if (Town.areEnemies(attackingTown, chunk.occupier)) {
                 return true
             }
         }
@@ -596,10 +623,10 @@ object FlagWar {
     internal fun chunkIsAtEdge(chunk: TerritoryChunk, attackingTown: Town): Boolean {
         val coord = chunk.coord
 
-        val chunkNorth = Nodes.getTerritoryChunkFromCoord(Coord(coord.x, coord.z - 1))
-        val chunkSouth = Nodes.getTerritoryChunkFromCoord(Coord(coord.x, coord.z + 1))
-        val chunkWest = Nodes.getTerritoryChunkFromCoord(Coord(coord.x - 1, coord.z))
-        val chunkEast = Nodes.getTerritoryChunkFromCoord(Coord(coord.x + 1, coord.z))
+        val chunkNorth = TerritoryChunk.fromCoord(Coord(coord.x, coord.z - 1))
+        val chunkSouth = TerritoryChunk.fromCoord(Coord(coord.x, coord.z + 1))
+        val chunkWest = TerritoryChunk.fromCoord(Coord(coord.x - 1, coord.z))
+        val chunkEast = TerritoryChunk.fromCoord(Coord(coord.x + 1, coord.z))
 
         return canAttackFromNeighborChunk(chunkNorth, attackingTown) ||
             canAttackFromNeighborChunk(chunkSouth, attackingTown) ||
@@ -632,18 +659,18 @@ object FlagWar {
         if (neighborTown === attacker) {
             if (neighborTerritoryOccupier === null) {
                 return true
-            } else if (Nodes.areTownsAllied(attacker, neighborTerritoryOccupier)) {
+            } else if (Town.areAllied(attacker, neighborTerritoryOccupier)) {
                 return true
             }
         }
 
         // you are neighbor territory occupier or an ally is the occupier
-        if (neighborTerritoryOccupier === attacker || Nodes.areTownsAllied(attacker, neighborTerritoryOccupier)) {
+        if (neighborTerritoryOccupier === attacker || Town.areAllied(attacker, neighborTerritoryOccupier)) {
             return true
         }
 
         // you or an ally is occupying the neighboring chunk
-        if (neighborChunkOccupier === attacker || Nodes.areTownsAllied(attacker, neighborChunkOccupier)) {
+        if (neighborChunkOccupier === attacker || Town.areAllied(attacker, neighborChunkOccupier)) {
             return true
         }
 
@@ -661,7 +688,7 @@ object FlagWar {
             if (attackerNation === neighborNation) {
                 if (neighborTerritoryOccupier === null) {
                     return true
-                } else if (Nodes.areTownsAllied(attacker, neighborTerritoryOccupier)) {
+                } else if (Town.areAllied(attacker, neighborTerritoryOccupier)) {
                     return true
                 }
             }
@@ -731,7 +758,7 @@ object FlagWar {
     // TODO: signal event that chunk defended (broadcast message)
     internal fun cancelAttack(attack: Attack) {
         // remove status from territory chunk
-        val chunk = Nodes.getTerritoryChunkFromCoord(attack.coord)
+        val chunk = TerritoryChunk.fromCoord(attack.coord)
         chunk?.attacker = null
 
         // remove progress bar from player
@@ -803,9 +830,14 @@ object FlagWar {
 
         // chunk should not be null unless territory swapped
         // out during attack and chunks were modified in new territory
-        val chunk = Nodes.getTerritoryChunkFromCoord(attack.coord)
-        if (chunk == null) {
+        val chunk = TerritoryChunk.fromCoord(attack.coord)
+        if (chunk == null || chunk.territory !== attack.targetTerritory) {
             println("finishAttack(): TerritoryChunk at ${attack.coord} is null")
+            return
+        }
+
+        if (chunk.coord == chunk.territory.core && !canAnnexTerritories) {
+            chunk.attacker = null
             return
         }
 
@@ -814,13 +846,13 @@ object FlagWar {
         if (chunk.coord == chunk.territory.core) {
             val territory = chunk.territory
             val territoryTown = territory.town
-            val attacker = Nodes.getResidentFromUUID(attack.attacker)
+            val attacker = Resident.fromUuid(attack.attacker)
             val attackerTown = attack.town
             val attackerNation = attackerTown.nation
 
             // cleanup territory chunks
             for (coord in territory.chunks) {
-                val territoryChunk = Nodes.getTerritoryChunkFromCoord(coord)
+                val territoryChunk = TerritoryChunk.fromCoord(coord)
                 if (territoryChunk != null) {
                     // cancel any concurrent attacks in this territory
                     chunkToAttacker.get(territoryChunk.coord)?.cancel()
@@ -837,15 +869,15 @@ object FlagWar {
             // handle re-capturing your own territory, nation territory, or ally territory from enemy
             if (territoryTown === attackerTown ||
                 (attackerNation !== null && attackerNation === territoryTown?.nation) ||
-                Nodes.areTownsAllied(attackerTown, territoryTown)
+                Town.areAllied(attackerTown, territoryTown)
             ) {
                 val occupier = territory.occupier
-                Nodes.releaseTerritory(territory)
+                Town.release(territory)
                 Message.broadcast("${ChatColor.DARK_RED}[War] ${attacker?.name} liberated territory (id=${territory.id}) from ${occupier?.name}!")
             }
             // captured enemy territory
             else {
-                Nodes.captureTerritory(attackerTown, territory)
+                Town.capture(attackerTown, territory)
                 Message.broadcast("${ChatColor.DARK_RED}[War] ${attacker?.name} captured territory (id=${territory.id}) from ${territory.town?.name}!")
             }
         }
@@ -857,7 +889,7 @@ object FlagWar {
         else {
             val town = chunk.territory.town
             val occupier = chunk.territory.occupier
-            val attacker = Nodes.getResidentFromUUID(attack.attacker)
+            val attacker = Resident.fromUuid(attack.attacker)
 
             chunk.attacker = null
 
@@ -881,10 +913,11 @@ object FlagWar {
                     }
                 }
             } else if (occupier === attack.town && chunk.occupier !== null) {
+                val chunkOccupier = chunk.occupier
                 chunk.occupier = null
                 occupiedChunks.remove(chunk.coord)
 
-                Message.broadcast("${ChatColor.DARK_RED}[War] ${attacker?.name} defended chunk (${chunk.coord.x}, ${chunk.coord.z}) against ${chunk.occupier!!.name}!")
+                Message.broadcast("${ChatColor.DARK_RED}[War] ${attacker?.name} defended chunk (${chunk.coord.x}, ${chunk.coord.z}) against ${chunkOccupier?.name}!")
             } else {
                 chunk.occupier = attack.town
                 occupiedChunks.add(chunk.coord)
@@ -893,7 +926,7 @@ object FlagWar {
             }
 
             // update minimaps
-            Nodes.renderMinimaps()
+            Resident.renderMinimaps()
         }
     }
 

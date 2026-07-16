@@ -10,10 +10,10 @@ package net.aechronis.nodes.listeners
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
-import net.aechronis.nodes.Nodes.getRelationshipOfPlayerToTown
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.constants.ErrorAlreadyCaptured
 import net.aechronis.nodes.constants.ErrorAlreadyUnderAttack
+import net.aechronis.nodes.constants.ErrorAnnexDisabled
 import net.aechronis.nodes.constants.ErrorChunkNotEdge
 import net.aechronis.nodes.constants.ErrorFlagTooHigh
 import net.aechronis.nodes.constants.ErrorNoTerritory
@@ -27,6 +27,7 @@ import net.aechronis.nodes.constants.INTERACTIVE_BLOCKS
 import net.aechronis.nodes.constants.PROTECTED_BLOCKS
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
+import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryChunk
@@ -48,12 +49,14 @@ import java.util.concurrent.ThreadLocalRandom
 
 object NodesWorldListener {
     private fun onBlockBreak(event: PlayerBlockBreakEvent) {
+        if (event.isCancelled) return
+
         val player: Player = event.player
         val blockPos = event.blockPosition
-        val territoryChunk = Nodes.getTerritoryChunkFromBlock(blockPos.blockX, blockPos.blockZ)
+        val territoryChunk = TerritoryChunk.fromBlock(blockPos.blockX, blockPos.blockZ)
 
         // if war enabled, and chunk is being attacked, do flag checks
-        if (Nodes.war.enabled && territoryChunk?.attacker !== null) {
+        if (FlagWar.enabled && territoryChunk?.attacker !== null) {
             val attack = FlagWar.chunkToAttacker.get(territoryChunk.coord)!!
 
             if (blockInWarFlagNoBuildRegion(blockPos, attack)) {
@@ -65,7 +68,7 @@ object NodesWorldListener {
                     if (!Nodes.config.allowBreakingAlliesFlags) {
                         // allow player to break their own flag
                         if (player.uuid != attack.attacker) {
-                            val relationship = getRelationshipOfPlayerToTown(player, attack.town)
+                            val relationship = Town.relationshipOfPlayerToTown(player, attack.town)
                             if (relationship in setOf(
                                     DiplomaticRelationship.NATION,
                                     DiplomaticRelationship.ALLY,
@@ -90,9 +93,9 @@ object NodesWorldListener {
             }
         }
 
-        val territory: Territory? = Nodes.getTerritoryFromBlock(blockPos.blockX, blockPos.blockZ)
+        val territory: Territory? = Territory.fromBlock(blockPos.blockX, blockPos.blockZ)
         val town: Town? = territory?.town
-        val resident = Nodes.getResident(player)
+        val resident = Resident.fromPlayer(player)
 
         // interacting in areas with no territory or no town
         if (town === null) {
@@ -107,6 +110,15 @@ object NodesWorldListener {
 
         // interacting in a town
         if (resident !== null) {
+            val plot = Plot.at(town, blockPos.blockX, blockPos.blockY, blockPos.blockZ)
+            val plotPermission = plot?.let { getPlotPermission(TownPermissions.DESTROY, it, resident, town) }
+            if (plotPermission != null) {
+                if (plotPermission) return
+                event.isCancelled = true
+                Message.error(player, "You cannot destroy here!")
+                return
+            }
+
             if (hasTownPermissions(TownPermissions.DESTROY, town, resident)) {
                 return
             }
@@ -148,13 +160,15 @@ object NodesWorldListener {
     }
 
     private fun onBlockPlace(event: PlayerBlockPlaceEvent) {
+        if (event.isCancelled) return
+
         val block = event.block
         val blockPos = event.blockPosition
         val player: Player = event.player
 
         // war specific tasks
-        if (Nodes.war.enabled) {
-            val territoryChunk = Nodes.getTerritoryChunkFromBlock(blockPos.blockX, blockPos.blockZ)
+        if (FlagWar.enabled) {
+            val territoryChunk = TerritoryChunk.fromBlock(blockPos.blockX, blockPos.blockZ)
             if (territoryChunk !== null) {
                 // disable block placement in flag no build distance
                 if (territoryChunk.attacker !== null) {
@@ -173,7 +187,7 @@ object NodesWorldListener {
                 // check if this is flag placement
                 else if (FlagWar.flagBlocks.contains(block)) {
                     // get player and town
-                    val resident = Nodes.getResident(player)
+                    val resident = Resident.fromPlayer(player)
                     if (resident !== null) {
                         val town = resident.town
                         if (town !== null) {
@@ -191,7 +205,9 @@ object NodesWorldListener {
                             } else {
                                 when (result.exceptionOrNull()) {
                                     ErrorNoTerritory -> Message.error(player, "[War] There is no territory here")
+
                                     ErrorAlreadyUnderAttack -> Message.error(player, "[War] Chunk already under attack")
+
                                     ErrorAlreadyCaptured -> Message.error(
                                         player,
                                         "[War] Chunk already captured by town or allies",
@@ -208,6 +224,9 @@ object NodesWorldListener {
                                     )
 
                                     ErrorNotEnemy -> Message.error(player, "[War] Chunk does not belong to an enemy")
+
+                                    ErrorAnnexDisabled -> Message.error(player, "[War] Territory annexing is disabled")
+
                                     ErrorNotBorderTerritory -> Message.error(
                                         player,
                                         "[War] You can only attack border territories",
@@ -224,6 +243,7 @@ object NodesWorldListener {
                                     )
 
                                     ErrorSkyBlocked -> Message.error(player, "[War] Flag must see the sky")
+
                                     ErrorTooManyAttacks -> Message.error(
                                         player,
                                         "[War] You cannot attack any more chunks at the same time",
@@ -244,9 +264,9 @@ object NodesWorldListener {
             }
         }
 
-        val territory: Territory? = Nodes.getTerritoryFromBlock(blockPos.blockX, blockPos.blockZ)
-        val territoryChunk = Nodes.getTerritoryChunkFromBlock(blockPos.blockX, blockPos.blockZ)
-        val resident = Nodes.getResident(player)
+        val territory: Territory? = Territory.fromBlock(blockPos.blockX, blockPos.blockZ)
+        val territoryChunk = TerritoryChunk.fromBlock(blockPos.blockX, blockPos.blockZ)
+        val resident = Resident.fromPlayer(player)
         val town: Town? = territory?.town
 
         // interacting in areas with no territory or no town
@@ -262,6 +282,15 @@ object NodesWorldListener {
 
         // interacting in a town
         if (resident !== null) {
+            val plot = Plot.at(town, blockPos.blockX, blockPos.blockY, blockPos.blockZ)
+            val plotPermission = plot?.let { getPlotPermission(TownPermissions.BUILD, it, resident, town) }
+            if (plotPermission != null) {
+                if (plotPermission) return
+                event.isCancelled = true
+                Message.error(player, "You cannot build here!")
+                return
+            }
+
             if (hasTownPermissions(TownPermissions.BUILD, town, resident)) {
                 return
             }
@@ -278,7 +307,7 @@ object NodesWorldListener {
             }
 
             // ignore if war enabled and item in hand is a flag material
-            if (Nodes.war.enabled && Nodes.config.flagBlocks.contains(block)) {
+            if (FlagWar.enabled && Nodes.config.flagBlocks.contains(block)) {
                 return
             }
         }
@@ -302,9 +331,11 @@ object NodesWorldListener {
     }
 
     private fun onBlockInteract(event: PlayerBlockInteractEvent) {
-        val territory: Territory? = Nodes.getTerritoryFromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)
-        val territoryChunk = Nodes.getTerritoryChunkFromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)
-        val resident = Nodes.getResident(event.player)
+        if (event.isCancelled) return
+
+        val territory: Territory? = Territory.fromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)
+        val territoryChunk = TerritoryChunk.fromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)
+        val resident = Resident.fromPlayer(event.player)
         val town: Town? = territory?.town
 
         // interacting in areas with no territory or no town
@@ -321,6 +352,8 @@ object NodesWorldListener {
                 return
             }
 
+            val plot = Plot.at(town, event.blockPosition.blockX, event.blockPosition.blockY, event.blockPosition.blockZ)
+
             // special permissions for using chests, furnaces, etc...
             if (PROTECTED_BLOCKS.contains(event.block)) {
                 // war permissions override
@@ -328,8 +361,10 @@ object NodesWorldListener {
                     return
                 }
 
+                val plotPermission = plot?.let { getPlotPermission(TownPermissions.CHESTS, it, resident, town) }
+
                 // normal town permissions
-                if (hasTownPermissions(TownPermissions.CHESTS, town, resident)) {
+                if (plotPermission == true || (plotPermission == null && hasTownPermissions(TownPermissions.CHESTS, town, resident))) {
                     // check if chest protected
                     if (town.protectedBlocks.contains(event.blockPosition) && !resident.hasTownProtectedChestPermissions(town)) {
                         event.isCancelled = true
@@ -345,7 +380,13 @@ object NodesWorldListener {
             }
 
             // general interact permissions
-            if (hasTownPermissions(TownPermissions.INTERACT, town, resident)) {
+            val plotPermission = plot?.let { getPlotPermission(TownPermissions.INTERACT, it, resident, town) }
+            if (plotPermission == true || (plotPermission == null && hasTownPermissions(TownPermissions.INTERACT, town, resident))) {
+                return
+            }
+            if (plotPermission == false) {
+                event.isCancelled = true
+                Message.error(event.player, "You cannot interact here!")
                 return
             }
 
@@ -410,6 +451,38 @@ private fun hasTownPermissions(perms: TownPermissions, town: Town, player: Resid
 }
 
 /**
+ * Returns a plot override, or null when the plot should inherit town permissions.
+ */
+private fun getPlotPermission(
+    permission: TownPermissions,
+    plot: net.aechronis.nodes.objects.Plot,
+    resident: Resident,
+    town: Town,
+): Boolean? {
+    plot.playerPermission(resident.uuid, permission)?.let { return it }
+
+    val groupMatches = listOf(
+        PermissionsGroup.TOWN to (resident.town === town),
+        PermissionsGroup.TRUSTED to (resident.town === town && resident.trusted),
+        PermissionsGroup.NATION to (town.nation !== null && resident.nation === town.nation),
+        PermissionsGroup.ALLY to (
+            town.nation !== null &&
+                resident.town?.nation !== null &&
+                town.nation!!.allies.contains(resident.town!!.nation)
+            ),
+        PermissionsGroup.OUTSIDER to true,
+    )
+
+    for ((group, matches) in groupMatches) {
+        if (matches) {
+            plot.groupPermission(group, permission)?.let { return it }
+        }
+    }
+
+    return null
+}
+
+/**
  * Permissions check for a town's territory occupied by another town:
  * perms: town permissions type
  * town: town that owns the territory
@@ -425,7 +498,7 @@ private fun hasOccupierPermissions(perms: TownPermissions, town: Town, occupier:
 // bypass permissions and allow all interaction in
 // captured chunks/territories during wartime
 private fun hasWarPermissions(resident: Resident, territory: Territory, territoryChunk: TerritoryChunk): Boolean {
-    if (Nodes.war.enabled) {
+    if (FlagWar.enabled) {
         val residentTown = resident.town
         val territoryTown = territory.town
 
@@ -493,7 +566,7 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
     val blockZ = block.blockZ
     val blockY = block.blockY
 
-    val territory = Nodes.getTerritoryFromBlock(blockX, blockZ)
+    val territory = Territory.fromBlock(blockX, blockZ)
 
     if (territory !== null) {
         val random = ThreadLocalRandom.current()
@@ -501,7 +574,7 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
         val territoryTown = territory.town
         val territoryNation = territoryTown?.nation
 
-        val playerTown = Nodes.getTownFromPlayer(player)
+        val playerTown = Town.fromPlayer(player)
         val playerNation = playerTown?.nation
 
         // conditions allowed for mining ore
@@ -516,7 +589,7 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
             val territoryOccupier = territory.occupier
             if (territoryOccupier !== null && random.nextDouble() <= Nodes.config.taxMineRate) {
                 for (itemStack in itemDrops) {
-                    Nodes.addToIncome(territoryOccupier, itemStack.material(), itemStack.amount())
+                    Town.addToIncome(territoryOccupier, itemStack.material(), itemStack.amount())
                 }
             }
             // else, drop items normally

@@ -6,9 +6,9 @@
 package net.aechronis.nodes.commands
 
 import net.aechronis.nodes.Message
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentNation
 import net.aechronis.nodes.constants.ErrorNotAllies
+import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.utils.ChatColor
 
@@ -36,7 +36,7 @@ class UnallyCommand : NodesCommand("unally") {
                 return@addSyntax
             }
 
-            val result = Nodes.removeAlly(nation, context[nationArg])
+            val result = Nation.removeAlly(nation, context[nationArg])
             if (result.isSuccess) {
                 Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}${nation.name} has ended its alliance with ${context[nationArg].name}")
             } else {

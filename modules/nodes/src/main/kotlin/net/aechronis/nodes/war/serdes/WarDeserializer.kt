@@ -6,7 +6,6 @@
 package net.aechronis.nodes.war.serdes
 
 import com.google.gson.JsonParser
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.war.FlagWar
 import java.io.FileReader
@@ -31,7 +30,7 @@ object WarDeserializer {
         val destructionEnabled = jsonObj.get("flagDestruction")?.asBoolean ?: true
 
         // war enabled, parse full state
-        Nodes.enableWar(canAnnexTerritories, canOnlyAttackBorders, destructionEnabled)
+        FlagWar.enable(canAnnexTerritories, canOnlyAttackBorders, destructionEnabled)
 
         // ===============================
         // Occupied chunks

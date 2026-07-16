@@ -23,7 +23,7 @@ object ArgumentTown {
                 }
         }
         return word.map { input ->
-            Nodes.getTownFromName(input)
+            Town.fromName(input)
                 ?: throw ArgumentSyntaxException("Town not found", input, 1)
         }
     }

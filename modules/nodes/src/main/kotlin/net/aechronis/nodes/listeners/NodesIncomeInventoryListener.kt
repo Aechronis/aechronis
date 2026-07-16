@@ -1,6 +1,7 @@
 package net.aechronis.nodes.listeners
 
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.objects.Town
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.inventory.click.Click
@@ -22,7 +23,7 @@ object NodesIncomeInventoryListener {
 
     private fun onInventoryClose(event: InventoryCloseEvent) {
         if (event.inventory.size == 45) {
-            Nodes.onTownIncomeInventoryClose()
+            Town.onIncomeInventoryClose()
         }
     }
 

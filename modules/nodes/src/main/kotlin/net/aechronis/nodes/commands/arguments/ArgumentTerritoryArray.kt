@@ -28,7 +28,7 @@ object ArgumentTerritoryArray {
                 val territoryId = input.toIntOrNull()
                     ?: throw ArgumentSyntaxException("Invalid territory ID: $input", input, 1)
 
-                Nodes.getTerritoryFromId(TerritoryId(territoryId))
+                Territory.fromId(TerritoryId(territoryId))
                     ?: throw ArgumentSyntaxException("Territory not found: $input", input, 2)
             }
         }

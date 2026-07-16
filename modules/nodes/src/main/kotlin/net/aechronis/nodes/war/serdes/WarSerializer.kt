@@ -22,6 +22,7 @@
 package net.aechronis.nodes.war.serdes
 
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.war.FlagWar
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
@@ -52,7 +53,7 @@ object WarSerializer {
         occupiedChunks.clear()
 
         for (coord in FlagWar.occupiedChunks) {
-            val chunk = Nodes.getTerritoryChunkFromCoord(coord)
+            val chunk = TerritoryChunk.fromCoord(coord)
             if (chunk === null) {
                 continue
             }

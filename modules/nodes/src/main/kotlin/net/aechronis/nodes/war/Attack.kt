@@ -8,6 +8,7 @@ package net.aechronis.nodes.war
 
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Coord
+import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.townNametagViewedByPlayer
 import net.kyori.adventure.bossbar.BossBar
@@ -28,6 +29,7 @@ class Attack(
     val attacker: UUID, // attacker's UUID
     val town: Town, // attacker's town
     val coord: Coord, // chunk coord under attack
+    val targetTerritory: Territory, // territory targeted when attack started
     val flagBase: BlockVec, // fence base of flag
     val flagBlock: BlockVec, // wool block for flag
     val flagTorch: BlockVec, // torch block of flag

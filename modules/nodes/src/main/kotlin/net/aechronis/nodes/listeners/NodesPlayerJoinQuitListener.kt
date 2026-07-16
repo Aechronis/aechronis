@@ -19,18 +19,18 @@ object NodesPlayerJoinQuitListener {
         // create resident wrapper for player
         // createResident checks if resident already exists
         val player: Player = event.player
-        Nodes.createResident(player)
+        Resident.create(player)
 
-        val resident: Resident = Nodes.getResident(player)!!
-        Nodes.setResidentOnline(resident, player)
+        val resident: Resident = Resident.fromPlayer(player)!!
+        Resident.setOnline(resident, player)
 
         // if war enabled, send active chunk attack progress bars
-        if (Nodes.war.enabled) {
-            Nodes.war.sendWarProgressBarToPlayer(player)
+        if (FlagWar.enabled) {
+            FlagWar.sendWarProgressBarToPlayer(player)
         }
 
         // if war enabled, add per-player text displays for active attacks
-        if (Nodes.war.enabled) {
+        if (FlagWar.enabled) {
             for (attack in FlagWar.chunkToAttacker.values) {
                 attack.textDisplay.update(player)
             }
@@ -39,25 +39,26 @@ object NodesPlayerJoinQuitListener {
 
     fun onPlayerQuit(event: PlayerDisconnectEvent) {
         val player: Player = event.player
-        val resident = Nodes.getResident(player)
+        val resident = Resident.fromPlayer(player)
         if (resident != null) {
             resident.destroyMinimap()
-            Nodes.setResidentOffline(resident, player)
+            Resident.stopPlotSelection(resident)
+            Resident.setOffline(resident, player)
         }
 
         // remove player from muting global chat
         Chat.enableGlobalChat(player)
 
         // if war enabled, remove per-player town name displays for active attacks
-        if (Nodes.war.enabled) {
+        if (FlagWar.enabled) {
             for (attack in FlagWar.chunkToAttacker.values) {
                 attack.textDisplay.removePlayerTextDisplay(player)
             }
         }
 
         // if playing attacking a chunk, stop it
-        if (Nodes.war.enabled) {
-            val attacks = Nodes.war.attackers.get(player.uuid)
+        if (FlagWar.enabled) {
+            val attacks = FlagWar.attackers[player.uuid]
             if (attacks !== null) {
                 for (a in attacks) {
                     a.cancel()

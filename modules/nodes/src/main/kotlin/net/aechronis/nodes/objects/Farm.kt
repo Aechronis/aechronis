@@ -1,6 +1,7 @@
 package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.Message
+import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.utils.ChatColor
 import net.minestom.server.command.CommandSender
 import net.minestom.server.item.Material
@@ -20,6 +21,17 @@ class Farm(
     chunkZ: Int,
     tier: Int,
 ) : Building(chunkX, chunkZ, tier) {
+    companion object {
+        fun load(chunkX: Int, chunkZ: Int, tier: Int): Farm = Farm(chunkX, chunkZ, tier).also { Building.register(it) }
+
+        fun create(chunkX: Int, chunkZ: Int, tier: Int): Result<Farm> {
+            if (Building.hasAt(chunkX, chunkZ)) return Result.failure(net.aechronis.nodes.constants.ErrorChunkHasBuilding)
+            return Farm(chunkX, chunkZ, tier).also {
+                Building.register(it)
+                Nodes.needsSave = true
+            }.let { Result.success(it) }
+        }
+    }
 
     override val type: String = "farm"
     override val showOnMinimap: Boolean = true

@@ -24,7 +24,7 @@ object ArgumentResidentArray {
         }
         return stringArray.map { inputs ->
             inputs.map { input ->
-                Nodes.getResidentFromName(input)
+                Resident.fromName(input)
                     ?: throw ArgumentSyntaxException("Resident not found", input, 1)
             }
         }

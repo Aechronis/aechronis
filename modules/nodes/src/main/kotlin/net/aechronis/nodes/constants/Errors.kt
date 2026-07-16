@@ -38,6 +38,7 @@ val ErrorAlreadyCaptured = Exception("[War] Chunk already captured by town or al
 val ErrorTownBlacklisted = Exception("[War] Cannot attack this town (blacklisted)")
 val ErrorTownNotWhitelisted = Exception("[War] Cannot attack this town (not whitelisted)")
 val ErrorNotEnemy = Exception("[War] Chunk does not belong to an enemy")
+val ErrorAnnexDisabled = Exception("[War] Territory annexing is disabled")
 val ErrorNotBorderTerritory = Exception("[War] Can only attack border territories")
 val ErrorChunkNotEdge = Exception("[War] Chunk is not at the edge")
 val ErrorFlagTooHigh = Exception("[War] Flag placement too high, cannot create flag")

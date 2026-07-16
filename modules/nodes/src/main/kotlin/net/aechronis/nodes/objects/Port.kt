@@ -30,6 +30,27 @@ class Port(
     tier: Int,
     val isPublic: Boolean,
 ) : Building(chunkX, chunkZ, tier) {
+    companion object {
+
+        fun load(name: String, chunkX: Int, chunkZ: Int, tier: Int, isPublic: Boolean): Port = Port(name, chunkX, chunkZ, tier, isPublic).also { Building.register(it) }
+
+        fun getByName(name: String): Port? = Nodes.buildings.asSequence().filterIsInstance<Port>().firstOrNull { it.name == name }
+
+        fun create(name: String, chunkX: Int, chunkZ: Int, tier: Int, isPublic: Boolean): Result<Port> {
+            if (Nodes.buildings.asSequence().filterIsInstance<Port>().any { it.name == name }) return Result.failure(net.aechronis.nodes.constants.ErrorPortExists)
+            if (Building.hasAt(chunkX, chunkZ)) return Result.failure(net.aechronis.nodes.constants.ErrorChunkHasBuilding)
+            return Port(name, chunkX, chunkZ, tier, isPublic).also {
+                Building.register(it)
+                Nodes.needsSave = true
+            }.let { Result.success(it) }
+        }
+
+        fun getOwner(port: Port): Town? {
+            if (port.isPublic) return null
+            val chunk = TerritoryChunk.fromCoord(Coord(port.chunkX, port.chunkZ)) ?: return null
+            return chunk.occupier ?: chunk.territory.town
+        }
+    }
 
     override val type: String = "port"
     override val showOnMinimap: Boolean = true
@@ -68,7 +89,7 @@ class Port(
         if (this.isPublic) {
             Message.print(sender, "${ChatColor.AQUA}- Public")
         } else {
-            val owner = Nodes.getPortOwner(this)
+            val owner = getOwner(this)
             val ownerName = if (owner !== null) {
                 owner.name
             } else {

@@ -24,7 +24,7 @@ object ArgumentTerritory {
                 }
         }
         return word.map { input ->
-            Nodes.getTerritoryFromId(TerritoryId(input.toInt()))
+            Territory.fromId(TerritoryId(input.toInt()))
                 ?: throw ArgumentSyntaxException("Territory not found", input, 1)
         }
     }

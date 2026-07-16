@@ -1,5 +1,6 @@
 package net.aechronis.nodes.objects
 
+import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.serdes.SaveState
 import net.minestom.server.command.CommandSender
 import net.minestom.server.item.Material
@@ -12,6 +13,29 @@ abstract class Building(
     val chunkZ: Int,
     tier: Int,
 ) {
+    companion object {
+        fun getAt(chunkX: Int, chunkZ: Int): Building? = Nodes.chunkToBuilding[listOf(chunkX, chunkZ)]
+
+        internal fun register(building: Building) {
+            Nodes.buildings.add(building)
+            Nodes.chunkToBuilding[listOf(building.chunkX, building.chunkZ)] = building
+            building.needsUpdate()
+        }
+
+        fun destroy(building: Building) {
+            Nodes.buildings.remove(building)
+            val chunk = listOf(building.chunkX, building.chunkZ)
+            if (Nodes.chunkToBuilding[chunk] === building) Nodes.chunkToBuilding.remove(chunk)
+            Nodes.needsSave = true
+        }
+
+        fun setTier(building: Building, tier: Int) {
+            building.setTier(tier)
+            Nodes.needsSave = true
+        }
+
+        internal fun hasAt(chunkX: Int, chunkZ: Int): Boolean = Nodes.chunkToBuilding.containsKey(listOf(chunkX, chunkZ))
+    }
 
     // building tier
     var tier: Int = tier.coerceIn(MIN_TIER, MAX_TIER)

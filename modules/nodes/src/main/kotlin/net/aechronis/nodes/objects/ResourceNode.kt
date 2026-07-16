@@ -12,6 +12,7 @@ package net.aechronis.nodes.objects
 
 import com.google.gson.JsonObject
 import net.aechronis.nodes.Message
+import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.utils.ChatColor
 import net.minestom.server.command.CommandSender
 import net.minestom.server.item.Material
@@ -65,6 +66,12 @@ data class ResourceNode(
     val priority: Int, // sort priority vs. other resource nodes, lower = applied first
     val attributes: List<ResourceAttribute>,
 ) {
+    companion object {
+        fun count(): Int = Nodes.resourceNodes.size
+
+        fun loadFromJson(json: JsonObject): HashMap<String, ResourceNode> = DefaultResourceAttributeLoader.load(json)
+    }
+
     // keep internal sorted attributes list to protect against
     // client passing a non-sorted attributes list
     val attributesSorted = attributes.sortedBy { it.priority }

@@ -10,6 +10,8 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentPort
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.objects.NodesCommand
+import net.aechronis.nodes.objects.Port
+import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.tasks.PortWarpTask
 import net.aechronis.nodes.utils.ChatColor
 
@@ -36,7 +38,7 @@ class PortListCommand : NodesCommand("list") {
 
         addSyntax({ player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}List of ports:")
-            for (port in Nodes.ports) {
+            for (port in Nodes.buildings.asSequence().filterIsInstance<Port>()) {
                 val status = if (port.isPublic) "(public)" else "(owned)"
                 Message.print(player, "- ${port.name} ${ChatColor.GRAY}T${port.tier} $status")
             }
@@ -106,9 +108,9 @@ class PortWarpCommand : NodesCommand("warp") {
 
             // check port access
             if (!dest.isPublic) {
-                val owner = Nodes.getPortOwner(dest)
+                val owner = Port.getOwner(dest)
                 if (owner !== null) {
-                    val relation = Nodes.getRelationshipOfPlayerToTown(player, owner)
+                    val relation = Town.relationshipOfPlayerToTown(player, owner)
 
                     // Only allow allies (town members, nation members, and allies) to use the port
                     val canAccess: Boolean = when (relation) {
@@ -116,6 +118,7 @@ class PortWarpCommand : NodesCommand("warp") {
                         DiplomaticRelationship.NATION,
                         DiplomaticRelationship.ALLY,
                         -> true
+
                         else -> false
                     }
 

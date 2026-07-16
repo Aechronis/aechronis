@@ -10,7 +10,6 @@
 package net.aechronis.nodes.war
 
 import net.aechronis.nodes.Message
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.ErrorAllyRequestAlreadyAllies
 import net.aechronis.nodes.constants.ErrorAllyRequestAlreadyCreated
 import net.aechronis.nodes.constants.ErrorAllyRequestEnemies
@@ -92,7 +91,7 @@ object Alliance {
                     timeoutThread.cancel()
                 }
 
-                Nodes.addAlly(nation1, nation2)
+                Nation.addAlly(nation1, nation2)
                 return Result.success(AllianceRequest.ACCEPTED)
             }
         }

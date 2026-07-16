@@ -16,14 +16,14 @@ object ArgumentPort {
         word.setSuggestionCallback { sender, context, suggestion ->
             val input = suggestion.input.substringAfterLast(" ").lowercase()
 
-            Nodes.ports
+            Nodes.buildings.asSequence().filterIsInstance<Port>()
                 .filter { it.name.lowercase().startsWith(input) }
                 .forEach { port ->
                     suggestion.addEntry(SuggestionEntry(port.name))
                 }
         }
         return word.map { input ->
-            Nodes.getPortFromName(input)
+            Port.getByName(input)
                 ?: throw ArgumentSyntaxException("Port not found", input, 1)
         }
     }
