@@ -22,14 +22,17 @@ repositories {
 }
 
 dependencies {
-    implementation("net.aechronis:utils:09c12e5")
-    implementation("net.minestom:minestom:2026.07.12-26.2")
+    api("net.aechronis:utils:86a747b")
+    api("net.minestom:minestom:2026.07.12-26.2")
 
     // database
-    implementation("org.xerial:sqlite-jdbc:3.53.2.0")
-    implementation("com.zaxxer:HikariCP:7.1.0")
+    api("org.xerial:sqlite-jdbc:3.53.2.0")
+    api("com.zaxxer:HikariCP:7.1.0")
 
     // testing
+    testImplementation("net.aechronis:utils:86a747b")
+    testImplementation("org.xerial:sqlite-jdbc:3.53.2.0")
+    testImplementation("com.zaxxer:HikariCP:7.1.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
     testImplementation("org.slf4j:slf4j-simple:2.0.18") // logging (only used while testing at the moment)
