@@ -20,6 +20,8 @@ repositories {
     maven("https://repo.lucko.me/") // spark-common
     maven("https://repo.smolder.fr/public/") // axiom minestom component
     maven("https://mvn.everbuild.org/public") // blocks and stuff
+    maven("https://maven.enginehub.org/repo/") // worldedit
+
     maven {
         url = uri("https://maven.pkg.github.com/Aechronis/aechronis")
         credentials {
@@ -31,10 +33,14 @@ repositories {
 
 dependencies {
     implementation("net.minestom:minestom:2026.07.12-26.2")
-    implementation("net.aechronis:utils:b480abf")
-    implementation("net.aechronis:nodes:acbec61")
-    implementation("net.aechronis:combat:8c84260")
-    implementation("net.aechronis:vanilla:a95ad8d")
+    implementation("net.aechronis:utils:09c12e5")
+    implementation("net.aechronis:nodes:aeb67e2")
+    implementation("net.aechronis:combat:e154b20")
+    implementation("net.aechronis:vanilla:5d9fd38")
+    implementation("net.aechronis:logger:54fb360")
+    implementation("net.aechronis:worldedit:b06023e") {
+        exclude(group = "com.google.code.gson", module = "gson")
+    }
     implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")
     implementation("com.h2database:h2:2.4.240")
