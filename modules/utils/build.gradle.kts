@@ -11,17 +11,12 @@ plugins {
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
+    maven("https://maven.conceptmc.com/releases")
     mavenCentral()
-    maven("https://repo.hypera.dev/snapshots/") {
-        name = "HyperaSnapshots"
-        content {
-            includeGroup("dev.lu15")
-        }
-    }
 }
 
 dependencies {
-    implementation("dev.lu15:luckperms-minestom:5.5-SNAPSHOT")
+    api("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     api("net.minestom:minestom:2026.07.12-26.2")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")
