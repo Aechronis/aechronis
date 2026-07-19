@@ -13,16 +13,11 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.command.builder.suggestion.SuggestionEntry
 import net.minestom.server.entity.Player
 import org.enginehub.piston.Command
-import org.slf4j.LoggerFactory
 import net.minestom.server.command.builder.Command as MinestomCommand
 
 class WorldEditCommand(
     command: Command,
 ) : MinestomCommand(command.name, *command.aliases.toTypedArray()) {
-    companion object {
-        private val logger = LoggerFactory.getLogger(WorldEditCommand::class.java)
-    }
-
     init {
         val argsArgument = ArgumentType.StringArray("args")
         argsArgument.setSuggestionCallback { sender, _, suggestion ->
@@ -54,7 +49,7 @@ class WorldEditCommand(
                     WorldEdit.getInstance().eventBus.post(it)
                 }
             } catch (e: Exception) {
-                logger.error("Unexpected error while handling a WorldEdit command", e)
+                println("Unexpected error while handling a WorldEdit command $e")
             }
         }
     }

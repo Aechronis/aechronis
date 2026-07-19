@@ -13,11 +13,8 @@ import io.github.openminigameserver.worldedit.platform.config.WorldEditConfigura
 import io.github.openminigameserver.worldedit.platform.misc.WorldEditExecutor
 import net.minestom.server.instance.block.Block
 import net.minestom.server.item.Material
-import org.slf4j.LoggerFactory
 
 class MinestomWorldEdit {
-    val logger = LoggerFactory.getLogger(MinestomWorldEdit::class.java)!!
-
     private val platform = MinestomPlatform(this)
 
     lateinit var config: WorldEditConfiguration
@@ -34,11 +31,11 @@ class MinestomWorldEdit {
         registerItems()
 
         WorldEdit.getInstance().eventBus.post(PlatformReadyEvent(platform))
-        logger.info("Finished loading WorldEdit")
+        println("Finished loading WorldEdit")
     }
 
     private fun registerItems() {
-        logger.info("Registering items with WorldEdit")
+        println("Registering items with WorldEdit")
         for (itemType in Material.values()) {
             val id: String = itemType.key().asString()
             if (!ItemType.REGISTRY.keySet().contains(id)) {
@@ -48,7 +45,7 @@ class MinestomWorldEdit {
     }
 
     private fun registerBlocks() {
-        logger.info("Registering blocks with WorldEdit")
+        println("Registering blocks with WorldEdit")
         Block.values().forEach { minestomBlock ->
             try {
                 val id: String = minestomBlock.key().asString()

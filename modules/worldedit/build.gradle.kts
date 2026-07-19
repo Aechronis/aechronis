@@ -12,18 +12,28 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 repositories {
     mavenCentral()
     maven("https://maven.enginehub.org/repo/")
+    maven {
+        url = uri("https://maven.pkg.github.com/Aechronis/aechronis")
+        credentials {
+            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.token") as String? ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
 }
 
 dependencies {
-    compileOnly("net.minestom:minestom:2026.03.25-1.21.11")
-    testImplementation("net.minestom:minestom:2026.03.25-1.21.11")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.12.1")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    api("com.sk89q.worldedit:worldedit-core:7.4.3")
+    api("net.aechronis:utils:86a747b")
+    api("net.minestom:minestom:2026.07.12-26.2")
+    api("com.sk89q.worldedit:worldedit-core:7.4.3") {
+        exclude(group = "com.google.code.gson", module = "gson")
+    }
     api("com.google.guava:guava:33.5.0-jre")
-    api("com.google.code.gson:gson:2.13.2")
     api("it.unimi.dsi:fastutil:8.5.18")
     compileOnly(kotlin("stdlib"))
+
+    testImplementation("net.minestom:minestom:2026.07.12-26.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.12.1")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.test {
