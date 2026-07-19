@@ -16,7 +16,7 @@ repositories {
 }
 
 dependencies {
-    api("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
+    compileOnly("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     api("net.minestom:minestom:2026.07.12-26.2")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")
