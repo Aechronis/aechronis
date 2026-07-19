@@ -4,6 +4,7 @@ import fr.ghostrider584.axiom.AxiomMinestom
 import fr.ghostrider584.axiom.restrictions.AxiomPermission
 import fr.ghostrider584.axiom.restrictions.AxiomPermissions
 import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
+import io.github.openminigameserver.worldedit.MinestomWorldEdit
 import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfigAdapter
 import me.lucko.luckperms.minestom.CommandRegistry
 import me.lucko.luckperms.minestom.LuckPermsMinestom
@@ -18,8 +19,11 @@ import net.aechronis.aechronis.constants.Planes
 import net.aechronis.aechronis.constants.Tanks
 import net.aechronis.aechronis.listeners.PlayerJoinListener
 import net.aechronis.aechronis.tasks.TabManager
+import net.aechronis.aechronis.tasks.WorldSaver
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
+import net.aechronis.logger.Logger
+import net.aechronis.logger.LoggerConfig
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.NodesConfig
 import net.aechronis.utils.hasPermission
@@ -30,8 +34,10 @@ import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
+import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
+import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.DimensionType
 import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.BlockPickup
@@ -41,7 +47,7 @@ import java.nio.file.Path
 
 object Aechronis {
     internal const val VIEW_DISTANCE = 32
-
+    lateinit var fullbrightKey: RegistryKey<DimensionType>
     lateinit var instance: InstanceContainer
     val eventNode = EventNode.all("aechronis")
 }
@@ -50,7 +56,14 @@ fun main(args: Array<String>) {
     val port = args.getOrNull(0)?.toInt() ?: 25565
     val velocitySecret = args.getOrNull(1)
 
-    val allPermsForTesting = System.getProperty("aechronis.allperms")?.toBoolean() == true
+    val allPermsPlayers =
+        System
+            .getProperty("aechronis.allperms")
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?.toSet()
+            ?: emptySet()
 
     val server =
         if (velocitySecret == null) {
@@ -66,19 +79,20 @@ fun main(args: Array<String>) {
             .ambientLight(1.0f)
             .build()
 
-    val fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
+    Aechronis.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
 
     AxiomMinestom.initialize()
 
     MinecraftServer.getGlobalEventHandler().addChild(Aechronis.eventNode)
 
     // create instance
-    Aechronis.instance = MinecraftServer.getInstanceManager().createInstanceContainer(fullbrightKey)
+    Aechronis.instance = MinecraftServer.getInstanceManager().createInstanceContainer(Aechronis.fullbrightKey)
     Aechronis.instance.chunkLoader = AnvilLoader("world")
     Aechronis.instance.viewDistance(Aechronis.VIEW_DISTANCE)
 
     // tasks
     TabManager.start()
+    WorldSaver.start()
 
     // register listeners
     PlayerJoinListener.init()
@@ -105,10 +119,13 @@ fun main(args: Array<String>) {
             EnvironmentVariableConfigAdapter(plugin)
         }.enable()
 
-    if (allPermsForTesting) {
-        LuckPermsProvider.get().groupManager.loadGroup("default").thenAccept { group ->
-            group.ifPresent {
-                it.transientData().add(Node.builder("*").value(true).build())
+    if (allPermsPlayers.isNotEmpty()) {
+        Aechronis.eventNode.addListener(PlayerSpawnEvent::class.java) { event ->
+            val player = event.player
+            if (allPermsPlayers.any { it.equals(player.username, ignoreCase = true) }) {
+                LuckPermsProvider.get().userManager.getUser(player.uuid)?.let { user ->
+                    user.transientData().add(Node.builder("*").value(true).build())
+                }
             }
         }
     }
@@ -141,11 +158,16 @@ fun main(args: Array<String>) {
 
     Combat.initialize()
 
-    val nodesConfig = NodesConfig()
+    Vanilla.init()
 
+    val nodesConfig = NodesConfig()
     Nodes.initialize(nodesConfig)
 
-    Vanilla.init()
+    val logger = LoggerConfig()
+    Logger.init(logger)
+
+    val worldEdit = MinestomWorldEdit()
+    worldEdit.init()
 
     server.start("0.0.0.0", port)
 }
