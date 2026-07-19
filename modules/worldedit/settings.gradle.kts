@@ -4,4 +4,4 @@ pluginManagement {
         mavenCentral()
     }
 }
-rootProject.name = "MinestomWorldEdit"
+rootProject.name = "worldedit"
