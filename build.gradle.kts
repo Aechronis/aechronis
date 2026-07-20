@@ -44,11 +44,11 @@ dependencies {
     // vanilla
     implementation("net.aechronis:vanilla:4eb139d")
     // logger
-    implementation("net.aechronis:logger:77e29bf")
+    implementation("net.aechronis:logger:b2ecab0")
     // axiom
     implementation("fr.ghostrider584:axiom-minestom:0.0.4")
     // worldedit
-    implementation("net.aechronis:worldedit:4963505") {
+    implementation("net.aechronis:worldedit:59a508e") {
         exclude(group = "com.google.code.gson", module = "gson")
     }
     // luckperms
