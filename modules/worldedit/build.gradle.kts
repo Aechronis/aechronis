@@ -33,6 +33,7 @@ dependencies {
     compileOnly(kotlin("stdlib"))
 
     testImplementation("net.aechronis:logger:4687529")
+    testImplementation("net.aechronis:utils:86a747b")
     testImplementation("net.minestom:minestom:2026.07.12-26.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

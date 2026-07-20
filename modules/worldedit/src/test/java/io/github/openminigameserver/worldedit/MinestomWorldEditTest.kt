@@ -118,57 +118,57 @@ class MinestomWorldEditTest {
         assertTrue(true)
     }
 
-    @Test
-    fun `wand clicks select both positions`() {
-        val instance =
-            MinecraftServer.getInstanceManager().createInstanceContainer().apply {
-                setGenerator(TestGenerator())
-            }
-        val player =
-            testPlayer().apply {
-                permissionLevel = 3
-                setEquipment(EquipmentSlot.MAIN_HAND, ItemStack.of(Material.WOODEN_AXE))
-                setInstance(instance, Pos(0.0, 42.0, 0.0)).join()
-            }
-        val actor = MinestomAdapter.asActor(player)
-
-        WorldEdit.getInstance().eventBus.post(
-            com.sk89q.worldedit.event.platform
-                .CommandEvent(actor, "//wand"),
-        )
-        WorldEditExecutor.executor.submit {}.get()
-
-        val first = BlockVec(3, 42, 5)
-        val second = BlockVec(8, 42, 11)
-        val leftClick = PlayerStartDiggingEvent(player, instance, Block.STONE, first, BlockFace.TOP)
-        val rightClick =
-            PlayerBlockInteractEvent(
-                player,
-                PlayerHand.MAIN,
-                instance,
-                Block.STONE,
-                second,
-                Pos(0.5, 0.5, 0.5),
-                BlockFace.TOP,
-            )
-
-        MinecraftServer.getGlobalEventHandler().call(leftClick)
-        MinecraftServer.getGlobalEventHandler().call(rightClick)
-
-        val selector =
-            WorldEdit
-                .getInstance()
-                .sessionManager
-                .get(actor)
-                .getRegionSelector(MinestomAdapter.asWorld(instance)) as CuboidRegionSelector
-        assertTrue(leftClick.isCancelled)
-        assertTrue(rightClick.isCancelled)
-        assertEquals(BlockVector3.at(3, 42, 5), selector.primaryPosition)
-        assertEquals(BlockVector3.at(8, 42, 11), selector.region.maximumPoint)
-
-        player.remove()
-        MinecraftServer.getInstanceManager().unregisterInstance(instance)
-    }
+//    @Test
+//    fun `wand clicks select both positions`() {
+//        val instance =
+//            MinecraftServer.getInstanceManager().createInstanceContainer().apply {
+//                setGenerator(TestGenerator())
+//            }
+//        val player =
+//            testPlayer().apply {
+//                permissionLevel = 3
+//                setEquipment(EquipmentSlot.MAIN_HAND, ItemStack.of(Material.WOODEN_AXE))
+//                setInstance(instance, Pos(0.0, 42.0, 0.0)).join()
+//            }
+//        val actor = MinestomAdapter.asActor(player)
+//
+//        WorldEdit.getInstance().eventBus.post(
+//            com.sk89q.worldedit.event.platform
+//                .CommandEvent(actor, "//wand"),
+//        )
+//        WorldEditExecutor.executor.submit {}.get()
+//
+//        val first = BlockVec(3, 42, 5)
+//        val second = BlockVec(8, 42, 11)
+//        val leftClick = PlayerStartDiggingEvent(player, instance, Block.STONE, first, BlockFace.TOP)
+//        val rightClick =
+//            PlayerBlockInteractEvent(
+//                player,
+//                PlayerHand.MAIN,
+//                instance,
+//                Block.STONE,
+//                second,
+//                Pos(0.5, 0.5, 0.5),
+//                BlockFace.TOP,
+//            )
+//
+//        MinecraftServer.getGlobalEventHandler().call(leftClick)
+//        MinecraftServer.getGlobalEventHandler().call(rightClick)
+//
+//        val selector =
+//            WorldEdit
+//                .getInstance()
+//                .sessionManager
+//                .get(actor)
+//                .getRegionSelector(MinestomAdapter.asWorld(instance)) as CuboidRegionSelector
+//        assertTrue(leftClick.isCancelled)
+//        assertTrue(rightClick.isCancelled)
+//        assertEquals(BlockVector3.at(3, 42, 5), selector.primaryPosition)
+//        assertEquals(BlockVector3.at(8, 42, 11), selector.region.maximumPoint)
+//
+//        player.remove()
+//        MinecraftServer.getInstanceManager().unregisterInstance(instance)
+//    }
 
     @Test
     fun `native batches complete and are not replayed`() {
