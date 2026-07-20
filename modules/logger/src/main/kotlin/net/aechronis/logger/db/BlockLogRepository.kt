@@ -1,5 +1,7 @@
 package net.aechronis.logger.db
 
+import net.aechronis.logger.Logger
+import net.aechronis.logger.LoggerConfig
 import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
 import net.aechronis.logger.params.LookupParams
@@ -119,7 +121,7 @@ class BlockLogRepository(
         centerX: Int,
         centerY: Int,
         centerZ: Int,
-        limit: Int = 5000,
+        limit: Int = Logger.config.limit,
     ): CompletableFuture<List<BlockLogEntry>> =
         CompletableFuture.supplyAsync({ searchForRollback(params, targetTs, instanceUuid, centerX, centerY, centerZ, limit) }, executor)
 

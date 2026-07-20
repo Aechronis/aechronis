@@ -6,5 +6,6 @@ data class LoggerConfig(
     val tableName: String = "block_log",
     val featureTableName: String = "feature_log",
     val storageTableName: String = "storage_change",
+    val limit: Int = 9999999,
     val inventorySnapshotTableName: String = "inventory_snapshot",
 )

@@ -21,6 +21,7 @@ object Logger {
     lateinit var rollbackRepository: RollbackRepository
     lateinit var storageChangeRepository: StorageChangeRepository
     lateinit var inventorySnapshotRepository: InventorySnapshotRepository
+    lateinit var config: LoggerConfig
 
     private var initialized = false
 
@@ -28,7 +29,7 @@ object Logger {
 
     fun init(config: LoggerConfig) {
         val timeStart = System.currentTimeMillis()
-
+        Logger.config = config
         val database = Database(config)
         database.create()
         database.migrateBlockLog()
