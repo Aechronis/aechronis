@@ -11,7 +11,7 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
     mavenCentral()
-    maven("https://repo.hypera.dev/snapshots/") // luckperms (minestom)
+    maven("https://maven.conceptmc.com/releases")
     maven {
         url = uri("https://maven.pkg.github.com/Aechronis/aechronis")
         credentials {
@@ -26,6 +26,7 @@ dependencies {
     compileOnly("net.aechronis:utils:86a747b")
 
     // testing
+    testImplementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     testImplementation("net.aechronis:utils:86a747b")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")

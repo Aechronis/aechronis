@@ -38,11 +38,12 @@ object ModelManager {
     }
 
     fun updateModel(player: Player) {
+        val instance = player.instance ?: return
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
         val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
         if (gun == null && !isLookingAtVehicle) {
             enableHitAnimation(player)
-            player.sendPacket(SetTimePacket(10000, player.instance.createTimePacket().clocks))
+            player.sendPacket(SetTimePacket(10000, instance.createTimePacket().clocks))
             return
         }
 
@@ -52,10 +53,10 @@ object ModelManager {
         // we hide the block + outline with a resource pack shader
         if (gun?.automatic == true || isLookingAtVehicle) {
             for (y in 1..2) {
-                for (x in -2..2) {
-                    for (z in -2..2) {
+                for (x in -1..1) {
+                    for (z in -1..1) {
                         val pos: Pos = player.position.add(x.toDouble(), y.toDouble(), z.toDouble())
-                        if (player.instance?.getBlock(pos)?.isAir ?: false) {
+                        if (instance.getBlock(pos).isAir) {
                             player.sendPacket(BlockChangePacket(pos, Block.GLOW_LICHEN))
                             MinecraftServer
                                 .getSchedulerManager()
@@ -69,7 +70,7 @@ object ModelManager {
         }
 
         // hide block outline
-        player.sendPacket(SetTimePacket(11000, player.instance.createTimePacket().clocks))
+        player.sendPacket(SetTimePacket(11000, instance.createTimePacket().clocks))
 
         if (gun == null) return
 
