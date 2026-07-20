@@ -38,8 +38,41 @@ object TabManager {
             .getSchedulerManager()
             .buildTask {
                 val tickTime = lastTick.get()?.tickTime ?: 0.0
-                val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / BYTES_PER_MEBIBYTE
-                val footer = createFooter(tickTime, usedMemory)
+                val ramUsage = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
+                val maxMemory = runtime.maxMemory() / 1024 / 1024
+
+                val header: Component =
+                    Component
+                        .newline()
+                        .append(Component.text("\ue002").appendNewline()) // server logo
+                        .appendNewline()
+                        .appendNewline()
+                        .appendNewline()
+                        .appendNewline()
+                        .appendNewline()
+                        .append(Component.text("The Korean War").color(NamedTextColor.GRAY))
+                        .appendNewline()
+                        .append(Component.text("                                      ")) // force tab width
+
+                val footer =
+                    Component
+                        .newline()
+                        .append(
+                            Component
+                                .text(
+                                    "MSPT: ",
+                                    NamedTextColor.GOLD,
+                                ).append(
+                                    Component.text("${MathUtils.round(tickTime, 1)} ms / 50ms", NamedTextColor.GRAY),
+                                ).append(Component.newline()),
+                        ).append(
+                            Component
+                                .text(
+                                    "Memory: ",
+                                    NamedTextColor.GOLD,
+                                ).append(Component.text("$ramUsage MB / $maxMemory MB", NamedTextColor.GRAY))
+                                .append(Component.newline()),
+                        )
 
                 Audiences.players().sendPlayerListHeaderAndFooter(header, footer)
             }.repeat(TaskSchedule.tick(UPDATE_INTERVAL_TICKS))

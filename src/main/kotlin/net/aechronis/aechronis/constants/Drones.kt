@@ -23,8 +23,8 @@ object Drones {
 
     val scoutDrone =
         Drone(
-            name = "drone",
-            itemName = Component.text("drone"),
+            name = "scout-drone",
+            itemName = Component.text("Scout Drone"),
             scale = 1.5,
             hitbox = droneHitbox,
             maxSpeed = 2F,
@@ -37,8 +37,8 @@ object Drones {
 
     val kamikazeDrone =
         Drone(
-            name = "drone",
-            itemName = Component.text("drone"),
+            name = "kamikazedrone",
+            itemName = Component.text("Kamikaze Drone"),
             scale = 1.5,
             hitbox = droneHitbox,
             maxSpeed = 1F,
