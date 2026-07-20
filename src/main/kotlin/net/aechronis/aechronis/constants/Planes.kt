@@ -18,12 +18,10 @@ object Planes {
                 HitboxPart(
                     offset = Vec(0.0, 0.2, -2.0),
                     size = Vec(1.0, 1.0, 6.0),
-                    name = "body",
                 ),
                 HitboxPart(
                     offset = Vec(0.0, 0.5, -3.0),
                     size = Vec(5.0, 0.5, 2.0),
-                    name = "wing",
                 ),
             ),
         )
