@@ -9,13 +9,12 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
 
 object Tanks {
-    val m1a1AbramsHitbox =
+    private val m1a1AbramsHitbox =
         Hitbox(
             listOf(
                 HitboxPart(
                     offset = Vec(0.0, 0.0, 0.0),
                     size = Vec(1.6, 1.5, 2.6),
-                    name = "body",
                 ),
             ),
         )

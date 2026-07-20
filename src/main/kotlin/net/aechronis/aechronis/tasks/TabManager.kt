@@ -12,14 +12,31 @@ import net.minestom.server.utils.MathUtils
 import java.util.concurrent.atomic.AtomicReference
 
 object TabManager {
+    private const val BYTES_PER_MEBIBYTE = 1024L * 1024L
+    private const val UPDATE_INTERVAL_TICKS = 20
+
+    private val runtime = Runtime.getRuntime()
+    private val maxMemory = runtime.maxMemory() / BYTES_PER_MEBIBYTE
+    private val header =
+        Component
+            .newline()
+            .append(Component.text("\ue002").appendNewline()) // server logo
+            .appendNewline()
+            .appendNewline()
+            .appendNewline()
+            .appendNewline()
+            .appendNewline()
+            .append(Component.text("Iteration name goes here", NamedTextColor.GRAY))
+            .appendNewline()
+            .append(Component.text("                                      ")) // force tab width
+
     fun start() {
         val lastTick = AtomicReference<TickMonitor>()
-        Aechronis.eventNode.addListener(ServerTickMonitorEvent::class.java, { event -> lastTick.set(event.getTickMonitor()) })
+        Aechronis.eventNode.addListener(ServerTickMonitorEvent::class.java) { event -> lastTick.set(event.tickMonitor) }
 
         MinecraftServer
             .getSchedulerManager()
             .buildTask {
-                val runtime = Runtime.getRuntime()
                 val tickTime = lastTick.get()?.tickTime ?: 0.0
                 val ramUsage = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
                 val maxMemory = runtime.maxMemory() / 1024 / 1024
@@ -58,7 +75,20 @@ object TabManager {
                         )
 
                 Audiences.players().sendPlayerListHeaderAndFooter(header, footer)
-            }.repeat(TaskSchedule.tick(1))
+            }.repeat(TaskSchedule.tick(UPDATE_INTERVAL_TICKS))
             .schedule()
     }
+
+    private fun createFooter(
+        tickTime: Double,
+        usedMemory: Long,
+    ): Component =
+        Component
+            .newline()
+            .append(Component.text("MSPT: ", NamedTextColor.GOLD))
+            .append(Component.text("${MathUtils.round(tickTime, 1)} ms / 50ms", NamedTextColor.GRAY))
+            .appendNewline()
+            .append(Component.text("Memory: ", NamedTextColor.GOLD))
+            .append(Component.text("$usedMemory MB / $maxMemory MB", NamedTextColor.GRAY))
+            .appendNewline()
 }
