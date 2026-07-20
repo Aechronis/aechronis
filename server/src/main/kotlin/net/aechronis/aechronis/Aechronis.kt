@@ -76,6 +76,7 @@ fun main(args: Array<String>) {
     val fullbright =
         DimensionType
             .builder()
+            .skylight(false)
             .ambientLight(1.0f)
             .build()
 
@@ -163,7 +164,7 @@ fun main(args: Array<String>) {
     val nodesConfig = NodesConfig()
     Nodes.initialize(nodesConfig)
 
-    val logger = LoggerConfig()
+    val logger = LoggerConfig(limit = 999999999)
     Logger.init(logger)
 
     val worldEdit = MinestomWorldEdit()
