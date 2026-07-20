@@ -5,4 +5,6 @@ data class LoggerConfig(
     val poolSize: Int = 4,
     val tableName: String = "block_log",
     val featureTableName: String = "feature_log",
+    val storageTableName: String = "storage_change",
+    val inventorySnapshotTableName: String = "inventory_snapshot",
 )

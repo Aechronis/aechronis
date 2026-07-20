@@ -13,4 +13,5 @@ data class FeatureLogEntry(
     val y: Int? = null,
     val z: Int? = null,
     val data: Map<String, String> = emptyMap(),
+    val origin: String = LogMetadata.LOGGER,
 )

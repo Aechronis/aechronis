@@ -27,7 +27,7 @@ private fun line(entry: FeatureLogEntry): Component {
     component =
         component
             .append(Component.text(" ${entry.summary} ", NamedTextColor.WHITE))
-            .append(Component.text("[${entry.source}/${entry.action}]", NamedTextColor.DARK_GRAY))
+            .append(Component.text("[${entry.source}/${entry.action}/${entry.origin}]", NamedTextColor.DARK_GRAY))
 
     val x = entry.x
     val y = entry.y

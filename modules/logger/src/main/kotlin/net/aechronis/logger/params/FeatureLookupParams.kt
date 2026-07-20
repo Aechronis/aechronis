@@ -7,6 +7,7 @@ data class FeatureLookupParams(
     val radius: Int? = null, // r:
     val chunkRadius: Int? = null, // cr: 1 = own chunk, n = (2n-1)x(2n-1) chunks
     val actions: List<String> = emptyList(), // a: free-form, empty = all actions
+    val origin: String? = null, // o: recording origin
 ) {
     fun human(): String {
         val parts = mutableListOf("source=$source")
@@ -15,6 +16,7 @@ data class FeatureLookupParams(
         radius?.let { parts += "radius=$it" }
         chunkRadius?.let { parts += "chunkRadius=$it" }
         if (actions.isNotEmpty()) parts += "actions=${actions.joinToString(",")}"
+        origin?.let { parts += "origin=$it" }
         return parts.joinToString("  ")
     }
 }

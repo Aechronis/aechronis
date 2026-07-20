@@ -4,7 +4,9 @@ import net.aechronis.logger.commands.LoggerCommand
 import net.aechronis.logger.db.BlockLogRepository
 import net.aechronis.logger.db.Database
 import net.aechronis.logger.db.FeatureLogRepository
+import net.aechronis.logger.db.InventorySnapshotRepository
 import net.aechronis.logger.db.RollbackRepository
+import net.aechronis.logger.db.StorageChangeRepository
 import net.aechronis.logger.listeners.BlockListener
 import net.aechronis.logger.listeners.EntityListener
 import net.aechronis.logger.objects.FeatureLogEntry
@@ -17,6 +19,8 @@ object Logger {
     lateinit var repository: BlockLogRepository
     lateinit var featureRepository: FeatureLogRepository
     lateinit var rollbackRepository: RollbackRepository
+    lateinit var storageChangeRepository: StorageChangeRepository
+    lateinit var inventorySnapshotRepository: InventorySnapshotRepository
 
     private var initialized = false
 
@@ -29,11 +33,17 @@ object Logger {
         database.create()
         database.migrateBlockLog()
         database.createFeatureLog()
+        database.migrateFeatureLog()
         database.createRollbackTables()
+        database.createStorageChangeLog()
+        database.createInventorySnapshotLog()
+        database.migrateInventorySnapshotLog()
 
         repository = BlockLogRepository(database)
         featureRepository = FeatureLogRepository(database)
         rollbackRepository = RollbackRepository(database)
+        storageChangeRepository = StorageChangeRepository(database)
+        inventorySnapshotRepository = InventorySnapshotRepository(database)
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         BlockListener.init()

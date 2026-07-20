@@ -17,14 +17,14 @@ class BlockLogRepository(
 
     private val selectColumns =
         "id, ts, player_uuid, player_name, x, y, z, block_old, block_new, action, " +
-            "instance_uuid, block_old_state, block_new_state, block_old_nbt, block_new_nbt"
+            "instance_uuid, block_old_state, block_new_state, block_old_nbt, block_new_nbt, source, origin"
 
     private val insertSql =
         """
         INSERT INTO `$table`
             (ts, player_uuid, player_name, x, y, z, block_old, block_new, action,
-             instance_uuid, block_old_state, block_new_state, block_old_nbt, block_new_nbt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             instance_uuid, block_old_state, block_new_state, block_old_nbt, block_new_nbt, source, origin)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
 
     private val lookupSql =
@@ -55,6 +55,8 @@ class BlockLogRepository(
                 ps.setNullableString(12, entry.blockNewState)
                 ps.setNullableBytes(13, entry.blockOldNbt)
                 ps.setNullableBytes(14, entry.blockNewNbt)
+                ps.setString(15, entry.source)
+                ps.setString(16, entry.origin)
                 ps.executeUpdate()
             }
         }
@@ -152,6 +154,14 @@ class BlockLogRepository(
             sql.append(" AND LOWER(player_name) IN (${placeholders(params.users.size)})")
             params.users.forEach { args += it.lowercase() }
         }
+        params.source?.let {
+            sql.append(" AND LOWER(source) = ?")
+            args += it.lowercase()
+        }
+        params.origin?.let {
+            sql.append(" AND LOWER(origin) = ?")
+            args += it.lowercase()
+        }
         params.since?.let {
             sql.append(" AND ts >= ?")
             args += it
@@ -224,6 +234,8 @@ class BlockLogRepository(
             blockOld = rs.getString("block_old"),
             blockNew = rs.getString("block_new"),
             action = BlockAction.fromId(rs.getByte("action")),
+            source = rs.getString("source"),
+            origin = rs.getString("origin"),
             instanceUuid = rs.getString("instance_uuid")?.let(UUID::fromString),
             blockOldState = rs.getString("block_old_state"),
             blockNewState = rs.getString("block_new_state"),

@@ -18,8 +18,8 @@ class FeatureLogRepository(
     private val insertSql =
         """
         INSERT INTO `$table`
-            (ts, player_uuid, player_name, source, action, summary, x, y, z, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (ts, player_uuid, player_name, source, action, summary, x, y, z, data, origin)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
 
     fun insertAsync(entry: FeatureLogEntry): CompletableFuture<Void> = CompletableFuture.runAsync({ insert(entry) }, executor)
@@ -37,6 +37,7 @@ class FeatureLogRepository(
                 ps.setNullableInt(8, entry.y)
                 ps.setNullableInt(9, entry.z)
                 ps.setString(10, DataCodec.encode(entry.data))
+                ps.setString(11, entry.origin)
                 ps.executeUpdate()
             }
         }
@@ -60,7 +61,7 @@ class FeatureLogRepository(
     ): List<FeatureLogEntry> {
         val sql =
             StringBuilder(
-                "SELECT ts, player_uuid, player_name, source, action, summary, x, y, z, data " +
+                "SELECT ts, player_uuid, player_name, source, action, summary, x, y, z, data, origin " +
                     "FROM `$table` WHERE LOWER(source) = ?",
             )
         val args = mutableListOf<Any>(params.source.lowercase())
@@ -101,6 +102,10 @@ class FeatureLogRepository(
             sql.append(" AND LOWER(action) IN (${placeholders(params.actions.size)})")
             params.actions.forEach { args += it.lowercase() }
         }
+        params.origin?.let {
+            sql.append(" AND LOWER(origin) = ?")
+            args += it.lowercase()
+        }
         sql.append(" ORDER BY ts DESC LIMIT ?")
         args += limit
 
@@ -128,6 +133,7 @@ class FeatureLogRepository(
             y = rs.getNullableInt("y"),
             z = rs.getNullableInt("z"),
             data = DataCodec.decode(rs.getString("data")),
+            origin = rs.getString("origin"),
         )
 
     override fun close() {

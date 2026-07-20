@@ -26,6 +26,8 @@ object ParamManager {
         var include: List<String> = emptyList()
         var exclude: List<String> = emptyList()
         var source: String? = null
+        var context: String? = null
+        var origin: String? = null
 
         for (token in tokens) {
             if (token.isBlank()) continue
@@ -72,6 +74,14 @@ object ParamManager {
                 ParamKey.SOURCE -> {
                     source = value.trim()
                 }
+
+                ParamKey.CONTEXT -> {
+                    context = value.trim()
+                }
+
+                ParamKey.ORIGIN -> {
+                    origin = value.trim()
+                }
             }
         }
 
@@ -82,11 +92,12 @@ object ParamManager {
         val actionTokens = splitActionTokens.filter { it.isNotBlank() }
 
         if (source != null) {
+            if (context != null) return ParseResult.Err("s:/c: cannot be combined")
             if (include.isNotEmpty() || exclude.isNotEmpty()) {
                 return ParseResult.Err("i:/e: are not supported with s:<source> lookups")
             }
             return ParseResult.Ok(
-                LookupQuery.Feature(FeatureLookupParams(source, users, since, radius, chunkRadius, actionTokens)),
+                LookupQuery.Feature(FeatureLookupParams(source, users, since, radius, chunkRadius, actionTokens, origin)),
             )
         }
 
@@ -100,7 +111,9 @@ object ParamManager {
             actions = (actions ?: mutableSetOf()).apply { addAll(mapped) }
         }
 
-        return ParseResult.Ok(LookupQuery.Block(LookupParams(users, since, radius, chunkRadius, actions, include, exclude)))
+        return ParseResult.Ok(
+            LookupQuery.Block(LookupParams(users, since, radius, chunkRadius, actions, include, exclude, context, origin)),
+        )
     }
 
     private fun mapAction(value: String): Set<BlockAction>? =

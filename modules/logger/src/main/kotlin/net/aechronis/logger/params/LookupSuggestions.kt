@@ -55,6 +55,14 @@ object LookupSuggestions {
                 addValues(suggestion, keyPart, value, FeatureSourceRegistry.sources())
             }
 
+            ParamKey.CONTEXT -> {
+                addValues(suggestion, keyPart, value, listOf("logger", "worldedit"))
+            }
+
+            ParamKey.ORIGIN -> {
+                addValues(suggestion, keyPart, value, listOf("logger"))
+            }
+
             ParamKey.TIME -> {
                 addValues(suggestion, keyPart, value, timeHints)
             }

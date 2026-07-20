@@ -10,6 +10,8 @@ data class LookupParams(
     val actions: Set<BlockAction>? = null, // a: null = all actions
     val include: List<String> = emptyList(), // i: block keys
     val exclude: List<String> = emptyList(), // e: block keys
+    val source: String? = null, // c: source/context
+    val origin: String? = null, // o: recording origin
 ) {
     fun human(): String {
         val parts = mutableListOf<String>()
@@ -20,6 +22,8 @@ data class LookupParams(
         actions?.let { parts += "actions=${it.joinToString(",")}" }
         if (include.isNotEmpty()) parts += "include=${include.joinToString(",")}"
         if (exclude.isNotEmpty()) parts += "exclude=${exclude.joinToString(",")}"
+        source?.let { parts += "source=$it" }
+        origin?.let { parts += "origin=$it" }
         return if (parts.isEmpty()) "(no filters)" else parts.joinToString("  ")
     }
 }

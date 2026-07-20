@@ -3,6 +3,7 @@ package net.aechronis.logger.db
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import net.aechronis.logger.LoggerConfig
+import net.aechronis.logger.objects.LogMetadata
 import javax.sql.DataSource
 
 class Database(
@@ -25,6 +26,10 @@ class Database(
 
     val featureTableName: String get() = config.featureTableName
 
+    val storageTableName: String get() = config.storageTableName
+
+    val inventorySnapshotTableName: String get() = config.inventorySnapshotTableName
+
     fun create() {
         val table = config.tableName
         val ddl =
@@ -39,7 +44,9 @@ class Database(
                 z INTEGER NOT NULL,
                 block_old TEXT NOT NULL,
                 block_new TEXT NOT NULL,
-                action INTEGER NOT NULL
+                action INTEGER NOT NULL,
+                source TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}',
+                origin TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}'
             )
             """.trimIndent()
         pool.connection.use { conn ->
@@ -53,10 +60,8 @@ class Database(
     }
 
     /**
-     * Adds new nullable columns to the block log table for full block-state/NBT/instance
-     * capture. SQLite has no `ADD COLUMN IF NOT EXISTS`, so each column is guarded individually
-     * -- safe to call on every startup. Existing rows keep these columns NULL (material-key-only
-     * fidelity); rollback code must handle that degraded case explicitly.
+     * Adds block-state, source, and origin columns to the block log table. SQLite has no
+     * `ADD COLUMN IF NOT EXISTS`, so each column is guarded individually and safe to call on every startup.
      */
     fun migrateBlockLog() {
         val table = config.tableName
@@ -66,8 +71,12 @@ class Database(
             addColumnIfMissing(conn, table, "block_new_state", "TEXT")
             addColumnIfMissing(conn, table, "block_old_nbt", "BLOB")
             addColumnIfMissing(conn, table, "block_new_nbt", "BLOB")
+            addColumnIfMissing(conn, table, "source", "TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}'")
+            addColumnIfMissing(conn, table, "origin", "TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}'")
             conn.createStatement().use { stmt ->
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_instance ON `$table` (instance_uuid, ts)")
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_source ON `$table` (source, ts)")
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_origin ON `$table` (origin, ts)")
             }
         }
     }
@@ -87,7 +96,8 @@ class Database(
                 x INTEGER,
                 y INTEGER,
                 z INTEGER,
-                data TEXT NOT NULL DEFAULT ''
+                data TEXT NOT NULL DEFAULT '',
+                origin TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}'
             )
             """.trimIndent()
         pool.connection.use { conn ->
@@ -96,6 +106,86 @@ class Database(
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_source ON `$table` (source, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_player ON `$table` (player_uuid, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_pos ON `$table` (x, y, z, ts)")
+            }
+        }
+    }
+
+    fun migrateFeatureLog() {
+        val table = config.featureTableName
+        pool.connection.use { conn ->
+            addColumnIfMissing(conn, table, "origin", "TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}'")
+            conn.createStatement().use { stmt ->
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_origin ON `$table` (origin, ts)")
+            }
+        }
+    }
+
+    fun createStorageChangeLog() {
+        val table = config.storageTableName
+        val ddl =
+            """
+            CREATE TABLE IF NOT EXISTS `$table` (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts INTEGER NOT NULL,
+                player_uuid TEXT,
+                player_name TEXT,
+                storage_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                item_data BLOB NOT NULL,
+                amount INTEGER NOT NULL,
+                source TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}',
+                origin TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}'
+            )
+            """.trimIndent()
+        pool.connection.use { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.execute(ddl)
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_player ON `$table` (player_uuid, ts)")
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_id ON `$table` (storage_id, ts)")
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_origin ON `$table` (origin, ts)")
+            }
+        }
+    }
+
+    fun createInventorySnapshotLog() {
+        val table = config.inventorySnapshotTableName
+        val ddl =
+            """
+            CREATE TABLE IF NOT EXISTS `$table` (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts INTEGER NOT NULL,
+                player_uuid TEXT NOT NULL,
+                player_name TEXT NOT NULL,
+                action TEXT NOT NULL,
+                inventory_data BLOB NOT NULL,
+                source TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}',
+                origin TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}'
+            )
+            """.trimIndent()
+        pool.connection.use { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.execute(ddl)
+            }
+        }
+    }
+
+    fun migrateInventorySnapshotLog() {
+        val table = config.inventorySnapshotTableName
+        pool.connection.use { conn ->
+            addColumnIfMissing(conn, table, "player_name", "TEXT NOT NULL DEFAULT ''")
+            addColumnIfMissing(conn, table, "action", "TEXT NOT NULL DEFAULT 'legacy'")
+            addColumnIfMissing(conn, table, "inventory_data", "BLOB")
+            addColumnIfMissing(conn, table, "source", "TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}'")
+            addColumnIfMissing(conn, table, "origin", "TEXT NOT NULL DEFAULT '${LogMetadata.LOGGER}'")
+            if (columnExists(conn, table, "data")) {
+                conn.createStatement().use { stmt ->
+                    stmt.execute("UPDATE `$table` SET inventory_data = data WHERE inventory_data IS NULL")
+                }
+            }
+            conn.createStatement().use { stmt ->
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_inventory_snapshot_player ON `$table` (player_uuid, ts)")
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_inventory_snapshot_action ON `$table` (action, ts)")
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_inventory_snapshot_origin ON `$table` (origin, ts)")
             }
         }
     }

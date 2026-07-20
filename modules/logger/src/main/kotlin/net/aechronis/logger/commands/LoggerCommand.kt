@@ -45,10 +45,10 @@ private val rollbackExecutor = Executors.newVirtualThreadPerTaskExecutor()
 
 private const val LOOKUP_USAGE =
     "Usage: /logger lookup u:<user> t:<time> r:<radius> a:<action> i:<include> e:<exclude>" +
-        "  |  s:<source> u:<user> t:<time> r:<radius> a:<action>"
+        " c:<source> o:<origin>  |  s:<feature-source> u:<user> t:<time> r:<radius> a:<action> o:<origin>"
 
 private const val ROLLBACK_USAGE =
-    "Usage: /logger rollback u:<user> t:<time> r:<radius> a:<action>  (t: is required)"
+    "Usage: /logger rollback u:<user> t:<time> r:<radius> a:<action> c:<source> o:<origin>  (t: is required)"
 
 class LoggerCommand : Command("logger", "logger", "lo") {
     init {
@@ -173,42 +173,59 @@ class LoggerRollbackCommand : Command("rollback", "logger.rollback", "rb") {
                 is ParseResult.Ok -> {
                     when (val query = result.query) {
                         is LookupQuery.Feature -> {
-                            sender.sendMessage(Component.text("rollback of s:<source> lookups is not supported", NamedTextColor.RED))
+                            startRollback(
+                                sender,
+                                LookupParams(
+                                    users = query.params.users,
+                                    since = query.params.since,
+                                    radius = query.params.radius,
+                                    chunkRadius = query.params.chunkRadius,
+                                    source = query.params.source,
+                                    origin = query.params.origin,
+                                ),
+                            )
                         }
 
                         is LookupQuery.Block -> {
-                            val targetTs = query.params.since
-                            if (targetTs == null) {
-                                sender.sendMessage(Component.text("t:<duration> is required for rollback", NamedTextColor.RED))
-                                sender.sendMessage(Component.text(ROLLBACK_USAGE, NamedTextColor.GRAY))
-                                return@addSyntax
-                            }
-                            if (sender.instance == null) {
-                                sender.sendMessage(Component.text("[Logger] you must be in a world to run rollback", NamedTextColor.RED))
-                                return@addSyntax
-                            }
-
-                            computeRollbackPlanAsync(sender, query.params, targetTs, query.params.human())
-                                .whenComplete { plan, ex ->
-                                    if (ex != null) {
-                                        println("rollback preview failed: $ex")
-                                        sender.sendMessage(Component.text("[Logger] rollback preview failed", NamedTextColor.RED))
-                                        return@whenComplete
-                                    }
-                                    if (plan.totalChangeCount == 0) {
-                                        sender.sendMessage(
-                                            Component.text("[Logger] nothing to roll back for that query", NamedTextColor.GRAY),
-                                        )
-                                        return@whenComplete
-                                    }
-                                    val token = PendingRollbackRegistry.register(sender.uuid, plan)
-                                    showRollbackPreview(sender, plan, token)
-                                }
+                            startRollback(sender, query.params)
                         }
                     }
                 }
             }
         }, params)
+    }
+
+    private fun startRollback(
+        sender: Player,
+        params: LookupParams,
+    ) {
+        val targetTs = params.since
+        if (targetTs == null) {
+            sender.sendMessage(Component.text("t:<duration> is required for rollback", NamedTextColor.RED))
+            sender.sendMessage(Component.text(ROLLBACK_USAGE, NamedTextColor.GRAY))
+            return
+        }
+        if (sender.instance == null) {
+            sender.sendMessage(Component.text("[Logger] you must be in a world to run rollback", NamedTextColor.RED))
+            return
+        }
+
+        computeRollbackPlanAsync(sender, params, targetTs, params.human())
+            .whenComplete { plan, ex ->
+                if (ex != null) {
+                    println("rollback preview failed: $ex")
+                    sender.sendMessage(Component.text("[Logger] rollback preview failed", NamedTextColor.RED))
+                    return@whenComplete
+                }
+                if (plan.totalChangeCount == 0) {
+                    sender.sendMessage(
+                        Component.text("[Logger] nothing to roll back for that query", NamedTextColor.GRAY),
+                    )
+                    return@whenComplete
+                }
+                val token = PendingRollbackRegistry.register(sender.uuid, plan)
+                showRollbackPreview(sender, plan, token)
+            }
     }
 
     private fun handleConfirm(

@@ -63,6 +63,7 @@ private fun line(
     if (withCoords) {
         component = component.append(Component.text(" @ ${entry.x},${entry.y},${entry.z}", NamedTextColor.DARK_GRAY))
     }
+    component = component.append(Component.text(" [${entry.source}/${entry.origin}]", NamedTextColor.DARK_GRAY))
     return component
         .hoverEvent(HoverEvent.showText(Component.text("Click to teleport to ${entry.x},${entry.y},${entry.z}")))
         .clickEvent(ClickEvent.runCommand("/tp ${entry.x} ${entry.y} ${entry.z}"))
