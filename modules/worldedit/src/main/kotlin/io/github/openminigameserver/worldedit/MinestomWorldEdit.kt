@@ -24,6 +24,7 @@ class MinestomWorldEdit {
         MinestomAdapter.platform = platform
         this.config = WorldEditConfiguration(config).apply { load() }
 
+        platform.registerWorldEditEventHandlers()
         WorldEdit.getInstance().platformManager.register(platform)
         WorldEdit.getInstance().eventBus.post(PlatformsRegisteredEvent())
 
@@ -65,6 +66,7 @@ class MinestomWorldEdit {
 
     fun shutdown() {
         val worldEdit = WorldEdit.getInstance()
+        platform.unregisterWorldEditEventHandlers()
         worldEdit.sessionManager.unload()
         worldEdit.platformManager.unregister(platform)
         WorldEditExecutor.shutdown()

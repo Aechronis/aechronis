@@ -4,6 +4,7 @@ import com.sk89q.worldedit.EditSession
 import com.sk89q.worldedit.WorldEditException
 import com.sk89q.worldedit.blocks.BaseItemStack
 import com.sk89q.worldedit.entity.BaseEntity
+import com.sk89q.worldedit.extension.platform.Actor
 import com.sk89q.worldedit.extent.Extent
 import com.sk89q.worldedit.function.operation.Operation
 import com.sk89q.worldedit.function.operation.RunContext
@@ -26,6 +27,8 @@ import net.minestom.server.entity.ItemEntity
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.InstanceContainer
 import java.lang.ref.WeakReference
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import com.sk89q.worldedit.entity.Entity as WorldEditEntity
 
 private class MinestomEntityAdapter(
@@ -55,6 +58,11 @@ class MinestomWorld(
 ) : AbstractWorld() {
     private val worldRef = WeakReference(world)
     val nativeAccess = MinestomWorldNativeAccess(worldRef, getWorld() is InstanceContainer)
+    private val loadedChunks = ConcurrentHashMap.newKeySet<Long>()
+
+    fun setActor(actor: Actor?) {
+        nativeAccess.actor = actor
+    }
 
     /**
      * Get the underlying handle to the world.
@@ -81,9 +89,11 @@ class MinestomWorld(
     }
 
     override fun commit(): Operation {
+        var flushCompletion: CompletableFuture<Unit>? = null
         return object : Operation {
             override fun resume(run: RunContext?): Operation? {
-                nativeAccess.flush()
+                val completion = flushCompletion ?: nativeAccess.flush().also { flushCompletion = it }
+                completion.join()
                 return null
             }
 
@@ -95,9 +105,14 @@ class MinestomWorld(
     override fun checkLoadedChunk(pt: BlockVector3) {
         val chunkX = Math.floorDiv(pt.x(), 16)
         val chunkZ = Math.floorDiv(pt.z(), 16)
-        if (!getWorld().isChunkLoaded(chunkX, chunkZ)) {
-            getWorld().loadChunk(chunkX, chunkZ).join()
+        val chunkKey = (chunkX.toLong() shl 32) xor (chunkZ.toLong() and 0xffffffffL)
+        if (loadedChunks.contains(chunkKey)) return
+
+        val world = getWorld()
+        if (!world.isChunkLoaded(chunkX, chunkZ)) {
+            world.loadChunk(chunkX, chunkZ).join()
         }
+        loadedChunks.add(chunkKey)
     }
 
     override fun getBlock(position: BlockVector3): BlockState {
@@ -112,7 +127,10 @@ class MinestomWorld(
         position: BlockVector3?,
         block: B,
         sideEffects: SideEffectSet?,
-    ): Boolean = nativeAccess.setBlock(position, block, sideEffects)
+    ): Boolean {
+        position?.let { checkLoadedChunk(it) }
+        return nativeAccess.setBlock(position, block, sideEffects)
+    }
 
     override fun getEntities(region: Region?): MutableList<out WorldEditEntity> {
         TODO("Not yet implemented")
