@@ -15,8 +15,8 @@ import com.sk89q.worldedit.util.formatting.text.serializer.gson.GsonComponentSer
 import com.sk89q.worldedit.world.World
 import io.github.openminigameserver.worldedit.platform.MinestomPlatform
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
-import io.github.openminigameserver.worldedit.platform.adapters.MinestomPermissionsProvider
 import io.github.openminigameserver.worldedit.platform.misc.SessionKeyImpl
+import net.aechronis.utils.hasPermission
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.Player
 import java.util.Locale
@@ -31,7 +31,7 @@ class MinestomPlayer(
 
     override fun getGroups(): Array<String> = emptyArray()
 
-    override fun hasPermission(permission: String): Boolean = MinestomPermissionsProvider.hasPermission(player, permission)
+    override fun hasPermission(permission: String): Boolean = player.hasPermission(permission)
 
     override fun getSessionKey(): SessionKey = SessionKeyImpl(player.uuid, player.username)
 
