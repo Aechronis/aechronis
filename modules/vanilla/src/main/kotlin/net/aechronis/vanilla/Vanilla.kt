@@ -52,52 +52,55 @@ object Vanilla {
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
 
-        // init commands
-        MinecraftServer.getCommandManager().register(
-            Back(),
-            Message(),
-            Reply(),
-            GameMode(),
-            Give(),
-            Teleport(),
-            Fly(),
-            Kill(),
-            Convert(),
-            Craft(),
-            Broadcast(),
-            Clear(),
-            InventorySee(),
-            Ignore(),
-            Shop(),
-            Gm(),
-            List(),
-            Whitelist(),
-        )
+        if (config.commandsEnabled) {
+            val commands =
+                mutableListOf(
+                    Back(),
+                    Message(),
+                    Reply(),
+                    GameMode(),
+                    Give(),
+                    Teleport(),
+                    Fly(),
+                    Kill(),
+                    Broadcast(),
+                    Clear(),
+                    InventorySee(),
+                    Ignore(),
+                    Gm(),
+                    List(),
+                )
+            if (config.blocksEnabled) commands += Convert()
+            if (config.recipesEnabled) commands += Craft()
+            if (config.shopEnabled) commands += Shop()
+            if (config.whitelistEnabled) commands += Whitelist()
+            MinecraftServer.getCommandManager().register(*commands.toTypedArray())
+        }
         println("Loading Vanilla")
-        PlayerData.init(Path.of(config.path, config.playerDataPath))
-        Storage.init(Path.of(config.path, config.storagePath))
-        WhitelistManager.init(Path.of(config.path, config.whitelistPath))
-        Recipes.init()
-        Crops.init()
-        Saplings.init()
-        Elevator.init()
-        Mannequin.init()
-        Blocks.init()
-        TreeFeller.init()
-        Food.init()
-        KillShop.init()
-        Items.init()
-        CommandsListener.init()
-        PlayerBreakListener.init()
-        FallDamageListener.init()
-        ServerLinksListener.init()
-        Combat.init()
+        if (config.playerDataEnabled) PlayerData.init(Path.of(config.path, config.playerDataPath))
+        if (config.storageEnabled) Storage.init(Path.of(config.path, config.storagePath))
+        if (config.whitelistEnabled) WhitelistManager.init(Path.of(config.path, config.whitelistPath))
+        if (config.recipesEnabled) Recipes.init()
+        if (config.cropsEnabled) Crops.init()
+        if (config.saplingsEnabled) Saplings.init()
+        if (config.elevatorEnabled) Elevator.init()
+        if (config.mannequinEnabled) Mannequin.init()
+        if (config.blocksEnabled) Blocks.init()
+        if (config.treeFellerEnabled) TreeFeller.init()
+        if (config.foodEnabled) Food.init()
+        if (config.shopEnabled) KillShop.init()
+        if (config.itemsEnabled) Items.init()
+        if (config.commandsEnabled) CommandsListener.init()
+        if (config.blockDropsEnabled) PlayerBreakListener.init()
+        if (config.fallDamageEnabled) FallDamageListener.init()
+        if (config.serverLinksEnabled) ServerLinksListener.init()
+        if (config.combatEnabled) Combat.init()
 
         Runtime.getRuntime().addShutdownHook(
             Thread({
                 println("Vanilla: saving data before shutdown...")
-                PlayerData.saveAll()
-                Storage.saveAll()
+                if (config.playerDataEnabled) PlayerData.saveAll()
+                if (config.storageEnabled) Storage.saveAll()
                 println("Vanilla: data saved.")
             }, "vanilla-shutdown-save"),
         )

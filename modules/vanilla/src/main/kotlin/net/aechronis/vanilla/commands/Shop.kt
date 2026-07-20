@@ -1,11 +1,11 @@
 package net.aechronis.vanilla.commands
 
+import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.KillShop
 import net.aechronis.vanilla.utils.Message
-import net.aechronis.vanilla.utils.VanillaCommand
 import net.minestom.server.command.builder.arguments.ArgumentType
 
-class Shop : VanillaCommand("shop") {
+class Shop : Command("shop") {
     init {
         setDefaultExecutor("vanilla.shop") { player, _ ->
             KillShop.openShop(player)

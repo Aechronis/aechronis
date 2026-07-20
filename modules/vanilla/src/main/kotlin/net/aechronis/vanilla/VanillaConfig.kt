@@ -67,11 +67,32 @@ private val PickaxeBlocks =
     )
 
 data class VanillaConfig(
+    // Feature toggles
+    val commandsEnabled: Boolean = true,
+    val playerDataEnabled: Boolean = true,
+    val storageEnabled: Boolean = true,
+    val whitelistEnabled: Boolean = true,
+    val recipesEnabled: Boolean = true,
+    val cropsEnabled: Boolean = true,
+    val saplingsEnabled: Boolean = true,
+    val elevatorEnabled: Boolean = true,
+    val mannequinEnabled: Boolean = true,
+    val blocksEnabled: Boolean = true,
+    val treeFellerEnabled: Boolean = true,
+    val foodEnabled: Boolean = true,
+    val shopEnabled: Boolean = true,
+    val itemsEnabled: Boolean = true,
+    val blockDropsEnabled: Boolean = true,
+    val fallDamageEnabled: Boolean = true,
+    val serverLinksEnabled: Boolean = true,
+    val combatEnabled: Boolean = true,
+    val spawnEnabled: Boolean = true,
     // Paths
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",
     val storagePath: String = "storage",
     val whitelistPath: String = "whitelist.json",
+    val spawnPath: String = "spawn",
     // Crops
     val cropGrowthCheckSeconds: Long = 20L,
     val wheatMsPerStage: Long = 72_000L,
@@ -215,7 +236,6 @@ data class VanillaConfig(
             "Store" to "https://store.aechronis.net",
         ),
     // Combat
-    val combatDurationSeconds: Long = 40L,
+    val combatDurationSeconds: Long = 10L,
     val combatTickSeconds: Long = 1L,
-    val combatAllowedCommands: List<String> = listOf("msg", "reply"),
 )

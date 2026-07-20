@@ -1,11 +1,11 @@
 package net.aechronis.vanilla.commands
 
+import net.aechronis.utils.Command
 import net.aechronis.vanilla.utils.Message
-import net.aechronis.vanilla.utils.VanillaCommand
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class Give : VanillaCommand("give", "vanilla.give") {
+class Give : Command("give", "vanilla.give") {
     init {
         val playerArg = ArgumentType.Entity("player").singleEntity(true).onlyPlayers(true)
         val itemArg = ArgumentType.ItemStack("item")

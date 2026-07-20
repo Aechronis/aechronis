@@ -1,12 +1,12 @@
 package net.aechronis.vanilla.commands
 
+import net.aechronis.utils.Command
 import net.aechronis.vanilla.utils.Message
-import net.aechronis.vanilla.utils.VanillaCommand
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
-class Whitelist : VanillaCommand("whitelist", "vanilla.whitelist") {
+class Whitelist : Command("whitelist", "vanilla.whitelist") {
     init {
         setDefaultExecutor { player: Player, _ ->
             Message.print(player, "Usage:")

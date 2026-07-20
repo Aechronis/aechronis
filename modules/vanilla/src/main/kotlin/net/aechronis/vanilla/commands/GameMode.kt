@@ -1,12 +1,12 @@
 package net.aechronis.vanilla.commands
 
+import net.aechronis.utils.Command
 import net.aechronis.vanilla.utils.Message
-import net.aechronis.vanilla.utils.VanillaCommand
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 
-class GameMode : VanillaCommand("gamemode", "vanilla.gamemode") {
+class GameMode : Command("gamemode", "vanilla.gamemode") {
     init {
         setDefaultExecutor { player: Player, _ ->
             Message.print(player, "Usage:")

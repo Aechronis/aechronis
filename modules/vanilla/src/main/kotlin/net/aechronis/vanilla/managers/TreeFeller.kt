@@ -31,9 +31,34 @@ object TreeFeller {
             Block.CHERRY_LOG,
             Block.MANGROVE_LOG,
             Block.PALE_OAK_LOG,
+            Block.STRIPPED_OAK_LOG,
+            Block.STRIPPED_SPRUCE_LOG,
+            Block.STRIPPED_BIRCH_LOG,
+            Block.STRIPPED_JUNGLE_LOG,
+            Block.STRIPPED_ACACIA_LOG,
+            Block.STRIPPED_DARK_OAK_LOG,
+            Block.STRIPPED_CHERRY_LOG,
+            Block.STRIPPED_MANGROVE_LOG,
+            Block.STRIPPED_PALE_OAK_LOG,
+            Block.STRIPPED_BAMBOO_BLOCK,
+            Block.STRIPPED_CRIMSON_STEM,
+            Block.STRIPPED_WARPED_STEM,
             Block.BAMBOO_BLOCK,
             Block.CRIMSON_STEM,
             Block.WARPED_STEM,
+        )
+
+    private val strippedLogs =
+        mapOf(
+            Block.STRIPPED_OAK_LOG to Block.OAK_LOG,
+            Block.STRIPPED_SPRUCE_LOG to Block.SPRUCE_LOG,
+            Block.STRIPPED_BIRCH_LOG to Block.BIRCH_LOG,
+            Block.STRIPPED_JUNGLE_LOG to Block.JUNGLE_LOG,
+            Block.STRIPPED_ACACIA_LOG to Block.ACACIA_LOG,
+            Block.STRIPPED_DARK_OAK_LOG to Block.DARK_OAK_LOG,
+            Block.STRIPPED_CHERRY_LOG to Block.CHERRY_LOG,
+            Block.STRIPPED_MANGROVE_LOG to Block.MANGROVE_LOG,
+            Block.STRIPPED_PALE_OAK_LOG to Block.PALE_OAK_LOG,
         )
 
     private val leaves =
@@ -173,12 +198,14 @@ object TreeFeller {
         return found
     }
 
-    fun saplingMaterial(logBlock: Block): Material? =
-        SaplingType.ALL
-            .firstOrNull { it.logBlock.compare(logBlock) }
+    fun saplingMaterial(logBlock: Block): Material? {
+        val originalLog = strippedLogs.entries.firstOrNull { it.key.compare(logBlock) }?.value ?: logBlock
+        return SaplingType.ALL
+            .firstOrNull { it.logBlock.compare(originalLog) }
             ?.saplingBlock
             ?.registry()
             ?.material()
+    }
 
     private fun rollLeafDrop(saplingMaterial: Material?): List<ItemStack> {
         val saplingChance = Vanilla.config.treeFellerSaplingChance

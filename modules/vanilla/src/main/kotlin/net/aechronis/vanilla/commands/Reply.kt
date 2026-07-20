@@ -1,13 +1,13 @@
 package net.aechronis.vanilla.commands
 
+import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Commands.getLastSender
 import net.aechronis.vanilla.managers.Commands.sendMessage
 import net.aechronis.vanilla.utils.Message
-import net.aechronis.vanilla.utils.VanillaCommand
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class Reply : VanillaCommand("reply", null, "r") {
+class Reply : Command("reply", null, "r") {
     val messageArg = ArgumentType.StringArray("message")
 
     init {

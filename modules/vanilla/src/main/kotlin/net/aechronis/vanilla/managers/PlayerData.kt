@@ -53,6 +53,8 @@ object PlayerData {
         }
     }
 
+    fun hasSavedData(player: Player): Boolean = ::dataPath.isInitialized && Files.exists(dataPath.resolve("${player.uuid}.dat"))
+
     fun loadPlayer(
         player: Player,
         path: Path,

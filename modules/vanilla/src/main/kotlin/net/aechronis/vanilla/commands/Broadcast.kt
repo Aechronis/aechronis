@@ -1,14 +1,14 @@
 package net.aechronis.vanilla.commands
 
+import net.aechronis.utils.Command
 import net.aechronis.vanilla.utils.Message
-import net.aechronis.vanilla.utils.VanillaCommand
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class Broadcast : VanillaCommand("broadcast", "vanilla.broadcast") {
+class Broadcast : Command("broadcast", "vanilla.broadcast") {
     val messageArg = ArgumentType.StringArray("message")
 
     init {

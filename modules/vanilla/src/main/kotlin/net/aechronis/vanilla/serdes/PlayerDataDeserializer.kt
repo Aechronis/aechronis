@@ -7,6 +7,7 @@ import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
 import net.kyori.adventure.nbt.StringBinaryTag
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
 import java.util.UUID
@@ -23,6 +24,12 @@ object PlayerDataDeserializer {
         player.foodSaturation = data.getFloat("FoodSaturation", 20f)
 
         player.setTag(KillShop.POINTS_TAG, data.getInt("Points", 0))
+
+        player.gameMode =
+            runCatching { GameMode.valueOf(data.getString("GameMode")) }
+                .getOrDefault(GameMode.SURVIVAL)
+        player.isAllowFlying = data.getBoolean("AllowFlying", false)
+        player.isFlying = data.getBoolean("Flying", false) && player.isAllowFlying
 
         val position = data.getCompound("Position")
         deserializePosition(player, position)

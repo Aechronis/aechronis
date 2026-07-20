@@ -19,6 +19,9 @@ object PlayerDataSerializer {
                 .putInt("Food", player.food)
                 .putFloat("FoodSaturation", player.foodSaturation)
                 .putInt("Points", player.getTag(KillShop.POINTS_TAG) ?: 0)
+                .putString("GameMode", player.gameMode.name)
+                .putBoolean("AllowFlying", player.isAllowFlying)
+                .putBoolean("Flying", player.isFlying)
                 .put("Position", serializePosition(player.position))
                 .put("Inventory", serializeInventory(player.inventory))
 

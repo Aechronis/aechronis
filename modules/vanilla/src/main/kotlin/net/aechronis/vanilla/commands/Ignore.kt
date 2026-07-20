@@ -1,12 +1,12 @@
 package net.aechronis.vanilla.commands
 
+import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.utils.Message
-import net.aechronis.vanilla.utils.VanillaCommand
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class Ignore : VanillaCommand("ignore", "vanilla.ignore") {
+class Ignore : Command("ignore", "vanilla.ignore") {
     private val playerArg = ArgumentType.Entity("player").singleEntity(true).onlyPlayers(true)
 
     init {
