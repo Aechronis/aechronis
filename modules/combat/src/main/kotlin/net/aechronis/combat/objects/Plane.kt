@@ -41,6 +41,7 @@ class Plane(
     val maxThrottle: Float = 100f,
     val minAirThrottle: Float = 30f,
     val weapons: List<PlaneWeapon> = emptyList(),
+    val seatOffset: List<Vec> = listOf(Vec.ZERO),
 ) : Vehicle(
         name,
         itemName,
@@ -51,6 +52,7 @@ class Plane(
         hitbox,
         health,
         placeTime,
+        seatOffset,
     ) {
     override fun onEnter(
         player: Player,

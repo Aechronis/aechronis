@@ -141,6 +141,7 @@ class CombatTest {
                 scale = 7.0,
                 speed = 1.25,
                 turnSpeed = 0.1f,
+                seatOffset = listOf(Vec(0.0, 3.0, 0.0)),
             )
 
         val testCarHitbox =
