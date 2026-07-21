@@ -15,6 +15,17 @@ tasks.withType<Jar> {
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
+    maven {
+        url = uri("https://maven.pkg.github.com/Aechronis/aechronis")
+        credentials {
+            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.token") as String? ?: System.getenv("GITHUB_TOKEN")
+        }
+        content {
+            includeGroup("net.aechronis")
+        }
+    }
+
     mavenCentral()
     maven("https://maven.conceptmc.com/releases") // luckperms (minestom)
     maven("https://repo.hypera.dev/snapshots/") // Spark
@@ -22,14 +33,6 @@ repositories {
     maven("https://repo.smolder.fr/public/") // axiom minestom component
     maven("https://mvn.everbuild.org/public") // blocks and stuff
     maven("https://maven.enginehub.org/repo/") // worldedit
-
-    maven {
-        url = uri("https://maven.pkg.github.com/Aechronis/aechronis")
-        credentials {
-            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
-            password = project.findProperty("gpr.token") as String? ?: System.getenv("GITHUB_TOKEN")
-        }
-    }
 }
 
 dependencies {
@@ -38,19 +41,19 @@ dependencies {
     // utils
     implementation("net.aechronis:utils:86a747b")
     // nodes
-    implementation("net.aechronis:nodes:aeb67e2")
+    implementation("net.aechronis:nodes:d0a0f34")
     // combat
-    implementation("net.aechronis:combat:d41159b")
+    implementation("net.aechronis:combat:be2aafa")
     // vanilla
-    implementation("net.aechronis:vanilla:4eb139d")
+    implementation("net.aechronis:vanilla:db7afbd")
     // logger
     implementation("net.aechronis:logger:b2ecab0")
-    // axiom
-    implementation("fr.ghostrider584:axiom-minestom:0.0.4")
     // worldedit
     implementation("net.aechronis:worldedit:59a508e") {
         exclude(group = "com.google.code.gson", module = "gson")
     }
+    // axiom
+    implementation("fr.ghostrider584:axiom-minestom:0.0.4")
     // luckperms
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")

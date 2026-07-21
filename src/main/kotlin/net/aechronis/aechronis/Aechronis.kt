@@ -15,6 +15,7 @@ import net.aechronis.aechronis.constants.Cars
 import net.aechronis.aechronis.constants.Drones
 import net.aechronis.aechronis.constants.Guns
 import net.aechronis.aechronis.constants.Planes
+import net.aechronis.aechronis.constants.Ships
 import net.aechronis.aechronis.constants.Tanks
 import net.aechronis.aechronis.listeners.PlayerJoinListener
 import net.aechronis.aechronis.tasks.TabManager
@@ -121,7 +122,7 @@ fun main(args: Array<String>) {
     Item.registerItems(Tanks.m1a1Abrams)
 
     // drones
-    Item.registerItems(Drones.scoutDrone, Drones.kamikazeDrone)
+    Item.registerItems(Drones.scoutDrone, Drones.kamikazeDrone, Ships.testShip)
 
     // initialize luckperms
     LuckPermsMinestom

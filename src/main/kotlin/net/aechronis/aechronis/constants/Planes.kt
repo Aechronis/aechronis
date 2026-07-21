@@ -58,6 +58,9 @@ object Planes {
             health = 800F,
             placeTime = 2000,
             weapons = listOf(f16Weapon),
-            scale = 7.0,
+            scale = 10.0,
+            speed = 1.25,
+            turnSpeed = 0.1f,
+            seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
         )
 }

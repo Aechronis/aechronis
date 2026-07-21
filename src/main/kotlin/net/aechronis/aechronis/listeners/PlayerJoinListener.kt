@@ -20,13 +20,13 @@ object PlayerJoinListener {
             .packs(
                 ResourcePackInfo
                     .resourcePackInfo()
-                    .uri(URI("https://cdn.modrinth.com/data/LSmohupN/versions/zewiXtmr/Ashen_16x.zip"))
-                    .hash("d312836c38143301b7ba6a1247372b3f467116db")
+                    .uri(URI("https://cdn.modrinth.com/data/LSmohupN/versions/znwxp1rV/Ashen_16x.zip"))
+                    .hash("d7ab3cd0cc3b848942286ce608db615929e874ed")
                     .build(),
                 ResourcePackInfo
                     .resourcePackInfo()
-                    .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/f39d692/f39d692.zip"))
-                    .hash("c9fbbc287959e3e966c23c4c8ec527762c9598e3")
+                    .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/0fa8d87/0fa8d87.zip"))
+                    .hash("6eff884381ce2ed5035a0bfcc7a5a3adb48d3aeb2e856e081791787415a4b3cc")
                     .build(),
             ).prompt(Component.text("A resource pack is required to play"))
             .required(true)
