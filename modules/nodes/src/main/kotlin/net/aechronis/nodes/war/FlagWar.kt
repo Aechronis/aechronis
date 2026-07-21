@@ -294,6 +294,7 @@ object FlagWar {
         chunkToAttacker.clear()
         blockToAttacker.clear()
         occupiedChunks.clear()
+        Resident.renderMinimaps()
 
         // save war.json (empty)
         WarSerializer.save(true)
@@ -501,6 +502,7 @@ object FlagWar {
 
         // map chunk to the attack
         chunkToAttacker.put(chunk.coord, attack)
+        Resident.renderMinimaps()
 
         // map flag block to attack (for breaking)
         blockToAttacker.put(flagBlock, attack)
@@ -784,6 +786,7 @@ object FlagWar {
         attackers.get(attack.attacker)?.remove(attack)
         chunkToAttacker.remove(attack.coord)
         blockToAttacker.remove(attack.flagBlock)
+        Resident.renderMinimaps()
 
         // mark save needed
         needsSave = true
@@ -833,11 +836,13 @@ object FlagWar {
         val chunk = TerritoryChunk.fromCoord(attack.coord)
         if (chunk == null || chunk.territory !== attack.targetTerritory) {
             println("finishAttack(): TerritoryChunk at ${attack.coord} is null")
+            Resident.renderMinimaps()
             return
         }
 
         if (chunk.coord == chunk.territory.core && !canAnnexTerritories) {
             chunk.attacker = null
+            Resident.renderMinimaps()
             return
         }
 

@@ -8,9 +8,9 @@
 
 package net.aechronis.nodes.objects
 
+import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
-import net.aechronis.nodes.Nodes.residents
 import net.aechronis.nodes.chat.ChatMode
 import net.aechronis.nodes.serdes.SaveState
 import net.aechronis.nodes.utils.ChatColor
@@ -25,6 +25,13 @@ import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.util.UUID
 
+internal data class VisibleWaypoint(
+    val waypoint: Waypoint,
+    val owner: Resident,
+) {
+    val visibilityKey: String get() = "${owner.uuid}:${waypoint.key}"
+}
+
 class Resident(val uuid: UUID, val name: String) {
     companion object {
         fun create(player: Player) {
@@ -34,9 +41,17 @@ class Resident(val uuid: UUID, val name: String) {
             }
         }
 
-        fun load(uuid: UUID, name: String, trusted: Boolean) {
+        fun load(
+            uuid: UUID,
+            name: String,
+            trusted: Boolean,
+            waypoints: List<Waypoint> = emptyList(),
+            waypointVisibility: Map<String, Boolean> = emptyMap(),
+        ) {
             val resident = Resident(uuid, name)
             resident.trusted = trusted
+            resident.waypointVisibility.putAll(waypointVisibility)
+            waypoints.forEach { waypoint -> resident.loadPermanentWaypoint(waypoint) }
             resident.needsUpdate()
             Nodes.residents[uuid] = resident
         }
@@ -47,11 +62,11 @@ class Resident(val uuid: UUID, val name: String) {
 
         fun fromName(name: String): Resident? {
             val player = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(name)
-            if (player != null) return residents.values.firstOrNull { it.uuid == player.uuid }
-            return residents.values.firstOrNull { it.name.equals(name, ignoreCase = true) }
+            if (player != null) return Nodes.residents.values.firstOrNull { it.uuid == player.uuid }
+            return Nodes.residents.values.firstOrNull { it.name.equals(name, ignoreCase = true) }
         }
 
-        fun fromUuid(uuid: UUID): Resident? = residents[uuid]
+        fun fromUuid(uuid: UUID): Resident? = Nodes.residents[uuid]
 
         fun setOnline(resident: Resident, player: Player) {
             resident.town?.let { town ->
@@ -74,11 +89,7 @@ class Resident(val uuid: UUID, val name: String) {
 
         fun renderMinimaps() {
             for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
-                val resident = fromPlayer(player)
-                if (resident?.minimap != null) {
-                    val position = player.position
-                    resident.updateMinimap(Coord.fromBlockCoords(position.x.toInt(), position.z.toInt()))
-                }
+                fromPlayer(player)?.minimap?.refresh()
             }
         }
 
@@ -207,6 +218,72 @@ class Resident(val uuid: UUID, val name: String) {
 
     // minimap
     var minimap: Minimap? = null
+        private set
+
+    private val permanentWaypointsByName = linkedMapOf<String, Waypoint>()
+    val permanentWaypoints: List<Waypoint> get() = permanentWaypointsByName.values.toList()
+    private val waypointVisibility = linkedMapOf<String, Boolean>()
+
+    internal fun availablePermanentWaypoints(): List<VisibleWaypoint> = buildList {
+        permanentWaypointsByName.values.forEach { waypoint -> add(VisibleWaypoint(waypoint, this@Resident)) }
+        Nodes.residents.values.asSequence()
+            .filter { owner -> owner !== this@Resident }
+            .flatMap { owner -> owner.permanentWaypointsByName.values.asSequence().map { waypoint -> VisibleWaypoint(waypoint, owner) } }
+            .filter { visible -> visible.waypoint.isSharedWith(this@Resident) }
+            .forEach(::add)
+    }
+
+    internal fun visiblePermanentWaypoints(): List<VisibleWaypoint> = availablePermanentWaypoints().filter(::isWaypointVisible)
+
+    internal fun isWaypointVisible(visible: VisibleWaypoint): Boolean = waypointVisibility[visible.visibilityKey]
+        ?: defaultWaypointVisibility(visible.waypoint)
+
+    internal fun toggleWaypointVisibility(visible: VisibleWaypoint): Boolean {
+        check(visible in availablePermanentWaypoints()) { "Waypoint is not available to this resident" }
+        val isVisible = !isWaypointVisible(visible)
+        if (isVisible == defaultWaypointVisibility(visible.waypoint)) {
+            waypointVisibility.remove(visible.visibilityKey)
+        } else {
+            waypointVisibility[visible.visibilityKey] = isVisible
+        }
+        needsUpdate()
+        Nodes.needsSave = true
+        minimap?.refresh()
+        return isVisible
+    }
+
+    private fun defaultWaypointVisibility(waypoint: Waypoint): Boolean = waypoint.sharing != WaypointSharing.ALLY
+
+    internal fun availableWaypointSharing(): Set<WaypointSharing> {
+        val town = town ?: return setOf(WaypointSharing.PRIVATE)
+        if (!isTownLeadership()) return setOf(WaypointSharing.PRIVATE)
+        return buildSet {
+            add(WaypointSharing.PRIVATE)
+            add(WaypointSharing.TOWN)
+            if (town.nation != null) {
+                add(WaypointSharing.NATION)
+                add(WaypointSharing.ALLY)
+            }
+        }
+    }
+
+    internal fun canRemovePermanentWaypoint(visible: VisibleWaypoint): Boolean {
+        if (visible.owner === this) return true
+        if (!isTownLeadership()) return false
+        return when (visible.waypoint.sharing) {
+            WaypointSharing.PRIVATE -> false
+            WaypointSharing.TOWN -> town?.uuid == visible.waypoint.sharedGroupId
+            WaypointSharing.NATION, WaypointSharing.ALLY -> town?.nation?.uuid == visible.waypoint.sharedGroupId
+        }
+    }
+
+    private fun isTownLeadership(): Boolean {
+        val town = town ?: return false
+        return this === town.leader || town.officers.contains(this)
+    }
+
+    var deathWaypoint: Waypoint? = null
+        private set
 
     // save state needs update flag
     private var saveState = ResidentSaveState(this)
@@ -231,25 +308,94 @@ class Resident(val uuid: UUID, val name: String) {
     // and only viewable by player
     // ===================================
 
-    fun createMinimap(player: Player, size: Int) {
-        // remove any existing minimap
-        this.destroyMinimap()
-
-        // create new minimap
-        this.minimap = Minimap(this, player, size)
+    fun createMinimap(player: Player): Minimap {
+        destroyMinimap()
+        return Minimap(this, player).also { minimap = it }
     }
 
     fun destroyMinimap() {
-        val minimap = this.minimap
-        if (minimap != null) {
-            minimap.destroy()
-            this.minimap = null
-        }
+        minimap?.destroy()
+        minimap = null
     }
 
-    // update player minimap if it exists
-    fun updateMinimap(coord: Coord) {
-        this.minimap?.render(coord)
+    fun updateMinimap(blockX: Int, blockZ: Int) {
+        minimap?.render(blockX, blockZ)
+    }
+
+    internal fun validatePermanentWaypointName(inputName: String): Result<String> = runCatching {
+        val name = Waypoint.normalizeName(inputName)
+        check(!name.equals(Waypoint.DEATH_NAME, ignoreCase = true)) { "The name ${Waypoint.DEATH_NAME} is reserved" }
+        check(!permanentWaypointsByName.containsKey(Waypoint.key(name))) { "A waypoint named $name already exists" }
+        name
+    }
+
+    internal fun createPermanentWaypoint(
+        inputName: String,
+        x: Int,
+        y: Int,
+        z: Int,
+        sharing: WaypointSharing = WaypointSharing.PRIVATE,
+    ): Result<Waypoint> = runCatching {
+        val availableSharing = availableWaypointSharing()
+        check(sharing in availableSharing) { "Only town leaders and officers can share waypoints with their town, nation, or allies" }
+        val sharedGroupId = when (sharing) {
+            WaypointSharing.PRIVATE -> null
+            WaypointSharing.TOWN -> town?.uuid ?: error("You must be in a town to share a town waypoint")
+            WaypointSharing.NATION -> town?.nation?.uuid ?: error("You must be in a nation to share a nation waypoint")
+            WaypointSharing.ALLY -> town?.nation?.uuid ?: error("You must be in a nation to share an ally waypoint")
+        }
+        val waypoint = Waypoint(
+            validatePermanentWaypointName(inputName).getOrThrow(),
+            x,
+            y,
+            z,
+            sharing,
+            sharedGroupId,
+        )
+        permanentWaypointsByName[waypoint.key] = waypoint
+        needsUpdate()
+        Nodes.needsSave = true
+        if (sharing == WaypointSharing.PRIVATE) minimap?.refresh() else renderMinimaps()
+        waypoint
+    }
+
+    internal fun removePermanentWaypoint(visible: VisibleWaypoint): Boolean {
+        if (!canRemovePermanentWaypoint(visible)) return false
+        return visible.owner.removePermanentWaypoint(visible.waypoint.key, visible.waypoint)
+    }
+
+    private fun removePermanentWaypoint(key: String, expected: Waypoint?): Boolean {
+        val current = permanentWaypointsByName[key] ?: return false
+        if (expected != null && current != expected) return false
+        permanentWaypointsByName.remove(key)
+        val visibilityKey = VisibleWaypoint(current, this).visibilityKey
+        clearWaypointVisibility(visibilityKey)
+        Nodes.residents.values.asSequence()
+            .filter { resident -> resident !== this }
+            .forEach { resident -> resident.clearWaypointVisibility(visibilityKey) }
+        needsUpdate()
+        Nodes.needsSave = true
+        if (current.sharing == WaypointSharing.PRIVATE) minimap?.refresh() else renderMinimaps()
+        return true
+    }
+
+    internal fun recordDeathWaypoint(x: Int, y: Int, z: Int) {
+        deathWaypoint = Waypoint(Waypoint.DEATH_NAME, x, y, z)
+        minimap?.refresh()
+    }
+
+    internal fun clearDeathWaypoint() {
+        if (deathWaypoint == null) return
+        deathWaypoint = null
+        minimap?.refresh()
+    }
+
+    private fun loadPermanentWaypoint(waypoint: Waypoint) {
+        permanentWaypointsByName.putIfAbsent(waypoint.key, waypoint)
+    }
+
+    private fun clearWaypointVisibility(visibilityKey: String) {
+        if (waypointVisibility.remove(visibilityKey) != null) needsUpdate()
     }
 
     // ===================================
@@ -297,19 +443,35 @@ class Resident(val uuid: UUID, val name: String) {
         val town = r.town?.name
         val nation = r.nation?.name
         val trusted = r.trusted
+        val waypoints = r.permanentWaypoints
+        val waypointVisibility = r.waypointVisibility.toMap()
 
         override var jsonString: String? = null
 
         override fun createJsonString(): String {
-            val jsonString = (
+            val waypointsJson = waypoints.joinToString(",", prefix = "[", postfix = "]") { waypoint ->
+                "{" +
+                    "\"name\":${JsonPrimitive(waypoint.name)}," +
+                    "\"x\":${waypoint.x}," +
+                    "\"y\":${waypoint.y}," +
+                    "\"z\":${waypoint.z}," +
+                    "\"sharing\":${JsonPrimitive(waypoint.sharing.id)}," +
+                    "\"sharedGroup\":${waypoint.sharedGroupId?.let { JsonPrimitive(it.toString()) } ?: "null"}" +
+                    "}"
+            }
+            val waypointVisibilityJson = waypointVisibility.entries.joinToString(",", prefix = "{", postfix = "}") { (key, visible) ->
+                "${JsonPrimitive(key)}:$visible"
+            }
+            return (
                 "{" +
                     "\"name\":\"${this.name}\"," +
                     "\"town\":${ if (this.town !== null) "\"${this.town}\"" else null }," +
                     "\"nation\":${ if (this.nation !== null) "\"${this.nation}\"" else null }," +
-                    "\"trust\":${this.trusted}" +
+                    "\"trust\":${this.trusted}," +
+                    "\"waypoints\":$waypointsJson," +
+                    "\"waypointVisibility\":$waypointVisibilityJson" +
                     "}"
                 )
-            return jsonString
         }
     }
 

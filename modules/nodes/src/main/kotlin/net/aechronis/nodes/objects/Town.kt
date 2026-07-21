@@ -256,6 +256,7 @@ class Town(
             town.color = Color(r, g, b)
             town.needsUpdate()
             Nodes.needsSave = true
+            Resident.renderMinimaps()
         }
 
         fun setSpawn(town: Town, spawnpoint: Pos): Boolean {
@@ -279,6 +280,7 @@ class Town(
             }
             town.needsUpdate()
             resident.needsUpdate()
+            resident.minimap?.refresh()
             Nodes.needsSave = true
         }
 
@@ -296,6 +298,7 @@ class Town(
             if (player != null) town.playersOnline.remove(player)
             town.needsUpdate()
             resident.needsUpdate()
+            resident.minimap?.refresh()
             Nodes.needsSave = true
         }
 
@@ -456,11 +459,11 @@ class Town(
     )
 
     // re-usable nametag strings, for each diplomatic relation type
-    var nametagTown: String = "${ChatColor.GREEN}[${this.name}]"
-    var nametagNation: String = "${ChatColor.DARK_GREEN}[${this.name}]"
-    var nametagNeutral: String = "${ChatColor.GOLD}[${this.name}]"
-    var nametagAlly: String = "${ChatColor.DARK_AQUA}[${this.name}]"
-    var nametagEnemy: String = "${ChatColor.RED}[${this.name}]"
+    var nametagTown: String = "${DiplomaticRelationship.TOWN.chatColor}[${this.name}]"
+    var nametagNation: String = "${DiplomaticRelationship.NATION.chatColor}[${this.name}]"
+    var nametagNeutral: String = "${DiplomaticRelationship.NEUTRAL.chatColor}[${this.name}]"
+    var nametagAlly: String = "${DiplomaticRelationship.ALLY.chatColor}[${this.name}]"
+    var nametagEnemy: String = "${DiplomaticRelationship.ENEMY.chatColor}[${this.name}]"
 
     // players applying to town and their tasks
     val applications: HashMap<Resident, Task> = hashMapOf()
@@ -496,11 +499,11 @@ class Town(
     // update town nametag display strings from name
     // (different color for each diplomacy group)
     fun updateNametags() {
-        this.nametagTown = "${ChatColor.GREEN}[${this.name}]"
-        this.nametagNation = "${ChatColor.DARK_GREEN}[${this.name}]"
-        this.nametagNeutral = "${ChatColor.GOLD}[${this.name}]"
-        this.nametagAlly = "${ChatColor.DARK_AQUA}[${this.name}]"
-        this.nametagEnemy = "${ChatColor.RED}[${this.name}]"
+        this.nametagTown = "${DiplomaticRelationship.TOWN.chatColor}[${this.name}]"
+        this.nametagNation = "${DiplomaticRelationship.NATION.chatColor}[${this.name}]"
+        this.nametagNeutral = "${DiplomaticRelationship.NEUTRAL.chatColor}[${this.name}]"
+        this.nametagAlly = "${DiplomaticRelationship.ALLY.chatColor}[${this.name}]"
+        this.nametagEnemy = "${DiplomaticRelationship.ENEMY.chatColor}[${this.name}]"
     }
 
     // prints out nation object info

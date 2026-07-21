@@ -5,6 +5,7 @@
 package net.aechronis.nodes.chat
 
 import net.aechronis.nodes.Message
+import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.utils.ChatColor
 import net.kyori.adventure.text.Component
@@ -25,9 +26,9 @@ object Chat {
     var colorDefault = ChatColor.WHITE
     val colorGreen = ChatColor.GREEN
 
-    var colorTown = ChatColor.DARK_AQUA
-    var colorNation = ChatColor.GOLD
-    var colorAlly = ChatColor.GREEN
+    val colorTown = DiplomaticRelationship.TOWN.chatColor
+    val colorNation = DiplomaticRelationship.NATION.chatColor
+    val colorAlly = DiplomaticRelationship.ALLY.chatColor
 
     var colorPlayerTownless = ChatColor.GRAY
     var colorPlayerTownOfficer = ChatColor.WHITE
@@ -115,9 +116,9 @@ object Chat {
 
         when (newChatMode) {
             ChatMode.GLOBAL -> Message.print(player, "${ChatColor.BOLD}Now talking in global chat")
-            ChatMode.TOWN -> Message.print(player, "${ChatColor.DARK_AQUA}${ChatColor.BOLD}Now talking in town chat")
-            ChatMode.NATION -> Message.print(player, "${ChatColor.GOLD}${ChatColor.BOLD}Now talking in nation chat")
-            ChatMode.ALLY -> Message.print(player, "${ChatColor.GREEN}${ChatColor.BOLD}Now talking in ally chat")
+            ChatMode.TOWN -> Message.print(player, "$colorTown${ChatColor.BOLD}Now talking in town chat")
+            ChatMode.NATION -> Message.print(player, "$colorNation${ChatColor.BOLD}Now talking in nation chat")
+            ChatMode.ALLY -> Message.print(player, "$colorAlly${ChatColor.BOLD}Now talking in ally chat")
         }
     }
 

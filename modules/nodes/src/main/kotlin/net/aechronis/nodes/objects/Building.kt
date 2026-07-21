@@ -16,17 +16,23 @@ abstract class Building(
     companion object {
         fun getAt(chunkX: Int, chunkZ: Int): Building? = Nodes.chunkToBuilding[listOf(chunkX, chunkZ)]
 
+        internal fun getForMinimap(coord: Coord): Building? = Nodes.minimapBuildingsByChunk[coord]
+
         internal fun register(building: Building) {
             Nodes.buildings.add(building)
             Nodes.chunkToBuilding[listOf(building.chunkX, building.chunkZ)] = building
+            Nodes.minimapBuildingsByChunk[Coord(building.chunkX, building.chunkZ)] = building
             building.needsUpdate()
+            Resident.renderMinimaps()
         }
 
         fun destroy(building: Building) {
             Nodes.buildings.remove(building)
             val chunk = listOf(building.chunkX, building.chunkZ)
             if (Nodes.chunkToBuilding[chunk] === building) Nodes.chunkToBuilding.remove(chunk)
+            Nodes.minimapBuildingsByChunk.remove(Coord(building.chunkX, building.chunkZ), building)
             Nodes.needsSave = true
+            Resident.renderMinimaps()
         }
 
         fun setTier(building: Building, tier: Int) {
@@ -49,9 +55,8 @@ abstract class Building(
     // type for buildings.json
     abstract val type: String
 
-    // minimap
-    open val showOnMinimap: Boolean = false
-    open val minimapToken: String? = null
+    // glyph displayed for this building on the minimap.
+    open val minimapIconCodepoint: Int? = null
 
     open fun income(): Map<Material, Double> = emptyMap()
 

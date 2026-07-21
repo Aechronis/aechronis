@@ -6,12 +6,10 @@ package net.aechronis.nodes.commands
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
-import net.aechronis.nodes.WorldMap
 import net.aechronis.nodes.commands.arguments.ArgumentResident
 import net.aechronis.nodes.commands.arguments.ArgumentTown
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
-import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
@@ -24,40 +22,6 @@ import net.minestom.server.entity.Player
 import net.minestom.server.potion.Potion
 import net.minestom.server.potion.PotionEffect
 import net.minestom.server.timer.TaskSchedule
-
-// ==================================================
-// Constants for /t map
-//
-// symbols
-const val SHADE = "\u2592" // medium shade
-const val HOME = "\u2588" // full solid block
-const val CORE = "\u256B" // core chunk H
-const val CONQUERED0 = "\u2561" // captured chunk
-const val CONQUERED1 = "\u255F" // other chunk flag symbol
-
-const val MAP_STR_BEGIN = "    "
-
-val MAP_STR_END = arrayOf(
-    "",
-    "       ${ChatColor.GOLD}N",
-    "     ${ChatColor.GOLD}W + E",
-    "       ${ChatColor.GOLD}S",
-    "",
-    "  ${ChatColor.GRAY}${SHADE}${ChatColor.DARK_GRAY}$SHADE ${ChatColor.GRAY}- Unclaimed",
-    "  ${ChatColor.GREEN}${SHADE}${ChatColor.DARK_GREEN}$SHADE - Town",
-    "  ${ChatColor.YELLOW}${SHADE}${ChatColor.GOLD}$SHADE - Neutral",
-    "  ${ChatColor.AQUA}${SHADE}${ChatColor.DARK_AQUA}$SHADE - Ally",
-    "  ${ChatColor.RED}${SHADE}${ChatColor.DARK_RED}$SHADE - Enemy",
-    "",
-    "  ${ChatColor.WHITE}$HOME - Home territory",
-    "  ${ChatColor.WHITE}$CORE - Core chunk",
-    "  ${ChatColor.WHITE}$CONQUERED0,$CONQUERED1 - Captured",
-    "",
-    "",
-    "",
-    "",
-)
-// ==================================================
 
 class TownCommand : NodesCommand("t", null, "town") {
     init {
@@ -74,8 +38,6 @@ class TownCommand : NodesCommand("t", null, "town") {
             Message.print(player, "/town list${ChatColor.WHITE}: List all towns")
             Message.print(player, "/town info${ChatColor.WHITE}: View town details")
             Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
-            Message.print(player, "/town map${ChatColor.WHITE}: View world map")
-            Message.print(player, "/town minimap${ChatColor.WHITE}: Toggle sidebar world minimap")
             Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
             Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
             Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
@@ -101,8 +63,6 @@ class TownCommand : NodesCommand("t", null, "town") {
                 Message.print(player, "/town list${ChatColor.WHITE}: List all towns")
                 Message.print(player, "/town info${ChatColor.WHITE}: View town details")
                 Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
-                Message.print(player, "/town map${ChatColor.WHITE}: View world map")
-                Message.print(player, "/town minimap${ChatColor.WHITE}: Toggle sidebar world minimap")
                 Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
                 Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
                 Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
@@ -127,8 +87,6 @@ class TownCommand : NodesCommand("t", null, "town") {
         addSubcommand(TownInfoCommand())
         addSubcommand(TownOnlineCommand())
         addSubcommand(TownIncomeCommand())
-        addSubcommand(TownMapCommand())
-        addSubcommand(TownMinimapCommand())
         addSubcommand(TownPermissionsCommand())
         addSubcommand(TownProtectCommand())
         addSubcommand(TownTrustCommand())
@@ -153,8 +111,6 @@ class TownHelpCommand : NodesCommand("help") {
             Message.print(player, "/town list${ChatColor.WHITE}: List all towns")
             Message.print(player, "/town info${ChatColor.WHITE}: View town details")
             Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
-            Message.print(player, "/town map${ChatColor.WHITE}: View world map")
-            Message.print(player, "/town minimap${ChatColor.WHITE}: Toggle sidebar world minimap")
             Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
             Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
             Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
@@ -798,63 +754,6 @@ class TownIncomeCommand : NodesCommand("income") {
                 Message.error(player, "You do not have permissions to view town income")
             }
         })
-    }
-}
-
-class TownMapCommand : NodesCommand("map") {
-    init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /town map")
-        }
-
-        addSyntax({ player, resident, context ->
-            val loc = player.position
-            val coordX = kotlin.math.floor(loc.x).toInt()
-            val coordZ = kotlin.math.floor(loc.z).toInt()
-            val coord = Coord.fromBlockCoords(coordX, coordZ)
-
-            // minimap size
-            val sizeY = 8
-            val sizeX = 10
-
-            Message.print(player, "\n${ChatColor.WHITE}--------------- Territory Map ---------------")
-            for ((i, y) in (sizeY downTo -sizeY).withIndex()) {
-                val renderedLine = WorldMap.renderLine(resident, coord, coord.z - y, coord.x - sizeX, coord.x + sizeX)
-                Message.print(player, MAP_STR_BEGIN + renderedLine + MAP_STR_END[i])
-            }
-            Message.print(player, "")
-        })
-    }
-}
-
-class TownMinimapCommand : NodesCommand("minimap") {
-    init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/town minimap")
-            Message.print(player, "/town minimap <size>")
-        }
-
-        val sizeArg = ArgumentType.Integer("size")
-
-        addSyntax({ player, resident, context ->
-            if (resident.minimap != null) {
-                resident.destroyMinimap()
-                Message.print(player, "Minimap disabled")
-            } else {
-                val size = 5
-                resident.createMinimap(player, size)
-                Message.print(player, "Minimap enabled (size = $size)")
-            }
-        })
-
-        addSyntax({ player, resident, context ->
-            // if size input, create new minimap of that size
-            // note: minimap creation internally handles removing old minimaps
-            val size = context[sizeArg].coerceIn(3, 5)
-            resident.createMinimap(player, size)
-            Message.print(player, "Minimap enabled (size = $size)")
-        }, sizeArg)
     }
 }
 

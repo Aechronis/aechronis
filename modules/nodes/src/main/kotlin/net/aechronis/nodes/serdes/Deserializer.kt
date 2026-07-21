@@ -15,6 +15,8 @@ import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.Waypoint
+import net.aechronis.nodes.objects.WaypointSharing
 import net.aechronis.nodes.utils.Color
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
@@ -76,10 +78,36 @@ object Deserializer {
                 // trusted
                 val trusted = resident.get("trust")?.asBoolean ?: false
 
+                val waypointVisibility = resident.get("waypointVisibility")?.takeIf { it.isJsonObject }?.asJsonObject?.let { visibility ->
+                    buildMap {
+                        visibility.entrySet().forEach { (key, value) ->
+                            runCatching { value.asBoolean }.getOrNull()?.let { visible -> put(key, visible) }
+                        }
+                    }
+                }.orEmpty()
+
+                val waypoints = arrayListOf<Waypoint>()
+                resident.get("waypoints")?.takeIf { it.isJsonArray }?.asJsonArray?.forEach waypointLoop@{ element ->
+                    try {
+                        val waypoint = element.asJsonObject
+                        val waypointName = waypoint.get("name")?.asString ?: return@waypointLoop
+                        val x = waypoint.get("x")?.asInt ?: return@waypointLoop
+                        val y = waypoint.get("y")?.asInt ?: return@waypointLoop
+                        val z = waypoint.get("z")?.asInt ?: return@waypointLoop
+                        val sharing = waypoint.get("sharing")?.asString?.let(WaypointSharing::fromId) ?: WaypointSharing.PRIVATE
+                        val sharedGroupId = waypoint.get("sharedGroup")?.takeUnless { it.isJsonNull }?.asString?.let(UUID::fromString)
+                        waypoints.add(Waypoint(Waypoint.normalizeName(waypointName), x, y, z, sharing, sharedGroupId))
+                    } catch (error: RuntimeException) {
+                        System.err.println("Invalid waypoint for resident $name: ${error.message}")
+                    }
+                }
+
                 Resident.load(
                     UUID.fromString(uuid),
                     name,
                     trusted,
+                    waypoints,
+                    waypointVisibility,
                 )
             }
         }

@@ -6,9 +6,6 @@ import net.aechronis.nodes.utils.ChatColor
 import net.minestom.server.command.CommandSender
 import net.minestom.server.item.Material
 
-// minimap glyph for ports
-const val PORT_MINIMAP_TOKEN: String = "⚓"
-
 // tier -> max warp distance in blocks
 val PORT_TIER_WARP_DIST: Map<Int, Int> = mapOf(
     1 to 1000,
@@ -53,8 +50,7 @@ class Port(
     }
 
     override val type: String = "port"
-    override val showOnMinimap: Boolean = true
-    override val minimapToken: String = PORT_MINIMAP_TOKEN
+    override val minimapIconCodepoint: Int = 0xE001
 
     val maxWarpDistance: Int
         get() = PORT_TIER_WARP_DIST.getValue(tier)

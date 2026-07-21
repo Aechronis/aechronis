@@ -17,6 +17,7 @@ import net.aechronis.nodes.commands.TerritoryCommand
 import net.aechronis.nodes.commands.TownChatCommand
 import net.aechronis.nodes.commands.TownCommand
 import net.aechronis.nodes.commands.UnallyCommand
+import net.aechronis.nodes.commands.WaypointCommand
 import net.aechronis.nodes.listeners.NodesChatListener
 import net.aechronis.nodes.listeners.NodesChestProtectionDestroyListener
 import net.aechronis.nodes.listeners.NodesChestProtectionListener
@@ -28,6 +29,7 @@ import net.aechronis.nodes.listeners.NodesPlotSelectionListener
 import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Coord
+import net.aechronis.nodes.objects.MinimapPassengerTracker
 import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.OreBlockCache
@@ -40,6 +42,7 @@ import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.TerritoryPreprocessing
 import net.aechronis.nodes.objects.TerritoryResources
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.serdes.Deserializer
 import net.aechronis.nodes.tasks.IncomeManager
 import net.aechronis.nodes.tasks.SaveManager
@@ -56,6 +59,7 @@ import net.minestom.server.timer.Task
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadLocalRandom
 import kotlin.system.measureNanoTime
 
@@ -66,12 +70,13 @@ object Nodes {
     val highPriorityEventNode = EventNode.all("nodes-high-priority").setPriority(-999)
 
     internal val resourceNodes: HashMap<String, ResourceNode> = hashMapOf()
-    internal val territoryChunks: HashMap<Coord, TerritoryChunk> = hashMapOf()
+    internal val territoryChunks: ConcurrentHashMap<Coord, TerritoryChunk> = ConcurrentHashMap()
     internal val territories: HashMap<TerritoryId, Territory> = hashMapOf()
     internal val towns: LinkedHashMap<String, Town> = LinkedHashMap()
     internal val nations: LinkedHashMap<String, Nation> = LinkedHashMap()
     internal val residents: LinkedHashMap<UUID, Resident> = LinkedHashMap()
     internal val buildings: MutableList<Building> = mutableListOf()
+    internal val minimapBuildingsByChunk: ConcurrentHashMap<Coord, Building> = ConcurrentHashMap()
     var playerWarpTasks: HashMap<Player, Task> = hashMapOf()
     var chunkToBuilding: HashMap<List<Int>, Building> = hashMapOf()
     internal var lastBackupTime: Long = 0
@@ -102,6 +107,7 @@ object Nodes {
         MinecraftServer.getGlobalEventHandler().addChild(lowPriorityEventNode)
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         MinecraftServer.getGlobalEventHandler().addChild(highPriorityEventNode)
+        MinimapPassengerTracker.init()
         NodesChatListener.init()
         NodesChestProtectionListener.init()
         NodesChestProtectionDestroyListener.init()
@@ -111,6 +117,7 @@ object Nodes {
         NodesPlayerMoveListener.init()
         NodesPlotSelectionListener.init()
         NodesWorldListener.init()
+        WaypointMenu.init()
         MinecraftServer.getSchedulerManager().buildShutdownTask { cleanup() }
         MinecraftServer.getCommandManager().register(TownCommand())
         MinecraftServer.getCommandManager().register(NationCommand())
@@ -124,6 +131,7 @@ object Nodes {
         MinecraftServer.getCommandManager().register(PlayerCommand())
         MinecraftServer.getCommandManager().register(TerritoryCommand())
         MinecraftServer.getCommandManager().register(PortCommand())
+        MinecraftServer.getCommandManager().register(WaypointCommand())
         lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: System.currentTimeMillis()
         reloadManagers()
         initializeOnlinePlayers()
@@ -143,7 +151,9 @@ object Nodes {
     internal fun initializeOnlinePlayers() {
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
             Resident.create(player)
-            Resident.setOnline(Resident.fromPlayer(player)!!, player)
+            val resident = Resident.fromPlayer(player)!!
+            Resident.setOnline(resident, player)
+            if (resident.minimap == null) resident.createMinimap(player)
         }
     }
 
@@ -221,37 +231,49 @@ object Nodes {
     }
 
     internal fun loadWorld(): Boolean {
-        resourceNodes.clear()
-        territoryChunks.clear()
-        territories.clear()
-        towns.clear()
-        nations.clear()
-        residents.clear()
-        buildings.clear()
-        chunkToBuilding.clear()
-        if (!Files.exists(config.pathWorld)) {
-            System.err.println("Failed to load world: ${config.pathWorld}")
-            return false
-        }
-        val (resources, territoriesJson) = Deserializer.worldFromJson(config.pathWorld)
-        if (resources != null) loadResources(resources)
-        if (territoriesJson != null) loadTerritories(territoriesJson)
-        if (!Files.exists(config.pathTowns)) {
-            System.err.println("No towns found: ${config.pathTowns}")
+        residents.values.forEach { it.destroyMinimap() }
+
+        try {
+            resourceNodes.clear()
+            territoryChunks.clear()
+            territories.clear()
+            towns.clear()
+            nations.clear()
+            residents.clear()
+            buildings.clear()
+            minimapBuildingsByChunk.clear()
+            chunkToBuilding.clear()
+            if (!Files.exists(config.pathWorld)) {
+                System.err.println("Failed to load world: ${config.pathWorld}")
+                return false
+            }
+            val (resources, territoriesJson) = Deserializer.worldFromJson(config.pathWorld)
+            if (resources != null) loadResources(resources)
+            if (territoriesJson != null) loadTerritories(territoriesJson)
+            if (!Files.exists(config.pathTowns)) {
+                System.err.println("No towns found: ${config.pathTowns}")
+                return true
+            }
+            Deserializer.townsFromJson(config.pathTowns)
+            residents.values.forEach { it.getSaveState() }
+            towns.values.forEach { it.getSaveState() }
+            nations.values.forEach { it.getSaveState() }
+            FlagWar.load()
+            if (!Files.exists(config.pathBuildings)) {
+                System.err.println("No buildings found: ${config.pathBuildings}")
+                return true
+            }
+            Deserializer.buildingsFromJson(config.pathBuildings)
+            buildings.forEach { it.getSaveState() }
             return true
+        } finally {
+            for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
+                Resident.create(player)
+                val resident = Resident.fromPlayer(player)!!
+                Resident.setOnline(resident, player)
+                resident.createMinimap(player)
+            }
         }
-        Deserializer.townsFromJson(config.pathTowns)
-        residents.values.forEach { it.getSaveState() }
-        towns.values.forEach { it.getSaveState() }
-        nations.values.forEach { it.getSaveState() }
-        FlagWar.load()
-        if (!Files.exists(config.pathBuildings)) {
-            System.err.println("No buildings found: ${config.pathBuildings}")
-            return true
-        }
-        Deserializer.buildingsFromJson(config.pathBuildings)
-        buildings.forEach { it.getSaveState() }
-        return true
     }
 
     internal fun saveWorld(checkIfNeedsSave: Boolean = true, async: Boolean = false) {

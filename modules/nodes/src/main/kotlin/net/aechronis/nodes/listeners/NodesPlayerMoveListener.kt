@@ -16,47 +16,11 @@ import net.minestom.server.potion.PotionEffect
 
 object NodesPlayerMoveListener {
     private fun onPlayerMove(event: PlayerMoveEvent) {
-        // abort if did not change blocks
-        val fromX = event.player.position.blockX()
-        val fromY = event.player.position.blockY()
-        val fromZ = event.player.position.blockZ()
-        val toX = event.newPosition.blockX()
-        val toY = event.newPosition.blockY()
-        val toZ = event.newPosition.blockZ()
-        if (fromX == toX && fromZ == toZ && fromY == toY) {
-            return
-        }
-
-        // handle event effects
         val player = event.player
-        val resident = Resident.fromPlayer(player)
-        if (resident == null) {
-            return
-        }
-
-        // player moved -> cancel any home teleport
-        resident.teleportThread?.let { thread ->
-            thread.cancel()
-            resident.teleportThread = null
-            Message.error(event.player, "You moved, teleport cancelled")
-        }
-
-        // check if player chunk changed
-        val fromCoord = Coord.fromBlockCoords(fromX, fromZ)
-        val toCoord = Coord.fromBlockCoords(toX, toZ)
-
-        if (fromCoord != toCoord) {
-            onPlayerMoveChunk(event.player, resident, fromCoord, toCoord)
-        }
-    }
-
-    // handle player teleport (e.g. /t spawn)
-    private fun onPlayerTeleport(event: EntityTeleportEvent) {
-        val entity = event.entity
-        val player = entity as? Player
-
-        if (player == null) {
-            return
+        val resident = Resident.fromPlayer(player) ?: return
+        resident.minimap?.let { minimap ->
+            minimap.updateYaw(event.newPosition.yaw)
+            minimap.updateWaypointDisplayTransforms(event.newPosition)
         }
 
         // abort if did not change blocks
@@ -72,9 +36,11 @@ object NodesPlayerMoveListener {
 
         // handle event effects
 
-        val resident = Resident.fromPlayer(player)
-        if (resident == null) {
-            return
+        // player moved -> cancel any home teleport
+        resident.teleportThread?.let { thread ->
+            thread.cancel()
+            resident.teleportThread = null
+            Message.error(event.player, "You moved, teleport cancelled")
         }
 
         // check if player chunk changed
@@ -82,6 +48,39 @@ object NodesPlayerMoveListener {
         val toCoord = Coord.fromBlockCoords(toX, toZ)
 
         if (fromCoord != toCoord) {
+            resident.updateMinimap(toX, toZ)
+            onPlayerMoveChunk(event.player, resident, fromCoord, toCoord)
+        }
+    }
+
+    // handle player teleport (e.g. /t spawn)
+    private fun onPlayerTeleport(event: EntityTeleportEvent) {
+        val player = event.entity as? Player ?: return
+        val resident = Resident.fromPlayer(player) ?: return
+        resident.minimap?.let { minimap ->
+            minimap.updateYaw(event.newPosition.yaw)
+            minimap.updateWaypointDisplayTransforms(event.newPosition)
+        }
+
+        // abort if did not change blocks
+        val fromX = player.position.blockX()
+        val fromY = player.position.blockY()
+        val fromZ = player.position.blockZ()
+        val toX = event.newPosition.blockX()
+        val toY = event.newPosition.blockY()
+        val toZ = event.newPosition.blockZ()
+        if (fromX == toX && fromZ == toZ && fromY == toY) {
+            return
+        }
+
+        // handle event effects
+
+        // check if player chunk changed
+        val fromCoord = Coord.fromBlockCoords(fromX, fromZ)
+        val toCoord = Coord.fromBlockCoords(toX, toZ)
+
+        if (fromCoord != toCoord) {
+            resident.updateMinimap(toX, toZ)
             onPlayerMoveChunk(player, resident, fromCoord, toCoord)
         }
     }
@@ -110,9 +109,6 @@ object NodesPlayerMoveListener {
                 printTownMessage(player, resident, toTown, toTerritory)
             }
         }
-
-        // update minimap
-        resident.updateMinimap(toCoord)
 
         // check if flight needs to be disabled (e.g. player moved to different town or wilderness)
         // ignore admins in creative and spectator
@@ -154,36 +150,14 @@ private fun printTownMessage(player: Player, resident: Resident, toTown: Town, t
     }
 
     // territory name color
-    val territoryNameColor = if (residentTown !== null) {
-        val residentNation = residentTown.nation
-        val toTownNation = toTown.nation
-        if (toTown === residentTown) {
-            ChatColor.DARK_GREEN
-        } else if (residentNation !== null && toTownNation !== null && residentNation.enemies.contains(toTownNation)) {
-            ChatColor.DARK_RED
-        } else {
-            ChatColor.DARK_AQUA
-        }
-    } else {
-        ChatColor.DARK_AQUA
-    }
+    val territoryNameColor = Town.relationshipOfTownToTown(residentTown, toTown).chatColor
 
     // territory occupation/captured modifier
-    val ownerStatus = if (residentTown !== null && territoryOccupier !== null) {
-        if (territoryOccupier === residentTown) {
-            " ${ChatColor.DARK_GREEN}(Captured)"
-        } else if (toTown === residentTown) {
-            " ${ChatColor.DARK_RED}(Occupied)"
-        } else {
-            " ${ChatColor.DARK_AQUA}(Occupied)"
-        }
-    } else {
-        if (territoryOccupier !== null) {
-            " (Occupied)"
-        } else {
-            ""
-        }
-    }
+    val ownerStatus = territoryOccupier?.let { occupier ->
+        val relationshipColor = Town.relationshipOfTownToTown(residentTown, occupier).chatColor
+        val status = if (occupier === residentTown) "Captured" else "Occupied"
+        " $relationshipColor($status)"
+    } ?: ""
 
     Message.announcement(player, "${territoryNameColor}${territoryName}$ownerStatus")
 }

@@ -6,9 +6,6 @@ import net.aechronis.nodes.utils.ChatColor
 import net.minestom.server.command.CommandSender
 import net.minestom.server.item.Material
 
-// minimap glyph for farms
-const val FARM_MINIMAP_TOKEN: String = "\uD83D\uDC04"
-
 // tier -> materials produced per income period
 private val FARM_TIER_INCOME: Map<Int, Map<Material, Double>> = mapOf(
     1 to mapOf(Material.WHEAT to 1.0, Material.BEEF to 1.0),
@@ -34,8 +31,7 @@ class Farm(
     }
 
     override val type: String = "farm"
-    override val showOnMinimap: Boolean = true
-    override val minimapToken: String = FARM_MINIMAP_TOKEN
+    override val minimapIconCodepoint: Int = 0xE000
 
     override fun income(): Map<Material, Double> = FARM_TIER_INCOME.getValue(tier)
 
