@@ -3,6 +3,7 @@ package net.aechronis.combat.objects
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
 import net.kyori.adventure.text.Component
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
@@ -93,14 +94,28 @@ open class Car(
         val newZ = position.z + dz
 
         val instance = entity.instance ?: return
-        val currentGroundY = position.y - hitbox.getGroundOffset()
-        val newGroundY = findGroundY(instance, newX, newZ, currentGroundY)
-        val heightDelta = newGroundY - currentGroundY
+        if (!canStartMoving(instance, position)) {
+            playerSpeed[player] = 0f
+            super.onTick(player)
+            return
+        }
+
+        val currentSurfaceY = getCurrentSurfaceY(position)
+        val targetPosition = position.withX(newX).withZ(newZ)
+        val newSurfaceY = findSurfaceY(instance, targetPosition, currentSurfaceY)
+        if (newSurfaceY == null) {
+            playerSpeed[player] = 0f
+            super.onTick(player)
+            return
+        }
+
+        val newY = getVehicleY(newSurfaceY)
+        val heightDelta = newY - position.y
 
         // checks if we can climb/drop
         val newPos =
             if (heightDelta <= maxClimbHeight) {
-                position.withX(newX).withZ(newZ).withY(newGroundY + hitbox.getGroundOffset())
+                position.withX(newX).withZ(newZ).withY(newY)
             } else {
                 position
             }
@@ -110,21 +125,29 @@ open class Car(
         super.onTick(player)
     }
 
-    private fun findGroundY(
+    protected open fun canStartMoving(
         instance: Instance,
-        x: Double,
-        z: Double,
-        currentY: Double,
-    ): Double {
-        val startY = (currentY + maxClimbHeight + 1).toInt()
-        val endY = (currentY - 10).toInt()
+        position: Pos,
+    ): Boolean = true
+
+    protected open fun getCurrentSurfaceY(position: Pos): Double = position.y - hitbox.getGroundOffset()
+
+    protected open fun getVehicleY(surfaceY: Double): Double = surfaceY + hitbox.getGroundOffset()
+
+    protected open fun findSurfaceY(
+        instance: Instance,
+        position: Pos,
+        currentSurfaceY: Double,
+    ): Double? {
+        val startY = (currentSurfaceY + maxClimbHeight + 1).toInt()
+        val endY = (currentSurfaceY - 10).toInt()
         for (y in startY downTo endY) {
-            val block = instance.getBlock(x.toInt(), y, z.toInt())
+            val block = instance.getBlock(position.x.toInt(), y, position.z.toInt())
             if (block.isSolid) {
                 return (y + 1).toDouble()
             }
         }
-        return currentY
+        return currentSurfaceY
     }
 
     companion object {

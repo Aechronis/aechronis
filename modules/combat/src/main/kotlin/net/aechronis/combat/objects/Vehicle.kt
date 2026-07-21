@@ -15,6 +15,7 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
+import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.timer.TaskSchedule
@@ -46,12 +47,19 @@ open class Vehicle(
         pos: Pos,
     ): Boolean {
         if (Combat.placeTasks[player] != null) return false // already placing
+        val instance = player.instance ?: return false
+        if (!canPlaceAt(instance, pos)) return false
 
         // create task
         runPlaceTask(player, pos)
 
         return true
     }
+
+    protected open fun canPlaceAt(
+        instance: Instance,
+        pos: Pos,
+    ): Boolean = true
 
     private fun runPlaceTask(
         player: Player,
@@ -175,7 +183,10 @@ open class Vehicle(
             return
         }
 
-        playerSeatEntity[player]?.teleport(getSeatWorldPos(entity, 0))
+        val playerView = player.position
+        playerSeatEntity[player]?.teleport(
+            getSeatWorldPos(entity, 0).withView(playerView.yaw, playerView.pitch),
+        )
 
         // update passenger seat positions
         entityPassengers[entity]?.toList()?.forEachIndexed { index, passenger ->

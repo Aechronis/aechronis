@@ -21,16 +21,9 @@ class Hitbox(
     val parts: List<HitboxPart>,
 ) {
     // gets the y offset needed to place the vehicle on the ground
-    fun getGroundOffset(): Double {
-        var lowestY = 0.0
-        for (part in parts) {
-            val bottomY = part.offset.y - part.size.y
-            if (bottomY < lowestY) {
-                lowestY = bottomY
-            }
-        }
-        return -lowestY
-    }
+    fun getGroundOffset(): Double = -getBottomOffset()
+
+    fun getBottomOffset(): Double = parts.minOfOrNull { it.offset.y - it.size.y } ?: 0.0
 
     // local-space centre of the combined bounding box of all parts
     fun getCenterOffset(): Vec {

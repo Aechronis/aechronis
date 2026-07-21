@@ -104,6 +104,9 @@ class Tank(
     }
 
     override fun onTick(player: Player) {
+        val targetYaw = player.position.yaw
+        val targetPitch = max(-25F, min(5F, player.position.pitch))
+
         // body movement
         super.onTick(player)
 
@@ -112,10 +115,6 @@ class Tank(
         val turret = entityTurret[entity] ?: return
         val barrel = entityBarrel[entity] ?: return
         val pos = entity.position
-
-        // target where the driver is looking
-        val targetYaw = player.position.yaw
-        val targetPitch = max(-25F, min(5F, player.position.pitch))
 
         // turret
         val currentYaw = yaw[entity] ?: pos.yaw

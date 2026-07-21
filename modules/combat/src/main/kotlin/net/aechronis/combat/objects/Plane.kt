@@ -36,6 +36,8 @@ class Plane(
     hitbox: Hitbox,
     health: Float = 1000F,
     placeTime: Long = 3000,
+    val speed: Double = 0.5,
+    val turnSpeed: Float = 0.05f,
     val weapons: List<PlaneWeapon> = emptyList(),
 ) : Vehicle(
         name,
@@ -56,6 +58,7 @@ class Plane(
         if (playerVehicleEntity.values.any { it == entity }) return
 
         super.onEnter(player, entity)
+        (entity.entityMeta as ItemDisplayMeta).setTransformationInterpolationDuration(3)
         playerRoll[player] = 0f
         playerState[player] = PlaneState.LANDED
         takeoffCounter[player] = 0
@@ -79,9 +82,7 @@ class Plane(
 
     override fun onTick(player: Player) {
         val entity = playerVehicleEntity[player] ?: return
-        val position = entity.position
-        val direction = entity.position.direction()
-        val roll = playerRoll[player] ?: 0f
+        var roll = playerRoll[player] ?: 0f
         var state = playerState[player] ?: PlaneState.LANDED
 
         if (state == PlaneState.CRASHED) {
@@ -96,6 +97,27 @@ class Plane(
             takeoffCounter[player] = 200
             state = PlaneState.TAKING_OFF
         }
+
+        if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
+            if (inputEvent?.isHoldingForwardKey == true) {
+                entity.setView(entity.position.yaw, min(entity.position.pitch + 1, 60f))
+            }
+            if (inputEvent?.isHoldingBackwardKey == true) {
+                entity.setView(entity.position.yaw, max(entity.position.pitch - 1, -60f))
+            }
+
+            val targetRoll =
+                when {
+                    inputEvent?.isHoldingLeftKey == true && inputEvent.isHoldingRightKey != true -> -45f
+                    inputEvent?.isHoldingRightKey == true && inputEvent.isHoldingLeftKey != true -> 45f
+                    else -> 0f
+                }
+            roll = approach(roll, targetRoll, 1.5f)
+            playerRoll[player] = roll
+        }
+
+        val position = entity.position
+        val direction = position.direction()
 
         // check for collision
         val isColliding =
@@ -130,38 +152,30 @@ class Plane(
         }
 
         if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
-            entity.teleport(position.add(direction.mul(0.5)).withYaw(position.yaw + roll * 0.05f))
+            entity.teleport(position.add(direction.mul(speed)).withYaw(position.yaw + roll * turnSpeed))
         }
-
-        if (inputEvent == null) return
 
         val meta = entity.entityMeta as ItemDisplayMeta
-
-        if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
-            if (inputEvent.isHoldingForwardKey) {
-                entity.setView(position.yaw, min(position.pitch + 1, 60f))
-            }
-            if (inputEvent.isHoldingBackwardKey) {
-                entity.setView(position.yaw, max(position.pitch - 1, -60f))
-            }
-
-            if (inputEvent.isHoldingLeftKey) {
-                playerRoll[player] = max(roll - 1F, -45f)
-            }
-            if (inputEvent.isHoldingRightKey) {
-                playerRoll[player] = min(roll + 1F, 45f)
-            }
-        }
-
         meta.leftRotation = setRoll((playerRoll[player] ?: 0f) / 55)
 
         // fire guns when holding space while flying
-        if ((state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) && inputEvent.isHoldingJumpKey) {
+        if ((state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) && inputEvent?.isHoldingJumpKey == true) {
             fireGuns(player)
         }
 
         super.onTick(player)
     }
+
+    private fun approach(
+        current: Float,
+        target: Float,
+        maxStep: Float,
+    ): Float =
+        when {
+            target - current > maxStep -> current + maxStep
+            target - current < -maxStep -> current - maxStep
+            else -> target
+        }
 
     // fires all weapons from this plane
     private fun fireGuns(player: Player) {

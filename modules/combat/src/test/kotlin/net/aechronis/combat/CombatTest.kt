@@ -12,6 +12,7 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneWeapon
+import net.aechronis.combat.objects.Ship
 import net.aechronis.combat.objects.Tank
 import net.aechronis.utils.createTestServer
 import net.kyori.adventure.text.Component
@@ -20,6 +21,8 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
+import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.generator.Generator
 import net.minestom.server.particle.Particle
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -29,9 +32,16 @@ import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CombatTest {
+    val shipGen =
+        Generator { unit ->
+            unit.modifier().fillHeight(0, 60, Block.WATER)
+        }
+
     @BeforeAll
     fun setup() {
-        createTestServer(gameMode = GameMode.SURVIVAL)
+        createTestServer(
+            gameMode = GameMode.CREATIVE,
+        )
 
         val testAmmo =
             Ammo(
@@ -61,13 +71,7 @@ class CombatTest {
             Hat(
                 name = "test-hat",
                 itemName = Component.text("Test hat", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            )
-
-        val testHat2 =
-            Hat(
-                name = "test-hat2",
-                itemName = Component.text("Test hat 2", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-                itemModel = "minecraft:diamond",
+                itemModel = "combat:test-armor",
             )
 
         val testChestplate =
@@ -135,6 +139,8 @@ class CombatTest {
                 hitbox = testPlaneHitbox,
                 weapons = listOf(testPlaneWeapon),
                 scale = 7.0,
+                speed = 1.0,
+                turnSpeed = 0.09f,
             )
 
         val testCarHitbox =
@@ -157,12 +163,34 @@ class CombatTest {
                 seatOffsets = listOf(Vec.ZERO, Vec(1.0, 0.0, 0.0)),
             )
 
+        val testShip =
+            Ship(
+                name = "test-ship",
+                itemName = Component.text("Test Ship", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+                model = "aechronis:boat",
+                hitbox =
+                    Hitbox(
+                        listOf(
+                            HitboxPart(
+                                offset = Vec(0.0, 1.0, 0.0),
+                                size = Vec(1.0, 1.0, 1.0),
+                            ),
+                        ),
+                    ),
+                scale = 3.0,
+                seatOffsets = listOf(Vec.ZERO, Vec(1.0, 0.0, 0.0)),
+            )
+
         val testTankHitbox =
             Hitbox(
                 listOf(
                     HitboxPart(
                         offset = Vec(0.0, 0.0, 0.0),
-                        size = Vec(1.6, 1.5, 2.6),
+                        size = Vec(1.7, 0.8, 2.7),
+                    ),
+                    HitboxPart(
+                        offset = Vec(0.0, 0.9, 0.0),
+                        size = Vec(1.2, 0.45, 1.4),
                     ),
                 ),
             )
@@ -174,7 +202,22 @@ class CombatTest {
                 model = "aechronis:m1a1-abrams",
                 hitbox = testTankHitbox,
                 scale = 3.0,
-                seatOffsets = listOf(Vec(0.0, 1.0, 0.0)),
+                health = 500F,
+                placeTime = 1500,
+                maxSpeed = 0.18f,
+                acceleration = 0.008f,
+                braking = 0.02f,
+                friction = 0.96f,
+                turnSpeed = 1.5f,
+                maxClimbHeight = 1.0f,
+                turretTraverseSpeed = 3.0f,
+                projectileModel = "aechronis:m1a1-abrams-shell",
+                projectileSpeed = 4.0,
+                projectileExplosionRadius = 4,
+                projectileExplosionFire = 0.1,
+                barrelTipOffset = Vec(0.0, 0.0, 5.0),
+                fireCooldown = 1000,
+                seatOffsets = listOf(Vec(0.0, 0.95, -0.9), Vec(0.0, 1.35, 0.0)),
             )
 
         val testDroneHitbox =
@@ -202,13 +245,13 @@ class CombatTest {
             testAmmo,
             testGun,
             testHat,
-            testHat2,
             testChestplate,
             testLeggings,
             testBoots,
             testSword,
             testPlane,
             testCar,
+            testShip,
             testTank,
             testDrone,
         )
