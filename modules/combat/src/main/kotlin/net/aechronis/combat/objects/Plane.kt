@@ -10,8 +10,6 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 
 enum class PlaneState {
     LANDED,
@@ -38,6 +36,10 @@ class Plane(
     placeTime: Long = 3000,
     val speed: Double = 0.5,
     val turnSpeed: Float = 0.05f,
+    val throttleStep: Float = 5f,
+    val landingThrottle: Float = 35f,
+    val maxThrottle: Float = 100f,
+    val minAirThrottle: Float = 30f,
     val weapons: List<PlaneWeapon> = emptyList(),
 ) : Vehicle(
         name,
@@ -62,6 +64,7 @@ class Plane(
         playerRoll[player] = 0f
         playerState[player] = PlaneState.LANDED
         takeoffCounter[player] = 0
+        playerThrottle[player] = 0f
     }
 
     override fun onExit(player: Player) {
@@ -69,6 +72,7 @@ class Plane(
         playerRoll.remove(player)
         playerState.remove(player)
         takeoffCounter.remove(player)
+        playerThrottle.remove(player)
     }
 
     override fun destroy(entity: Entity) {
@@ -98,13 +102,20 @@ class Plane(
             state = PlaneState.TAKING_OFF
         }
 
+        var throttle = playerThrottle[player] ?: 0f
+        if (state == PlaneState.LANDED) {
+            throttle = 0f
+        } else {
+            when {
+                inputEvent?.isHoldingForwardKey == true -> throttle += throttleStep
+                inputEvent?.isHoldingBackwardKey == true -> throttle -= throttleStep
+            }
+            throttle = throttle.coerceIn(minAirThrottle, maxThrottle)
+        }
+        playerThrottle[player] = throttle
+
         if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
-            if (inputEvent?.isHoldingForwardKey == true) {
-                entity.setView(entity.position.yaw, min(entity.position.pitch + 1, 60f))
-            }
-            if (inputEvent?.isHoldingBackwardKey == true) {
-                entity.setView(entity.position.yaw, max(entity.position.pitch - 1, -60f))
-            }
+            entity.setView(entity.position.yaw, player.position.pitch.coerceIn(-60f, 60f))
 
             val targetRoll =
                 when {
@@ -126,12 +137,14 @@ class Plane(
         // handle collision
         if (isColliding && state == PlaneState.FLYING) {
             val isSafeLanding =
-                abs(position.pitch) < 10f &&
+                throttle <= landingThrottle &&
+                    abs(position.pitch) < 10f &&
                     abs(roll) < 10f
 
             if (isSafeLanding) {
                 playerState[player] = PlaneState.LANDED
                 playerRoll[player] = 0f
+                playerThrottle[player] = 0f
                 return
             } else {
                 playerState[player] = PlaneState.CRASHED
@@ -152,7 +165,8 @@ class Plane(
         }
 
         if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
-            entity.teleport(position.add(direction.mul(speed)).withYaw(position.yaw + roll * turnSpeed))
+            val throttleSpeed = speed * throttle / maxThrottle
+            entity.teleport(position.add(direction.mul(throttleSpeed)).withYaw(position.yaw + roll * turnSpeed))
         }
 
         val meta = entity.entityMeta as ItemDisplayMeta
@@ -207,5 +221,6 @@ class Plane(
         var playerRoll = hashMapOf<Player, Float>()
         var playerState = hashMapOf<Player, PlaneState>()
         var takeoffCounter = hashMapOf<Player, Int>()
+        var playerThrottle = hashMapOf<Player, Float>()
     }
 }

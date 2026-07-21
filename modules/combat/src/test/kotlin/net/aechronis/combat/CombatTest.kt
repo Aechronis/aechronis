@@ -139,8 +139,8 @@ class CombatTest {
                 hitbox = testPlaneHitbox,
                 weapons = listOf(testPlaneWeapon),
                 scale = 7.0,
-                speed = 1.0,
-                turnSpeed = 0.09f,
+                speed = 1.25,
+                turnSpeed = 0.1f,
             )
 
         val testCarHitbox =
