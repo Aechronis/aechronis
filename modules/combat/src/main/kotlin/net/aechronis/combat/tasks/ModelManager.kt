@@ -2,6 +2,7 @@ package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Gun
+import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.storage.HatCollection
 import net.minestom.server.MinecraftServer
@@ -34,7 +35,14 @@ object ModelManager {
     }
 
     fun updateHat(player: Player) {
-        player.helmet = HatCollection.getEquippedHat(player.uuid)?.toItemStack() ?: ItemStack.AIR
+        val equippedHat = HatCollection.getEquippedHat(player.uuid)
+        val currentHelmet = player.helmet
+
+        if (equippedHat != null) {
+            player.helmet = equippedHat.toItemStack()
+        } else if (Item.getFromItemStack(currentHelmet) is Hat) {
+            player.helmet = ItemStack.AIR
+        }
     }
 
     fun updateModel(player: Player) {

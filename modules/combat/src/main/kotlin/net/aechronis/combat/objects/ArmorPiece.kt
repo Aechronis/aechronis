@@ -4,11 +4,15 @@ import net.aechronis.combat.constants.Tags
 import net.kyori.adventure.text.Component
 import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.EquipmentSlot
+import net.minestom.server.entity.EquipmentSlotGroup
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.attribute.Attribute
+import net.minestom.server.entity.attribute.AttributeModifier
+import net.minestom.server.entity.attribute.AttributeOperation
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import net.minestom.server.item.component.AttributeList
 import net.minestom.server.item.component.Equippable
-import net.minestom.server.registry.RegistryTag
 
 class ArmorPiece(
     name: String,
@@ -25,13 +29,35 @@ class ArmorPiece(
         itemModel,
         Material.WARPED_FUNGUS_ON_A_STICK,
     ) {
+    private val armorSlotGroup =
+        when (slot) {
+            EquipmentSlot.HELMET -> EquipmentSlotGroup.HEAD
+            EquipmentSlot.CHESTPLATE -> EquipmentSlotGroup.CHEST
+            EquipmentSlot.LEGGINGS -> EquipmentSlotGroup.LEGS
+            EquipmentSlot.BOOTS -> EquipmentSlotGroup.FEET
+            else -> error("Armor pieces must use an armor equipment slot")
+        }
+
+    private val attributeModifiers =
+        AttributeList(
+            AttributeList.Modifier(
+                Attribute.ARMOR,
+                AttributeModifier(
+                    "${Tags.NAMESPACE}:$name-armor",
+                    protection.toDouble() * 20.0,
+                    AttributeOperation.ADD_VALUE,
+                ),
+                armorSlotGroup,
+            ),
+        )
+
     private val equippable =
         Equippable(
             slot,
             Equippable.DEFAULT_EQUIP_SOUND,
             assetId,
             null,
-            RegistryTag.empty(),
+            null,
             true,
             true,
             false,
@@ -43,6 +69,7 @@ class ArmorPiece(
     override fun toItemStack(): ItemStack =
         super
             .toItemStack()
+            .with(DataComponents.ATTRIBUTE_MODIFIERS, attributeModifiers)
             .with(DataComponents.EQUIPPABLE, equippable)
 
     companion object {
