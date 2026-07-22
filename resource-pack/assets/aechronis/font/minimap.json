@@ -1,0 +1,179 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/farm.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/port.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/waypoint_private.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/waypoint_death.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/waypoint_private_scale_12.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/waypoint_death_scale_12.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/waypoint_town.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/waypoint_nation.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/waypoint_town_scale_12.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/waypoint_nation_scale_12.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/waypoint_ally.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/waypoint_ally_scale_12.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/attack/enemy.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/attack/nation.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/attack/neutral.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/attack/town.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/attack/ally.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/territories/enemy.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/territories/nation.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/territories/unclaimed.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/territories/neutral.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/territories/town.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/territories/ally.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/territories/core.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/player.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
+    }
+  ]
+}
