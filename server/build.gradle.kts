@@ -38,11 +38,11 @@ dependencies {
     // utils
     implementation("net.aechronis:utils:86a747b")
     // nodes
-    implementation("net.aechronis:nodes:aeb67e2")
+    implementation("net.aechronis:nodes:d0a0f34")
     // combat
-    implementation("net.aechronis:combat:d41159b")
+    implementation("net.aechronis:combat:a7c3f57")
     // vanilla
-    implementation("net.aechronis:vanilla:4eb139d")
+    implementation("net.aechronis:vanilla:db7afbd")
     // logger
     implementation("net.aechronis:logger:b2ecab0")
     // axiom
