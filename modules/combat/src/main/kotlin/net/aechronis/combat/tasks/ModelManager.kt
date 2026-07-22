@@ -64,6 +64,7 @@ object ModelManager {
                 for (x in -1..1) {
                     for (z in -1..1) {
                         val pos: Pos = player.position.add(x.toDouble(), y.toDouble(), z.toDouble())
+                        if (!instance.isChunkLoaded(pos)) continue
                         if (instance.getBlock(pos).isAir) {
                             player.sendPacket(BlockChangePacket(pos, Block.GLOW_LICHEN))
                             MinecraftServer
