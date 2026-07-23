@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "aechronis:turkey"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "aechronis:turkey"
+      }
+    ]
+  }
+}
