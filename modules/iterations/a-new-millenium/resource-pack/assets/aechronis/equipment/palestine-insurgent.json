@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "aechronis:palestine-insurgent"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "aechronis:palestine-insurgent"
+      }
+    ]
+  }
+}
