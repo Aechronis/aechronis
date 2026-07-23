@@ -1,17 +1,22 @@
 {
-  "ak47.fire": {
+  "ak74.fire": {
     "sounds": [
-      "aechronis:ak47-fire"
+      "aechronis:ak74-fire"
     ]
   },
-  "ak47.reload": {
+  "ak74.reload": {
     "sounds": [
-      "aechronis:ak47-reload"
+      "aechronis:ak74-reload"
     ]
   },
-  "fighter-gun.fire": {
+  "m4a1.fire": {
     "sounds": [
-      "aechronis:fighter-gun-fire"
+      "aechronis:m4a1-fire"
+    ]
+  },
+  "m4a1.reload": {
+    "sounds": [
+      "aechronis:m4a1-reload"
     ]
   },
   "drone.buzz": {
