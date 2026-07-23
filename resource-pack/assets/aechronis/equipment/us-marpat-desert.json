@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "aechronis:us-marpat-desert"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "aechronis:us-marpat-desert"
+      }
+    ]
+  }
+}
