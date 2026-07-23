@@ -1,0 +1,13 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "font/aechronis.png",
+      "ascent": 8,
+      "height": 50,
+      "chars": [
+        "\ue002"
+      ]
+    }
+  ]
+}
