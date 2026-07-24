@@ -12,12 +12,9 @@ import net.minestom.server.timer.TaskSchedule
 import java.time.Duration
 
 object Items {
-    private const val UNLIMITED_STACK_SIZE = Int.MAX_VALUE
-
     fun init() {
         val timeStart = System.currentTimeMillis()
         ItemListener.init()
-        startMagnetTask()
         val timeEnd = System.currentTimeMillis()
         println("├─ Items enabled in ${timeEnd - timeStart}ms")
     }
@@ -29,7 +26,7 @@ object Items {
         velocity: Vec = Vec.ZERO,
     ): ItemEntity {
         val config = Vanilla.config
-        val item = ItemEntity(stack.withMaxStackSize(UNLIMITED_STACK_SIZE))
+        val item = ItemEntity(stack.withMaxStackSize(stack.material().maxStackSize()))
         item.isPickable = false
         item.setInstance(instance, position)
         item.velocity = velocity
@@ -40,38 +37,5 @@ object Items {
             .schedule()
         item.scheduleRemove(Duration.ofSeconds(config.dropDespawnSeconds))
         return item
-    }
-
-    private fun startMagnetTask() {
-        MinecraftServer
-            .getSchedulerManager()
-            .buildTask {
-                val config = Vanilla.config
-                for (instance in MinecraftServer.getInstanceManager().instances) {
-                    val items = instance.entities.filterIsInstance<ItemEntity>()
-                    for (item in items) {
-                        if (!item.isPickable) continue
-                        val stack = item.itemStack
-
-                        var closest: ItemEntity? = null
-                        var closestDistance = config.dropMagnetRadius
-                        for (other in items) {
-                            if (other === item || !other.isPickable) continue
-                            if (!other.itemStack.isSimilar(stack)) continue
-                            val distance = item.position.distance(other.position)
-                            if (distance < closestDistance) {
-                                closestDistance = distance
-                                closest = other
-                            }
-                        }
-
-                        val target = closest ?: continue
-                        if (closestDistance < 0.1) continue
-                        val toTarget = target.position.asVec().sub(item.position.asVec())
-                        item.velocity = toTarget.normalize().mul(config.dropMagnetSpeed)
-                    }
-                }
-            }.repeat(TaskSchedule.tick(20))
-            .schedule()
     }
 }
