@@ -49,7 +49,12 @@ class VanillaTest {
         instance.setBlock(0, 40, 0, Block.FIRE)
 
         EnvironmentalDamage.tickPlayer(player)
-        repeat(10) { EnvironmentalDamage.tickPlayer(player) }
+        assertEquals(19f, player.health)
+
+        repeat(9) { EnvironmentalDamage.tickPlayer(player) }
+        assertEquals(19f, player.health)
+
+        EnvironmentalDamage.tickPlayer(player)
 
         assertEquals(18f, player.health)
         assertEquals(160, player.fireTicks)

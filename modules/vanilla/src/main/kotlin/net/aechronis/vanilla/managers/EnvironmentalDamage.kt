@@ -60,8 +60,7 @@ object EnvironmentalDamage {
                 fireContactTicks.remove(player.uuid)
                 return
             }
-            val ticks = (fireContactTicks[player.uuid] ?: 0) + 1
-            fireContactTicks[player.uuid] = ticks
+            val ticks = (fireContactTicks[player.uuid] ?: (Vanilla.config.fireContactTicks - 1)) + 1
             if (ticks >= Vanilla.config.fireContactTicks) {
                 player.damage(IN_FIRE, Vanilla.config.fireDmg)
                 fireContactTicks[player.uuid] = 0
