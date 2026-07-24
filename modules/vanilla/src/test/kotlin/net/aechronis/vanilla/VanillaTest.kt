@@ -1,6 +1,7 @@
 package net.aechronis.vanilla
 
 import net.aechronis.utils.createTestServer
+import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.ItemListener
 import net.aechronis.vanilla.listeners.MannequinListener
 import net.aechronis.vanilla.managers.EnvironmentalDamage
@@ -26,6 +27,7 @@ import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.PlayerSkin
 import net.minestom.server.event.item.PickupItemEvent
 import net.minestom.server.event.player.PlayerDeathEvent
+import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.instance.block.Block
@@ -124,6 +126,37 @@ class VanillaTest {
         assertEquals(300, creative.entityMeta.airTicks)
         instance.setBlock(4, 40, 4, Block.AIR)
         instance.setBlock(6, 40, 6, Block.AIR)
+    }
+
+    @Test
+    fun `fall damage starts at four full blocks`() {
+        val safePlayer = createPlayer(Pos(14.5, 40.0, 4.5))
+        FallDamageListener.onMove(PlayerMoveEvent(safePlayer, Pos(14.5, 43.9, 4.5), false))
+        FallDamageListener.onMove(PlayerMoveEvent(safePlayer, Pos(14.5, 40.0, 4.5), true))
+
+        assertEquals(20f, safePlayer.health)
+        safePlayer.remove()
+
+        val damagedPlayer = createPlayer(Pos(16.5, 40.0, 4.5))
+        FallDamageListener.onMove(PlayerMoveEvent(damagedPlayer, Pos(16.5, 44.0, 4.5), false))
+        FallDamageListener.onMove(PlayerMoveEvent(damagedPlayer, Pos(16.5, 40.0, 4.5), true))
+
+        assertEquals(19f, damagedPlayer.health)
+        damagedPlayer.remove()
+    }
+
+    @Test
+    fun `water at the feet clears fall damage`() {
+        val player = createPlayer(Pos(18.5, 40.0, 4.5))
+        FallDamageListener.onMove(PlayerMoveEvent(player, Pos(18.5, 45.0, 4.5), false))
+        instance.setBlock(18, 40, 4, Block.WATER)
+
+        FallDamageListener.onMove(PlayerMoveEvent(player, Pos(18.5, 40.0, 4.5), true))
+        instance.setBlock(18, 40, 4, Block.AIR)
+        FallDamageListener.onMove(PlayerMoveEvent(player, Pos(18.5, 40.0, 4.5), true))
+
+        assertEquals(20f, player.health)
+        player.remove()
     }
 
     @Test

@@ -6,9 +6,11 @@ import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
+import net.minestom.server.instance.block.Block
 import net.minestom.server.registry.RegistryKey
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.floor
 
 object FallDamageListener {
     private val FALL: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:fall")
@@ -28,12 +30,16 @@ object FallDamageListener {
         }
 
         val newY = event.newPosition.y
+        if (player.instance?.getBlock(event.newPosition, Block.Getter.Condition.TYPE) === Block.WATER) {
+            fallStartY.remove(player.uuid)
+            return
+        }
 
         if (!event.isOnGround) {
             fallStartY.merge(player.uuid, newY, ::maxOf)
         } else {
             val startY = fallStartY.remove(player.uuid) ?: return
-            val damage = (startY - newY - 3.0).toFloat()
+            val damage = floor(startY - newY - 3.0).toFloat()
             if (damage > 0f && player.health > 0f) {
                 player.damage(FALL, damage)
             }
