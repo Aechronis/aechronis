@@ -37,6 +37,7 @@ class Plane(
     val speed: Double = 0.5,
     val turnSpeed: Float = 0.05f,
     val throttleStep: Float = 5f,
+    val throttleDecay: Float = 0.25f,
     val landingThrottle: Float = 35f,
     val maxThrottle: Float = 100f,
     val minAirThrottle: Float = 30f,
@@ -108,25 +109,24 @@ class Plane(
         if (state == PlaneState.LANDED) {
             throttle = 0f
         } else {
-            when {
-                inputEvent?.isHoldingForwardKey == true -> throttle += throttleStep
-                inputEvent?.isHoldingBackwardKey == true -> throttle -= throttleStep
-            }
-            throttle = throttle.coerceIn(minAirThrottle, maxThrottle)
+            throttle =
+                nextThrottle(
+                    throttle,
+                    inputEvent?.isHoldingForwardKey == true,
+                    inputEvent?.isHoldingBackwardKey == true,
+                )
         }
         playerThrottle[player] = throttle
 
         if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
-            entity.setView(entity.position.yaw, player.position.pitch.coerceIn(-60f, 60f))
-
-            val targetRoll =
-                when {
-                    inputEvent?.isHoldingLeftKey == true && inputEvent.isHoldingRightKey != true -> -45f
-                    inputEvent?.isHoldingRightKey == true && inputEvent.isHoldingLeftKey != true -> 45f
-                    else -> 0f
-                }
+            val targetYaw = player.position.yaw
+            val yawDelta = angleDifference(entity.position.yaw, targetYaw)
+            val targetRoll = yawDelta.coerceIn(-45f, 45f)
             roll = approach(roll, targetRoll, 1.5f)
             playerRoll[player] = roll
+
+            val yaw = approachAngle(entity.position.yaw, targetYaw, 45f * turnSpeed)
+            entity.setView(yaw, player.position.pitch.coerceIn(-60f, 60f))
         }
 
         val position = entity.position
@@ -168,7 +168,7 @@ class Plane(
 
         if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
             val throttleSpeed = speed * throttle / maxThrottle
-            entity.teleport(position.add(direction.mul(throttleSpeed)).withYaw(position.yaw + roll * turnSpeed))
+            entity.teleport(position.add(direction.mul(throttleSpeed)))
         }
 
         val meta = entity.entityMeta as ItemDisplayMeta
@@ -192,6 +192,39 @@ class Plane(
             target - current < -maxStep -> current - maxStep
             else -> target
         }
+
+    internal fun nextThrottle(
+        current: Float,
+        isAccelerating: Boolean,
+        isDecelerating: Boolean,
+    ): Float {
+        val next =
+            when {
+                isAccelerating && !isDecelerating -> current + throttleStep
+                isDecelerating && !isAccelerating -> current - throttleStep
+                else -> current - throttleDecay
+            }
+        return next.coerceIn(minAirThrottle, maxThrottle)
+    }
+
+    internal fun approachAngle(
+        current: Float,
+        target: Float,
+        maxStep: Float,
+    ): Float {
+        val delta = angleDifference(current, target)
+        return current + delta.coerceIn(-maxStep, maxStep)
+    }
+
+    private fun angleDifference(
+        current: Float,
+        target: Float,
+    ): Float {
+        var delta = (target - current) % 360f
+        if (delta > 180f) delta -= 360f
+        if (delta < -180f) delta += 360f
+        return delta
+    }
 
     // fires all weapons from this plane
     private fun fireGuns(player: Player) {
