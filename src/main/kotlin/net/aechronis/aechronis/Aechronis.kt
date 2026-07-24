@@ -86,7 +86,7 @@ fun main(args: Array<String>) {
 
     // create instance
     Aechronis.instance = MinecraftServer.getInstanceManager().createInstanceContainer(Aechronis.fullbrightKey)
-    Aechronis.instance.chunkLoader = AnvilLoader("world")
+    Aechronis.instance.chunkLoader = AnvilLoader(Path.of("world"), DimensionType.OVERWORLD.key())
     Aechronis.instance.viewDistance(Aechronis.VIEW_DISTANCE)
 
     // tasks
