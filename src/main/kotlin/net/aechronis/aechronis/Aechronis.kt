@@ -11,8 +11,8 @@ import net.aechronis.aechronis.constants.Armor
 import net.aechronis.aechronis.constants.Cars
 import net.aechronis.aechronis.constants.Drones
 import net.aechronis.aechronis.constants.Guns
+import net.aechronis.aechronis.constants.Hats
 import net.aechronis.aechronis.constants.Planes
-import net.aechronis.aechronis.constants.Ships
 import net.aechronis.aechronis.constants.Tanks
 import net.aechronis.aechronis.listeners.PlayerJoinListener
 import net.aechronis.aechronis.tasks.TabManager
@@ -109,8 +109,9 @@ fun main(args: Array<String>) {
     Item.registerItems(Guns.ak74, Guns.m4a1, Guns.m9)
 
     // armor
+    Item.registerItems(Hats.gasMask)
     Item.registerItems(Armor.usMarineJacket, Armor.usMarineTrousers, Armor.usMarineBoots)
-    Item.registerItems(Armor.russianDesertJacket, Armor.russianDesertTrousers, Armor.russianDesertBoots)
+    Item.registerItems(Armor.idfJacket, Armor.idfTrousers, Armor.idfBoots)
 
     // planes
     Item.registerItems(Planes.f16)
@@ -122,7 +123,7 @@ fun main(args: Array<String>) {
     Item.registerItems(Tanks.m1a1Abrams)
 
     // drones
-    Item.registerItems(Drones.scoutDrone, Drones.kamikazeDrone, Ships.testShip)
+    Item.registerItems(Drones.scoutDrone, Drones.kamikazeDrone, Drones.xaderDrone)
 
     // initialize luckperms
     LuckPermsMinestom
@@ -186,9 +187,9 @@ fun main(args: Array<String>) {
                     ShopItem(ItemStack.of(Material.COBBLESTONE, 64), cooldownTicks = 1200L, cost = 0),
                     ShopItem(ItemStack.of(Material.OAK_FENCE, 64), cooldownTicks = 1200L, cost = 0),
                     ShopItem(ItemStack.of(Material.COOKED_BEEF, 64), cooldownTicks = 1200L, cost = 0),
-                    ShopItem(Armor.russianDesertJacket.toItemStack(), cooldownTicks = 1200L, cost = 0),
-                    ShopItem(Armor.russianDesertTrousers.toItemStack(), cooldownTicks = 1200L, cost = 0),
-                    ShopItem(Armor.russianDesertBoots.toItemStack(), cooldownTicks = 1200L, cost = 0),
+                    ShopItem(Armor.idfJacket.toItemStack(), cooldownTicks = 1200L, cost = 0),
+                    ShopItem(Armor.idfTrousers.toItemStack(), cooldownTicks = 1200L, cost = 0),
+                    ShopItem(Armor.idfBoots.toItemStack(), cooldownTicks = 1200L, cost = 0),
                     ShopItem(Armor.usMarineJacket.toItemStack(), cooldownTicks = 1200L, cost = 0),
                     ShopItem(Armor.usMarineTrousers.toItemStack(), cooldownTicks = 1200L, cost = 0),
                     ShopItem(Armor.usMarineBoots.toItemStack(), cooldownTicks = 1200L, cost = 0),

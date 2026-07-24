@@ -24,6 +24,8 @@ object Drones {
     val scoutDrone =
         Drone(
             name = "scout-drone",
+            model = "aechronis:drone",
+            itemModel = "aechronis:drone",
             itemName = Component.text("Scout Drone"),
             scale = 1.5,
             hitbox = droneHitbox,
@@ -35,8 +37,26 @@ object Drones {
             buzzPeriodTicks = 5,
         )
 
+    val xaderDrone =
+        Drone(
+            name = "xader-drone",
+            model = "aechronis:drone",
+            itemModel = "aechronis:drone",
+            itemName = Component.text("xader Drone"),
+            scale = 1.5,
+            hitbox = droneHitbox,
+            maxSpeed = 3F,
+            turnSpeed = 5F,
+            pitchSpeed = 5F,
+            maxRange = 99999999,
+            batteryLifeTicks = 999999999,
+            buzzPeriodTicks = 5,
+        )
+
     val kamikazeDrone =
         Drone(
+            model = "aechronis:drone",
+            itemModel = "aechronis:drone",
             name = "kamikazedrone",
             itemName = Component.text("Kamikaze Drone"),
             scale = 1.5,
@@ -49,8 +69,8 @@ object Drones {
             projectileModel = "aechronis:rpg-rocket",
             projectileMountOffset = Vec(0.0, 0.5, 0.0),
             projectileScale = 0.5,
-            explosionRadius = 1,
-            explosionFire = 0.0,
+            explosionRadius = 3,
+            explosionFire = 0.3,
             explosionDamage = 20F,
             buzzPeriodTicks = 5,
         )

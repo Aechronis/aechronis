@@ -37,33 +37,33 @@ object Armor {
             assetId = "aechronis:us-marpat-desert",
         )
 
-    val russianDesertJacket =
+    val idfJacket =
         ArmorPiece(
-            name = "russian-desert-jacket",
-            itemName = Component.text("Russian desert Jacket", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            name = "idf-jacket",
+            itemName = Component.text("IDF Jacket", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             itemModel = "minecraft:leather_chestplate",
             slot = EquipmentSlot.CHESTPLATE,
             protection = 0.25F,
-            assetId = "aechronis:russia-desert",
+            assetId = "aechronis:idf",
         )
 
-    val russianDesertTrousers =
+    val idfTrousers =
         ArmorPiece(
-            name = "russian-desert-trousers",
-            itemName = Component.text("Russian desert Trousers", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            name = "idf-trousers",
+            itemName = Component.text("IDF Trousers", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             itemModel = "minecraft:leather_leggings",
             slot = EquipmentSlot.LEGGINGS,
             protection = 0.2F,
-            assetId = "aechronis:russia-desert",
+            assetId = "aechronis:idf",
         )
 
-    val russianDesertBoots =
+    val idfBoots =
         ArmorPiece(
-            name = "russian-desert-boots",
-            itemName = Component.text("Russian desert Boots", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            name = "idf-boots",
+            itemName = Component.text("IDF Boots", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             itemModel = "minecraft:leather_boots",
             slot = EquipmentSlot.BOOTS,
             protection = 0.1F,
-            assetId = "aechronis:russia-desert",
+            assetId = "aechronis:idf",
         )
 }

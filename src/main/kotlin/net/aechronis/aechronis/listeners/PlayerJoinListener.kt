@@ -25,8 +25,8 @@ object PlayerJoinListener {
                     .build(),
                 ResourcePackInfo
                     .resourcePackInfo()
-                    .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/event-4dc29bf/4dc29bf.zip"))
-                    .hash("9546f6763b6793300d63ea1071f0f6623d2b66bfaabf4e83b2e23feee44178b2")
+                    .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/a-new-millenium-72aeecf/72aeecf.zip"))
+                    .hash("76d06014c4251a9d87d61893bd92eafc3e9ee3ce1c5cb080f5e21cf0516dbefb")
                     .build(),
             ).prompt(Component.text("A resource pack is required to play"))
             .required(true)

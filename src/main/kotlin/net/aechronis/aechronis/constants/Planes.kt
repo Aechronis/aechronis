@@ -55,12 +55,12 @@ object Planes {
             name = "f16",
             itemName = Component.text("F-16", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             hitbox = f16Hitbox,
-            health = 800F,
+            health = 1200F,
             placeTime = 2000,
             weapons = listOf(f16Weapon),
             scale = 7.0,
-            speed = 1.25,
-            turnSpeed = 0.1f,
+            speed = 2.5,
+            turnSpeed = 0.15f,
             seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
         )
 }

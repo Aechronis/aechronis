@@ -42,9 +42,9 @@ dependencies {
     // nodes
     implementation("net.aechronis:nodes:d0a0f34")
     // combat
-    implementation("net.aechronis:combat:daa3763")
+    implementation("net.aechronis:combat:8632ab7")
     // vanilla
-    implementation("net.aechronis:vanilla:db7afbd")
+    implementation("net.aechronis:vanilla:c4ecfea")
     // logger
     implementation("net.aechronis:logger:b2ecab0")
     // worldedit
