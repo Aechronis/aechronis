@@ -2,7 +2,8 @@ package net.aechronis.vanilla.commands
 
 import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Commands
-import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
 
 class Back : Command("back", "vanilla.back", "return") {
@@ -10,7 +11,7 @@ class Back : Command("back", "vanilla.back", "return") {
         setDefaultExecutor { player: Player, _ ->
             val last =
                 Commands.getLastLocation(player) ?: run {
-                    Message.error(player, "No previous location to return to.")
+                    player.sendMessage(Component.text("No previous location to return to.").color(NamedTextColor.RED))
                     return@setDefaultExecutor
                 }
 

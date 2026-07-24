@@ -1,6 +1,5 @@
 package net.aechronis.vanilla.managers
 
-import net.aechronis.vanilla.utils.Message
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.coordinate.Pos
@@ -46,22 +45,20 @@ object Commands {
         message: String,
     ) {
         if (receiver == null) {
-            Message.error(sender, "Player not found.")
+            sender.sendMessage(Component.text("Player not found.", NamedTextColor.RED))
             return
         }
 
         if (isBlocked(sender, receiver)) {
-            Message.error(sender, "You can't message this player.")
+            sender.sendMessage(Component.text("You can't message this player.", NamedTextColor.RED))
             return
         }
 
-        Message.print(
-            sender,
+        sender.sendMessage(
             Component.text("You Whispered to ${receiver.username}: $message").color(NamedTextColor.LIGHT_PURPLE),
         )
 
-        Message.print(
-            receiver,
+        receiver.sendMessage(
             Component.text("${sender.username} Whispered: $message").color(NamedTextColor.LIGHT_PURPLE),
         )
 

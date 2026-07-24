@@ -1,18 +1,19 @@
 package net.aechronis.vanilla.commands
 
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
 class Teleport : Command("teleport", "vanilla.teleport", "tp") {
     init {
         setDefaultExecutor { player: Player, _ ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/teleport <playerA-name>")
-            Message.print(player, "/teleport <position>")
-            Message.print(player, "/teleport <playerA-name> <playerB-name>")
-            Message.print(player, "/teleport <playerA-name> <position>")
+            player.sendMessage(Component.text("Usage:", NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/teleport <playerA-name>", NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/teleport <position>", NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/teleport <playerA-name> <playerB-name>", NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/teleport <playerA-name> <position>", NamedTextColor.LIGHT_PURPLE))
         }
 
         val playerAArg = ArgumentType.Entity("playerA-name").singleEntity(true).onlyPlayers(true)

@@ -14,6 +14,7 @@ import net.aechronis.vanilla.commands.InventorySee
 import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Message
+import net.aechronis.vanilla.commands.Music
 import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Teleport
@@ -26,6 +27,7 @@ import net.aechronis.vanilla.managers.Blocks
 import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Elevator
+import net.aechronis.vanilla.managers.EnvironmentalDamage
 import net.aechronis.vanilla.managers.Food
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.KillShop
@@ -38,6 +40,7 @@ import net.aechronis.vanilla.managers.TreeFeller
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Path
+import net.aechronis.vanilla.managers.Music as MusicManager
 import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
 object Vanilla {
@@ -70,6 +73,7 @@ object Vanilla {
                     Gm(),
                     List(),
                 )
+            if (config.musicEnabled) commands += Music()
             if (config.blocksEnabled) commands += Convert()
             if (config.recipesEnabled) commands += Craft()
             if (config.shopEnabled) commands += Shop()
@@ -93,8 +97,10 @@ object Vanilla {
         if (config.commandsEnabled) CommandsListener.init()
         if (config.blockDropsEnabled) PlayerBreakListener.init()
         if (config.fallDamageEnabled) FallDamageListener.init()
+        if (config.fireDamageEnabled || config.drowningEnabled) EnvironmentalDamage.init()
         if (config.serverLinksEnabled) ServerLinksListener.init()
         if (config.combatEnabled) Combat.init()
+        if (config.musicEnabled) MusicManager.init()
 
         Runtime.getRuntime().addShutdownHook(
             Thread({

@@ -2,7 +2,8 @@ package net.aechronis.vanilla.commands
 
 import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.KillShop
-import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
 
 class Shop : Command("shop") {
@@ -13,7 +14,7 @@ class Shop : Command("shop") {
 
         addSyntax("vanilla.admin", { sender, _ ->
             KillShop.restock()
-            Message.print(sender, "Shop restocked!")
+            sender.sendMessage(Component.text("Shop restocked!", NamedTextColor.LIGHT_PURPLE))
         }, ArgumentType.Literal("restock"))
     }
 }

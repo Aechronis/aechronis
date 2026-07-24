@@ -2,7 +2,8 @@ package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.KillShop
-import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
@@ -29,18 +30,18 @@ object ShopListener {
 
         if (lastPurchase != null && (now - lastPurchase) < cooldownMs) {
             val remainingSecs = "%.1f".format((cooldownMs - (now - lastPurchase)) / 1000.0)
-            Message.error(player, "This item is on cooldown for ${remainingSecs}s")
+            player.sendMessage(Component.text("This item is on cooldown for ${remainingSecs}s", NamedTextColor.RED))
             return
         }
 
         val points = player.getTag(KillShop.POINTS_TAG) ?: 0
         if (points < shopItem.cost) {
-            Message.error(player, "You need ${shopItem.cost} points but only have $points")
+            player.sendMessage(Component.text("You need ${shopItem.cost} points but only have $points", NamedTextColor.RED))
             return
         }
 
         if (!player.inventory.addItemStack(shopItem.itemStack)) {
-            Message.error(player, "Your inventory is full")
+            player.sendMessage(Component.text("Your inventory is full", NamedTextColor.RED))
             return
         }
 

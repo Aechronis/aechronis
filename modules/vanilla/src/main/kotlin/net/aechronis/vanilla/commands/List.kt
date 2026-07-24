@@ -1,7 +1,8 @@
 package net.aechronis.vanilla.commands
 
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 
@@ -13,7 +14,7 @@ class List : Command("list", "vanilla.list", "list") {
                 "${onlinePlayers.size} online: " +
                     onlinePlayers.joinToString(", ") { it.username }
 
-            Message.print(sender, message)
+            sender.sendMessage(Component.text(message, NamedTextColor.LIGHT_PURPLE))
         }
     }
 }

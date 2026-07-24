@@ -1,16 +1,17 @@
 package net.aechronis.vanilla.commands
 
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
 class Fly : Command("fly", "vanilla.fly") {
     init {
         setDefaultExecutor { player: Player, _ ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/fly - Toggle fly mode")
-            Message.print(player, "/fly <speed> - Set fly speed")
+            player.sendMessage(Component.text("Usage:", NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/fly - Toggle fly mode", NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/fly <speed> - Set fly speed", NamedTextColor.LIGHT_PURPLE))
         }
 
         val speed = ArgumentType.Float("speed")
@@ -18,12 +19,17 @@ class Fly : Command("fly", "vanilla.fly") {
         addSyntax({ sender: Player, _ ->
             sender.isAllowFlying = !sender.isAllowFlying
             sender.isFlying = sender.isAllowFlying
-            Message.print(sender, "Fly mode ${if (sender.isAllowFlying) "enabled" else "disabled"}.")
+            sender.sendMessage(
+                Component.text(
+                    "Fly mode ${if (sender.isAllowFlying) "enabled" else "disabled"}.",
+                    NamedTextColor.LIGHT_PURPLE,
+                ),
+            )
         })
 
         addSyntax({ sender: Player, context ->
             sender.flyingSpeed = context[speed] / 20
-            Message.print(sender, "Fly speed set to ${context[speed]}")
+            sender.sendMessage(Component.text("Fly speed set to ${context[speed]}", NamedTextColor.LIGHT_PURPLE))
         }, speed)
     }
 }

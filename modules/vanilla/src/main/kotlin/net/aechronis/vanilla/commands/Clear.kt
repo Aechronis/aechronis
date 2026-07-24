@@ -1,7 +1,8 @@
 package net.aechronis.vanilla.commands
 
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
@@ -15,7 +16,7 @@ class Clear : Command("clear", "vanilla.clear") {
 
     init {
         setDefaultExecutor { player, _ ->
-            Message.print(player, "Usage: /clear <player|*> [item ...]")
+            player.sendMessage(Component.text("Usage: /clear <player|*> [item ...]").color(NamedTextColor.LIGHT_PURPLE))
         }
 
         addSyntax({ sender: Player, context ->
@@ -23,7 +24,7 @@ class Clear : Command("clear", "vanilla.clear") {
             for (target in targets) {
                 target.inventory.clear()
             }
-            Message.print(sender, "Cleared inventory of ${targets.size} player(s).")
+            sender.sendMessage(Component.text("Cleared inventory of ${targets.size} player(s).").color(NamedTextColor.LIGHT_PURPLE))
         }, targetArg)
 
         addSyntax({ sender: Player, context ->
@@ -41,7 +42,7 @@ class Clear : Command("clear", "vanilla.clear") {
             }
 
             if (unknown.isNotEmpty()) {
-                Message.error(sender, "Unknown item(s): ${unknown.joinToString(", ")}")
+                sender.sendMessage(Component.text("Unknown item(s): ${unknown.joinToString(", ")}").color(NamedTextColor.RED))
                 return@addSyntax
             }
 
@@ -56,7 +57,9 @@ class Clear : Command("clear", "vanilla.clear") {
                     }
                 }
             }
-            Message.print(sender, "Cleared $cleared matching item(s) from ${targets.size} player(s).")
+            sender.sendMessage(
+                Component.text("Cleared $cleared matching item(s) from ${targets.size} player(s).").color(NamedTextColor.LIGHT_PURPLE),
+            )
         }, targetArg, whitelistArg)
     }
 
@@ -70,7 +73,7 @@ class Clear : Command("clear", "vanilla.clear") {
 
         val player = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(target)
         if (player == null) {
-            Message.error(sender, "Player not found: $target")
+            sender.sendMessage(Component.text("Player not found: $target").color(NamedTextColor.LIGHT_PURPLE))
             return null
         }
         return listOf(player)

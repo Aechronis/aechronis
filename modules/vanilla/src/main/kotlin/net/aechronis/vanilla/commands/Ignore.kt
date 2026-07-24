@@ -2,7 +2,8 @@ package net.aechronis.vanilla.commands
 
 import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Commands
-import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
@@ -11,28 +12,28 @@ class Ignore : Command("ignore", "vanilla.ignore") {
 
     init {
         setDefaultExecutor { player: Player, _ ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/ignore <player>")
+            player.sendMessage(Component.text("Usage:", NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/ignore <player>", NamedTextColor.LIGHT_PURPLE))
         }
 
         addSyntax({ sender: Player, context ->
             val target =
                 context[playerArg].findFirstPlayer(sender) ?: run {
-                    Message.error(sender, "Player not found.")
+                    sender.sendMessage(Component.text("Player not found.", NamedTextColor.RED))
                     return@addSyntax
                 }
 
             if (target.uuid == sender.uuid) {
-                Message.error(sender, "You can't ignore yourself.")
+                sender.sendMessage(Component.text("You can't ignore yourself.", NamedTextColor.RED))
                 return@addSyntax
             }
 
             val set = Commands.getIgnored(sender)
             if (set.remove(target.uuid)) {
-                Message.print(sender, "You are no longer ignoring ${target.username}.")
+                sender.sendMessage(Component.text("You are no longer ignoring ${target.username}.", NamedTextColor.LIGHT_PURPLE))
             } else {
                 set.add(target.uuid)
-                Message.print(sender, "You are now ignoring ${target.username}.")
+                sender.sendMessage(Component.text("You are now ignoring ${target.username}.", NamedTextColor.LIGHT_PURPLE))
             }
         }, playerArg)
     }

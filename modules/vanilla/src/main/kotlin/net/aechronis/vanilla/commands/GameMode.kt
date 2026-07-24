@@ -1,7 +1,8 @@
 package net.aechronis.vanilla.commands
 
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
@@ -9,9 +10,9 @@ import net.minestom.server.entity.Player
 class GameMode : Command("gamemode", "vanilla.gamemode") {
     init {
         setDefaultExecutor { player: Player, _ ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/gamemode <gamemode>")
-            Message.print(player, "/gamemode <gamemode> <player>")
+            player.sendMessage(Component.text("Usage:", NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/gamemode <gamemode>", NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/gamemode <gamemode> <player>", NamedTextColor.LIGHT_PURPLE))
         }
 
         val playerArg = ArgumentType.Entity("player-name").singleEntity(true).onlyPlayers(true)
@@ -20,7 +21,7 @@ class GameMode : Command("gamemode", "vanilla.gamemode") {
         addSyntax({ sender: Player, context ->
             val player =
                 context[playerArg].findFirstPlayer(sender) ?: run {
-                    Message.error(sender, "Player not found.")
+                    sender.sendMessage(Component.text("Player not found.", NamedTextColor.RED))
                     return@addSyntax
                 }
 

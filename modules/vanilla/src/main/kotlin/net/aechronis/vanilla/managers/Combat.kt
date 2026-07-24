@@ -2,7 +2,6 @@ package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.CombatListener
-import net.aechronis.vanilla.utils.Message
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -72,7 +71,7 @@ object Combat {
                 expiresAt.remove(uuid)
                 bossBars.remove(uuid)
                 player.hideBossBar(bar)
-                Message.announcement(player, Component.text("You have left combat", NamedTextColor.GREEN))
+                player.sendMessage(Component.text("You have left combat", NamedTextColor.GREEN))
                 continue
             }
 

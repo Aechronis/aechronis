@@ -1,6 +1,7 @@
 package net.aechronis.vanilla
 
 import net.aechronis.vanilla.objects.FoodItem
+import net.aechronis.vanilla.objects.MusicDisc
 import net.aechronis.vanilla.objects.Recipe
 import net.aechronis.vanilla.objects.RecipesIngredient
 import net.aechronis.vanilla.objects.RecipesShapeless
@@ -84,8 +85,11 @@ data class VanillaConfig(
     val itemsEnabled: Boolean = true,
     val blockDropsEnabled: Boolean = true,
     val fallDamageEnabled: Boolean = true,
+    val fireDamageEnabled: Boolean = true,
+    val drowningEnabled: Boolean = true,
     val serverLinksEnabled: Boolean = true,
     val combatEnabled: Boolean = true,
+    val musicEnabled: Boolean = true,
     val spawnEnabled: Boolean = true,
     // Paths
     val path: String = "vanilla",
@@ -208,6 +212,8 @@ data class VanillaConfig(
     val foodStarvationDamage: Float = 1.0f,
     // Shop
     val shopItems: List<ShopItem> = listOf(),
+    // Music
+    val musicDiscs: List<MusicDisc> = listOf(),
     // Recipes
     val recpies: List<Recipe> =
         listOf(
@@ -233,7 +239,7 @@ data class VanillaConfig(
             "Map" to "https://map.aechronis.net",
             "Website" to "https://aechronis.net",
             "Discord" to "https://discord.aechronis.net",
-            "Store" to "https://store.aechronis.net",
+            "Store" to "https://shop.aechronis.net",
         ),
     // Combat
     val combatDurationSeconds: Long = 10L,

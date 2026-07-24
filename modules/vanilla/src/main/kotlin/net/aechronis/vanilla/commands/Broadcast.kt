@@ -1,7 +1,6 @@
 package net.aechronis.vanilla.commands
 
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.utils.Message
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
@@ -13,8 +12,8 @@ class Broadcast : Command("broadcast", "vanilla.broadcast") {
 
     init {
         setDefaultExecutor { player, _ ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/broadcast <message>")
+            player.sendMessage(Component.text("Usage:").color(NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/broadcast <message>").color(NamedTextColor.LIGHT_PURPLE))
         }
 
         addSyntax({ sender: Player, context ->

@@ -3,7 +3,8 @@ package net.aechronis.vanilla.commands
 import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Commands.getLastSender
 import net.aechronis.vanilla.managers.Commands.sendMessage
-import net.aechronis.vanilla.utils.Message
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
@@ -12,8 +13,8 @@ class Reply : Command("reply", null, "r") {
 
     init {
         setDefaultExecutor { player: Player, _ ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/reply <message>")
+            player.sendMessage(Component.text("Usage:", NamedTextColor.LIGHT_PURPLE))
+            player.sendMessage(Component.text("/reply <message>", NamedTextColor.LIGHT_PURPLE))
         }
 
         addSyntax({ sender: Player, context ->
