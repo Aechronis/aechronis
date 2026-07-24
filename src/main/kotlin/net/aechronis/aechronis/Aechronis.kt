@@ -39,6 +39,7 @@ import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.BlockPickup
 import org.everbuild.blocksandstuff.blocks.BlockPlacementRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.PlacedHandlerRegistration
+import org.everbuild.blocksandstuff.blocks.group.VanillaBlockBehaviour
 import java.nio.file.Path
 
 object Aechronis {
@@ -135,7 +136,7 @@ fun main(args: Array<String>) {
 
     // blocks and stuff
     BlockPlacementRuleRegistrations.registerDefault()
-    BlockBehaviorRuleRegistrations.registerDefault()
+    BlockBehaviorRuleRegistrations.register(*VanillaBlockBehaviour.ALL.toTypedArray())
     PlacedHandlerRegistration.registerDefault()
     BlockPickup.enable()
 
