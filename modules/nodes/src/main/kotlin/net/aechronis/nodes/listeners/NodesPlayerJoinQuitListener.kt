@@ -58,6 +58,7 @@ object NodesPlayerJoinQuitListener {
     fun onPlayerDeath(event: PlayerDeathEvent) {
         val player = event.player
         val resident = Resident.fromPlayer(player) ?: return
+        resident.town?.let { town -> player.respawnPoint = town.spawnpoint }
         val position = player.position
         resident.recordDeathWaypoint(
             position.blockX(),
