@@ -14,7 +14,7 @@ object StorageSerializer {
             .put(ITEMS_KEY, serializeItems(inventory))
             .build()
 
-    private fun serializeItems(inventory: Inventory): ListBinaryTag {
+    fun serializeItems(inventory: Inventory): ListBinaryTag {
         val builder = ListBinaryTag.builder(BinaryTagTypes.COMPOUND)
 
         for (slot in 0..<inventory.size) {

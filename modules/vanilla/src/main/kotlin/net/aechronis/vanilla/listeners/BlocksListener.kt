@@ -4,7 +4,6 @@ import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Blocks
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
-import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.instance.block.Block
@@ -40,10 +39,9 @@ object BlocksListener {
     }
 
     fun onInteract(event: PlayerBlockInteractEvent) {
-        if (event.hand != PlayerHand.MAIN) return
         if (!event.block.compare(Block.STONECUTTER)) return
+        if (!event.consumeStationInteraction()) return
 
-        event.isCancelled = true
         Blocks.openConverter(event.player)
     }
 

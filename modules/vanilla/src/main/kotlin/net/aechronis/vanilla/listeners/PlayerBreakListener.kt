@@ -11,6 +11,7 @@ import net.minestom.server.item.enchant.Enchantment
 
 object PlayerBreakListener {
     fun onBlockBreak(event: PlayerBlockBreakEvent) {
+        if (event.isCancelled) return
         val player = event.player
         if (player.gameMode == GameMode.CREATIVE) return
         val instance = player.instance ?: return

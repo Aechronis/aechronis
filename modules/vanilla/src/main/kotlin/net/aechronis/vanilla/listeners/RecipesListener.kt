@@ -141,6 +141,7 @@ object RecipesListener {
 
     fun onInteract(event: PlayerBlockInteractEvent) {
         if (event.block.registry()?.material() != Material.CRAFTING_TABLE) return
+        if (!event.consumeStationInteraction()) return
 
         val craftingInv =
             Inventory(
