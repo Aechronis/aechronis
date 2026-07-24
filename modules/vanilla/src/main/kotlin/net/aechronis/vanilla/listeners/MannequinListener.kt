@@ -10,8 +10,10 @@ import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.metadata.avatar.MannequinMeta
 import net.minestom.server.event.entity.EntityDamageEvent
+import net.minestom.server.event.inventory.InventoryItemChangeEvent
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerEntityInteractEvent
+import net.minestom.server.inventory.Inventory
 import net.minestom.server.network.player.ResolvableProfile
 import net.minestom.server.timer.TaskSchedule
 
@@ -30,6 +32,11 @@ object MannequinListener {
 
     private const val DESPAWN_SECONDS = 60L
 
+    fun onInventoryChange(event: InventoryItemChangeEvent) {
+        val inventory = event.inventory as? Inventory ?: return
+        Mannequin.syncArmor(inventory)
+    }
+
     fun onDeath(event: PlayerDeathEvent) {
         val player = event.player
         val instance = player.instance ?: return
@@ -40,13 +47,12 @@ object MannequinListener {
         }
 
         val loot = Mannequin.newLootInventory(player.username)
-        for (slot in 0..40) {
+        for (slot in 0..<player.inventory.size) {
             val stack = player.inventory.getItemStack(slot)
             if (!stack.isAir) loot.setItemStack(slot, stack)
         }
+        Mannequin.register(corpse, loot)
         player.inventory.clear()
-
-        Mannequin.inventories[corpse] = loot
 
         corpse.setInstance(instance, player.position)
         corpse.boundingBox = BoundingBox(0.0, 0.0, 0.0)
@@ -65,7 +71,7 @@ object MannequinListener {
             .getSchedulerManager()
             .buildTask {
                 loot.viewers.toList().forEach { it.closeInventory() }
-                Mannequin.inventories.remove(corpse)
+                Mannequin.unregister(corpse)
                 corpse.remove()
             }.delay(TaskSchedule.seconds(DESPAWN_SECONDS))
             .schedule()
@@ -74,6 +80,7 @@ object MannequinListener {
     fun init() {
         Vanilla.eventNode.addListener(PlayerDeathEvent::class.java, MannequinListener::onDeath)
         Vanilla.eventNode.addListener(EntityDamageEvent::class.java, MannequinListener::onEntityDamage)
+        Vanilla.eventNode.addListener(InventoryItemChangeEvent::class.java, MannequinListener::onInventoryChange)
         Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, MannequinListener::onInteract)
     }
 }

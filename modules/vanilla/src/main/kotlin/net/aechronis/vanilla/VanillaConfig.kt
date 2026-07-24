@@ -244,4 +244,10 @@ data class VanillaConfig(
     // Combat
     val combatDurationSeconds: Long = 10L,
     val combatTickSeconds: Long = 1L,
+    // EnviromentalDmg
+    val maxAirTicks: Int = 300,
+    val fireTicks: Int = 160,
+    val fireContactTicks: Int = 10,
+    val fireDmg: Float = 1f,
+    val drowningDmg: Float = 2f,
 )
