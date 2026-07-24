@@ -1,6 +1,7 @@
 package net.aechronis.vanilla
 
 import net.aechronis.utils.createTestServer
+import net.aechronis.vanilla.listeners.ItemListener
 import net.aechronis.vanilla.listeners.MannequinListener
 import net.aechronis.vanilla.managers.EnvironmentalDamage
 import net.aechronis.vanilla.managers.Mannequin
@@ -19,9 +20,11 @@ import net.minestom.server.entity.EntityCreature
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.ItemEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.PlayerSkin
+import net.minestom.server.event.item.PickupItemEvent
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
@@ -121,6 +124,54 @@ class VanillaTest {
         assertEquals(300, creative.entityMeta.airTicks)
         instance.setBlock(4, 40, 4, Block.AIR)
         instance.setBlock(6, 40, 6, Block.AIR)
+    }
+
+    @Test
+    fun `player pickup adds the complete item stack`() {
+        val player = createPlayer(Pos(8.5, 40.0, 4.5))
+        val stack = ItemStack.of(Material.DIAMOND, 4).withCustomName(Component.text("Pickup test"))
+        val event = PickupItemEvent(player, ItemEntity(stack))
+
+        ItemListener.onPickup(event)
+
+        assertFalse(event.isCancelled)
+        assertEquals(stack, player.inventory.getItemStack(0))
+        player.remove()
+    }
+
+    @Test
+    fun `pickup is cancelled when the complete stack does not fit`() {
+        val player = createPlayer(Pos(10.5, 40.0, 4.5))
+        repeat(36) { player.inventory.setItemStack(it, ItemStack.of(Material.DIRT, 64)) }
+        val existing = ItemStack.of(Material.DIAMOND, 63)
+        player.inventory.setItemStack(0, existing)
+        val event = PickupItemEvent(player, ItemEntity(ItemStack.of(Material.DIAMOND, 2)))
+
+        ItemListener.onPickup(event)
+
+        assertTrue(event.isCancelled)
+        assertEquals(existing, player.inventory.getItemStack(0))
+        player.remove()
+    }
+
+    @Test
+    fun `spectators and non-player entities cannot pick up items`() {
+        val spectator = createPlayer(Pos(12.5, 40.0, 4.5))
+        spectator.setGameMode(GameMode.SPECTATOR)
+        val spectatorEvent = PickupItemEvent(spectator, ItemEntity(ItemStack.of(Material.DIAMOND)))
+        val creatureEvent =
+            PickupItemEvent(
+                EntityCreature(EntityType.ZOMBIE),
+                ItemEntity(ItemStack.of(Material.EMERALD)),
+            )
+
+        ItemListener.onPickup(spectatorEvent)
+        ItemListener.onPickup(creatureEvent)
+
+        assertTrue(spectatorEvent.isCancelled)
+        assertTrue(spectator.inventory.getItemStack(0).isAir)
+        assertTrue(creatureEvent.isCancelled)
+        spectator.remove()
     }
 
     @Test
