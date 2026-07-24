@@ -208,6 +208,36 @@ class VanillaTest {
     }
 
     @Test
+    fun `death with an empty inventory does not create a corpse`() {
+        val player = createPlayer(Pos(10.5, 40.0, 8.5))
+        val existingCorpses = Mannequin.inventories.keys.toSet()
+
+        MannequinListener.onDeath(PlayerDeathEvent(player, Component.empty(), null))
+
+        assertEquals(existingCorpses, Mannequin.inventories.keys.toSet())
+        player.remove()
+    }
+
+    @Test
+    fun `taking the final corpse item despawns it`() {
+        val player = createPlayer(Pos(12.5, 40.0, 8.5))
+        player.skin = PlayerSkin("textures", "signature")
+        player.inventory.setItemStack(0, ItemStack.of(Material.DIAMOND))
+        val existingCorpses = Mannequin.inventories.keys.toSet()
+        MannequinListener.onDeath(PlayerDeathEvent(player, Component.empty(), null))
+        val corpse = (Mannequin.inventories.keys - existingCorpses).single()
+        val loot = Mannequin.inventories.getValue(corpse)
+        player.openInventory(loot)
+
+        loot.setItemStack(0, ItemStack.AIR)
+
+        assertFalse(Mannequin.inventories.containsKey(corpse))
+        assertNull(player.openInventory)
+        assertNull(corpse.instance)
+        player.remove()
+    }
+
+    @Test
     fun `corpse armor follows armor remaining in its inventory`() {
         val corpse = EntityCreature(EntityType.MANNEQUIN)
         val loot = Mannequin.newLootInventory("test")
@@ -215,6 +245,7 @@ class VanillaTest {
         val spareHelmet = ItemStack.of(Material.GOLDEN_HELMET)
         loot.setItemStack(EquipmentSlot.HELMET.armorSlot(), equippedHelmet)
         loot.setItemStack(0, spareHelmet)
+        loot.setItemStack(1, ItemStack.of(Material.DIAMOND))
         Mannequin.register(corpse, loot)
 
         assertEquals(equippedHelmet, corpse.getEquipment(EquipmentSlot.HELMET))

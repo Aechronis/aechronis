@@ -29,6 +29,22 @@ object Mannequin {
         corpses.remove(inventory)
     }
 
+    fun despawnIfEmpty(inventory: Inventory): Boolean {
+        if (inventory !in corpses) return false
+        for (slot in 0..<inventory.size) {
+            if (!inventory.getItemStack(slot).isAir) return false
+        }
+        despawn(inventory)
+        return true
+    }
+
+    fun despawn(inventory: Inventory) {
+        val corpse = corpses.remove(inventory) ?: return
+        inventories.remove(corpse)
+        inventory.viewers.toList().forEach { it.closeInventory() }
+        corpse.remove()
+    }
+
     fun syncArmor(inventory: Inventory) {
         val corpse = corpses[inventory] ?: return
         for (equipmentSlot in EquipmentSlot.armors()) {

@@ -30,16 +30,16 @@ object MannequinListener {
         event.player.openInventory(inv)
     }
 
-    private const val DESPAWN_SECONDS = 60L
-
     fun onInventoryChange(event: InventoryItemChangeEvent) {
         val inventory = event.inventory as? Inventory ?: return
+        if (Mannequin.despawnIfEmpty(inventory)) return
         Mannequin.syncArmor(inventory)
     }
 
     fun onDeath(event: PlayerDeathEvent) {
         val player = event.player
         val instance = player.instance ?: return
+        if ((0..<player.inventory.size).all { player.inventory.getItemStack(it).isAir }) return
 
         val corpse = EntityCreature(EntityType.MANNEQUIN)
         corpse.editEntityMeta(MannequinMeta::class.java) { meta ->
@@ -70,10 +70,8 @@ object MannequinListener {
         MinecraftServer
             .getSchedulerManager()
             .buildTask {
-                loot.viewers.toList().forEach { it.closeInventory() }
-                Mannequin.unregister(corpse)
-                corpse.remove()
-            }.delay(TaskSchedule.seconds(DESPAWN_SECONDS))
+                Mannequin.despawn(loot)
+            }.delay(TaskSchedule.seconds(Vanilla.config.mannequinDespawnTime.toLong()))
             .schedule()
     }
 
