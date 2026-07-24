@@ -27,12 +27,14 @@ import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
+import net.minestom.server.color.Color
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.DimensionType
+import net.minestom.server.world.attribute.EnvironmentAttribute
 import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.BlockPickup
 import org.everbuild.blocksandstuff.blocks.BlockPlacementRuleRegistrations
@@ -72,7 +74,11 @@ fun main(args: Array<String>) {
             .builder()
             .skylight(false)
             .ambientLight(1.0f)
-            .build()
+            .modifyAttribute(
+                EnvironmentAttribute.AMBIENT_LIGHT_COLOR,
+                EnvironmentAttribute.Modifier.Override(Color.CODEC),
+                Color.WHITE,
+            ).build()
 
     Aechronis.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
 
