@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.listeners
+package net.aechronis.vanilla.objects
 
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 

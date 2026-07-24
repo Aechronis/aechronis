@@ -9,6 +9,7 @@ import net.kyori.adventure.nbt.StringBinaryTag
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
+import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.item.ItemStack
 import java.util.UUID
 
@@ -34,8 +35,10 @@ object PlayerDataDeserializer {
         val position = data.getCompound("Position")
         deserializePosition(player, position)
 
-        val inventory = data.getList("Inventory")
-        deserializeInventory(player, inventory)
+        deserializeInventory(player.inventory, data.getList("Inventory"))
+        deserializeInventory(Commands.getEnderChest(player), data.getList("EnderChest"))
+        val cursorItem = data.getCompound("CursorItem")
+        if (cursorItem.keySet().isNotEmpty()) player.inventory.cursorItem = ItemStack.fromItemNBT(cursorItem)
 
         val ignoredList = data.getList("Ignored", BinaryTagTypes.STRING)
         if (ignoredList.size() > 0) {
@@ -65,14 +68,15 @@ object PlayerDataDeserializer {
     }
 
     private fun deserializeInventory(
-        player: Player,
-        inventory: ListBinaryTag,
+        target: AbstractInventory,
+        entries: ListBinaryTag,
     ) {
-        for (entry in inventory) {
+        target.clear()
+        for (entry in entries) {
             if (entry !is CompoundBinaryTag) continue
 
             val slot = entry.getByte("Slot", -1)
-            if (slot < 0 || slot >= player.inventory.size) {
+            if (slot < 0 || slot >= target.size) {
                 continue
             }
 
@@ -83,7 +87,7 @@ object PlayerDataDeserializer {
                 }
             }
             val item = ItemStack.fromItemNBT(itemBuilder.build())
-            player.inventory.setItemStack(slot.toInt(), item)
+            target.setItemStack(slot.toInt(), item)
         }
     }
 }

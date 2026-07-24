@@ -26,6 +26,7 @@ object PlayerData {
         val node = EventNode.all("vanilla-playerdata")
 
         node.addListener(PlayerSpawnEvent::class.java) { event ->
+            Commands.allowEnderChest(event.player)
             tracked.add(event.player)
             if (!event.isFirstSpawn) return@addListener
             loadPlayer(event.player, path)
@@ -33,7 +34,12 @@ object PlayerData {
 
         node.addListener(PlayerDisconnectEvent::class.java) { event ->
             tracked.remove(event.player)
-            savePlayer(event.player, path)
+            Commands.closeViewsOf(event.player)
+            try {
+                savePlayer(event.player, path)
+            } finally {
+                Commands.removeEnderChest(event.player)
+            }
         }
 
         MinecraftServer.getGlobalEventHandler().addChild(node)

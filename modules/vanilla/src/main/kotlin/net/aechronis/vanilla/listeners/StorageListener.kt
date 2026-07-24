@@ -4,6 +4,7 @@ import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.objects.StorageContents
+import net.aechronis.vanilla.objects.consumeStationInteraction
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryItemChangeEvent
 import net.minestom.server.event.player.PlayerBlockBreakEvent

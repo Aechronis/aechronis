@@ -8,7 +8,7 @@ import net.kyori.adventure.nbt.ListBinaryTag
 import net.kyori.adventure.nbt.StringBinaryTag
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
-import net.minestom.server.inventory.PlayerInventory
+import net.minestom.server.inventory.AbstractInventory
 
 object PlayerDataSerializer {
     fun serialize(player: Player): CompoundBinaryTag {
@@ -24,6 +24,10 @@ object PlayerDataSerializer {
                 .putBoolean("Flying", player.isFlying)
                 .put("Position", serializePosition(player.position))
                 .put("Inventory", serializeInventory(player.inventory))
+                .put("EnderChest", serializeInventory(Commands.getEnderChest(player)))
+
+        val cursorItem = player.inventory.cursorItem
+        if (!cursorItem.isAir) builder.put("CursorItem", cursorItem.toItemNBT())
 
         val ignored = Commands.getIgnored(player)
         if (ignored.isNotEmpty()) {
@@ -45,7 +49,7 @@ object PlayerDataSerializer {
             .putFloat("Pitch", position.pitch())
             .build()
 
-    private fun serializeInventory(inventory: PlayerInventory): ListBinaryTag {
+    private fun serializeInventory(inventory: AbstractInventory): ListBinaryTag {
         val builder = ListBinaryTag.builder(BinaryTagTypes.COMPOUND)
 
         for (slot in 0..<inventory.getSize()) {

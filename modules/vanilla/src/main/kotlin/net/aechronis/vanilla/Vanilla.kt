@@ -5,6 +5,7 @@ import net.aechronis.vanilla.commands.Broadcast
 import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.Convert
 import net.aechronis.vanilla.commands.Craft
+import net.aechronis.vanilla.commands.EnderChest
 import net.aechronis.vanilla.commands.Fly
 import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
@@ -68,6 +69,7 @@ object Vanilla {
                     Kill(),
                     Broadcast(),
                     Clear(),
+                    EnderChest(),
                     InventorySee(),
                     Ignore(),
                     Gm(),

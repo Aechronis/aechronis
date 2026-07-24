@@ -2,6 +2,7 @@ package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Blocks
+import net.aechronis.vanilla.objects.consumeStationInteraction
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.inventory.InventoryCloseEvent

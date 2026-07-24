@@ -7,13 +7,16 @@ import net.minestom.server.entity.Player
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 object Commands {
     const val MIRRORED_SLOTS = 41
     val lastLocation = HashMap<UUID, Pos>()
-    val viewing = HashMap<Inventory, Player>()
+    val viewing = ConcurrentHashMap<Inventory, Player>()
     val playerLastSender = HashMap<Player, Player>()
     val ignored = HashMap<UUID, MutableSet<UUID>>()
+    private val enderChests = ConcurrentHashMap<UUID, Inventory>()
+    private val closingEnderChests = ConcurrentHashMap.newKeySet<UUID>()
 
     fun getIgnored(player: Player): MutableSet<UUID> = ignored.getOrPut(player.uuid) { mutableSetOf() }
 
@@ -84,5 +87,37 @@ object Commands {
         }
         viewing[inv] = target
         viewer.openInventory(inv)
+    }
+
+    fun getEnderChest(player: Player): Inventory =
+        enderChests.computeIfAbsent(player.uuid) {
+            Inventory(InventoryType.CHEST_3_ROW, Component.text("${player.username}'s Ender Chest"))
+        }
+
+    fun openEnderChest(
+        viewer: Player,
+        target: Player,
+    ) {
+        if (target.uuid in closingEnderChests) return
+        viewer.openInventory(getEnderChest(target))
+    }
+
+    fun closeViewsOf(player: Player) {
+        closingEnderChests.add(player.uuid)
+        val inventories = viewing.filterValues { it === player }.keys.toList()
+        for (inventory in inventories) {
+            inventory.viewers.toList().forEach { it.closeInventory() }
+            viewing.remove(inventory)
+        }
+
+        enderChests[player.uuid]?.viewers?.toList()?.forEach { it.closeInventory() }
+    }
+
+    fun removeEnderChest(player: Player) {
+        enderChests.remove(player.uuid)
+    }
+
+    fun allowEnderChest(player: Player) {
+        closingEnderChests.remove(player.uuid)
     }
 }

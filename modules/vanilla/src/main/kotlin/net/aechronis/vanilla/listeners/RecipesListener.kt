@@ -4,6 +4,7 @@ import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Recipes.recipes
 import net.aechronis.vanilla.managers.Recipes.workspaces
 import net.aechronis.vanilla.objects.RecipesWorkspace
+import net.aechronis.vanilla.objects.consumeStationInteraction
 import net.kyori.adventure.text.Component
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryItemChangeEvent
