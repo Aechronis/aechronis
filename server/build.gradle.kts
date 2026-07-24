@@ -38,17 +38,15 @@ dependencies {
     // utils
     implementation("net.aechronis:utils:86a747b")
     // nodes
-    implementation("net.aechronis:nodes:d0a0f34")
+    implementation("net.aechronis:nodes:2952518")
     // combat
-    implementation("net.aechronis:combat:a7c3f57")
+    implementation("net.aechronis:combat:8632ab7")
     // vanilla
-    implementation("net.aechronis:vanilla:db7afbd")
+    implementation("net.aechronis:vanilla:c4ecfea")
     // logger
     implementation("net.aechronis:logger:b2ecab0")
     // worldedit
-    implementation("net.aechronis:worldedit:59a508e") {
-        exclude(group = "com.google.code.gson", module = "gson")
-    }
+    implementation("net.aechronis:worldedit:59a508e")
     // luckperms
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")
