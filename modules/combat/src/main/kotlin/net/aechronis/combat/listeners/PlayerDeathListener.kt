@@ -1,43 +1,70 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
-import net.aechronis.combat.objects.Item
+import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.clearCombatAttribution
+import net.aechronis.combat.utils.combatDamageKind
+import net.aechronis.combat.utils.combatWeapon
 import net.kyori.adventure.text.Component
-import net.minestom.server.component.DataComponents
-import net.minestom.server.entity.damage.DamageType
+import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 
 object PlayerDeathListener {
     fun onPlayerDeath(event: PlayerDeathEvent) {
         val player = event.player
-        val killer = Combat.takeKiller(player)
+        val damage = Combat.activeDamage(player)
+        val killer = damage?.attacker as? Player
+        val weapon = damage?.combatWeapon()
+        val damageKind = damage?.combatDamageKind()
+        damage?.clearCombatAttribution()
 
-        val damageType = player.lastDamageSource?.type
-        val isExplosion = damageType == DamageType.PLAYER_EXPLOSION || damageType == DamageType.EXPLOSION
+        exitVehicles(player)
+        KeyPressListener.playerInputEvent.remove(player)
+        Combat.entityLastDamageTime.remove(player)
 
-        // Pick the kill message by cause. Deaths we don't attribute (fall, void,
-        // ...) fall through to `return`, keeping the default message.
-        val message: Component =
-            when {
-                isExplosion && killer != null ->
-                    Component.translatable("death.attack.explosion.player", player.name, killer.name)
-                isExplosion ->
-                    Component.translatable("death.attack.explosion", player.name)
-                killer != null -> {
-                    val item = killer.itemInMainHand
-                    val key = if (Item.getFromItemStack(item) != null) "death.attack.arrow.item" else "death.attack.player.item"
-                    Component.translatable(key, player.name, killer.name, item.get(DataComponents.CUSTOM_NAME)!!)
-                }
-                else -> return
-            }
-
-        event.deathText = message
-        event.chatMessage = message
+        val message = combatDeathMessage(player.name, killer?.name, weapon, damageKind, killer === player)
+        if (message != null) {
+            event.deathText = message
+            event.chatMessage = message
+        }
 
         // instantly respawn the player without showing the death screen
         player.sendPacket(ChangeGameStatePacket(ChangeGameStatePacket.Reason.ENABLE_RESPAWN_SCREEN, 1f))
     }
+
+    internal fun exitVehicles(player: Player) {
+        Vehicle.playerVehicle[player]?.onExit(player)
+        Vehicle.passengerVehicle[player]?.onPassengerExit(player)
+    }
+
+    internal fun weaponDeathMessage(
+        victim: Component,
+        killer: Component,
+        weapon: Component,
+        damageKind: CombatDamageKind,
+    ): Component {
+        val key = if (damageKind == CombatDamageKind.PROJECTILE) "death.attack.arrow.item" else "death.attack.player.item"
+        return Component.translatable(key, victim, killer, weapon)
+    }
+
+    internal fun combatDeathMessage(
+        victim: Component,
+        killer: Component?,
+        weapon: Component?,
+        damageKind: CombatDamageKind?,
+        selfInflicted: Boolean,
+    ): Component? =
+        when {
+            damageKind == CombatDamageKind.EXPLOSION && selfInflicted ->
+                Component.translatable("death.attack.explosion", victim)
+            killer != null && weapon != null && damageKind != null ->
+                weaponDeathMessage(victim, killer, weapon, damageKind)
+            killer != null && damageKind == CombatDamageKind.EXPLOSION ->
+                Component.translatable("death.attack.explosion.player", victim, killer)
+            else -> null
+        }
 
     fun init() {
         Combat.eventNode.addListener(PlayerDeathEvent::class.java, PlayerDeathListener::onPlayerDeath)

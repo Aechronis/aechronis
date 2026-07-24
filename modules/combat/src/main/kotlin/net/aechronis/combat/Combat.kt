@@ -25,6 +25,7 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.damage.Damage
 import net.minestom.server.event.EventNode
 import net.minestom.server.timer.Task
 
@@ -42,25 +43,6 @@ object Combat {
     val playerPreviousPositions = HashMap<Player, ArrayDeque<Pos>>()
     val playerSpeeds = HashMap<Player, Float>()
 
-    val playerKillers = HashMap<Player, Player?>()
-
-    internal fun recordKiller(
-        victim: Player,
-        killer: Player,
-    ) {
-        synchronized(playerKillers) {
-            playerKillers[victim] = killer
-        }
-    }
-
-    internal fun takeKiller(victim: Player): Player? = synchronized(playerKillers) { playerKillers.remove(victim) }
-
-    internal fun removeKillerReferences(player: Player) {
-        synchronized(playerKillers) {
-            playerKillers.entries.removeIf { (victim, killer) -> victim === player || killer === player }
-        }
-    }
-
     val playerLastActionTimes = HashMap<Player, Long>()
 
     val meleeLastAttackTimes = HashMap<Player, Long>()
@@ -68,6 +50,7 @@ object Combat {
     val placeTasks = HashMap<Player, Task>()
 
     val entityLastDamageTime = HashMap<LivingEntity, Long>()
+    private val activeDamage = HashMap<LivingEntity, Damage>()
 
     private const val DAMAGE_IMMUNITY_MS = 500L
 
@@ -82,6 +65,37 @@ object Combat {
     ) {
         entityLastDamageTime[entity] = now
     }
+
+    fun applyDamage(
+        entity: LivingEntity,
+        damage: Damage,
+        now: Long = System.currentTimeMillis(),
+    ): Boolean {
+        if (!canDamage(entity, now)) return false
+
+        val previousDamageTime = entityLastDamageTime.put(entity, now)
+        val previousActiveDamage = activeDamage.put(entity, damage)
+        val damaged =
+            try {
+                entity.damage(damage)
+            } finally {
+                if (previousActiveDamage == null) {
+                    activeDamage.remove(entity)
+                } else {
+                    activeDamage[entity] = previousActiveDamage
+                }
+            }
+        if (damaged) return true
+
+        if (previousDamageTime == null) {
+            entityLastDamageTime.remove(entity)
+        } else {
+            entityLastDamageTime[entity] = previousDamageTime
+        }
+        return false
+    }
+
+    internal fun activeDamage(entity: LivingEntity): Damage? = activeDamage[entity]
 
     fun initialize() {
         // measure load time

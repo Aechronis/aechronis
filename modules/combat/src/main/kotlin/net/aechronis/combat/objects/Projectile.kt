@@ -1,5 +1,7 @@
 package net.aechronis.combat.objects
 
+import net.aechronis.combat.utils.Ray
+import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -21,6 +23,7 @@ class Projectile(
     val gravity: Double = 0.05,
     val explosionDamage: Float = 20f,
     val source: Player? = null,
+    val weapon: Component? = null,
 ) {
     private val entity: Entity
     private var velocity: Vec = direction.mul(speed)
@@ -50,27 +53,27 @@ class Projectile(
         // accelerate downward so the projectile arcs over time
         velocity = velocity.sub(0.0, gravity, 0.0)
 
-        val nextPos = entity.position.add(velocity)
+        val currentPos = entity.position
+        val nextPos = currentPos.add(velocity)
 
-        // chunk is loaded
-        if (!instance.isChunkLoaded(nextPos)) {
+        val blockHit = Ray(currentPos, velocity).firstBlock(instance)
+        if (blockHit != null) {
+            Explosion(
+                instance = instance,
+                pos = blockHit.point.asPos(),
+                radius = explosionRadius,
+                fire = explosionFire,
+                damage = explosionDamage,
+                source = source,
+                weapon = weapon,
+            )
             isActive = false
             entity.remove()
             return
         }
 
-        // if the next position is inside a solid block
-        val block = instance.getBlock(nextPos)
-        if (block.isSolid) {
-            // explode
-            Explosion(
-                instance = instance,
-                pos = nextPos,
-                radius = explosionRadius,
-                fire = explosionFire,
-                damage = explosionDamage,
-                source = source,
-            )
+        // chunk is loaded
+        if (!instance.isChunkLoaded(nextPos)) {
             isActive = false
             entity.remove()
             return

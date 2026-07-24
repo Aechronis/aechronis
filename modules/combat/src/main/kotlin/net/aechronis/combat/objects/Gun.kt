@@ -2,9 +2,11 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
+import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Particles
 import net.aechronis.combat.utils.Ray
+import net.aechronis.combat.utils.withCombatAttribution
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -206,7 +208,12 @@ class Gun(
         val ray = Ray(offsetPos, offsetPos.direction().mul(player.instance.viewDistance() * 16.0))
 
         val blockHit = ray.firstBlock(player.instance!!)
-        val entityHit = ray.firstEntity(player.instance.entities.filter { it != player })
+        val entityHit =
+            ray.firstEntity(
+                player.instance.entities
+                    .filterIsInstance<LivingEntity>()
+                    .filter { it != player },
+            )
         val vehicleHit = checkVehicleHit(player.instance, offsetPos, offsetPos.direction(), ray.distance)
 
         val blockHitDistance = blockHit?.t ?: 999.9
@@ -228,10 +235,10 @@ class Gun(
             val hitPoint = offsetPos.add(offsetPos.direction().mul(vehicleHitDistance))
             Particles.dustParticle(player.instance, hitPoint)
 
-            vehicle.takeDamage(vehicleEntity, damage, player)
+            vehicle.takeDamage(vehicleEntity, damage, player, itemName)
             trailEndPoint = hitPoint
         } else if (blockHitDistance > entityHitDistance) { // entity hit
-            val target = (entityHit!!.obj as LivingEntity)
+            val target = entityHit!!.obj
 
             // ding sound
             player.playSound(Sound.sound(Key.key("entity.experience_orb.pickup"), Sound.Source.PLAYER, 1.0f, 1.0f))
@@ -239,13 +246,11 @@ class Gun(
             // blood
             Particles.bloodParticle(player.instance, entityHit.point.asPos())
 
-            if (Combat.canDamage(target)) {
-                val damaged = target.damage(Damage.fromProjectile(player, null, damage))
-                if (damaged) {
-                    Combat.recordDamage(target)
-                    if (target is Player) Combat.recordKiller(target, player)
-                }
-            }
+            val damageSource =
+                Damage
+                    .fromProjectile(player, null, damage)
+                    .withCombatAttribution(CombatDamageKind.PROJECTILE, itemName)
+            Combat.applyDamage(target, damageSource)
             trailEndPoint = entityHit.point.asPos()
         } else { // block hit
             Particles.dustParticle(player.instance, blockHit!!.point.asPos())

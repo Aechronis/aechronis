@@ -79,19 +79,27 @@ class Plane(
         playerThrottle.remove(player)
     }
 
-    override fun destroy(entity: Entity) {
-        // explosion at plane position
+    override fun destroy(
+        entity: Entity,
+        attacker: Player?,
+        weapon: Component?,
+    ) {
         val instance = entity.instance
+        val position = entity.position
+
+        super.destroy(entity, attacker, weapon)
+
         if (instance != null) {
             Explosion(
                 instance = instance,
-                pos = entity.position,
+                pos = position,
                 radius = 5,
                 fire = 0.5,
                 damage = explosionDamage,
+                source = attacker,
+                weapon = weapon,
             )
         }
-        super.destroy(entity)
     }
 
     override fun onTick(player: Player) {

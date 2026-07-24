@@ -3,6 +3,8 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Melee
+import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.withCombatAttribution
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.minestom.server.coordinate.Vec
@@ -62,12 +64,11 @@ object MeleeListener {
         }
 
         // apply damage and set invincibility frames
-        val didDamage = target.damage(Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, damage.toFloat()))
+        val damageSource =
+            Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, damage.toFloat())
+                .withCombatAttribution(CombatDamageKind.MELEE, melee.itemName)
+        val didDamage = Combat.applyDamage(target, damageSource, currentTime)
         if (!didDamage) return
-        Combat.recordDamage(target, currentTime)
-        if (target is Player) {
-            Combat.recordKiller(target, attacker)
-        }
         if (isCritical) {
             playCriticalParticles(target)
         }
@@ -170,18 +171,19 @@ object MeleeListener {
             }
 
             // apply sweeping damage and set iframes
-            if (!livingEntity.damage(Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, 1F))) {
+            val damageSource =
+                Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, 1F)
+                    .withCombatAttribution(CombatDamageKind.MELEE, meleeWeaponName(attacker))
+            if (!Combat.applyDamage(livingEntity, damageSource, currentTime)) {
                 return@forEach
-            }
-            Combat.recordDamage(livingEntity, currentTime)
-            if (livingEntity is Player) {
-                Combat.recordKiller(livingEntity, attacker)
             }
 
             // apply sweeping knockback
             applySweepingKnockback(attacker, livingEntity)
         }
     }
+
+    private fun meleeWeaponName(attacker: Player) = (Item.getFromItemStack(attacker.itemInMainHand) as? Melee)?.itemName
 
     private fun applySweepingKnockback(
         attacker: Player,

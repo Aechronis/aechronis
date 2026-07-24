@@ -237,12 +237,16 @@ class Drone(
         return entity
     }
 
-    override fun destroy(entity: Entity) {
+    override fun destroy(
+        entity: Entity,
+        attacker: Player?,
+        weapon: Component?,
+    ) {
         // these aren't tracked by the base Vehicle, so clean them up ourselves
         entitySpider.remove(entity)?.remove()
         entityPayload.remove(entity)?.remove()
         entityBattery.remove(entity)
-        super.destroy(entity)
+        super.destroy(entity, attacker, weapon)
     }
 
     // the payload model shown attached to the drone for outside observers

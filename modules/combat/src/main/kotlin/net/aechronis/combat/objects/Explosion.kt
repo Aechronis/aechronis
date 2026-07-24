@@ -1,6 +1,9 @@
 package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.withCombatAttribution
+import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.LivingEntity
@@ -21,6 +24,7 @@ class Explosion(
     val fire: Double,
     val damage: Float = 0f,
     val source: Player? = null,
+    val weapon: Component? = null,
 ) {
     init {
         if (damage > 0f) applyDamage()
@@ -87,28 +91,27 @@ class Explosion(
         for ((entity, vehicle) in Vehicle.entityVehicle.toList()) {
             if (entity.instance != instance) continue
             val blastDamage = damageAtDistance(damage, radius, entity.position.distance(pos))
-            if (blastDamage > 0f) vehicle.takeDamage(entity, blastDamage, source)
+            if (blastDamage > 0f) vehicle.takeDamage(entity, blastDamage, source, weapon)
         }
 
         for (player in instance.players.toList()) {
             val blastDamage = damageAtDistance(damage, radius, player.position.distance(pos))
-            if (blastDamage > 0f && Combat.canDamage(player)) {
-                val damaged = player.damage(Damage(type, source, source, pos, blastDamage))
-                if (damaged) {
-                    Combat.recordDamage(player)
-                    if (source != null && player != source) Combat.recordKiller(player, source)
-                }
+            if (blastDamage > 0f) {
+                val damageSource =
+                    Damage(type, source, source, pos, blastDamage)
+                        .withCombatAttribution(CombatDamageKind.EXPLOSION, weapon)
+                Combat.applyDamage(player, damageSource)
             }
         }
 
         for (entity in instance.entities.toList()) {
             if (entity.entityType != EntityType.MANNEQUIN || entity !is LivingEntity) continue
             val blastDamage = damageAtDistance(damage, radius, entity.position.distance(pos))
-            if (blastDamage > 0f &&
-                Combat.canDamage(entity) &&
-                entity.damage(Damage(type, source, source, pos, blastDamage))
-            ) {
-                Combat.recordDamage(entity)
+            if (blastDamage > 0f) {
+                val damageSource =
+                    Damage(type, source, source, pos, blastDamage)
+                        .withCombatAttribution(CombatDamageKind.EXPLOSION, weapon)
+                Combat.applyDamage(entity, damageSource)
             }
         }
     }

@@ -239,7 +239,10 @@ open class Vehicle(
     // called when a passenger exits vehicle
     open fun onPassengerExit(player: Player) {
         passengerVehicleEntity.remove(player)?.let { entity ->
-            entityPassengers[entity]?.remove(player)
+            entityPassengers[entity]?.let { passengers ->
+                passengers.remove(player)
+                if (passengers.isEmpty()) entityPassengers.remove(entity)
+            }
         }
         passengerVehicle.remove(player)
 
@@ -269,20 +272,25 @@ open class Vehicle(
         entity: Entity,
         amount: Float,
         attacker: Player?,
+        weapon: Component? = null,
     ): Boolean {
         val currentHealth = entityHealth[entity] ?: return false
         val newHealth = currentHealth - amount
         entityHealth[entity] = newHealth
 
         if (newHealth <= 0) {
-            destroy(entity)
+            destroy(entity, attacker, weapon)
             return true
         }
         return false
     }
 
     // called when vehicle is destroyed
-    open fun destroy(entity: Entity) {
+    open fun destroy(
+        entity: Entity,
+        attacker: Player? = null,
+        weapon: Component? = null,
+    ) {
         // Eject all passengers
         entityPassengers.remove(entity)?.forEach { onPassengerExit(it) }
 

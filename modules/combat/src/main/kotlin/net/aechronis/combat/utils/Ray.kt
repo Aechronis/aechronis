@@ -1,5 +1,5 @@
 // Construct a ray with Ray(origin, vector); the vector's length is the max distance checked.
-// Call firstEntity() to hit entities, or firstBlock() to hit solid blocks.
+// Call firstEntity() to hit entities, or firstBlock() to hit block collision shapes.
 
 package net.aechronis.combat.utils
 
@@ -14,16 +14,46 @@ import net.minestom.server.utils.block.BlockIterator
 import kotlin.math.max
 import kotlin.math.min
 
+/** Returns the entry point as a fraction of [vector], or null when the segment misses the box. */
+internal fun segmentBoxIntersection(
+    origin: Point,
+    vector: Vec,
+    boxStart: Point,
+    boxEnd: Point,
+): Double? {
+    var entry = 0.0
+    var exit = 1.0
+
+    fun intersectsAxis(
+        start: Double,
+        delta: Double,
+        minimum: Double,
+        maximum: Double,
+    ): Boolean {
+        if (delta == 0.0) return start in minimum..maximum
+
+        val first = (minimum - start) / delta
+        val second = (maximum - start) / delta
+        entry = max(entry, min(first, second))
+        exit = min(exit, max(first, second))
+        return exit >= entry
+    }
+
+    if (!intersectsAxis(origin.x(), vector.x(), boxStart.x(), boxEnd.x())) return null
+    if (!intersectsAxis(origin.y(), vector.y(), boxStart.y(), boxEnd.y())) return null
+    if (!intersectsAxis(origin.z(), vector.z(), boxStart.z(), boxEnd.z())) return null
+    return entry
+}
+
 /**
  * A ray cast from [origin] along [vector], checking for collisions up to [vector]'s length.
  */
 class Ray(
     private val origin: Point,
-    vector: Vec,
+    private val vector: Vec,
 ) {
-    val direction: Vec = vector.normalize()
     val distance: Double = vector.length()
-    private val inverse: Vec = Vec.ONE.div(direction)
+    val direction: Vec = if (distance == 0.0) Vec.ZERO else vector.div(distance)
 
     /** An intersection [t] units along the ray, located at [point], hitting [obj]. */
     data class Hit<T>(
@@ -40,30 +70,10 @@ class Ray(
         shape: S,
         offset: Point,
     ): Hit<S>? {
-        val v1 =
-            shape
-                .relativeStart()
-                .asVec()
-                .sub(origin)
-                .add(offset)
-                .mul(inverse)
-        val v2 =
-            shape
-                .relativeEnd()
-                .asVec()
-                .sub(origin)
-                .add(offset)
-                .mul(inverse)
-
-        var tNear = min(v1.x(), v2.x())
-        var tFar = max(v1.x(), v2.x())
-        tNear = max(tNear, min(v1.y(), v2.y()))
-        tFar = min(tFar, max(v1.y(), v2.y()))
-        tNear = max(tNear, min(v1.z(), v2.z()))
-        tFar = min(tFar, max(v1.z(), v2.z()))
-
-        if (tFar < tNear || tFar < 0 || tNear > distance) return null
-        return Hit(tNear, origin.add(direction.mul(tNear)), shape)
+        val boxStart = shape.relativeStart().add(offset)
+        val boxEnd = shape.relativeEnd().add(offset)
+        val fraction = segmentBoxIntersection(origin, vector, boxStart, boxEnd) ?: return null
+        return Hit(distance * fraction, origin.add(vector.mul(fraction)), shape)
     }
 
     /** The closest entity the ray hits, or null if it hits none. */
@@ -76,23 +86,37 @@ class Ray(
         return best
     }
 
-    /** The closest solid block the ray hits, or null if it hits none. */
+    /** The closest block collision shape the ray hits, or null if it hits none. */
     fun firstBlock(instance: Instance): Hit<Block>? {
+        if (distance == 0.0) {
+            return firstBlockAt(
+                instance,
+                Vec(origin.blockX().toDouble(), origin.blockY().toDouble(), origin.blockZ().toDouble()),
+            )
+        }
+
         val iterator = BlockIterator(origin.asVec(), direction, 0.0, distance)
         while (iterator.hasNext()) {
             val pos = iterator.next()
-            if (!instance.isChunkLoaded(pos.chunkX(), pos.chunkZ())) continue
-
-            val block = instance.getBlock(pos)
-            val hitboxes = (block.registry()?.collisionShape() as? ShapeImpl)?.boundingBoxes() ?: continue
-
-            var best: Hit<Block>? = null
-            for (hitbox in hitboxes) {
-                val hit = cast(hitbox, pos.asVec()) ?: continue
-                if (best == null || hit.t < best.t) best = Hit(hit.t, hit.point, block)
-            }
-            if (best != null) return best
+            firstBlockAt(instance, pos)?.let { return it }
         }
         return null
+    }
+
+    private fun firstBlockAt(
+        instance: Instance,
+        pos: Point,
+    ): Hit<Block>? {
+        if (!instance.isChunkLoaded(pos.chunkX(), pos.chunkZ())) return null
+
+        val block = instance.getBlock(pos)
+        val hitboxes = (block.registry()?.collisionShape() as? ShapeImpl)?.boundingBoxes() ?: return null
+
+        var best: Hit<Block>? = null
+        for (hitbox in hitboxes) {
+            val hit = cast(hitbox, pos.asVec()) ?: continue
+            if (best == null || hit.t < best.t) best = Hit(hit.t, hit.point, block)
+        }
+        return best
     }
 }

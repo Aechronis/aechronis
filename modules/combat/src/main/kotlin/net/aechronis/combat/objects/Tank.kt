@@ -3,6 +3,7 @@ package net.aechronis.combat.objects
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.Message
+import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.rotatePoint
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.ShadowColor
@@ -39,6 +40,7 @@ class Tank(
     maxClimbHeight: Float = 1.2f,
     val turretTraverseSpeed: Float = 3f,
     val projectileModel: String = "$model-shell",
+    val projectileName: Component = Component.text("Tank cannon"),
     val projectileSpeed: Double = 4.0,
     val projectileExplosionRadius: Int = 4,
     val projectileExplosionFire: Double = 0.1,
@@ -171,29 +173,47 @@ class Tank(
         val tip = rotatePoint(barrelTipOffset, yaw, pitch, 0f)
         val muzzle = barrelPos.add(tip.x, tip.y, tip.z)
         val direction = muzzle.withView(yaw, pitch).direction()
+        val obstruction = Ray(barrelPos, muzzle.asVec().sub(barrelPos)).firstBlock(instance)
 
-        Projectile(
-            instance = instance,
-            pos = muzzle,
-            model = projectileModel,
-            direction = direction,
-            speed = projectileSpeed,
-            explosionRadius = projectileExplosionRadius,
-            explosionFire = projectileExplosionFire,
-            explosionDamage = projectileExplosionDamage,
-            source = player,
-        )
+        if (obstruction != null) {
+            Explosion(
+                instance = instance,
+                pos = obstruction.point.asPos(),
+                radius = projectileExplosionRadius,
+                fire = projectileExplosionFire,
+                damage = projectileExplosionDamage,
+                source = player,
+                weapon = projectileName,
+            )
+        } else {
+            Projectile(
+                instance = instance,
+                pos = muzzle,
+                model = projectileModel,
+                direction = direction,
+                speed = projectileSpeed,
+                explosionRadius = projectileExplosionRadius,
+                explosionFire = projectileExplosionFire,
+                explosionDamage = projectileExplosionDamage,
+                source = player,
+                weapon = projectileName,
+            )
+        }
 
         lastFireTime[body] = now
     }
 
-    override fun destroy(entity: Entity) {
+    override fun destroy(
+        entity: Entity,
+        attacker: Player?,
+        weapon: Component?,
+    ) {
         entityTurret.remove(entity)?.remove()
         entityBarrel.remove(entity)?.remove()
         yaw.remove(entity)
         pitch.remove(entity)
         lastFireTime.remove(entity)
-        super.destroy(entity)
+        super.destroy(entity, attacker, weapon)
     }
 
     // steps [current] toward [target] by at most [maxStep] degrees, takes the shortest way around
