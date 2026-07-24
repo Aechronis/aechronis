@@ -45,8 +45,6 @@ dependencies {
     implementation("net.aechronis:vanilla:db7afbd")
     // logger
     implementation("net.aechronis:logger:b2ecab0")
-    // axiom
-    implementation("fr.ghostrider584:axiom-minestom:0.0.4")
     // worldedit
     implementation("net.aechronis:worldedit:59a508e") {
         exclude(group = "com.google.code.gson", module = "gson")

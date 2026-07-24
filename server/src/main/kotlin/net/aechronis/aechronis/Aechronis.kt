@@ -1,8 +1,5 @@
 package net.aechronis.aechronis
 
-import fr.ghostrider584.axiom.AxiomMinestom
-import fr.ghostrider584.axiom.restrictions.AxiomPermission
-import fr.ghostrider584.axiom.restrictions.AxiomPermissions
 import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
 import io.github.openminigameserver.worldedit.MinestomWorldEdit
 import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfigAdapter
@@ -28,13 +25,10 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.NodesConfig
 import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
-import net.luckperms.api.LuckPermsProvider
-import net.luckperms.api.node.Node
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
-import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.registry.RegistryKey
@@ -81,8 +75,6 @@ fun main(args: Array<String>) {
             .build()
 
     Aechronis.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
-
-    AxiomMinestom.initialize()
 
     MinecraftServer.getGlobalEventHandler().addChild(Aechronis.eventNode)
 
@@ -134,11 +126,6 @@ fun main(args: Array<String>) {
         .enable()
 
     SignedVelocity.initialize()
-
-    // Set axiom permission logic
-    AxiomPermissions.setPermissionPredicate { player: Player, permission: AxiomPermission ->
-        player.hasPermission(permission.permissionNode)
-    }
 
     // blocks and stuff
     BlockPlacementRuleRegistrations.registerDefault()
