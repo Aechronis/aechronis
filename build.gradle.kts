@@ -29,8 +29,7 @@ repositories {
     mavenCentral()
     maven("https://maven.conceptmc.com/releases") // luckperms (minestom)
     maven("https://repo.hypera.dev/snapshots/") // Spark
-    maven("https://repo.lucko.me/") // spark-common
-    maven("https://repo.smolder.fr/public/") // axiom minestom component
+    maven("https://repo.lucko.me/") // spark-comm
     maven("https://mvn.everbuild.org/public") // blocks and stuff
     maven("https://maven.enginehub.org/repo/") // worldedit
 }
@@ -43,7 +42,7 @@ dependencies {
     // nodes
     implementation("net.aechronis:nodes:d0a0f34")
     // combat
-    implementation("net.aechronis:combat:be2aafa")
+    implementation("net.aechronis:combat:daa3763")
     // vanilla
     implementation("net.aechronis:vanilla:db7afbd")
     // logger
@@ -52,8 +51,6 @@ dependencies {
     implementation("net.aechronis:worldedit:59a508e") {
         exclude(group = "com.google.code.gson", module = "gson")
     }
-    // axiom
-    implementation("fr.ghostrider584:axiom-minestom:0.0.4")
     // luckperms
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")

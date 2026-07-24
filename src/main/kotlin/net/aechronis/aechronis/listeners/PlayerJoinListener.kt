@@ -25,8 +25,8 @@ object PlayerJoinListener {
                     .build(),
                 ResourcePackInfo
                     .resourcePackInfo()
-                    .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/0fa8d87/0fa8d87.zip"))
-                    .hash("6eff884381ce2ed5035a0bfcc7a5a3adb48d3aeb2e856e081791787415a4b3cc")
+                    .uri(URI("https://github.com/Aechronis/resource-pack/releases/download/event-4dc29bf/4dc29bf.zip"))
+                    .hash("9546f6763b6793300d63ea1071f0f6623d2b66bfaabf4e83b2e23feee44178b2")
                     .build(),
             ).prompt(Component.text("A resource pack is required to play"))
             .required(true)
@@ -36,14 +36,13 @@ object PlayerJoinListener {
         val player = event.player
 
         event.spawningInstance = Aechronis.instance
-        player.respawnPoint = Town.fromPlayer(player)?.spawnpoint ?: Pos(0.0, 64.0, 0.0)
+        player.respawnPoint = Town.fromPlayer(player)?.spawnpoint ?: Pos(0.0, 65.0, 0.0)
         player.gameMode = GameMode.SURVIVAL
         player.sendResourcePacks(resourcePackRequest)
     }
 
     private fun onPlayerJoin(event: PlayerSpawnEvent) {
         val player = event.player
-
         player.sendPacket(UpdateViewDistancePacket(Aechronis.VIEW_DISTANCE))
         player.sendPacket(UpdateSimulationDistancePacket(Aechronis.VIEW_DISTANCE))
     }

@@ -1,8 +1,5 @@
 package net.aechronis.aechronis
 
-import fr.ghostrider584.axiom.AxiomMinestom
-import fr.ghostrider584.axiom.restrictions.AxiomPermission
-import fr.ghostrider584.axiom.restrictions.AxiomPermissions
 import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
 import io.github.openminigameserver.worldedit.MinestomWorldEdit
 import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfigAdapter
@@ -34,6 +31,7 @@ import net.luckperms.api.LuckPermsProvider
 import net.luckperms.api.node.Node
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
+import net.minestom.server.color.Color
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerSpawnEvent
@@ -43,8 +41,8 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.DimensionType
+import net.minestom.server.world.attribute.EnvironmentAttribute
 import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
-import org.everbuild.blocksandstuff.blocks.BlockPickup
 import org.everbuild.blocksandstuff.blocks.BlockPlacementRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.PlacedHandlerRegistration
 import java.nio.file.Path
@@ -82,17 +80,19 @@ fun main(args: Array<String>) {
             .builder()
             .skylight(false)
             .ambientLight(1.0f)
-            .build()
+            .modifyAttribute(
+                EnvironmentAttribute.AMBIENT_LIGHT_COLOR,
+                EnvironmentAttribute.Modifier.Override(Color.CODEC),
+                Color.WHITE,
+            ).build()
 
     Aechronis.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
-
-    AxiomMinestom.initialize()
 
     MinecraftServer.getGlobalEventHandler().addChild(Aechronis.eventNode)
 
     // create instance
     Aechronis.instance = MinecraftServer.getInstanceManager().createInstanceContainer(Aechronis.fullbrightKey)
-    Aechronis.instance.chunkLoader = AnvilLoader("world")
+    Aechronis.instance.chunkLoader = AnvilLoader(Path.of("world"))
     Aechronis.instance.viewDistance(Aechronis.VIEW_DISTANCE)
 
     // tasks
@@ -158,16 +158,10 @@ fun main(args: Array<String>) {
 
     SignedVelocity.initialize()
 
-    // Set axiom permission logic
-    AxiomPermissions.setPermissionPredicate { player: Player, permission: AxiomPermission ->
-        player.hasPermission(permission.permissionNode)
-    }
-
     // blocks and stuff
     BlockPlacementRuleRegistrations.registerDefault()
     BlockBehaviorRuleRegistrations.registerDefault()
     PlacedHandlerRegistration.registerDefault()
-    BlockPickup.enable()
 
     Combat.initialize()
 
