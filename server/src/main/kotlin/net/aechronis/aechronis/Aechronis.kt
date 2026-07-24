@@ -120,17 +120,6 @@ fun main(args: Array<String>) {
             EnvironmentVariableConfigAdapter(plugin)
         }.enable()
 
-    if (allPermsPlayers.isNotEmpty()) {
-        Aechronis.eventNode.addListener(PlayerSpawnEvent::class.java) { event ->
-            val player = event.player
-            if (allPermsPlayers.any { it.equals(player.username, ignoreCase = true) }) {
-                LuckPermsProvider.get().userManager.getUser(player.uuid)?.let { user ->
-                    user.transientData().add(Node.builder("*").value(true).build())
-                }
-            }
-        }
-    }
-
     // initialize spark
     SparkMinestom
         .builder(Path.of("spark"))
