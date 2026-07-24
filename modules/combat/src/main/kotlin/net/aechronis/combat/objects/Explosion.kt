@@ -85,30 +85,44 @@ class Explosion(
         val type = if (source != null) DamageType.PLAYER_EXPLOSION else DamageType.EXPLOSION
 
         for ((entity, vehicle) in Vehicle.entityVehicle.toList()) {
-            if (entity.position.distance(pos) <= radius) {
-                vehicle.takeDamage(entity, damage, source)
-            }
+            if (entity.instance != instance) continue
+            val blastDamage = damageAtDistance(damage, radius, entity.position.distance(pos))
+            if (blastDamage > 0f) vehicle.takeDamage(entity, blastDamage, source)
         }
 
         for (player in instance.players.toList()) {
-            if (player.position.distance(pos) <= radius) {
-                if (Combat.canDamage(player)) {
-                    val damaged = player.damage(Damage(type, source, source, pos, damage))
-                    if (damaged) {
-                        Combat.recordDamage(player)
-                        if (source != null && player != source) Combat.recordKiller(player, source)
-                    }
+            val blastDamage = damageAtDistance(damage, radius, player.position.distance(pos))
+            if (blastDamage > 0f && Combat.canDamage(player)) {
+                val damaged = player.damage(Damage(type, source, source, pos, blastDamage))
+                if (damaged) {
+                    Combat.recordDamage(player)
+                    if (source != null && player != source) Combat.recordKiller(player, source)
                 }
             }
         }
 
         for (entity in instance.entities.toList()) {
             if (entity.entityType != EntityType.MANNEQUIN || entity !is LivingEntity) continue
-            if (entity.position.distance(pos) <= radius) {
-                if (Combat.canDamage(entity) && entity.damage(Damage(type, source, source, pos, damage))) {
-                    Combat.recordDamage(entity)
-                }
+            val blastDamage = damageAtDistance(damage, radius, entity.position.distance(pos))
+            if (blastDamage > 0f &&
+                Combat.canDamage(entity) &&
+                entity.damage(Damage(type, source, source, pos, blastDamage))
+            ) {
+                Combat.recordDamage(entity)
             }
         }
     }
+}
+
+internal fun damageAtDistance(
+    maxDamage: Float,
+    radius: Int,
+    distance: Double,
+): Float {
+    if (maxDamage <= 0f || distance < 0.0 || distance > radius) return 0f
+    if (radius == 0) return maxDamage
+
+    val minimumDamage = minOf(1f, maxDamage)
+    val falloffDamage = maxDamage * (1f - (distance / radius).toFloat())
+    return falloffDamage.coerceIn(minimumDamage, maxDamage)
 }

@@ -4,6 +4,7 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
+import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
@@ -18,6 +19,8 @@ class Projectile(
     val explosionRadius: Int = 4,
     val explosionFire: Double = .33,
     val gravity: Double = 0.05,
+    val explosionDamage: Float = 20f,
+    val source: Player? = null,
 ) {
     private val entity: Entity
     private var velocity: Vec = direction.mul(speed)
@@ -60,7 +63,14 @@ class Projectile(
         val block = instance.getBlock(nextPos)
         if (block.isSolid) {
             // explode
-            Explosion(instance, nextPos, explosionRadius, explosionFire)
+            Explosion(
+                instance = instance,
+                pos = nextPos,
+                radius = explosionRadius,
+                fire = explosionFire,
+                damage = explosionDamage,
+                source = source,
+            )
             isActive = false
             entity.remove()
             return

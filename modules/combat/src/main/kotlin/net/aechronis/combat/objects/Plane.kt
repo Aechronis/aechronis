@@ -42,6 +42,7 @@ class Plane(
     val maxThrottle: Float = 100f,
     val minAirThrottle: Float = 30f,
     val weapons: List<PlaneWeapon> = emptyList(),
+    val explosionDamage: Float = 20f,
     val seatOffset: List<Vec> = listOf(Vec.ZERO),
 ) : Vehicle(
         name,
@@ -82,7 +83,13 @@ class Plane(
         // explosion at plane position
         val instance = entity.instance
         if (instance != null) {
-            Explosion(instance, entity.position, 5, 0.5)
+            Explosion(
+                instance = instance,
+                pos = entity.position,
+                radius = 5,
+                fire = 0.5,
+                damage = explosionDamage,
+            )
         }
         super.destroy(entity)
     }

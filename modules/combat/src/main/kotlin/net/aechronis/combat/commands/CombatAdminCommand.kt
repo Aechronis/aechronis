@@ -54,15 +54,22 @@ class CombatAdminGiveCommand : Command("give", "combat.admin") {
 class CombatAdminExplosionCommand : Command("explosion", "combat.admin") {
     init {
         setDefaultExecutor { sender, _ ->
-            Message.print(sender, "Usage: /combatadmin explosion <radius> <fire>")
+            Message.print(sender, "Usage: /combatadmin explosion <radius> <fire> <damage>")
         }
 
         val radiusArg = ArgumentType.Integer("radius")
         val fireArg = ArgumentType.Double("fire")
+        val damageArg = ArgumentType.Float("damage")
 
         addSyntax({ player: Player, context ->
-            Explosion(player.instance, player.position, context[radiusArg], context[fireArg])
-        }, radiusArg, fireArg)
+            Explosion(
+                instance = player.instance,
+                pos = player.position,
+                radius = context[radiusArg],
+                fire = context[fireArg],
+                damage = context[damageArg],
+            )
+        }, radiusArg, fireArg, damageArg)
     }
 }
 

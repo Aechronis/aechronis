@@ -42,6 +42,7 @@ class Tank(
     val projectileSpeed: Double = 4.0,
     val projectileExplosionRadius: Int = 4,
     val projectileExplosionFire: Double = 0.1,
+    val projectileExplosionDamage: Float = 20f,
     val barrelTipOffset: Vec = Vec(0.0, 0.0, 5.0),
     val fireCooldown: Long = 20000,
     seatOffsets: List<Vec> = listOf(Vec.ZERO),
@@ -132,7 +133,7 @@ class Tank(
         // fire
         val inputEvent = KeyPressListener.playerInputEvent[player]
         if (inputEvent?.isHoldingJumpKey == true) {
-            fire(entity, pos, newYaw, newPitch)
+            fire(player, entity, pos, newYaw, newPitch)
         }
 
         // progress bar
@@ -155,6 +156,7 @@ class Tank(
     }
 
     private fun fire(
+        player: Player,
         body: Entity,
         barrelPos: Pos,
         yaw: Float,
@@ -171,13 +173,15 @@ class Tank(
         val direction = muzzle.withView(yaw, pitch).direction()
 
         Projectile(
-            instance,
-            muzzle,
-            projectileModel,
-            direction,
-            projectileSpeed,
-            projectileExplosionRadius,
-            projectileExplosionFire,
+            instance = instance,
+            pos = muzzle,
+            model = projectileModel,
+            direction = direction,
+            speed = projectileSpeed,
+            explosionRadius = projectileExplosionRadius,
+            explosionFire = projectileExplosionFire,
+            explosionDamage = projectileExplosionDamage,
+            source = player,
         )
 
         lastFireTime[body] = now
