@@ -18,9 +18,12 @@ import net.aechronis.utils.createTestServer
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
+import net.minestom.server.instance.Instance
+import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.generator.Generator
 import net.minestom.server.particle.Particle
@@ -28,10 +31,14 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CombatTest {
+    private lateinit var instance: InstanceContainer
+
     val shipGen =
         Generator { unit ->
             unit.modifier().fillHeight(0, 60, Block.WATER)
@@ -39,9 +46,11 @@ class CombatTest {
 
     @BeforeAll
     fun setup() {
-        createTestServer(
-            gameMode = GameMode.CREATIVE,
-        )
+        instance =
+            createTestServer(
+                generator = shipGen,
+                gameMode = GameMode.CREATIVE,
+            )
 
         val testAmmo =
             Ammo(
@@ -262,8 +271,39 @@ class CombatTest {
     }
 
     @Test
-    fun `placeholder test`() {
-        assertTrue(true)
+    fun `ship float height controls how much of the hitbox is above water`() {
+        val surfaceY = 10.0
+
+        assertEquals(7.0, TestShip(0.0).vehicleY(surfaceY))
+        assertEquals(9.0, TestShip(0.5).vehicleY(surfaceY))
+        assertEquals(11.0, TestShip(1.0).vehicleY(surfaceY))
+    }
+
+    @Test
+    fun `ship float height defaults to current center position`() {
+        val ship = TestShip()
+        val surfaceY = 10.0
+        val vehicleY = ship.vehicleY(surfaceY)
+
+        assertEquals(surfaceY - ship.hitbox.getCenterOffset().y, vehicleY)
+        assertEquals(surfaceY, ship.currentSurfaceY(Pos(0.0, vehicleY, 0.0)))
+    }
+
+    @Test
+    fun `ship float height must be between zero and one`() {
+        assertFailsWith<IllegalArgumentException> { TestShip(-0.01) }
+        assertFailsWith<IllegalArgumentException> { TestShip(1.01) }
+        assertFailsWith<IllegalArgumentException> { TestShip(Double.NaN) }
+    }
+
+    @Test
+    fun `fully out ship can move while touching water`() {
+        instance.loadChunk(0, 0).join()
+        val ship = TestShip(1.0)
+        val waterSurfaceY = 60.0
+        val position = Pos(8.0, ship.vehicleY(waterSurfaceY), 8.0)
+
+        assertTrue(ship.canMove(instance, position))
     }
 
     @AfterAll
@@ -272,5 +312,32 @@ class CombatTest {
         if (System.getProperty("keepRunning") == "true") {
             Thread.currentThread().join()
         }
+    }
+
+    private class TestShip(
+        floatHeight: Double = 0.5,
+    ) : Ship(
+            name = "float-height-test-ship",
+            itemName = Component.text("Float Height Test Ship"),
+            scale = 1.0,
+            hitbox =
+                Hitbox(
+                    listOf(
+                        HitboxPart(
+                            offset = Vec(0.0, 1.0, 0.0),
+                            size = Vec(1.0, 2.0, 1.0),
+                        ),
+                    ),
+                ),
+            floatHeight = floatHeight,
+        ) {
+        fun vehicleY(surfaceY: Double): Double = getVehicleY(surfaceY)
+
+        fun currentSurfaceY(position: Pos): Double = getCurrentSurfaceY(position)
+
+        fun canMove(
+            instance: Instance,
+            position: Pos,
+        ): Boolean = canStartMoving(instance, position)
     }
 }

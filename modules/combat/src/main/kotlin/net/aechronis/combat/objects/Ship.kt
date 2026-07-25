@@ -27,6 +27,7 @@ open class Ship(
     turnSpeed: Float = 4.0f,
     maxClimbHeight: Float = 0.5f,
     seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    val floatHeight: Double = 0.5,
 ) : Car(
         name,
         itemName,
@@ -45,6 +46,10 @@ open class Ship(
         maxClimbHeight,
         seatOffsets,
     ) {
+    init {
+        require(floatHeight in 0.0..1.0) { "floatHeight must be between 0.0 and 1.0" }
+    }
+
     override fun spawn(
         player: Player,
         pos: Pos,
@@ -85,9 +90,15 @@ open class Ship(
         return if (hasWaterFootprint(instance, floatedPosition, surfaceY)) surfaceY else null
     }
 
-    override fun getCurrentSurfaceY(position: Pos): Double = position.y + hitbox.getCenterOffset().y
+    override fun getCurrentSurfaceY(position: Pos): Double = position.y + getWaterlineOffset()
 
-    override fun getVehicleY(surfaceY: Double): Double = surfaceY - hitbox.getCenterOffset().y
+    override fun getVehicleY(surfaceY: Double): Double = surfaceY - getWaterlineOffset()
+
+    private fun getWaterlineOffset(): Double {
+        val bottomOffset = hitbox.getBottomOffset()
+        val topOffset = hitbox.getTopOffset()
+        return topOffset - (topOffset - bottomOffset) * floatHeight
+    }
 
     private fun isHitboxInWater(
         instance: Instance,
@@ -96,7 +107,7 @@ open class Ship(
         val currentSurfaceY = getCurrentSurfaceY(position)
         val waterSurfaceY = findWaterSurfaceY(instance, position.x, position.z, currentSurfaceY) ?: return false
         val bottomY = position.y + hitbox.getBottomOffset()
-        return waterSurfaceY > bottomY && hasWaterFootprint(instance, position, currentSurfaceY)
+        return waterSurfaceY >= bottomY && hasWaterFootprint(instance, position, currentSurfaceY)
     }
 
     private fun hasWaterFootprint(

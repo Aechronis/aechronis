@@ -25,6 +25,8 @@ class Hitbox(
 
     fun getBottomOffset(): Double = parts.minOfOrNull { it.offset.y - it.size.y } ?: 0.0
 
+    fun getTopOffset(): Double = parts.maxOfOrNull { it.offset.y + it.size.y } ?: 0.0
+
     // local-space centre of the combined bounding box of all parts
     fun getCenterOffset(): Vec {
         if (parts.isEmpty()) return Vec.ZERO
