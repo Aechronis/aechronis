@@ -13,17 +13,30 @@ object PendingRollbackRegistry {
     )
 
     private val pending = ConcurrentHashMap<String, Pending>()
+    private val tokenByPlayer = ConcurrentHashMap<UUID, String>()
 
+    @Synchronized
     fun register(
         playerUuid: UUID,
         plan: RollbackPlan,
     ): String {
         sweep()
-        val token = UUID.randomUUID().toString().take(8)
+        clearPlayer(playerUuid)
+        var token: String
+        do {
+            token =
+                UUID
+                    .randomUUID()
+                    .toString()
+                    .replace("-", "")
+                    .take(12)
+        } while (pending.containsKey(token))
         pending[token] = Pending(playerUuid, plan, System.currentTimeMillis())
+        tokenByPlayer[playerUuid] = token
         return token
     }
 
+    @Synchronized
     fun consume(
         playerUuid: UUID,
         token: String,
@@ -31,22 +44,35 @@ object PendingRollbackRegistry {
         sweep()
         val entry = pending[token] ?: return null
         if (entry.playerUuid != playerUuid) return null
-        pending.remove(token)
+        if (!pending.remove(token, entry)) return null
+        tokenByPlayer.remove(playerUuid, token)
         return entry.plan
     }
 
+    @Synchronized
     fun cancel(
         playerUuid: UUID,
         token: String,
     ): Boolean {
         val entry = pending[token] ?: return false
         if (entry.playerUuid != playerUuid) return false
+        val removed = pending.remove(token, entry)
+        if (removed) tokenByPlayer.remove(playerUuid, token)
+        return removed
+    }
+
+    @Synchronized
+    fun clearPlayer(playerUuid: UUID) {
+        val token = tokenByPlayer.remove(playerUuid) ?: return
         pending.remove(token)
-        return true
     }
 
     private fun sweep() {
         val cutoff = System.currentTimeMillis() - TTL_MILLIS
-        pending.entries.removeIf { it.value.createdAtMillis < cutoff }
+        pending.entries.removeIf { (token, value) ->
+            val expired = value.createdAtMillis < cutoff
+            if (expired) tokenByPlayer.remove(value.playerUuid, token)
+            expired
+        }
     }
 }

@@ -1,7 +1,16 @@
 package net.aechronis.logger.objects
 
+import net.aechronis.logger.utils.LogMetadata
+import net.minestom.server.inventory.PlayerInventory
 import net.minestom.server.item.ItemStack
 import java.util.UUID
+
+val survivalInventorySlots: List<Int> = (0..35).toList() + (41..45)
+
+fun snapshotItems(inventory: PlayerInventory): List<ItemStack> =
+    List(PlayerInventory.INVENTORY_SIZE) { slot ->
+        if (slot in survivalInventorySlots) inventory.getItemStack(slot) else ItemStack.AIR
+    }
 
 enum class InventorySnapshotAction(
     val value: String,
@@ -9,6 +18,7 @@ enum class InventorySnapshotAction(
     DEATH("death"),
     LOGIN("login"),
     LOGOUT("logout"),
+    LEGACY("legacy"),
     ;
 
     companion object {

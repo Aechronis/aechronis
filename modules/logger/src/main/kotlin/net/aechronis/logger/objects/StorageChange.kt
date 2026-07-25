@@ -1,5 +1,6 @@
 package net.aechronis.logger.objects
 
+import net.aechronis.logger.utils.LogMetadata
 import net.minestom.server.item.ItemStack
 import java.util.UUID
 
@@ -21,9 +22,11 @@ data class StorageChange(
     val action: StorageChangeAction,
     val item: ItemStack,
     val amount: Int,
+    val slot: Int? = null,
     val playerUuid: UUID? = null,
     val playerName: String? = null,
     val source: String = LogMetadata.LOGGER,
     val origin: String = LogMetadata.LOGGER,
+    val rolledBack: Boolean = false,
     val id: Long = 0,
 )

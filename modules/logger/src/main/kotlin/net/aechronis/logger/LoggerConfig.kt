@@ -8,4 +8,10 @@ data class LoggerConfig(
     val storageTableName: String = "storage_change",
     val limit: Int = 9999999,
     val inventorySnapshotTableName: String = "inventory_snapshot",
+    val rollbackSafetyDefault: Boolean = true,
+    val defaultRollbackRadius: Int = 10,
+    val rollbackMaxChanges: Int = 50_000,
+    val rollbackBatchSize: Int = 500,
+    val inventoryChangeTableName: String = "inventory_change",
+    val entityChangeTableName: String = "entity_change",
 )

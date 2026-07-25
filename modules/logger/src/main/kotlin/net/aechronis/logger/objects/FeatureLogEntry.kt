@@ -1,5 +1,6 @@
 package net.aechronis.logger.objects
 
+import net.aechronis.logger.utils.LogMetadata
 import java.util.UUID
 
 data class FeatureLogEntry(

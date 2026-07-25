@@ -15,10 +15,31 @@ private val timeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").with
 fun showRollbackPreview(
     player: Player,
     plan: RollbackPlan,
-    token: String,
+    token: String?,
 ) {
     val lines = mutableListOf<Component>()
     plan.blockChanges.forEach { lines += blockChangeLine(it) }
+    plan.storageChanges.forEach { change ->
+        lines +=
+            Component.text(
+                "  storage ${change.storageId}: ${change.targetAction.value} ${change.amount} ${change.item.material().key().asString()}",
+                NamedTextColor.GRAY,
+            )
+    }
+    plan.inventoryChanges.forEach { change ->
+        lines +=
+            Component.text(
+                "  inventory ${change.playerUuid} slot ${change.slot} -> ${change.targetItem.material().key().asString()}",
+                NamedTextColor.GRAY,
+            )
+    }
+    plan.entityChanges.forEach { change ->
+        lines +=
+            Component.text(
+                "  entity ${change.entityUuid}: ${change.targetAction.value} ${change.entityType}",
+                NamedTextColor.GRAY,
+            )
+    }
     if (plan.skippedBlockCount > 0) {
         lines +=
             Component.text(
@@ -28,38 +49,28 @@ fun showRollbackPreview(
     }
 
     val targetTime = timeFormat.format(Instant.ofEpochMilli(plan.targetTs))
-    val title = "Rollback preview: ${plan.totalChangeCount} changes -> state as of $targetTime"
+    val title = "${plan.kind.value.replaceFirstChar(Char::uppercase)} preview: ${plan.totalChangeCount} changes since $targetTime"
 
     Pages.send(player, title, lines)
 
-    player.sendMessage(
-        Component
-            .text("[Confirm Rollback]", NamedTextColor.RED)
-            .hoverEvent(HoverEvent.showText(Component.text("This will mutate the world. Click to apply.")))
-            .clickEvent(ClickEvent.runCommand("/logger rollback confirm:$token"))
-            .append(Component.text("  "))
-            .append(
-                Component
-                    .text("[Cancel]", NamedTextColor.GRAY)
-                    .hoverEvent(HoverEvent.showText(Component.text("Discard this preview without applying it.")))
-                    .clickEvent(ClickEvent.runCommand("/logger rollback cancel:$token")),
-            ),
-    )
-}
-
-fun showRollbackResult(
-    player: Player,
-    plan: RollbackPlan,
-) {
-    player.sendMessage(
-        Component.text(
-            "[Logger] Rollback applied: ${plan.totalChangeCount} changes reverted. Use /logger undo to revert this.",
-            NamedTextColor.GOLD,
-        ),
-    )
+    if (token != null) {
+        player.sendMessage(
+            Component
+                .text("[Confirm ${plan.kind.value.replaceFirstChar(Char::uppercase)}]", NamedTextColor.RED)
+                .hoverEvent(HoverEvent.showText(Component.text("This will mutate the world. Click to apply.")))
+                .clickEvent(ClickEvent.runCommand("/logger ${plan.kind.value} confirm:$token"))
+                .append(Component.text("  "))
+                .append(
+                    Component
+                        .text("[Cancel]", NamedTextColor.GRAY)
+                        .hoverEvent(HoverEvent.showText(Component.text("Discard this preview without applying it.")))
+                        .clickEvent(ClickEvent.runCommand("/logger ${plan.kind.value} cancel:$token")),
+                ),
+        )
+    }
 }
 
 private fun blockChangeLine(change: BlockChangePlan): Component =
     Component
         .text("  block @ ${change.x},${change.y},${change.z} -> ", NamedTextColor.GRAY)
-        .append(Component.text(change.restoreState ?: change.restoreMaterialKey, NamedTextColor.GREEN))
+        .append(Component.text(change.targetState ?: change.targetMaterialKey, NamedTextColor.GREEN))

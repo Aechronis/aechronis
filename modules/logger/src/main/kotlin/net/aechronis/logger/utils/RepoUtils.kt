@@ -1,4 +1,4 @@
-package net.aechronis.logger.db
+package net.aechronis.logger.utils
 
 import java.sql.PreparedStatement
 import java.sql.ResultSet
@@ -12,6 +12,7 @@ internal fun PreparedStatement.bindAll(values: List<Any>) {
             is Int -> setInt(index + 1, value)
             is Long -> setLong(index + 1, value)
             is Byte -> setByte(index + 1, value)
+            is Boolean -> setBoolean(index + 1, value)
             is String -> setString(index + 1, value)
             else -> throw IllegalArgumentException("unsupported bind type: ${value::class}")
         }

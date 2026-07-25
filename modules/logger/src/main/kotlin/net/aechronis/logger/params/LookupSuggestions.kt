@@ -9,9 +9,21 @@ import net.minestom.server.command.builder.suggestion.SuggestionEntry
 import net.minestom.server.instance.block.Block
 
 object LookupSuggestions {
-    private val actionValues = listOf("break", "place", "interact", "block")
+    private val actionValues =
+        listOf(
+            "block",
+            "+block",
+            "-block",
+            "container",
+            "+container",
+            "-container",
+            "entity",
+            "spawn",
+            "kill",
+            "interact",
+        )
     private val timeHints = listOf("1h", "30m", "7d")
-    private val radiusHints = listOf("10")
+    private val radiusHints = listOf("10", "#global")
     private val chunkRadiusHints = listOf("1", "2", "3")
     private const val MAX_ENTRIES = 50
 
@@ -26,6 +38,13 @@ object LookupSuggestions {
     ) {
         val input = suggestion.getInput()
         val token = input.substring(input.lastIndexOf(' ') + 1)
+
+        if (token.startsWith('#')) {
+            listOf("#preview", "#force", "#verbose", "#silent")
+                .filter { it.startsWith(token, ignoreCase = true) }
+                .forEach { suggestion.addEntry(SuggestionEntry(it)) }
+            return
+        }
 
         val colon = token.indexOf(':')
         if (colon < 0) {

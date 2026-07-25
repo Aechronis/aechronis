@@ -1,17 +1,22 @@
-package net.aechronis.logger.db
+package net.aechronis.logger.repos
 
 import net.aechronis.logger.Logger
-import net.aechronis.logger.LoggerConfig
+import net.aechronis.logger.db.Database
 import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
 import net.aechronis.logger.params.LookupParams
+import net.aechronis.logger.utils.bindAll
+import net.aechronis.logger.utils.placeholders
+import net.aechronis.logger.utils.setNullableBytes
+import net.aechronis.logger.utils.setNullableString
 import java.sql.ResultSet
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class BlockLogRepository(
+class BlockLog(
     private val database: Database,
     private val executor: ExecutorService = Executors.newVirtualThreadPerTaskExecutor(),
 ) : AutoCloseable {
@@ -19,11 +24,12 @@ class BlockLogRepository(
 
     private val selectColumns =
         "id, ts, player_uuid, player_name, x, y, z, block_old, block_new, action, " +
-            "instance_uuid, block_old_state, block_new_state, block_old_nbt, block_new_nbt, source, origin"
+            "instance_uuid, block_old_state, block_new_state, block_old_nbt, block_new_nbt, source, origin, rolled_back"
+    private val pendingWrites = ConcurrentHashMap.newKeySet<CompletableFuture<Void>>()
 
     private val insertSql =
         """
-        INSERT INTO `$table`
+        INSERT INTO "$table"
             (ts, player_uuid, player_name, x, y, z, block_old, block_new, action,
              instance_uuid, block_old_state, block_new_state, block_old_nbt, block_new_nbt, source, origin)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -32,13 +38,20 @@ class BlockLogRepository(
     private val lookupSql =
         """
         SELECT $selectColumns
-        FROM `$table`
+        FROM "$table"
         WHERE x = ? AND y = ? AND z = ?
-        ORDER BY ts DESC
+        ORDER BY ts DESC, id DESC
         LIMIT ?
         """.trimIndent()
 
-    fun insertAsync(entry: BlockLogEntry): CompletableFuture<Void> = CompletableFuture.runAsync({ insert(entry) }, executor)
+    fun insertAsync(entry: BlockLogEntry): CompletableFuture<Void> {
+        val future = CompletableFuture.runAsync({ insert(entry) }, executor)
+        pendingWrites += future
+        future.whenComplete { _, _ -> pendingWrites -= future }
+        return future
+    }
+
+    fun flushAsync(): CompletableFuture<Void> = CompletableFuture.allOf(*pendingWrites.toTypedArray())
 
     private fun insert(entry: BlockLogEntry) {
         database.dataSource.connection.use { conn ->
@@ -109,7 +122,7 @@ class BlockLogRepository(
         limit: Int,
     ): List<BlockLogEntry> {
         val (sql, args) = buildWhereClause(params, centerX, centerY, centerZ)
-        sql.append(" ORDER BY ts DESC LIMIT ?")
+        sql.append(" ORDER BY ts DESC, id DESC LIMIT ?")
         args += limit
         return runQuery(sql.toString(), args)
     }
@@ -121,27 +134,43 @@ class BlockLogRepository(
         centerX: Int,
         centerY: Int,
         centerZ: Int,
-        limit: Int = Logger.config.limit,
+        limit: Int = Logger.config.rollbackMaxChanges,
     ): CompletableFuture<List<BlockLogEntry>> =
-        CompletableFuture.supplyAsync({ searchForRollback(params, targetTs, instanceUuid, centerX, centerY, centerZ, limit) }, executor)
+        searchForOperationAsync(params, targetTs, instanceUuid, centerX, centerY, centerZ, rolledBack = false, limit = limit)
 
-    private fun searchForRollback(
+    fun searchForRestoreAsync(
         params: LookupParams,
         targetTs: Long,
         instanceUuid: UUID,
         centerX: Int,
         centerY: Int,
         centerZ: Int,
+        limit: Int = Logger.config.rollbackMaxChanges,
+    ): CompletableFuture<List<BlockLogEntry>> =
+        searchForOperationAsync(params, targetTs, instanceUuid, centerX, centerY, centerZ, rolledBack = true, limit = limit)
+
+    private fun searchForOperationAsync(
+        params: LookupParams,
+        targetTs: Long,
+        instanceUuid: UUID,
+        centerX: Int,
+        centerY: Int,
+        centerZ: Int,
+        rolledBack: Boolean,
         limit: Int,
-    ): List<BlockLogEntry> {
-        val (sql, args) = buildWhereClause(params, centerX, centerY, centerZ)
-        sql.append(" AND ts >= ? AND instance_uuid = ?")
-        args += targetTs
-        args += instanceUuid.toString()
-        sql.append(" ORDER BY ts ASC LIMIT ?")
-        args += limit
-        return runQuery(sql.toString(), args)
-    }
+    ): CompletableFuture<List<BlockLogEntry>> =
+        flushAsync().thenApplyAsync({
+            val effectiveParams = params.copy(since = targetTs)
+            val (sql, args) = buildWhereClause(effectiveParams, centerX, centerY, centerZ)
+            sql.append(" AND instance_uuid = ? AND rolled_back = ? AND action IN (?, ?)")
+            args += instanceUuid.toString()
+            args += rolledBack
+            args += BlockAction.BREAK.id
+            args += BlockAction.PLACE.id
+            sql.append(if (rolledBack) " ORDER BY ts ASC, id ASC LIMIT ?" else " ORDER BY ts DESC, id DESC LIMIT ?")
+            args += if (limit == Int.MAX_VALUE) limit else limit + 1
+            runQuery(sql.toString(), args)
+        }, executor)
 
     private fun buildWhereClause(
         params: LookupParams,
@@ -149,7 +178,7 @@ class BlockLogRepository(
         centerY: Int,
         centerZ: Int,
     ): Pair<StringBuilder, MutableList<Any>> {
-        val sql = StringBuilder("SELECT $selectColumns FROM `$table` WHERE 1=1")
+        val sql = StringBuilder("SELECT $selectColumns FROM \"$table\" WHERE 1=1")
         val args = mutableListOf<Any>()
 
         if (params.users.isNotEmpty()) {
@@ -166,6 +195,10 @@ class BlockLogRepository(
         }
         params.since?.let {
             sql.append(" AND ts >= ?")
+            args += it
+        }
+        params.until?.let {
+            sql.append(" AND ts <= ?")
             args += it
         }
         params.radius?.let { r ->
@@ -243,9 +276,10 @@ class BlockLogRepository(
             blockNewState = rs.getString("block_new_state"),
             blockOldNbt = rs.getBytes("block_old_nbt"),
             blockNewNbt = rs.getBytes("block_new_nbt"),
+            rolledBack = rs.getBoolean("rolled_back"),
         )
 
     override fun close() {
-        executor.shutdown()
+        executor.close()
     }
 }

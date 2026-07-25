@@ -1,57 +1,104 @@
 package net.aechronis.logger.objects
 
+import net.minestom.server.item.ItemStack
 import java.util.UUID
 
-data class BlockChangePlan(
-    val x: Int,
-    val y: Int,
-    val z: Int,
-    val restoreState: String?,
-    val restoreMaterialKey: String,
-    val restoreNbt: ByteArray?,
+enum class RollbackOperationKind(
+    val value: String,
 ) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
+    ROLLBACK("rollback"),
+    RESTORE("restore"),
+    SNAPSHOT("snapshot"),
+    LEGACY("legacy"),
+    ;
 
-        other as BlockChangePlan
-
-        if (x != other.x) return false
-        if (y != other.y) return false
-        if (z != other.z) return false
-        if (restoreState != other.restoreState) return false
-        if (restoreMaterialKey != other.restoreMaterialKey) return false
-        if (!restoreNbt.contentEquals(other.restoreNbt)) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = x
-        result = 31 * result + y
-        result = 31 * result + z
-        result = 31 * result + (restoreState?.hashCode() ?: 0)
-        result = 31 * result + restoreMaterialKey.hashCode()
-        result = 31 * result + (restoreNbt?.contentHashCode() ?: 0)
-        return result
+    companion object {
+        fun fromValue(value: String): RollbackOperationKind = entries.first { it.value == value }
     }
 }
 
+data class BlockChangePlan(
+    val blockLogId: Long,
+    val x: Int,
+    val y: Int,
+    val z: Int,
+    val expectedState: String?,
+    val expectedMaterialKey: String,
+    val expectedNbt: ByteArray?,
+    val targetState: String?,
+    val targetMaterialKey: String,
+    val targetNbt: ByteArray?,
+)
+
+enum class RollbackDomain {
+    BLOCK,
+    STORAGE,
+    INVENTORY,
+    ENTITY,
+}
+
+data class RollbackSelection(
+    val domains: Set<RollbackDomain> = setOf(RollbackDomain.BLOCK),
+    val storageActions: Set<StorageChangeAction>? = null,
+    val inventoryActions: Set<InventoryChangeAction>? = null,
+    val entityActions: Set<EntityChangeAction>? = null,
+)
+
+data class StorageChangePlan(
+    val storageLogId: Long,
+    val source: String,
+    val storageId: String,
+    val slot: Int?,
+    val targetAction: StorageChangeAction,
+    val item: ItemStack,
+    val amount: Int,
+)
+
+data class InventoryChangePlan(
+    val inventoryLogId: Long?,
+    val playerUuid: UUID,
+    val slot: Int,
+    val expectedItem: ItemStack?,
+    val targetItem: ItemStack,
+)
+
+data class EntityChangePlan(
+    val entityLogId: Long,
+    val entityUuid: UUID,
+    val entityType: String,
+    val targetAction: EntityChangeAction,
+    val position: net.minestom.server.coordinate.Pos,
+    val velocity: net.minestom.server.coordinate.Vec,
+    val tagData: ByteArray?,
+)
+
 data class RollbackPlan(
+    val kind: RollbackOperationKind,
     val instanceUuid: UUID,
     val targetTs: Long,
     val queryDesc: String,
+    val safeMode: Boolean,
     val blockChanges: List<BlockChangePlan>,
+    val storageChanges: List<StorageChangePlan> = emptyList(),
+    val inventoryChanges: List<InventoryChangePlan> = emptyList(),
+    val entityChanges: List<EntityChangePlan> = emptyList(),
     val skippedBlockCount: Int,
+    val truncated: Boolean = false,
 ) {
-    val totalChangeCount: Int get() = blockChanges.size
+    val totalChangeCount: Int get() = blockChanges.size + storageChanges.size + inventoryChanges.size + entityChanges.size
 }
 
 enum class RollbackStatus(
     val value: String,
 ) {
+    PREPARED("prepared"),
+    APPLYING("applying"),
     APPLIED("applied"),
+    UNDOING("undoing"),
     UNDONE("undone"),
+    REDOING("redoing"),
+    FAILED("failed"),
+    RECOVERY_REQUIRED("recovery_required"),
     ;
 
     companion object {
@@ -63,6 +110,9 @@ enum class RollbackChangeKind(
     val value: String,
 ) {
     BLOCK("block"),
+    STORAGE("storage"),
+    INVENTORY("inventory"),
+    ENTITY("entity"),
     ;
 
     companion object {
@@ -75,17 +125,27 @@ data class RollbackOperation(
     val actorUuid: UUID,
     val actorName: String,
     val instanceUuid: UUID,
+    val kind: RollbackOperationKind,
     val queryDesc: String,
     val targetTs: Long,
+    val safeMode: Boolean,
     val status: RollbackStatus,
     val blockChangeCount: Int,
+    val skippedChangeCount: Int = 0,
+    val completedTimestamp: Long? = null,
     val id: Long = 0,
 )
 
 data class RollbackChange(
     val operationId: Long,
+    val sequence: Int,
     val changeKind: RollbackChangeKind,
     val id: Long = 0,
+    val blockLogId: Long? = null,
+    val storageLogId: Long? = null,
+    val inventoryLogId: Long? = null,
+    val entityLogId: Long? = null,
+    val applied: Boolean = false,
     val x: Int? = null,
     val y: Int? = null,
     val z: Int? = null,
@@ -93,38 +153,20 @@ data class RollbackChange(
     val beforeBlockNbt: ByteArray? = null,
     val afterBlockState: String? = null,
     val afterBlockNbt: ByteArray? = null,
-) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as RollbackChange
-
-        if (operationId != other.operationId) return false
-        if (id != other.id) return false
-        if (x != other.x) return false
-        if (y != other.y) return false
-        if (z != other.z) return false
-        if (changeKind != other.changeKind) return false
-        if (beforeBlockState != other.beforeBlockState) return false
-        if (!beforeBlockNbt.contentEquals(other.beforeBlockNbt)) return false
-        if (afterBlockState != other.afterBlockState) return false
-        if (!afterBlockNbt.contentEquals(other.afterBlockNbt)) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = operationId.hashCode()
-        result = 31 * result + id.hashCode()
-        result = 31 * result + (x ?: 0)
-        result = 31 * result + (y ?: 0)
-        result = 31 * result + (z ?: 0)
-        result = 31 * result + changeKind.hashCode()
-        result = 31 * result + (beforeBlockState?.hashCode() ?: 0)
-        result = 31 * result + (beforeBlockNbt?.contentHashCode() ?: 0)
-        result = 31 * result + (afterBlockState?.hashCode() ?: 0)
-        result = 31 * result + (afterBlockNbt?.contentHashCode() ?: 0)
-        return result
-    }
-}
+    val storageSource: String? = null,
+    val storageId: String? = null,
+    val storageAction: StorageChangeAction? = null,
+    val itemData: ByteArray? = null,
+    val amount: Int? = null,
+    val storageSlot: Int? = null,
+    val inventoryPlayerUuid: UUID? = null,
+    val inventorySlot: Int? = null,
+    val beforeItemData: ByteArray? = null,
+    val afterItemData: ByteArray? = null,
+    val entityUuid: UUID? = null,
+    val entityType: String? = null,
+    val entityAction: EntityChangeAction? = null,
+    val entityPosition: net.minestom.server.coordinate.Pos? = null,
+    val entityVelocity: net.minestom.server.coordinate.Vec? = null,
+    val entityTagData: ByteArray? = null,
+)

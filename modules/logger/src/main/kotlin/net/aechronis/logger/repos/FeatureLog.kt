@@ -1,15 +1,21 @@
-package net.aechronis.logger.db
+package net.aechronis.logger.repos
 
+import net.aechronis.logger.db.Database
 import net.aechronis.logger.objects.FeatureLogEntry
 import net.aechronis.logger.params.FeatureLookupParams
 import net.aechronis.logger.utils.DataCodec
+import net.aechronis.logger.utils.bindAll
+import net.aechronis.logger.utils.getNullableInt
+import net.aechronis.logger.utils.placeholders
+import net.aechronis.logger.utils.setNullableInt
+import net.aechronis.logger.utils.setNullableString
 import java.sql.ResultSet
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class FeatureLogRepository(
+class FeatureLog(
     private val database: Database,
     private val executor: ExecutorService = Executors.newVirtualThreadPerTaskExecutor(),
 ) : AutoCloseable {
@@ -17,7 +23,7 @@ class FeatureLogRepository(
 
     private val insertSql =
         """
-        INSERT INTO `$table`
+        INSERT INTO "$table"
             (ts, player_uuid, player_name, source, action, summary, x, y, z, data, origin)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
@@ -62,7 +68,7 @@ class FeatureLogRepository(
         val sql =
             StringBuilder(
                 "SELECT ts, player_uuid, player_name, source, action, summary, x, y, z, data, origin " +
-                    "FROM `$table` WHERE LOWER(source) = ?",
+                    "FROM \"$table\" WHERE LOWER(source) = ?",
             )
         val args = mutableListOf<Any>(params.source.lowercase())
 
@@ -72,6 +78,10 @@ class FeatureLogRepository(
         }
         params.since?.let {
             sql.append(" AND ts >= ?")
+            args += it
+        }
+        params.until?.let {
+            sql.append(" AND ts <= ?")
             args += it
         }
         params.radius?.let { r ->
@@ -137,6 +147,6 @@ class FeatureLogRepository(
         )
 
     override fun close() {
-        executor.shutdown()
+        executor.close()
     }
 }

@@ -1,5 +1,6 @@
 package net.aechronis.logger.objects
 
+import net.aechronis.logger.utils.LogMetadata
 import java.util.UUID
 
 data class BlockLogEntry(
@@ -20,6 +21,7 @@ data class BlockLogEntry(
     val blockNewNbt: ByteArray? = null,
     val source: String = LogMetadata.LOGGER,
     val origin: String = LogMetadata.LOGGER,
+    val rolledBack: Boolean = false,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -39,6 +41,7 @@ data class BlockLogEntry(
         if (action != other.action) return false
         if (source != other.source) return false
         if (origin != other.origin) return false
+        if (rolledBack != other.rolledBack) return false
         if (instanceUuid != other.instanceUuid) return false
         if (blockOldState != other.blockOldState) return false
         if (blockNewState != other.blockNewState) return false
@@ -61,6 +64,7 @@ data class BlockLogEntry(
         result = 31 * result + action.hashCode()
         result = 31 * result + source.hashCode()
         result = 31 * result + origin.hashCode()
+        result = 31 * result + rolledBack.hashCode()
         result = 31 * result + (instanceUuid?.hashCode() ?: 0)
         result = 31 * result + (blockOldState?.hashCode() ?: 0)
         result = 31 * result + (blockNewState?.hashCode() ?: 0)

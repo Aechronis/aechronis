@@ -3,7 +3,7 @@ version = System.getenv("GITHUB_SHA")?.take(7) ?: "local"
 
 plugins {
     `maven-publish`
-    id("org.jetbrains.kotlin.jvm") version "2.3.20"
+    id("org.jetbrains.kotlin.jvm") version "2.4.10"
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
@@ -19,19 +19,28 @@ repositories {
             password = project.findProperty("gpr.token") as String? ?: System.getenv("GITHUB_TOKEN")
         }
     }
+    maven {
+        url = uri("https://maven.pkg.github.com/Aechronis/vanilla")
+        credentials {
+            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.token") as String? ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
 }
 
 dependencies {
-    api("net.aechronis:utils:86a747b")
-    api("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly("net.aechronis:utils:86a747b")
+    compileOnly("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly("net.aechronis:vanilla:dc271de")
 
     // database
-    api("org.xerial:sqlite-jdbc:3.53.2.0")
-    api("com.zaxxer:HikariCP:7.1.0")
+    compileOnly("com.h2database:h2:2.4.240")
+    compileOnly("com.zaxxer:HikariCP:7.1.0")
 
     // testing
     testImplementation("net.aechronis:utils:86a747b")
-    testImplementation("org.xerial:sqlite-jdbc:3.53.2.0")
+    testImplementation("net.aechronis:vanilla:dc271de")
+    testImplementation("com.h2database:h2:2.4.240")
     testImplementation("com.zaxxer:HikariCP:7.1.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
