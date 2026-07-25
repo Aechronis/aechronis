@@ -1,5 +1,7 @@
 package net.aechronis.logger
 
+import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
+import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
 import net.aechronis.logger.listeners.LootListener
 import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
@@ -18,6 +20,7 @@ import net.aechronis.logger.utils.LogMetadata
 import net.aechronis.utils.createTestServer
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.objects.StorageContents
+import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
@@ -342,6 +345,87 @@ class LoggerTest {
 
     @Test
     @Order(8)
+    fun `WorldEdit changes use normal block rollback and restore`() {
+        val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        instance.loadChunk(1, 1).get(5, TimeUnit.SECONDS)
+        val firstPosition = BlockVec(24, 40, 24)
+        val secondPosition = BlockVec(25, 40, 24)
+        val oldNbt = CompoundBinaryTag.builder().putString("logger-test", "old").build()
+        val newNbt = CompoundBinaryTag.builder().putString("logger-test", "new").build()
+        val oldFirst = Block.STONE.withNbt(oldNbt)
+        val newFirst = Block.DIAMOND_BLOCK.withNbt(newNbt)
+        val oldSecond = Block.GOLD_BLOCK
+        val newSecond = Block.AIR
+        val playerUuid = UUID.randomUUID()
+        val since = System.currentTimeMillis() - 1_000
+
+        instance.setBlock(firstPosition, newFirst)
+        instance.setBlock(secondPosition, newSecond)
+        MinecraftServer.getGlobalEventHandler().call(
+            WorldEditBlockChangesEvent(
+                actorUuid = playerUuid,
+                actorName = "worldedit-test",
+                instance = instance,
+                changes =
+                    listOf(
+                        WorldEditBlockChange(firstPosition, oldFirst, newFirst),
+                        WorldEditBlockChange(secondPosition, oldSecond, newSecond),
+                    ),
+            ),
+        )
+        Logger.repository.flushAsync().get(5, TimeUnit.SECONDS)
+
+        val firstEntry =
+            Logger.repository
+                .lookupAsync(firstPosition.blockX(), firstPosition.blockY(), firstPosition.blockZ())
+                .get(5, TimeUnit.SECONDS)
+                .single()
+        val secondEntry =
+            Logger.repository
+                .lookupAsync(secondPosition.blockX(), secondPosition.blockY(), secondPosition.blockZ())
+                .get(5, TimeUnit.SECONDS)
+                .single()
+        assertEquals(BlockAction.PLACE, firstEntry.action)
+        assertEquals(BlockAction.BREAK, secondEntry.action)
+        assertEquals(playerUuid, firstEntry.playerUuid)
+        assertEquals(instance.uuid, firstEntry.instanceUuid)
+        assertEquals(LogMetadata.WORLDEDIT, firstEntry.source)
+        assertEquals(LogMetadata.WORLDEDIT, firstEntry.origin)
+        assertEquals(oldNbt, ItemCodec.decodeBlockNbt(firstEntry.blockOldNbt))
+        assertEquals(newNbt, ItemCodec.decodeBlockNbt(firstEntry.blockNewNbt))
+
+        val params =
+            LookupParams(
+                users = listOf("worldedit-test"),
+                source = LogMetadata.WORLDEDIT,
+                since = since,
+                radius = 10,
+            )
+        val actor = RollbackActor(UUID.randomUUID(), "worldedit-operator")
+        val center = Pos(firstPosition.x(), firstPosition.y(), firstPosition.z())
+        val rollbackPlan =
+            Logger.rollbackService
+                .computePlanAsync(RollbackOperationKind.ROLLBACK, params, since, instance.uuid, center, safeMode = true)
+                .get(5, TimeUnit.SECONDS)
+        val rollbackResult = Logger.rollbackService.applyAsync(actor, rollbackPlan).get(5, TimeUnit.SECONDS)
+
+        assertEquals(2, rollbackResult.appliedCount)
+        assertEquals(oldFirst, instance.getBlock(firstPosition))
+        assertEquals(oldSecond, instance.getBlock(secondPosition))
+
+        val restorePlan =
+            Logger.rollbackService
+                .computePlanAsync(RollbackOperationKind.RESTORE, params, since, instance.uuid, center, safeMode = true)
+                .get(5, TimeUnit.SECONDS)
+        val restoreResult = Logger.rollbackService.applyAsync(actor, restorePlan).get(5, TimeUnit.SECONDS)
+
+        assertEquals(2, restoreResult.appliedCount)
+        assertEquals(newFirst, instance.getBlock(firstPosition))
+        assertEquals(newSecond, instance.getBlock(secondPosition))
+    }
+
+    @Test
+    @Order(9)
     fun `close persists pending log entries`() {
         repeat(100) { index ->
             Logger.log(

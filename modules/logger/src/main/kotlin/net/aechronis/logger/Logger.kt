@@ -8,6 +8,7 @@ import net.aechronis.logger.listeners.EntityListener
 import net.aechronis.logger.listeners.InventoryListener
 import net.aechronis.logger.listeners.InventorySnapshotListener
 import net.aechronis.logger.listeners.LootListener
+import net.aechronis.logger.listeners.WorldEditListener
 import net.aechronis.logger.objects.FeatureLogEntry
 import net.aechronis.logger.objects.PendingRollbackRegistry
 import net.aechronis.logger.objects.RollbackSafety
@@ -76,6 +77,7 @@ object Logger {
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         BlockListener.init()
+        WorldEditListener.init()
         EntityListener.init()
         EntityChangeListener.init()
         InventoryListener.init()

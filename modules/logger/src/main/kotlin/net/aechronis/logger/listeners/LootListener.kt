@@ -1,7 +1,6 @@
 package net.aechronis.logger.listeners
 
 import net.aechronis.logger.Logger
-import net.aechronis.logger.commands.LOOKUP_USAGE
 import net.aechronis.logger.objects.FeatureLogEntry
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata

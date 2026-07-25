@@ -11,16 +11,10 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 repositories {
     mavenCentral()
+    maven("https://maven.enginehub.org/repo/")
     maven("https://repo.hypera.dev/snapshots/") // luckperms
     maven {
         url = uri("https://maven.pkg.github.com/Aechronis/aechronis")
-        credentials {
-            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
-            password = project.findProperty("gpr.token") as String? ?: System.getenv("GITHUB_TOKEN")
-        }
-    }
-    maven {
-        url = uri("https://maven.pkg.github.com/Aechronis/vanilla")
         credentials {
             username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
             password = project.findProperty("gpr.token") as String? ?: System.getenv("GITHUB_TOKEN")
@@ -32,6 +26,7 @@ dependencies {
     compileOnly("net.aechronis:utils:86a747b")
     compileOnly("net.minestom:minestom:2026.07.12-26.2")
     compileOnly("net.aechronis:vanilla:dc271de")
+    compileOnly("net.aechronis:worldedit:e62b2bb")
 
     // database
     compileOnly("com.h2database:h2:2.4.240")
@@ -40,6 +35,7 @@ dependencies {
     // testing
     testImplementation("net.aechronis:utils:86a747b")
     testImplementation("net.aechronis:vanilla:dc271de")
+    testImplementation("net.aechronis:worldedit:e62b2bb")
     testImplementation("com.h2database:h2:2.4.240")
     testImplementation("com.zaxxer:HikariCP:7.1.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test")

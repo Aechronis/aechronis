@@ -9,6 +9,7 @@ import net.aechronis.logger.utils.bindAll
 import net.aechronis.logger.utils.placeholders
 import net.aechronis.logger.utils.setNullableBytes
 import net.aechronis.logger.utils.setNullableString
+import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
@@ -46,9 +47,31 @@ class BlockLog(
 
     fun insertAsync(entry: BlockLogEntry): CompletableFuture<Void> {
         val future = CompletableFuture.runAsync({ insert(entry) }, executor)
-        pendingWrites += future
-        future.whenComplete { _, _ -> pendingWrites -= future }
-        return future
+        return trackWrite(future)
+    }
+
+    fun insertAllAsync(entries: List<BlockLogEntry>): CompletableFuture<Void> {
+        if (entries.isEmpty()) return CompletableFuture.completedFuture(null)
+        val future =
+            CompletableFuture.runAsync({
+                database.dataSource.connection.use { connection ->
+                    connection.autoCommit = false
+                    try {
+                        connection.prepareStatement(insertSql).use { statement ->
+                            entries.forEach { entry ->
+                                bindInsert(statement, entry)
+                                statement.addBatch()
+                            }
+                            statement.executeBatch()
+                        }
+                        connection.commit()
+                    } catch (exception: Exception) {
+                        connection.rollback()
+                        throw exception
+                    }
+                }
+            }, executor)
+        return trackWrite(future)
     }
 
     fun flushAsync(): CompletableFuture<Void> = CompletableFuture.allOf(*pendingWrites.toTypedArray())
@@ -56,25 +79,38 @@ class BlockLog(
     private fun insert(entry: BlockLogEntry) {
         database.dataSource.connection.use { conn ->
             conn.prepareStatement(insertSql).use { ps ->
-                ps.setLong(1, entry.timestamp)
-                ps.setString(2, entry.playerUuid.toString())
-                ps.setString(3, entry.playerName)
-                ps.setInt(4, entry.x)
-                ps.setInt(5, entry.y)
-                ps.setInt(6, entry.z)
-                ps.setString(7, entry.blockOld)
-                ps.setString(8, entry.blockNew)
-                ps.setByte(9, entry.action.id)
-                ps.setNullableString(10, entry.instanceUuid?.toString())
-                ps.setNullableString(11, entry.blockOldState)
-                ps.setNullableString(12, entry.blockNewState)
-                ps.setNullableBytes(13, entry.blockOldNbt)
-                ps.setNullableBytes(14, entry.blockNewNbt)
-                ps.setString(15, entry.source)
-                ps.setString(16, entry.origin)
+                bindInsert(ps, entry)
                 ps.executeUpdate()
             }
         }
+    }
+
+    private fun bindInsert(
+        statement: PreparedStatement,
+        entry: BlockLogEntry,
+    ) {
+        statement.setLong(1, entry.timestamp)
+        statement.setString(2, entry.playerUuid.toString())
+        statement.setString(3, entry.playerName)
+        statement.setInt(4, entry.x)
+        statement.setInt(5, entry.y)
+        statement.setInt(6, entry.z)
+        statement.setString(7, entry.blockOld)
+        statement.setString(8, entry.blockNew)
+        statement.setByte(9, entry.action.id)
+        statement.setNullableString(10, entry.instanceUuid?.toString())
+        statement.setNullableString(11, entry.blockOldState)
+        statement.setNullableString(12, entry.blockNewState)
+        statement.setNullableBytes(13, entry.blockOldNbt)
+        statement.setNullableBytes(14, entry.blockNewNbt)
+        statement.setString(15, entry.source)
+        statement.setString(16, entry.origin)
+    }
+
+    private fun trackWrite(future: CompletableFuture<Void>): CompletableFuture<Void> {
+        pendingWrites += future
+        future.whenComplete { _, _ -> pendingWrites -= future }
+        return future
     }
 
     fun lookupAsync(
