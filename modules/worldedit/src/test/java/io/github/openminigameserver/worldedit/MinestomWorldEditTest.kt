@@ -4,30 +4,29 @@ import com.sk89q.worldedit.WorldEdit
 import com.sk89q.worldedit.extent.clipboard.Clipboard
 import com.sk89q.worldedit.function.operation.Operations
 import com.sk89q.worldedit.math.BlockVector3
-import com.sk89q.worldedit.regions.selector.CuboidRegionSelector
 import com.sk89q.worldedit.session.ClipboardHolder
+import com.sk89q.worldedit.world.block.BlockTypes
+import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
+import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
+import io.github.openminigameserver.worldedit.platform.actors.MinestomConsole
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomWorld
-import io.github.openminigameserver.worldedit.platform.misc.WorldEditExecutor
+import io.github.openminigameserver.worldedit.platform.adapters.MinestomWorldNativeAccess
 import net.kyori.adventure.bossbar.BossBar
+import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
-import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
-import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.Event
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
-import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerChatEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
-import net.minestom.server.event.player.PlayerStartDiggingEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
 import net.minestom.server.instance.block.Block
-import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.SendablePacket
@@ -35,10 +34,12 @@ import net.minestom.server.network.player.GameProfile
 import net.minestom.server.network.player.PlayerConnection
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import java.lang.ref.WeakReference
 import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.util.UUID
@@ -190,6 +191,214 @@ class MinestomWorldEditTest {
         assertEquals(Block.AIR, instance.getBlock(2, 42, 2))
 
         MinecraftServer.getInstanceManager().unregisterInstance(instance)
+    }
+
+    @Test
+    fun `direct native changes dispatch after the block is applied`() {
+        val instance =
+            MinecraftServer.getInstanceManager().createInstanceContainer().apply {
+                setGenerator(TestGenerator())
+            }
+        instance.loadChunk(0, 0).join()
+        val nativeAccess = MinestomWorldNativeAccess(WeakReference(instance), false)
+        nativeAccess.actor = MinestomConsole
+        val position = BlockVec(2, 42, 2)
+
+        withBlockChangeEvents { events ->
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(position), Block.DIAMOND_BLOCK)
+
+            assertEquals(1, events.size)
+            val event = events.single()
+            assertEquals(MinestomConsole.uniqueId, event.actorUuid)
+            assertEquals(MinestomConsole.name, event.actorName)
+            assertEquals(instance, event.instance)
+            assertEquals(Block.DIAMOND_BLOCK, instance.getBlock(position))
+            assertEquals(
+                WorldEditBlockChange(position, Block.STONE, Block.DIAMOND_BLOCK),
+                event.changes.single(),
+            )
+
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(position), Block.DIAMOND_BLOCK)
+            assertEquals(1, events.size)
+        }
+
+        MinecraftServer.getInstanceManager().unregisterInstance(instance)
+    }
+
+    @Test
+    fun `batched changes are coalesced and dispatch once after apply`() {
+        val instance =
+            MinecraftServer.getInstanceManager().createInstanceContainer().apply {
+                setGenerator(TestGenerator())
+            }
+        instance.loadChunk(0, 0).join()
+        val world = MinestomWorld(instance)
+        world.setActor(MinestomConsole)
+        val nativeAccess = world.nativeAccess
+        val first = BlockVec(2, 42, 2)
+        val reverted = BlockVec(3, 42, 2)
+        val second = BlockVec(4, 42, 2)
+
+        withBlockChangeEvents { events ->
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(first), Block.DIAMOND_BLOCK)
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(first), Block.GOLD_BLOCK)
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(reverted), Block.EMERALD_BLOCK)
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(reverted), Block.STONE)
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(second), Block.IRON_BLOCK)
+
+            assertTrue(events.isEmpty())
+            assertEquals(Block.STONE, instance.getBlock(first))
+            Operations.complete(world.commit())
+
+            assertEquals(1, events.size)
+            assertEquals(
+                listOf(
+                    WorldEditBlockChange(first, Block.STONE, Block.GOLD_BLOCK),
+                    WorldEditBlockChange(second, Block.STONE, Block.IRON_BLOCK),
+                ),
+                events.single().changes,
+            )
+            assertEquals(Block.GOLD_BLOCK, instance.getBlock(first))
+            assertEquals(Block.STONE, instance.getBlock(reverted))
+            assertEquals(Block.IRON_BLOCK, instance.getBlock(second))
+
+            Operations.complete(world.commit())
+            assertEquals(1, events.size)
+        }
+
+        MinecraftServer.getInstanceManager().unregisterInstance(instance)
+    }
+
+    @Test
+    fun `actorless changes apply without dispatching`() {
+        val instance =
+            MinecraftServer.getInstanceManager().createInstanceContainer().apply {
+                setGenerator(TestGenerator())
+            }
+        instance.loadChunk(0, 0).join()
+        val world = MinestomWorld(instance)
+        val position = BlockVec(2, 42, 2)
+
+        withBlockChangeEvents { events ->
+            world.nativeAccess.setBlockState(world.nativeAccess.getChunk(0, 0), Pos(position), Block.DIAMOND_BLOCK)
+            Operations.complete(world.commit())
+
+            assertTrue(events.isEmpty())
+            assertEquals(Block.DIAMOND_BLOCK, instance.getBlock(position))
+        }
+
+        MinecraftServer.getInstanceManager().unregisterInstance(instance)
+    }
+
+    @Test
+    fun `edit session actor is used for change attribution`() {
+        val instance =
+            MinecraftServer.getInstanceManager().createInstanceContainer().apply {
+                setGenerator(TestGenerator())
+            }
+        instance.loadChunk(0, 0).join()
+        val world = MinestomWorld(instance)
+        val position = BlockVec(2, 42, 2)
+
+        withBlockChangeEvents { events ->
+            WorldEdit
+                .getInstance()
+                .newEditSessionBuilder()
+                .world(world)
+                .actor(MinestomConsole)
+                .build()
+                .use { editSession ->
+                    editSession.setBlock(
+                        BlockVector3.at(position.blockX(), position.blockY(), position.blockZ()),
+                        BlockTypes.DIAMOND_BLOCK!!.defaultState,
+                    )
+                }
+
+            assertEquals(1, events.size)
+            assertEquals(MinestomConsole.uniqueId, events.single().actorUuid)
+            assertEquals(MinestomConsole.name, events.single().actorName)
+            assertEquals(Block.DIAMOND_BLOCK, instance.getBlock(position))
+        }
+
+        MinecraftServer.getInstanceManager().unregisterInstance(instance)
+    }
+
+    @Test
+    fun `block nbt participates in change equality`() {
+        val instance =
+            MinecraftServer.getInstanceManager().createInstanceContainer().apply {
+                setGenerator(TestGenerator())
+            }
+        instance.loadChunk(0, 0).join()
+        val nativeAccess = MinestomWorldNativeAccess(WeakReference(instance), false)
+        nativeAccess.actor = MinestomConsole
+        val position = BlockVec(2, 42, 2)
+        val blockWithNbt =
+            Block.STONE.withNbt(
+                CompoundBinaryTag.builder().putString("worldedit-test", "value").build(),
+            )
+
+        withBlockChangeEvents { events ->
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(position), blockWithNbt)
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(position), blockWithNbt)
+
+            assertEquals(1, events.size)
+            assertEquals(
+                Block.STONE,
+                events
+                    .single()
+                    .changes
+                    .single()
+                    .oldBlock,
+            )
+            assertEquals(
+                blockWithNbt,
+                events
+                    .single()
+                    .changes
+                    .single()
+                    .newBlock,
+            )
+        }
+
+        MinecraftServer.getInstanceManager().unregisterInstance(instance)
+    }
+
+    @Test
+    fun `block change event defensively copies changes`() {
+        val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        val source =
+            mutableListOf(
+                WorldEditBlockChange(BlockVec(1, 2, 3), Block.STONE, Block.DIAMOND_BLOCK),
+            )
+        val event =
+            WorldEditBlockChangesEvent(
+                MinestomConsole.uniqueId,
+                MinestomConsole.name,
+                instance,
+                source,
+            )
+
+        source.clear()
+        assertEquals(1, event.changes.size)
+        assertThrows(UnsupportedOperationException::class.java) {
+            (event.changes as MutableList).clear()
+        }
+
+        MinecraftServer.getInstanceManager().unregisterInstance(instance)
+    }
+
+    private fun withBlockChangeEvents(block: (MutableList<WorldEditBlockChangesEvent>) -> Unit) {
+        val events = mutableListOf<WorldEditBlockChangesEvent>()
+        val eventNode = EventNode.all("worldedit-block-change-test-${UUID.randomUUID()}")
+        eventNode.addListener(WorldEditBlockChangesEvent::class.java) { event -> events.add(event) }
+        val globalEventHandler = MinecraftServer.getGlobalEventHandler()
+        globalEventHandler.addChild(eventNode)
+        try {
+            block(events)
+        } finally {
+            globalEventHandler.removeChild(eventNode)
+        }
     }
 
     private fun testPlayer(): net.minestom.server.entity.Player =

@@ -23,8 +23,7 @@ repositories {
 
 dependencies {
     compileOnly("net.aechronis:utils:86a747b")
-    compileOnly("net.aechronis:logger:b2ecab0")
-    api("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly("net.minestom:minestom:2026.07.12-26.2")
     api("com.sk89q.worldedit:worldedit-core:7.4.3") {
         exclude(group = "com.google.code.gson", module = "gson")
     }
@@ -32,7 +31,6 @@ dependencies {
     api("it.unimi.dsi:fastutil:8.5.18")
     compileOnly(kotlin("stdlib"))
 
-    testImplementation("net.aechronis:logger:4687529")
     testImplementation("net.aechronis:utils:86a747b")
     testImplementation("net.minestom:minestom:2026.07.12-26.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.1")

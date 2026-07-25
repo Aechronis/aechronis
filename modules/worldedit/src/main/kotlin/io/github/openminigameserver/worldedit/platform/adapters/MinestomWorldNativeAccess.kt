@@ -4,18 +4,16 @@ import com.sk89q.worldedit.extension.platform.Actor
 import com.sk89q.worldedit.internal.block.BlockStateIdAccess
 import com.sk89q.worldedit.internal.wna.WorldNativeAccess
 import com.sk89q.worldedit.world.block.BlockState
-import net.aechronis.logger.Logger
-import net.aechronis.logger.objects.BlockAction
-import net.aechronis.logger.objects.BlockLogEntry
-import net.aechronis.logger.objects.LogMetadata
-import net.kyori.adventure.nbt.BinaryTagIO
+import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
+import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
+import net.minestom.server.MinecraftServer
+import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.batch.AbsoluteBlockBatch
 import net.minestom.server.instance.block.Block
 import org.enginehub.linbus.tree.LinCompoundTag
-import java.io.ByteArrayOutputStream
 import java.lang.ref.WeakReference
 import java.util.LinkedHashMap
 import java.util.concurrent.CompletableFuture
@@ -29,7 +27,7 @@ class MinestomWorldNativeAccess(
     private var currentBlockBatch = newBlockBatch()
     private var hasPendingChanges = false
     private var pendingBlockCount = 0
-    private val pendingChanges = LinkedHashMap<BlockPosition, PendingChange>()
+    private val pendingChanges = LinkedHashMap<BlockVec, WorldEditBlockChange>()
 
     private fun newBlockBatch(): AbsoluteBlockBatch? = if (!useBlockBatch) null else AbsoluteBlockBatch()
 
@@ -70,8 +68,13 @@ class MinestomWorldNativeAccess(
                 flush().join()
             }
         } else {
+            val currentActor = actor
             world.setBlock(x, y, z, state)
-            logChange(x, y, z, oldState, state)
+            dispatchChanges(
+                currentActor,
+                world,
+                listOf(WorldEditBlockChange(BlockVec(x, y, z), oldState, state)),
+            )
         }
         return state
     }
@@ -140,6 +143,7 @@ class MinestomWorldNativeAccess(
         val batch = currentBlockBatch
         currentBlockBatch = newBlockBatch()
         val changes = pendingChanges.values.toList()
+        val currentActor = actor
         pendingChanges.clear()
 
         if (!useBlockBatch || batch == null || !hasPendingChanges) {
@@ -151,11 +155,14 @@ class MinestomWorldNativeAccess(
         hasPendingChanges = false
         pendingBlockCount = 0
         val completion = CompletableFuture<Unit>()
-        batch.unsafeApply(getWorld()) {
-            changes.forEach { change ->
-                logChange(change.x, change.y, change.z, change.oldState, change.newState)
+        val world = getWorld()
+        batch.unsafeApply(world) {
+            try {
+                dispatchChanges(currentActor, world, changes)
+                completion.complete(Unit)
+            } catch (throwable: Throwable) {
+                completion.completeExceptionally(throwable)
             }
-            completion.complete(Unit)
         }
         return completion
     }
@@ -168,77 +175,39 @@ class MinestomWorldNativeAccess(
         newState: Block,
     ) {
         if (actor == null) return
-        val position = BlockPosition(x, y, z)
+        val position = BlockVec(x, y, z)
         val previous = pendingChanges[position]
-        val originalState = previous?.oldState ?: oldState
+        val originalState = previous?.oldBlock ?: oldState
         if (sameState(originalState, newState)) {
             pendingChanges.remove(position)
         } else {
-            pendingChanges[position] = PendingChange(x, y, z, originalState, newState)
+            pendingChanges[position] = WorldEditBlockChange(position, originalState, newState)
         }
     }
 
-    private fun logChange(
-        x: Int,
-        y: Int,
-        z: Int,
-        oldState: Block,
-        newState: Block,
+    private fun dispatchChanges(
+        actor: Actor?,
+        world: Instance,
+        changes: List<WorldEditBlockChange>,
     ) {
-        val actor = actor ?: return
-        if (sameState(oldState, newState)) return
+        if (actor == null || changes.isEmpty()) return
+        val effectiveChanges = changes.filterNot { sameState(it.oldBlock, it.newBlock) }
+        if (effectiveChanges.isEmpty()) return
 
-        val entry =
-            BlockLogEntry(
-                timestamp = System.currentTimeMillis(),
-                playerUuid = actor.uniqueId,
-                playerName = actor.name,
-                x = x,
-                y = y,
-                z = z,
-                blockOld = oldState.key().asString(),
-                blockNew = newState.key().asString(),
-                action = if (newState.isAir) BlockAction.BREAK else BlockAction.PLACE,
-                instanceUuid = getWorld().uuid,
-                blockOldState = oldState.state(),
-                blockNewState = newState.state(),
-                blockOldNbt = oldState.nbtBytes(),
-                blockNewNbt = newState.nbtBytes(),
-                source = LogMetadata.WORLDEDIT,
-                origin = LogMetadata.WORLDEDIT,
-            )
-        Logger.repository.insertAsync(entry)
+        MinecraftServer.getGlobalEventHandler().call(
+            WorldEditBlockChangesEvent(
+                actorUuid = actor.uniqueId,
+                actorName = actor.name,
+                instance = world,
+                changes = effectiveChanges,
+            ),
+        )
     }
 
     private fun sameState(
         first: Block,
         second: Block,
     ): Boolean = first.stateId() == second.stateId() && first.nbt() == second.nbt()
-
-    private fun Block.nbtBytes(): ByteArray? {
-        if (!hasNbt()) return null
-        val blockNbt = nbt() ?: return null
-        return runCatching {
-            ByteArrayOutputStream().use { output ->
-                BinaryTagIO.writer().write(blockNbt, output)
-                output.toByteArray()
-            }
-        }.getOrNull()
-    }
-
-    private data class BlockPosition(
-        val x: Int,
-        val y: Int,
-        val z: Int,
-    )
-
-    private data class PendingChange(
-        val x: Int,
-        val y: Int,
-        val z: Int,
-        val oldState: Block,
-        val newState: Block,
-    )
 
     private companion object {
         const val MAX_BLOCKS_PER_BATCH = 32_768
