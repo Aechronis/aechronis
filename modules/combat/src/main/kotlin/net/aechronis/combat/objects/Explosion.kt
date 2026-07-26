@@ -29,6 +29,7 @@ class Explosion private constructor(
     val damage: Float = 0f,
     val source: Player? = null,
     val weapon: Component? = null,
+    val ammoType: AmmoTypes? = null,
     private val bypassDamageImmunity: Boolean,
 ) {
     constructor(
@@ -39,7 +40,8 @@ class Explosion private constructor(
         damage: Float = 0f,
         source: Player? = null,
         weapon: Component? = null,
-    ) : this(instance, pos, radius, fire, damage, source, weapon, false)
+        ammoType: AmmoTypes? = null,
+    ) : this(instance, pos, radius, fire, damage, source, weapon, ammoType, false)
 
     init {
         if (damage > 0f) applyDamage()
@@ -106,7 +108,7 @@ class Explosion private constructor(
         for ((entity, vehicle) in Vehicle.entityVehicle.toList()) {
             if (entity.instance != instance) continue
             val blastDamage = damageAtDistance(damage, radius, entity.position.distance(pos))
-            if (blastDamage > 0f) vehicle.takeDamage(entity, blastDamage, source, weapon)
+            if (blastDamage > 0f) vehicle.takeDamage(entity, ammoType, blastDamage, source, weapon)
         }
 
         for (player in instance.players.toList()) {
@@ -142,7 +144,8 @@ class Explosion private constructor(
             damage: Float,
             source: Player?,
             weapon: Component?,
-        ): Explosion = Explosion(instance, pos, radius, fire, damage, source, weapon, true)
+            ammoType: AmmoTypes?,
+        ): Explosion = Explosion(instance, pos, radius, fire, damage, source, weapon, ammoType, true)
     }
 }
 

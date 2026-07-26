@@ -63,6 +63,7 @@ class Drone(
     val explosionFire: Double = 0.33,
     // blast damage applied to vehicles/players within the radius when it detonates
     val explosionDamage: Float = 20f,
+    val explosionAmmoType: AmmoTypes = AmmoTypes.BOMB,
     // looping flight buzz
     val buzzSound: Sound = Sound.sound(Key.key("${Tags.NAMESPACE}:$name.buzz"), Sound.Source.PLAYER, 1f, 1f),
     // replay length for buzz
@@ -75,9 +76,11 @@ class Drone(
         model,
         scale,
         hitbox,
-        health,
+        null,
         placeTime,
     ) {
+    val rawHealth: Float = health
+
     override fun onEnter(
         player: Player,
         entity: Entity,
@@ -228,6 +231,7 @@ class Drone(
 
         entitySpider[entity] = spawnSpider(player.instance, entity.position.withPitch(0F))
         entityBattery[entity] = 1f
+        entityHealth[entity] = rawHealth
 
         // mount the payload model so observers see the drone carrying it
         if (projectileModel != null) {
@@ -246,7 +250,24 @@ class Drone(
         entitySpider.remove(entity)?.remove()
         entityPayload.remove(entity)?.remove()
         entityBattery.remove(entity)
+        entityHealth.remove(entity)
         super.destroy(entity, attacker, weapon)
+    }
+
+    override fun takeDamage(
+        entity: Entity,
+        ammoType: AmmoTypes?,
+        amount: Float,
+        attacker: Player?,
+        weapon: Component?,
+    ): Boolean {
+        val newHealth = (entityHealth[entity] ?: return false) - amount
+        entityHealth[entity] = newHealth
+        if (newHealth <= 0f) {
+            destroy(entity, attacker, weapon)
+            return true
+        }
+        return false
     }
 
     // the payload model shown attached to the drone for outside observers
@@ -281,7 +302,15 @@ class Drone(
         // The blast can't hurt the drone that detonated (it's destroyed anyway)
         // nor the pilot's own operator clone (the pilot is flying it remotely).
         entity.instance?.let { instance ->
-            Explosion(instance, entity.position, explosionRadius, explosionFire, explosionDamage, player)
+            Explosion(
+                instance = instance,
+                pos = entity.position,
+                radius = explosionRadius,
+                fire = explosionFire,
+                damage = explosionDamage,
+                source = player,
+                ammoType = explosionAmmoType,
+            )
         }
 
         // destroy() ejects the pilot (via onExit) and clears the spider/payload
@@ -602,6 +631,8 @@ class Drone(
         val entitySpider = hashMapOf<Entity, LivingEntity>()
 
         val entityBattery = hashMapOf<Entity, Float>()
+
+        val entityHealth = hashMapOf<Entity, Float>()
 
         val entityPayload = hashMapOf<Entity, Entity>()
 

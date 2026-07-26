@@ -30,7 +30,7 @@ class Tank(
     val barrelModel: String = "$model-barrel",
     scale: Double,
     hitbox: Hitbox,
-    health: Float = 200F,
+    health: Health,
     placeTime: Long = 1000,
     maxSpeed: Float = 0.2f,
     acceleration: Float = 0.01f,
@@ -45,6 +45,7 @@ class Tank(
     val projectileExplosionRadius: Int = 4,
     val projectileExplosionFire: Double = 0.1,
     val projectileExplosionDamage: Float = 20f,
+    val projectileAmmoType: AmmoTypes = AmmoTypes.MISSILE,
     val barrelTipOffset: Vec = Vec(0.0, 0.0, 5.0),
     val fireCooldown: Long = 20000,
     seatOffsets: List<Vec> = listOf(Vec.ZERO),
@@ -194,6 +195,7 @@ class Tank(
                 damage = projectileExplosionDamage,
                 source = player,
                 weapon = projectileName,
+                ammoType = projectileAmmoType,
             )
         } else {
             Projectile.bypassingDamageImmunity(
@@ -208,6 +210,7 @@ class Tank(
                 source = player,
                 weapon = projectileName,
                 ignoredEntities = ignoredEntities,
+                ammoType = projectileAmmoType,
             )
         }
 

@@ -27,6 +27,7 @@ class Projectile private constructor(
     val explosionDamage: Float = 20f,
     val source: Player? = null,
     val weapon: Component? = null,
+    val ammoType: AmmoTypes? = null,
     private val bypassDamageImmunity: Boolean,
     private val ignoredEntities: Set<Entity>,
 ) {
@@ -42,6 +43,7 @@ class Projectile private constructor(
         explosionDamage: Float = 20f,
         source: Player? = null,
         weapon: Component? = null,
+        ammoType: AmmoTypes? = null,
     ) : this(
         instance,
         pos,
@@ -54,6 +56,7 @@ class Projectile private constructor(
         explosionDamage,
         source,
         weapon,
+        ammoType,
         false,
         emptySet(),
     )
@@ -100,6 +103,7 @@ class Projectile private constructor(
                     damage = explosionDamage,
                     source = source,
                     weapon = weapon,
+                    ammoType = ammoType,
                 )
             } else {
                 Explosion(
@@ -110,6 +114,7 @@ class Projectile private constructor(
                     damage = explosionDamage,
                     source = source,
                     weapon = weapon,
+                    ammoType = ammoType,
                 )
             }
             isActive = false
@@ -143,6 +148,7 @@ class Projectile private constructor(
             source: Player?,
             weapon: Component?,
             ignoredEntities: Set<Entity>,
+            ammoType: AmmoTypes?,
         ): Projectile =
             Projectile(
                 instance,
@@ -156,6 +162,7 @@ class Projectile private constructor(
                 explosionDamage,
                 source,
                 weapon,
+                ammoType,
                 true,
                 ignoredEntities,
             )

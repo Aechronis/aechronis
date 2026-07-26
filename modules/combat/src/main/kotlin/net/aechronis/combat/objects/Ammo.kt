@@ -14,7 +14,7 @@ enum class AmmoTypes {
 
 class Ammo(
     name: String,
-    ammoType: AmmoTypes,
+    val ammoType: AmmoTypes,
     itemName: Component,
     itemLore: List<Component> = emptyList(),
     itemModel: String = "${Tags.NAMESPACE}:$name",

@@ -22,7 +22,7 @@ open class Car(
     model: String = "${Tags.NAMESPACE}:$name",
     scale: Double,
     hitbox: Hitbox,
-    health: Float = 100F,
+    health: Health,
     placeTime: Long = 1000,
     val maxSpeed: Float = 0.4f,
     val acceleration: Float = 0.02f,

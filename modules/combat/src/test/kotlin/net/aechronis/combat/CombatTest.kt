@@ -8,6 +8,7 @@ import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Hat
+import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.Item
@@ -15,6 +16,7 @@ import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneWeapon
 import net.aechronis.combat.objects.Tank
+import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.damageAtDistance
 import net.aechronis.combat.objects.distanceToBoundingBox
 import net.aechronis.combat.objects.firstProjectileImpact
@@ -27,6 +29,7 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
@@ -161,6 +164,7 @@ class CombatTest {
                 itemName = Component.text("Test Plane", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
                 model = "aechronis:biplane",
                 hitbox = testPlaneHitbox,
+                health = testHealth(1000F),
                 weapons = listOf(testPlaneWeapon),
                 scale = 7.0,
                 speed = 1.25,
@@ -184,6 +188,7 @@ class CombatTest {
                 itemName = Component.text("Test Car", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
                 model = "aechronis:truck",
                 hitbox = testCarHitbox,
+                health = testHealth(100F),
                 scale = 3.0,
                 seatOffsets = listOf(Vec.ZERO, Vec(1.0, 0.0, 0.0)),
             )
@@ -203,6 +208,7 @@ class CombatTest {
                         ),
                     ),
                 scale = 3.0,
+                health = testHealth(100F),
                 seatOffsets = listOf(Vec.ZERO, Vec(1.0, 0.0, 0.0)),
             )
 
@@ -227,7 +233,7 @@ class CombatTest {
                 model = "aechronis:m1a1-abrams",
                 hitbox = testTankHitbox,
                 scale = 3.0,
-                health = 500F,
+                health = testHealth(500F),
                 placeTime = 1500,
                 maxSpeed = 0.18f,
                 acceleration = 0.008f,
@@ -283,6 +289,79 @@ class CombatTest {
 
         // initialize combat with test config
         Combat.initialize()
+    }
+
+    @Test
+    fun `health applies configured ammo damage and ignores missing ammo`() {
+        val health = Health(100F, mapOf(AmmoTypes.NORMAL to 15F))
+
+        assertFalse(health.takeHp(AmmoTypes.EXPLOSIVE))
+        assertEquals(100F, health.health)
+        assertFalse(health.takeHp(AmmoTypes.NORMAL))
+        assertEquals(85F, health.health)
+    }
+
+    @Test
+    fun `health reports depletion after applying damage`() {
+        val health = Health(10F, mapOf(AmmoTypes.MISSILE to 15F))
+
+        assertTrue(health.takeHp(AmmoTypes.MISSILE))
+        assertEquals(0F, health.health)
+    }
+
+    @Test
+    fun `fresh health instances do not share current health`() {
+        val template = Health(20F, mapOf(AmmoTypes.NORMAL to 5F))
+        val first = template.fresh()
+        val second = template.fresh()
+
+        first.takeHp(AmmoTypes.NORMAL)
+
+        assertEquals(15F, first.health)
+        assertEquals(20F, second.health)
+    }
+
+    @Test
+    fun `vehicle uses configured ammo damage and destroys itself at zero health`() {
+        val vehicle = TestBoat()
+        val entity = Entity(EntityType.ITEM_DISPLAY)
+        Vehicle.entityHealth[entity] = Health(20F, mapOf(AmmoTypes.NORMAL to 7F))
+
+        try {
+            assertFalse(vehicle.takeDamage(entity, null, 1000F, null))
+            assertEquals(20F, Vehicle.entityHealth[entity]?.health)
+
+            assertFalse(vehicle.takeDamage(entity, AmmoTypes.NORMAL, 1000F, null))
+            assertEquals(13F, Vehicle.entityHealth[entity]?.health)
+
+            assertFalse(vehicle.takeDamage(entity, AmmoTypes.NORMAL, 1000F, null))
+            assertTrue(vehicle.takeDamage(entity, AmmoTypes.NORMAL, 1000F, null))
+            assertFalse(Vehicle.entityHealth.containsKey(entity))
+        } finally {
+            Vehicle.entityHealth.remove(entity)
+        }
+    }
+
+    @Test
+    fun `drone retains raw damage health`() {
+        val drone =
+            Drone(
+                name = "health-test-drone",
+                itemName = Component.text("Health Test Drone"),
+                scale = 1.0,
+                hitbox = Hitbox(emptyList()),
+            )
+        val entity = Entity(EntityType.ITEM_DISPLAY)
+        Drone.entityHealth[entity] = drone.rawHealth
+
+        try {
+            assertFalse(drone.takeDamage(entity, null, 0.25F, null, null))
+            assertEquals(0.75F, Drone.entityHealth[entity])
+            assertTrue(drone.takeDamage(entity, null, 0.75F, null, null))
+            assertFalse(Drone.entityHealth.containsKey(entity))
+        } finally {
+            Drone.entityHealth.remove(entity)
+        }
     }
 
     @Test
@@ -414,6 +493,7 @@ class CombatTest {
                         ),
                     ),
                 ),
+            health = testHealth(100F),
             floatHeight = floatHeight,
         ) {
         fun vehicleY(surfaceY: Double): Double = getVehicleY(surfaceY)
@@ -426,3 +506,14 @@ class CombatTest {
         ): Boolean = canStartMoving(instance, position)
     }
 }
+
+private fun testHealth(health: Float): Health =
+    Health(
+        health,
+        mapOf(
+            AmmoTypes.NORMAL to 10F,
+            AmmoTypes.EXPLOSIVE to 25F,
+            AmmoTypes.MISSILE to 50F,
+            AmmoTypes.BOMB to 75F,
+        ),
+    )

@@ -30,7 +30,7 @@ open class Vehicle(
     val model: String = "${Tags.NAMESPACE}:$name",
     val scale: Double,
     val hitbox: Hitbox,
-    val health: Float = 20F,
+    val health: Health?,
     val placeTime: Long = 3000,
     val seatOffsets: List<Vec> = listOf(Vec.ZERO),
 ) : Item(
@@ -135,7 +135,7 @@ open class Vehicle(
         entity.spawn()
 
         entityVehicle[entity] = this
-        entityHealth[entity] = health
+        health?.let { entityHealth[entity] = it.fresh() }
 
         return entity
     }
@@ -270,15 +270,13 @@ open class Vehicle(
     // called when the vehicle takes damage
     open fun takeDamage(
         entity: Entity,
+        ammoType: AmmoTypes?,
         amount: Float,
         attacker: Player?,
         weapon: Component? = null,
     ): Boolean {
         val currentHealth = entityHealth[entity] ?: return false
-        val newHealth = currentHealth - amount
-        entityHealth[entity] = newHealth
-
-        if (newHealth <= 0) {
+        if (ammoType != null && currentHealth.takeHp(ammoType)) {
             destroy(entity, attacker, weapon)
             return true
         }
@@ -313,7 +311,7 @@ open class Vehicle(
         var playerVehicle: HashMap<Player, Vehicle> = HashMap()
         var playerVehicleEntity: HashMap<Player, Entity> = HashMap()
         var entityVehicle: HashMap<Entity, Vehicle> = HashMap()
-        var entityHealth: HashMap<Entity, Float> = HashMap()
+        var entityHealth: HashMap<Entity, Health> = HashMap()
 
         // driver seat
         val playerSeatEntity: HashMap<Player, Entity> = HashMap()

@@ -235,7 +235,7 @@ class Gun(
             val hitPoint = offsetPos.add(offsetPos.direction().mul(vehicleHitDistance))
             Particles.dustParticle(player.instance, hitPoint)
 
-            vehicle.takeDamage(vehicleEntity, damage, player, itemName)
+            vehicle.takeDamage(vehicleEntity, ammo.ammoType, damage, player, itemName)
             trailEndPoint = hitPoint
         } else if (blockHitDistance > entityHitDistance) { // entity hit
             val target = entityHit!!.obj

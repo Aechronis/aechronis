@@ -18,7 +18,7 @@ open class Boat(
     model: String = "${Tags.NAMESPACE}:$name",
     scale: Double,
     hitbox: Hitbox,
-    health: Float = 100F,
+    health: Health,
     placeTime: Long = 1000,
     maxSpeed: Float = 0.4f,
     acceleration: Float = 0.02f,

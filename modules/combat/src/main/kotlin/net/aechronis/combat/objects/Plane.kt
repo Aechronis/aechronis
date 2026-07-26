@@ -32,7 +32,7 @@ class Plane(
     model: String = "${Tags.NAMESPACE}:$name",
     scale: Double,
     hitbox: Hitbox,
-    health: Float = 1000F,
+    health: Health,
     placeTime: Long = 3000,
     val speed: Double = 0.5,
     val turnSpeed: Float = 0.05f,
