@@ -40,20 +40,19 @@ dependencies {
     // utils
     implementation("net.aechronis:utils:86a747b")
     // nodes
-    implementation("net.aechronis:nodes:d0a0f34")
+    implementation("net.aechronis:nodes:2952518")
     // combat
-    implementation("net.aechronis:combat:8632ab7")
+    implementation("net.aechronis:combat:5a628df")
     // vanilla
-    implementation("net.aechronis:vanilla:c4ecfea")
+    implementation("net.aechronis:vanilla:dc271de")
     // logger
-    implementation("net.aechronis:logger:b2ecab0")
+    implementation("net.aechronis:logger:030ed92")
     // worldedit
-    implementation("net.aechronis:worldedit:59a508e") {
+    implementation("net.aechronis:worldedit:e62b2bb") {
         exclude(group = "com.google.code.gson", module = "gson")
     }
     // luckperms
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
-    implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")
     implementation("com.h2database:h2:2.4.240")
     implementation("com.zaxxer:HikariCP:7.0.2")
     // simple logs

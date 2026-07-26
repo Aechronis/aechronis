@@ -1,5 +1,7 @@
 package net.aechronis.aechronis.constants
 
+import net.aechronis.combat.objects.AmmoTypes
+import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.Tank
@@ -27,6 +29,16 @@ object Tanks {
             hitbox = m1a1AbramsHitbox,
             scale = 3.0,
             seatOffsets = listOf(Vec(0.0, 1.0, 0.0)),
+            health =
+                Health(
+                    100f,
+                    mapOf(
+                        AmmoTypes.NORMAL to 1f,
+                        AmmoTypes.EXPLOSIVE to 25f,
+                        AmmoTypes.BOMB to 25f,
+                        AmmoTypes.MISSILE to 50f,
+                    ),
+                ),
             projectileModel = "aechronis:shell",
         )
 }
