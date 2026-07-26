@@ -2,6 +2,7 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
+import net.aechronis.combat.utils.VehicleCameraDistance
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.setRoll
 import net.kyori.adventure.text.Component
@@ -69,14 +70,21 @@ class Plane(
         playerState[player] = PlaneState.LANDED
         takeoffCounter[player] = 0
         playerThrottle[player] = 0f
+        if (playerVehicleEntity[player] === entity) {
+            VehicleCameraDistance.apply(player, hitbox, seatOffsets.firstOrNull() ?: Vec.ZERO)
+        }
     }
 
     override fun onExit(player: Player) {
-        super.onExit(player)
-        playerRoll.remove(player)
-        playerState.remove(player)
-        takeoffCounter.remove(player)
-        playerThrottle.remove(player)
+        try {
+            super.onExit(player)
+        } finally {
+            playerRoll.remove(player)
+            playerState.remove(player)
+            takeoffCounter.remove(player)
+            playerThrottle.remove(player)
+            VehicleCameraDistance.restore(player)
+        }
     }
 
     override fun destroy(

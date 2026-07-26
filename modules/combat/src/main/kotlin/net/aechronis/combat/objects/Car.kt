@@ -2,6 +2,7 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
+import net.aechronis.combat.utils.VehicleCameraDistance
 import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -51,12 +52,19 @@ open class Car(
         if (playerVehicleEntity.values.any { it == entity }) return
 
         super.onEnter(player, entity)
+        if (playerVehicleEntity[player] === entity) {
+            VehicleCameraDistance.apply(player, hitbox, seatOffsets.firstOrNull() ?: Vec.ZERO)
+        }
         playerSpeed[player] = 0f
     }
 
     override fun onExit(player: Player) {
-        playerSpeed.remove(player)
-        super.onExit(player)
+        try {
+            super.onExit(player)
+        } finally {
+            playerSpeed.remove(player)
+            VehicleCameraDistance.restore(player)
+        }
     }
 
     override fun onTick(player: Player) {

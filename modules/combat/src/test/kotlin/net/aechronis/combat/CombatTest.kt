@@ -22,6 +22,7 @@ import net.aechronis.combat.objects.distanceToBoundingBox
 import net.aechronis.combat.objects.firstProjectileImpact
 import net.aechronis.combat.objects.selectProjectileImpact
 import net.aechronis.combat.utils.Ray
+import net.aechronis.combat.utils.calculateVehicleCameraDistance
 import net.aechronis.combat.utils.withCombatDamageImmunityBypass
 import net.aechronis.utils.createTestServer
 import net.kyori.adventure.text.Component
@@ -319,6 +320,51 @@ class CombatTest {
 
         assertEquals(15F, first.health)
         assertEquals(20F, second.health)
+    }
+
+    @Test
+    fun `hitbox distance includes offsets and half extents`() {
+        val hitbox =
+            Hitbox(
+                listOf(
+                    HitboxPart(
+                        offset = Vec(2.0, -1.0, 3.0),
+                        size = Vec(1.0, 2.0, 0.5),
+                    ),
+                ),
+            )
+
+        assertEquals(kotlin.math.sqrt(26.25), hitbox.getMaxDistanceFrom(Vec(1.0, 1.0, 1.0)), 0.0001)
+    }
+
+    @Test
+    fun `hitbox distance uses the farthest part`() {
+        val hitbox =
+            Hitbox(
+                listOf(
+                    HitboxPart(Vec.ZERO, Vec(1.0, 1.0, 1.0)),
+                    HitboxPart(Vec(5.0, 0.0, 0.0), Vec(1.0, 1.0, 1.0)),
+                ),
+            )
+
+        assertEquals(kotlin.math.sqrt(38.0), hitbox.getMaxDistanceFrom(Vec.ZERO), 0.0001)
+        assertEquals(0.0, Hitbox(emptyList()).getMaxDistanceFrom(Vec.ZERO))
+    }
+
+    @Test
+    fun `vehicle camera distance frames the hitbox from the seat and accounts for scale`() {
+        val hitbox = Hitbox(listOf(HitboxPart(Vec.ZERO, Vec(8.0, 0.0, 0.0))))
+
+        assertEquals(7.25, calculateVehicleCameraDistance(hitbox, Vec.ZERO, 2.0), 0.0001)
+        assertEquals(14.5, calculateVehicleCameraDistance(hitbox, Vec.ZERO, 1.0), 0.0001)
+    }
+
+    @Test
+    fun `vehicle camera distance keeps defaults and clamps oversized hitboxes`() {
+        assertEquals(4.0, calculateVehicleCameraDistance(Hitbox(emptyList()), Vec.ZERO, 1.0))
+
+        val oversized = Hitbox(listOf(HitboxPart(Vec.ZERO, Vec(100.0, 100.0, 100.0))))
+        assertEquals(32.0, calculateVehicleCameraDistance(oversized, Vec.ZERO, 1.0))
     }
 
     @Test

@@ -8,8 +8,10 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.particle.Particle
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 data class HitboxPart(
     val offset: Vec,
@@ -26,6 +28,14 @@ class Hitbox(
     fun getBottomOffset(): Double = parts.minOfOrNull { it.offset.y - it.size.y } ?: 0.0
 
     fun getTopOffset(): Double = parts.maxOfOrNull { it.offset.y + it.size.y } ?: 0.0
+
+    fun getMaxDistanceFrom(origin: Vec): Double =
+        parts.maxOfOrNull { part ->
+            val x = abs(part.offset.x - origin.x) + part.size.x
+            val y = abs(part.offset.y - origin.y) + part.size.y
+            val z = abs(part.offset.z - origin.z) + part.size.z
+            sqrt(x * x + y * y + z * z)
+        } ?: 0.0
 
     // local-space centre of the combined bounding box of all parts
     fun getCenterOffset(): Vec {
