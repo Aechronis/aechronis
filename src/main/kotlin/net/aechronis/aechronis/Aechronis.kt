@@ -43,7 +43,6 @@ import org.everbuild.blocksandstuff.blocks.group.VanillaBlockBehaviour
 import java.nio.file.Path
 
 object Aechronis {
-    internal const val VIEW_DISTANCE = 32
     lateinit var fullbrightKey: RegistryKey<DimensionType>
     lateinit var instance: InstanceContainer
     val eventNode = EventNode.all("aechronis")
@@ -88,7 +87,6 @@ fun main(args: Array<String>) {
     // create instance
     Aechronis.instance = MinecraftServer.getInstanceManager().createInstanceContainer(Aechronis.fullbrightKey)
     Aechronis.instance.chunkLoader = AnvilLoader(Path.of("world"), DimensionType.OVERWORLD.key())
-    Aechronis.instance.viewDistance(Aechronis.VIEW_DISTANCE)
 
     // tasks
     TabManager.start()
