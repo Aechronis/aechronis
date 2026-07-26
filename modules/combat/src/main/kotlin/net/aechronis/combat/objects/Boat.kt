@@ -10,7 +10,7 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import kotlin.math.floor
 
-open class Ship(
+open class Boat(
     name: String,
     itemName: Component,
     itemLore: List<Component> = emptyList(),

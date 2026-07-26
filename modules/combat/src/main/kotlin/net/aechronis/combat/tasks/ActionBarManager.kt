@@ -2,7 +2,6 @@ package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Car
-import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Plane
@@ -45,9 +44,10 @@ object ActionBarManager {
 
     private fun vehicleTelemetry(player: Player): Component? {
         val vehicle = Vehicle.playerVehicle[player] ?: return null
-        val text =
+        val entity = Vehicle.playerVehicleEntity[player] ?: return null
+        val currentHealth = Vehicle.entityHealth[entity] ?: return null
+        val movementTelemetry =
             when (vehicle) {
-                is Drone -> return null
                 is Plane ->
                     formatPlaneTelemetry(
                         vehicle.speed,
@@ -55,8 +55,10 @@ object ActionBarManager {
                         vehicle.maxThrottle,
                     )
                 is Car -> formatCarTelemetry(Car.playerSpeed[player] ?: 0f)
-                else -> return null
+                else -> null
             }
+        val health = String.format(Locale.ROOT, "Health: [%.0f/%.0f]", currentHealth, vehicle.health)
+        val text = listOfNotNull(movementTelemetry, health).joinToString(" ")
         return Component.text(text, NamedTextColor.GRAY)
     }
 

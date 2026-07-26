@@ -12,6 +12,7 @@ internal enum class CombatDamageKind {
 
 private val damageKindTag = Tag.String("combat:damage_kind")
 private val damageWeaponTag = Tag.Component("combat:damage_weapon")
+private val damageImmunityBypassTag = Tag.Boolean("combat:damage_immunity_bypass")
 
 internal fun Damage.withCombatAttribution(
     kind: CombatDamageKind,
@@ -27,7 +28,12 @@ internal fun Damage.combatDamageKind(): CombatDamageKind? =
 
 internal fun Damage.combatWeapon(): Component? = getTag(damageWeaponTag)
 
+internal fun Damage.withCombatDamageImmunityBypass(): Damage = apply { setTag(damageImmunityBypassTag, true) }
+
+internal fun Damage.bypassesCombatDamageImmunity(): Boolean = getTag(damageImmunityBypassTag) == true
+
 internal fun Damage.clearCombatAttribution() {
     removeTag(damageKindTag)
     removeTag(damageWeaponTag)
+    removeTag(damageImmunityBypassTag)
 }

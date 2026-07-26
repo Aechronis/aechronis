@@ -5,8 +5,16 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.TransactionOption
 
+enum class AmmoTypes {
+    NORMAL, // rifle ammo etc
+    EXPLOSIVE, // anti tank ammo
+    MISSILE, // some vehicle ammos e.g. jet, hele
+    BOMB, // other vehicle type
+}
+
 class Ammo(
     name: String,
+    ammoType: AmmoTypes,
     itemName: Component,
     itemLore: List<Component> = emptyList(),
     itemModel: String = "${Tags.NAMESPACE}:$name",

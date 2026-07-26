@@ -1,7 +1,9 @@
 package net.aechronis.combat
 
 import net.aechronis.combat.objects.Ammo
+import net.aechronis.combat.objects.AmmoTypes
 import net.aechronis.combat.objects.ArmorPiece
+import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
@@ -12,16 +14,25 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneWeapon
-import net.aechronis.combat.objects.Ship
 import net.aechronis.combat.objects.Tank
+import net.aechronis.combat.objects.damageAtDistance
+import net.aechronis.combat.objects.distanceToBoundingBox
+import net.aechronis.combat.objects.firstProjectileImpact
+import net.aechronis.combat.objects.selectProjectileImpact
+import net.aechronis.combat.utils.Ray
+import net.aechronis.combat.utils.withCombatDamageImmunityBypass
 import net.aechronis.utils.createTestServer
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.LivingEntity
+import net.minestom.server.entity.damage.Damage
+import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
@@ -33,6 +44,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -55,6 +69,7 @@ class CombatTest {
         val testAmmo =
             Ammo(
                 name = "test-ammo",
+                ammoType = AmmoTypes.NORMAL,
                 itemName = Component.text("Test Ammo", NamedTextColor.GOLD),
             )
 
@@ -173,8 +188,8 @@ class CombatTest {
                 seatOffsets = listOf(Vec.ZERO, Vec(1.0, 0.0, 0.0)),
             )
 
-        val testShip =
-            Ship(
+        val testBoat =
+            Boat(
                 name = "test-ship",
                 itemName = Component.text("Test Ship", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
                 model = "aechronis:boat",
@@ -261,7 +276,7 @@ class CombatTest {
             testSword,
             testPlane,
             testCar,
-            testShip,
+            testBoat,
             testTank,
             testDrone,
         )
@@ -274,14 +289,14 @@ class CombatTest {
     fun `ship float height controls how much of the hitbox is above water`() {
         val surfaceY = 10.0
 
-        assertEquals(7.0, TestShip(0.0).vehicleY(surfaceY))
-        assertEquals(9.0, TestShip(0.5).vehicleY(surfaceY))
-        assertEquals(11.0, TestShip(1.0).vehicleY(surfaceY))
+        assertEquals(7.0, TestBoat(0.0).vehicleY(surfaceY))
+        assertEquals(9.0, TestBoat(0.5).vehicleY(surfaceY))
+        assertEquals(11.0, TestBoat(1.0).vehicleY(surfaceY))
     }
 
     @Test
     fun `ship float height defaults to current center position`() {
-        val ship = TestShip()
+        val ship = TestBoat()
         val surfaceY = 10.0
         val vehicleY = ship.vehicleY(surfaceY)
 
@@ -291,19 +306,89 @@ class CombatTest {
 
     @Test
     fun `ship float height must be between zero and one`() {
-        assertFailsWith<IllegalArgumentException> { TestShip(-0.01) }
-        assertFailsWith<IllegalArgumentException> { TestShip(1.01) }
-        assertFailsWith<IllegalArgumentException> { TestShip(Double.NaN) }
+        assertFailsWith<IllegalArgumentException> { TestBoat(-0.01) }
+        assertFailsWith<IllegalArgumentException> { TestBoat(1.01) }
+        assertFailsWith<IllegalArgumentException> { TestBoat(Double.NaN) }
     }
 
     @Test
     fun `fully out ship can move while touching water`() {
         instance.loadChunk(0, 0).join()
-        val ship = TestShip(1.0)
+        val ship = TestBoat(1.0)
         val waterSurfaceY = 60.0
         val position = Pos(8.0, ship.vehicleY(waterSurfaceY), 8.0)
 
         assertTrue(ship.canMove(instance, position))
+    }
+
+    @Test
+    fun `tank damage bypasses recent damage immunity and starts a new immunity window`() {
+        val target = LivingEntity(EntityType.ZOMBIE)
+        target.health = 20f
+        Combat.entityLastDamageTime[target] = 1_000L
+
+        try {
+            val blockedDamage = Damage(DamageType.EXPLOSION, null, null, null, 5f)
+            assertFalse(Combat.applyDamage(target, blockedDamage, now = 1_200L))
+            assertEquals(20f, target.health)
+
+            val tankDamage =
+                Damage(DamageType.EXPLOSION, null, null, null, 5f)
+                    .withCombatDamageImmunityBypass()
+            assertTrue(Combat.applyDamage(target, tankDamage, now = 1_200L))
+            assertEquals(15f, target.health)
+            assertFalse(Combat.canDamage(target, now = 1_699L))
+            assertTrue(Combat.canDamage(target, now = 1_700L))
+        } finally {
+            Combat.entityLastDamageTime.remove(target)
+        }
+    }
+
+    @Test
+    fun `explosion directly below an entity deals damage`() {
+        val target = LivingEntity(EntityType.ZOMBIE)
+        val impactBelowFeet = target.position.sub(0.0, 0.1, 0.0)
+        val distance = distanceToBoundingBox(target, impactBelowFeet)
+
+        assertEquals(0.1, distance, 0.0001)
+        assertTrue(damageAtDistance(20f, 4, distance) > 0f)
+    }
+
+    @Test
+    fun `explosion distance uses the closest point on the entity hitbox`() {
+        val target = LivingEntity(EntityType.ZOMBIE)
+        val impactNearHead = target.position.add(0.0, target.boundingBox.height() - 0.1, 0.0)
+        val hitboxDistance = distanceToBoundingBox(target, impactNearHead)
+
+        assertEquals(0.0, hitboxDistance)
+        assertEquals(0f, damageAtDistance(20f, 1, target.position.distance(impactNearHead)))
+        assertTrue(damageAtDistance(20f, 1, hitboxDistance) > 0f)
+    }
+
+    @Test
+    fun `projectile uses the nearest entity or block impact`() {
+        val target = LivingEntity(EntityType.ZOMBIE)
+        val entityHit = Ray.Hit(1.0, Pos(1.0, 0.0, 0.0), target)
+        val blockHit = Ray.Hit(2.0, Pos(2.0, 0.0, 0.0), Block.STONE)
+
+        assertEquals(entityHit.point, selectProjectileImpact(blockHit, entityHit)?.point)
+        assertEquals(blockHit.point, selectProjectileImpact(blockHit.copy(t = 0.5), entityHit)?.point)
+    }
+
+    @Test
+    fun `projectile detects living entities and ignores tank occupants`() {
+        instance.loadChunk(0, 0).join()
+        val target = LivingEntity(EntityType.ZOMBIE)
+        target.setInstance(instance, Pos(8.0, 61.0, 8.0)).join()
+        target.spawn()
+
+        try {
+            val ray = Ray(Pos(4.0, 62.0, 8.0), Vec(8.0, 0.0, 0.0))
+            assertNotNull(firstProjectileImpact(ray, instance))
+            assertNull(firstProjectileImpact(ray, instance, setOf(target)))
+        } finally {
+            target.remove()
+        }
     }
 
     @AfterAll
@@ -314,9 +399,9 @@ class CombatTest {
         }
     }
 
-    private class TestShip(
+    private class TestBoat(
         floatHeight: Double = 0.5,
-    ) : Ship(
+    ) : Boat(
             name = "float-height-test-ship",
             itemName = Component.text("Float Height Test Ship"),
             scale = 1.0,

@@ -1,8 +1,8 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Item
-import net.aechronis.combat.objects.Ship
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.minestom.server.coordinate.Pos
@@ -49,13 +49,13 @@ object VehicleListener {
     fun onPlayerUseItem(event: PlayerUseItemEvent) {
         val player = event.player
 
-        val ship = Item.getFromItemStack(player.itemInMainHand) as? Ship ?: return
+        val boat = Item.getFromItemStack(player.itemInMainHand) as? Boat ?: return
         if (Vehicle.playerVehicle[player] != null) return
         if (Vehicle.passengerVehicle[player] != null) return
 
         val eyePosition = player.position.add(0.0, player.eyeHeight, 0.0)
         val target = findWaterPlacementPosition(player.instance, eyePosition, eyePosition.direction()) ?: return
-        if (ship.place(player, target)) event.isCancelled = true
+        if (boat.place(player, target)) event.isCancelled = true
     }
 
     internal fun findWaterPlacementPosition(

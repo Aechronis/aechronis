@@ -173,10 +173,20 @@ class Tank(
         val tip = rotatePoint(barrelTipOffset, yaw, pitch, 0f)
         val muzzle = barrelPos.add(tip.x, tip.y, tip.z)
         val direction = muzzle.withView(yaw, pitch).direction()
-        val obstruction = Ray(barrelPos, muzzle.asVec().sub(barrelPos)).firstBlock(instance)
+        val ignoredEntities =
+            buildSet<Entity> {
+                add(player)
+                addAll(entityPassengers[body].orEmpty())
+            }
+        val obstruction =
+            firstProjectileImpact(
+                Ray(barrelPos, muzzle.asVec().sub(barrelPos)),
+                instance,
+                ignoredEntities,
+            )
 
         if (obstruction != null) {
-            Explosion(
+            Explosion.bypassingDamageImmunity(
                 instance = instance,
                 pos = obstruction.point.asPos(),
                 radius = projectileExplosionRadius,
@@ -186,7 +196,7 @@ class Tank(
                 weapon = projectileName,
             )
         } else {
-            Projectile(
+            Projectile.bypassingDamageImmunity(
                 instance = instance,
                 pos = muzzle,
                 model = projectileModel,
@@ -197,6 +207,7 @@ class Tank(
                 explosionDamage = projectileExplosionDamage,
                 source = player,
                 weapon = projectileName,
+                ignoredEntities = ignoredEntities,
             )
         }
 

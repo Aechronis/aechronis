@@ -21,6 +21,7 @@ import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.tasks.PlayerPositionManager
 import net.aechronis.combat.tasks.ProjectileTickManager
 import net.aechronis.combat.tasks.VehicleTickManager
+import net.aechronis.combat.utils.bypassesCombatDamageImmunity
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.LivingEntity
@@ -71,7 +72,7 @@ object Combat {
         damage: Damage,
         now: Long = System.currentTimeMillis(),
     ): Boolean {
-        if (!canDamage(entity, now)) return false
+        if (!damage.bypassesCombatDamageImmunity() && !canDamage(entity, now)) return false
 
         val previousDamageTime = entityLastDamageTime.put(entity, now)
         val previousActiveDamage = activeDamage.put(entity, damage)

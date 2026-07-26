@@ -3,8 +3,12 @@ package net.aechronis.combat.objects
 import net.aechronis.combat.Combat
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.withCombatAttribution
+import net.aechronis.combat.utils.withCombatDamageImmunityBypass
 import net.kyori.adventure.text.Component
+import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
@@ -17,7 +21,7 @@ import net.minestom.server.particle.Particle
 import java.util.concurrent.CompletableFuture
 import kotlin.random.Random
 
-class Explosion(
+class Explosion private constructor(
     val instance: Instance,
     val pos: Pos,
     val radius: Int,
@@ -25,7 +29,18 @@ class Explosion(
     val damage: Float = 0f,
     val source: Player? = null,
     val weapon: Component? = null,
+    private val bypassDamageImmunity: Boolean,
 ) {
+    constructor(
+        instance: Instance,
+        pos: Pos,
+        radius: Int,
+        fire: Double,
+        damage: Float = 0f,
+        source: Player? = null,
+        weapon: Component? = null,
+    ) : this(instance, pos, radius, fire, damage, source, weapon, false)
+
     init {
         if (damage > 0f) applyDamage()
 
@@ -95,26 +110,55 @@ class Explosion(
         }
 
         for (player in instance.players.toList()) {
-            val blastDamage = damageAtDistance(damage, radius, player.position.distance(pos))
+            val blastDamage = damageAtDistance(damage, radius, distanceToBoundingBox(player, pos))
             if (blastDamage > 0f) {
                 val damageSource =
                     Damage(type, source, source, pos, blastDamage)
                         .withCombatAttribution(CombatDamageKind.EXPLOSION, weapon)
+                if (bypassDamageImmunity) damageSource.withCombatDamageImmunityBypass()
                 Combat.applyDamage(player, damageSource)
             }
         }
 
         for (entity in instance.entities.toList()) {
             if (entity.entityType != EntityType.MANNEQUIN || entity !is LivingEntity) continue
-            val blastDamage = damageAtDistance(damage, radius, entity.position.distance(pos))
+            val blastDamage = damageAtDistance(damage, radius, distanceToBoundingBox(entity, pos))
             if (blastDamage > 0f) {
                 val damageSource =
                     Damage(type, source, source, pos, blastDamage)
                         .withCombatAttribution(CombatDamageKind.EXPLOSION, weapon)
+                if (bypassDamageImmunity) damageSource.withCombatDamageImmunityBypass()
                 Combat.applyDamage(entity, damageSource)
             }
         }
     }
+
+    companion object {
+        internal fun bypassingDamageImmunity(
+            instance: Instance,
+            pos: Pos,
+            radius: Int,
+            fire: Double,
+            damage: Float,
+            source: Player?,
+            weapon: Component?,
+        ): Explosion = Explosion(instance, pos, radius, fire, damage, source, weapon, true)
+    }
+}
+
+internal fun distanceToBoundingBox(
+    entity: Entity,
+    point: Point,
+): Double {
+    val boxStart = entity.boundingBox.relativeStart().add(entity.position)
+    val boxEnd = entity.boundingBox.relativeEnd().add(entity.position)
+    val closest =
+        Vec(
+            point.x().coerceIn(boxStart.x(), boxEnd.x()),
+            point.y().coerceIn(boxStart.y(), boxEnd.y()),
+            point.z().coerceIn(boxStart.z(), boxEnd.z()),
+        )
+    return point.distance(closest)
 }
 
 internal fun damageAtDistance(
