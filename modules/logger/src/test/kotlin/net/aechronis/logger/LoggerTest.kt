@@ -10,6 +10,7 @@ import net.aechronis.logger.objects.RollbackActor
 import net.aechronis.logger.objects.RollbackDomain
 import net.aechronis.logger.objects.RollbackOperationKind
 import net.aechronis.logger.objects.RollbackSelection
+import net.aechronis.logger.objects.RollbackStatus
 import net.aechronis.logger.objects.StorageChangeAction
 import net.aechronis.logger.objects.StorageRollbackAdapters
 import net.aechronis.logger.objects.snapshotItems
@@ -100,6 +101,13 @@ class LoggerTest {
 
         assertEquals(2, rollbackResult.appliedCount)
         assertEquals(Block.STONE, instance.getBlock(position))
+        assertEquals(
+            RollbackStatus.APPLIED,
+            Logger.rollback
+                .findOperationAsync(rollbackResult.operationId)
+                .get(5, TimeUnit.SECONDS)
+                ?.status,
+        )
 
         val restorePlan =
             Logger.rollbackService
@@ -110,6 +118,11 @@ class LoggerTest {
         assertEquals(2, restoreResult.appliedCount)
         assertEquals(Block.GOLD_BLOCK, instance.getBlock(position))
 
+        Logger.rollbackService.undoAsync(actor).get(5, TimeUnit.SECONDS)
+        assertEquals(Block.STONE, instance.getBlock(position))
+
+        Logger.rollbackService.redoAsync(actor).get(5, TimeUnit.SECONDS)
+        assertEquals(Block.GOLD_BLOCK, instance.getBlock(position))
         Logger.rollbackService.undoAsync(actor).get(5, TimeUnit.SECONDS)
         assertEquals(Block.STONE, instance.getBlock(position))
     }

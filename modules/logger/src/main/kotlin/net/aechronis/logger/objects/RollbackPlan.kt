@@ -83,7 +83,6 @@ data class RollbackPlan(
     val inventoryChanges: List<InventoryChangePlan> = emptyList(),
     val entityChanges: List<EntityChangePlan> = emptyList(),
     val skippedBlockCount: Int,
-    val truncated: Boolean = false,
 ) {
     val totalChangeCount: Int get() = blockChanges.size + storageChanges.size + inventoryChanges.size + entityChanges.size
 }

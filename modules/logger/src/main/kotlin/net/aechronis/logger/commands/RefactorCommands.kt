@@ -134,15 +134,6 @@ open class LoggerMutationCommand(
                                 return@whenComplete
                             }
                             when {
-                                plan.truncated -> {
-                                    sender.sendMessage(
-                                        Component.text(
-                                            "[Logger] operation exceeds the ${Logger.config.rollbackMaxChanges} change limit; narrow the query",
-                                            NamedTextColor.RED,
-                                        ),
-                                    )
-                                }
-
                                 plan.totalChangeCount == 0 -> {
                                     sender.sendMessage(Component.text("[Logger] no matching changes", NamedTextColor.GRAY))
                                 }

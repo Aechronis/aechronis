@@ -105,7 +105,7 @@ class RollbackService(
                     targetTs,
                     selection.storageActions,
                     rolledBack = kind == RollbackOperationKind.RESTORE,
-                    limit = Logger.config.rollbackMaxChanges,
+                    limit = Int.MAX_VALUE,
                 )
             } else {
                 CompletableFuture.completedFuture(emptyList())
@@ -117,7 +117,7 @@ class RollbackService(
                     targetTs,
                     selection.inventoryActions,
                     rolledBack = kind == RollbackOperationKind.RESTORE,
-                    limit = Logger.config.rollbackMaxChanges,
+                    limit = Int.MAX_VALUE,
                 )
             } else {
                 CompletableFuture.completedFuture(emptyList())
@@ -131,7 +131,7 @@ class RollbackService(
                     rolledBack = kind == RollbackOperationKind.RESTORE,
                     instanceUuid = instanceUuid,
                     center = center,
-                    limit = Logger.config.rollbackMaxChanges,
+                    limit = Int.MAX_VALUE,
                 )
             } else {
                 CompletableFuture.completedFuture(emptyList())
@@ -147,9 +147,7 @@ class RollbackService(
                 val storageRows = storageRowsFuture.join()
                 val inventoryRows = inventoryRowsFuture.join()
                 val entityRows = entityRowsFuture.join()
-                val truncated = rows.size + storageRows.size + inventoryRows.size + entityRows.size > Logger.config.rollbackMaxChanges
-                val remainingStorage = (Logger.config.rollbackMaxChanges - rows.size).coerceAtLeast(0)
-                val selected = rows.take(Logger.config.rollbackMaxChanges)
+                val selected = rows
                 val blockChanges =
                     selected.map { row ->
                         if (kind == RollbackOperationKind.ROLLBACK) {
@@ -180,7 +178,7 @@ class RollbackService(
                             )
                         }
                     }
-                val selectedStorage = storageRows.take(remainingStorage)
+                val selectedStorage = storageRows
                 val storageChanges =
                     selectedStorage.map { row ->
                         StorageChangePlan(
@@ -193,9 +191,8 @@ class RollbackService(
                             amount = row.amount,
                         )
                     }
-                val remainingInventory = (Logger.config.rollbackMaxChanges - selected.size - selectedStorage.size).coerceAtLeast(0)
                 val inventoryChanges =
-                    inventoryRows.take(remainingInventory).map { row ->
+                    inventoryRows.map { row ->
                         InventoryChangePlan(
                             inventoryLogId = row.id,
                             playerUuid = row.playerUuid,
@@ -204,10 +201,8 @@ class RollbackService(
                             targetItem = if (kind == RollbackOperationKind.ROLLBACK) row.oldItem else row.newItem,
                         )
                     }
-                val remainingEntities =
-                    (Logger.config.rollbackMaxChanges - selected.size - selectedStorage.size - inventoryChanges.size).coerceAtLeast(0)
                 val entityChanges =
-                    entityRows.take(remainingEntities).map { row ->
+                    entityRows.map { row ->
                         EntityChangePlan(
                             entityLogId = row.id,
                             entityUuid = row.entityUuid,
@@ -229,7 +224,6 @@ class RollbackService(
                     inventoryChanges = inventoryChanges,
                     entityChanges = entityChanges,
                     skippedBlockCount = 0,
-                    truncated = truncated,
                 )
             }, executor)
     }
@@ -238,7 +232,6 @@ class RollbackService(
         actor: RollbackActor,
         plan: RollbackPlan,
     ): CompletableFuture<RollbackExecutionResult> {
-        if (plan.truncated) return CompletableFuture.failedFuture(IllegalArgumentException("rollback exceeds the configured change limit"))
         val result =
             trackedResult<RollbackExecutionResult>()
                 ?: return CompletableFuture.failedFuture(IllegalStateException("rollback service is closing"))
@@ -305,10 +298,7 @@ class RollbackService(
             result.completeExceptionally(IllegalStateException("another storage or inventory operation is already running"))
             return
         }
-        result.whenComplete { _, _ ->
-            activeInstances.remove(plan.instanceUuid)
-            if (usesExternalState) externalOperationActive.set(false)
-        }
+        trackOperation(result, plan.instanceUuid, usesExternalState)
         val instance = MinecraftServer.getInstanceManager().getInstance(plan.instanceUuid)
         if (instance == null) {
             result.completeExceptionally(IllegalStateException("instance no longer exists"))
@@ -750,10 +740,7 @@ class RollbackService(
                 return@whenComplete
             }
             operationIds[result] = operation.id
-            result.whenComplete { _, _ ->
-                activeInstances.remove(operation.instanceUuid)
-                if (usesExternalState) externalOperationActive.set(false)
-            }
+            trackOperation(result, operation.instanceUuid, usesExternalState)
             val ordered = if (undo) stored.asReversed() else stored
             Logger.rollback
                 .hasRecoveryRequiredAsync(operation.instanceUuid, includeGlobalState = usesExternalState)
@@ -1358,6 +1345,17 @@ class RollbackService(
         first: Block,
         second: Block,
     ): Boolean = first.state() == second.state() && first.nbt() == second.nbt()
+
+    private fun trackOperation(
+        result: CompletableFuture<*>,
+        instanceUuid: UUID,
+        usesExternalState: Boolean,
+    ) {
+        result.whenComplete { _, _ ->
+            activeInstances.remove(instanceUuid)
+            if (usesExternalState) externalOperationActive.compareAndSet(true, false)
+        }
+    }
 
     private fun <T> trackedResult(): CompletableFuture<T>? =
         synchronized(lifecycleLock) {

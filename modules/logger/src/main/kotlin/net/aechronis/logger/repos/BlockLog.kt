@@ -1,6 +1,5 @@
 package net.aechronis.logger.repos
 
-import net.aechronis.logger.Logger
 import net.aechronis.logger.db.Database
 import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
@@ -170,7 +169,7 @@ class BlockLog(
         centerX: Int,
         centerY: Int,
         centerZ: Int,
-        limit: Int = Logger.config.rollbackMaxChanges,
+        limit: Int = Int.MAX_VALUE,
     ): CompletableFuture<List<BlockLogEntry>> =
         searchForOperationAsync(params, targetTs, instanceUuid, centerX, centerY, centerZ, rolledBack = false, limit = limit)
 
@@ -181,7 +180,7 @@ class BlockLog(
         centerX: Int,
         centerY: Int,
         centerZ: Int,
-        limit: Int = Logger.config.rollbackMaxChanges,
+        limit: Int = Int.MAX_VALUE,
     ): CompletableFuture<List<BlockLogEntry>> =
         searchForOperationAsync(params, targetTs, instanceUuid, centerX, centerY, centerZ, rolledBack = true, limit = limit)
 
