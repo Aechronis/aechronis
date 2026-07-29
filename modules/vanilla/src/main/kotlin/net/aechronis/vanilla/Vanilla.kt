@@ -25,6 +25,7 @@ import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.listeners.ServerLinksListener
 import net.aechronis.vanilla.managers.Blocks
+import net.aechronis.vanilla.managers.Bundles
 import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Elevator
@@ -96,6 +97,7 @@ object Vanilla {
         if (config.foodEnabled) Food.init()
         if (config.shopEnabled) KillShop.init()
         if (config.itemsEnabled) Items.init()
+        if (config.bundlesEnabled) Bundles.init()
         if (config.commandsEnabled) CommandsListener.init()
         if (config.blockDropsEnabled) PlayerBreakListener.init()
         if (config.fallDamageEnabled) FallDamageListener.init()

@@ -83,6 +83,7 @@ data class VanillaConfig(
     val foodEnabled: Boolean = true,
     val shopEnabled: Boolean = true,
     val itemsEnabled: Boolean = true,
+    val bundlesEnabled: Boolean = true,
     val blockDropsEnabled: Boolean = true,
     val fallDamageEnabled: Boolean = true,
     val fireDamageEnabled: Boolean = true,
@@ -116,6 +117,8 @@ data class VanillaConfig(
     val dropSpawnHeight: Double = 1.3,
     val dropMagnetRadius: Double = 4.0,
     val dropMagnetSpeed: Double = 3.0,
+    // Bundles
+    val bundleMaxItemStacks: Int = 16,
     // Elevator
     val elevatorMaxSearch: Int = 120,
     // Blocks

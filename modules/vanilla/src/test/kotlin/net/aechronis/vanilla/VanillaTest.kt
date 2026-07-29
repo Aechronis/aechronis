@@ -1,6 +1,7 @@
 package net.aechronis.vanilla
 
 import net.aechronis.utils.createTestServer
+import net.aechronis.vanilla.listeners.BundleListener
 import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.ItemListener
 import net.aechronis.vanilla.listeners.MannequinListener
@@ -18,6 +19,7 @@ import net.kyori.adventure.nbt.BinaryTagIO
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
+import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.EntityCreature
@@ -31,6 +33,7 @@ import net.minestom.server.entity.PlayerSkin
 import net.minestom.server.event.item.PickupItemEvent
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerMoveEvent
+import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.instance.block.Block
@@ -189,6 +192,123 @@ class VanillaTest {
         assertTrue(event.isCancelled)
         assertEquals(existing, player.inventory.getItemStack(0))
         player.remove()
+    }
+
+    @Test
+    fun `bundle previews and restores hotbar armor offhand and inventory order`() {
+        val player = createPlayer(Pos(20.5, 40.0, 4.5))
+        player.setHeldItemSlot(0)
+        player.inventory.setItemStack(0, ItemStack.of(Material.BUNDLE))
+        val hotbar = ItemStack.of(Material.APPLE, 2)
+        val helmet = ItemStack.of(Material.DIAMOND_HELMET)
+        val offhand = ItemStack.of(Material.SHIELD)
+        val inventory = ItemStack.of(Material.EMERALD, 3).withCustomName(Component.text("Kit item"))
+        player.inventory.setItemStack(1, hotbar)
+        player.setEquipment(EquipmentSlot.HELMET, helmet)
+        player.setEquipment(EquipmentSlot.OFF_HAND, offhand)
+        player.inventory.setItemStack(9, inventory)
+
+        val fillEvent = PlayerUseItemEvent(player, PlayerHand.MAIN, player.itemInMainHand, 0L)
+        BundleListener.onUseItem(fillEvent)
+
+        assertTrue(fillEvent.isCancelled)
+        val filled = player.itemInMainHand
+        val preview = assertNotNull(filled.get(DataComponents.BUNDLE_CONTENTS))
+        assertEquals(listOf(hotbar, helmet, offhand, inventory), preview)
+        assertTrue(player.inventory.getItemStack(1).isAir)
+        assertTrue(player.inventory.getItemStack(9).isAir)
+        assertTrue(player.inventory.getItemStack(41).isAir)
+        assertTrue(player.inventory.getItemStack(45).isAir)
+
+        val restoreEvent = PlayerUseItemEvent(player, PlayerHand.MAIN, filled, 0L)
+        BundleListener.onUseItem(restoreEvent)
+
+        assertTrue(restoreEvent.isCancelled)
+        assertTrue(player.itemInMainHand.isAir)
+        assertEquals(hotbar, player.inventory.getItemStack(1))
+        assertEquals(inventory, player.inventory.getItemStack(9))
+        assertEquals(helmet, player.inventory.getItemStack(41))
+        assertEquals(offhand, player.inventory.getItemStack(45))
+        player.remove()
+    }
+
+    @Test
+    fun `bundle limit is inclusive`() {
+        val player = createPlayer(Pos(22.5, 40.0, 4.5))
+        player.inventory.setItemStack(0, ItemStack.of(Material.BUNDLE))
+        for (slot in 1..8) player.inventory.setItemStack(slot, ItemStack.of(Material.DIRT))
+        player.setEquipment(EquipmentSlot.HELMET, ItemStack.of(Material.LEATHER_HELMET))
+        player.setEquipment(EquipmentSlot.CHESTPLATE, ItemStack.of(Material.LEATHER_CHESTPLATE))
+        player.setEquipment(EquipmentSlot.LEGGINGS, ItemStack.of(Material.LEATHER_LEGGINGS))
+        player.setEquipment(EquipmentSlot.BOOTS, ItemStack.of(Material.LEATHER_BOOTS))
+        player.setEquipment(EquipmentSlot.OFF_HAND, ItemStack.of(Material.SHIELD))
+        for (slot in 9..11) player.inventory.setItemStack(slot, ItemStack.of(Material.STONE))
+
+        BundleListener.onUseItem(PlayerUseItemEvent(player, PlayerHand.MAIN, player.itemInMainHand, 0L))
+
+        assertEquals(Material.BUNDLE, player.itemInMainHand.material())
+        assertTrue(player.inventory.getItemStack(1).isAir)
+        assertTrue(player.inventory.getItemStack(11).isAir)
+        player.remove()
+    }
+
+    @Test
+    fun `bundle does not capture more than configured limit`() {
+        val player = createPlayer(Pos(24.5, 40.0, 4.5))
+        player.inventory.setItemStack(0, ItemStack.of(Material.BUNDLE))
+        for (slot in 1..8) player.inventory.setItemStack(slot, ItemStack.of(Material.DIRT))
+        EquipmentSlot.armors().forEach { player.setEquipment(it, ItemStack.of(Material.LEATHER_HELMET)) }
+        player.setEquipment(EquipmentSlot.OFF_HAND, ItemStack.of(Material.SHIELD))
+        for (slot in 9..12) player.inventory.setItemStack(slot, ItemStack.of(Material.STONE))
+        val originalBundle = player.itemInMainHand
+
+        BundleListener.onUseItem(PlayerUseItemEvent(player, PlayerHand.MAIN, originalBundle, 0L))
+
+        assertEquals(originalBundle, player.itemInMainHand)
+        assertFalse(player.inventory.getItemStack(1).isAir)
+        assertFalse(player.inventory.getItemStack(12).isAir)
+        player.remove()
+    }
+
+    @Test
+    fun `bundle restore keeps the bundle when a target slot is occupied`() {
+        val player = createPlayer(Pos(26.5, 40.0, 4.5))
+        player.inventory.setItemStack(0, ItemStack.of(Material.BUNDLE))
+        val stored = ItemStack.of(Material.DIAMOND)
+        player.inventory.setItemStack(1, stored)
+        BundleListener.onUseItem(PlayerUseItemEvent(player, PlayerHand.MAIN, player.itemInMainHand, 0L))
+        val filled = player.itemInMainHand
+
+        val conflicting = ItemStack.of(Material.DIRT)
+        player.inventory.setItemStack(1, conflicting)
+        BundleListener.onUseItem(PlayerUseItemEvent(player, PlayerHand.MAIN, filled, 0L))
+
+        assertEquals(filled, player.itemInMainHand)
+        assertEquals(conflicting, player.inventory.getItemStack(1))
+        player.remove()
+    }
+
+    @Test
+    fun `filled bundle kit data survives player data serialization`() {
+        val source = createPlayer(Pos(28.5, 40.0, 4.5))
+        source.inventory.setItemStack(0, ItemStack.of(Material.BUNDLE))
+        val stored = ItemStack.of(Material.EMERALD, 4).withCustomName(Component.text("Persistent kit item"))
+        source.inventory.setItemStack(1, stored)
+        BundleListener.onUseItem(PlayerUseItemEvent(source, PlayerHand.MAIN, source.itemInMainHand, 0L))
+        val data = PlayerDataSerializer.serialize(source)
+        source.remove()
+
+        val restored = createPlayer(Pos(30.5, 40.0, 4.5))
+        PlayerDataDeserializer.deserialize(restored, data)
+        val restoredBundle = restored.itemInMainHand
+        assertEquals(Material.BUNDLE, restoredBundle.material())
+        assertTrue(restored.inventory.getItemStack(1).isAir)
+
+        BundleListener.onUseItem(PlayerUseItemEvent(restored, PlayerHand.MAIN, restoredBundle, 0L))
+
+        assertEquals(stored, restored.inventory.getItemStack(1))
+        assertTrue(restored.itemInMainHand.isAir)
+        restored.remove()
     }
 
     @Test
