@@ -5,10 +5,12 @@ import net.aechronis.vanilla.listeners.BundleListener
 import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.ItemListener
 import net.aechronis.vanilla.listeners.MannequinListener
+import net.aechronis.vanilla.listeners.StorageListener
 import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.EnvironmentalDamage
 import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.Storage
+import net.aechronis.vanilla.objects.KothZone
 import net.aechronis.vanilla.objects.StorageContents
 import net.aechronis.vanilla.serdes.PlayerDataDeserializer
 import net.aechronis.vanilla.serdes.PlayerDataSerializer
@@ -478,6 +480,43 @@ class VanillaTest {
     }
 
     @Test
+    fun `breaking an open barrel closes viewers and removes storage`() {
+        val pos = BlockVec(76, 40, 30)
+        val key = Storage.keyFor(instance, pos)
+        val breaker = createPlayer(Pos(76.5, 40.0, 30.5))
+        val viewer = createPlayer(Pos(78.5, 40.0, 30.5))
+        instance.setBlock(pos, Block.BARREL)
+
+        val contents = Storage.loadOrCreate(key)
+        contents.inventory.setItemStack(0, ItemStack.of(Material.DIAMOND, 3))
+        breaker.openInventory(contents.inventory)
+        viewer.openInventory(contents.inventory)
+
+        val event =
+            net.minestom.server.event.player.PlayerBlockBreakEvent(
+                breaker,
+                instance,
+                Block.BARREL,
+                Block.AIR,
+                pos,
+                BlockFace.TOP,
+            )
+        StorageListener.onBreak(event)
+
+        assertTrue(event.isCancelled)
+        assertNull(breaker.openInventory)
+        assertNull(viewer.openInventory)
+        assertTrue(contents.inventory.viewers.isEmpty())
+        assertTrue(instance.getBlock(pos).isAir)
+        assertFalse(Storage.barrels.containsKey(key))
+        assertFalse(Storage.inventoryToKey.containsKey(contents.inventory))
+
+        breaker.remove()
+        viewer.remove()
+        instance.setBlock(pos, Block.AIR)
+    }
+
+    @Test
     fun `anvil reload preserves barrel nbt handler state and high slots`() {
         val worldRoot = Files.createTempDirectory("vanilla-anvil-test-")
         val dimension = Key.key("minecraft:overworld")
@@ -598,6 +637,7 @@ class VanillaTest {
     @Test
     fun `ender chest command and inventory choices are registered`() {
         assertNotNull(MinecraftServer.getCommandManager().getCommand("ec"))
+        assertNotNull(MinecraftServer.getCommandManager().getCommand("koth"))
         val invsee = assertNotNull(MinecraftServer.getCommandManager().getCommand("invsee"))
         assertTrue(
             invsee.syntaxes.any { syntax ->
@@ -614,6 +654,23 @@ class VanillaTest {
             }
         assertTrue(hasInventoryChoices)
         player.remove()
+    }
+
+    @Test
+    fun `zone normalizes both corners and includes all configured blocks`() {
+        val zone = KothZone(BlockVec(10, 20, 30), BlockVec(8, 18, 28))
+
+        assertTrue(zone.contains(Pos(8.0, 18.0, 28.0)))
+        assertTrue(zone.contains(Pos(10.99, 20.99, 30.99)))
+        assertFalse(zone.contains(Pos(7.99, 19.0, 29.0)))
+        assertFalse(zone.contains(Pos(9.0, 21.0, 29.0)))
+    }
+
+    @Test
+    fun `zone center is the center of its block volume`() {
+        val zone = KothZone(BlockVec(0, 0, 0), BlockVec(1, 1, 1))
+
+        assertEquals(Pos(1.0, 1.0, 1.0), zone.center)
     }
 
     private fun assertStationInteraction(

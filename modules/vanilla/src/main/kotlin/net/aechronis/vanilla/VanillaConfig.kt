@@ -1,6 +1,7 @@
 package net.aechronis.vanilla
 
 import net.aechronis.vanilla.objects.FoodItem
+import net.aechronis.vanilla.objects.KothConfig
 import net.aechronis.vanilla.objects.MusicDisc
 import net.aechronis.vanilla.objects.Recipe
 import net.aechronis.vanilla.objects.RecipesIngredient
@@ -9,6 +10,7 @@ import net.aechronis.vanilla.objects.Shaped
 import net.aechronis.vanilla.objects.ShopItem
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import java.time.LocalTime
 
 private val PickaxeBlocks =
     listOf(
@@ -92,6 +94,7 @@ data class VanillaConfig(
     val combatEnabled: Boolean = true,
     val musicEnabled: Boolean = true,
     val spawnEnabled: Boolean = true,
+    val kothEnabled: Boolean = true,
     // Paths
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",
@@ -247,6 +250,11 @@ data class VanillaConfig(
     // Combat
     val combatDurationSeconds: Long = 10L,
     val combatTickSeconds: Long = 1L,
+    // KOTH
+    val kothLengthSeconds: Long = 3600L,
+    val kothTimes: Map<String, List<LocalTime>> = emptyMap(),
+    val koths: List<KothConfig> = emptyList(),
+    val kothDisplayRadiusBlocks: Double = 250.0,
     // EnviromentalDmg
     val maxAirTicks: Int = 300,
     val fireTicks: Int = 160,

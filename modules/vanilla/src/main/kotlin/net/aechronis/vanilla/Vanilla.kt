@@ -13,6 +13,7 @@ import net.aechronis.vanilla.commands.Gm
 import net.aechronis.vanilla.commands.Ignore
 import net.aechronis.vanilla.commands.InventorySee
 import net.aechronis.vanilla.commands.Kill
+import net.aechronis.vanilla.commands.KothCommand
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Message
 import net.aechronis.vanilla.commands.Music
@@ -33,6 +34,7 @@ import net.aechronis.vanilla.managers.EnvironmentalDamage
 import net.aechronis.vanilla.managers.Food
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.KillShop
+import net.aechronis.vanilla.managers.Koth
 import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.PlayerData
 import net.aechronis.vanilla.managers.Recipes
@@ -81,6 +83,7 @@ object Vanilla {
             if (config.recipesEnabled) commands += Craft()
             if (config.shopEnabled) commands += Shop()
             if (config.whitelistEnabled) commands += Whitelist()
+            if (config.kothEnabled) commands += KothCommand()
             MinecraftServer.getCommandManager().register(*commands.toTypedArray())
         }
         println("Loading Vanilla")
@@ -105,6 +108,7 @@ object Vanilla {
         if (config.serverLinksEnabled) ServerLinksListener.init()
         if (config.combatEnabled) Combat.init()
         if (config.musicEnabled) MusicManager.init()
+        if (config.kothEnabled) Koth.init()
 
         Runtime.getRuntime().addShutdownHook(
             Thread({
