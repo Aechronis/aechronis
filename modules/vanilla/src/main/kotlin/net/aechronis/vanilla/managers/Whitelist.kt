@@ -73,10 +73,14 @@ object Whitelist {
 
     private fun load() {
         if (Files.exists(entriesFile)) {
-            Files.newBufferedReader(entriesFile).use { reader ->
-                val type = object : TypeToken<List<Entry>>() {}.type
-                val loaded: List<Entry>? = gson.fromJson(reader, type)
-                loaded?.forEach { entries[it.name.lowercase()] = it }
+            runCatching {
+                Files.newBufferedReader(entriesFile).use { reader ->
+                    val type = object : TypeToken<List<Entry>>() {}.type
+                    val loaded: List<Entry>? = gson.fromJson(reader, type)
+                    loaded?.forEach { entries[it.name.lowercase()] = it }
+                }
+            }.onFailure { error ->
+                System.err.println("Failed to load whitelist: ${error.message}")
             }
         }
 

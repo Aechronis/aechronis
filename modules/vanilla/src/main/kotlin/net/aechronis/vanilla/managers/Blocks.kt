@@ -32,6 +32,8 @@ object Blocks {
 
     fun init() {
         val timeStart = System.currentTimeMillis()
+        variants.values.forEach { it.clear() }
+        outputsByInput.clear()
         variants[BlockType.Stone]!!.addAll(
             Vanilla.config.blocksStoneType,
         )

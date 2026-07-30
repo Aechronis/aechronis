@@ -27,7 +27,9 @@ object StorageListener {
         val contents = Storage.loadOrCreate(key)
 
         event.isCancelled = true
-        contents.inventory.viewers.toList().forEach { it.closeInventory() }
+        contents.inventory.viewers
+            .toList()
+            .forEach { it.closeInventory() }
         instance.setBlock(pos, Block.AIR)
 
         val dropPos = pos.add(0.5, 0.5, 0.5).asPos()

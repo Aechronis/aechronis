@@ -70,10 +70,13 @@ object PlayerData {
             return
         }
 
-        Files.newInputStream(path).use { input ->
-            val named = BinaryTagIO.reader().readNamed(input, BinaryTagIO.Compression.GZIP)
-
-            PlayerDataDeserializer.deserialize(player, named.value)
+        runCatching {
+            Files.newInputStream(path).use { input ->
+                val named = BinaryTagIO.reader().readNamed(input, BinaryTagIO.Compression.GZIP)
+                PlayerDataDeserializer.deserialize(player, named.value)
+            }
+        }.onFailure { error ->
+            System.err.println("Failed to load player data for ${player.uuid}: ${error.message}")
         }
     }
 

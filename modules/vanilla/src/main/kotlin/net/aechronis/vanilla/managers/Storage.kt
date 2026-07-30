@@ -64,11 +64,12 @@ object Storage {
                 if (blockNbt.contains(StorageSerializer.ITEMS_KEY, BinaryTagTypes.LIST)) {
                     StorageDeserializer.deserialize(blockNbt)
                 } else if (file != null && Files.exists(file)) {
-                    migratedFile = file
-                    Files.newInputStream(file).use { input ->
-                        val named = BinaryTagIO.reader().readNamed(input, BinaryTagIO.Compression.GZIP)
-                        StorageDeserializer.deserialize(named.value)
-                    }
+                    runCatching {
+                        Files.newInputStream(file).use { input ->
+                            val named = BinaryTagIO.reader().readNamed(input, BinaryTagIO.Compression.GZIP)
+                            StorageDeserializer.deserialize(named.value)
+                        }
+                    }.onSuccess { migratedFile = file }.getOrElse { StorageContents() }
                 } else {
                     StorageContents()
                 }
