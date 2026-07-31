@@ -12,7 +12,7 @@ import net.minestom.server.entity.Player
 fun Player.hasPermission(permission: String?): Boolean {
     if (permission == null) return true
 
-    return try {
+    return System.getenv("DEBUG")?.toBoolean() == true || try {
         LuckPermsProvider
             .get()
             .userManager
@@ -22,6 +22,6 @@ fun Player.hasPermission(permission: String?): Boolean {
             ?.checkPermission(permission)
             ?.asBoolean() == true
     } catch (_: Exception) {
-        System.getenv("DEBUG")?.toBoolean() == true
+        false
     }
 }
