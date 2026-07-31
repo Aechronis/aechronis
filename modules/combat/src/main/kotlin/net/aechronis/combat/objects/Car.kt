@@ -11,6 +11,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
@@ -151,15 +152,15 @@ open class Car(
         position: Pos,
         currentSurfaceY: Double,
     ): Double? {
-        val startY = (currentSurfaceY + maxClimbHeight + 1).toInt()
-        val endY = (currentSurfaceY - 10).toInt()
+        val startY = floor(currentSurfaceY + maxClimbHeight + 1).toInt()
+        val endY = floor(currentSurfaceY - 10).toInt()
         for (y in startY downTo endY) {
-            val block = instance.getBlock(position.x.toInt(), y, position.z.toInt())
+            val block = instance.getBlock(position.blockX(), y, position.blockZ())
             if (block.isSolid) {
                 return (y + 1).toDouble()
             }
         }
-        return currentSurfaceY
+        return null
     }
 
     companion object {

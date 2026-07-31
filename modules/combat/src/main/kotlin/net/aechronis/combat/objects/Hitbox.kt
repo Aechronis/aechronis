@@ -206,8 +206,7 @@ class Hitbox(
         val allCorners = getWorldCorners(position, yaw, pitch, roll)
         for (partCorners in allCorners) {
             for (corner in partCorners) {
-                val blockPos = Pos(corner.x.toInt().toDouble(), corner.y.toInt().toDouble(), corner.z.toInt().toDouble())
-                val block = instance.getBlock(blockPos)
+                val block = instance.getBlock(corner)
                 if (!block.isAir) {
                     return true
                 }

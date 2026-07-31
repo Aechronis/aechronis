@@ -137,8 +137,8 @@ open class Boat(
         z: Double,
         currentSurfaceY: Double,
     ): Double? {
-        val startY = (currentSurfaceY + maxClimbHeight + 1).toInt()
-        val endY = (currentSurfaceY - 10).toInt()
+        val startY = floor(currentSurfaceY + maxClimbHeight + 1).toInt()
+        val endY = floor(currentSurfaceY - 10).toInt()
 
         for (y in startY downTo endY) {
             val block = instance.getBlock(floor(x).toInt(), y, floor(z).toInt())
