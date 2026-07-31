@@ -1,6 +1,8 @@
 package net.aechronis.aechronis.constants
 
+import net.aechronis.combat.objects.AmmoTypes
 import net.aechronis.combat.objects.Gun
+import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.Plane
@@ -55,7 +57,16 @@ object Planes {
             name = "fighter",
             itemName = Component.text("Fighter", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             hitbox = fighterHitbox,
-            health = 800F,
+            health =
+                Health(
+                    800F,
+                    mapOf(
+                        AmmoTypes.NORMAL to 1f,
+                        AmmoTypes.MISSILE to 1f,
+                        AmmoTypes.BOMB to 1f,
+                        AmmoTypes.EXPLOSIVE to 1f,
+                    ),
+                ),
             placeTime = 2000,
             weapons = listOf(fighterWeapon),
             scale = 7.0,
