@@ -49,8 +49,8 @@ internal fun segmentBoxIntersection(
  * A ray cast from [origin] along [vector], checking for collisions up to [vector]'s length.
  */
 class Ray(
-    private val origin: Point,
-    private val vector: Vec,
+    internal val origin: Point,
+    internal val vector: Vec,
 ) {
     val distance: Double = vector.length()
     val direction: Vec = if (distance == 0.0) Vec.ZERO else vector.div(distance)

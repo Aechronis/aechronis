@@ -213,6 +213,8 @@ open class Vehicle(
         }
     }
 
+    internal open fun hitboxRoll(entity: Entity): Float = 0f
+
     // called when a player enters as a passenger
     open fun onPassengerEnter(
         player: Player,

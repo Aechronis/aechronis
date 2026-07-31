@@ -180,6 +180,7 @@ class Tank(
         val direction = muzzle.withView(yaw, pitch).direction()
         val ignoredEntities =
             buildSet<Entity> {
+                add(body)
                 add(player)
                 addAll(entityPassengers[body].orEmpty())
             }

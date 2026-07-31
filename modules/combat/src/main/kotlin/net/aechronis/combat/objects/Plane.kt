@@ -80,9 +80,13 @@ class Plane(
     }
 
     override fun onExit(player: Player) {
+        val entity = playerVehicleEntity[player]
         try {
             super.onExit(player)
         } finally {
+            if (entity != null) {
+                (entity.entityMeta as ItemDisplayMeta).leftRotation = setRoll(0f)
+            }
             playerRoll.remove(player)
             playerState.remove(player)
             takeoffCounter.remove(player)
@@ -207,6 +211,11 @@ class Plane(
         }
 
         super.onTick(player)
+    }
+
+    override fun hitboxRoll(entity: Entity): Float {
+        val pilot = playerVehicleEntity.entries.firstOrNull { it.value === entity }?.key ?: return 0f
+        return playerRoll[pilot] ?: 0f
     }
 
     private fun approach(

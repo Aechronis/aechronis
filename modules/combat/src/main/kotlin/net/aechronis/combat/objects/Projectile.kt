@@ -186,15 +186,46 @@ internal fun firstProjectileImpact(
                 .filterIsInstance<LivingEntity>()
                 .filter { it !in ignoredEntities },
         )
-    return selectProjectileImpact(blockHit, entityHit)
+    val vehicleHit = firstVehicleImpact(ray, instance, ignoredEntities)
+    return selectProjectileImpact(blockHit, entityHit, vehicleHit)
+}
+
+private fun firstVehicleImpact(
+    ray: Ray,
+    instance: Instance,
+    ignoredEntities: Set<Entity>,
+): ProjectileImpact? {
+    var closest: ProjectileImpact? = null
+
+    for ((entity, vehicle) in Vehicle.entityVehicle) {
+        if (entity.instance !== instance || entity in ignoredEntities) continue
+
+        val position = entity.position
+        val t =
+            vehicle.hitbox.firstIntersection(
+                ray.origin,
+                ray.vector,
+                position,
+                position.yaw,
+                position.pitch,
+                vehicle.hitboxRoll(entity),
+            ) ?: continue
+
+        if (closest == null || t < closest.t) {
+            closest = ProjectileImpact(t, ray.origin.add(ray.direction.mul(t)))
+        }
+    }
+
+    return closest
 }
 
 internal fun selectProjectileImpact(
     blockHit: Ray.Hit<Block>?,
     entityHit: Ray.Hit<LivingEntity>?,
+    vehicleHit: ProjectileImpact? = null,
 ): ProjectileImpact? =
-    if (entityHit != null && (blockHit == null || entityHit.t < blockHit.t)) {
-        ProjectileImpact(entityHit.t, entityHit.point)
-    } else {
-        blockHit?.let { ProjectileImpact(it.t, it.point) }
-    }
+    listOfNotNull(
+        blockHit?.let { ProjectileImpact(it.t, it.point) },
+        entityHit?.let { ProjectileImpact(it.t, it.point) },
+        vehicleHit,
+    ).minByOrNull { it.t }

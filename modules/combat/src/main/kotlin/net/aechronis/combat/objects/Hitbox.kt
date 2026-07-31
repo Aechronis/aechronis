@@ -3,6 +3,8 @@ package net.aechronis.combat.objects
 import net.aechronis.combat.utils.Particles
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.rotatePointInverse
+import net.aechronis.combat.utils.segmentBoxIntersection
+import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Player
@@ -137,6 +139,37 @@ class Hitbox(
             }
         }
         return null
+    }
+
+    // Returns the nearest intersection in world-space units along the segment.
+    internal fun firstIntersection(
+        origin: Point,
+        vector: Vec,
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): Double? {
+        val localOrigin =
+            rotatePointInverse(
+                Vec(origin.x() - position.x, origin.y() - position.y, origin.z() - position.z),
+                yaw,
+                pitch,
+                roll,
+            )
+        val localVector = rotatePointInverse(vector, yaw, pitch, roll)
+        val distance = vector.length()
+
+        return parts
+            .mapNotNull { part ->
+                segmentBoxIntersection(
+                    localOrigin,
+                    localVector,
+                    part.offset.sub(part.size),
+                    part.offset.add(part.size),
+                )
+            }.minOrNull()
+            ?.times(distance)
     }
 
     // checks if a point is inside a specific hitbox part

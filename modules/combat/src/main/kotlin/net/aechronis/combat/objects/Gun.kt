@@ -289,7 +289,7 @@ class Gun(
         )
     }
 
-    private fun checkVehicleHit(
+    internal fun checkVehicleHit(
         instance: Instance,
         origin: Pos,
         direction: Vec,
@@ -310,16 +310,13 @@ class Gun(
                 if (entity.instance != instance) continue
                 val vehiclePos = entity.position
 
-                // for planes get the roll; for other vehicles just use 0
-                val roll = if (vehicle is Plane) Plane.playerRoll.values.firstOrNull() ?: 0f else 0f
-
                 val hitPart =
                     vehicle.hitbox.containsPoint(
                         checkPoint,
                         vehiclePos,
                         vehiclePos.yaw,
                         vehiclePos.pitch,
-                        roll,
+                        vehicle.hitboxRoll(entity),
                     )
 
                 if (hitPart != null) {
