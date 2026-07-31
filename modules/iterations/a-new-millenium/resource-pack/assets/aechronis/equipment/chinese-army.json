@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "aechronis:chinese-army"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "aechronis:chinese-army"
+      }
+    ]
+  }
+}
