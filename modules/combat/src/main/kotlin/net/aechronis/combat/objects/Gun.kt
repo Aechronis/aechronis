@@ -266,7 +266,7 @@ class Gun(
         recoil(player)
 
         // decrement ammo
-        addAmmo(player, -1)
+        if (!ignoreAmmo) addAmmo(player, -1)
 
         return
     }
