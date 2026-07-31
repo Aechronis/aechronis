@@ -28,22 +28,27 @@ jobs:
         shell: bash
         run: |
           branch_name="${GITHUB_REF_NAME//\//-}"
-          jar_name="aechronis-${branch_name}-${GITHUB_SHA}.jar"
+          short_sha="${GITHUB_SHA::7}"
+          jar_name="aechronis-${branch_name}.jar"
           release_tag="aechronis-${GITHUB_SHA}"
+          release_title="aechronis-${short_sha}"
 
           mv build/libs/aechronis-all.jar "build/libs/${jar_name}"
 
           echo "JAR_NAME=${jar_name}" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=${release_tag}" >> "$GITHUB_ENV"
+          echo "RELEASE_TITLE=${release_title}" >> "$GITHUB_ENV"
 
       - name: Create GitHub release
         if: github.event_name == 'push' && github.ref_type == 'branch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          commit_message="$(git log -1 --pretty=%B)"
+
           gh release create "$RELEASE_TAG" \
             "build/libs/${JAR_NAME}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "$RELEASE_TAG" \
-            --generate-notes
+            --title "$RELEASE_TITLE" \
+            --notes "$commit_message"
