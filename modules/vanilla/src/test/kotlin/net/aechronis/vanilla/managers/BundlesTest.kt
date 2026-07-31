@@ -3,6 +3,7 @@ package net.aechronis.vanilla.managers
 import net.aechronis.vanilla.ManagerTest
 import net.aechronis.vanilla.VanillaTest
 import net.aechronis.vanilla.listeners.BundleListener
+import net.aechronis.vanilla.objects.Bundle
 import net.kyori.adventure.text.Component
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
@@ -134,5 +135,37 @@ class BundlesTest : ManagerTest() {
         assertEquals(stored, restored.inventory.getItemStack(1))
         assertTrue(restored.itemInMainHand.isAir)
         VanillaTest.remove(restored)
+    }
+
+    @Test
+    fun `bundle object creates a restorable bundle above the player limit`() {
+        val player = VanillaTest.createPlayer(Pos(32.5, 40.0, 4.5))
+        val items = (1..17).associateWith { ItemStack.of(Material.DIRT, it) }
+
+        val bundle = Bundle(items).makeBundle()
+        player.inventory.setItemStack(0, bundle)
+
+        assertEquals(items.values.toList(), bundle.get(DataComponents.BUNDLE_CONTENTS))
+
+        BundleListener.onUseItem(PlayerUseItemEvent(player, PlayerHand.MAIN, bundle, 0L))
+
+        items.forEach { (slot, item) -> assertEquals(item, player.inventory.getItemStack(slot)) }
+        assertTrue(player.itemInMainHand.isAir)
+        VanillaTest.remove(player)
+    }
+
+    @Test
+    fun `bundle object preserves equal item stacks in separate slots`() {
+        val player = VanillaTest.createPlayer(Pos(34.5, 40.0, 4.5))
+        val item = ItemStack.of(Material.DIAMOND)
+        val items = mapOf(1 to item, 2 to item)
+        val bundle = Bundle(items).makeBundle()
+        player.inventory.setItemStack(0, bundle)
+
+        BundleListener.onUseItem(PlayerUseItemEvent(player, PlayerHand.MAIN, bundle, 0L))
+
+        assertEquals(item, player.inventory.getItemStack(1))
+        assertEquals(item, player.inventory.getItemStack(2))
+        VanillaTest.remove(player)
     }
 }

@@ -39,6 +39,9 @@ object Bundles {
 
     fun isBundle(item: ItemStack): Boolean = item.material() in bundleMaterials
 
+    fun makeBundle(items: Map<Int, ItemStack>): ItemStack =
+        makeBundle(ItemStack.of(Material.BUNDLE), items)
+
     fun use(
         player: Player,
         hand: PlayerHand,
@@ -73,6 +76,20 @@ object Bundles {
 
         if (stored.isEmpty() || stored.size > Vanilla.config.bundleMaxItemStacks) return
 
+        val filled = makeBundle(held, stored.associate { it.slot to it.item })
+
+        stored.forEach { player.inventory.setItemStack(it.slot, ItemStack.AIR) }
+        player.setItemInHand(hand, filled)
+    }
+
+    private fun makeBundle(
+        bundle: ItemStack,
+        items: Map<Int, ItemStack>,
+    ): ItemStack {
+        val stored =
+            items.entries
+                .sortedWith(compareBy({ previewSlots.indexOf(it.key).let { index -> if (index == -1) previewSlots.size else index } }, { it.key }))
+                .map { StoredItem(it.key, it.value) }
         val entries = ListBinaryTag.builder(BinaryTagTypes.COMPOUND)
         stored.forEach { entry ->
             val itemBuilder =
@@ -92,15 +109,11 @@ object Bundles {
                 .put(ITEMS_KEY, entries.build())
                 .build()
         val customData =
-            (held.get(DataComponents.CUSTOM_DATA) ?: CustomData.EMPTY)
+            (bundle.get(DataComponents.CUSTOM_DATA) ?: CustomData.EMPTY)
                 .withTag(Tag.NBT(DATA_KEY), data)
-        val filled =
-            held
-                .with(DataComponents.CUSTOM_DATA, customData)
-                .with(DataComponents.BUNDLE_CONTENTS, stored.map { it.item })
-
-        stored.forEach { player.inventory.setItemStack(it.slot, ItemStack.AIR) }
-        player.setItemInHand(hand, filled)
+        return bundle
+            .with(DataComponents.CUSTOM_DATA, customData)
+            .with(DataComponents.BUNDLE_CONTENTS, stored.map { it.item })
     }
 
     private fun restore(
