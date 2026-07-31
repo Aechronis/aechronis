@@ -6,22 +6,38 @@ import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
 import net.aechronis.logger.objects.show
 import net.aechronis.logger.utils.ItemCodec
+import net.minestom.server.MinecraftServer
+import net.minestom.server.event.EventListener
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
-import net.minestom.server.instance.block.Block
+import net.minestom.server.event.trait.BlockEvent
+import net.minestom.server.event.trait.CancellableEvent
+import net.minestom.server.event.trait.PlayerEvent
 
 object BlockListener {
-    private fun onBreak(event: PlayerBlockBreakEvent) {
+    private fun <E> inspect(event: E)
+        where E : BlockEvent, E : CancellableEvent, E : PlayerEvent {
         val pos = event.blockPosition
-
         if (playerInspectMode[event.player.uuid] == true) {
             event.isCancelled = true
             show(event.player, pos.blockX(), pos.blockY(), pos.blockZ())
-            return
         }
+    }
 
+    private fun onBreak(event: PlayerBlockBreakEvent) {
+        val pos = event.blockPosition
         val blockKey = event.block.key().asString()
+        val resultBlock =
+            if (event.isCancelled) {
+                event.instance
+                    .getBlock(pos)
+                    .takeUnless { it.state() == event.block.state() && it.nbt() == event.block.nbt() }
+                    ?: return
+            } else {
+                event.resultBlock
+            }
         val instanceUuid = event.instance.uuid
 
         record(
@@ -33,26 +49,20 @@ object BlockListener {
                 y = pos.blockY(),
                 z = pos.blockZ(),
                 blockOld = blockKey,
-                blockNew = "minecraft:air",
+                blockNew = resultBlock.key().asString(),
                 action = BlockAction.BREAK,
                 instanceUuid = instanceUuid,
                 blockOldState = event.block.state(),
-                blockNewState = Block.AIR.state(),
+                blockNewState = resultBlock.state(),
                 blockOldNbt = ItemCodec.encodeBlockNbt(event.block.nbt()),
-                blockNewNbt = null,
+                blockNewNbt = ItemCodec.encodeBlockNbt(resultBlock.nbt()),
             ),
         )
     }
 
     private fun onPlace(event: PlayerBlockPlaceEvent) {
+        if (event.isCancelled) return
         val pos = event.blockPosition
-
-        if (playerInspectMode[event.player.uuid] == true) {
-            event.isCancelled = true
-            show(event.player, pos.blockX(), pos.blockY(), pos.blockZ())
-            return
-        }
-
         val previous = event.instance.getBlock(pos)
         record(
             BlockLogEntry(
@@ -75,16 +85,11 @@ object BlockListener {
     }
 
     private fun onInteract(event: PlayerBlockInteractEvent) {
+        if (event.isCancelled) return
         val pos = event.blockPosition
         val blockKey = event.block.key().asString()
 
         LastInteractionTracker.record(event.player.uuid, pos.blockX(), pos.blockY(), pos.blockZ(), blockKey)
-
-        if (playerInspectMode[event.player.uuid] == true) {
-            event.isCancelled = true
-            show(event.player, pos.blockX(), pos.blockY(), pos.blockZ())
-            return
-        }
 
         if (!isLoggedInteraction(blockKey)) return
 
@@ -118,8 +123,20 @@ object BlockListener {
     }
 
     fun init() {
-        Logger.eventNode.addListener(PlayerBlockBreakEvent::class.java, ::onBreak)
-        Logger.eventNode.addListener(PlayerBlockPlaceEvent::class.java, ::onPlace)
-        Logger.eventNode.addListener(PlayerBlockInteractEvent::class.java, ::onInteract)
+        Logger.eventNode.addListener(PlayerBlockBreakEvent::class.java) { inspect(it) }
+        Logger.eventNode.addListener(PlayerBlockPlaceEvent::class.java) { inspect(it) }
+        Logger.eventNode.addListener(PlayerBlockInteractEvent::class.java) { inspect(it) }
+
+        val postNode = EventNode.all("logger-block-post").setPriority(Int.MAX_VALUE)
+        MinecraftServer.getGlobalEventHandler().addChild(postNode)
+        postNode.addListener(
+            EventListener
+                .builder(PlayerBlockBreakEvent::class.java)
+                .ignoreCancelled(false)
+                .handler(::onBreak)
+                .build(),
+        )
+        postNode.addListener(PlayerBlockPlaceEvent::class.java, ::onPlace)
+        postNode.addListener(PlayerBlockInteractEvent::class.java, ::onInteract)
     }
 }
