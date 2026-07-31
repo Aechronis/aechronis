@@ -39,7 +39,7 @@ object Music {
 
     private fun registerSongs() {
         val registry = MinecraftServer.getJukeboxSongRegistry()
-        for (disc in Vanilla.config.musicDiscs) {
+        for (disc in Vanilla.config.musicConfig.musicDiscs) {
             require(disc.length > 0f) { "Music disc '${disc.name}' must have a positive length" }
             require(disc.songName.isNotBlank()) { "Music disc '${disc.name}' must have a song name" }
 

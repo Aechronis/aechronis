@@ -62,7 +62,7 @@ object Koth {
             ActiveKoth(
                 config = config,
                 startedAt = now,
-                endsAt = now + Vanilla.config.kothLengthSeconds * 1000,
+                endsAt = now + Vanilla.config.kothsConfig.kothLengthSeconds * 1000,
             )
         broadcast(
             Component
@@ -132,21 +132,24 @@ object Koth {
 
     private fun loadConfiguration() {
         val config = Vanilla.config
-        require(config.kothLengthSeconds > 0) { "KOTH length must be positive" }
-        require(config.kothDisplayRadiusBlocks > 0) { "KOTH display radius must be positive" }
+        require(config.kothsConfig.kothLengthSeconds > 0) { "KOTH length must be positive" }
+        require(config.kothsConfig.kothDisplayRadiusBlocks > 0) { "KOTH display radius must be positive" }
         require(
-            config.koths
+            config.kothsConfig.koths
                 .map { it.name }
                 .toSet()
-                .size == config.koths.size,
+                .size == config.kothsConfig.koths.size,
         ) { "KOTH names must be unique" }
 
-        config.koths.forEach { it.validate() }
+        config.kothsConfig.koths.forEach { it.validate() }
         definitions.clear()
-        definitions.putAll(config.koths.associateBy { it.name })
-        require(config.kothTimes.keys.all { it in definitions }) { "KOTH schedules contain an unknown KOTH" }
+        definitions.putAll(config.kothsConfig.koths.associateBy { it.name })
+        require(
+            config.kothsConfig.kothTimes.keys
+                .all { it in definitions },
+        ) { "KOTH schedules contain an unknown KOTH" }
         schedules.clear()
-        schedules.putAll(config.kothTimes)
+        schedules.putAll(config.kothsConfig.kothTimes)
     }
 
     private fun startScheduled(dateTime: LocalDateTime) {
@@ -242,7 +245,7 @@ object Koth {
                 val nearby =
                     player.instance === state.config.instance &&
                         player.position.distanceSquared(state.config.zone.center) <=
-                        Vanilla.config.kothDisplayRadiusBlocks * Vanilla.config.kothDisplayRadiusBlocks
+                        Vanilla.config.kothsConfig.kothDisplayRadiusBlocks * Vanilla.config.kothsConfig.kothDisplayRadiusBlocks
                 val bar =
                     state.bossBars.getOrPut(player.uuid) {
                         BossBar.bossBar(

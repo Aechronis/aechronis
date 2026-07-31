@@ -35,15 +35,15 @@ object Blocks {
         variants.values.forEach { it.clear() }
         outputsByInput.clear()
         variants[BlockType.Stone]!!.addAll(
-            Vanilla.config.blocksStoneType,
+            Vanilla.config.blocksConfig.blocksStoneType,
         )
 
         variants[BlockType.Wood]!!.addAll(
-            Vanilla.config.blocksWoodType,
+            Vanilla.config.blocksConfig.blocksWoodType,
         )
 
         variants[BlockType.Grass]!!.addAll(
-            Vanilla.config.blocksGrassType,
+            Vanilla.config.blocksConfig.blocksGrassType,
         )
 
         val rm = MinecraftServer.getRecipeManager()

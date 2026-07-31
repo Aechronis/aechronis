@@ -20,11 +20,11 @@ object PlayerBreakListener {
         val config = Vanilla.config
         val heldItem = player.itemInMainHand
         val hasSilkTouch = heldItem.get(DataComponents.ENCHANTMENTS, EnchantmentList.EMPTY).has(Enchantment.SILK_TOUCH)
-        val silkTouchApplies = hasSilkTouch && material in config.blocksSilkTouchable
+        val silkTouchApplies = hasSilkTouch && material in config.blocksConfig.blocksSilkTouchable
 
-        if (!silkTouchApplies && material in config.blocksRequiringTool) {
+        if (!silkTouchApplies && material in config.blocksConfig.blocksRequiringTool) {
             val heldMaterial = heldItem.material()
-            val canMine = config.toolMinableBlocks[heldMaterial]?.contains(material) == true
+            val canMine = config.blocksConfig.toolMinableBlocks[heldMaterial]?.contains(material) == true
             if (!canMine) return
         }
 
@@ -32,7 +32,7 @@ object PlayerBreakListener {
             if (silkTouchApplies) {
                 listOf(ItemStack.of(material))
             } else {
-                config.blockDrops[material] ?: listOf(ItemStack.of(material))
+                config.blocksConfig.blockDrops[material] ?: listOf(ItemStack.of(material))
             }
         val dropPos = event.blockPosition.add(0.5, 0.5, 0.5).asPos()
         for (stack in drops) {

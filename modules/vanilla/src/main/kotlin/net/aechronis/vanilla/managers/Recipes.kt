@@ -16,7 +16,7 @@ object Recipes {
         RecipesListener.init()
 
         recipes.clear()
-        recipes.addAll(Vanilla.config.recpies)
+        recipes.addAll(Vanilla.config.recipesConfig.recpies)
 
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart

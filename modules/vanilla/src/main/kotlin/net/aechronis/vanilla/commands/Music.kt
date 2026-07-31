@@ -10,7 +10,9 @@ import net.minestom.server.entity.Player
 
 class Music : Command("music", "vanilla.music") {
     init {
-        val discsByTitle = Vanilla.config.musicDiscs.associateBy { it.songName }
+        val discsByTitle =
+            Vanilla.config.musicConfig.musicDiscs
+                .associateBy { it.songName }
         val titleArg = ArgumentType.Word("title").from(*discsByTitle.keys.toTypedArray())
 
         setDefaultExecutor { player: Player, _ ->

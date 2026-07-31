@@ -22,14 +22,14 @@ object Food {
     fun init() {
         val timeStart = System.currentTimeMillis()
         val config = Vanilla.config
-        for (item in config.foodItems) {
+        for (item in config.foodConfig.foodItems) {
             foodItems[item.material] = item
         }
         FoodListener.init()
         MinecraftServer
             .getSchedulerManager()
             .buildTask(::tick)
-            .repeat(TaskSchedule.seconds(config.foodTickSeconds))
+            .repeat(TaskSchedule.seconds(config.foodConfig.foodTickSeconds))
             .schedule()
         val timeEnd = System.currentTimeMillis()
         println("├─ Food enabled in ${timeEnd - timeStart}ms")
@@ -66,8 +66,8 @@ object Food {
         val config = Vanilla.config
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
             if (player.gameMode == GameMode.CREATIVE || player.gameMode == GameMode.SPECTATOR) continue
-            applyHealing(player, config.foodHealAmount, config.foodHealSaturationCost)
-            applyStarvation(player, config.foodStarvationDamage)
+            applyHealing(player, config.foodConfig.foodHealAmount, config.foodConfig.foodHealSaturationCost)
+            applyStarvation(player, config.foodConfig.foodStarvationDamage)
         }
     }
 
