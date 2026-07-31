@@ -1,6 +1,8 @@
 package net.aechronis.aechronis.constants
 
+import net.aechronis.combat.objects.AmmoTypes
 import net.aechronis.combat.objects.Car
+import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.kyori.adventure.text.Component
@@ -24,7 +26,16 @@ object Cars {
             name = "truck",
             itemName = Component.text("Truck", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             hitbox = truckHitbox,
-            health = 500F,
+            health =
+                Health(
+                    500F,
+                    mapOf(
+                        AmmoTypes.NORMAL to 1f,
+                        AmmoTypes.MISSILE to 1f,
+                        AmmoTypes.BOMB to 1f,
+                        AmmoTypes.EXPLOSIVE to 1f,
+                    ),
+                ),
             placeTime = 2000,
             scale = 3.0,
             maxSpeed = 25f,

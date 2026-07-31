@@ -98,27 +98,20 @@ fun main(args: Array<String>) {
     Item.registerItems(
         // Ammo
         Ammo.ammo762x39mm,
-
         // Guns
         Guns.ak47,
-
         // Armor
         Armor.jacket,
         Armor.trousers,
         Armor.boots,
-
         // Hats
         Hats.gasMask,
-
         // Vehicles - Planes
         Planes.fighter,
-
         // Vehicles - Cars
         Cars.truck,
-
         // Vehicles - Tanks
         Tanks.m1a1Abrams,
-
         // Vehicles - Drones
         Drones.scoutDrone,
         Drones.kamikazeDrone,

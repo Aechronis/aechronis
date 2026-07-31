@@ -40,13 +40,13 @@ dependencies {
     // nodes
     implementation("net.aechronis:nodes:2952518")
     // combat
-    implementation("net.aechronis:combat:8632ab7")
+    implementation("net.aechronis:combat:5a628df")
     // vanilla
-    implementation("net.aechronis:vanilla:c4ecfea")
+    implementation("net.aechronis:vanilla:a39283c")
     // logger
-    implementation("net.aechronis:logger:b2ecab0")
+    implementation("net.aechronis:logger:cac5678")
     // worldedit
-    implementation("net.aechronis:worldedit:59a508e")
+    implementation("net.aechronis:worldedit:e62b2bb")
     // luckperms
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.8")
