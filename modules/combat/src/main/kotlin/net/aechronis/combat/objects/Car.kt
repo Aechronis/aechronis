@@ -32,6 +32,8 @@ open class Car(
     val turnSpeed: Float = 4.0f,
     val maxClimbHeight: Float = 0.5f,
     seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    invisibleWhileRiding: Boolean = false,
+    invulnerableWhileRiding: Boolean = false,
 ) : Vehicle(
         name,
         itemName,
@@ -43,6 +45,8 @@ open class Car(
         health,
         placeTime,
         seatOffsets,
+        invisibleWhileRiding,
+        invulnerableWhileRiding,
     ) {
     override fun onEnter(
         player: Player,

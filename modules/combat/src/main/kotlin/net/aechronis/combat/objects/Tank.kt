@@ -49,6 +49,8 @@ class Tank(
     val barrelTipOffset: Vec = Vec(0.0, 0.0, 5.0),
     val fireCooldown: Long = 20000,
     seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    invisibleWhileRiding: Boolean = true,
+    invulnerableWhileRiding: Boolean = true,
 ) : Car(
         name,
         itemName,
@@ -66,6 +68,8 @@ class Tank(
         turnSpeed,
         maxClimbHeight,
         seatOffsets,
+        invisibleWhileRiding,
+        invulnerableWhileRiding,
     ) {
     override fun spawn(
         player: Player,

@@ -33,6 +33,10 @@ open class Vehicle(
     val health: Health?,
     val placeTime: Long = 3000,
     val seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    // hide the occupant from other players while they're riding
+    val invisibleWhileRiding: Boolean = true,
+    // occupant takes no damage while they're riding
+    val invulnerableWhileRiding: Boolean = true,
 ) : Item(
         name,
         itemName,
@@ -158,6 +162,9 @@ open class Vehicle(
         seatEntity.spawn()
         seatEntity.addPassenger(player)
 
+        // hide the occupant from everyone while they're riding
+        if (invisibleWhileRiding) player.updateViewableRule { false }
+
         playerVehicle[player] = this
         playerVehicleEntity[player] = entity
         playerSeatEntity[player] = seatEntity
@@ -172,6 +179,9 @@ open class Vehicle(
         }
         playerVehicle.remove(player)
         playerVehicleEntity.remove(player)
+
+        // reveal the player again now that they've left
+        if (invisibleWhileRiding) player.updateViewableRule { true }
     }
 
     // called every tick
@@ -230,6 +240,9 @@ open class Vehicle(
         seatEntity.spawn()
         seatEntity.addPassenger(player)
 
+        // hide the occupant from everyone while they're riding
+        if (invisibleWhileRiding) player.updateViewableRule { false }
+
         passengers.add(player)
         passengerVehicle[player] = this
         passengerVehicleEntity[player] = entity
@@ -252,6 +265,9 @@ open class Vehicle(
             seatEntity.removePassenger(player)
             seatEntity.remove()
         }
+
+        // reveal the player again now that they've left
+        if (invisibleWhileRiding) player.updateViewableRule { true }
     }
 
     // get world position for a seat
@@ -308,6 +324,12 @@ open class Vehicle(
     }
 
     companion object {
+        // true while the player rides a vehicle that protects its occupants from damage
+        fun isProtectedOccupant(player: Player): Boolean {
+            val vehicle = playerVehicle[player] ?: passengerVehicle[player] ?: return false
+            return vehicle.invulnerableWhileRiding
+        }
+
         var playerVehicle: HashMap<Player, Vehicle> = HashMap()
         var playerVehicleEntity: HashMap<Player, Entity> = HashMap()
         var entityVehicle: HashMap<Entity, Vehicle> = HashMap()

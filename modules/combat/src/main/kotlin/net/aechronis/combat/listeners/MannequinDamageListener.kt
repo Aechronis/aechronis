@@ -34,9 +34,8 @@ object MannequinDamageListener {
             return
         }
 
-        // the real body of a flying pilot can't be damaged directly -- only
-        // through the clone (forwarded above)
-        if (entity is Player && entity !in forwarding && Vehicle.playerVehicle[entity] is Drone) {
+        // occupants of a protecting vehicle are invulnerable while riding
+        if (entity is Player && entity !in forwarding && Vehicle.isProtectedOccupant(entity)) {
             event.isCancelled = true
         }
     }

@@ -27,6 +27,8 @@ open class Boat(
     turnSpeed: Float = 4.0f,
     maxClimbHeight: Float = 0.5f,
     seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    invisibleWhileRiding: Boolean = true,
+    invulnerableWhileRiding: Boolean = true,
     val floatHeight: Double = 0.5,
 ) : Car(
         name,
@@ -45,6 +47,8 @@ open class Boat(
         turnSpeed,
         maxClimbHeight,
         seatOffsets,
+        invisibleWhileRiding,
+        invulnerableWhileRiding,
     ) {
     init {
         require(floatHeight in 0.0..1.0) { "floatHeight must be between 0.0 and 1.0" }

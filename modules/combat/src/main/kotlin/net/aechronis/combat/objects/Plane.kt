@@ -45,6 +45,8 @@ class Plane(
     val weapons: List<PlaneWeapon> = emptyList(),
     val explosionDamage: Float = 20f,
     val seatOffset: List<Vec> = listOf(Vec.ZERO),
+    invisibleWhileRiding: Boolean = true,
+    invulnerableWhileRiding: Boolean = true,
 ) : Vehicle(
         name,
         itemName,
@@ -56,6 +58,8 @@ class Plane(
         health,
         placeTime,
         seatOffset,
+        invisibleWhileRiding,
+        invulnerableWhileRiding,
     ) {
     override fun onEnter(
         player: Player,
