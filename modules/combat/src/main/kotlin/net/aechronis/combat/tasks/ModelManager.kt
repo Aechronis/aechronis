@@ -21,6 +21,8 @@ import net.minestom.server.potion.PotionEffect
 import net.minestom.server.timer.TaskSchedule
 
 object ModelManager {
+    private val scopedPlayers = HashSet<Player>()
+
     // run scheduler for changing item models, animations etc.
     fun start() {
         MinecraftServer
@@ -49,6 +51,7 @@ object ModelManager {
         val instance = player.instance ?: return
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
         val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
+        if (gun == null) restoreSniperScope(player)
         if (gun == null && !isLookingAtVehicle) {
             enableHitAnimation(player)
             player.sendPacket(SetTimePacket(10000, instance.createTimePacket().clocks))
@@ -89,11 +92,13 @@ object ModelManager {
 
         // sniper scope
         if (gun.sniper && isAiming && hasAmmo) {
+            scopedPlayers.add(player)
             player.sendPacket(
                 EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to ItemStack.of(Material.CARVED_PUMPKIN))),
             )
             player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.0)
         } else {
+            scopedPlayers.remove(player)
             player.sendPacket(EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to player.helmet)))
             player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.1)
         }
@@ -108,6 +113,17 @@ object ModelManager {
         } else {
             player.itemInMainHand = item.withItemModel(gun.itemModel)
         }
+    }
+
+    private fun restoreSniperScope(player: Player) {
+        if (!scopedPlayers.remove(player)) return
+
+        player.sendPacket(EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to player.helmet)))
+        player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.1)
+    }
+
+    internal fun clearPlayer(player: Player) {
+        scopedPlayers.remove(player)
     }
 
     fun disableHitAnimation(player: Player) {

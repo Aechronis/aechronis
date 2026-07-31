@@ -6,6 +6,7 @@ import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneState
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.storage.HatCollection
+import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.minestom.server.event.player.PlayerDisconnectEvent
 
@@ -50,6 +51,7 @@ object PlayerDisconnectListener {
         Combat.playerLastActionTimes.remove(player)
         Combat.meleeLastAttackTimes.remove(player)
         Combat.entityLastDamageTime.remove(player)
+        ModelManager.clearPlayer(player)
         KeyPressListener.playerInputEvent.remove(player)
         Hitbox.viewingHitboxes.remove(player)
 
