@@ -34,6 +34,32 @@ class Nation(
 
         fun fromName(name: String): Nation? = Nodes.nations[name]
 
+        private fun indexTownMembers(nation: Nation, town: Town) {
+            val indexedPlayers = town.playersOnline.associateBy { it.uuid }
+            town.residents.forEach { resident ->
+                if (resident.town !== town) return@forEach
+                resident.nation = nation
+                nation.residents.add(resident)
+                val player = resident.player() ?: indexedPlayers[resident.uuid]
+                if (player != null) {
+                    nation.playersOnline.removeAll { it.uuid == resident.uuid }
+                    nation.playersOnline.add(player)
+                }
+                resident.needsUpdate()
+            }
+        }
+
+        private fun unindexTownMembers(nation: Nation, town: Town) {
+            val residents = town.residents.filter { it.town === town }
+            val residentIds = residents.mapTo(hashSetOf()) { it.uuid }
+            residents.forEach { resident ->
+                if (resident.nation === nation) resident.nation = null
+                nation.residents.remove(resident)
+                resident.needsUpdate()
+            }
+            nation.playersOnline.removeAll { it.uuid in residentIds }
+        }
+
         fun create(name: String, town: Town, leader: Resident? = null): Result<Nation> {
             if (town.nation != null) return Result.failure(ErrorTownHasNation)
             if (leader?.nation != null) return Result.failure(ErrorPlayerHasNation)
@@ -44,10 +70,7 @@ class Nation(
             Nodes.nations[name] = nation
             nation.towns.add(town)
             town.nation = nation
-            for (resident in town.residents) {
-                resident.nation = nation
-                resident.needsUpdate()
-            }
+            indexTownMembers(nation, town)
             town.needsUpdate()
             nation.needsUpdate()
             Nodes.needsSave = true
@@ -64,11 +87,7 @@ class Nation(
                 nation.towns.add(town)
                 town.nation = nation
                 town.needsUpdate()
-                for (resident in town.residents) {
-                    resident.nation = nation
-                    nation.residents.add(resident)
-                    resident.needsUpdate()
-                }
+                indexTownMembers(nation, town)
             }
             nation.needsUpdate()
             Nodes.nations[name] = nation
@@ -85,13 +104,13 @@ class Nation(
                 it.needsUpdate()
             }
             nation.towns.forEach { town ->
-                town.residents.forEach { resident ->
-                    resident.nation = null
-                    resident.needsUpdate()
-                }
+                unindexTownMembers(nation, town)
                 town.nation = null
                 town.needsUpdate()
             }
+            nation.towns.clear()
+            nation.residents.clear()
+            nation.playersOnline.clear()
             Nodes.nations.remove(nation.name)
             Nodes.needsSave = true
             Resident.renderMinimaps()
@@ -102,12 +121,7 @@ class Nation(
             nation.towns.add(town)
             town.nation = nation
             town.needsUpdate()
-            town.residents.forEach { resident ->
-                resident.nation = nation
-                nation.residents.add(resident)
-                resident.player()?.let { nation.playersOnline.add(it) }
-                resident.needsUpdate()
-            }
+            indexTownMembers(nation, town)
             nation.needsUpdate()
             Nodes.needsSave = true
             Resident.renderMinimaps()
@@ -117,12 +131,8 @@ class Nation(
         fun removeTown(nation: Nation, town: Town): Result<Town> {
             if (town.nation !== nation) return Result.failure(net.aechronis.nodes.constants.ErrorNationDoesNotHaveTown)
             nation.towns.remove(town)
+            unindexTownMembers(nation, town)
             town.nation = null
-            town.residents.forEach { resident ->
-                resident.nation = null
-                nation.residents.remove(resident)
-                resident.needsUpdate()
-            }
             if (nation.towns.isEmpty()) {
                 destroy(nation)
             } else if (town === nation.capital) {
