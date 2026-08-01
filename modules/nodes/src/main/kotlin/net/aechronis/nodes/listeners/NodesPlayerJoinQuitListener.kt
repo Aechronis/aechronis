@@ -50,6 +50,9 @@ object NodesPlayerJoinQuitListener {
 
     fun onPlayerRespawn(event: PlayerRespawnEvent) {
         val player = event.player
+        val respawnPoint = Resident.fromPlayer(player)?.town?.spawnpoint ?: Nodes.config.defaultRespawnPoint
+        event.respawnPosition = respawnPoint
+        player.respawnPoint = respawnPoint
         MinecraftServer.getSchedulerManager().scheduleNextTick {
             if (player.isOnline) Resident.fromPlayer(player)?.minimap?.respawn()
         }
@@ -58,7 +61,6 @@ object NodesPlayerJoinQuitListener {
     fun onPlayerDeath(event: PlayerDeathEvent) {
         val player = event.player
         val resident = Resident.fromPlayer(player) ?: return
-        resident.town?.let { town -> player.respawnPoint = town.spawnpoint }
         val position = player.position
         resident.recordDeathWaypoint(
             position.blockX(),

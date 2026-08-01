@@ -11,6 +11,7 @@ package net.aechronis.nodes
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.objects.TerritoryResources
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.instance.block.Block
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -85,6 +86,9 @@ data class NodesConfig(
     // ===================================
     // town spawn timer
     val townSpawnTime: Long = 10000,
+
+    // respawn point for players without a town
+    val defaultRespawnPoint: Pos = Pos(0.0, 64.0, 0.0),
 
     // ===================================
     // nation settings
