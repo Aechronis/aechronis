@@ -142,6 +142,15 @@ class Town(
             territoryIds.forEach { id ->
                 val territory = Territory.fromId(TerritoryId(id))
                 if (territory != null) {
+                    territory.town?.takeIf { it !== town }?.let { previousOwner ->
+                        System.err.println(
+                            "Territory ${territory.id} is claimed by both ${previousOwner.name} and ${town.name}; keeping ${town.name}",
+                        )
+                        previousOwner.territories.remove(territory.id)
+                        previousOwner.annexed.remove(territory.id)
+                        previousOwner.needsUpdate()
+                        Nodes.needsSave = true
+                    }
                     town.territories.add(territory.id)
                     territory.town = town
                 }
