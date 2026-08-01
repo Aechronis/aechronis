@@ -7,6 +7,7 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 object Whitelist {
@@ -36,6 +37,21 @@ object Whitelist {
 
     fun isWhitelistedName(name: String): Boolean = entries.containsKey(name.lowercase())
 
+    fun isWhitelisted(
+        uuid: UUID,
+        name: String,
+    ): Boolean {
+        val uuidString = uuid.toString()
+        return entries.values.any { entry ->
+            val storedUuid = entry.uuid
+            if (storedUuid == null) {
+                entry.name.equals(name, ignoreCase = true)
+            } else {
+                storedUuid.equals(uuidString, ignoreCase = true)
+            }
+        }
+    }
+
     fun add(name: String) {
         entries[name.lowercase()] = Entry(resolveUuid(name), name)
         save()
@@ -57,7 +73,7 @@ object Whitelist {
         saveState()
 
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
-            if (!isWhitelistedName(player.username)) {
+            if (!isWhitelisted(player.uuid, player.username)) {
                 player.kick(Component.text("You are not whitelisted on this server"))
             }
         }

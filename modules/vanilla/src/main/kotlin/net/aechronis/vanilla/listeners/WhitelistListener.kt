@@ -8,7 +8,8 @@ import net.minestom.server.event.player.AsyncPlayerPreLoginEvent
 object WhitelistListener {
     fun onPreLogin(event: AsyncPlayerPreLoginEvent) {
         if (!Whitelist.enabled) return
-        if (Whitelist.isWhitelistedName(event.gameProfile.name())) return
+        val profile = event.gameProfile
+        if (Whitelist.isWhitelisted(profile.uuid(), profile.name())) return
 
         event.connection.kick(Component.text("You are not whitelisted on this server"))
     }
