@@ -224,6 +224,12 @@ class TownApplyCommand : NodesCommand("apply", null, "join") {
                 return@addSyntax
             }
 
+            val activeApplicationTown = Nodes.towns.values.firstOrNull { it.applications.containsKey(resident) }
+            if (activeApplicationTown != null) {
+                Message.error(player, "You have already applied to ${activeApplicationTown.name}")
+                return@addSyntax
+            }
+
             val approvers: ArrayList<Player> = ArrayList()
             MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(context[townArg].leader!!.name)?.let { player ->
                 approvers.add(player)
@@ -332,13 +338,15 @@ class TownAcceptCommand : NodesCommand("accept") {
                     return@addSyntax
                 }
 
-                Message.print(player, "You are now a member of ${resident.invitingTown?.name}! Type \"/t spawn\" to teleport to your new town.")
-                Message.print(resident.invitingPlayer, "${resident.name} has accepted your invitation!")
+                val invitingTown = resident.invitingTown!!
+                val invitingPlayer = resident.invitingPlayer
+                if (!Town.addResident(invitingTown, resident)) {
+                    Message.error(player, "You are already a member of a town")
+                    return@addSyntax
+                }
 
-                Town.addResident(resident.invitingTown!!, resident)
-                resident.invitingTown = null
-                resident.invitingPlayer = null
-                resident.inviteThread = null
+                Message.print(player, "You are now a member of ${invitingTown.name}! Type \"/t spawn\" to teleport to your new town.")
+                Message.print(invitingPlayer, "${resident.name} has accepted your invitation!")
             } else {
                 if (town.leader != resident && !town.officers.contains(resident)) {
                     Message.error(player, "You aren't allowed to consider town applications")
@@ -361,14 +369,17 @@ class TownAcceptCommand : NodesCommand("accept") {
                     return@addSyntax
                 }
 
+                if (!Town.addResident(town, applicant)) {
+                    town.applications.remove(applicant)?.cancel()
+                    Message.error(player, "${applicant.name} is already a member of a town")
+                    return@addSyntax
+                }
+
                 Message.print(player, "${applicant.name} has been accepted into your town!")
                 val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
                 if (applicantPlayer != null) {
                     Message.print(applicantPlayer, "You have been accepted into ${town.name}!")
                 }
-
-                Town.addResident(town, applicant)
-                town.applications.remove(applicant)
             }
         })
 
@@ -380,13 +391,15 @@ class TownAcceptCommand : NodesCommand("accept") {
                     return@addSyntax
                 }
 
-                Message.print(player, "You are now a member of ${resident.invitingTown?.name}! Type \"/t spawn\" to teleport to your new town.")
-                Message.print(resident.invitingPlayer, "${resident.name} has accepted your invitation!")
+                val invitingTown = resident.invitingTown!!
+                val invitingPlayer = resident.invitingPlayer
+                if (!Town.addResident(invitingTown, resident)) {
+                    Message.error(player, "You are already a member of a town")
+                    return@addSyntax
+                }
 
-                Town.addResident(resident.invitingTown!!, resident)
-                resident.invitingTown = null
-                resident.invitingPlayer = null
-                resident.inviteThread = null
+                Message.print(player, "You are now a member of ${invitingTown.name}! Type \"/t spawn\" to teleport to your new town.")
+                Message.print(invitingPlayer, "${resident.name} has accepted your invitation!")
             } else {
                 if (town.leader != resident && !town.officers.contains(resident)) {
                     Message.error(player, "You aren't allowed to consider town applications")
@@ -415,14 +428,17 @@ class TownAcceptCommand : NodesCommand("accept") {
                     }
                 }
 
+                if (!Town.addResident(town, applicant)) {
+                    town.applications.remove(applicant)?.cancel()
+                    Message.error(player, "${applicant.name} is already a member of a town")
+                    return@addSyntax
+                }
+
                 Message.print(player, "${applicant.name} has been accepted into your town!")
                 val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
                 if (applicantPlayer != null) {
                     Message.print(applicantPlayer, "You have been accepted into ${town.name}!")
                 }
-
-                Town.addResident(town, applicant)
-                town.applications.remove(applicant)
             }
         }, playerArg)
     }

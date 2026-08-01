@@ -97,6 +97,7 @@ class Town(
             territory.town = town
             if (leader != null) {
                 leader.town = town
+                clearPendingMembershipRequests(leader)
                 leader.needsUpdate()
             }
             Nodes.towns[name] = town
@@ -281,10 +282,23 @@ class Town(
             return true
         }
 
-        fun addResident(town: Town, resident: Resident) {
+        private fun clearPendingMembershipRequests(resident: Resident) {
+            Nodes.towns.values.forEach { town ->
+                town.applications.remove(resident)?.cancel()
+            }
+            resident.inviteThread?.cancel()
+            resident.invitingTown = null
+            resident.invitingPlayer = null
+            resident.inviteThread = null
+        }
+
+        fun addResident(town: Town, resident: Resident): Boolean {
+            if (resident.town != null || Nodes.towns.values.any { it.residents.contains(resident) }) return false
+
             town.residents.add(resident)
             resident.town = town
             resident.trusted = false
+            clearPendingMembershipRequests(resident)
             resident.player()?.let { town.playersOnline.add(it) }
             town.nation?.let { nation ->
                 resident.nation = nation
@@ -295,6 +309,7 @@ class Town(
             resident.needsUpdate()
             resident.minimap?.refresh()
             Nodes.needsSave = true
+            return true
         }
 
         fun removeResident(town: Town, resident: Resident) {
