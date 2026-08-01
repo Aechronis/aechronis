@@ -2,6 +2,7 @@ package net.aechronis.logger.objects
 
 import net.aechronis.logger.Logger
 import net.aechronis.logger.params.LookupParams
+import net.aechronis.logger.utils.EntityStateCodec
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
 import net.minestom.server.MinecraftServer
@@ -603,7 +604,7 @@ class RollbackService(
                         entityAction = candidate.targetAction,
                         entityPosition = currentEntity?.position ?: candidate.position,
                         entityVelocity = currentEntity?.velocity ?: candidate.velocity,
-                        entityTagData = currentEntity?.let { ItemCodec.encodeBlockNbt(it.tagHandler().asCompound()) } ?: candidate.tagData,
+                        entityTagData = currentEntity?.let(EntityStateCodec::encode) ?: candidate.tagData,
                     )
                 simulatedEntities[candidate.entityUuid] = candidate.targetAction == EntityChangeAction.SPAWN
             }
@@ -1384,11 +1385,10 @@ class RollbackService(
                         val position =
                             change.entityPosition
                                 ?: return@thenCompose CompletableFuture.failedFuture(IllegalStateException("entity position is missing"))
-                        val entity =
-                            net.minestom.server.entity
-                                .Entity(type, entityUuid)
+                        val state = EntityStateCodec.decode(change.entityTagData)
+                        val entity = EntityStateCodec.create(type, entityUuid, state)
                         change.entityVelocity?.let(entity::setVelocity)
-                        ItemCodec.decodeBlockNbt(change.entityTagData)?.let { entity.tagHandler().updateContent(it) }
+                        EntityStateCodec.restore(entity, state)
                         RollbackMutationGuard.beginEntity(entityUuid)
                         entity
                             .setInstance(instance, position)

@@ -4,7 +4,7 @@ import net.aechronis.logger.Logger
 import net.aechronis.logger.objects.EntityChange
 import net.aechronis.logger.objects.EntityChangeAction
 import net.aechronis.logger.objects.RollbackMutationGuard
-import net.aechronis.logger.utils.ItemCodec
+import net.aechronis.logger.utils.EntityStateCodec
 import net.minestom.server.entity.ItemEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.event.entity.EntityDespawnEvent
@@ -52,7 +52,7 @@ object EntityChangeListener {
                     instanceUuid = instanceUuid,
                     position = entity.position,
                     velocity = entity.velocity,
-                    tagData = ItemCodec.encodeBlockNbt(entity.tagHandler().asCompound()),
+                    tagData = EntityStateCodec.encode(entity),
                 ),
             ).exceptionally { exception ->
                 println("[Logger] failed to record entity change: $exception")
