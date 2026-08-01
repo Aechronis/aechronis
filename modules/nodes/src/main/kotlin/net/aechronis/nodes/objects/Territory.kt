@@ -334,12 +334,14 @@ data class Territory(
             val homeChunk = territory.core
             val x = homeChunk.x * 16 + 8
             val z = homeChunk.z * 16 + 8
-            var y = 255
+            val instance = MinecraftServer.getInstanceManager().instances.first()
+            val dimensionType = instance.cachedDimensionType
+            var y = dimensionType.maxY() - 1
             try {
-                while (y > 0) {
-                    if (MinecraftServer.getInstanceManager().instances.first().getBlock(x, y, z).isAir) break
+                while (y >= dimensionType.minY() && instance.getBlock(x, y, z).isAir) {
                     y -= 1
                 }
+                y += 1
             } catch (_: NullPointerException) {
                 // chunk is not loaded
             }
