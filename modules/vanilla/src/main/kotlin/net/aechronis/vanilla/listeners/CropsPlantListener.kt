@@ -21,12 +21,12 @@ object CropsPlantListener {
         val player = event.player
         val cropType = CropType.fromSeed(player.itemInMainHand.material()) ?: return
         val block = event.block
-        event.isCancelled = true
+        if (!block.compare(Block.FARMLAND)) return
 
         val instance = player.instance ?: return
         val cropPos: BlockVec = event.blockPosition.add(0, 1, 0)
         if (!instance.getBlock(cropPos).isAir) return
-        if (!block.compare(Block.FARMLAND)) return
+        event.isCancelled = true
 
         instance.setBlock(cropPos, cropType.cropBlock.withProperty("age", "0"))
         Crops.crops[BlockKey(instance, cropPos.asVec())] = CropsPlantedCrop(cropType, System.currentTimeMillis(), 0)
