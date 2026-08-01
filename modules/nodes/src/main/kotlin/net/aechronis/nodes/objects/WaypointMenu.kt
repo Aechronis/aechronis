@@ -250,6 +250,12 @@ object WaypointMenu {
         sessions.remove(player.uuid)
     }
 
+    internal fun closeBrowse(player: Player, resident: Resident) {
+        val session = sessions[player.uuid] as? BrowseWaypointSession ?: return
+        if (session.resident !== resident || !sessions.remove(player.uuid, session)) return
+        if (player.isOnline && player.openInventory === session.inventory) player.closeInventory()
+    }
+
     private fun onCustomClick(event: PlayerCustomClickEvent) {
         if (event.key != CREATE_WAYPOINT_ACTION && event.key != CANCEL_WAYPOINT_ACTION) return
         val player = event.player
@@ -351,6 +357,10 @@ object WaypointMenu {
             NEXT_PAGE_SLOT -> if (session.hasNextPage) openBrowseNextTick(player, session.resident, session.category, session.page + 1)
             in 0 until session.waypoints.size -> {
                 val visible = session.waypoints[event.slot]
+                if (visible !in session.resident.availablePermanentWaypoints()) {
+                    closeBrowse(player, session.resident)
+                    return
+                }
                 val waypoint = visible.waypoint
                 val rightClick = event.click is Click.Right || event.click is Click.RightShift
                 val leftClick = event.click is Click.Left || event.click is Click.LeftShift

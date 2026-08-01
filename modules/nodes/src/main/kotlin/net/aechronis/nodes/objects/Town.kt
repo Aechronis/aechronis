@@ -189,6 +189,7 @@ class Town(
 
         fun destroy(town: Town) {
             val nation = town.nation
+            val indexedPlayers = town.playersOnline.associateBy { it.uuid }
             if (nation != null) {
                 if (nation.towns.size == 1) Nation.destroy(nation) else Nation.removeTown(nation, town)
             }
@@ -198,7 +199,10 @@ class Town(
                 resident.town = null
                 resident.nation = null
                 resident.needsUpdate()
-                resident.player()?.let { player -> nation?.playersOnline?.remove(player) }
+                (resident.player() ?: indexedPlayers[resident.uuid])?.let { player ->
+                    WaypointMenu.closeBrowse(player, resident)
+                    nation?.playersOnline?.remove(player)
+                }
             }
             Nodes.towns.remove(town.name)
             Nodes.needsSave = true
@@ -298,7 +302,7 @@ class Town(
             town.officers.remove(resident)
             town.residents.remove(resident)
             resident.town = null
-            val player = resident.player()
+            val player = resident.player() ?: town.playersOnline.firstOrNull { it.uuid == resident.uuid }
             town.nation?.let { nation ->
                 resident.nation = null
                 nation.residents.remove(resident)
@@ -308,6 +312,7 @@ class Town(
             town.needsUpdate()
             resident.needsUpdate()
             resident.minimap?.refresh()
+            if (player != null) WaypointMenu.closeBrowse(player, resident)
             Nodes.needsSave = true
         }
 
