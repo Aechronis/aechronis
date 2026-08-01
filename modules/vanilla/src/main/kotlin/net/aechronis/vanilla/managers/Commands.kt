@@ -4,17 +4,24 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
+import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
+import net.minestom.server.item.ItemStack
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 object Commands {
     const val MIRRORED_SLOTS = 41
     val lastLocation = HashMap<UUID, Pos>()
-    val viewing = ConcurrentHashMap<Inventory, Player>()
     val playerLastSender = HashMap<Player, Player>()
     val ignored = HashMap<UUID, MutableSet<UUID>>()
+    private val viewing = ConcurrentHashMap<Inventory, Player>()
+    private val viewingLock = Any()
+    private val synchronizingInventories =
+        Collections.newSetFromMap(IdentityHashMap<AbstractInventory, Boolean>())
     private val enderChests = ConcurrentHashMap<UUID, Inventory>()
     private val closingEnderChests = ConcurrentHashMap.newKeySet<UUID>()
 
@@ -82,11 +89,72 @@ object Commands {
         target: Player,
     ) {
         val inv = Inventory(InventoryType.CHEST_6_ROW, Component.text("${target.username}'s inventory"))
-        for (slot in 0 until MIRRORED_SLOTS) {
-            inv.setItemStack(slot, target.inventory.getItemStack(slot))
+        synchronized(viewingLock) {
+            viewing[inv] = target
+            withoutSynchronization(inv) {
+                for (slot in 0 until MIRRORED_SLOTS) {
+                    inv.setItemStack(slot, target.inventory.getItemStack(slot))
+                }
+            }
         }
-        viewing[inv] = target
-        viewer.openInventory(inv)
+        if (!viewer.openInventory(inv)) {
+            removeView(inv)
+        }
+    }
+
+    internal fun synchronizeInventoryChange(
+        inventory: AbstractInventory,
+        slot: Int,
+        item: ItemStack,
+    ) {
+        if (slot !in 0 until MIRRORED_SLOTS) return
+
+        synchronized(viewingLock) {
+            if (inventory in synchronizingInventories) return
+
+            val sourceView = inventory as? Inventory
+            val target = sourceView?.let(viewing::get)
+            if (target != null) {
+                setWithoutSynchronization(target.inventory, slot, item)
+                for ((view, viewedPlayer) in viewing) {
+                    if (view !== sourceView && viewedPlayer === target) {
+                        setWithoutSynchronization(view, slot, item)
+                    }
+                }
+                return
+            }
+
+            for ((view, viewedPlayer) in viewing) {
+                if (viewedPlayer.inventory === inventory) {
+                    setWithoutSynchronization(view, slot, item)
+                }
+            }
+        }
+    }
+
+    internal fun removeView(inventory: Inventory): Boolean =
+        synchronized(viewingLock) {
+            viewing.remove(inventory) != null
+        }
+
+    private fun setWithoutSynchronization(
+        inventory: AbstractInventory,
+        slot: Int,
+        item: ItemStack,
+    ) = withoutSynchronization(inventory) {
+        inventory.setItemStack(slot, item)
+    }
+
+    private inline fun withoutSynchronization(
+        inventory: AbstractInventory,
+        action: () -> Unit,
+    ) {
+        synchronizingInventories.add(inventory)
+        try {
+            action()
+        } finally {
+            synchronizingInventories.remove(inventory)
+        }
     }
 
     fun getEnderChest(player: Player): Inventory =
@@ -104,10 +172,10 @@ object Commands {
 
     fun closeViewsOf(player: Player) {
         closingEnderChests.add(player.uuid)
-        val inventories = viewing.filterValues { it === player }.keys.toList()
+        val inventories = synchronized(viewingLock) { viewing.filterValues { it === player }.keys.toList() }
         for (inventory in inventories) {
             inventory.viewers.toList().forEach { it.closeInventory() }
-            viewing.remove(inventory)
+            removeView(inventory)
         }
 
         enderChests[player.uuid]?.viewers?.toList()?.forEach { it.closeInventory() }

@@ -3,7 +3,6 @@ package net.aechronis.vanilla.listeners
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.Commands.MIRRORED_SLOTS
-import net.aechronis.vanilla.managers.Commands.viewing
 import net.minestom.server.entity.Player
 import net.minestom.server.event.entity.EntityTeleportEvent
 import net.minestom.server.event.inventory.InventoryCloseEvent
@@ -19,19 +18,17 @@ object CommandsListener {
     }
 
     fun onChange(event: InventoryItemChangeEvent) {
-        val inv = event.inventory as? Inventory ?: return
-        val target = viewing[inv] ?: return
-        val slot = event.slot
-        if (slot !in 0..<MIRRORED_SLOTS) return
-        target.inventory.setItemStack(slot, event.newItem)
+        Commands.synchronizeInventoryChange(event.inventory, event.slot, event.newItem)
     }
 
     fun onClose(event: InventoryCloseEvent) {
         val inv = event.inventory as? Inventory ?: return
-        if (viewing.remove(inv) == null) return
+        if (!Commands.removeView(inv)) return
         for (slot in MIRRORED_SLOTS until inv.size) {
             val stack = inv.getItemStack(slot)
-            if (!stack.isAir) event.player.inventory.addItemStack(stack)
+            if (!stack.isAir && !event.player.inventory.addItemStack(stack)) {
+                event.player.dropItem(stack)
+            }
         }
     }
 
