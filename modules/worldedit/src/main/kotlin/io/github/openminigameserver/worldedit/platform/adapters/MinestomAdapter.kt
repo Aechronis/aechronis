@@ -20,6 +20,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.Material
 import net.minestom.server.item.component.CustomData
+import org.enginehub.linbus.tree.LinCompoundTag
 import java.io.ByteArrayOutputStream
 import com.sk89q.worldedit.math.BlockVector3 as WorldEditBlockVector3
 import com.sk89q.worldedit.util.Direction as WorldEditDirection
@@ -58,6 +59,8 @@ object MinestomAdapter {
         return NBTInputStream(byteArrayOutputStream.toByteArray().inputStream()).readNamedTag().tag as CompoundTag
     }
 
+    fun asLinTag(nbt: CompoundBinaryTag): LinCompoundTag = asTag(nbt).toLinTag()
+
     fun asNBT(nbt: CompoundTag): CompoundBinaryTag {
         val byteArrayOutputStream = ByteArrayOutputStream()
         NBTOutputStream(byteArrayOutputStream).use {
@@ -65,6 +68,8 @@ object MinestomAdapter {
         }
         return BinaryTagIO.reader().read(byteArrayOutputStream.toByteArray().inputStream()) as CompoundBinaryTag
     }
+
+    fun asNBT(nbt: LinCompoundTag): CompoundBinaryTag = asNBT(CompoundTag(nbt))
 
     fun asBaseItemStack(item: MinestomItemStack): BaseItemStack {
         val customData = item.get(DataComponents.CUSTOM_DATA)

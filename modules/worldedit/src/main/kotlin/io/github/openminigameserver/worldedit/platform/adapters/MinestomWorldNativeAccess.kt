@@ -3,9 +3,14 @@ package io.github.openminigameserver.worldedit.platform.adapters
 import com.sk89q.worldedit.extension.platform.Actor
 import com.sk89q.worldedit.internal.block.BlockStateIdAccess
 import com.sk89q.worldedit.internal.wna.WorldNativeAccess
+import com.sk89q.worldedit.math.BlockVector3
+import com.sk89q.worldedit.util.SideEffectSet
+import com.sk89q.worldedit.world.block.BaseBlock
 import com.sk89q.worldedit.world.block.BlockState
+import com.sk89q.worldedit.world.block.BlockStateHolder
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
+import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
@@ -13,7 +18,9 @@ import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.batch.AbsoluteBlockBatch
 import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.block.BlockHandler
 import org.enginehub.linbus.tree.LinCompoundTag
+import org.enginehub.linbus.tree.LinTagType
 import java.lang.ref.WeakReference
 import java.util.LinkedHashMap
 import java.util.concurrent.CompletableFuture
@@ -28,10 +35,34 @@ class MinestomWorldNativeAccess(
     private var hasPendingChanges = false
     private var pendingBlockCount = 0
     private val pendingChanges = LinkedHashMap<BlockVec, WorldEditBlockChange>()
+    private var applyingFullBlock = false
+    private var fullBlockNbt: CompoundBinaryTag? = null
+    private var fullBlockHandler: BlockHandler? = null
 
     private fun newBlockBatch(): AbsoluteBlockBatch? = if (!useBlockBatch) null else AbsoluteBlockBatch()
 
     private fun getWorld(): Instance = worldRef.get() ?: throw RuntimeException("World is unloaded")
+
+    fun <B : BlockStateHolder<B>?> setFullBlock(
+        position: BlockVector3?,
+        block: B,
+        sideEffects: SideEffectSet?,
+    ): Boolean {
+        val previousApplyingFullBlock = applyingFullBlock
+        val previousBlockNbt = fullBlockNbt
+        val previousBlockHandler = fullBlockHandler
+        val blockNbt = (block as? BaseBlock)?.nbt
+        applyingFullBlock = true
+        fullBlockNbt = blockNbt?.let(::toNativeBlockNbt)
+        fullBlockHandler = blockNbt?.let(::toNativeBlockHandler)
+        return try {
+            setBlock(position, block, sideEffects)
+        } finally {
+            applyingFullBlock = previousApplyingFullBlock
+            fullBlockNbt = previousBlockNbt
+            fullBlockHandler = previousBlockHandler
+        }
+    }
 
     override fun getChunk(
         x: Int,
@@ -40,7 +71,9 @@ class MinestomWorldNativeAccess(
 
     override fun toNative(state: BlockState): Block {
         val stateId = BlockStateIdAccess.getBlockStateId(state)
-        return Block.fromStateId(stateId) ?: Block.AIR
+        val block = Block.fromStateId(stateId) ?: Block.AIR
+        if (!applyingFullBlock) return block
+        return block.withHandler(fullBlockHandler).withNbt(fullBlockNbt)
     }
 
     override fun getBlockState(
@@ -97,8 +130,32 @@ class MinestomWorldNativeAccess(
         position: Pos,
         tag: LinCompoundTag,
     ): Boolean {
-        // TODO
-        return false
+        if (applyingFullBlock) return true
+
+        val world = getWorld()
+        val block = world.getBlock(position)
+        world.setBlock(position, block.withHandler(toNativeBlockHandler(tag)).withNbt(toNativeBlockNbt(tag)))
+        return true
+    }
+
+    private fun toNativeBlockHandler(tag: LinCompoundTag): BlockHandler? =
+        tag
+            .findTag("id", LinTagType.stringTag())
+            ?.value()
+            ?.let { MinecraftServer.getBlockManager().getHandlerOrDummy(it) }
+
+    private fun toNativeBlockNbt(tag: LinCompoundTag): CompoundBinaryTag? {
+        val nbt =
+            CompoundBinaryTag
+                .builder()
+                .put(MinestomAdapter.asNBT(tag))
+                .remove("id")
+                .remove("keepPacked")
+                .remove("x")
+                .remove("y")
+                .remove("z")
+                .build()
+        return nbt.takeUnless(CompoundBinaryTag::isEmpty)
     }
 
     override fun notifyBlockUpdate(

@@ -13,6 +13,7 @@ import com.sk89q.worldedit.util.formatting.text.TextComponent
 import com.sk89q.worldedit.util.formatting.text.format.TextColor
 import com.sk89q.worldedit.util.formatting.text.serializer.gson.GsonComponentSerializer
 import com.sk89q.worldedit.world.World
+import com.sk89q.worldedit.world.entity.EntityType
 import io.github.openminigameserver.worldedit.platform.MinestomPlatform
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
 import io.github.openminigameserver.worldedit.platform.misc.SessionKeyImpl
@@ -70,8 +71,10 @@ class MinestomPlayer(
         return true
     }
 
-    override fun getState(): BaseEntity? {
-        TODO("Not yet implemented")
+    override fun getState(): BaseEntity {
+        val typeId = player.entityType.key().asString()
+        val type = EntityType.REGISTRY.get(typeId) ?: EntityType(typeId)
+        return BaseEntity(type)
     }
 
     override fun getWorld(): World = MinestomAdapter.asWorld(player.instance!!)
