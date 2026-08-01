@@ -327,7 +327,7 @@ data class Territory(
 
         fun fromPlayer(player: net.minestom.server.entity.Player): Territory? {
             val position = player.position
-            return fromCoord(Coord.fromBlockCoords(position.x.toInt(), position.z.toInt()))
+            return fromCoord(Coord.fromBlockCoords(position.blockX(), position.blockZ()))
         }
 
         fun defaultSpawnLocation(territory: Territory): Pos {

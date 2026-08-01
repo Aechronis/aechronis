@@ -35,7 +35,7 @@ class PortWarpTask(
     fun start(): Task {
         val runnable = object : Runnable {
             override fun run() {
-                if (player.position.x.toInt() != initialPos.blockX() || player.position.y.toInt() != initialPos.blockY() || player.position.z.toInt() != initialPos.blockZ() || player.vehicle == null) {
+                if (player.position.blockX() != initialPos.blockX() || player.position.blockY() != initialPos.blockY() || player.position.blockZ() != initialPos.blockZ() || player.vehicle == null) {
                     Message.announcement(player, "${ChatColor.RED}Moved! Stopped warping...")
                     task?.cancel()
                     Nodes.playerWarpTasks.remove(player)
