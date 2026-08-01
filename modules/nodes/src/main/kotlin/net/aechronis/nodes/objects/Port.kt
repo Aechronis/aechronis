@@ -9,8 +9,8 @@ import net.minestom.server.item.Material
 
 // tier -> max warp distance in blocks
 val PORT_TIER_WARP_DIST: Map<Int, Int> = mapOf(
-    1 to 1000,
-    2 to 3000,
+    1 to 2500,
+    2 to 5000,
     3 to 10000,
 )
 
