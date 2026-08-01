@@ -21,7 +21,11 @@ object CombatListener {
         val wasInCombat = Combat.isInCombat(player)
 
         Combat.clear(player)
-        if (wasInCombat) player.kill()
+        if (wasInCombat) {
+            // Death listeners run synchronously; retain their penalties without persisting zero health.
+            player.kill()
+            player.heal()
+        }
     }
 
     fun init() {
