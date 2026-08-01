@@ -10,6 +10,8 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.attribute.Attribute
+import net.minestom.server.entity.attribute.AttributeModifier
+import net.minestom.server.entity.attribute.AttributeOperation
 import net.minestom.server.instance.block.Block
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
@@ -21,7 +23,24 @@ import net.minestom.server.potion.PotionEffect
 import net.minestom.server.timer.TaskSchedule
 
 object ModelManager {
-    private val scopedPlayers = HashSet<Player>()
+    private val sniperScopeModifier =
+        AttributeModifier(
+            "aechronis:sniper_scope",
+            -1.0,
+            AttributeOperation.ADD_MULTIPLIED_TOTAL,
+        )
+    private val attackSpeedModifier =
+        AttributeModifier(
+            "aechronis:disable_hit_animation",
+            1024.0,
+            AttributeOperation.ADD_VALUE,
+        )
+    private val blockBreakSpeedModifier =
+        AttributeModifier(
+            "aechronis:disable_block_breaking",
+            -1.0,
+            AttributeOperation.ADD_MULTIPLIED_TOTAL,
+        )
 
     // run scheduler for changing item models, animations etc.
     fun start() {
@@ -92,15 +111,12 @@ object ModelManager {
 
         // sniper scope
         if (gun.sniper && isAiming && hasAmmo) {
-            scopedPlayers.add(player)
             player.sendPacket(
                 EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to ItemStack.of(Material.CARVED_PUMPKIN))),
             )
-            player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.0)
+            player.getAttribute(Attribute.MOVEMENT_SPEED).addModifier(sniperScopeModifier)
         } else {
-            scopedPlayers.remove(player)
-            player.sendPacket(EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to player.helmet)))
-            player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.1)
+            restoreSniperScope(player)
         }
 
         // set correct model
@@ -116,26 +132,26 @@ object ModelManager {
     }
 
     private fun restoreSniperScope(player: Player) {
-        if (!scopedPlayers.remove(player)) return
+        val removed = player.getAttribute(Attribute.MOVEMENT_SPEED).removeModifier(sniperScopeModifier)
+        if (removed == null) return
 
         player.sendPacket(EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to player.helmet)))
-        player.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.1)
     }
 
     internal fun clearPlayer(player: Player) {
-        scopedPlayers.remove(player)
+        player.getAttribute(Attribute.MOVEMENT_SPEED).removeModifier(sniperScopeModifier)
+        enableHitAnimation(player)
     }
 
     fun disableHitAnimation(player: Player) {
-        player.getAttribute(Attribute.ATTACK_SPEED).setBaseValue(999.0) // avoids vanilla hit animation when player clicks to fire
-        player.getAttribute(Attribute.BLOCK_BREAK_SPEED).setBaseValue(0.0) // cant break blocks, imperative because of haste
+        player.getAttribute(Attribute.ATTACK_SPEED).addModifier(attackSpeedModifier)
+        player.getAttribute(Attribute.BLOCK_BREAK_SPEED).addModifier(blockBreakSpeedModifier)
         player.addEffect(Potion(PotionEffect.HASTE, 10, 2))
     }
 
-    // set all attributes modified by disableHitAnimation to their defaults
     fun enableHitAnimation(player: Player) {
-        player.getAttribute(Attribute.ATTACK_SPEED).setBaseValue(4.0)
-        player.getAttribute(Attribute.BLOCK_BREAK_SPEED).setBaseValue(1.0)
+        player.getAttribute(Attribute.ATTACK_SPEED).removeModifier(attackSpeedModifier)
+        player.getAttribute(Attribute.BLOCK_BREAK_SPEED).removeModifier(blockBreakSpeedModifier)
         // we don't need to worry about haste as it only lasts 2 ticks
     }
 }
