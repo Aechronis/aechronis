@@ -11,8 +11,10 @@ import net.aechronis.logger.objects.RollbackDomain
 import net.aechronis.logger.objects.RollbackOperationKind
 import net.aechronis.logger.objects.RollbackSelection
 import net.aechronis.logger.objects.RollbackStatus
+import net.aechronis.logger.objects.StorageChange
 import net.aechronis.logger.objects.StorageChangeAction
 import net.aechronis.logger.objects.StorageRollbackAdapters
+import net.aechronis.logger.objects.VanillaStorage
 import net.aechronis.logger.objects.snapshotItems
 import net.aechronis.logger.params.FeatureLookupParams
 import net.aechronis.logger.params.LookupParams
@@ -21,6 +23,7 @@ import net.aechronis.logger.utils.LogMetadata
 import net.aechronis.utils.createTestServer
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.objects.StorageContents
+import net.aechronis.vanilla.serdes.StorageDeserializer
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
@@ -28,9 +31,13 @@ import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.ItemEntity
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerHand
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.item.PickupItemEvent
 import net.minestom.server.event.player.PlayerBlockBreakEvent
+import net.minestom.server.event.player.PlayerBlockInteractEvent
+import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.inventory.PlayerInventory
@@ -439,6 +446,353 @@ class LoggerTest {
 
     @Test
     @Order(9)
+    fun `placed and filled barrel survives rollback restore and replay`() {
+        val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        instance.loadChunk(2, 2).get(5, TimeUnit.SECONDS)
+        val position = Pos(40.0, 40.0, 40.0)
+        val key = Storage.keyFor(instance, position)
+        val storageId = VanillaStorage.storageId(key)
+        val slot = 17
+        val item = ItemStack.of(Material.DIAMOND, 5)
+        val playerUuid = UUID.randomUUID()
+        val playerName = "combined-barrel-test"
+        val targetTs = System.currentTimeMillis() - 10_000
+        val placementTs = System.currentTimeMillis() - 2
+        val depositTs = placementTs + 1
+        val emptyBarrel = Storage.withContents(Block.BARREL, StorageContents())
+        val liveContents = StorageContents().also { it.inventory.setItemStack(slot, item) }
+        val liveBarrel = Storage.withContents(Block.BARREL, liveContents)
+
+        Logger.repository
+            .insertAsync(
+                blockEntry(placementTs, playerUuid, instance.uuid, position, Block.AIR, emptyBarrel).copy(
+                    playerName = playerName,
+                    blockOldNbt = ItemCodec.encodeBlockNbt(Block.AIR.nbt()),
+                    blockNewNbt = ItemCodec.encodeBlockNbt(emptyBarrel.nbt()),
+                ),
+            ).get(5, TimeUnit.SECONDS)
+        Logger.storageChange
+            .insertAsync(
+                StorageChange(
+                    timestamp = depositTs,
+                    storageId = storageId,
+                    action = StorageChangeAction.DEPOSIT,
+                    item = item.withAmount(1),
+                    amount = item.amount(),
+                    slot = slot,
+                    playerUuid = playerUuid,
+                    playerName = playerName,
+                    source = LogMetadata.VANILLA,
+                    origin = LogMetadata.VANILLA,
+                ),
+            ).get(5, TimeUnit.SECONDS)
+        instance.setBlock(position, liveBarrel)
+        Storage.register(key, liveContents)
+
+        fun assertAir() {
+            assertEquals(Block.AIR, instance.getBlock(position))
+            assertNull(Storage.barrels[key])
+        }
+
+        fun assertFilledBarrel() {
+            val block = instance.getBlock(position)
+            assertEquals(Block.BARREL.key(), block.key())
+            assertEquals(item, Storage.barrels[key]?.inventory?.getItemStack(slot))
+            assertEquals(item, StorageDeserializer.deserialize(block.nbtOrEmpty()).inventory.getItemStack(slot))
+        }
+
+        val params = LookupParams(users = listOf(playerName), since = targetTs, global = true)
+        val selection = RollbackSelection(setOf(RollbackDomain.BLOCK, RollbackDomain.STORAGE))
+        val actor = RollbackActor(UUID.randomUUID(), "combined-barrel-operator")
+
+        try {
+            val rollbackPlan =
+                Logger.rollbackService
+                    .computePlanAsync(
+                        RollbackOperationKind.ROLLBACK,
+                        params,
+                        targetTs,
+                        instance.uuid,
+                        position,
+                        safeMode = true,
+                        selection = selection,
+                    ).get(5, TimeUnit.SECONDS)
+            assertEquals(2, rollbackPlan.totalChangeCount)
+
+            val rollback = Logger.rollbackService.applyAsync(actor, rollbackPlan).get(5, TimeUnit.SECONDS)
+            assertEquals(2, rollback.appliedCount)
+            assertEquals(0, rollback.skippedCount)
+            assertAir()
+
+            val undoRollback = Logger.rollbackService.undoAsync(actor).get(5, TimeUnit.SECONDS)
+            assertEquals(2, undoRollback.appliedCount)
+            assertFilledBarrel()
+
+            val redoRollback = Logger.rollbackService.redoAsync(actor).get(5, TimeUnit.SECONDS)
+            assertEquals(2, redoRollback.appliedCount)
+            assertAir()
+
+            val restorePlan =
+                Logger.rollbackService
+                    .computePlanAsync(
+                        RollbackOperationKind.RESTORE,
+                        params,
+                        targetTs,
+                        instance.uuid,
+                        position,
+                        safeMode = true,
+                        selection = selection,
+                    ).get(5, TimeUnit.SECONDS)
+            assertEquals(2, restorePlan.totalChangeCount)
+
+            val restore = Logger.rollbackService.applyAsync(actor, restorePlan).get(5, TimeUnit.SECONDS)
+            assertEquals(2, restore.appliedCount)
+            assertEquals(0, restore.skippedCount)
+            assertFilledBarrel()
+
+            val undoRestore = Logger.rollbackService.undoAsync(actor).get(5, TimeUnit.SECONDS)
+            assertEquals(2, undoRestore.appliedCount)
+            assertAir()
+
+            val redoRestore = Logger.rollbackService.redoAsync(actor).get(5, TimeUnit.SECONDS)
+            assertEquals(2, redoRestore.appliedCount)
+            assertFilledBarrel()
+        } finally {
+            Storage.remove(key)
+            instance.setBlock(position, Block.AIR)
+        }
+    }
+
+    @Test
+    @Order(10)
+    fun `safe and force combined barrel rollback preserve unrelated contents`() {
+        val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        instance.loadChunk(2, 2).get(5, TimeUnit.SECONDS)
+        val position = Pos(41.0, 40.0, 40.0)
+        val key = Storage.keyFor(instance, position)
+        val storageId = VanillaStorage.storageId(key)
+        val selectedSlot = 18
+        val unrelatedSlot = 19
+        val selectedItem = ItemStack.of(Material.EMERALD, 6)
+        val unrelatedItem = ItemStack.of(Material.GOLD_INGOT, 4)
+        val playerUuid = UUID.randomUUID()
+        val playerName = "combined-barrel-conflict-test"
+        val targetTs = System.currentTimeMillis() - 10_000
+        val placementTs = System.currentTimeMillis() - 2
+        val emptyBarrel = Storage.withContents(Block.BARREL, StorageContents())
+        val liveContents =
+            StorageContents().also {
+                it.inventory.setItemStack(selectedSlot, selectedItem)
+                it.inventory.setItemStack(unrelatedSlot, unrelatedItem)
+            }
+
+        Logger.repository
+            .insertAsync(
+                blockEntry(placementTs, playerUuid, instance.uuid, position, Block.AIR, emptyBarrel).copy(
+                    playerName = playerName,
+                    blockOldNbt = ItemCodec.encodeBlockNbt(Block.AIR.nbt()),
+                    blockNewNbt = ItemCodec.encodeBlockNbt(emptyBarrel.nbt()),
+                ),
+            ).get(5, TimeUnit.SECONDS)
+        Logger.storageChange
+            .insertAsync(
+                StorageChange(
+                    timestamp = placementTs + 1,
+                    storageId = storageId,
+                    action = StorageChangeAction.DEPOSIT,
+                    item = selectedItem.withAmount(1),
+                    amount = selectedItem.amount(),
+                    slot = selectedSlot,
+                    playerUuid = playerUuid,
+                    playerName = playerName,
+                    source = LogMetadata.VANILLA,
+                    origin = LogMetadata.VANILLA,
+                ),
+            ).get(5, TimeUnit.SECONDS)
+        instance.setBlock(position, Storage.withContents(Block.BARREL, liveContents))
+        Storage.register(key, liveContents)
+
+        fun assertExactContents() {
+            val block = instance.getBlock(position)
+            val liveInventory = requireNotNull(Storage.barrels[key]).inventory
+            val serializedInventory = StorageDeserializer.deserialize(block.nbtOrEmpty()).inventory
+            assertEquals(Block.BARREL.key(), block.key())
+            assertEquals(selectedItem, liveInventory.getItemStack(selectedSlot))
+            assertEquals(unrelatedItem, liveInventory.getItemStack(unrelatedSlot))
+            assertEquals(selectedItem, serializedInventory.getItemStack(selectedSlot))
+            assertEquals(unrelatedItem, serializedInventory.getItemStack(unrelatedSlot))
+            assertEquals(
+                setOf(selectedSlot, unrelatedSlot),
+                (0 until liveInventory.size).filterNot { liveInventory.getItemStack(it).isAir }.toSet(),
+            )
+            assertEquals(
+                setOf(selectedSlot, unrelatedSlot),
+                (0 until serializedInventory.size).filterNot { serializedInventory.getItemStack(it).isAir }.toSet(),
+            )
+        }
+
+        val params = LookupParams(users = listOf(playerName), since = targetTs, global = true)
+        val selection = RollbackSelection(setOf(RollbackDomain.BLOCK, RollbackDomain.STORAGE))
+
+        try {
+            val safePlan =
+                Logger.rollbackService
+                    .computePlanAsync(
+                        RollbackOperationKind.ROLLBACK,
+                        params,
+                        targetTs,
+                        instance.uuid,
+                        position,
+                        safeMode = true,
+                        selection = selection,
+                    ).get(5, TimeUnit.SECONDS)
+            val safeResult =
+                Logger.rollbackService
+                    .applyAsync(RollbackActor(UUID.randomUUID(), "safe-barrel-operator"), safePlan)
+                    .get(5, TimeUnit.SECONDS)
+            assertEquals(0, safeResult.appliedCount)
+            assertEquals(2, safeResult.skippedCount)
+            assertExactContents()
+
+            val forcePlan =
+                Logger.rollbackService
+                    .computePlanAsync(
+                        RollbackOperationKind.ROLLBACK,
+                        params,
+                        targetTs,
+                        instance.uuid,
+                        position,
+                        safeMode = false,
+                        selection = selection,
+                    ).get(5, TimeUnit.SECONDS)
+            val forceActor = RollbackActor(UUID.randomUUID(), "force-barrel-operator")
+            val forceResult = Logger.rollbackService.applyAsync(forceActor, forcePlan).get(5, TimeUnit.SECONDS)
+            assertEquals(2, forceResult.appliedCount)
+            assertEquals(0, forceResult.skippedCount)
+            assertEquals(Block.AIR, instance.getBlock(position))
+            assertNull(Storage.barrels[key])
+
+            val undoForce = Logger.rollbackService.undoAsync(forceActor).get(5, TimeUnit.SECONDS)
+            assertEquals(2, undoForce.appliedCount)
+            assertExactContents()
+        } finally {
+            Storage.remove(key)
+            instance.setBlock(position, Block.AIR)
+        }
+    }
+
+    @Test
+    @Order(11)
+    fun `block logging observes final event outcome`() {
+        val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        instance.loadChunk(0, 0).get(5, TimeUnit.SECONDS)
+        val player = createPlayer(instance, Pos(0.5, 42.0, 0.5), "block-state-test")
+        val cancelledPlacePosition = BlockVec(3, 41, 3)
+        val mutatedPlacePosition = BlockVec(4, 41, 4)
+        val mutatedBreakPosition = BlockVec(5, 41, 5)
+        val cancelledInteractPosition = BlockVec(6, 41, 6)
+        val cancelledBreakPosition = BlockVec(7, 41, 7)
+        val manualBreakPosition = BlockVec(8, 41, 8)
+        val finalPlaceNbt = CompoundBinaryTag.builder().putString("logger-test", "final-place").build()
+        val finalPlaceBlock = Block.BARREL.withNbt(finalPlaceNbt)
+        val finalBreakNbt = CompoundBinaryTag.builder().putString("logger-test", "final-break").build()
+        val finalBreakBlock = Block.GOLD_BLOCK.withNbt(finalBreakNbt)
+
+        instance.setBlock(mutatedPlacePosition, Block.STONE)
+        instance.setBlock(mutatedBreakPosition, Block.DIAMOND_BLOCK)
+        instance.setBlock(cancelledInteractPosition, Block.OAK_DOOR)
+        instance.setBlock(cancelledBreakPosition, Block.EMERALD_BLOCK)
+        instance.setBlock(manualBreakPosition, Block.IRON_BLOCK)
+
+        val mutatorNode = EventNode.all("logger-block-final-state-test").setPriority(0)
+        mutatorNode.addListener(PlayerBlockPlaceEvent::class.java) { event ->
+            when (event.blockPosition) {
+                cancelledPlacePosition -> event.isCancelled = true
+                mutatedPlacePosition -> event.block = finalPlaceBlock
+            }
+        }
+        mutatorNode.addListener(PlayerBlockBreakEvent::class.java) { event ->
+            when (event.blockPosition) {
+                mutatedBreakPosition -> event.resultBlock = finalBreakBlock
+                cancelledBreakPosition -> event.isCancelled = true
+                manualBreakPosition -> {
+                    event.instance.setBlock(event.blockPosition, Block.AIR)
+                    event.isCancelled = true
+                }
+            }
+        }
+        mutatorNode.addListener(PlayerBlockInteractEvent::class.java) { event ->
+            if (event.blockPosition == cancelledInteractPosition) event.isCancelled = true
+        }
+        MinecraftServer.getGlobalEventHandler().addChild(mutatorNode)
+
+        try {
+            fun callPlace(position: BlockVec) {
+                MinecraftServer.getGlobalEventHandler().call(
+                    PlayerBlockPlaceEvent(player, instance, Block.DIRT, BlockFace.TOP, position, Pos.ZERO, PlayerHand.MAIN),
+                )
+            }
+
+            fun callBreak(
+                position: BlockVec,
+                block: Block,
+            ) {
+                MinecraftServer.getGlobalEventHandler().call(
+                    PlayerBlockBreakEvent(player, instance, block, Block.AIR, position, BlockFace.TOP),
+                )
+            }
+
+            callPlace(cancelledPlacePosition)
+            callPlace(mutatedPlacePosition)
+            callBreak(mutatedBreakPosition, Block.DIAMOND_BLOCK)
+            MinecraftServer.getGlobalEventHandler().call(
+                PlayerBlockInteractEvent(
+                    player,
+                    PlayerHand.MAIN,
+                    instance,
+                    Block.OAK_DOOR,
+                    cancelledInteractPosition,
+                    Pos.ZERO,
+                    BlockFace.TOP,
+                ),
+            )
+            callBreak(cancelledBreakPosition, Block.EMERALD_BLOCK)
+            callBreak(manualBreakPosition, Block.IRON_BLOCK)
+            Logger.repository.flushAsync().get(5, TimeUnit.SECONDS)
+
+            val cancelledPlaceEntries = blockEntriesAt(cancelledPlacePosition)
+            val mutatedPlaceEntry = blockEntriesAt(mutatedPlacePosition).single()
+            val mutatedBreakEntry = blockEntriesAt(mutatedBreakPosition).single()
+            val cancelledInteractEntries = blockEntriesAt(cancelledInteractPosition)
+            val cancelledBreakEntries = blockEntriesAt(cancelledBreakPosition)
+            val manualBreakEntry = blockEntriesAt(manualBreakPosition).single()
+
+            assertEquals(0, cancelledPlaceEntries.size)
+            assertEquals(BlockAction.PLACE, mutatedPlaceEntry.action)
+            assertEquals(Block.STONE.key().asString(), mutatedPlaceEntry.blockOld)
+            assertEquals(finalPlaceBlock.key().asString(), mutatedPlaceEntry.blockNew)
+            assertEquals(finalPlaceBlock.state(), mutatedPlaceEntry.blockNewState)
+            assertEquals(finalPlaceNbt, ItemCodec.decodeBlockNbt(mutatedPlaceEntry.blockNewNbt))
+            assertEquals(BlockAction.BREAK, mutatedBreakEntry.action)
+            assertEquals(Block.DIAMOND_BLOCK.key().asString(), mutatedBreakEntry.blockOld)
+            assertEquals(finalBreakBlock.key().asString(), mutatedBreakEntry.blockNew)
+            assertEquals(finalBreakBlock.state(), mutatedBreakEntry.blockNewState)
+            assertEquals(finalBreakNbt, ItemCodec.decodeBlockNbt(mutatedBreakEntry.blockNewNbt))
+            assertEquals(0, cancelledInteractEntries.size)
+            assertEquals(0, cancelledBreakEntries.size)
+            assertEquals(Block.AIR, instance.getBlock(manualBreakPosition))
+            assertEquals(BlockAction.BREAK, manualBreakEntry.action)
+            assertEquals(Block.IRON_BLOCK.key().asString(), manualBreakEntry.blockOld)
+            assertEquals(Block.AIR.key().asString(), manualBreakEntry.blockNew)
+            assertEquals(Block.AIR.state(), manualBreakEntry.blockNewState)
+        } finally {
+            MinecraftServer.getGlobalEventHandler().removeChild(mutatorNode)
+            player.remove()
+        }
+    }
+
+    @Test
+    @Order(12)
     fun `close persists pending log entries`() {
         repeat(100) { index ->
             Logger.log(
@@ -490,6 +844,11 @@ class LoggerTest {
             blockOldState = old.state(),
             blockNewState = new.state(),
         )
+
+    private fun blockEntriesAt(position: BlockVec): List<BlockLogEntry> =
+        Logger.repository
+            .lookupAsync(position.blockX(), position.blockY(), position.blockZ())
+            .get(5, TimeUnit.SECONDS)
 
     private fun createPlayer(
         instance: net.minestom.server.instance.Instance,

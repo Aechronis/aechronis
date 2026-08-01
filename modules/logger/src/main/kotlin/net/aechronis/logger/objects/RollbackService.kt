@@ -1,9 +1,9 @@
 package net.aechronis.logger.objects
 
 import net.aechronis.logger.Logger
-import net.aechronis.logger.objects.VanillaStorage
 import net.aechronis.logger.params.LookupParams
 import net.aechronis.logger.utils.ItemCodec
+import net.aechronis.logger.utils.LogMetadata
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.instance.Instance
@@ -39,6 +39,45 @@ private data class InventoryWrite(
     val before: net.minestom.server.item.ItemStack,
     val after: net.minestom.server.item.ItemStack,
 )
+
+private data class WorldPosition(
+    val x: Int,
+    val y: Int,
+    val z: Int,
+)
+
+private sealed interface WorldChangeCandidate {
+    val timestamp: Long
+    val historyId: Long
+}
+
+private data class BlockCandidate(
+    val plan: BlockChangePlan,
+) : WorldChangeCandidate {
+    override val timestamp: Long = plan.timestamp
+    override val historyId: Long = plan.blockLogId
+}
+
+private data class StorageCandidate(
+    val plan: StorageChangePlan,
+) : WorldChangeCandidate {
+    override val timestamp: Long = plan.timestamp
+    override val historyId: Long = plan.storageLogId
+}
+
+private data class PreparedWorldCandidate(
+    val position: WorldPosition?,
+    val change: RollbackChange?,
+)
+
+private data class PreparedWorldChanges(
+    val changes: List<RollbackChange>,
+    val skippedCount: Int,
+)
+
+private class StorageWorldChangeFailure(
+    cause: Throwable,
+) : IllegalStateException("storage change failed", cause)
 
 class RollbackService(
     private val executor: ExecutorService = Executors.newVirtualThreadPerTaskExecutor(),
@@ -152,29 +191,31 @@ class RollbackService(
                     selected.map { row ->
                         if (kind == RollbackOperationKind.ROLLBACK) {
                             BlockChangePlan(
-                                row.id,
-                                row.x,
-                                row.y,
-                                row.z,
-                                row.blockNewState,
-                                row.blockNew,
-                                row.blockNewNbt,
-                                row.blockOldState,
-                                row.blockOld,
-                                row.blockOldNbt,
+                                blockLogId = row.id,
+                                timestamp = row.timestamp,
+                                x = row.x,
+                                y = row.y,
+                                z = row.z,
+                                expectedState = row.blockNewState,
+                                expectedMaterialKey = row.blockNew,
+                                expectedNbt = row.blockNewNbt,
+                                targetState = row.blockOldState,
+                                targetMaterialKey = row.blockOld,
+                                targetNbt = row.blockOldNbt,
                             )
                         } else {
                             BlockChangePlan(
-                                row.id,
-                                row.x,
-                                row.y,
-                                row.z,
-                                row.blockOldState,
-                                row.blockOld,
-                                row.blockOldNbt,
-                                row.blockNewState,
-                                row.blockNew,
-                                row.blockNewNbt,
+                                blockLogId = row.id,
+                                timestamp = row.timestamp,
+                                x = row.x,
+                                y = row.y,
+                                z = row.z,
+                                expectedState = row.blockOldState,
+                                expectedMaterialKey = row.blockOld,
+                                expectedNbt = row.blockOldNbt,
+                                targetState = row.blockNewState,
+                                targetMaterialKey = row.blockNew,
+                                targetNbt = row.blockNewNbt,
                             )
                         }
                     }
@@ -183,6 +224,7 @@ class RollbackService(
                     selectedStorage.map { row ->
                         StorageChangePlan(
                             storageLogId = row.id,
+                            timestamp = row.timestamp,
                             source = row.source,
                             storageId = row.storageId,
                             slot = row.slot,
@@ -347,6 +389,156 @@ class RollbackService(
             Logger.rollback.acknowledgeRecoveryAsync()
         }
 
+    private fun prepareWorldChanges(
+        instance: Instance,
+        plan: RollbackPlan,
+    ): PreparedWorldChanges {
+        val chronological =
+            (
+                plan.blockChanges.map(::BlockCandidate) +
+                    plan.storageChanges.map(::StorageCandidate)
+            ).sortedWith(
+                compareBy<WorldChangeCandidate> { it.timestamp }
+                    .thenBy { if (it is BlockCandidate) 0 else 1 }
+                    .thenBy { it.historyId },
+            )
+        val ordered =
+            if (plan.kind == RollbackOperationKind.ROLLBACK) {
+                chronological.asReversed()
+            } else {
+                chronological
+            }
+        val blockPositions = plan.blockChanges.map { WorldPosition(it.x, it.y, it.z) }.toSet()
+        val linkedPositions =
+            plan.storageChanges
+                .filter { it.source.equals(LogMetadata.VANILLA, ignoreCase = true) }
+                .mapNotNull { change ->
+                    val location = VanillaStorage.parseStorageId(change.storageId) ?: return@mapNotNull null
+                    if (location.first != plan.instanceUuid) return@mapNotNull null
+                    WorldPosition(location.second, location.third, location.fourth)
+                }.toSet()
+                .intersect(blockPositions)
+        val simulated = mutableMapOf<WorldPosition, Block>()
+        val invalidPositions = mutableSetOf<WorldPosition>()
+        val prepared = mutableListOf<PreparedWorldCandidate>()
+
+        for (candidate in ordered) {
+            when (candidate) {
+                is BlockCandidate -> {
+                    val value = candidate.plan
+                    val position = WorldPosition(value.x, value.y, value.z)
+                    if (position in invalidPositions) {
+                        prepared += PreparedWorldCandidate(position, null)
+                        continue
+                    }
+                    val current = simulated[position] ?: instance.getBlock(position.x, position.y, position.z)
+                    val expected = block(value.expectedState, value.expectedMaterialKey, value.expectedNbt)
+                    val target = block(value.targetState, value.targetMaterialKey, value.targetNbt)
+                    if (target == null || (plan.safeMode && (expected == null || !sameBlock(current, expected)))) {
+                        invalidPositions += position
+                        prepared += PreparedWorldCandidate(position, null)
+                        continue
+                    }
+                    prepared +=
+                        PreparedWorldCandidate(
+                            position,
+                            RollbackChange(
+                                operationId = 0,
+                                sequence = 0,
+                                blockLogId = value.blockLogId,
+                                changeKind = RollbackChangeKind.BLOCK,
+                                x = value.x,
+                                y = value.y,
+                                z = value.z,
+                                beforeBlockState = current.state(),
+                                beforeBlockNbt = ItemCodec.encodeBlockNbt(current.nbt()),
+                                afterBlockState = target.state(),
+                                afterBlockNbt = ItemCodec.encodeBlockNbt(target.nbt()),
+                            ),
+                        )
+                    simulated[position] = target
+                }
+
+                is StorageCandidate -> {
+                    val value = candidate.plan
+                    val isVanilla = value.source.equals(LogMetadata.VANILLA, ignoreCase = true)
+                    val adapter = StorageRollbackAdapters.adapter(value.source)
+                    val location =
+                        if (isVanilla) {
+                            VanillaStorage.parseStorageId(value.storageId)
+                        } else {
+                            null
+                        }
+                    val position =
+                        location
+                            ?.takeIf { it.first == plan.instanceUuid }
+                            ?.let { WorldPosition(it.second, it.third, it.fourth) }
+                    if (position != null && position in invalidPositions) {
+                        prepared += PreparedWorldCandidate(position, null)
+                        continue
+                    }
+                    if (adapter == null) {
+                        if (position != null && position in linkedPositions) invalidPositions += position
+                        prepared += PreparedWorldCandidate(position, null)
+                        continue
+                    }
+                    if (isVanilla && location == null) {
+                        prepared += PreparedWorldCandidate(null, null)
+                        continue
+                    }
+
+                    if (position != null) {
+                        val current =
+                            simulated[position]
+                                ?: VanillaStorage.snapshotBlock(instance, position.x, position.y, position.z)
+                        val projected =
+                            VanillaStorage.projectBlock(
+                                current,
+                                value.slot,
+                                value.item,
+                                value.amount,
+                                value.targetAction,
+                            )
+                        if (projected == null) {
+                            invalidPositions += position
+                            prepared += PreparedWorldCandidate(position, null)
+                            continue
+                        }
+                        simulated[position] = projected
+                    }
+
+                    prepared +=
+                        PreparedWorldCandidate(
+                            position,
+                            RollbackChange(
+                                operationId = 0,
+                                sequence = 0,
+                                storageLogId = value.storageLogId,
+                                changeKind = RollbackChangeKind.STORAGE,
+                                storageSource = value.source,
+                                storageId = value.storageId,
+                                storageAction = value.targetAction,
+                                itemData = ItemCodec.encodeItem(value.item),
+                                amount = value.amount,
+                                storageSlot = value.slot,
+                            ),
+                        )
+                }
+            }
+        }
+
+        val changes =
+            prepared
+                .filter {
+                    it.change != null &&
+                        (it.position == null || it.position !in invalidPositions || it.position !in linkedPositions)
+                }.mapIndexed { sequence, candidate -> requireNotNull(candidate.change).copy(sequence = sequence) }
+        return PreparedWorldChanges(
+            changes = changes,
+            skippedCount = prepared.size - changes.size,
+        )
+    }
+
     private fun prepareAndPersist(
         actor: RollbackActor,
         instance: Instance,
@@ -354,63 +546,15 @@ class RollbackService(
         result: CompletableFuture<RollbackExecutionResult>,
     ) {
         if (result.isDone) return
-        val simulated = mutableMapOf<Triple<Int, Int, Int>, Block>()
         val simulatedInventory = mutableMapOf<Pair<UUID, Int>, net.minestom.server.item.ItemStack>()
         val simulatedEntities = mutableMapOf<UUID, Boolean>()
-        val blockedPositions = mutableSetOf<Triple<Int, Int, Int>>()
         val changes = mutableListOf<RollbackChange>()
         var skipped = plan.skippedBlockCount
 
         try {
-            for (candidate in plan.blockChanges) {
-                val position = Triple(candidate.x, candidate.y, candidate.z)
-                if (position in blockedPositions) {
-                    skipped++
-                    continue
-                }
-                val current = simulated[position] ?: instance.getBlock(candidate.x, candidate.y, candidate.z)
-                val expected = block(candidate.expectedState, candidate.expectedMaterialKey, candidate.expectedNbt)
-                val target = block(candidate.targetState, candidate.targetMaterialKey, candidate.targetNbt)
-                if (target == null || (plan.safeMode && (expected == null || !sameBlock(current, expected)))) {
-                    blockedPositions += position
-                    skipped++
-                    continue
-                }
-                changes +=
-                    RollbackChange(
-                        operationId = 0,
-                        sequence = changes.size,
-                        blockLogId = candidate.blockLogId,
-                        changeKind = RollbackChangeKind.BLOCK,
-                        x = candidate.x,
-                        y = candidate.y,
-                        z = candidate.z,
-                        beforeBlockState = current.state(),
-                        beforeBlockNbt = ItemCodec.encodeBlockNbt(current.nbt()),
-                        afterBlockState = target.state(),
-                        afterBlockNbt = ItemCodec.encodeBlockNbt(target.nbt()),
-                    )
-                simulated[position] = target
-            }
-            for (candidate in plan.storageChanges) {
-                if (StorageRollbackAdapters.adapter(candidate.source) == null) {
-                    skipped++
-                    continue
-                }
-                changes +=
-                    RollbackChange(
-                        operationId = 0,
-                        sequence = changes.size,
-                        storageLogId = candidate.storageLogId,
-                        changeKind = RollbackChangeKind.STORAGE,
-                        storageSource = candidate.source,
-                        storageId = candidate.storageId,
-                        storageAction = candidate.targetAction,
-                        itemData = ItemCodec.encodeItem(candidate.item),
-                        amount = candidate.amount,
-                        storageSlot = candidate.slot,
-                    )
-            }
+            val preparedWorld = prepareWorldChanges(instance, plan)
+            changes += preparedWorld.changes
+            skipped += preparedWorld.skippedCount
             for (candidate in plan.inventoryChanges) {
                 val player = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(candidate.playerUuid)
                 if (player == null || candidate.slot !in 0 until player.inventory.size) {
@@ -521,6 +665,144 @@ class RollbackService(
         }
     }
 
+    private fun applyWorldChanges(
+        instance: Instance,
+        changes: List<RollbackChange>,
+        reverse: Boolean,
+        tolerateUnlinkedBlockConflicts: Boolean,
+        applied: MutableList<RollbackChange>,
+    ): CompletableFuture<Int> {
+        val result = CompletableFuture<Int>()
+        val blockPositions =
+            changes
+                .filter { it.changeKind == RollbackChangeKind.BLOCK }
+                .mapNotNull { change ->
+                    val x = change.x ?: return@mapNotNull null
+                    val y = change.y ?: return@mapNotNull null
+                    val z = change.z ?: return@mapNotNull null
+                    WorldPosition(x, y, z)
+                }.toSet()
+        val storagePositions =
+            changes
+                .filter {
+                    it.changeKind == RollbackChangeKind.STORAGE &&
+                        it.storageSource.equals(LogMetadata.VANILLA, ignoreCase = true)
+                }.mapNotNull { change ->
+                    val location = change.storageId?.let(VanillaStorage::parseStorageId) ?: return@mapNotNull null
+                    if (location.first != instance.uuid) return@mapNotNull null
+                    WorldPosition(location.second, location.third, location.fourth)
+                }.toSet()
+        val linkedPositions = blockPositions intersect storagePositions
+        val blockedPositions = mutableSetOf<WorldPosition>()
+        var index = 0
+        var skipped = 0
+        lateinit var advance: () -> Unit
+
+        fun scheduleBlockBatch() {
+            instance.scheduleNextTick {
+                try {
+                    var visited = 0
+                    while (
+                        index < changes.size &&
+                        changes[index].changeKind == RollbackChangeKind.BLOCK &&
+                        visited < Logger.config.rollbackBatchSize.coerceAtLeast(1)
+                    ) {
+                        val change = changes[index++]
+                        visited++
+                        val x = change.x ?: error("block x is missing")
+                        val y = change.y ?: error("block y is missing")
+                        val z = change.z ?: error("block z is missing")
+                        val position = WorldPosition(x, y, z)
+                        if (position in blockedPositions) {
+                            skipped++
+                            continue
+                        }
+                        val expectedState = if (reverse) change.afterBlockState else change.beforeBlockState
+                        val expectedNbt = if (reverse) change.afterBlockNbt else change.beforeBlockNbt
+                        val targetState = if (reverse) change.beforeBlockState else change.afterBlockState
+                        val targetNbt = if (reverse) change.beforeBlockNbt else change.afterBlockNbt
+                        val expected = block(expectedState, null, expectedNbt)
+                        val target = block(targetState, null, targetNbt)
+                        val matches = expected != null && target != null && sameBlock(instance.getBlock(x, y, z), expected)
+                        if (!matches) {
+                            if (!tolerateUnlinkedBlockConflicts || position in linkedPositions) {
+                                error("block at $x,$y,$z changed after preview")
+                            }
+                            blockedPositions += position
+                            skipped++
+                            continue
+                        }
+                        if (!VanillaStorage.applyBlockTransition(instance, x, y, z, target)) {
+                            if (!tolerateUnlinkedBlockConflicts || position in linkedPositions) {
+                                error("block transition at $x,$y,$z was rejected")
+                            }
+                            blockedPositions += position
+                            skipped++
+                            continue
+                        }
+                        applied += change
+                    }
+                    if (index == changes.size) {
+                        result.complete(skipped)
+                    } else if (changes[index].changeKind == RollbackChangeKind.BLOCK) {
+                        scheduleBlockBatch()
+                    } else {
+                        advance()
+                    }
+                } catch (failure: Throwable) {
+                    result.completeExceptionally(failure)
+                }
+            }
+        }
+
+        advance = {
+            if (!result.isDone) {
+                when {
+                    closing.get() -> {
+                        result.completeExceptionally(IllegalStateException("rollback service is closing"))
+                    }
+
+                    index == changes.size -> {
+                        result.complete(skipped)
+                    }
+
+                    changes[index].changeKind == RollbackChangeKind.BLOCK -> {
+                        scheduleBlockBatch()
+                    }
+
+                    changes[index].changeKind == RollbackChangeKind.STORAGE -> {
+                        val change = changes[index]
+                        applyStorage(listOf(change), reverse, applied).whenComplete { _, failure ->
+                            if (failure != null) {
+                                result.completeExceptionally(StorageWorldChangeFailure(failure))
+                            } else {
+                                index++
+                                instance.scheduleNextTick { advance() }
+                            }
+                        }
+                    }
+
+                    else -> {
+                        result.completeExceptionally(
+                            IllegalArgumentException("non-world change in ordered world sequence"),
+                        )
+                    }
+                }
+            }
+        }
+        advance()
+        return result
+    }
+
+    private fun isStorageWorldChangeFailure(failure: Throwable): Boolean {
+        var current: Throwable? = failure
+        while (current != null) {
+            if (current is StorageWorldChangeFailure) return true
+            current = current.cause
+        }
+        return false
+    }
+
     private fun applyBatches(
         instance: Instance,
         operationId: Long,
@@ -529,93 +811,63 @@ class RollbackService(
         initialSkipped: Int,
         result: CompletableFuture<RollbackExecutionResult>,
     ) {
-        val blockChanges = changes.filter { it.changeKind == RollbackChangeKind.BLOCK }
-        val storageChanges = changes.filter { it.changeKind == RollbackChangeKind.STORAGE }
+        val worldChanges =
+            changes.filter {
+                it.changeKind == RollbackChangeKind.BLOCK || it.changeKind == RollbackChangeKind.STORAGE
+            }
         val inventoryChanges = changes.filter { it.changeKind == RollbackChangeKind.INVENTORY }
         val entityChanges = changes.filter { it.changeKind == RollbackChangeKind.ENTITY }
-        val appliedBlocks = mutableListOf<RollbackChange>()
-        val appliedStorage = mutableListOf<RollbackChange>()
-        val blockedPositions = mutableSetOf<Triple<Int, Int, Int>>()
-        var index = 0
-        var skipped = initialSkipped
-
-        fun nextBatch() {
-            if (result.isDone) return
-            try {
-                val end = minOf(index + Logger.config.rollbackBatchSize, blockChanges.size)
-                while (index < end) {
-                    if (result.isDone) return
-                    val change = blockChanges[index++]
-                    val position = Triple(change.x!!, change.y!!, change.z!!)
-                    if (position in blockedPositions) {
-                        skipped++
-                        continue
-                    }
-                    val current = instance.getBlock(change.x, change.y, change.z)
-                    val before = block(change.beforeBlockState, null, change.beforeBlockNbt)
-                    val after = block(change.afterBlockState, null, change.afterBlockNbt)
-                    if (before == null || after == null || !sameBlock(current, before)) {
-                        blockedPositions += position
-                        skipped++
-                        continue
-                    }
-                    if (
-                        !VanillaStorage.applyBlockTransition(
-                            instance,
-                            change.x,
-                            change.y,
-                            change.z,
-                            after,
-                        )
-                    ) {
-                        blockedPositions += position
-                        skipped++
-                        continue
-                    }
-                    appliedBlocks += change
-                }
-            } catch (exception: Exception) {
+        val appliedWorld = mutableListOf<RollbackChange>()
+        applyWorldChanges(
+            instance,
+            worldChanges,
+            reverse = false,
+            tolerateUnlinkedBlockConflicts = true,
+            appliedWorld,
+        ).whenComplete { runtimeSkipped, worldFailure ->
+            if (result.isDone) return@whenComplete
+            if (worldFailure != null) {
                 finishApplyFailure(
                     operationId,
-                    exception,
-                    compensateApplied(instance, appliedBlocks, emptyList(), emptyList(), emptyList(), reverseExternal = true),
+                    worldFailure,
+                    compensateApplied(instance, appliedWorld, emptyList(), emptyList(), reverseExternal = true),
                     result,
+                    forceRecovery = isStorageWorldChangeFailure(worldFailure),
                 )
-                return
+                return@whenComplete
             }
-
-            if (index < blockChanges.size) {
-                instance.scheduleNextTick { nextBatch() }
-                return
-            }
-
-            val remainingStorage = if (plan.kind == RollbackOperationKind.RESTORE) emptyList() else storageChanges
-            applyStorage(remainingStorage, reverse = false, appliedStorage).whenComplete { _, storageFailure ->
+            val skipped = initialSkipped + runtimeSkipped
+            val appliedInventory = mutableListOf<RollbackChange>()
+            applyInventory(inventoryChanges, reverse = false, appliedInventory).whenComplete { _, inventoryFailure ->
                 if (result.isDone) return@whenComplete
-                if (storageFailure != null) {
+                if (inventoryFailure != null) {
                     finishApplyFailure(
                         operationId,
-                        storageFailure,
-                        compensateApplied(instance, appliedBlocks, appliedStorage, emptyList(), emptyList(), reverseExternal = true),
+                        inventoryFailure,
+                        compensateApplied(
+                            instance,
+                            appliedWorld,
+                            appliedInventory,
+                            emptyList(),
+                            reverseExternal = true,
+                        ),
                         result,
-                        forceRecovery = true,
                     )
                     return@whenComplete
                 }
 
-                val appliedInventory = mutableListOf<RollbackChange>()
-                applyInventory(inventoryChanges, reverse = false, appliedInventory).whenComplete { _, inventoryFailure ->
+                val appliedEntities = mutableListOf<RollbackChange>()
+                applyEntities(instance, entityChanges, reverse = false, appliedEntities).whenComplete { _, entityFailure ->
                     if (result.isDone) return@whenComplete
-                    if (inventoryFailure != null) {
+                    if (entityFailure != null) {
                         finishApplyFailure(
                             operationId,
-                            inventoryFailure,
+                            entityFailure,
                             compensateApplied(
                                 instance,
-                                appliedBlocks,
-                                appliedStorage,
+                                appliedWorld,
                                 appliedInventory,
-                                emptyList(),
+                                appliedEntities,
                                 reverseExternal = true,
                             ),
                             result,
@@ -623,68 +875,28 @@ class RollbackService(
                         return@whenComplete
                     }
 
-                    val appliedEntities = mutableListOf<RollbackChange>()
-                    applyEntities(instance, entityChanges, reverse = false, appliedEntities).whenComplete { _, entityFailure ->
-                        if (result.isDone) return@whenComplete
-                        if (entityFailure != null) {
-                            finishApplyFailure(
-                                operationId,
-                                entityFailure,
-                                compensateApplied(
-                                    instance,
-                                    appliedBlocks,
-                                    appliedStorage,
-                                    appliedInventory,
-                                    appliedEntities,
-                                    reverseExternal = true,
-                                ),
-                                result,
-                            )
-                            return@whenComplete
-                        }
-
-                        val applied = appliedBlocks + appliedStorage + appliedInventory + appliedEntities
-                        val rolledBack = plan.kind == RollbackOperationKind.ROLLBACK
-                        Logger.rollback
-                            .completeOperationAsync(operationId, applied, rolledBack, skipped)
-                            .whenComplete { _, failure ->
-                                if (result.isDone) return@whenComplete
-                                if (failure == null) {
-                                    result.complete(RollbackExecutionResult(plan.kind, operationId, applied.size, skipped))
-                                } else {
-                                    val compensation =
-                                        compensateApplied(
-                                            instance,
-                                            appliedBlocks,
-                                            appliedStorage,
-                                            appliedInventory,
-                                            appliedEntities,
-                                            reverseExternal = true,
-                                        )
-                                    finishApplyFailure(operationId, failure, compensation, result, forceRecovery = true)
-                                }
+                    val applied = appliedWorld + appliedInventory + appliedEntities
+                    val rolledBack = plan.kind == RollbackOperationKind.ROLLBACK
+                    Logger.rollback
+                        .completeOperationAsync(operationId, applied, rolledBack, skipped)
+                        .whenComplete { _, failure ->
+                            if (result.isDone) return@whenComplete
+                            if (failure == null) {
+                                result.complete(RollbackExecutionResult(plan.kind, operationId, applied.size, skipped))
+                            } else {
+                                val compensation =
+                                    compensateApplied(
+                                        instance,
+                                        appliedWorld,
+                                        appliedInventory,
+                                        appliedEntities,
+                                        reverseExternal = true,
+                                    )
+                                finishApplyFailure(operationId, failure, compensation, result, forceRecovery = true)
                             }
-                    }
+                        }
                 }
             }
-        }
-
-        if (plan.kind == RollbackOperationKind.RESTORE) {
-            applyStorage(storageChanges, reverse = false, appliedStorage).whenComplete { _, storageFailure ->
-                if (storageFailure != null) {
-                    finishApplyFailure(
-                        operationId,
-                        storageFailure,
-                        compensateApplied(instance, emptyList(), appliedStorage, emptyList(), emptyList(), reverseExternal = true),
-                        result,
-                        forceRecovery = true,
-                    )
-                } else {
-                    nextBatch()
-                }
-            }
-        } else {
-            nextBatch()
         }
     }
 
@@ -799,215 +1011,123 @@ class RollbackService(
         undo: Boolean,
         result: CompletableFuture<RollbackExecutionResult>,
     ) {
-        val blockChanges = changes.filter { it.changeKind == RollbackChangeKind.BLOCK }
-        val storageChanges = changes.filter { it.changeKind == RollbackChangeKind.STORAGE }
+        val worldChanges =
+            changes.filter {
+                it.changeKind == RollbackChangeKind.BLOCK || it.changeKind == RollbackChangeKind.STORAGE
+            }
         val inventoryChanges = changes.filter { it.changeKind == RollbackChangeKind.INVENTORY }
         val entityChanges = changes.filter { it.changeKind == RollbackChangeKind.ENTITY }
-        val appliedBlocks = mutableListOf<RollbackChange>()
-        val appliedStorage = mutableListOf<RollbackChange>()
-        val storageBeforeBlocks =
-            (undo && operation.kind == RollbackOperationKind.ROLLBACK) ||
-                (!undo && operation.kind == RollbackOperationKind.RESTORE)
-        var index = 0
-
-        fun nextBatch() {
-            if (result.isDone) return
-            try {
-                val end = minOf(index + Logger.config.rollbackBatchSize, blockChanges.size)
-                while (index < end) {
-                    if (result.isDone) return
-                    val change = blockChanges[index++]
-                    val x = change.x ?: continue
-                    val y = change.y ?: continue
-                    val z = change.z ?: continue
-                    val expectedState = if (undo) change.afterBlockState else change.beforeBlockState
-                    val expectedNbt = if (undo) change.afterBlockNbt else change.beforeBlockNbt
-                    val targetState = if (undo) change.beforeBlockState else change.afterBlockState
-                    val targetNbt = if (undo) change.beforeBlockNbt else change.afterBlockNbt
-                    val expected = block(expectedState, null, expectedNbt)
-                    val target = block(targetState, null, targetNbt)
-                    if (expected == null || target == null || !sameBlock(instance.getBlock(x, y, z), expected)) {
-                        throw IllegalStateException("block at $x,$y,$z changed after the operation")
-                    }
-                    check(
-                        VanillaStorage.applyBlockTransition(
-                            instance,
-                            x,
-                            y,
-                            z,
-                            target,
-                        ),
-                    ) { "block transition at $x,$y,$z was rejected" }
-                    appliedBlocks += change
-                }
-            } catch (exception: Exception) {
+        val appliedWorld = mutableListOf<RollbackChange>()
+        applyWorldChanges(
+            instance,
+            worldChanges,
+            reverse = undo,
+            tolerateUnlinkedBlockConflicts = false,
+            appliedWorld,
+        ).whenComplete { _, worldFailure ->
+            if (result.isDone) return@whenComplete
+            if (worldFailure != null) {
                 finishReplayFailure(
                     operation.id,
                     undo,
-                    exception,
+                    worldFailure,
                     compensateApplied(
                         instance,
-                        appliedBlocks,
-                        emptyList(),
+                        appliedWorld,
                         emptyList(),
                         emptyList(),
                         reverseExternal = !undo,
-                        replayUndo = undo,
                     ),
                     result,
+                    forceRecovery = isStorageWorldChangeFailure(worldFailure),
                 )
-                return
+                return@whenComplete
             }
 
-            if (index < blockChanges.size) {
-                instance.scheduleNextTick { nextBatch() }
-                return
-            }
-
-            val remainingStorage = if (storageBeforeBlocks) emptyList() else storageChanges
-            applyStorage(remainingStorage, reverse = undo, appliedStorage).whenComplete { _, storageFailure ->
+            val appliedInventory = mutableListOf<RollbackChange>()
+            applyInventory(inventoryChanges, reverse = undo, appliedInventory).whenComplete { _, inventoryFailure ->
                 if (result.isDone) return@whenComplete
-                if (storageFailure != null) {
+                if (inventoryFailure != null) {
                     finishReplayFailure(
                         operation.id,
                         undo,
-                        storageFailure,
+                        inventoryFailure,
                         compensateApplied(
                             instance,
-                            appliedBlocks,
-                            appliedStorage,
-                            emptyList(),
+                            appliedWorld,
+                            appliedInventory,
                             emptyList(),
                             reverseExternal = !undo,
-                            replayUndo = undo,
                         ),
                         result,
-                        forceRecovery = true,
                     )
                     return@whenComplete
                 }
 
-                val appliedInventory = mutableListOf<RollbackChange>()
-                applyInventory(inventoryChanges, reverse = undo, appliedInventory).whenComplete { _, inventoryFailure ->
+                val appliedEntities = mutableListOf<RollbackChange>()
+                applyEntities(instance, entityChanges, reverse = undo, appliedEntities).whenComplete { _, entityFailure ->
                     if (result.isDone) return@whenComplete
-                    if (inventoryFailure != null) {
+                    if (entityFailure != null) {
                         finishReplayFailure(
                             operation.id,
                             undo,
-                            inventoryFailure,
+                            entityFailure,
                             compensateApplied(
                                 instance,
-                                appliedBlocks,
-                                appliedStorage,
+                                appliedWorld,
                                 appliedInventory,
-                                emptyList(),
+                                appliedEntities,
                                 reverseExternal = !undo,
-                                replayUndo = undo,
                             ),
                             result,
                         )
                         return@whenComplete
                     }
 
-                    val appliedEntities = mutableListOf<RollbackChange>()
-                    applyEntities(instance, entityChanges, reverse = undo, appliedEntities).whenComplete { _, entityFailure ->
-                        if (result.isDone) return@whenComplete
-                        if (entityFailure != null) {
-                            finishReplayFailure(
-                                operation.id,
-                                undo,
-                                entityFailure,
-                                compensateApplied(
-                                    instance,
-                                    appliedBlocks,
-                                    appliedStorage,
-                                    appliedInventory,
-                                    appliedEntities,
-                                    reverseExternal = !undo,
-                                    replayUndo = undo,
-                                ),
-                                result,
-                            )
-                            return@whenComplete
+                    val transition = if (undo) RollbackStatus.UNDOING else RollbackStatus.REDOING
+                    val targetStatus = if (undo) RollbackStatus.UNDONE else RollbackStatus.APPLIED
+                    val targetRolledBack =
+                        if (undo) {
+                            operation.kind == RollbackOperationKind.RESTORE
+                        } else {
+                            operation.kind == RollbackOperationKind.ROLLBACK
                         }
-
-                        val transition = if (undo) RollbackStatus.UNDOING else RollbackStatus.REDOING
-                        val targetStatus = if (undo) RollbackStatus.UNDONE else RollbackStatus.APPLIED
-                        val targetRolledBack =
-                            if (undo) {
-                                operation.kind == RollbackOperationKind.RESTORE
+                    Logger.rollback
+                        .completeReplayAsync(operation, transition, targetStatus, targetRolledBack)
+                        .whenComplete { _, failure ->
+                            if (result.isDone) return@whenComplete
+                            if (failure == null) {
+                                result.complete(
+                                    RollbackExecutionResult(
+                                        operation.kind,
+                                        operation.id,
+                                        appliedWorld.size + appliedInventory.size + appliedEntities.size,
+                                        0,
+                                    ),
+                                )
                             } else {
-                                operation.kind ==
-                                    RollbackOperationKind.ROLLBACK
-                            }
-                        Logger.rollback
-                            .completeReplayAsync(operation, transition, targetStatus, targetRolledBack)
-                            .whenComplete { _, failure ->
-                                if (result.isDone) return@whenComplete
-                                if (failure == null) {
-                                    result.complete(
-                                        RollbackExecutionResult(
-                                            operation.kind,
-                                            operation.id,
-                                            appliedBlocks.size + appliedStorage.size + appliedInventory.size + appliedEntities.size,
-                                            0,
-                                        ),
+                                val compensation =
+                                    compensateApplied(
+                                        instance,
+                                        appliedWorld,
+                                        appliedInventory,
+                                        appliedEntities,
+                                        reverseExternal = !undo,
                                     )
-                                } else {
-                                    val compensation =
-                                        compensateApplied(
-                                            instance,
-                                            appliedBlocks,
-                                            appliedStorage,
-                                            appliedInventory,
-                                            appliedEntities,
-                                            reverseExternal = !undo,
-                                            replayUndo = undo,
-                                        )
-                                    finishReplayFailure(operation.id, undo, failure, compensation, result, forceRecovery = true)
-                                }
+                                finishReplayFailure(operation.id, undo, failure, compensation, result, forceRecovery = true)
                             }
-                    }
+                        }
                 }
             }
-        }
-
-        if (storageBeforeBlocks) {
-            applyStorage(storageChanges, reverse = undo, appliedStorage).whenComplete { _, storageFailure ->
-                if (storageFailure != null) {
-                    finishReplayFailure(
-                        operation.id,
-                        undo,
-                        storageFailure,
-                        compensateApplied(
-                            instance,
-                            emptyList(),
-                            appliedStorage,
-                            emptyList(),
-                            emptyList(),
-                            reverseExternal = !undo,
-                            replayUndo = undo,
-                        ),
-                        result,
-                        forceRecovery = true,
-                    )
-                } else {
-                    nextBatch()
-                }
-            }
-        } else {
-            nextBatch()
         }
     }
 
     private fun compensateApplied(
         instance: Instance,
-        blockChanges: List<RollbackChange>,
-        storageChanges: List<RollbackChange>,
+        worldChanges: List<RollbackChange>,
         inventoryChanges: List<RollbackChange>,
         entityChanges: List<RollbackChange>,
         reverseExternal: Boolean,
-        replayUndo: Boolean? = null,
     ): CompletableFuture<Void> {
         val failures = mutableListOf<Throwable>()
         var chain = CompletableFuture.completedFuture<Void>(null)
@@ -1028,44 +1148,15 @@ class RollbackService(
         chain =
             chain.thenCompose {
                 captureCompensation(
-                    applyStorage(storageChanges.asReversed(), reverseExternal, mutableListOf()),
+                    applyWorldChanges(
+                        instance,
+                        worldChanges.asReversed(),
+                        reverse = reverseExternal,
+                        tolerateUnlinkedBlockConflicts = false,
+                        mutableListOf(),
+                    ).thenAccept {},
                     failures,
                 )
-            }
-        chain =
-            chain.thenCompose {
-                val blocksDone = CompletableFuture<Void>()
-                instance.scheduleNextTick {
-                    try {
-                        for (change in blockChanges.asReversed()) {
-                            val x = change.x ?: error("compensation block x is missing")
-                            val y = change.y ?: error("compensation block y is missing")
-                            val z = change.z ?: error("compensation block z is missing")
-                            val state = if (replayUndo == true) change.afterBlockState else change.beforeBlockState
-                            val nbt = if (replayUndo == true) change.afterBlockNbt else change.beforeBlockNbt
-                            val target = block(state, null, nbt) ?: error("compensation block state is missing")
-                            val expectedState = if (replayUndo == true) change.beforeBlockState else change.afterBlockState
-                            val expectedNbt = if (replayUndo == true) change.beforeBlockNbt else change.afterBlockNbt
-                            val expected = block(expectedState, null, expectedNbt) ?: error("applied block state is missing")
-                            check(sameBlock(instance.getBlock(x, y, z), expected)) {
-                                "block changed while compensating"
-                            }
-                            check(
-                                VanillaStorage.applyBlockTransition(
-                                    instance,
-                                    x,
-                                    y,
-                                    z,
-                                    target,
-                                ),
-                            ) { "block compensation at $x,$y,$z was rejected" }
-                        }
-                    } catch (failure: Throwable) {
-                        failures += failure
-                    }
-                    blocksDone.complete(null)
-                }
-                blocksDone
             }
         return chain.thenApply {
             if (failures.isNotEmpty()) {

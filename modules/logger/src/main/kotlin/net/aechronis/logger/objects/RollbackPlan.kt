@@ -19,6 +19,7 @@ enum class RollbackOperationKind(
 
 data class BlockChangePlan(
     val blockLogId: Long,
+    val timestamp: Long,
     val x: Int,
     val y: Int,
     val z: Int,
@@ -46,6 +47,7 @@ data class RollbackSelection(
 
 data class StorageChangePlan(
     val storageLogId: Long,
+    val timestamp: Long,
     val source: String,
     val storageId: String,
     val slot: Int?,

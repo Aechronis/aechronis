@@ -84,6 +84,37 @@ object VanillaStorage {
 
     fun storageId(key: BlockKey): String = "${key.instance.uuid}:${key.pos.blockX()}:${key.pos.blockY()}:${key.pos.blockZ()}"
 
+    internal fun snapshotBlock(
+        instance: Instance,
+        x: Int,
+        y: Int,
+        z: Int,
+    ): Block {
+        val position = Vec(x.toDouble(), y.toDouble(), z.toDouble())
+        val block = instance.getBlock(position)
+        if (!block.compare(Block.BARREL)) return block
+        val contents = Storage.barrels[Storage.keyFor(instance, position)] ?: return block
+        return Storage.withContents(block, contents)
+    }
+
+    internal fun projectBlock(
+        block: Block,
+        slot: Int?,
+        item: ItemStack,
+        amount: Int,
+        action: StorageChangeAction,
+    ): Block? {
+        if (!block.compare(Block.BARREL) || slot == null || amount <= 0) return null
+        return runCatching {
+            val contents = StorageDeserializer.deserialize(block.nbtOrEmpty())
+            if (slot !in 0 until contents.inventory.size) return@runCatching null
+            val current = contents.inventory.getItemStack(slot)
+            val target = changedItem(current, item, amount, action) ?: return@runCatching null
+            contents.inventory.setItemStack(slot, target)
+            Storage.withContents(block, contents)
+        }.getOrNull()
+    }
+
     private fun changes(
         oldItem: ItemStack,
         newItem: ItemStack,
@@ -172,27 +203,7 @@ object VanillaStorage {
                     return@scheduleNextTick
                 }
                 val current = inventory.getItemStack(exactSlot)
-                val target =
-                    when (action) {
-                        StorageChangeAction.DEPOSIT -> {
-                            if (!current.isAir && !current.isSimilar(item)) {
-                                null
-                            } else {
-                                val newAmount = (if (current.isAir) 0 else current.amount()) + amount
-                                if (newAmount > item.maxStackSize()) null else item.withAmount(newAmount)
-                            }
-                        }
-
-                        StorageChangeAction.WITHDRAW -> {
-                            if (current.isAir || !current.isSimilar(item) || current.amount() < amount) {
-                                null
-                            } else if (current.amount() == amount) {
-                                ItemStack.AIR
-                            } else {
-                                current.withAmount(current.amount() - amount)
-                            }
-                        }
-                    }
+                val target = changedItem(current, item, amount, action)
                 if (target == null) {
                     result.complete(false)
                     return@scheduleNextTick
@@ -209,7 +220,34 @@ object VanillaStorage {
         return result
     }
 
-    private fun parseStorageId(storageId: String): StorageLocation? {
+    private fun changedItem(
+        current: ItemStack,
+        item: ItemStack,
+        amount: Int,
+        action: StorageChangeAction,
+    ): ItemStack? =
+        when (action) {
+            StorageChangeAction.DEPOSIT -> {
+                if (!current.isAir && !current.isSimilar(item)) {
+                    null
+                } else {
+                    val newAmount = (if (current.isAir) 0 else current.amount()) + amount
+                    if (newAmount > item.maxStackSize()) null else item.withAmount(newAmount)
+                }
+            }
+
+            StorageChangeAction.WITHDRAW -> {
+                if (current.isAir || !current.isSimilar(item) || current.amount() < amount) {
+                    null
+                } else if (current.amount() == amount) {
+                    ItemStack.AIR
+                } else {
+                    current.withAmount(current.amount() - amount)
+                }
+            }
+        }
+
+    internal fun parseStorageId(storageId: String): StorageLocation? {
         val parts = storageId.split(':')
         if (parts.size != 4) return null
         return runCatching {
