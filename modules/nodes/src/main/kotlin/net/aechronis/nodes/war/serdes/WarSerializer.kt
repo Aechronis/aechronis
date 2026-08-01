@@ -21,6 +21,7 @@
 
 package net.aechronis.nodes.war.serdes
 
+import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.war.FlagWar
@@ -145,7 +146,7 @@ object WarSerializer {
 
         var index = 1
         for ((townName, coordList) in occupiedChunks) {
-            jsonString.append("\"${townName}\":[")
+            jsonString.append(JsonPrimitive(townName)).append(":[")
             for ((i, c) in coordList.withIndex()) {
                 jsonString.append(c)
                 if (i < coordList.size - 1) {

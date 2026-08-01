@@ -464,9 +464,9 @@ class Resident(val uuid: UUID, val name: String) {
             }
             return (
                 "{" +
-                    "\"name\":\"${this.name}\"," +
-                    "\"town\":${ if (this.town !== null) "\"${this.town}\"" else null }," +
-                    "\"nation\":${ if (this.nation !== null) "\"${this.nation}\"" else null }," +
+                    "\"name\":${JsonPrimitive(this.name)}," +
+                    "\"town\":${this.town?.let { JsonPrimitive(it) } ?: "null"}," +
+                    "\"nation\":${this.nation?.let { JsonPrimitive(it) } ?: "null"}," +
                     "\"trust\":${this.trusted}," +
                     "\"waypoints\":$waypointsJson," +
                     "\"waypointVisibility\":$waypointVisibilityJson" +

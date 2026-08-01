@@ -1,5 +1,6 @@
 package net.aechronis.nodes.objects
 
+import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
@@ -192,14 +193,14 @@ class Plot(
 
         override fun createJsonString(): String {
             val groups = groupPermissions.entries.joinToString(",", "{", "}") { (group, permissions) ->
-                "\"$group\":${permissionsToJson(permissions)}"
+                "${JsonPrimitive(group.toString())}:${permissionsToJson(permissions)}"
             }
             val players = playerPermissions.entries.joinToString(",", "{", "}") { (player, permissions) ->
-                "\"$player\":${permissionsToJson(permissions)}"
+                "${JsonPrimitive(player.toString())}:${permissionsToJson(permissions)}"
             }
 
             return "{" +
-                "\"name\":\"$name\"," +
+                "\"name\":${JsonPrimitive(name)}," +
                 "\"min\":[$minX,$minY,$minZ]," +
                 "\"max\":[$maxX,$maxY,$maxZ]," +
                 "\"permissions\":$groups," +
@@ -210,5 +211,5 @@ class Plot(
 }
 
 private fun permissionsToJson(permissions: Map<TownPermissions, Boolean>): String = permissions.entries.joinToString(",", "{", "}") { (permission, allowed) ->
-    "\"$permission\":$allowed"
+    "${JsonPrimitive(permission.toString())}:$allowed"
 }

@@ -12,6 +12,7 @@
 
 package net.aechronis.nodes.serdes
 
+import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.objects.BuildingSaveState
 import net.aechronis.nodes.objects.Nation.NationSaveState
 import net.aechronis.nodes.objects.Resident.ResidentSaveState
@@ -68,7 +69,7 @@ object Serializer {
         jsonString.append("\"residents\":{")
 
         for ((i, resident) in residents.withIndex()) {
-            jsonString.append("\"${resident.uuid}\":")
+            jsonString.append(JsonPrimitive(resident.uuid.toString())).append(":")
             jsonString.append(resident.toJsonString())
             if (i < residents.size - 1) {
                 jsonString.append(",")
@@ -83,7 +84,7 @@ object Serializer {
         jsonString.append("\"towns\":{")
 
         for ((i, town) in towns.withIndex()) {
-            jsonString.append("\"${town.name}\":")
+            jsonString.append(JsonPrimitive(town.name)).append(":")
             jsonString.append(town.toJsonString())
             if (i < towns.size - 1) {
                 jsonString.append(",")
@@ -98,7 +99,7 @@ object Serializer {
         jsonString.append("\"nations\":{")
 
         for ((i, nation) in nations.withIndex()) {
-            jsonString.append("\"${nation.name}\":")
+            jsonString.append(JsonPrimitive(nation.name)).append(":")
             jsonString.append(nation.toJsonString())
             if (i < nations.size - 1) {
                 jsonString.append(",")

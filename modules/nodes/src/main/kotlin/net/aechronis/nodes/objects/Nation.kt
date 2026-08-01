@@ -6,6 +6,7 @@
 
 package net.aechronis.nodes.objects
 
+import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.ErrorNationExists
@@ -346,14 +347,14 @@ class Nation(
         override var jsonString: String? = null
 
         override fun createJsonString(): String {
-            val towns = this.towns.joinToString(",", "[", "]") { x -> "\"$x\"" }
-            val allies = this.allies.joinToString(",", "[", "]") { x -> "\"$x\"" }
-            val enemies = this.enemies.joinToString(",", "[", "]") { x -> "\"$x\"" }
+            val towns = this.towns.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
+            val allies = this.allies.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
+            val enemies = this.enemies.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
 
             val jsonString = (
                 "{" +
-                    "\"uuid\":\"${this.uuid}\"," +
-                    "\"capital\":\"$capital\"," +
+                    "\"uuid\":${JsonPrimitive(this.uuid.toString())}," +
+                    "\"capital\":${JsonPrimitive(capital)}," +
                     "\"color\":[${this.color.r},${this.color.g},${this.color.b}]," +
                     "\"towns\":$towns," +
                     "\"allies\":$allies," +
