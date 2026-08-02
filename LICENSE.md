@@ -5,5 +5,6 @@
 * `/modules/utils` - [AGPL-3.0](modules/utils/LICENSE)
 * `/modules/vanilla` - [AGPL-3.0](modules/vanilla/LICENSE)
 * `/modules/worldedit` - [GPL-3.0](modules/worldedit/LICENSE)
+* `/modules/watchdog` - [AGPL-3.0](modules/watchdog/LICENSE)
 * `/resource-pack` - [AGPL-3.0](resource-pack/LICENSE)
 * `/guides` - [AGPL-3.0](guides/LICENSE)
