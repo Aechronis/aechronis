@@ -28,7 +28,7 @@ dependencies {
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     implementation("com.h2database:h2:2.4.240")
     implementation("com.zaxxer:HikariCP:7.0.2")
-    implementation("org.slf4j:slf4j-simple:2.0.17")
+    implementation("org.slf4j:slf4j-simple:2.0.18")
     implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
     implementation("io.github.4drian3d:signedvelocity-minestom:1.4.1")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
