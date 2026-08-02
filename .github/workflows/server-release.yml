@@ -1,0 +1,36 @@
+name: Server release
+
+on:
+  push:
+    tags:
+      - "server-*"
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: gradle
+      - name: Check JVM projects and build server
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew check :server:shadowJar --no-daemon
+      - name: Create server release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            server/build/libs/aechronis-all.jar \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Server build $GITHUB_SHA"

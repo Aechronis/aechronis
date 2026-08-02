@@ -1,0 +1,50 @@
+name: Guides Pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "guides/**"
+      - ".github/workflows/guides-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      MDBOOK_VERSION: 0.4.48
+    defaults:
+      run:
+        working-directory: guides
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install mdBook
+        run: cargo install --locked --version "$MDBOOK_VERSION" mdbook
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Build guides
+        run: mdbook build
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: guides/book
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

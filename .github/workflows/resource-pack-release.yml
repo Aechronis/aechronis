@@ -1,0 +1,45 @@
+name: Resource-pack release
+
+on:
+  push:
+    tags:
+      - "resource-pack-*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Package resource pack
+        id: package
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#resource-pack-}"
+          asset="aechronis-resource-pack-${version}.zip"
+          artifact="$RUNNER_TEMP/$asset"
+          checksum="$artifact.sha1"
+
+          git archive --format=zip --output="$artifact" "${GITHUB_SHA}:resource-pack"
+          (
+            cd "$RUNNER_TEMP"
+            sha1sum "$asset" > "$asset.sha1"
+          )
+
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          echo "artifact=$artifact" >> "$GITHUB_OUTPUT"
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+          echo "sha1=$(cut -d' ' -f1 "$checksum")" >> "$GITHUB_OUTPUT"
+      - name: Create resource-pack release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "${{ steps.package.outputs.artifact }}" \
+            "${{ steps.package.outputs.checksum }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Resource-pack SHA-1: ${{ steps.package.outputs.sha1 }}"
