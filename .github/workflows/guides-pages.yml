@@ -27,7 +27,7 @@ jobs:
       - name: Install mdBook
         run: cargo install --locked --version "$MDBOOK_VERSION" mdbook
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: Build guides
         run: mdbook build
       - name: Upload Pages artifact
