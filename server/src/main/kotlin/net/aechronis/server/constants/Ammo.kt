@@ -10,7 +10,14 @@ object Ammo {
     val ammo762x39mm =
         Ammo(
             name = "762x39mm",
-            itemName = Component.text("7.62x39mm", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammoType = AmmoTypes.NORMAL,
+            itemName = Component.text("7.62x39mm", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+        )
+
+    val ammo9mm =
+        Ammo(
+            name = "9mm",
+            ammoType = AmmoTypes.NORMAL,
+            itemName = Component.text("9mm", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
         )
 }

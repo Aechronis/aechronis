@@ -30,14 +30,14 @@ object Tanks {
             scale = 3.0,
             health =
                 Health(
-                    1000F,
+                    1500f,
                     mapOf(
-                        AmmoTypes.NORMAL to 1f,
-                        AmmoTypes.MISSILE to 1f,
-                        AmmoTypes.BOMB to 1f,
-                        AmmoTypes.EXPLOSIVE to 1f,
+                        AmmoTypes.NORMAL to 2.5f,
+                        AmmoTypes.EXPLOSIVE to 750f,
+                        AmmoTypes.BOMB to 500f,
+                        AmmoTypes.MISSILE to 750f,
                     ),
                 ),
-            seatOffsets = listOf(Vec(0.0, 1.0, 0.0)),
+            projectileModel = "aechronis:shell",
         )
 }

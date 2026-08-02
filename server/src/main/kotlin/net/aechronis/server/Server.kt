@@ -36,6 +36,8 @@ import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
+import net.minestom.server.item.ItemStack
+import net.minestom.server.item.Material
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.DimensionType
 import net.minestom.server.world.attribute.EnvironmentAttribute
@@ -101,16 +103,22 @@ fun main(args: Array<String>) {
     Item.registerItems(
         // Ammo
         Ammo.ammo762x39mm,
+        Ammo.ammo9mm,
         // Guns
-        Guns.ak47,
+        Guns.ak74,
+        Guns.m4a1,
+        Guns.m9,
         // Armor
-        Armor.jacket,
-        Armor.trousers,
-        Armor.boots,
+        Armor.usMarineJacket,
+        Armor.usMarineTrousers,
+        Armor.usMarineBoots,
+        Armor.idfJacket,
+        Armor.idfTrousers,
+        Armor.idfBoots,
         // Hats
         Hats.gasMask,
         // Vehicles - Planes
-        Planes.fighter,
+        Planes.f16,
         // Vehicles - Cars
         Cars.truck,
         // Vehicles - Tanks
