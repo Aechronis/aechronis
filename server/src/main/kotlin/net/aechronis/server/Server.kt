@@ -14,6 +14,7 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.NodesConfig
 import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
+import net.aechronis.server.constants.Boats
 import net.aechronis.server.constants.Cars
 import net.aechronis.server.constants.Drones
 import net.aechronis.server.constants.Guns
@@ -116,6 +117,8 @@ fun main(args: Array<String>) {
         // Vehicles - Drones
         Drones.scoutDrone,
         Drones.kamikazeDrone,
+        // Vehicles - Boats
+        Boats.ussButler,
     )
 
     // initialize luckperms
