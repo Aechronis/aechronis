@@ -1,0 +1,21 @@
+on:
+  push:
+    branches: [ master ]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+      - run: ./gradlew check publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
