@@ -6,7 +6,6 @@ import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.Plane
-import net.aechronis.combat.objects.PlaneBombWeapon
 import net.aechronis.combat.objects.PlaneWeapon
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -15,27 +14,27 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.particle.Particle
 
 object Planes {
-    private val fighterHitbox =
+    val f16Hitbox =
         Hitbox(
             listOf(
                 HitboxPart(
-                    offset = Vec(0.0, 0.0, -2.0),
-                    size = Vec(1.0, 1.0, 8.0),
+                    offset = Vec(0.0, 0.2, -2.0),
+                    size = Vec(1.0, 1.0, 6.0),
                 ),
                 HitboxPart(
-                    offset = Vec(0.0, -0.5, 0.0),
-                    size = Vec(8.0, 0.5, 2.0),
+                    offset = Vec(0.0, 0.5, -3.0),
+                    size = Vec(5.0, 0.5, 2.0),
                 ),
             ),
         )
 
-    private val fighterGun =
+    val f16Gun =
         Gun(
-            name = "fighter-gun",
+            name = "f16-gun",
             itemName = Component.empty(),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 30,
-            damage = 10F,
+            damage = 15F,
             sniper = false,
             automatic = true,
             cooldown = 200,
@@ -47,67 +46,32 @@ object Planes {
             bulletTrailParticle = Particle.ELECTRIC_SPARK,
         )
 
-    private val fighterWeapon =
+    val f16Weapon =
         PlaneWeapon(
-            gun = fighterGun,
-            firePoints = listOf(Vec(4.0, -0.5, 6.0), Vec(-4.0, -0.5, 6.0)),
+            gun = f16Gun,
+            firePoints = listOf(Vec(1.75, 0.0, 2.0), Vec(-1.75, 0.0, 2.0)),
         )
 
-    val fighter =
+    val f16 =
         Plane(
-            name = "fighter",
-            itemName = Component.text("Fighter", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            hitbox = fighterHitbox,
+            name = "f16",
+            itemName = Component.text("F-16", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            hitbox = f16Hitbox,
             health =
                 Health(
-                    800F,
+                    800f,
                     mapOf(
-                        AmmoTypes.NORMAL to 1f,
-                        AmmoTypes.MISSILE to 1f,
-                        AmmoTypes.BOMB to 1f,
-                        AmmoTypes.EXPLOSIVE to 1f,
+                        AmmoTypes.NORMAL to 2.5f,
+                        AmmoTypes.EXPLOSIVE to 750f,
+                        AmmoTypes.BOMB to 500f,
+                        AmmoTypes.MISSILE to 750f,
                     ),
                 ),
             placeTime = 2000,
-            ammo = Ammo.ammo762x39mm,
-            maxAmmo = 120,
-            weapons = listOf(fighterWeapon),
+            weapons = listOf(f16Weapon),
             scale = 7.0,
-        )
-
-    val bomber =
-        Plane(
-            name = "bomber",
-            itemName = Component.text("Bomber", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            itemModel = "aechronis:fighter",
-            model = "aechronis:fighter",
-            hitbox = fighterHitbox,
-            health =
-                Health(
-                    800F,
-                    mapOf(
-                        AmmoTypes.NORMAL to 1f,
-                        AmmoTypes.MISSILE to 1f,
-                        AmmoTypes.BOMB to 1f,
-                        AmmoTypes.EXPLOSIVE to 1f,
-                    ),
-                ),
-            placeTime = 2000,
-            ammo = Ammo.tankShell,
-            maxAmmo = 10,
-            bomb =
-                PlaneBombWeapon(
-                    projectileModel = "aechronis:m1a1-abrams-shell",
-                    projectileName = Component.text("Bomber shell"),
-                    releaseOffset = Vec(0.0, -1.5, 0.0),
-                    projectileSpeed = 4.0,
-                    projectileExplosionRadius = 4,
-                    projectileExplosionFire = 0.1,
-                    projectileExplosionDamage = 20f,
-                    projectileTrailParticle = Particle.ELECTRIC_SPARK,
-                    projectileMaxRange = 128.0,
-                    fireCooldown = 20_000,
-                ),
-            scale = 7.0,
+            speed = 2.0,
+            turnSpeed = 0.09f,
+            seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
         )
 }
