@@ -25,6 +25,7 @@ import net.aechronis.server.tasks.TabManager
 import net.aechronis.server.tasks.WorldSaver
 import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
+import net.aechronis.watchdog.Watchdog
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.color.Color
@@ -145,6 +146,8 @@ fun main(args: Array<String>) {
     BlockBehaviorRuleRegistrations.register(*VanillaBlockBehaviour.ALL.toTypedArray())
     PlacedHandlerRegistration.registerDefault()
     BlockPickup.enable()
+
+    Watchdog.initialize()
 
     Combat.initialize()
 

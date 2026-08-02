@@ -28,4 +28,5 @@ include(
     ":modules:vanilla",
     ":modules:worldedit",
     ":modules:logger",
+    ":modules:watchdog",
 )

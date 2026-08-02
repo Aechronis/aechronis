@@ -23,6 +23,7 @@ dependencies {
     implementation(project(":modules:combat"))
     implementation(project(":modules:vanilla"))
     implementation(project(":modules:logger"))
+    implementation(project(":modules:watchdog"))
     implementation(project(":modules:worldedit"))
 
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
