@@ -1,0 +1,143 @@
+/**
+ * Serializer
+ *
+ * Performs manual JSON string serialization of
+ * player-editable game structures (resident, town, nation, building)
+ *
+ * Manual JSON string serialization is for performance
+ * of world state writes, to generate a minified JSON String.
+ * Total save time is then blocked purely by File IO.
+ *
+ */
+
+package net.aechronis.nodes.serdes
+
+import com.google.gson.JsonPrimitive
+import net.aechronis.nodes.objects.BuildingSaveState
+import net.aechronis.nodes.objects.Nation.NationSaveState
+import net.aechronis.nodes.objects.Resident.ResidentSaveState
+import net.aechronis.nodes.objects.Town.TownSaveState
+
+object Serializer {
+
+    fun worldToJson(
+        residents: List<ResidentSaveState>,
+        towns: List<TownSaveState>,
+        nations: List<NationSaveState>,
+    ): String {
+        // calculate string builder capacity
+
+        // initial metadata header + close bracket [26]: {"meta":{"type":"towns"},}
+        // residents header + close bracket + comma [15]: "residents":{},
+        // towns header + close bracket + comma [11]: "towns":{},
+        // nations header + close bracket [13]: "nations":{}}
+        // -> 65 minimum
+        // will add arbitrary extra margin and up size to 200
+        var bufferSize = 200
+
+        // residents:
+        // format: "uuid":{...},
+        // uuid - 36 chars
+        // 2 '"', ":", and "," - 4 chars
+        for (v in residents) {
+            bufferSize += (40 + v.toJsonString().length)
+        }
+
+        // towns:
+        // format: "name":{...},
+        for (v in towns) {
+            bufferSize += (4 + v.name.length + v.toJsonString().length)
+        }
+
+        // nations:
+        // format: "name":{...},
+        for (v in nations) {
+            bufferSize += (4 + v.name.length + v.toJsonString().length)
+        }
+
+        // json string builder
+        val jsonString = StringBuilder(bufferSize)
+
+        // ===============================
+        // Metadata (for web editor)
+        // ===============================
+        jsonString.append("{\"meta\":{\"type\":\"towns\"},")
+
+        // ===============================
+        // Residents
+        // ===============================
+        jsonString.append("\"residents\":{")
+
+        for ((i, resident) in residents.withIndex()) {
+            jsonString.append(JsonPrimitive(resident.uuid.toString())).append(":")
+            jsonString.append(resident.toJsonString())
+            if (i < residents.size - 1) {
+                jsonString.append(",")
+            }
+        }
+
+        jsonString.append("},")
+
+        // ===============================
+        // Towns
+        // ===============================
+        jsonString.append("\"towns\":{")
+
+        for ((i, town) in towns.withIndex()) {
+            jsonString.append(JsonPrimitive(town.name)).append(":")
+            jsonString.append(town.toJsonString())
+            if (i < towns.size - 1) {
+                jsonString.append(",")
+            }
+        }
+
+        jsonString.append("},")
+
+        // ===============================
+        // Nations
+        // ===============================
+        jsonString.append("\"nations\":{")
+
+        for ((i, nation) in nations.withIndex()) {
+            jsonString.append(JsonPrimitive(nation.name)).append(":")
+            jsonString.append(nation.toJsonString())
+            if (i < nations.size - 1) {
+                jsonString.append(",")
+            }
+        }
+
+        jsonString.append("}}")
+
+        // ===============================
+
+        return jsonString.toString()
+    }
+
+    /**
+     * Serialize buildings to JSON string
+     */
+    fun buildingsToJson(
+        buildings: List<BuildingSaveState>,
+    ): String {
+        var bufferSize = 200
+        for (v in buildings) {
+            bufferSize += (1 + v.toJsonString().length)
+        }
+
+        val jsonString = StringBuilder(bufferSize)
+
+        jsonString.append("{\"meta\":{\"type\":\"buildings\"},")
+        jsonString.append("\"buildings\":[")
+
+        for ((i, building) in buildings.withIndex()) {
+            jsonString.append(building.toJsonString())
+            if (i < buildings.size - 1) {
+                jsonString.append(",")
+            }
+        }
+
+        jsonString.append("]}")
+
+        return jsonString.toString()
+    }
+}
