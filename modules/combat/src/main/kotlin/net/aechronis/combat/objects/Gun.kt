@@ -20,6 +20,7 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.LivingEntity
+import net.minestom.server.entity.MainHand
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.RelativeFlags
 import net.minestom.server.entity.damage.Damage
@@ -28,7 +29,9 @@ import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket
 import net.minestom.server.particle.Particle
 import net.minestom.server.timer.TaskSchedule
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.random.Random
 
 class Gun(
@@ -53,6 +56,7 @@ class Gun(
     val itemModelReloading: String = "$itemModel-reloading",
     val itemModelAiming: String = "$itemModel-aiming",
     val bulletTrailParticle: Particle? = null,
+    val bulletTrailOffset: Vec = Vec.ZERO,
 ) : Item(
         name,
         itemName,
@@ -259,7 +263,18 @@ class Gun(
 
         // draw bullet trail particle if set
         if (bulletTrailParticle != null) {
-            Particles.particleLine(player.instance, bulletTrailParticle, offsetPos, trailEndPoint)
+            val trailStart =
+                if (firePos == null) {
+                    bulletTrailOrigin(
+                        offsetPos,
+                        player.settings.mainHand,
+                        bulletTrailOffset,
+                        Combat.playerAiming[player] == true,
+                    )
+                } else {
+                    offsetPos
+                }
+            Particles.particleLine(player.instance, bulletTrailParticle, trailStart, trailEndPoint)
         }
 
         // send recoil packet to player
@@ -328,4 +343,20 @@ class Gun(
         }
         return null
     }
+}
+
+internal fun bulletTrailOrigin(
+    eyePos: Pos,
+    mainHand: MainHand,
+    offset: Vec,
+    aiming: Boolean,
+): Pos {
+    if (aiming) return eyePos
+
+    val yaw = Math.toRadians(eyePos.yaw.toDouble())
+    val sideways = if (mainHand == MainHand.RIGHT) offset.x else -offset.x
+
+    return eyePos
+        .add(eyePos.direction().mul(offset.z))
+        .add(cos(yaw) * sideways, offset.y, sin(yaw) * sideways)
 }
