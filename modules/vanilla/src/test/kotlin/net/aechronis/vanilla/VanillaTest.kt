@@ -12,6 +12,7 @@ import java.net.SocketAddress
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import kotlin.test.BeforeTest
 
 object VanillaTest {
@@ -51,7 +52,7 @@ object VanillaTest {
     fun createPlayer(position: Pos): Player {
         initialize()
         val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "test"))
-        player.setInstance(instance, position).join()
+        player.setInstance(instance, position).get(10, TimeUnit.SECONDS)
         player.health = 20f
         return player
     }
