@@ -1,11 +1,8 @@
 name: Guides Pages
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - "guides/**"
-      - ".github/workflows/guides-pages.yml"
+  # Keep deployment manual until Pages and the public custom domain are cut over
+  # from the existing public guides repository.
   workflow_dispatch:
 
 permissions:
