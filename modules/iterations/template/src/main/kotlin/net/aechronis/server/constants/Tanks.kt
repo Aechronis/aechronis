@@ -9,7 +9,6 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
-import net.minestom.server.particle.Particle
 
 object Tanks {
     private val m1a1AbramsHitbox =
@@ -33,16 +32,14 @@ object Tanks {
             maxAmmo = 10,
             health =
                 Health(
-                    1000F,
+                    1500f,
                     mapOf(
-                        AmmoTypes.NORMAL to 1f,
-                        AmmoTypes.MISSILE to 1f,
-                        AmmoTypes.BOMB to 1f,
-                        AmmoTypes.EXPLOSIVE to 1f,
+                        AmmoTypes.NORMAL to 2.5f,
+                        AmmoTypes.EXPLOSIVE to 750f,
+                        AmmoTypes.BOMB to 500f,
+                        AmmoTypes.MISSILE to 750f,
                     ),
                 ),
-            projectileTrailParticle = Particle.ELECTRIC_SPARK,
-            projectileMaxRange = 128.0,
-            seatOffsets = listOf(Vec(0.0, 1.0, 0.0)),
+            projectileModel = "aechronis:shell",
         )
 }
