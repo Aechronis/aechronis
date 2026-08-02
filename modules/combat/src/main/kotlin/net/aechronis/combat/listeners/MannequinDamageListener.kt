@@ -1,0 +1,46 @@
+package net.aechronis.combat.listeners
+
+import net.aechronis.combat.Combat
+import net.aechronis.combat.objects.Drone
+import net.aechronis.combat.objects.Vehicle
+import net.minestom.server.entity.EntityType
+import net.minestom.server.entity.Player
+import net.minestom.server.event.entity.EntityDamageEvent
+
+object MannequinDamageListener {
+    private val forwarding = HashSet<Player>()
+
+    fun onEntityDamage(event: EntityDamageEvent) {
+        val entity = event.entity
+
+        // a drone operator clone takes hits on the pilot's behalf: cancel the
+        // damage on the clone and apply it to the pilot instead.
+        val pilot = entity.let { Drone.mannequinPilot[it] }
+        if (pilot != null) {
+            event.isCancelled = true
+
+            forwarding.add(pilot)
+            try {
+                Combat.applyDamage(pilot, event.damage)
+            } finally {
+                forwarding.remove(pilot)
+            }
+            return
+        }
+
+        // other mannequins (hat preview, corpses) ignore damage entirely
+        if (entity.entityType == EntityType.MANNEQUIN) {
+            event.isCancelled = true
+            return
+        }
+
+        // occupants of a protecting vehicle are invulnerable while riding
+        if (entity is Player && entity !in forwarding && Vehicle.isProtectedOccupant(entity)) {
+            event.isCancelled = true
+        }
+    }
+
+    fun init() {
+        Combat.highPriorityEventNode.addListener(EntityDamageEvent::class.java, MannequinDamageListener::onEntityDamage)
+    }
+}

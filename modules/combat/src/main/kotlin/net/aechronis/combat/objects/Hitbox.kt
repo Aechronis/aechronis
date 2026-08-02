@@ -1,0 +1,272 @@
+package net.aechronis.combat.objects
+
+import net.aechronis.combat.utils.Particles
+import net.aechronis.combat.utils.rotatePoint
+import net.aechronis.combat.utils.rotatePointInverse
+import net.aechronis.combat.utils.segmentBoxIntersection
+import net.minestom.server.coordinate.Point
+import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.Player
+import net.minestom.server.instance.Instance
+import net.minestom.server.particle.Particle
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sqrt
+
+data class HitboxPart(
+    val offset: Vec,
+    val size: Vec,
+)
+
+// collection of hitbox parts that make up a vehicles collision shape
+class Hitbox(
+    val parts: List<HitboxPart>,
+) {
+    // gets the y offset needed to place the vehicle on the ground
+    fun getGroundOffset(): Double = -getBottomOffset()
+
+    fun getBottomOffset(): Double = parts.minOfOrNull { it.offset.y - it.size.y } ?: 0.0
+
+    fun getTopOffset(): Double = parts.maxOfOrNull { it.offset.y + it.size.y } ?: 0.0
+
+    fun getMaxDistanceFrom(origin: Vec): Double =
+        parts.maxOfOrNull { part ->
+            val x = abs(part.offset.x - origin.x) + part.size.x
+            val y = abs(part.offset.y - origin.y) + part.size.y
+            val z = abs(part.offset.z - origin.z) + part.size.z
+            sqrt(x * x + y * y + z * z)
+        } ?: 0.0
+
+    // local-space centre of the combined bounding box of all parts
+    fun getCenterOffset(): Vec {
+        if (parts.isEmpty()) return Vec.ZERO
+
+        var minX = Double.MAX_VALUE
+        var minY = Double.MAX_VALUE
+        var minZ = Double.MAX_VALUE
+        var maxX = -Double.MAX_VALUE
+        var maxY = -Double.MAX_VALUE
+        var maxZ = -Double.MAX_VALUE
+
+        for (part in parts) {
+            minX = min(minX, part.offset.x - part.size.x)
+            maxX = max(maxX, part.offset.x + part.size.x)
+            minY = min(minY, part.offset.y - part.size.y)
+            maxY = max(maxY, part.offset.y + part.size.y)
+            minZ = min(minZ, part.offset.z - part.size.z)
+            maxZ = max(maxZ, part.offset.z + part.size.z)
+        }
+
+        return Vec((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2)
+    }
+
+    // worldspace centre of the hitbox for a given orientation
+    fun getWorldCenter(
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): Pos {
+        val center = rotatePoint(getCenterOffset(), yaw, pitch, roll)
+        return Pos(
+            position.x + center.x,
+            position.y + center.y,
+            position.z + center.z,
+            position.yaw,
+            position.pitch,
+        )
+    }
+
+    companion object {
+        // players viewing hitboxes
+        val viewingHitboxes = HashSet<Player>()
+    }
+
+    // gets the worldspace corners of all hitbox parts
+    fun getWorldCorners(
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): List<List<Vec>> =
+        parts.map { part ->
+            getPartWorldCorners(part, position, yaw, pitch, roll)
+        }
+
+    // gets the 8 corners of a hitbox part in worldspace
+    private fun getPartWorldCorners(
+        part: HitboxPart,
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): List<Vec> {
+        val corners = mutableListOf<Vec>()
+        val signs = listOf(-1.0, 1.0)
+
+        for (sx in signs) {
+            for (sy in signs) {
+                for (sz in signs) {
+                    val localCorner =
+                        part.offset.add(
+                            Vec(
+                                part.size.x * sx,
+                                part.size.y * sy,
+                                part.size.z * sz,
+                            ),
+                        )
+                    val worldCorner = rotatePoint(localCorner, yaw, pitch, roll)
+                    corners.add(Vec(position.x + worldCorner.x, position.y + worldCorner.y, position.z + worldCorner.z))
+                }
+            }
+        }
+        return corners
+    }
+
+    // checks if a point is inside any hitbox part
+    fun containsPoint(
+        point: Vec,
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): HitboxPart? {
+        for (part in parts) {
+            if (partContainsPoint(part, point, position, yaw, pitch, roll)) {
+                return part
+            }
+        }
+        return null
+    }
+
+    // Returns the nearest intersection in world-space units along the segment.
+    internal fun firstIntersection(
+        origin: Point,
+        vector: Vec,
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): Double? {
+        val localOrigin =
+            rotatePointInverse(
+                Vec(origin.x() - position.x, origin.y() - position.y, origin.z() - position.z),
+                yaw,
+                pitch,
+                roll,
+            )
+        val localVector = rotatePointInverse(vector, yaw, pitch, roll)
+        val distance = vector.length()
+
+        return parts
+            .mapNotNull { part ->
+                segmentBoxIntersection(
+                    localOrigin,
+                    localVector,
+                    part.offset.sub(part.size),
+                    part.offset.add(part.size),
+                )
+            }.minOrNull()
+            ?.times(distance)
+    }
+
+    // checks if a point is inside a specific hitbox part
+    private fun partContainsPoint(
+        part: HitboxPart,
+        point: Vec,
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): Boolean {
+        // point -> local space
+        val relativePoint = Vec(point.x - position.x, point.y - position.y, point.z - position.z)
+        val localPoint = rotatePointInverse(relativePoint, yaw, pitch, roll)
+
+        val adjusted = localPoint.sub(part.offset)
+        return adjusted.x >= -part.size.x &&
+            adjusted.x <= part.size.x &&
+            adjusted.y >= -part.size.y &&
+            adjusted.y <= part.size.y &&
+            adjusted.z >= -part.size.z &&
+            adjusted.z <= part.size.z
+    }
+
+    // checks for collision with the ground (any blocks)
+    // returns the lowest Y coordinate of the hitbox if colliding
+    fun checkGroundCollision(
+        instance: Instance,
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): Boolean {
+        val allCorners = getWorldCorners(position, yaw, pitch, roll)
+        for (partCorners in allCorners) {
+            for (corner in partCorners) {
+                val block = instance.getBlock(corner)
+                if (!block.isAir) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    // renders hitbox with particles for debugging
+    fun render(
+        instance: Instance,
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+        particle: Particle = Particle.FLAME,
+        spacing: Double = 0.5,
+    ) {
+        for (part in parts) {
+            renderPart(part, instance, position, yaw, pitch, roll, particle, spacing)
+        }
+    }
+
+    // renders a single hitbox part
+    private fun renderPart(
+        part: HitboxPart,
+        instance: Instance,
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+        particle: Particle,
+        spacing: Double,
+    ) {
+        val corners = getPartWorldCorners(part, position, yaw, pitch, roll)
+
+        // (-x,-y,-z), (-x,-y,+z), (-x,+y,-z), (-x,+y,+z), (+x,-y,-z), (+x,-y,+z), (+x,+y,-z), (+x,+y,+z)
+        val edges =
+            listOf(
+                // bottom face
+                0 to 1,
+                0 to 2,
+                1 to 3,
+                2 to 3,
+                // top face
+                4 to 5,
+                4 to 6,
+                5 to 7,
+                6 to 7,
+                // vertical edges
+                0 to 4,
+                1 to 5,
+                2 to 6,
+                3 to 7,
+            )
+
+        for ((i1, i2) in edges) {
+            val from = corners[i1]
+            val to = corners[i2]
+            Particles.particleLine(instance, particle, Pos(from.x, from.y, from.z), Pos(to.x, to.y, to.z), spacing)
+        }
+    }
+}
