@@ -1,0 +1,72 @@
+package net.aechronis.vanilla.serdes
+
+import net.aechronis.vanilla.managers.Commands
+import net.aechronis.vanilla.managers.KillShop
+import net.kyori.adventure.nbt.BinaryTagTypes
+import net.kyori.adventure.nbt.CompoundBinaryTag
+import net.kyori.adventure.nbt.ListBinaryTag
+import net.kyori.adventure.nbt.StringBinaryTag
+import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.Player
+import net.minestom.server.inventory.AbstractInventory
+
+object PlayerDataSerializer {
+    fun serialize(player: Player): CompoundBinaryTag {
+        val builder =
+            CompoundBinaryTag
+                .builder()
+                .putFloat("Health", player.getHealth())
+                .putInt("Food", player.food)
+                .putFloat("FoodSaturation", player.foodSaturation)
+                .putInt("Points", player.getTag(KillShop.POINTS_TAG) ?: 0)
+                .putString("GameMode", player.gameMode.name)
+                .putBoolean("AllowFlying", player.isAllowFlying)
+                .putBoolean("Flying", player.isFlying)
+                .put("Position", serializePosition(player.position))
+                .put("Inventory", serializeInventory(player.inventory))
+                .put("EnderChest", serializeInventory(Commands.getEnderChest(player)))
+
+        val cursorItem = player.inventory.cursorItem
+        if (!cursorItem.isAir) builder.put("CursorItem", cursorItem.toItemNBT())
+
+        val ignored = Commands.getIgnored(player)
+        if (ignored.isNotEmpty()) {
+            val list = ListBinaryTag.builder(BinaryTagTypes.STRING)
+            ignored.forEach { list.add(StringBinaryTag.stringBinaryTag(it.toString())) }
+            builder.put("Ignored", list.build())
+        }
+
+        return builder.build()
+    }
+
+    private fun serializePosition(position: Pos): CompoundBinaryTag =
+        CompoundBinaryTag
+            .builder()
+            .putDouble("X", position.x())
+            .putDouble("Y", position.y())
+            .putDouble("Z", position.z())
+            .putFloat("Yaw", position.yaw())
+            .putFloat("Pitch", position.pitch())
+            .build()
+
+    private fun serializeInventory(inventory: AbstractInventory): ListBinaryTag {
+        val builder = ListBinaryTag.builder(BinaryTagTypes.COMPOUND)
+
+        for (slot in 0..<inventory.getSize()) {
+            val item = inventory.getItemStack(slot)
+            if (item.isAir()) continue
+
+            val itemNbt = item.toItemNBT()
+            val entryBuilder =
+                CompoundBinaryTag
+                    .builder()
+                    .putByte("Slot", slot.toByte())
+            for (key in itemNbt.keySet()) {
+                entryBuilder.put(key, itemNbt.get(key)!!)
+            }
+            builder.add(entryBuilder.build())
+        }
+
+        return builder.build()
+    }
+}
