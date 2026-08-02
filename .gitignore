@@ -1,0 +1,27 @@
+# Gradle and Kotlin
+.gradle/
+**/build/
+.kotlin/
+out/
+
+# IDEs and operating systems
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# JavaScript tooling
+node_modules/
+dist/
+
+# Server runtime data
+/server/axiom/
+/server/combat/
+/server/luckperms/
+/server/nodes/
+/server/spark/
+/server/vanilla/
+/server/world/
+/server/worldedit/
+/server/logger.db*
+/server/logs/

@@ -1,59 +1,18 @@
-group = "net.aechronis"
-version = System.getenv("GITHUB_SHA")?.take(7) ?: "local"
-
 plugins {
+    kotlin("jvm")
+    id("org.jlleitschuh.gradle.ktlint")
     `maven-publish`
-    id("org.jetbrains.kotlin.jvm") version "2.4.10"
-    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
-}
-
-java.toolchain.languageVersion = JavaLanguageVersion.of(25)
-
-repositories {
-    mavenCentral()
-    maven("https://repo.hypera.dev/snapshots/") // luckperms (minestom) & Spark
-    maven {
-        url = uri("https://maven.pkg.github.com/Aechronis/aechronis")
-        credentials {
-            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
-            password = project.findProperty("gpr.token") as String? ?: System.getenv("GITHUB_TOKEN")
-        }
-    }
 }
 
 dependencies {
     api("net.minestom:minestom:2026.07.12-26.2")
     api("com.google.code.gson:gson:2.14.0")
-    compileOnly("net.aechronis:utils:86a747b")
+    compileOnly(project(":modules:utils"))
 
-    // testing
     testImplementation("com.google.code.gson:gson:2.14.0")
-    testImplementation("net.aechronis:utils:86a747b")
+    testImplementation(project(":modules:utils"))
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
     testImplementation("org.junit.platform:junit-platform-launcher:6.1.2")
-    testImplementation("org.slf4j:slf4j-simple:2.0.18") // logging (only used while testing at the moment)
-}
-
-tasks.test {
-    useJUnitPlatform()
-    systemProperty("keepRunning", System.getProperty("keepRunning", "false"))
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-        }
-    }
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/Aechronis/vanilla")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
-            }
-        }
-    }
+    testImplementation("org.slf4j:slf4j-simple:2.0.18")
 }
