@@ -1,0 +1,9 @@
+{
+  "pack": {
+    "pack_format": 75,
+    "min_format": [22,0],
+    "max_format": [75,0],
+    "supported_formats": [22,75],
+    "description": "           §6§lAechronis\n§7   Template resource pack"
+  }
+}
