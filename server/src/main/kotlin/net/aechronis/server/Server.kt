@@ -1,4 +1,4 @@
-package net.aechronis.aechronis
+package net.aechronis.server
 
 import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
 import io.github.openminigameserver.worldedit.MinestomWorldEdit
@@ -6,17 +6,17 @@ import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfi
 import me.lucko.luckperms.minestom.CommandRegistry
 import me.lucko.luckperms.minestom.LuckPermsMinestom
 import me.lucko.spark.minestom.SparkMinestom
-import net.aechronis.aechronis.constants.Ammo
-import net.aechronis.aechronis.constants.Armor
-import net.aechronis.aechronis.constants.Cars
-import net.aechronis.aechronis.constants.Drones
-import net.aechronis.aechronis.constants.Guns
-import net.aechronis.aechronis.constants.Hats
-import net.aechronis.aechronis.constants.Planes
-import net.aechronis.aechronis.constants.Tanks
-import net.aechronis.aechronis.listeners.PlayerJoinListener
-import net.aechronis.aechronis.tasks.TabManager
-import net.aechronis.aechronis.tasks.WorldSaver
+import net.aechronis.server.constants.Ammo
+import net.aechronis.server.constants.Armor
+import net.aechronis.server.constants.Cars
+import net.aechronis.server.constants.Drones
+import net.aechronis.server.constants.Guns
+import net.aechronis.server.constants.Hats
+import net.aechronis.server.constants.Planes
+import net.aechronis.server.constants.Tanks
+import net.aechronis.server.listeners.PlayerJoinListener
+import net.aechronis.server.tasks.TabManager
+import net.aechronis.server.tasks.WorldSaver
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
 import net.aechronis.logger.Logger
@@ -42,7 +42,7 @@ import org.everbuild.blocksandstuff.blocks.PlacedHandlerRegistration
 import org.everbuild.blocksandstuff.blocks.group.VanillaBlockBehaviour
 import java.nio.file.Path
 
-object Aechronis {
+object Server {
     lateinit var fullbrightKey: RegistryKey<DimensionType>
     lateinit var instance: InstanceContainer
     val eventNode = EventNode.all("aechronis")
@@ -80,13 +80,13 @@ fun main(args: Array<String>) {
                 Color.WHITE,
             ).build()
 
-    Aechronis.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
+    Server.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
 
-    MinecraftServer.getGlobalEventHandler().addChild(Aechronis.eventNode)
+    MinecraftServer.getGlobalEventHandler().addChild(Server.eventNode)
 
     // create instance
-    Aechronis.instance = MinecraftServer.getInstanceManager().createInstanceContainer(Aechronis.fullbrightKey)
-    Aechronis.instance.chunkLoader = AnvilLoader(Path.of("world"), DimensionType.OVERWORLD.key())
+    Server.instance = MinecraftServer.getInstanceManager().createInstanceContainer(Server.fullbrightKey)
+    Server.instance.chunkLoader = AnvilLoader(Path.of("world"), DimensionType.OVERWORLD.key())
 
     // tasks
     TabManager.start()

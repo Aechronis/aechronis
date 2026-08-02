@@ -1,6 +1,6 @@
-package net.aechronis.aechronis.tasks
+package net.aechronis.server.tasks
 
-import net.aechronis.aechronis.Aechronis
+import net.aechronis.server.Server
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
@@ -32,7 +32,7 @@ object TabManager {
 
     fun start() {
         val lastTick = AtomicReference<TickMonitor>()
-        Aechronis.eventNode.addListener(ServerTickMonitorEvent::class.java) { event -> lastTick.set(event.tickMonitor) }
+        Server.eventNode.addListener(ServerTickMonitorEvent::class.java) { event -> lastTick.set(event.tickMonitor) }
 
         MinecraftServer
             .getSchedulerManager()

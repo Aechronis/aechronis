@@ -1,4 +1,4 @@
-package net.aechronis.aechronis.constants
+package net.aechronis.server.constants
 
 import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Hitbox

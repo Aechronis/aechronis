@@ -1,4 +1,4 @@
-package net.aechronis.aechronis.constants
+package net.aechronis.server.constants
 
 import net.aechronis.combat.objects.Ammo
 import net.aechronis.combat.objects.AmmoTypes

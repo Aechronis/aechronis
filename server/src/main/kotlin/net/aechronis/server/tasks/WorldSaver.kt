@@ -1,6 +1,6 @@
-package net.aechronis.aechronis.tasks
+package net.aechronis.server.tasks
 
-import net.aechronis.aechronis.Aechronis
+import net.aechronis.server.Server
 import net.minestom.server.MinecraftServer
 import net.minestom.server.timer.TaskSchedule
 
@@ -11,7 +11,7 @@ object WorldSaver {
         MinecraftServer
             .getSchedulerManager()
             .buildTask {
-                Aechronis.instance.saveChunksToStorage()
+                Server.instance.saveChunksToStorage()
             }.repeat(TaskSchedule.minutes(SAVE_INTERVAL_MINUTES))
             .schedule()
     }

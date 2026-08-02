@@ -1,6 +1,6 @@
-package net.aechronis.aechronis.listeners
+package net.aechronis.server.listeners
 
-import net.aechronis.aechronis.Aechronis
+import net.aechronis.server.Server
 import net.aechronis.nodes.objects.Town
 import net.kyori.adventure.resource.ResourcePackInfo
 import net.kyori.adventure.resource.ResourcePackRequest
@@ -32,13 +32,13 @@ object PlayerJoinListener {
     private fun onAsyncPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
         val player = event.player
 
-        event.spawningInstance = Aechronis.instance
+        event.spawningInstance = Server.instance
         player.respawnPoint = Town.fromPlayer(player)?.spawnpoint ?: Pos(0.0, 64.0, 0.0)
         player.gameMode = GameMode.SURVIVAL
         player.sendResourcePacks(resourcePackRequest)
     }
 
     fun init() {
-        Aechronis.eventNode.addListener(AsyncPlayerConfigurationEvent::class.java, PlayerJoinListener::onAsyncPlayerConfiguration)
+        Server.eventNode.addListener(AsyncPlayerConfigurationEvent::class.java, PlayerJoinListener::onAsyncPlayerConfiguration)
     }
 }
