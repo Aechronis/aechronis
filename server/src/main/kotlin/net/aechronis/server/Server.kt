@@ -6,6 +6,12 @@ import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfi
 import me.lucko.luckperms.minestom.CommandRegistry
 import me.lucko.luckperms.minestom.LuckPermsMinestom
 import me.lucko.spark.minestom.SparkMinestom
+import net.aechronis.combat.Combat
+import net.aechronis.combat.objects.Item
+import net.aechronis.logger.Logger
+import net.aechronis.logger.LoggerConfig
+import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.NodesConfig
 import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.Cars
@@ -17,12 +23,6 @@ import net.aechronis.server.constants.Tanks
 import net.aechronis.server.listeners.PlayerJoinListener
 import net.aechronis.server.tasks.TabManager
 import net.aechronis.server.tasks.WorldSaver
-import net.aechronis.combat.Combat
-import net.aechronis.combat.objects.Item
-import net.aechronis.logger.Logger
-import net.aechronis.logger.LoggerConfig
-import net.aechronis.nodes.Nodes
-import net.aechronis.nodes.NodesConfig
 import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
 import net.minestom.server.Auth

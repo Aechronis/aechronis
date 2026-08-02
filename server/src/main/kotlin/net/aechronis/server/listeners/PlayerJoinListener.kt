@@ -1,7 +1,7 @@
 package net.aechronis.server.listeners
 
-import net.aechronis.server.Server
 import net.aechronis.nodes.objects.Town
+import net.aechronis.server.Server
 import net.kyori.adventure.resource.ResourcePackInfo
 import net.kyori.adventure.resource.ResourcePackRequest
 import net.kyori.adventure.text.Component
