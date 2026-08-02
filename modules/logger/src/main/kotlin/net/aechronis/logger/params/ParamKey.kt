@@ -1,0 +1,22 @@
+package net.aechronis.logger.params
+
+enum class ParamKey(
+    val aliases: List<String>,
+    val desc: String,
+) {
+    USER(listOf("u", "user"), "user(s)"),
+    TIME(listOf("t", "time"), "time window"),
+    RADIUS(listOf("r", "radius"), "block radius"),
+    CHUNK_RADIUS(listOf("cr", "chunkradius"), "chunk radius"),
+    ACTION(listOf("a", "actions"), "action(s)"),
+    INCLUDE(listOf("i", "include"), "include block(s)"),
+    EXCLUDE(listOf("e", "exclude"), "exclude block(s)"),
+    SOURCE(listOf("s", "source"), "feature source (routes lookup to feature log)"),
+    CONTEXT(listOf("c", "context"), "block source/context"),
+    ORIGIN(listOf("o", "origin"), "recording origin"),
+    ;
+
+    companion object {
+        fun fromKey(key: String): ParamKey? = entries.firstOrNull { e -> e.aliases.any { it.equals(key, ignoreCase = true) } }
+    }
+}
