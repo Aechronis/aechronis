@@ -39,8 +39,7 @@ object Bundles {
 
     fun isBundle(item: ItemStack): Boolean = item.material() in bundleMaterials
 
-    fun makeBundle(items: Map<Int, ItemStack>): ItemStack =
-        makeBundle(ItemStack.of(Material.BUNDLE), items)
+    fun makeBundle(items: Map<Int, ItemStack>): ItemStack = makeBundle(ItemStack.of(Material.BUNDLE), items)
 
     fun use(
         player: Player,
@@ -88,8 +87,16 @@ object Bundles {
     ): ItemStack {
         val stored =
             items.entries
-                .sortedWith(compareBy({ previewSlots.indexOf(it.key).let { index -> if (index == -1) previewSlots.size else index } }, { it.key }))
-                .map { StoredItem(it.key, it.value) }
+                .sortedWith(
+                    compareBy(
+                        {
+                            previewSlots.indexOf(it.key).let { index ->
+                                if (index == -1) previewSlots.size else index
+                            }
+                        },
+                        { it.key },
+                    ),
+                ).map { StoredItem(it.key, it.value) }
         val entries = ListBinaryTag.builder(BinaryTagTypes.COMPOUND)
         stored.forEach { entry ->
             val itemBuilder =

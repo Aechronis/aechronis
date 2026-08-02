@@ -12,16 +12,17 @@ import net.minestom.server.entity.Player
 fun Player.hasPermission(permission: String?): Boolean {
     if (permission == null) return true
 
-    return System.getenv("DEBUG")?.toBoolean() == true || try {
-        LuckPermsProvider
-            .get()
-            .userManager
-            .getUser(uuid)
-            ?.cachedData
-            ?.permissionData
-            ?.checkPermission(permission)
-            ?.asBoolean() == true
-    } catch (_: Exception) {
-        false
-    }
+    return System.getenv("DEBUG")?.toBoolean() == true ||
+        try {
+            LuckPermsProvider
+                .get()
+                .userManager
+                .getUser(uuid)
+                ?.cachedData
+                ?.permissionData
+                ?.checkPermission(permission)
+                ?.asBoolean() == true
+        } catch (_: Exception) {
+            false
+        }
 }
