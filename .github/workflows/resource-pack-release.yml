@@ -21,8 +21,13 @@ jobs:
           asset="aechronis-resource-pack-${version}.zip"
           artifact="$RUNNER_TEMP/$asset"
           checksum="$artifact.sha1"
+          archive_mtime="$(git show -s --format=%cI "$GITHUB_SHA")"
 
-          git archive --format=zip --output="$artifact" "${GITHUB_SHA}:resource-pack"
+          git archive \
+            --format=zip \
+            --mtime="$archive_mtime" \
+            --output="$artifact" \
+            "${GITHUB_SHA}:resource-pack"
           (
             cd "$RUNNER_TEMP"
             sha1sum "$asset" > "$asset.sha1"
