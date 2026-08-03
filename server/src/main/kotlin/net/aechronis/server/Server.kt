@@ -22,6 +22,7 @@ import net.aechronis.server.constants.Hats
 import net.aechronis.server.constants.Planes
 import net.aechronis.server.constants.Tanks
 import net.aechronis.server.listeners.PlayerJoinListener
+import net.aechronis.server.resourcepack.ResourcePackServer
 import net.aechronis.server.tasks.TabManager
 import net.aechronis.server.tasks.WorldSaver
 import net.aechronis.utils.hasPermission
@@ -42,6 +43,8 @@ import org.everbuild.blocksandstuff.blocks.BlockPickup
 import org.everbuild.blocksandstuff.blocks.BlockPlacementRuleRegistrations
 import org.everbuild.blocksandstuff.blocks.PlacedHandlerRegistration
 import org.everbuild.blocksandstuff.blocks.group.VanillaBlockBehaviour
+import java.net.InetSocketAddress
+import java.net.URI
 import java.nio.file.Path
 
 object Server {
@@ -93,9 +96,6 @@ fun main(args: Array<String>) {
     // tasks
     TabManager.start()
     WorldSaver.start()
-
-    // register listeners
-    PlayerJoinListener.init()
 
     Item.registerItems(
         // Ammo
@@ -165,5 +165,25 @@ fun main(args: Array<String>) {
     val worldEdit = MinestomWorldEdit()
     worldEdit.init()
 
-    server.start("0.0.0.0", port)
+    val resourcePackPort = System.getProperty("aechronis.resourcePack.port")?.toInt() ?: port + 1
+
+    val resourcePackServer =
+        ResourcePackServer.start(
+            directory = Path.of(System.getProperty("aechronis.resourcePack.directory", "resource-pack")),
+            address =
+                InetSocketAddress(
+                    System.getProperty("aechronis.resourcePack.bindAddress", "0.0.0.0"),
+                    resourcePackPort,
+                ),
+            publicBaseUri = System.getProperty("aechronis.resourcePack.publicBaseUrl")?.let(::URI),
+        )
+    Runtime.getRuntime().addShutdownHook(Thread(resourcePackServer::close, "resource-pack-server-shutdown"))
+    PlayerJoinListener.init(resourcePackServer)
+
+    try {
+        server.start("0.0.0.0", port)
+    } catch (exception: Exception) {
+        resourcePackServer.close()
+        throw exception
+    }
 }
