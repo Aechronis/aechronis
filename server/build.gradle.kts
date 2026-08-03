@@ -12,7 +12,7 @@ base {
 
 tasks.withType<Jar>().configureEach {
     manifest {
-        attributes["Main-Class"] = "net.aechronis.aechronis.ServerKt"
+        attributes["Main-Class"] = "net.aechronis.server.ServerKt"
     }
 }
 
