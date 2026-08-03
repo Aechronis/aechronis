@@ -2000,7 +2000,8 @@
 			"scale": [1.25, 1.25, 1.25]
 		},
 		"firstperson_lefthand": {
-			"translation": [-16.25, -10.5, -8]
+			"translation": [0, -15.25, -12.75],
+			"scale": [1.25, 1.25, 1.25]
 		},
 		"ground": {
 			"rotation": [1.32, -8.83, -87.02],
