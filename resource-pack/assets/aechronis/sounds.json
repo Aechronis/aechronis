@@ -1,4 +1,14 @@
 {
+  "ak12.fire": {
+    "sounds": [
+      "aechronis:ak74-fire"
+    ]
+  },
+  "ak12.reload": {
+    "sounds": [
+      "aechronis:ak74-reload"
+    ]
+  },
   "ak74.fire": {
     "sounds": [
       "aechronis:ak74-fire"
@@ -9,12 +19,92 @@
       "aechronis:ak74-reload"
     ]
   },
+  "awp.fire": {
+    "sounds": [
+      "aechronis:ak74-fire"
+    ]
+  },
+  "awp.reload": {
+    "sounds": [
+      "aechronis:ak74-reload"
+    ]
+  },
+  "g3.fire": {
+    "sounds": [
+      "aechronis:ak74-fire"
+    ]
+  },
+  "g3.reload": {
+    "sounds": [
+      "aechronis:ak74-reload"
+    ]
+  },
+  "glock17.fire": {
+    "sounds": [
+      "aechronis:m4a1-fire"
+    ]
+  },
+  "glock17.reload": {
+    "sounds": [
+      "aechronis:m4a1-reload"
+    ]
+  },
   "m4a1.fire": {
     "sounds": [
       "aechronis:m4a1-fire"
     ]
   },
   "m4a1.reload": {
+    "sounds": [
+      "aechronis:m4a1-reload"
+    ]
+  },
+  "m9.fire": {
+    "sounds": [
+      "aechronis:m4a1-fire"
+    ]
+  },
+  "m9.reload": {
+    "sounds": [
+      "aechronis:m4a1-reload"
+    ]
+  },
+  "mg3.fire": {
+    "sounds": [
+      "aechronis:ak74-fire"
+    ]
+  },
+  "mg3.reload": {
+    "sounds": [
+      "aechronis:ak74-reload"
+    ]
+  },
+  "mp5.fire": {
+    "sounds": [
+      "aechronis:m4a1-fire"
+    ]
+  },
+  "mp5.reload": {
+    "sounds": [
+      "aechronis:m4a1-reload"
+    ]
+  },
+  "qbz-95.fire": {
+    "sounds": [
+      "aechronis:ak74-fire"
+    ]
+  },
+  "qbz-95.reload": {
+    "sounds": [
+      "aechronis:ak74-reload"
+    ]
+  },
+  "vz61.fire": {
+    "sounds": [
+      "aechronis:m4a1-fire"
+    ]
+  },
+  "vz61.reload": {
     "sounds": [
       "aechronis:m4a1-reload"
     ]
