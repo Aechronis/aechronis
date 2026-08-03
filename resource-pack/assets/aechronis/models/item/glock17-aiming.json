@@ -1191,11 +1191,10 @@
 		},
 		"thirdperson_lefthand": {
 			"translation": [-1, 0, -0.25],
-			"scale": [0, 0, 0]
+			"scale": [0.6, 0.6, 0.6]
 		},
 		"firstperson_righthand": {
-			"translation": [4.5, 0.75, -5.75],
-			"scale": [0, 0, 0]
+			"translation": [-9, 4.25, 0]
 		},
 		"firstperson_lefthand": {
 			"translation": [-9, 4.25, 0]
