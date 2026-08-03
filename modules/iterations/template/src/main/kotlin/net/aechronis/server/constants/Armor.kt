@@ -13,7 +13,7 @@ object Armor {
             itemName = Component.text("US Marine Jacket", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             itemModel = "minecraft:leather_chestplate",
             slot = EquipmentSlot.CHESTPLATE,
-            protection = 0.6F,
+            protection = 0.4F,
             assetId = "aechronis:us-marpat-desert",
         )
 
@@ -23,7 +23,7 @@ object Armor {
             itemName = Component.text("US Marine Trousers", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             itemModel = "minecraft:leather_leggings",
             slot = EquipmentSlot.LEGGINGS,
-            protection = 0.4F,
+            protection = 0.2F,
             assetId = "aechronis:us-marpat-desert",
         )
 
@@ -33,7 +33,7 @@ object Armor {
             itemName = Component.text("US Marine Boots", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             itemModel = "minecraft:leather_boots",
             slot = EquipmentSlot.BOOTS,
-            protection = 0.2F,
+            protection = 0.1F,
             assetId = "aechronis:us-marpat-desert",
         )
 
@@ -43,7 +43,7 @@ object Armor {
             itemName = Component.text("IDF Jacket", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             itemModel = "minecraft:leather_chestplate",
             slot = EquipmentSlot.CHESTPLATE,
-            protection = 0.6F,
+            protection = 0.4F,
             assetId = "aechronis:idf",
         )
 
@@ -53,7 +53,7 @@ object Armor {
             itemName = Component.text("IDF Trousers", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             itemModel = "minecraft:leather_leggings",
             slot = EquipmentSlot.LEGGINGS,
-            protection = 0.4F,
+            protection = 0.2F,
             assetId = "aechronis:idf",
         )
 
@@ -63,7 +63,7 @@ object Armor {
             itemName = Component.text("IDF Boots", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             itemModel = "minecraft:leather_boots",
             slot = EquipmentSlot.BOOTS,
-            protection = 0.2F,
+            protection = 0.1F,
             assetId = "aechronis:idf",
         )
 }
