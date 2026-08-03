@@ -1191,15 +1191,17 @@
 			"scale": [0.6, 0.6, 0.6]
 		},
 		"thirdperson_lefthand": {
-			"translation": [-1, 0, -0.25],
-			"scale": [0.6, 0.6, 0.6]
+			"translation": [-2.5, 0, -0.25],
+			"scale": [0.6, 0.6, 0.6],
+			"rotation": [41.33, 64.78, -61.48]
 		},
 		"firstperson_righthand": {
 			"rotation": [19.61, 26.38, -9.01],
 			"translation": [4.5, 5.5, -7.5]
 		},
 		"firstperson_lefthand": {
-			"translation": [-9, 4.25, 0]
+			"rotation": [19.61, 26.38, -9.01],
+			"translation": [4.5, 5.5, -7.5]
 		},
 		"ground": {
 			"rotation": [0, 0, -90]

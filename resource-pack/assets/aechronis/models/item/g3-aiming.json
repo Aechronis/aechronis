@@ -2255,11 +2255,11 @@
 		},
 		"thirdperson_lefthand": {
 			"translation": [-0.75, 3, -1.75],
-			"scale": [0, 0, 0]
+			"scale": [0.9, 0.9, 0.9]
 		},
 		"firstperson_righthand": {
-			"translation": [2.75, 6, -5.5],
-			"scale": [0, 0, 0]
+			"translation": [-9, 8.5, -0.5],
+			"scale": [1.25, 1.25, 1.25]
 		},
 		"firstperson_lefthand": {
 			"translation": [-9, 8.5, -0.5],
