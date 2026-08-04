@@ -254,7 +254,7 @@ class Gun(
                 Damage
                     .fromProjectile(player, null, damage)
                     .withCombatAttribution(CombatDamageKind.PROJECTILE, itemName)
-            Combat.applyDamage(target, damageSource)
+            Combat.applyDamageWithoutImmunity(target, damageSource)
             trailEndPoint = entityHit.point.asPos()
         } else { // block hit
             Particles.dustParticle(player.instance, blockHit!!.point.asPos())

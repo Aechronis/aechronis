@@ -71,10 +71,23 @@ object Combat {
         entity: LivingEntity,
         damage: Damage,
         now: Long = System.currentTimeMillis(),
-    ): Boolean {
-        if (!damage.bypassesCombatDamageImmunity() && !canDamage(entity, now)) return false
+    ): Boolean = applyDamage(entity, damage, now, useDamageImmunity = true)
 
-        val previousDamageTime = entityLastDamageTime.put(entity, now)
+    fun applyDamageWithoutImmunity(
+        entity: LivingEntity,
+        damage: Damage,
+        now: Long = System.currentTimeMillis(),
+    ): Boolean = applyDamage(entity, damage, now, useDamageImmunity = false)
+
+    private fun applyDamage(
+        entity: LivingEntity,
+        damage: Damage,
+        now: Long,
+        useDamageImmunity: Boolean,
+    ): Boolean {
+        if (useDamageImmunity && !damage.bypassesCombatDamageImmunity() && !canDamage(entity, now)) return false
+
+        val previousDamageTime = if (useDamageImmunity) entityLastDamageTime.put(entity, now) else null
         val previousActiveDamage = activeDamage.put(entity, damage)
         val damaged =
             try {
@@ -88,10 +101,12 @@ object Combat {
             }
         if (damaged) return true
 
-        if (previousDamageTime == null) {
-            entityLastDamageTime.remove(entity)
-        } else {
-            entityLastDamageTime[entity] = previousDamageTime
+        if (useDamageImmunity) {
+            if (previousDamageTime == null) {
+                entityLastDamageTime.remove(entity)
+            } else {
+                entityLastDamageTime[entity] = previousDamageTime
+            }
         }
         return false
     }
