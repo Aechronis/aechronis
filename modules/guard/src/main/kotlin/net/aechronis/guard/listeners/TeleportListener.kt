@@ -1,0 +1,36 @@
+package net.aechronis.guard.listeners
+
+import net.aechronis.guard.Guard
+import net.aechronis.guard.flags.FlagName
+import net.minestom.server.MinecraftServer
+import net.minestom.server.entity.Player
+import net.minestom.server.event.entity.EntityTeleportEvent
+import net.minestom.server.timer.TaskSchedule
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+
+object TeleportListener {
+    private val allowedCorrections = ConcurrentHashMap.newKeySet<UUID>()
+
+    fun handle(event: EntityTeleportEvent) {
+        val player = event.entity as? Player ?: return
+        if (!allowedCorrections.remove(player.uuid)) {
+            val position = event.newPosition
+            Guard.check(
+                player,
+                player.instance,
+                position.blockX(),
+                position.blockY(),
+                position.blockZ(),
+                FlagName.TELEPORT,
+            ) {
+                allowedCorrections.add(player.uuid)
+                MinecraftServer
+                    .getSchedulerManager()
+                    .buildTask { player.teleport(player.position) }
+                    .delay(TaskSchedule.tick(1))
+                    .schedule()
+            }
+        }
+    }
+}

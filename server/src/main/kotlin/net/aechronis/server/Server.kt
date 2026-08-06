@@ -8,6 +8,7 @@ import me.lucko.luckperms.minestom.LuckPermsMinestom
 import me.lucko.spark.minestom.SparkMinestom
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
+import net.aechronis.guard.Guard
 import net.aechronis.logger.Logger
 import net.aechronis.logger.LoggerConfig
 import net.aechronis.nodes.Nodes
@@ -164,6 +165,7 @@ fun main(args: Array<String>) {
 
     val worldEdit = MinestomWorldEdit()
     worldEdit.init()
+    Guard.init()
 
     val resourcePackPort = System.getProperty("aechronis.resourcePack.port")?.toInt() ?: port + 1
 

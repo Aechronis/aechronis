@@ -30,3 +30,5 @@ include(
     ":modules:logger",
     ":modules:watchdog",
 )
+
+include(":modules:guard")
