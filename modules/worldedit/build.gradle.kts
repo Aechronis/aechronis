@@ -10,7 +10,7 @@ dependencies {
     api("com.sk89q.worldedit:worldedit-core:7.4.4") {
         exclude(group = "com.google.code.gson", module = "gson")
     }
-    api("com.google.guava:guava:33.5.0-jre")
+    api("com.google.guava:guava:33.6.0-jre")
     api("it.unimi.dsi:fastutil:8.5.18")
     compileOnly(kotlin("stdlib"))
 
