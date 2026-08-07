@@ -58,7 +58,7 @@ object Drones {
             projectileScale = 0.5,
             explosionRadius = 3,
             explosionFire = 0.3,
-            explosionDamage = 20F,
+            explosionDamage = 750F,
             buzzSound = Sound.sound(Key.key("aechronis:drone.buzz"), Sound.Source.PLAYER, 1f, 1f),
             buzzPeriodTicks = 5,
         )
