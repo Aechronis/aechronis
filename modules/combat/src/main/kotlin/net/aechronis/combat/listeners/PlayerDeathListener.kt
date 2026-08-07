@@ -1,6 +1,7 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.clearCombatAttribution
@@ -23,6 +24,7 @@ object PlayerDeathListener {
         exitVehicles(player)
         KeyPressListener.playerInputEvent.remove(player)
         Combat.entityLastDamageTime.remove(player)
+        LagCompensation.resetHistory(player)
 
         val message = combatDeathMessage(player.name, killer?.name, weapon, damageKind, killer === player)
         if (message != null) {

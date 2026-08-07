@@ -9,6 +9,7 @@ import net.aechronis.combat.listeners.DroneListener
 import net.aechronis.combat.listeners.FireListener
 import net.aechronis.combat.listeners.HatListener
 import net.aechronis.combat.listeners.KeyPressListener
+import net.aechronis.combat.listeners.LagCompensationListener
 import net.aechronis.combat.listeners.MannequinDamageListener
 import net.aechronis.combat.listeners.MeleeListener
 import net.aechronis.combat.listeners.PlayerDeathListener
@@ -138,6 +139,7 @@ object Combat {
         DroneListener.init()
         KeyPressListener.init()
         HatListener.init()
+        LagCompensationListener.init()
 
         // register commands
         MinecraftServer.getCommandManager().register(CombatAdminCommand())

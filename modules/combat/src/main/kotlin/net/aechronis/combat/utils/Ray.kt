@@ -69,18 +69,26 @@ class Ray(
     private fun <S : Shape> cast(
         shape: S,
         offset: Point,
-    ): Hit<S>? {
-        val boxStart = shape.relativeStart().add(offset)
-        val boxEnd = shape.relativeEnd().add(offset)
+    ): Hit<S>? = hitBox(shape.relativeStart().add(offset), shape.relativeEnd().add(offset), shape)
+
+    /** Casts against an absolute axis-aligned box associated with [obj]. */
+    fun <T> hitBox(
+        boxStart: Point,
+        boxEnd: Point,
+        obj: T,
+    ): Hit<T>? {
         val fraction = segmentBoxIntersection(origin, vector, boxStart, boxEnd) ?: return null
-        return Hit(distance * fraction, origin.add(vector.mul(fraction)), shape)
+        return Hit(distance * fraction, origin.add(vector.mul(fraction)), obj)
     }
+
+    /** Casts against [entity] at its current server position. */
+    fun <E : Entity> hitEntity(entity: E): Hit<E>? = cast(entity, entity.position)
 
     /** The closest entity the ray hits, or null if it hits none. */
     fun <E : Entity> firstEntity(entities: Collection<E>): Hit<E>? {
         var best: Hit<E>? = null
         for (entity in entities) {
-            val hit = cast(entity, entity.position) ?: continue
+            val hit = hitEntity(entity) ?: continue
             if (best == null || hit.t < best.t) best = hit
         }
         return best

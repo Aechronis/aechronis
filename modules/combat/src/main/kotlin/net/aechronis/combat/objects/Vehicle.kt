@@ -2,6 +2,7 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
+import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.Message
 import net.kyori.adventure.text.Component
@@ -168,10 +169,12 @@ open class Vehicle(
         playerVehicle[player] = this
         playerVehicleEntity[player] = entity
         playerSeatEntity[player] = seatEntity
+        LagCompensation.resetHistory(player)
     }
 
     // called when a player exits this vehicle
     open fun onExit(player: Player) {
+        LagCompensation.resetHistory(player)
         val seatEntity = playerSeatEntity.remove(player)
         if (seatEntity != null) {
             seatEntity.removePassenger(player)
@@ -249,10 +252,12 @@ open class Vehicle(
         passengerVehicle[player] = this
         passengerVehicleEntity[player] = entity
         passengerSeatEntity[player] = seatEntity
+        LagCompensation.resetHistory(player)
     }
 
     // called when a passenger exits vehicle
     open fun onPassengerExit(player: Player) {
+        LagCompensation.resetHistory(player)
         passengerVehicleEntity.remove(player)?.let { entity ->
             entityPassengers[entity]?.let { passengers ->
                 passengers.remove(player)

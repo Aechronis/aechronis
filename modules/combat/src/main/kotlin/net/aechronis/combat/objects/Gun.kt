@@ -2,6 +2,7 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
+import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Particles
@@ -55,6 +56,7 @@ class Gun(
     val itemModelEmpty: String = "$itemModel-empty",
     val itemModelReloading: String = "$itemModel-reloading",
     val itemModelAiming: String = "$itemModel-aiming",
+    val maxRange: Double = 128.0,
     val bulletTrailParticle: Particle? = null,
     val bulletTrailOffset: Vec = Vec.ZERO,
 ) : Item(
@@ -64,6 +66,10 @@ class Gun(
         itemModel,
         Material.WARPED_FUNGUS_ON_A_STICK,
     ) {
+    init {
+        require(maxRange.isFinite() && maxRange > 0.0) { "Gun maxRange must be a positive finite number" }
+    }
+
     // ===============
     // AMMO FUNCTIONS
     // ===============
@@ -185,6 +191,7 @@ class Gun(
         ignoreCooldown: Boolean = false,
         ignoreAmmo: Boolean = false,
     ) {
+        val firedAtNanos = System.nanoTime()
         val now = System.currentTimeMillis()
         if (now - (Combat.playerLastActionTimes[player] ?: 0L) < cooldown && !ignoreCooldown) return
         if (Combat.reloadTasks[player] != null) return
@@ -209,24 +216,28 @@ class Gun(
         player.instance.playSound(soundFire, offsetPos.x, offsetPos.y, offsetPos.z)
 
         // create ray with random offsets generated
-        val ray = Ray(offsetPos, offsetPos.direction().mul(player.instance.viewDistance() * 16.0))
+        val ray = Ray(offsetPos, offsetPos.direction().mul(maxRange))
 
         val blockHit = ray.firstBlock(player.instance!!)
         val entityHit =
-            ray.firstEntity(
-                player.instance.entities
-                    .filterIsInstance<LivingEntity>()
-                    .filter { it != player },
-            )
+            if (firePos == null) {
+                LagCompensation.firstEntityHit(ray, player, player.instance, firedAtNanos)
+            } else {
+                ray.firstEntity(
+                    player.instance.entities
+                        .filterIsInstance<LivingEntity>()
+                        .filter { it != player },
+                )
+            }
         val vehicleHit = checkVehicleHit(player.instance, offsetPos, offsetPos.direction(), ray.distance)
 
-        val blockHitDistance = blockHit?.t ?: 999.9
-        val entityHitDistance = entityHit?.t ?: 999.9
-        val vehicleHitDistance = vehicleHit?.first ?: 999.9
+        val blockHitDistance = blockHit?.t ?: Double.POSITIVE_INFINITY
+        val entityHitDistance = entityHit?.t ?: Double.POSITIVE_INFINITY
+        val vehicleHitDistance = vehicleHit?.first ?: Double.POSITIVE_INFINITY
 
         // determine which is hit first
         val trailEndPoint: Pos
-        if (blockHitDistance == 999.9 && entityHitDistance == 999.9 && vehicleHitDistance == 999.9) { // no hit
+        if (blockHit == null && entityHit == null && vehicleHit == null) { // no hit
             trailEndPoint = offsetPos.add(ray.direction.mul(ray.distance))
         } else if (vehicleHitDistance < blockHitDistance && vehicleHitDistance < entityHitDistance) { // vehicle hit
             val vehicleEntity = vehicleHit!!.second

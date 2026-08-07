@@ -1,6 +1,7 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneState
@@ -51,6 +52,7 @@ object PlayerDisconnectListener {
         Combat.playerLastActionTimes.remove(player)
         Combat.meleeLastAttackTimes.remove(player)
         Combat.entityLastDamageTime.remove(player)
+        LagCompensation.removePlayer(player)
         ModelManager.clearPlayer(player)
         KeyPressListener.playerInputEvent.remove(player)
         Hitbox.viewingHitboxes.remove(player)
