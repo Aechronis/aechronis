@@ -20,6 +20,7 @@ import net.aechronis.server.constants.Cars
 import net.aechronis.server.constants.Drones
 import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Hats
+import net.aechronis.server.constants.Melees
 import net.aechronis.server.constants.Planes
 import net.aechronis.server.constants.Tanks
 import net.aechronis.server.listeners.PlayerJoinListener
@@ -28,6 +29,9 @@ import net.aechronis.server.tasks.TabManager
 import net.aechronis.server.tasks.WorldSaver
 import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
+import net.aechronis.vanilla.VanillaConfig
+import net.aechronis.vanilla.config.ShopConfig
+import net.aechronis.vanilla.objects.ShopItem
 import net.aechronis.watchdog.Watchdog
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
@@ -105,9 +109,19 @@ fun main(args: Array<String>) {
         Ammo.ammo762x39mm,
         Ammo.ammo9mm,
         // Guns
+        Guns.ak12,
         Guns.ak74,
+        Guns.awp,
+        Guns.g3,
+        Guns.glock17,
         Guns.m4a1,
         Guns.m9,
+        Guns.mg3,
+        Guns.mp5,
+        Guns.qbz95,
+        Guns.vz61,
+        // Melee weapons
+        Melees.baton,
         // Armor
         Armor.usMarineJacket,
         Armor.usMarineTrousers,
@@ -163,7 +177,50 @@ fun main(args: Array<String>) {
 
     Combat.initialize()
 
-    Vanilla.init()
+    val shopConfig =
+        ShopConfig(
+            shopItems =
+                listOf(
+                    ShopItem(ItemStack.of(Material.BEEF, 64), cooldownTicks = 300L, cost = 0),
+                    ShopItem(ItemStack.of(Material.OAK_FENCE, 64), cooldownTicks = 300L, cost = 0),
+                    ShopItem(ItemStack.of(Material.DIAMOND_PICKAXE), cooldownTicks = 300L, cost = 0),
+                    // Ammo
+                    ShopItem(Ammo.ammo762x39mm.toItemStack().withAmount(16), cooldownTicks = 0L, cost = 0),
+                    ShopItem(Ammo.ammo9mm.toItemStack().withAmount(16), cooldownTicks = 0L, cost = 0),
+                    // Guns
+                    ShopItem(Guns.ak12.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Guns.ak74.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Guns.awp.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Guns.g3.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Guns.glock17.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Guns.m4a1.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Guns.m9.toItemStack(), cooldownTicks = 0L, cost = 0),
+                    ShopItem(Guns.mg3.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Guns.mp5.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Guns.qbz95.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Guns.vz61.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    // Melee weapons
+                    ShopItem(Melees.baton.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    // Armor
+                    ShopItem(Armor.usMarineJacket.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Armor.usMarineTrousers.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Armor.usMarineBoots.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Armor.idfJacket.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Armor.idfTrousers.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    ShopItem(Armor.idfBoots.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    // Hats
+                    ShopItem(Hats.gasMask.toItemStack(), cooldownTicks = 300L, cost = 0),
+                    // Vehicles
+                    ShopItem(Planes.f16.toItemStack(), cooldownTicks = 0L, cost = 10),
+                    ShopItem(Cars.truck.toItemStack(), cooldownTicks = 0L, cost = 2),
+                    ShopItem(Tanks.m1a1Abrams.toItemStack(), cooldownTicks = 0L, cost = 20),
+                    ShopItem(Drones.scoutDrone.toItemStack(), cooldownTicks = 0L, cost = 5),
+                    ShopItem(Drones.kamikazeDrone.toItemStack(), cooldownTicks = 0L, cost = 7),
+//                    ShopItem(Boats.ussButler.toItemStack(), cooldownTicks = 0L, cost = 20),
+                ),
+        )
+
+    Vanilla.init(VanillaConfig(shopConfig = shopConfig))
 
     val nodesConfig = NodesConfig()
     Nodes.initialize(nodesConfig)
