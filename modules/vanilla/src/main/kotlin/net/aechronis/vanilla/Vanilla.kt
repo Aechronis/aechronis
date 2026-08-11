@@ -28,6 +28,7 @@ import net.aechronis.vanilla.listeners.ServerLinksListener
 import net.aechronis.vanilla.managers.Blocks
 import net.aechronis.vanilla.managers.Bundles
 import net.aechronis.vanilla.managers.Combat
+import net.aechronis.vanilla.managers.Crates
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.EnvironmentalDamage
@@ -99,6 +100,7 @@ object Vanilla {
         if (config.treeFellerEnabled) TreeFeller.init()
         if (config.foodEnabled) Food.init()
         if (config.shopEnabled) KillShop.init()
+        if (config.cratesEnabled) Crates.init()
         if (config.itemsEnabled) Items.init()
         if (config.bundlesEnabled) Bundles.init()
         if (config.commandsEnabled) CommandsListener.init()
