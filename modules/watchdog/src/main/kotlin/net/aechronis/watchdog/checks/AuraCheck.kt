@@ -13,11 +13,11 @@ internal object AuraCheck {
         if (state.attacks.size == state.lastEvaluatedAttackCount) return
         state.lastEvaluatedAttackCount = state.attacks.size
         val now = System.currentTimeMillis()
-        val recent = state.attacks.filter { now - it.timestampMillis <= 1_000L }
-        if (recent.size < 5) return
+        val recent = state.attacks.filter { it.confirmed && now - it.timestampMillis <= 1_000L }
+        if (recent.size < 8) return
         val targets = recent.map { it.targetId }.distinct().size
-        if (targets >= 3) {
-            flag(player, FlagType.KILL_AURA, 0.35, "attacked $targets targets ${recent.size} times in one second")
+        if (targets >= 4) {
+            flag(player, FlagType.KILL_AURA, 0.3, "attacked $targets targets ${recent.size} times in one second")
         }
     }
 }

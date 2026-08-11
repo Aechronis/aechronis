@@ -261,7 +261,6 @@ object MeleeListener {
     }
 
     private fun playSweepingParticles(attacker: Player) {
-        // spawn sweep attack particles in front of the player
         val yawRad = Math.toRadians(attacker.position.yaw.toDouble())
         val particleX = attacker.position.x - sin(yawRad)
         val particleY = attacker.position.y + 0.5
@@ -285,7 +284,6 @@ object MeleeListener {
     private fun onHandAnimation(event: PlayerHandAnimationEvent) {
         val player = event.player
         if (Item.getFromItemStack(player.itemInMainHand) !is Melee) return
-        Watchdog.recordSwing(player)
         Combat.meleeLastAttackTimes[player] = System.currentTimeMillis()
     }
 

@@ -18,7 +18,22 @@ internal object PingMonitor {
             state.pendingPings.entries.removeIf { (_, sentTick) ->
                 PlayerStateReg.currentTick - sentTick > config.pingTimeoutTicks
             }
-        if (timedOut) flag(player, FlagType.TIMEOUT_PING_PACKETS, 1.0, "did not respond to watchdog ping")
+        if (!timedOut) return
+
+        if (PlayerStateReg.currentTick - state.lastPingTimeoutTick > TIMEOUT_STRIKE_WINDOW_TICKS) {
+            state.pingTimeoutStrikes = 0
+        }
+        state.lastPingTimeoutTick = PlayerStateReg.currentTick
+        state.pingTimeoutStrikes++
+        if (state.pingTimeoutStrikes >= REQUIRED_TIMEOUT_STRIKES) {
+            flag(
+                player,
+                FlagType.TIMEOUT_PING_PACKETS,
+                0.35,
+                "missed ${state.pingTimeoutStrikes} watchdog pong checks",
+            )
+            state.pingTimeoutStrikes = 0
+        }
     }
 
     fun send(
@@ -30,4 +45,7 @@ internal object PingMonitor {
         state.pendingPings[id] = PlayerStateReg.currentTick
         player.sendPacket(PingPacket(id))
     }
+
+    private const val REQUIRED_TIMEOUT_STRIKES = 3
+    private const val TIMEOUT_STRIKE_WINDOW_TICKS = 400L
 }

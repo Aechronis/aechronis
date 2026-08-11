@@ -1,6 +1,5 @@
 package net.aechronis.watchdog.objects
 
-import net.aechronis.watchdog.objects.RotationFrame
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import java.util.UUID
@@ -18,12 +17,15 @@ class PlayerState internal constructor(
     internal var lastPacketAtNanos = 0L
     internal var packetWindowStartedAtNanos = 0L
     internal var movementPacketsInWindow = 0
+    internal var lastTimerFlagWindowNanos = 0L
     internal var movementExemptUntilTick = 0L
     internal var velocityExemptUntilTick = 0L
     internal var lastAttackTarget: UUID? = null
     internal var lastAttackAtMillis = 0L
     internal val pendingPings = mutableMapOf<Int, Long>()
     internal var pingSequence = 0
+    internal var pingTimeoutStrikes = 0
+    internal var lastPingTimeoutTick = 0L
     internal var lastEvaluatedSwingCount = 0
     internal var lastEvaluatedAttackCount = 0
     internal val packetTimesNanos = ArrayDeque<Long>()
@@ -42,7 +44,10 @@ class PlayerState internal constructor(
         lastPacketAtNanos = 0L
         packetWindowStartedAtNanos = 0L
         movementPacketsInWindow = 0
+        lastTimerFlagWindowNanos = 0L
         pendingPings.clear()
+        pingTimeoutStrikes = 0
+        lastPingTimeoutTick = 0L
         packetTimesNanos.clear()
         rotations.clear()
         swingsAtMillis.clear()
@@ -88,6 +93,11 @@ class PlayerState internal constructor(
         lastPacketAtNanos = nowNanos
         packetTimesNanos.addLast(nowNanos)
         trim(packetTimesNanos, nowNanos - HISTORY_NANOS)
+        if (packetWindowStartedAtNanos == 0L || nowNanos - packetWindowStartedAtNanos >= NANOS_PER_SECOND) {
+            packetWindowStartedAtNanos = nowNanos
+            movementPacketsInWindow = 0
+        }
+        movementPacketsInWindow++
         rotations.addLast(RotationFrame(nowNanos, yaw, pitch))
         while (rotations.size > 40) rotations.removeFirst()
     }

@@ -19,6 +19,7 @@ internal object CombatChecks {
         config: WatchdogConfig,
         flag: FlagSink,
     ) {
+        if (!attack.confirmed) return
         val eye = attack.attackerPosition.add(0.0, attacker.eyeHeight, 0.0)
         val minX = attack.targetPosition.x - attack.targetWidth / 2.0
         val maxX = attack.targetPosition.x + attack.targetWidth / 2.0

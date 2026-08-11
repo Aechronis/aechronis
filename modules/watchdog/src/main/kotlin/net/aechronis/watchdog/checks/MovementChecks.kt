@@ -18,33 +18,34 @@ internal object MovementChecks {
         onGround: Boolean,
         config: WatchdogConfig,
         flag: FlagSink,
-    ) {
+    ): Boolean {
         if (!position.x.isFinite() || !position.y.isFinite() || !position.z.isFinite()) {
             flag(player, FlagType.BAD_PACKETS, 1.0, "non-finite movement position")
-            return
+            return true
         }
 
-        val nowNanos = System.nanoTime()
-        if (state.lastPacketAtNanos == 0L || nowNanos - state.lastPacketAtNanos > MAX_CLIENT_MOVE_AGE_NANOS) {
-            state.lastAcceptedPosition = position
-            state.lastAcceptedAtNanos = nowNanos
-            return
-        }
-
-        val previous = state.lastAcceptedPosition
+        val previous = state.lastAcceptedPosition ?: player.position
         val previousAtNanos = state.lastAcceptedAtNanos
         val previousOnGround = state.lastAcceptedOnGround
-        val collision = CollisionOracle.sample(player, position)
-        state.lastAcceptedPosition = position
-        state.lastAcceptedOnGround = onGround
-        state.lastAcceptedAtNanos = nowNanos
-
-        if (onGround) state.airTicks = 0 else state.airTicks++
-        if (previous == null || previousAtNanos == 0L || isExempt(player, state)) return
-
-        val elapsedTicks = ((nowNanos - previousAtNanos) / TICK_NANOS).coerceAtLeast(1L)
+        val nowNanos = System.nanoTime()
+        val elapsedTicks =
+            if (previousAtNanos == 0L) {
+                1L
+            } else {
+                ((nowNanos - previousAtNanos) / TICK_NANOS).coerceIn(1L, MAX_ELAPSED_TICKS)
+            }
         val horizontalDistance = hypot(position.x - previous.x, position.z - previous.z)
-        val horizontalLimit = config.maxHorizontalMovePerTick * elapsedTicks * 1.25
+        val horizontalLimit = config.maxHorizontalMovePerTick * elapsedTicks * MOVEMENT_TOLERANCE
+        val verticalDistance = position.y - previous.y
+        val nextAirTicks = if (onGround) 0 else state.airTicks + 1
+
+        if (isExempt(player, state)) {
+            accept(state, position, onGround, nowNanos, nextAirTicks)
+            return false
+        }
+
+        val collision = CollisionOracle.sample(player, position)
+        var reject = false
         if (horizontalDistance > horizontalLimit) {
             flag(
                 player,
@@ -52,9 +53,9 @@ internal object MovementChecks {
                 certainty(horizontalDistance, horizontalLimit),
                 "moved $horizontalDistance blocks horizontally over $elapsedTicks ticks",
             )
+            reject = true
         }
 
-        val verticalDistance = position.y - previous.y
         if (verticalDistance > config.maxUpwardMovePerTick * elapsedTicks && !onGround) {
             flag(
                 player,
@@ -62,16 +63,19 @@ internal object MovementChecks {
                 certainty(verticalDistance, config.maxUpwardMovePerTick * elapsedTicks),
                 "moved $verticalDistance blocks upward while airborne",
             )
+            reject = true
         }
-        if (!onGround && state.airTicks >= 15 && abs(verticalDistance) < 0.01) {
-            flag(player, FlagType.FLIGHT, 0.35, "hovered for ${state.airTicks} air ticks")
+        if (!onGround && nextAirTicks >= 15 && abs(verticalDistance) < 0.01) {
+            flag(player, FlagType.FLIGHT, 0.35, "hovered for $nextAirTicks air ticks")
+            reject = true
         }
 
-        if (state.clientOnGround && !collision.supported && !onGround) {
+        if (collision.loaded && state.clientOnGround && !collision.supported && !onGround) {
             flag(player, FlagType.ON_GROUND_SPOOF, 0.35, "client claimed ground without collision support")
         }
-        if (collision.insideSolid) {
+        if (collision.loaded && collision.insideSolid) {
             flag(player, FlagType.PHASE, 0.35, "player bounding area intersects a solid block")
+            reject = true
         }
         if (collision.loaded && (collision.inLiquid || collision.belowLiquid) && onGround && horizontalDistance > 0.15) {
             flag(player, FlagType.JESUS, 0.3, "moved across liquid while grounded")
@@ -79,9 +83,28 @@ internal object MovementChecks {
 
         val expectedVertical = if (previousOnGround) 0.0 else -0.08
         val predictionError = abs(verticalDistance - expectedVertical * elapsedTicks)
-        if (state.airTicks > 2 && predictionError > 1.0) {
+        if (nextAirTicks > 2 && predictionError > 1.0) {
             flag(player, FlagType.PREDICTION, 0.25, "vertical prediction error was $predictionError")
         }
+
+        if (reject) return true
+
+        accept(state, position, onGround, nowNanos, nextAirTicks)
+        return false
+    }
+
+    private fun accept(
+        state: PlayerState,
+        position: Pos,
+        onGround: Boolean,
+        nowNanos: Long,
+        airTicks: Int,
+    ) {
+        state.lastPosition = position
+        state.lastAcceptedPosition = position
+        state.lastAcceptedOnGround = onGround
+        state.lastAcceptedAtNanos = nowNanos
+        state.airTicks = airTicks
     }
 
     private fun isExempt(
@@ -100,6 +123,7 @@ internal object MovementChecks {
         limit: Double,
     ): Double = ((value / limit - 1.0) / 2.0).coerceIn(0.25, 1.0)
 
-    private const val MAX_CLIENT_MOVE_AGE_NANOS = 100_000_000L
+    private const val MOVEMENT_TOLERANCE = 1.25
+    private const val MAX_ELAPSED_TICKS = 20L
     private const val TICK_NANOS = 50_000_000L
 }

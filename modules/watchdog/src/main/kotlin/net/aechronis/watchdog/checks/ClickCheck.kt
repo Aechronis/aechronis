@@ -15,7 +15,7 @@ internal object ClickCheck {
     ) {
         val now = System.currentTimeMillis()
         val recent = state.swingsAtMillis.filter { now - it <= 1_000L }
-        if (recent.size < 12 || recent.size == state.lastEvaluatedSwingCount) return
+        if (recent.size < 15 || recent.size == state.lastEvaluatedSwingCount) return
         state.lastEvaluatedSwingCount = recent.size
         val cps = recent.size.toDouble()
         val intervals = recent.zipWithNext { left, right -> (right - left).toDouble() }
@@ -25,8 +25,8 @@ internal object ClickCheck {
         if (cps > config.maxCps) {
             flag(player, FlagType.AUTO_CLICKER, 0.45, "attack animation rate was $cps CPS")
         }
-        if (intervals.size >= 10 && deviation < 5.0) {
-            flag(player, FlagType.AUTO_CLICKER, 0.35, "attack interval deviation was ${deviation}ms")
+        if (intervals.size >= 14 && deviation < 2.5) {
+            flag(player, FlagType.AUTO_CLICKER, 0.3, "attack interval deviation was ${deviation}ms")
         }
     }
 }

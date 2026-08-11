@@ -2,6 +2,7 @@ package net.aechronis.watchdog
 
 import net.aechronis.watchdog.alert.StaffAlert
 import net.aechronis.watchdog.checks.FlagSink
+import net.aechronis.watchdog.commands.WatchdogCommand
 import net.aechronis.watchdog.objects.PlayerState
 import net.aechronis.watchdog.objects.PlayerStateReg
 import net.aechronis.watchdog.probe.TranslationProbe
@@ -23,6 +24,7 @@ object Watchdog {
 
     private val initialized = AtomicBoolean()
     private lateinit var config: WatchdogConfig
+    private lateinit var alerts: StaffAlert
     private var tickTask: Task? = null
 
     fun initialize(config: WatchdogConfig = WatchdogConfig()) {
@@ -31,17 +33,18 @@ object Watchdog {
 
         val state: (Player) -> PlayerState = PlayerStateReg::getOrCreate
         val isBypassed: (Player) -> Boolean = config.bypass
-        val reporter = FlagReporter(config, state)
+        alerts = StaffAlert(config)
+        val reporter = FlagReporter(config, state, alerts)
         val flag: FlagSink = reporter::report
-        val alerts = StaffAlert(config)
         val probes = TranslationProbe(config, { PlayerStateReg.currentTick }, alerts)
         val attacks = AttackRecorder(config, state, flag)
         recorder = attacks
-        val events = WatchdogEventHandler(config, state, isBypassed, attacks, probes, flag)
+        val events = WatchdogEventHandler(config, state, isBypassed, attacks, probes, alerts, flag)
         val ticker = WatchdogTicker(config, state, isBypassed, probes, flag)
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         events.register(eventNode)
+        MinecraftServer.getCommandManager().register(WatchdogCommand(config.staffAlertPermission))
         tickTask =
             MinecraftServer
                 .getSchedulerManager()
@@ -53,6 +56,11 @@ object Watchdog {
     }
 
     fun state(player: Player): PlayerState = PlayerStateReg.getOrCreate(player)
+
+    fun toggleAlerts(player: Player): Boolean {
+        check(initialized.get()) { "Watchdog is not initialized" }
+        return alerts.toggle(player)
+    }
 
     fun exemptMovement(
         player: Player,

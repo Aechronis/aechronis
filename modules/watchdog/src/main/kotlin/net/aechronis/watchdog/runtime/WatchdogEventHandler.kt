@@ -1,7 +1,9 @@
 package net.aechronis.watchdog.runtime
 
+import net.aechronis.watchdog.alert.StaffAlert
 import net.aechronis.watchdog.checks.FlagSink
 import net.aechronis.watchdog.checks.MovementChecks
+import net.aechronis.watchdog.checks.MovementCorrection
 import net.aechronis.watchdog.checks.PacketChecks
 import net.aechronis.watchdog.objects.PlayerState
 import net.aechronis.watchdog.objects.PlayerStateReg
@@ -31,6 +33,7 @@ internal class WatchdogEventHandler(
     private val isBypassed: (Player) -> Boolean,
     private val attackRecorder: AttackRecorder,
     private val probes: TranslationProbe,
+    private val alerts: StaffAlert,
     private val flag: FlagSink,
 ) {
     fun register(eventNode: EventNode<Event>) {
@@ -53,6 +56,7 @@ internal class WatchdogEventHandler(
 
     private fun onDisconnect(event: PlayerDisconnectEvent) {
         probes.end(event.player, notify = false)
+        alerts.forget(event.player)
         PlayerStateReg.remove(event.player)
     }
 
@@ -70,7 +74,9 @@ internal class WatchdogEventHandler(
         when (packet) {
             is ClientPlayerPositionPacket -> {
                 playerState.recordPacket(packet.position(), packet.onGround(), now)
-                PacketChecks.onPacket(player, playerState, null, null, config, flag)
+                if (PacketChecks.onPacket(player, playerState, packet.position(), null, null, config, flag)) {
+                    rejectPacket(event, playerState)
+                }
             }
 
             is ClientPlayerPositionAndRotationPacket -> {
@@ -81,12 +87,26 @@ internal class WatchdogEventHandler(
                     packet.position().yaw,
                     packet.position().pitch,
                 )
-                PacketChecks.onPacket(player, playerState, packet.position().yaw, packet.position().pitch, config, flag)
+                if (
+                    PacketChecks.onPacket(
+                        player,
+                        playerState,
+                        packet.position(),
+                        packet.position().yaw,
+                        packet.position().pitch,
+                        config,
+                        flag,
+                    )
+                ) {
+                    rejectPacket(event, playerState)
+                }
             }
 
             is ClientPlayerRotationPacket -> {
                 playerState.recordRotation(packet.yaw(), packet.pitch(), packet.onGround(), now)
-                PacketChecks.onPacket(player, playerState, packet.yaw(), packet.pitch(), config, flag)
+                if (PacketChecks.onPacket(player, playerState, null, packet.yaw(), packet.pitch(), config, flag)) {
+                    rejectPacket(event, playerState)
+                }
             }
 
             is ClientAnimationPacket -> {
@@ -113,10 +133,23 @@ internal class WatchdogEventHandler(
     }
 
     private fun onMove(event: PlayerMoveEvent) {
+        if (event.isCancelled) return
         val player = event.player
         if (isBypassed(player)) return
         val playerState = state(player)
-        MovementChecks.onMove(player, playerState, event.newPosition, event.isOnGround, config, flag)
+        if (MovementChecks.onMove(player, playerState, event.newPosition, event.isOnGround, config, flag)) {
+            // Minestom sends the authoritative pre-move position when a
+            // PlayerMoveEvent is cancelled.
+            event.isCancelled = true
+        }
+    }
+
+    private fun rejectPacket(
+        event: PlayerPacketEvent,
+        state: PlayerState,
+    ) {
+        event.isCancelled = true
+        MovementCorrection.send(event.player, state)
     }
 
     private fun onAttack(event: EntityAttackEvent) {
