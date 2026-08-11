@@ -21,6 +21,7 @@ import net.aechronis.combat.objects.damageAtDistance
 import net.aechronis.combat.objects.distanceToBoundingBox
 import net.aechronis.combat.objects.firstProjectileImpact
 import net.aechronis.combat.objects.selectProjectileImpact
+import net.aechronis.combat.tasks.LeafRestoreManager
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.calculateVehicleCameraDistance
 import net.aechronis.combat.utils.withCombatDamageImmunityBypass
@@ -28,6 +29,7 @@ import net.aechronis.utils.createTestServer
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -46,6 +48,8 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -289,6 +293,7 @@ class CombatTest {
         )
 
         // initialize combat with test config
+        LeafRestoreManager.restoreDelayMillis = 1_000L
         Combat.initialize()
     }
 
@@ -514,6 +519,46 @@ class CombatTest {
         } finally {
             target.remove()
         }
+    }
+
+    @Test
+    fun `leaf blocks are temporarily broken and restored`() {
+        instance.loadChunk(0, 0).join()
+        val position = BlockVec(8, 61, 8)
+        val original = Block.OAK_LEAVES.withProperty("persistent", "true")
+        val broken = CompletableFuture<Boolean>()
+        instance.scheduleNextTick {
+            instance.setBlock(position.blockX, position.blockY, position.blockZ, original)
+            assertTrue(LeafRestoreManager.temporarilyBreak(instance, position, original))
+            broken.complete(instance.getBlock(position).isAir)
+        }
+
+        assertTrue(broken.get(3, TimeUnit.SECONDS))
+
+        waitFor { instance.getBlock(position).compare(original) }
+    }
+
+    @Test
+    fun `leaf restoration does not overwrite a changed block`() {
+        instance.loadChunk(0, 0).join()
+        val position = BlockVec(9, 61, 8)
+        val original = Block.OAK_LEAVES
+        val changed = CompletableFuture<Boolean>()
+        instance.scheduleNextTick {
+            instance.setBlock(position.blockX, position.blockY, position.blockZ, original)
+            assertTrue(LeafRestoreManager.temporarilyBreak(instance, position, original))
+            instance.setBlock(position.blockX, position.blockY, position.blockZ, Block.STONE)
+            changed.complete(instance.getBlock(position).compare(Block.STONE))
+        }
+
+        assertTrue(changed.get(3, TimeUnit.SECONDS))
+        waitFor { instance.getBlock(position).compare(Block.STONE) }
+    }
+
+    private fun waitFor(condition: () -> Boolean) {
+        val deadline = System.nanoTime() + 3_000_000_000L
+        while (!condition() && System.nanoTime() < deadline) Thread.sleep(25L)
+        assertTrue(condition())
     }
 
     @AfterAll
