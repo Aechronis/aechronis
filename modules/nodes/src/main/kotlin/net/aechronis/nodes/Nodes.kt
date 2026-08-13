@@ -19,6 +19,7 @@ import net.aechronis.nodes.commands.PortCommand
 import net.aechronis.nodes.commands.TerritoryCommand
 import net.aechronis.nodes.commands.TownChatCommand
 import net.aechronis.nodes.commands.TownCommand
+import net.aechronis.nodes.commands.TrainCommand
 import net.aechronis.nodes.commands.UnallyCommand
 import net.aechronis.nodes.commands.WaypointCommand
 import net.aechronis.nodes.listeners.NodesChatListener
@@ -30,6 +31,7 @@ import net.aechronis.nodes.listeners.NodesPlayerJoinQuitListener
 import net.aechronis.nodes.listeners.NodesPlayerMoveListener
 import net.aechronis.nodes.listeners.NodesPlotSelectionListener
 import net.aechronis.nodes.listeners.NodesWorldListener
+import net.aechronis.nodes.listeners.TrainsListener
 import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.MinimapPassengerTracker
@@ -46,6 +48,7 @@ import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.TerritoryPreprocessing
 import net.aechronis.nodes.objects.TerritoryResources
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.serdes.Deserializer
 import net.aechronis.nodes.tasks.IncomeManager
@@ -124,7 +127,9 @@ object Nodes {
         NodesPlayerMoveListener.init()
         NodesPlotSelectionListener.init()
         NodesWorldListener.init()
+        TrainsListener.init()
         WaypointMenu.init()
+        Trains.initialize(config.pathTrains)
         MinecraftServer.getSchedulerManager().buildShutdownTask { cleanup() }
         MinecraftServer.getCommandManager().register(TownCommand())
         MinecraftServer.getCommandManager().register(NationCommand())
@@ -139,6 +144,7 @@ object Nodes {
         MinecraftServer.getCommandManager().register(TerritoryCommand())
         MinecraftServer.getCommandManager().register(PortCommand())
         MinecraftServer.getCommandManager().register(WaypointCommand())
+        MinecraftServer.getCommandManager().register(TrainCommand())
         lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: System.currentTimeMillis()
         reloadManagers()
         MiningBoostManager.start()
@@ -168,6 +174,7 @@ object Nodes {
 
     internal fun cleanup() {
         MiningBoostManager.stop()
+        Trains.cleanup()
         residents.values.forEach { it.destroyMinimap() }
         towns.values.forEach { town -> if (town.income.pushToStorage(true)) town.needsUpdate() }
         if (FlagWar.enabled) FlagWar.cleanup()
@@ -399,6 +406,7 @@ object Nodes {
                     territory.income.forEach { (material, amount) -> territoryIncome[material] = (territoryIncome[material] ?: 0.0) + amount }
                     territory.chunks.forEach { coord ->
                         chunkToBuilding[listOf(coord.x, coord.z)]?.income()?.forEach { (material, amount) -> territoryIncome[material] = (territoryIncome[material] ?: 0.0) + amount }
+                        Trains.incomeAt(coord.x, coord.z).forEach { (material, amount) -> territoryIncome[material] = (territoryIncome[material] ?: 0.0) + amount }
                     }
                     territory.occupier?.let { occupier ->
                         val occupierIncome = incomes.getOrPut(occupier) { mutableMapOf() }
