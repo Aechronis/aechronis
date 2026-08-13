@@ -19,6 +19,6 @@ dependencies {
     testImplementation("com.h2database:h2:2.4.240")
     testImplementation("com.zaxxer:HikariCP:7.1.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
-    testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testImplementation("org.slf4j:slf4j-simple:2.0.18")
 }

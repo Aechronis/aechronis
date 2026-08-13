@@ -16,6 +16,6 @@ dependencies {
 
     testImplementation(project(":modules:utils"))
     testImplementation("net.minestom:minestom:2026.07.12-26.2")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.12.1")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
