@@ -47,9 +47,15 @@ class Resident(val uuid: UUID, val name: String) {
             trusted: Boolean,
             waypoints: List<Waypoint> = emptyList(),
             waypointVisibility: Map<String, Boolean> = emptyMap(),
+            minimapEnabled: Boolean = true,
+            minimapPosition: MinimapPosition = MinimapPosition.TOP_LEFT,
+            minimapShiftEnabled: Boolean = true,
         ) {
             val resident = Resident(uuid, name)
             resident.trusted = trusted
+            resident.minimapEnabled = minimapEnabled
+            resident.minimapPosition = minimapPosition
+            resident.minimapShiftEnabled = minimapShiftEnabled
             resident.waypointVisibility.putAll(waypointVisibility)
             waypoints.forEach { waypoint -> resident.loadPermanentWaypoint(waypoint) }
             resident.needsUpdate()
@@ -216,7 +222,10 @@ class Resident(val uuid: UUID, val name: String) {
     var invitingPlayer: Player? = null
     var inviteThread: Task? = null
 
-    // minimap
+    // minimap preferences and per-player display
+    var minimapEnabled: Boolean = true
+    var minimapPosition: MinimapPosition = MinimapPosition.TOP_LEFT
+    var minimapShiftEnabled: Boolean = true
     var minimap: Minimap? = null
         private set
 
@@ -308,9 +317,36 @@ class Resident(val uuid: UUID, val name: String) {
     // and only viewable by player
     // ===================================
 
-    fun createMinimap(player: Player): Minimap {
+    fun createMinimap(player: Player): Minimap? {
         destroyMinimap()
+        if (!minimapEnabled) return null
         return Minimap(this, player).also { minimap = it }
+    }
+
+    fun setMinimapEnabled(enabled: Boolean): Boolean {
+        if (minimapEnabled == enabled) return false
+        minimapEnabled = enabled
+        if (enabled) player()?.let(::createMinimap) else destroyMinimap()
+        needsUpdate()
+        Nodes.needsSave = true
+        return true
+    }
+
+    fun setMinimapPosition(position: MinimapPosition): Boolean {
+        if (minimapPosition == position) return false
+        minimapPosition = position
+        minimap?.updateSettings()
+        needsUpdate()
+        Nodes.needsSave = true
+        return true
+    }
+
+    fun toggleMinimapShift(): Boolean {
+        minimapShiftEnabled = !minimapShiftEnabled
+        minimap?.updateSettings()
+        needsUpdate()
+        Nodes.needsSave = true
+        return minimapShiftEnabled
     }
 
     fun destroyMinimap() {
@@ -443,6 +479,9 @@ class Resident(val uuid: UUID, val name: String) {
         val town = r.town?.name
         val nation = r.nation?.name
         val trusted = r.trusted
+        val minimapEnabled = r.minimapEnabled
+        val minimapPosition = r.minimapPosition
+        val minimapShiftEnabled = r.minimapShiftEnabled
         val waypoints = r.permanentWaypoints
         val waypointVisibility = r.waypointVisibility.toMap()
 
@@ -468,6 +507,9 @@ class Resident(val uuid: UUID, val name: String) {
                     "\"town\":${this.town?.let { JsonPrimitive(it) } ?: "null"}," +
                     "\"nation\":${this.nation?.let { JsonPrimitive(it) } ?: "null"}," +
                     "\"trust\":${this.trusted}," +
+                    "\"minimap\":${this.minimapEnabled}," +
+                    "\"minimapPosition\":${JsonPrimitive(this.minimapPosition.id)}," +
+                    "\"minimapShift\":${this.minimapShiftEnabled}," +
                     "\"waypoints\":$waypointsJson," +
                     "\"waypointVisibility\":$waypointVisibilityJson" +
                     "}"

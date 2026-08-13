@@ -1,9 +1,9 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
-import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.clearCombatAttribution
 import net.aechronis.combat.utils.combatDamageKind
 import net.aechronis.combat.utils.combatWeapon
@@ -59,13 +59,21 @@ object PlayerDeathListener {
         selfInflicted: Boolean,
     ): Component? =
         when {
-            damageKind == CombatDamageKind.EXPLOSION && selfInflicted ->
+            damageKind == CombatDamageKind.EXPLOSION && selfInflicted -> {
                 Component.translatable("death.attack.explosion", victim)
-            killer != null && weapon != null && damageKind != null ->
+            }
+
+            killer != null && weapon != null && damageKind != null -> {
                 weaponDeathMessage(victim, killer, weapon, damageKind)
-            killer != null && damageKind == CombatDamageKind.EXPLOSION ->
+            }
+
+            killer != null && damageKind == CombatDamageKind.EXPLOSION -> {
                 Component.translatable("death.attack.explosion.player", victim, killer)
-            else -> null
+            }
+
+            else -> {
+                null
+            }
         }
 
     fun init() {

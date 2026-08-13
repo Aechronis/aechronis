@@ -2,8 +2,8 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
-import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.listeners.KeyPressListener
+import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.ShadowColor

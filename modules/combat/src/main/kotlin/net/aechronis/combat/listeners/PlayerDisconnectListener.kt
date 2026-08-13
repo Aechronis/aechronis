@@ -1,7 +1,6 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
-import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneState
@@ -9,6 +8,7 @@ import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.tasks.VehicleTickManager
+import net.aechronis.combat.utils.LagCompensation
 import net.minestom.server.event.player.PlayerDisconnectEvent
 
 object PlayerDisconnectListener {

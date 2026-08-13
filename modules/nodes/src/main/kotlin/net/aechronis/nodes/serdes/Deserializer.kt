@@ -10,6 +10,7 @@ import com.google.gson.JsonParser
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.objects.Farm
+import net.aechronis.nodes.objects.MinimapPosition
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Port
@@ -77,6 +78,11 @@ object Deserializer {
 
                 // trusted
                 val trusted = resident.get("trust")?.asBoolean ?: false
+                val minimapEnabled = resident.get("minimap")?.asBoolean ?: true
+                val minimapPosition = resident.get("minimapPosition")?.asString
+                    ?.let(MinimapPosition::fromId)
+                    ?: MinimapPosition.TOP_LEFT
+                val minimapShiftEnabled = resident.get("minimapShift")?.asBoolean ?: true
 
                 val waypointVisibility = resident.get("waypointVisibility")?.takeIf { it.isJsonObject }?.asJsonObject?.let { visibility ->
                     buildMap {
@@ -108,6 +114,9 @@ object Deserializer {
                     trusted,
                     waypoints,
                     waypointVisibility,
+                    minimapEnabled,
+                    minimapPosition,
+                    minimapShiftEnabled,
                 )
             }
         }

@@ -91,12 +91,10 @@ if (texSize == vec2(256) && round(testColor.a * 255) == 3 && ((idTex & 0xffff) =
 
     // Text opacity carries the client-reported player yaw. Compare it with the frame-smooth
     // camera yaw so the front-facing third-person view can hide the minimap.
-    float playerYawIndex = clamp(
-        round(Color.a * 255.0) - PLAYER_YAW_OPACITY_OFFSET,
-        0.0,
-        PLAYER_YAW_BUCKETS - 1.0
-    );
-    float playerYaw = playerYawIndex / PLAYER_YAW_BUCKETS * 2.0 * PI + PI;
+    int minimapOpacity = int(clamp(round(Color.a * 255.0) - PLAYER_YAW_OPACITY_OFFSET, 0.0, 247.0));
+    int playerYawIndex = minimapOpacity / int(MINIMAP_POSITION_BUCKETS);
+    int minimapPosition = minimapOpacity - playerYawIndex * int(MINIMAP_POSITION_BUCKETS);
+    float playerYaw = float(playerYawIndex) / PLAYER_YAW_BUCKETS * 2.0 * PI + PI;
     float cameraPlayerDelta = atan(sin(yaw - playerYaw), cos(yaw - playerYaw));
     float frontCameraError = PI - abs(cameraPlayerDelta);
     float cameraDepth = abs((ModelViewMat * vec4(Position, 1.0)).z);
@@ -119,7 +117,12 @@ if (texSize == vec2(256) && round(testColor.a * 255) == 3 && ((idTex & 0xffff) =
         custom = 4;
     else
         custom = 2;
-    map = map * MAP_SIZE + MAP_OFFSET;
+    vec2 mapOffset = MAP_OFFSET;
+    if ((minimapPosition & 1) != 0)
+        mapOffset.x = 1.0 - MAP_SIZE.x - MAP_OFFSET.x;
+    if ((minimapPosition & 2) != 0)
+        mapOffset.y = 1.0 - MAP_SIZE.y - MAP_OFFSET.y;
+    map = map * MAP_SIZE + mapOffset;
 
     float markerDepth = MARKER_DEPTH;
     if (markerType == 6) markerDepth += 0.01; // Territory core

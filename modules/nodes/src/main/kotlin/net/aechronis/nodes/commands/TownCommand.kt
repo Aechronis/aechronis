@@ -10,6 +10,7 @@ import net.aechronis.nodes.commands.arguments.ArgumentResident
 import net.aechronis.nodes.commands.arguments.ArgumentTown
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
+import net.aechronis.nodes.objects.MinimapPosition
 import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
@@ -43,6 +44,7 @@ class TownCommand : NodesCommand("t", null, "town") {
             Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
             Message.print(player, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
             Message.print(player, "/town fly${ChatColor.WHITE}: Fly inside your town")
+            Message.print(player, "/town minimap${ChatColor.WHITE}: Configure the resource map")
             Message.print(player, "/town plot${ChatColor.WHITE}: Protect areas with 3D plots")
         }
 
@@ -68,6 +70,7 @@ class TownCommand : NodesCommand("t", null, "town") {
                 Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
                 Message.print(player, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
                 Message.print(player, "/town fly${ChatColor.WHITE}: Fly inside your town")
+                Message.print(player, "/town minimap${ChatColor.WHITE}: Configure the resource map")
                 Message.print(player, "/town plot${ChatColor.WHITE}: Protect areas with 3D plots")
             }
         })
@@ -92,6 +95,7 @@ class TownCommand : NodesCommand("t", null, "town") {
         addSubcommand(TownTrustCommand())
         addSubcommand(TownUntrustCommand())
         addSubcommand(TownFlyCommand())
+        addSubcommand(TownMinimapCommand())
         addSubcommand(TownPlotCommand())
     }
 }
@@ -100,6 +104,7 @@ class TownHelpCommand : NodesCommand("help") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}[Nodes] Town commands:")
+            Message.print(player, "/town minimap${ChatColor.WHITE}: Configure the resource map")
             Message.print(player, "/town promote${ChatColor.WHITE}: Give officer rank to resident")
             Message.print(player, "/town demote${ChatColor.WHITE}: Remove officer rank from resident")
             Message.print(player, "/town apply${ChatColor.WHITE}: Apply to join a town")
@@ -1013,5 +1018,59 @@ class TownFlyCommand : NodesCommand("fly") {
             player.isAllowFlying = true
             Message.print(player, "Enabled flight")
         })
+    }
+}
+
+class TownMinimapCommand : NodesCommand("minimap") {
+    init {
+        setDefaultExecutor { player, resident, _ ->
+            Message.print(player, "[Nodes] Minimap settings:")
+            Message.print(player, "/town minimap toggle${ChatColor.WHITE}: Toggle the resource map")
+            Message.print(player, "/town minimap position <top-left|top-right|bottom-right|bottom-left>${ChatColor.WHITE}: Move the map")
+            Message.print(player, "/town minimap shift${ChatColor.WHITE}: Toggle enlarging the map while sneaking")
+            Message.print(player, "Map: ${if (resident.minimapEnabled) "enabled" else "disabled"}, position: ${resident.minimapPosition.id}, shifting: ${if (resident.minimapShiftEnabled) "enabled" else "disabled"}")
+        }
+
+        addSubcommand(TownMinimapToggleCommand())
+        addSubcommand(TownMinimapPositionCommand())
+        addSubcommand(TownMinimapShiftCommand())
+    }
+}
+
+class TownMinimapToggleCommand : NodesCommand("toggle") {
+    init {
+        setDefaultExecutor { player, resident, _ ->
+            val enabled = !resident.minimapEnabled
+            resident.setMinimapEnabled(enabled)
+            Message.print(player, "Resource map ${if (enabled) "enabled" else "disabled"}")
+        }
+    }
+}
+
+class TownMinimapPositionCommand : NodesCommand("position", null, "location") {
+    init {
+        setDefaultExecutor { player, _, _ ->
+            Message.print(player, "Usage: /town minimap position <top-left|top-right|bottom-right|bottom-left>")
+        }
+
+        val positionArg = ArgumentType.Word("position").from("top-left", "top-right", "bottom-right", "bottom-left")
+        addSyntax({ player, resident, context ->
+            val position = MinimapPosition.fromId(context[positionArg])
+            if (position == null) {
+                Message.error(player, "Invalid minimap position")
+                return@addSyntax
+            }
+            resident.setMinimapPosition(position)
+            Message.print(player, "Resource map moved to ${position.id}")
+        }, positionArg)
+    }
+}
+
+class TownMinimapShiftCommand : NodesCommand("shift", null, "shifting") {
+    init {
+        setDefaultExecutor { player, resident, _ ->
+            val enabled = resident.toggleMinimapShift()
+            Message.print(player, "Resource map shifting while sneaking ${if (enabled) "enabled" else "disabled"}")
+        }
     }
 }

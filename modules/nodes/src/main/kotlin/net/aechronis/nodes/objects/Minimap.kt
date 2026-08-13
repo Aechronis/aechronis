@@ -25,8 +25,21 @@ import kotlin.math.roundToInt
 
 private const val DEFAULT_MINIMAP_SCALE = 4
 private const val SNEAKING_MINIMAP_SCALE = 12
-private const val YAW_BUCKET_COUNT = 252
+private const val YAW_BUCKET_COUNT = 62
+private const val POSITION_BUCKET_COUNT = 4
 private const val YAW_OPACITY_OFFSET = 4
+
+enum class MinimapPosition(val id: String, internal val shaderValue: Int) {
+    TOP_LEFT("top-left", 0),
+    TOP_RIGHT("top-right", 1),
+    BOTTOM_LEFT("bottom-left", 2),
+    BOTTOM_RIGHT("bottom-right", 3),
+    ;
+
+    companion object {
+        fun fromId(id: String): MinimapPosition? = entries.firstOrNull { it.id == id.lowercase() }
+    }
+}
 
 internal object MinimapYawCodec {
     fun index(yawDegrees: Float): Int {
@@ -35,7 +48,9 @@ internal object MinimapYawCodec {
         return (normalized * YAW_BUCKET_COUNT / 360f).roundToInt().coerceIn(0, YAW_BUCKET_COUNT - 1)
     }
 
-    fun opacity(index: Int): Byte = (index.coerceIn(0, YAW_BUCKET_COUNT - 1) + YAW_OPACITY_OFFSET).toByte()
+    fun opacity(index: Int, position: MinimapPosition): Byte = (
+        index.coerceIn(0, YAW_BUCKET_COUNT - 1) * POSITION_BUCKET_COUNT + position.shaderValue + YAW_OPACITY_OFFSET
+        ).toByte()
 }
 
 internal fun augmentPassengerIds(
@@ -205,14 +220,15 @@ class Minimap(
         val nextYawIndex = MinimapYawCodec.index(yawDegrees)
         if (nextYawIndex == lastYawIndex) return
         lastYawIndex = nextYawIndex
-        player.sendPacket(
-            EntityMetaDataPacket(
-                markerEntityId,
-                mapOf(
-                    MetadataDef.TextDisplay.TEXT_OPACITY.index() to Metadata.Byte(MinimapYawCodec.opacity(lastYawIndex)),
-                ),
-            ),
-        )
+        updateHudMetadata()
+    }
+
+    fun updateSettings() {
+        if (destroyed || !player.isOnline) return
+        val newScale = scaleForPlayer()
+        if (scale != newScale) scale = newScale
+        updateHudMetadata()
+        refresh()
     }
 
     /** Recreates virtual entities after a respawn or instance switch. */
@@ -286,10 +302,27 @@ class Minimap(
             MetadataDef.Display.BILLBOARD_CONSTRAINTS.index() to Metadata.Byte(3),
             MetadataDef.TextDisplay.TEXT.index() to Metadata.Component(markers),
             MetadataDef.TextDisplay.BACKGROUND_COLOR.index() to Metadata.VarInt(0x000000FF),
-            MetadataDef.TextDisplay.TEXT_OPACITY.index() to Metadata.Byte(MinimapYawCodec.opacity(lastYawIndex)),
+            MetadataDef.TextDisplay.TEXT_OPACITY.index() to Metadata.Byte(minimapOpacity()),
             MetadataDef.TextDisplay.TEXT_DISPLAY_FLAGS.index() to Metadata.Byte(0),
         ),
     )
 
-    private fun scaleForPlayer(): Int = if (player.isSneaking) SNEAKING_MINIMAP_SCALE else DEFAULT_MINIMAP_SCALE
+    private fun minimapOpacity(): Byte = MinimapYawCodec.opacity(lastYawIndex, resident.minimapPosition)
+
+    private fun updateHudMetadata() {
+        player.sendPacket(
+            EntityMetaDataPacket(
+                markerEntityId,
+                mapOf(
+                    MetadataDef.TextDisplay.TEXT_OPACITY.index() to Metadata.Byte(minimapOpacity()),
+                ),
+            ),
+        )
+    }
+
+    private fun scaleForPlayer(): Int = if (resident.minimapShiftEnabled && player.isSneaking) {
+        SNEAKING_MINIMAP_SCALE
+    } else {
+        DEFAULT_MINIMAP_SCALE
+    }
 }
