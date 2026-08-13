@@ -327,8 +327,9 @@ object Trains {
                     val end = json.getAsJsonObject("end")?.let(::positionFromJson) ?: return@forEach
                     val destination = json.get("destination")?.takeUnless { it.isJsonNull }?.asInt
                     val distance = json.get("distance")?.asInt ?: return@forEach
-                    @Suppress("ktlint:standard:mixed-condition-operators")
-                    if (stationId !in stations || destination != null && destination !in stations || distance < 1) return@forEach
+                    if (destination != null && destination !in stations) return@forEach
+                    if (distance < 1) return@forEach
+                    if (stationId !in stations) return@forEach
                     edges.add(RailEdge(stationId, start, end, destination, distance))
                 }
             }
