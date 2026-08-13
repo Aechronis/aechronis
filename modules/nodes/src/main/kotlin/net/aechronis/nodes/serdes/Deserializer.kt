@@ -83,7 +83,7 @@ object Deserializer {
                 val minimapEnabled = resident.get("minimap")?.asBoolean ?: true
                 val minimapPosition = resident.get("minimapPosition")?.asString
                     ?.let(MinimapPosition::fromId)
-                    ?: MinimapPosition.TOP_LEFT
+                    ?: MinimapPosition.DEFAULT
                 val minimapShiftEnabled = resident.get("minimapShift")?.asBoolean ?: true
 
                 val waypointVisibility = resident.get("waypointVisibility")?.takeIf { it.isJsonObject }?.asJsonObject?.let { visibility ->

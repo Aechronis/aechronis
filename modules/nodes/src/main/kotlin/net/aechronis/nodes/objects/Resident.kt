@@ -48,7 +48,7 @@ class Resident(val uuid: UUID, val name: String) {
             waypoints: List<Waypoint> = emptyList(),
             waypointVisibility: Map<String, Boolean> = emptyMap(),
             minimapEnabled: Boolean = true,
-            minimapPosition: MinimapPosition = MinimapPosition.TOP_LEFT,
+            minimapPosition: MinimapPosition = MinimapPosition.DEFAULT,
             minimapShiftEnabled: Boolean = true,
         ) {
             val resident = Resident(uuid, name)
@@ -224,7 +224,7 @@ class Resident(val uuid: UUID, val name: String) {
 
     // minimap preferences and per-player display
     var minimapEnabled: Boolean = true
-    var minimapPosition: MinimapPosition = MinimapPosition.TOP_LEFT
+    var minimapPosition: MinimapPosition = MinimapPosition.DEFAULT
     var minimapShiftEnabled: Boolean = true
     var minimap: Minimap? = null
         private set

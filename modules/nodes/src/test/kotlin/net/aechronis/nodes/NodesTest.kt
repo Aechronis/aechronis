@@ -2,6 +2,7 @@ package net.aechronis.nodes
 
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
+import net.aechronis.nodes.objects.MinimapPosition
 import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
@@ -145,6 +146,14 @@ class NodesTest {
         } finally {
             Files.writeString(worldPath, originalWorld)
             Nodes.loadWorld()
+        }
+    }
+
+    @Test
+    fun `legacy residents use the default minimap position`() {
+        assertTrue(Nodes.residents.isNotEmpty())
+        Nodes.residents.values.forEach { resident ->
+            assertEquals(MinimapPosition.TOP_RIGHT, resident.minimapPosition)
         }
     }
 

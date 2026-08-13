@@ -37,6 +37,8 @@ enum class MinimapPosition(val id: String, internal val shaderValue: Int) {
     ;
 
     companion object {
+        val DEFAULT: MinimapPosition = TOP_RIGHT
+
         fun fromId(id: String): MinimapPosition? = entries.firstOrNull { it.id == id.lowercase() }
     }
 }
@@ -299,6 +301,7 @@ class Minimap(
     private fun markerMetadata(markers: Component): EntityMetaDataPacket = EntityMetaDataPacket(
         markerEntityId,
         mapOf(
+            MetadataDef.TextDisplay.ENTITY_FLAGS.index() to Metadata.Byte(0x20),
             MetadataDef.Display.BILLBOARD_CONSTRAINTS.index() to Metadata.Byte(3),
             MetadataDef.TextDisplay.TEXT.index() to Metadata.Component(markers),
             MetadataDef.TextDisplay.BACKGROUND_COLOR.index() to Metadata.VarInt(0x000000FF),

@@ -117,11 +117,20 @@ if (texSize == vec2(256) && round(testColor.a * 255) == 3 && ((idTex & 0xffff) =
         custom = 4;
     else
         custom = 2;
+    bool isRight = (minimapPosition & 1) != 0;
+    bool isBottom = (minimapPosition & 2) != 0;
     vec2 mapOffset = MAP_OFFSET;
-    if ((minimapPosition & 1) != 0)
-        mapOffset.x = 1.0 - MAP_SIZE.x - MAP_OFFSET.x;
-    if ((minimapPosition & 2) != 0)
-        mapOffset.y = 1.0 - MAP_SIZE.y - MAP_OFFSET.y;
+    vec2 screenAnchor = vec2(-1.0, 1.0);
+    if (isRight)
+    {
+        mapOffset.x = -MAP_SIZE.x - MAP_OFFSET.x;
+        screenAnchor.x = 1.0;
+    }
+    if (isBottom)
+    {
+        mapOffset.y = -MAP_SIZE.y - MAP_OFFSET.y;
+        screenAnchor.y = -1.0;
+    }
     map = map * MAP_SIZE + mapOffset;
 
     float markerDepth = MARKER_DEPTH;
@@ -131,7 +140,7 @@ if (texSize == vec2(256) && round(testColor.a * 255) == 3 && ((idTex & 0xffff) =
     if (isWaypoint && !isDeathWaypoint) markerDepth += 0.035; // Permanent waypoint
     if (isDeathWaypoint) markerDepth += 0.037; // Death waypoint
     if (markerType == 4) markerDepth += 0.04; // Player marker
-    gl_Position = vec4(vec2(1, -ProjMat[1][1]/ProjMat[0][0]) * map + vec2(-1, 1), markerDepth, 1);
+    gl_Position = vec4(vec2(1, -ProjMat[1][1]/ProjMat[0][0]) * map + screenAnchor, markerDepth, 1);
     vertexColor = vec4(1);
 
     sphericalVertexDistance = 0;
