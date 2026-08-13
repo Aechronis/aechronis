@@ -11,6 +11,7 @@ import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.MinimapPosition
+import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Port
@@ -65,6 +66,7 @@ object Deserializer {
 
         val json = JsonParser.parseReader(FileReader(path.toString()))
         val jsonObj = json.asJsonObject
+        MiningBoostManager.load(jsonObj.get("miningBoost")?.takeIf { it.isJsonObject }?.asJsonObject)
 
         // ===============================
         // Residents

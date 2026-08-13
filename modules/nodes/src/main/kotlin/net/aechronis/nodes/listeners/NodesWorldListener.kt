@@ -27,6 +27,7 @@ import net.aechronis.nodes.constants.INTERACTIVE_BLOCKS
 import net.aechronis.nodes.constants.PROTECTED_BLOCKS
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
+import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
@@ -583,7 +584,12 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
             (Nodes.config.allowOreInNationTowns && territoryNation !== null && territoryNation === playerNation) ||
             (Nodes.config.allowOreInCaptured && territory.occupier === playerTown)
         ) {
-            val itemDrops = territory.ores.sample(blockY)
+            val miningMultiplier = MiningBoostManager.miningMultiplier()
+            val itemDrops = territory.ores.sample(blockY).map { itemStack ->
+                itemStack.withAmount { amount ->
+                    (amount.toLong() * miningMultiplier.toLong()).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                }
+            }
 
             // do tax event check
             val territoryOccupier = territory.occupier

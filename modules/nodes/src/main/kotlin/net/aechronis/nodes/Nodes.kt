@@ -33,6 +33,7 @@ import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.MinimapPassengerTracker
+import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.OreBlockCache
@@ -140,6 +141,7 @@ object Nodes {
         MinecraftServer.getCommandManager().register(WaypointCommand())
         lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: System.currentTimeMillis()
         reloadManagers()
+        MiningBoostManager.start()
         initializeOnlinePlayers()
         println("Enabled in ${System.currentTimeMillis() - timeStart}ms")
         println("now this is epic")
@@ -159,11 +161,13 @@ object Nodes {
             Resident.create(player)
             val resident = Resident.fromPlayer(player)!!
             Resident.setOnline(resident, player)
+            MiningBoostManager.onPlayerJoin(player)
             if (resident.minimap == null) resident.createMinimap(player)
         }
     }
 
     internal fun cleanup() {
+        MiningBoostManager.stop()
         residents.values.forEach { it.destroyMinimap() }
         towns.values.forEach { town -> if (town.income.pushToStorage(true)) town.needsUpdate() }
         if (FlagWar.enabled) FlagWar.cleanup()
@@ -303,6 +307,7 @@ object Nodes {
 
     internal fun loadWorld(): Boolean {
         residents.values.forEach { it.destroyMinimap() }
+        MiningBoostManager.reset()
 
         try {
             resourceNodes.clear()
@@ -342,6 +347,7 @@ object Nodes {
                 Resident.create(player)
                 val resident = Resident.fromPlayer(player)!!
                 Resident.setOnline(resident, player)
+                MiningBoostManager.onPlayerJoin(player)
                 resident.createMinimap(player)
             }
         }

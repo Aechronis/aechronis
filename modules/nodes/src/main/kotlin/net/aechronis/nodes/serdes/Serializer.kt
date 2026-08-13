@@ -14,6 +14,7 @@ package net.aechronis.nodes.serdes
 
 import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.objects.BuildingSaveState
+import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Nation.NationSaveState
 import net.aechronis.nodes.objects.Resident.ResidentSaveState
 import net.aechronis.nodes.objects.Town.TownSaveState
@@ -62,6 +63,7 @@ object Serializer {
         // Metadata (for web editor)
         // ===============================
         jsonString.append("{\"meta\":{\"type\":\"towns\"},")
+        jsonString.append("\"miningBoost\":${MiningBoostManager.toJsonString()},")
 
         // ===============================
         // Residents
