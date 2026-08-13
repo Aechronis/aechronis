@@ -13,4 +13,5 @@ data class GuardConfig(
     val bypass: (Player) -> Boolean = { false },
     val onDenied: (Player, FlagName) -> Unit = { _, _ -> },
     val adminPermission: String = "guard.admin",
+    val bypassPermission: String = "guard.bypass",
 )

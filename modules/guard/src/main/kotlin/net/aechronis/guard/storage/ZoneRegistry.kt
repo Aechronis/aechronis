@@ -29,17 +29,24 @@ class ZoneRegistry {
         return zone
     }
 
+    fun findAll(
+        instanceId: UUID,
+        x: Int,
+        y: Int,
+        z: Int,
+    ): List<Zone> =
+        zones
+            .asSequence()
+            .filter { it.instanceId == instanceId && it.bounds.contains(x, y, z) }
+            .sortedWith(compareByDescending<Zone> { it.priority }.thenBy { it.name.lowercase() })
+            .toList()
+
     fun find(
         instanceId: UUID,
         x: Int,
         y: Int,
         z: Int,
-    ): Zone? =
-        zones
-            .asSequence()
-            .filter { it.instanceId == instanceId && it.bounds.contains(x, y, z) }
-            .sortedWith(compareByDescending<Zone> { it.priority }.thenBy { it.name.lowercase() })
-            .firstOrNull()
+    ): Zone? = findAll(instanceId, x, y, z).firstOrNull()
 
     fun replaceAll(values: Collection<Zone>) {
         zones.clear()

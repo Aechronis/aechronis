@@ -17,4 +17,15 @@ class ZoneRegistryTest {
 
         assertEquals("high", registry.find(instanceId, 5, 5, 5)?.name)
     }
+
+    @Test
+    fun `find all returns containing zones in priority order`() {
+        val instanceId = UUID.randomUUID()
+        val registry = ZoneRegistry()
+        registry.add(Zone("low", instanceId, ZoneBounds(0, 0, 0, 10, 10, 10), priority = 1))
+        registry.add(Zone("high", instanceId, ZoneBounds(0, 0, 0, 10, 10, 10), priority = 2))
+        registry.add(Zone("outside", instanceId, ZoneBounds(20, 20, 20, 30, 30, 30), priority = 3))
+
+        assertEquals(listOf("high", "low"), registry.findAll(instanceId, 5, 5, 5).map(Zone::name))
+    }
 }

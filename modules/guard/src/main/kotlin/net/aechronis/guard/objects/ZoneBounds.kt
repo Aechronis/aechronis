@@ -17,4 +17,6 @@ data class ZoneBounds(
         y: Int,
         z: Int,
     ): Boolean = x in minX..maxX && y in minY..maxY && z in minZ..maxZ
+
+    override fun toString(): String = "[$minX, $minY, $minZ] to [$maxX, $maxY, $maxZ]"
 }

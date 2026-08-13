@@ -12,6 +12,7 @@ import net.aechronis.guard.listeners.TeleportListener
 import net.aechronis.guard.objects.ZonePolicy
 import net.aechronis.guard.storage.ZoneRegistry
 import net.aechronis.guard.storage.ZoneStorage
+import net.aechronis.utils.hasPermission
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.Event
@@ -23,6 +24,8 @@ import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.instance.Instance
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 object Guard {
@@ -33,6 +36,7 @@ object Guard {
     private lateinit var config: GuardConfig
     private lateinit var policy: ZonePolicy
     private lateinit var registry: ZoneRegistry
+    private val bypassOverrides = ConcurrentHashMap<UUID, Boolean>()
 
     fun init(config: GuardConfig = GuardConfig()) {
         check(initialized.compareAndSet(false, true)) { "Guard is already initialized" }
@@ -56,7 +60,9 @@ object Guard {
         eventNode.addListener(PlayerMoveEvent::class.java, MoveListener::handle)
         eventNode.addListener(EntityTeleportEvent::class.java, TeleportListener::handle)
         eventNode.addListener(EntityDamageEvent::class.java, DamageListener::handle)
-        MinecraftServer.getCommandManager().register(GuardCommand(config.adminPermission))
+        MinecraftServer
+            .getCommandManager()
+            .register(GuardCommand(config.adminPermission, config.bypassPermission))
 
         Runtime.getRuntime().addShutdownHook(Thread(::save, "guard-zone-save"))
     }
@@ -75,12 +81,22 @@ object Guard {
         flag: FlagName,
         deny: () -> Unit,
     ) {
-        if (instance == null || config.bypass(player)) return
+        if (instance == null || isBypassing(player)) return
         val zone = registry.find(instance.uuid, x, y, z)
         if (!policy.allows(zone, flag)) {
             deny()
             config.onDenied(player, flag)
         }
+    }
+
+    fun isBypassing(player: Player): Boolean =
+        config.bypass(player) ||
+            (player.hasPermission(config.bypassPermission) && bypassOverrides[player.uuid] != false)
+
+    fun toggleBypass(player: Player): Boolean {
+        val enabled = !isBypassing(player)
+        bypassOverrides[player.uuid] = enabled
+        return enabled
     }
 
     fun save() {
