@@ -6,7 +6,6 @@ import net.aechronis.server.resourcepack.ResourcePackServer
 import net.kyori.adventure.resource.ResourcePackInfo
 import net.kyori.adventure.resource.ResourcePackRequest
 import net.kyori.adventure.text.Component
-import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import java.net.URI
@@ -25,7 +24,7 @@ object PlayerJoinListener {
         val player = event.player
 
         event.spawningInstance = Server.instance
-        player.respawnPoint = Town.fromPlayer(player)?.spawnpoint ?: Pos(0.0, 64.0, 0.0)
+        player.respawnPoint = Town.fromPlayer(player)?.spawnpoint ?: Server.spawnPoint
         player.gameMode = GameMode.SURVIVAL
         player.sendResourcePacks(
             ResourcePackRequest

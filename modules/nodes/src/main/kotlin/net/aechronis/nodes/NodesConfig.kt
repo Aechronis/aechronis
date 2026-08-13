@@ -88,7 +88,7 @@ data class NodesConfig(
     val townSpawnTime: Long = 10000,
 
     // respawn point for players without a town
-    val defaultRespawnPoint: Pos = Pos(0.0, 64.0, 0.0),
+    var defaultRespawnPoint: Pos = Pos(0.0, 64.0, 0.0),
 
     // ===================================
     // nation settings

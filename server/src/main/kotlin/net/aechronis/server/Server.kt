@@ -13,6 +13,7 @@ import net.aechronis.logger.Logger
 import net.aechronis.logger.LoggerConfig
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.NodesConfig
+import net.aechronis.server.commands.SetSpawnCommand
 import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.Boats
@@ -32,11 +33,13 @@ import net.aechronis.watchdog.Watchdog
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.color.Color
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.registry.RegistryKey
+import net.minestom.server.tag.Tag
 import net.minestom.server.world.DimensionType
 import net.minestom.server.world.attribute.EnvironmentAttribute
 import org.everbuild.blocksandstuff.blocks.BlockBehaviorRuleRegistrations
@@ -46,12 +49,47 @@ import org.everbuild.blocksandstuff.blocks.PlacedHandlerRegistration
 import org.everbuild.blocksandstuff.blocks.group.VanillaBlockBehaviour
 import java.net.InetSocketAddress
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Path
 
 object Server {
+    private val spawnXTag = Tag.Double("aechronis:spawn_x")
+    private val spawnYTag = Tag.Double("aechronis:spawn_y")
+    private val spawnZTag = Tag.Double("aechronis:spawn_z")
+    private val spawnYawTag = Tag.Float("aechronis:spawn_yaw")
+    private val spawnPitchTag = Tag.Float("aechronis:spawn_pitch")
+
     lateinit var fullbrightKey: RegistryKey<DimensionType>
     lateinit var instance: InstanceContainer
+    var spawnPoint: Pos = Pos(0.0, 64.0, 0.0)
+        private set
     val eventNode = EventNode.all("aechronis")
+
+    fun loadSpawnPoint() {
+        val tags = instance.tagHandler()
+        val x = tags.getTag(spawnXTag) ?: return
+        val y = tags.getTag(spawnYTag) ?: return
+        val z = tags.getTag(spawnZTag) ?: return
+        spawnPoint =
+            Pos(
+                x,
+                y,
+                z,
+                tags.getTag(spawnYawTag) ?: 0.0f,
+                tags.getTag(spawnPitchTag) ?: 0.0f,
+            )
+    }
+
+    fun setSpawnPoint(position: Pos) {
+        spawnPoint = position
+        val tags = instance.tagHandler()
+        tags.setTag(spawnXTag, position.x)
+        tags.setTag(spawnYTag, position.y)
+        tags.setTag(spawnZTag, position.z)
+        tags.setTag(spawnYawTag, position.yaw)
+        tags.setTag(spawnPitchTag, position.pitch)
+        instance.saveInstance()
+    }
 }
 
 fun main(args: Array<String>) {
@@ -91,8 +129,17 @@ fun main(args: Array<String>) {
     MinecraftServer.getGlobalEventHandler().addChild(Server.eventNode)
 
     // create instance
-    Server.instance = MinecraftServer.getInstanceManager().createInstanceContainer(Server.fullbrightKey)
-    Server.instance.chunkLoader = AnvilLoader(Path.of("world"), DimensionType.OVERWORLD.key())
+    val worldPath = Path.of("world")
+    Files.createDirectories(worldPath)
+    Server.instance =
+        MinecraftServer
+            .getInstanceManager()
+            .createInstanceContainer(
+                Server.fullbrightKey,
+                AnvilLoader(worldPath, DimensionType.OVERWORLD.key()),
+            )
+    Server.loadSpawnPoint()
+    MinecraftServer.getCommandManager().register(SetSpawnCommand())
 
     // tasks
     TabManager.start()
@@ -157,7 +204,7 @@ fun main(args: Array<String>) {
 
     Vanilla.init()
 
-    val nodesConfig = NodesConfig()
+    val nodesConfig = NodesConfig(defaultRespawnPoint = Server.spawnPoint)
     Nodes.initialize(nodesConfig)
 
     val logger = LoggerConfig(limit = 999999999)

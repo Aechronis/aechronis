@@ -6,4 +6,8 @@ internal data class CollisionSnapshot(
     val insideSolid: Boolean,
     val inLiquid: Boolean,
     val belowLiquid: Boolean,
-)
+    val climbable: Boolean,
+) {
+    val movementExempt: Boolean
+        get() = supported || climbable || inLiquid || belowLiquid
+}

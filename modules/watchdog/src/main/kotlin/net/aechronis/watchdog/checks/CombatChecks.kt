@@ -6,6 +6,7 @@ import net.aechronis.watchdog.objects.FlagType
 import net.aechronis.watchdog.objects.PlayerState
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
+import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.cos
 import kotlin.math.sin
@@ -39,14 +40,17 @@ internal object CombatChecks {
         if (angle > config.maxAttackAngleDegrees) {
             flag(attacker, FlagType.KILL_AURA, 0.3, "attack angle was ${angle.toInt()} degrees")
         }
-        val recentYawCount =
-            state.rotations
-                .takeLast(5)
-                .map { it.yaw }
-                .distinct()
-                .size
-        if (state.rotations.size >= 5 && recentYawCount == 1) {
-            flag(attacker, FlagType.AIM, 0.25, "attack was accompanied by an unchanged view angle")
+        val recentRotations = state.rotations.takeLast(5)
+        if (recentRotations.size >= 5 && recentRotations.map { it.yaw to it.pitch }.distinct().size == 1) {
+            flag(attacker, FlagType.AIM, 0.25, "attack was accompanied by duplicate view angles")
+        }
+        if (state.rotations.size >= 3) {
+            val rotations = state.rotations.takeLast(3)
+            val previousDelta = rotations[1].yaw - rotations[0].yaw
+            val currentDelta = rotations[2].yaw - rotations[1].yaw
+            if (abs(currentDelta) > 320.0f && abs(previousDelta) < 30.0f && abs(rotations[2].yaw) < 360.0f) {
+                flag(attacker, FlagType.AIM, 0.25, "attack was accompanied by a modulo-360 yaw snap")
+            }
         }
     }
 

@@ -19,6 +19,8 @@ internal object PacketChecks {
         flag: FlagSink,
     ): Boolean {
         var reject = false
+        val badPacketsEnabled = FlagType.BAD_PACKETS in config.enabledChecks
+        val timerEnabled = FlagType.TIMER in config.enabledChecks
 
         if (
             position != null &&
@@ -31,20 +33,37 @@ internal object PacketChecks {
                     abs(position.z()) > Entity.MAX_COORDINATE
             )
         ) {
-            flag(player, FlagType.BAD_PACKETS, 1.0, "movement position was non-finite or out of range")
-            reject = true
+            if (badPacketsEnabled) {
+                flag(player, FlagType.BAD_PACKETS, 1.0, "movement position was non-finite or out of range")
+                reject = true
+            }
         }
 
         if (yaw != null && (!yaw.isFinite() || abs(yaw) > MAX_ROTATION)) {
-            flag(player, FlagType.BAD_PACKETS, 1.0, "invalid yaw $yaw")
-            reject = true
+            if (badPacketsEnabled) {
+                flag(player, FlagType.BAD_PACKETS, 1.0, "invalid yaw $yaw")
+                reject = true
+            }
         }
         if (pitch != null && (!pitch.isFinite() || pitch !in -90.0f..90.0f)) {
-            flag(player, FlagType.BAD_PACKETS, 1.0, "invalid pitch $pitch")
-            reject = true
+            if (badPacketsEnabled) {
+                flag(player, FlagType.BAD_PACKETS, 1.0, "invalid pitch $pitch")
+                reject = true
+            }
+        }
+
+        if (position != null) {
+            if (state.lastTimerSampleNanos == 0L) {
+                state.lastTimerSampleNanos = state.lastPacketAtNanos
+            } else {
+                val elapsed = (state.lastPacketAtNanos - state.lastTimerSampleNanos).coerceAtLeast(0L)
+                state.timerBalanceNanos = (state.timerBalanceNanos - elapsed).coerceAtLeast(-TIMER_DRIFT_NANOS) + TICK_NANOS
+                state.lastTimerSampleNanos = state.lastPacketAtNanos
+            }
         }
 
         if (
+            timerEnabled &&
             state.movementPacketsInWindow > config.maxMovementPacketsPerSecond &&
             state.lastTimerFlagWindowNanos != state.packetWindowStartedAtNanos
         ) {
@@ -56,8 +75,14 @@ internal object PacketChecks {
                 (excess.toDouble() / config.maxMovementPacketsPerSecond).coerceIn(0.25, 0.6),
                 "received ${state.movementPacketsInWindow} movement packets in one second",
             )
-            reject = true
-        } else if (state.movementPacketsInWindow > config.maxMovementPacketsPerSecond) {
+        }
+
+        if (timerEnabled && state.timerBalanceNanos > TIMER_FLAG_THRESHOLD_NANOS) {
+            flag(player, FlagType.TIMER, 0.25, "client movement clock gained ${state.timerBalanceNanos / 1_000_000}ms")
+            state.timerBalanceNanos -= TICK_NANOS
+        }
+
+        if (timerEnabled && state.movementPacketsInWindow > config.maxMovementPacketsPerSecond * 2) {
             reject = true
         }
 
@@ -65,4 +90,7 @@ internal object PacketChecks {
     }
 
     private const val MAX_ROTATION = 360.0f * 1_000_000.0f
+    private const val TICK_NANOS = 50_000_000L
+    private const val TIMER_DRIFT_NANOS = 120_000_000L
+    private const val TIMER_FLAG_THRESHOLD_NANOS = 250_000_000L
 }

@@ -12,6 +12,7 @@ object WorldSaver {
             .getSchedulerManager()
             .buildTask {
                 Server.instance.saveChunksToStorage()
+                Server.instance.saveInstance()
             }.repeat(TaskSchedule.minutes(SAVE_INTERVAL_MINUTES))
             .schedule()
     }

@@ -1,5 +1,6 @@
 package net.aechronis.watchdog.objects
 
+import net.aechronis.watchdog.checks.CollisionSnapshot
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import java.util.UUID
@@ -14,6 +15,10 @@ class PlayerState internal constructor(
     internal var lastAcceptedOnGround = false
     internal var airTicks = 0
     internal var lastAcceptedAtNanos = 0L
+    internal var lastCollision: CollisionSnapshot? = null
+    internal var flightBuffer = 0.0
+    internal var timerBalanceNanos = 0L
+    internal var lastTimerSampleNanos = 0L
     internal var lastPacketAtNanos = 0L
     internal var packetWindowStartedAtNanos = 0L
     internal var movementPacketsInWindow = 0
@@ -41,6 +46,10 @@ class PlayerState internal constructor(
         lastAcceptedOnGround = false
         airTicks = 0
         lastAcceptedAtNanos = 0L
+        lastCollision = null
+        flightBuffer = 0.0
+        timerBalanceNanos = 0L
+        lastTimerSampleNanos = 0L
         lastPacketAtNanos = 0L
         packetWindowStartedAtNanos = 0L
         movementPacketsInWindow = 0
