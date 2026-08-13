@@ -4,7 +4,10 @@
 
 package net.aechronis.nodes
 
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import net.aechronis.nodes.commands.AllyChatCommand
 import net.aechronis.nodes.commands.AllyCommand
 import net.aechronis.nodes.commands.GlobalChatCommand
@@ -56,7 +59,10 @@ import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.item.Material
 import net.minestom.server.timer.Task
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
@@ -167,6 +173,71 @@ object Nodes {
 
     internal fun loadResources(json: JsonObject) {
         resourceNodes.putAll(ResourceNode.loadFromJson(json))
+    }
+
+    /**
+     * Add or remove a resource node in the world definition and hot-reload the affected territories.
+     */
+    internal fun updateTerritoryResourceNode(
+        territoryId: TerritoryId,
+        resourceNodeName: String,
+        add: Boolean,
+    ): Result<Unit> = runCatching {
+        if (!resourceNodes.containsKey(resourceNodeName)) {
+            error("Resource node '$resourceNodeName' does not exist")
+        }
+
+        val currentTerritory = territories[territoryId] ?: error("Territory '$territoryId' does not exist")
+        val path = config.pathWorld
+        val root = Files.newBufferedReader(path).use { reader ->
+            JsonParser.parseReader(reader).asJsonObject
+        }
+        val territoriesJson = root.get("territories")?.asJsonObject
+            ?: error("World file does not contain territories")
+        val territoryJson = territoriesJson.get(territoryId.toString())?.asJsonObject
+            ?: error("World file does not contain territory '$territoryId'")
+
+        val nodes = territoryJson.get("nodes")?.takeIf { it.isJsonArray }?.asJsonArray
+            ?.map { it.asString }
+            ?.toMutableList()
+            ?: mutableListOf()
+
+        if (add) {
+            if (nodes.contains(resourceNodeName)) {
+                error("Resource node '$resourceNodeName' is already assigned to territory '$territoryId'")
+            }
+            nodes.add(resourceNodeName)
+        } else if (!nodes.removeAll { it == resourceNodeName }) {
+            error("Resource node '$resourceNodeName' is not assigned to territory '$territoryId'")
+        }
+
+        val updatedNodes = JsonArray()
+        nodes.forEach(updatedNodes::add)
+        territoryJson.add("nodes", updatedNodes)
+
+        val parent = path.parent ?: Paths.get(".")
+        val temporaryPath = Files.createTempFile(parent, "world-", ".json.tmp")
+        try {
+            Files.writeString(temporaryPath, GsonBuilder().create().toJson(root))
+            try {
+                Files.move(
+                    temporaryPath,
+                    path,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporaryPath, path, StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            Files.deleteIfExists(temporaryPath)
+        }
+
+        val reloadIds = buildList {
+            add(territoryId)
+            for (neighborId in currentTerritory.neighbors) add(neighborId)
+        }.distinct()
+        loadTerritories(territoriesJson, reloadIds)
     }
 
     internal fun loadTerritories(json: JsonObject, ids: List<TerritoryId>? = null) {

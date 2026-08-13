@@ -14,6 +14,7 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentNation
 import net.aechronis.nodes.commands.arguments.ArgumentResident
 import net.aechronis.nodes.commands.arguments.ArgumentResidentArray
+import net.aechronis.nodes.commands.arguments.ArgumentResourceNode
 import net.aechronis.nodes.commands.arguments.ArgumentSanitizedString
 import net.aechronis.nodes.commands.arguments.ArgumentTerritory
 import net.aechronis.nodes.commands.arguments.ArgumentTerritoryArray
@@ -42,6 +43,7 @@ class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
             Message.print(player, "/nodesadmin town${ChatColor.WHITE}: Manage towns (see \"/nodesadmin town help\")")
             Message.print(player, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
             Message.print(player, "/nodesadmin building${ChatColor.WHITE}: Manage buildings (see \"/nodesadmin building help\")")
+            Message.print(player, "/nodesadmin reasorce${ChatColor.WHITE}: Add or remove a territory resource node")
             Message.print(player, "/nodesadmin save${ChatColor.WHITE}: Force save world")
             Message.print(player, "/nodesadmin load${ChatColor.WHITE}: Force load world")
             Message.print(player, "/nodesadmin runincome${ChatColor.WHITE}: Runs income for all towns")
@@ -52,6 +54,7 @@ class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
         addSubcommand(NodesAdminTownCommand())
         addSubcommand(NodesAdminNationCommand())
         addSubcommand(NodesAdminBuildingCommand())
+        addSubcommand(NodesAdminReasorceCommand())
         addSubcommand(NodesAdminSaveCommand())
         addSubcommand(NodesAdminLoadCommand())
         addSubcommand(NodesAdminRunIncomeCommand())
@@ -66,6 +69,7 @@ class NodesAdminHelpCommand : NodesCommand("help", "nodes.admin") {
             Message.print(player, "/nodesadmin town${ChatColor.WHITE}: Manage towns (see \"/nodesadmin town help\")")
             Message.print(player, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
             Message.print(player, "/nodesadmin building${ChatColor.WHITE}: Manage buildings (see \"/nodesadmin building help\")")
+            Message.print(player, "/nodesadmin reasorce${ChatColor.WHITE}: Add or remove a territory resource node")
             Message.print(player, "/nodesadmin save${ChatColor.WHITE}: Force save world")
             Message.print(player, "/nodesadmin load${ChatColor.WHITE}: Force load world")
             Message.print(player, "/nodesadmin runincome${ChatColor.WHITE}: Runs income for all towns")
@@ -921,6 +925,43 @@ class NodesAdminBuildingSetTierCommand : NodesCommand("settier", "nodes.admin") 
             Building.setTier(building, context[tierArg])
             Message.print(player, "${building.type} in chunk (${building.chunkX}, ${building.chunkZ}) set to tier ${building.tier}")
         }, tierArg)
+    }
+}
+
+class NodesAdminReasorceCommand : NodesCommand("reasorce", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /nodesadmin reasorce <remove|add> <territory-id> <reasorce-node>")
+        }
+
+        val territoryArg = ArgumentTerritory.create("territory-id")
+        val resourceNodeArg = ArgumentResourceNode.create("reasorce-node")
+        val addArg = ArgumentType.Literal("add")
+        val removeArg = ArgumentType.Literal("remove")
+
+        addSyntax({ player, resident, context ->
+            updateResourceNode(player, context[territoryArg], context[resourceNodeArg], true)
+        }, addArg, territoryArg, resourceNodeArg)
+
+        addSyntax({ player, resident, context ->
+            updateResourceNode(player, context[territoryArg], context[resourceNodeArg], false)
+        }, removeArg, territoryArg, resourceNodeArg)
+    }
+
+    private fun updateResourceNode(
+        player: net.minestom.server.entity.Player,
+        territory: Territory,
+        resourceNode: net.aechronis.nodes.objects.ResourceNode,
+        add: Boolean,
+    ) {
+        Nodes.updateTerritoryResourceNode(territory.id, resourceNode.name, add)
+            .onSuccess {
+                val action = if (add) "Added" else "Removed"
+                Message.print(player, "$action resource node \"${resourceNode.name}\" ${if (add) "to" else "from"} territory id=${territory.id}")
+            }
+            .onFailure { error ->
+                Message.error(player, error.message ?: "Failed to update territory resource node")
+            }
     }
 }
 

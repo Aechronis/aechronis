@@ -30,6 +30,7 @@ import java.util.UUID
 import kotlin.math.floor
 import kotlin.math.min
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -124,6 +125,27 @@ class NodesTest {
     @Test
     fun `towns are loaded`() {
         assertTrue(Town.count() > 0, "Should have loaded towns")
+    }
+
+    @Test
+    fun `can add and remove a territory resource node`() {
+        val worldPath = Nodes.config.pathWorld
+        val originalWorld = Files.readString(worldPath)
+        val territory = Nodes.territories.values.first()
+        val resourceNode = Nodes.resourceNodes.keys.first { it !in territory.resourceNodes }
+
+        try {
+            val addResult = Nodes.updateTerritoryResourceNode(territory.id, resourceNode, add = true)
+            assertTrue(addResult.isSuccess, addResult.exceptionOrNull()?.message)
+            assertTrue(Territory.fromId(territory.id)!!.resourceNodes.contains(resourceNode))
+
+            val removeResult = Nodes.updateTerritoryResourceNode(territory.id, resourceNode, add = false)
+            assertTrue(removeResult.isSuccess, removeResult.exceptionOrNull()?.message)
+            assertFalse(Territory.fromId(territory.id)!!.resourceNodes.contains(resourceNode))
+        } finally {
+            Files.writeString(worldPath, originalWorld)
+            Nodes.loadWorld()
+        }
     }
 
     @Test
