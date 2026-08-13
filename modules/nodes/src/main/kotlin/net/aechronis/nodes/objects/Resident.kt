@@ -335,7 +335,7 @@ class Resident(val uuid: UUID, val name: String) {
     fun setMinimapPosition(position: MinimapPosition): Boolean {
         if (minimapPosition == position) return false
         minimapPosition = position
-        minimap?.updateSettings()
+        minimap?.respawn()
         needsUpdate()
         Nodes.needsSave = true
         return true

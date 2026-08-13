@@ -1026,7 +1026,7 @@ class TownMinimapCommand : NodesCommand("minimap") {
         setDefaultExecutor { player, resident, _ ->
             Message.print(player, "[Nodes] Minimap settings:")
             Message.print(player, "/town minimap toggle${ChatColor.WHITE}: Toggle the resource map")
-            Message.print(player, "/town minimap position <top-left|top-right|bottom-right|bottom-left>${ChatColor.WHITE}: Move the map")
+            Message.print(player, "/town minimap position <top|bottom> <left|right>${ChatColor.WHITE}: Move the map")
             Message.print(player, "/town minimap shift${ChatColor.WHITE}: Toggle enlarging the map while sneaking")
             Message.print(player, "Map: ${if (resident.minimapEnabled) "enabled" else "disabled"}, position: ${resident.minimapPosition.id}, shifting: ${if (resident.minimapShiftEnabled) "enabled" else "disabled"}")
         }
@@ -1050,19 +1050,24 @@ class TownMinimapToggleCommand : NodesCommand("toggle") {
 class TownMinimapPositionCommand : NodesCommand("position", null, "location") {
     init {
         setDefaultExecutor { player, _, _ ->
-            Message.print(player, "Usage: /town minimap position <top-left|top-right|bottom-right|bottom-left>")
+            Message.print(player, "Usage: /town minimap position <top|bottom> <left|right>")
         }
 
-        val positionArg = ArgumentType.Word("position").from("top-left", "top-right", "bottom-right", "bottom-left")
+        val verticalArg = ArgumentType.Word("vertical").from("top", "bottom")
+        val horizontalArg = ArgumentType.Word("horizontal").from("left", "right")
         addSyntax({ player, resident, context ->
-            val position = MinimapPosition.fromId(context[positionArg])
-            if (position == null) {
-                Message.error(player, "Invalid minimap position")
-                return@addSyntax
-            }
-            resident.setMinimapPosition(position)
-            Message.print(player, "Resource map moved to ${position.id}")
-        }, positionArg)
+            setMinimapPosition(player, resident, "${context[verticalArg]}-${context[horizontalArg]}")
+        }, verticalArg, horizontalArg)
+    }
+
+    private fun setMinimapPosition(player: Player, resident: Resident, id: String) {
+        val position = MinimapPosition.fromId(id)
+        if (position == null) {
+            Message.error(player, "Invalid minimap position")
+            return
+        }
+        resident.setMinimapPosition(position)
+        Message.print(player, "Resource map moved to ${position.id}")
     }
 }
 

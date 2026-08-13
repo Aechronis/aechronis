@@ -91,7 +91,7 @@ if (texSize == vec2(256) && round(testColor.a * 255) == 3 && ((idTex & 0xffff) =
 
     // Text opacity carries the client-reported player yaw. Compare it with the frame-smooth
     // camera yaw so the front-facing third-person view can hide the minimap.
-    int minimapOpacity = int(clamp(round(Color.a * 255.0) - PLAYER_YAW_OPACITY_OFFSET, 0.0, 247.0));
+    int minimapOpacity = int(clamp(round(Color.a * 255.0) - PLAYER_YAW_OPACITY_OFFSET, 0.0, 251.0));
     int playerYawIndex = minimapOpacity / int(MINIMAP_POSITION_BUCKETS);
     int minimapPosition = minimapOpacity - playerYawIndex * int(MINIMAP_POSITION_BUCKETS);
     float playerYaw = float(playerYawIndex) / PLAYER_YAW_BUCKETS * 2.0 * PI + PI;

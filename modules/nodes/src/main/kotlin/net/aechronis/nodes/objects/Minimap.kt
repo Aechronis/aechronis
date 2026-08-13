@@ -39,7 +39,10 @@ enum class MinimapPosition(val id: String, internal val shaderValue: Int) {
     companion object {
         val DEFAULT: MinimapPosition = TOP_RIGHT
 
-        fun fromId(id: String): MinimapPosition? = entries.firstOrNull { it.id == id.lowercase() }
+        fun fromId(id: String): MinimapPosition? {
+            val normalized = id.lowercase().replace("-", "").replace("_", "")
+            return entries.firstOrNull { it.id.replace("-", "") == normalized }
+        }
     }
 }
 
