@@ -1,3 +1,5 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 plugins {
     kotlin("jvm")
     id("org.jlleitschuh.gradle.ktlint")
@@ -13,6 +15,12 @@ base {
 tasks.withType<Jar>().configureEach {
     manifest {
         attributes["Main-Class"] = "net.aechronis.server.ServerKt"
+    }
+}
+
+tasks.named<ShadowJar>("shadowJar") {
+    from(rootProject.file("resource-pack")) {
+        into("embedded-resource-pack")
     }
 }
 

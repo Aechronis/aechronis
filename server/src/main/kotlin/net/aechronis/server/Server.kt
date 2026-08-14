@@ -24,6 +24,7 @@ import net.aechronis.server.constants.Hats
 import net.aechronis.server.constants.Planes
 import net.aechronis.server.constants.Tanks
 import net.aechronis.server.listeners.PlayerJoinListener
+import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.resourcepack.ResourcePackServer
 import net.aechronis.server.tasks.TabManager
 import net.aechronis.server.tasks.WorldSaver
@@ -95,6 +96,23 @@ object Server {
 fun main(args: Array<String>) {
     val port = args.getOrNull(0)?.toInt() ?: 25565
     val velocitySecret = args.getOrNull(1)
+    val resourcePackDirectory =
+        System.getProperty("aechronis.resourcePack.directory")?.let(Path::of)
+            ?: EmbeddedResourcePack.defaultDirectory().resolve("resource-pack")
+
+    EmbeddedResourcePack.install(resourcePackDirectory)
+    val resourcePackPort = System.getProperty("aechronis.resourcePack.port")?.toInt() ?: port + 1
+    val resourcePackServer =
+        ResourcePackServer.start(
+            directory = resourcePackDirectory,
+            address =
+                InetSocketAddress(
+                    System.getProperty("aechronis.resourcePack.bindAddress", "0.0.0.0"),
+                    resourcePackPort,
+                ),
+            publicBaseUri = System.getProperty("aechronis.resourcePack.publicBaseUrl")?.let(::URI),
+        )
+    Runtime.getRuntime().addShutdownHook(Thread(resourcePackServer::close, "resource-pack-server-shutdown"))
 
     val allPermsPlayers =
         System
@@ -214,19 +232,6 @@ fun main(args: Array<String>) {
     worldEdit.init()
     Guard.init()
 
-    val resourcePackPort = System.getProperty("aechronis.resourcePack.port")?.toInt() ?: port + 1
-
-    val resourcePackServer =
-        ResourcePackServer.start(
-            directory = Path.of(System.getProperty("aechronis.resourcePack.directory", "resource-pack")),
-            address =
-                InetSocketAddress(
-                    System.getProperty("aechronis.resourcePack.bindAddress", "0.0.0.0"),
-                    resourcePackPort,
-                ),
-            publicBaseUri = System.getProperty("aechronis.resourcePack.publicBaseUrl")?.let(::URI),
-        )
-    Runtime.getRuntime().addShutdownHook(Thread(resourcePackServer::close, "resource-pack-server-shutdown"))
     PlayerJoinListener.init(resourcePackServer)
 
     try {
