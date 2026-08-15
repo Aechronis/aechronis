@@ -72,6 +72,8 @@ object Planes {
             scale = 7.0,
             speed = 2.0,
             turnSpeed = 0.09f,
+            ammo = Ammo.ammo762x39mm,
+            maxAmmo = 200,
             seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
         )
 }
