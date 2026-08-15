@@ -19,6 +19,7 @@ import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.Boats
 import net.aechronis.server.constants.Cars
 import net.aechronis.server.constants.Drones
+import net.aechronis.server.constants.Grenades
 import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Hats
 import net.aechronis.server.constants.Planes
@@ -169,6 +170,8 @@ fun main(args: Array<String>) {
         Ammo.tankShell,
         // Guns
         Guns.ak47,
+        // Grenades
+        Grenades.frag,
         // Armor
         Armor.jacket,
         Armor.trousers,

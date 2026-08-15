@@ -1,6 +1,7 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.objects.Grenade
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneState
@@ -45,6 +46,7 @@ object PlayerDisconnectListener {
         Combat.aimingResetTasks.remove(player)?.cancel()
         Combat.reloadTasks.remove(player)?.cancel()
         Combat.placeTasks.remove(player)?.cancel()
+        Grenade.clearArmed(player)
 
         // remove player from all hashmaps to prevent memory leaks
         Combat.playerAiming.remove(player)

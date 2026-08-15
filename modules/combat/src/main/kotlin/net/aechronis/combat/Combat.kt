@@ -7,6 +7,7 @@ import net.aechronis.combat.listeners.ArmorProtectionListener
 import net.aechronis.combat.listeners.CooldownResetListener
 import net.aechronis.combat.listeners.DroneListener
 import net.aechronis.combat.listeners.FireListener
+import net.aechronis.combat.listeners.GrenadeListener
 import net.aechronis.combat.listeners.HatListener
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.listeners.LagCompensationListener
@@ -16,6 +17,7 @@ import net.aechronis.combat.listeners.PlayerDeathListener
 import net.aechronis.combat.listeners.PlayerDisconnectListener
 import net.aechronis.combat.listeners.ReloadListener
 import net.aechronis.combat.listeners.VehicleListener
+import net.aechronis.combat.objects.Grenade
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.tasks.ActionBarManager
 import net.aechronis.combat.tasks.LeafRestoreManager
@@ -51,6 +53,10 @@ object Combat {
     val meleeLastAttackTimes = HashMap<Player, Long>()
 
     val placeTasks = HashMap<Player, Task>()
+
+    val armedGrenades = HashMap<Player, Grenade>()
+    val grenadeFuseTasks = HashMap<Player, Task>()
+    val grenadeFuseDeadlines = HashMap<Player, Long>()
 
     val entityLastDamageTime = HashMap<LivingEntity, Long>()
     private val activeDamage = HashMap<LivingEntity, Damage>()
@@ -131,6 +137,7 @@ object Combat {
         AimingListener.init()
         ReloadListener.init()
         FireListener.init()
+        GrenadeListener.init()
         MeleeListener.init()
         PlayerDeathListener.init()
         PlayerDisconnectListener.init()

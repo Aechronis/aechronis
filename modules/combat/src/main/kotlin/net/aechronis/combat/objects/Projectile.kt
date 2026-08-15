@@ -28,6 +28,7 @@ class Projectile private constructor(
     val source: Player? = null,
     val weapon: Component? = null,
     val ammoType: AmmoTypes? = null,
+    val fuseDeadlineMillis: Long? = null,
     private val bypassDamageImmunity: Boolean,
     private val ignoredEntities: Set<Entity>,
 ) {
@@ -44,6 +45,7 @@ class Projectile private constructor(
         source: Player? = null,
         weapon: Component? = null,
         ammoType: AmmoTypes? = null,
+        fuseDeadlineMillis: Long? = null,
     ) : this(
         instance,
         pos,
@@ -57,6 +59,7 @@ class Projectile private constructor(
         source,
         weapon,
         ammoType,
+        fuseDeadlineMillis,
         false,
         emptySet(),
     )
@@ -86,39 +89,19 @@ class Projectile private constructor(
     fun onTick() {
         if (!isActive) return
 
+        val currentPos = entity.position
+        if (fuseDeadlineMillis != null && System.currentTimeMillis() >= fuseDeadlineMillis) {
+            detonate(currentPos)
+            return
+        }
+
         // accelerate downward so the projectile arcs over time
         velocity = velocity.sub(0.0, gravity, 0.0)
-
-        val currentPos = entity.position
         val nextPos = currentPos.add(velocity)
 
         val impact = firstProjectileImpact(Ray(currentPos, velocity), instance, ignoredEntities + listOfNotNull(source))
         if (impact != null) {
-            if (bypassDamageImmunity) {
-                Explosion.bypassingDamageImmunity(
-                    instance = instance,
-                    pos = impact.point.asPos(),
-                    radius = explosionRadius,
-                    fire = explosionFire,
-                    damage = explosionDamage,
-                    source = source,
-                    weapon = weapon,
-                    ammoType = ammoType,
-                )
-            } else {
-                Explosion(
-                    instance = instance,
-                    pos = impact.point.asPos(),
-                    radius = explosionRadius,
-                    fire = explosionFire,
-                    damage = explosionDamage,
-                    source = source,
-                    weapon = weapon,
-                    ammoType = ammoType,
-                )
-            }
-            isActive = false
-            entity.remove()
+            detonate(impact.point.asPos())
             return
         }
 
@@ -131,6 +114,34 @@ class Projectile private constructor(
 
         // move the entity
         entity.teleport(nextPos.withDirection(velocity))
+    }
+
+    private fun detonate(pos: Pos) {
+        if (bypassDamageImmunity) {
+            Explosion.bypassingDamageImmunity(
+                instance = instance,
+                pos = pos,
+                radius = explosionRadius,
+                fire = explosionFire,
+                damage = explosionDamage,
+                source = source,
+                weapon = weapon,
+                ammoType = ammoType,
+            )
+        } else {
+            Explosion(
+                instance = instance,
+                pos = pos,
+                radius = explosionRadius,
+                fire = explosionFire,
+                damage = explosionDamage,
+                source = source,
+                weapon = weapon,
+                ammoType = ammoType,
+            )
+        }
+        isActive = false
+        entity.remove()
     }
 
     companion object {
@@ -149,6 +160,7 @@ class Projectile private constructor(
             weapon: Component?,
             ignoredEntities: Set<Entity>,
             ammoType: AmmoTypes?,
+            fuseDeadlineMillis: Long? = null,
         ): Projectile =
             Projectile(
                 instance,
@@ -163,6 +175,7 @@ class Projectile private constructor(
                 source,
                 weapon,
                 ammoType,
+                fuseDeadlineMillis,
                 true,
                 ignoredEntities,
             )
