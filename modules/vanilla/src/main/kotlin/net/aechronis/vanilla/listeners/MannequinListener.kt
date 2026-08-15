@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.listeners
 
+import net.aechronis.utils.EntityTags
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Mannequin
 import net.minestom.server.MinecraftServer
@@ -19,7 +20,12 @@ import net.minestom.server.timer.TaskSchedule
 
 object MannequinListener {
     fun onEntityDamage(event: EntityDamageEvent) {
-        if (event.entity.entityType == EntityType.MANNEQUIN) event.isCancelled = true
+        if (
+            event.entity.entityType == EntityType.MANNEQUIN &&
+            event.entity.getTag(EntityTags.DAMAGEABLE_MANNEQUIN) != true
+        ) {
+            event.isCancelled = true
+        }
     }
 
     fun onInteract(event: PlayerEntityInteractEvent) {

@@ -9,6 +9,8 @@ package net.aechronis.nodes.listeners
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.chat.Chat
+import net.aechronis.nodes.colonization.Colonization
+import net.aechronis.nodes.colonization.ColonizationMenu
 import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.WaypointMenu
@@ -33,16 +35,14 @@ object NodesPlayerJoinQuitListener {
         MiningBoostManager.onPlayerJoin(player)
         resident.createMinimap(player)
 
-        // if war enabled, send active chunk attack progress bars
-        if (FlagWar.enabled) {
+        // send any active war or colonization progress bars
+        if (FlagWar.attackers[player.uuid]?.isNotEmpty() == true) {
             FlagWar.sendWarProgressBarToPlayer(player)
         }
 
-        // if war enabled, add per-player text displays for active attacks
-        if (FlagWar.enabled) {
-            for (attack in FlagWar.chunkToAttacker.values) {
-                attack.textDisplay.update(player)
-            }
+        // add per-player text displays for all active attacks
+        for (attack in FlagWar.chunkToAttacker.values) {
+            attack.textDisplay.update(player)
         }
     }
 
@@ -82,26 +82,22 @@ object NodesPlayerJoinQuitListener {
             Resident.stopPlotSelection(resident)
             Resident.setOffline(resident, player)
         }
+        Colonization.clearSelection(player)
+        ColonizationMenu.close(player)
         WaypointMenu.close(player)
 
         // remove player from muting global chat
         Chat.enableGlobalChat(player)
 
-        // if war enabled, remove per-player town name displays for active attacks
-        if (FlagWar.enabled) {
-            for (attack in FlagWar.chunkToAttacker.values) {
-                attack.textDisplay.removePlayerTextDisplay(player)
-            }
+        // remove per-player town name displays for active attacks
+        for (attack in FlagWar.chunkToAttacker.values) {
+            attack.textDisplay.removePlayerTextDisplay(player)
         }
 
-        // if playing attacking a chunk, stop it
-        if (FlagWar.enabled) {
-            val attacks = FlagWar.attackers[player.uuid]
-            if (attacks !== null) {
-                for (a in attacks) {
-                    a.cancel()
-                }
-            }
+        // stop any war or colonization attacks owned by the disconnecting player
+        val attacks = FlagWar.attackers[player.uuid]?.toList().orEmpty()
+        for (attack in attacks) {
+            attack.cancel()
         }
     }
 

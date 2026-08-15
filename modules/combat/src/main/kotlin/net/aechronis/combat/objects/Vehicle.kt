@@ -527,6 +527,20 @@ open class Vehicle(
             return vehicle.invulnerableWhileRiding
         }
 
+        // center of the protecting vehicle hitbox to use when AI aims at it
+        fun protectedVehicleAimPosition(player: Player): Pos? {
+            val vehicle = playerVehicle[player] ?: passengerVehicle[player] ?: return null
+            if (!vehicle.invulnerableWhileRiding) return null
+            val entity = playerVehicleEntity[player] ?: passengerVehicleEntity[player] ?: return null
+            val position = entity.position
+            return vehicle.hitbox.getWorldCenter(
+                position,
+                position.yaw,
+                position.pitch,
+                vehicle.hitboxRoll(entity),
+            )
+        }
+
         var playerVehicle: HashMap<Player, Vehicle> = HashMap()
         var playerVehicleEntity: HashMap<Player, Entity> = HashMap()
         var entityVehicle: HashMap<Entity, Vehicle> = HashMap()

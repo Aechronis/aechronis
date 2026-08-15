@@ -35,6 +35,8 @@ class Nation(
 
         fun fromName(name: String): Nation? = Nodes.nations[name]
 
+        fun fromUuid(uuid: UUID): Nation? = Nodes.nations.values.firstOrNull { nation -> nation.uuid == uuid }
+
         private fun indexTownMembers(nation: Nation, town: Town) {
             val indexedPlayers = town.playersOnline.associateBy { it.uuid }
             town.residents.forEach { resident ->

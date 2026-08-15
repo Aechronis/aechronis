@@ -7,6 +7,7 @@ package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.colonization.AiTownConfig
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.constants.ErrorPlayerHasTown
 import net.aechronis.nodes.constants.ErrorTerritoryIsTownHome
@@ -22,6 +23,7 @@ import net.aechronis.nodes.utils.EnumArrayMap
 import net.aechronis.nodes.utils.createEnumArrayMap
 import net.aechronis.nodes.utils.stringArrayFromSet
 import net.aechronis.nodes.utils.stringMapFromMap
+import net.aechronis.nodes.war.FlagWar
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.CommandSender
 import net.minestom.server.coordinate.BlockVec
@@ -52,6 +54,8 @@ class Town(
         fun count(): Int = Nodes.towns.size
 
         fun fromName(name: String): Town? = Nodes.towns[name]
+
+        fun fromUuid(uuid: UUID): Town? = Nodes.towns.values.firstOrNull { town -> town.uuid == uuid }
 
         fun fromPlayer(player: Player): Town? = Resident.fromPlayer(player)?.town
 
@@ -122,6 +126,7 @@ class Town(
             permissions: MutableMap<TownPermissions, EnumSet<PermissionsGroup>>,
             protectedBlocks: HashSet<BlockVec>,
             plots: ArrayList<Plot.PlotSaveState> = arrayListOf(),
+            aiConfig: AiTownConfig = AiTownConfig(),
         ): Town? {
             val leaderResident = leader?.let { Resident.fromUuid(it) }
             val home = Territory.fromId(TerritoryId(homeId))
@@ -183,6 +188,7 @@ class Town(
                 val plot = Plot(state)
                 if (plot.name.isNotBlank() && !town.plots.containsKey(plot.name) && Plot.isValid(town, plot)) town.plots[plot.name] = plot
             }
+            town.aiConfig = aiConfig
             Nodes.towns[name] = town
             town.needsUpdate()
             return town
@@ -194,8 +200,16 @@ class Town(
             if (nation != null) {
                 if (nation.towns.size == 1) Nation.destroy(nation) else Nation.removeTown(nation, town)
             }
-            town.territories.forEach { Territory.fromId(it)?.town = null }
-            town.captured.forEach { Territory.fromId(it)?.occupier = null }
+            town.territories.forEach { territoryId ->
+                Territory.fromId(territoryId)?.let { territory ->
+                    release(territory)
+                    territory.town = null
+                }
+            }
+            FlagWar.clearOccupationsBy(town)
+            town.captured.toList().forEach { territoryId ->
+                Territory.fromId(territoryId)?.let(::release)
+            }
             town.residents.forEach { resident ->
                 resident.town = null
                 resident.nation = null
@@ -215,6 +229,7 @@ class Town(
         fun unclaim(town: Town, territory: Territory): Result<Territory> {
             if (!town.territories.contains(territory.id)) return Result.failure(ErrorTerritoryNotInTown)
             if (town.home == territory.id) return Result.failure(ErrorTerritoryIsTownHome)
+            release(territory)
             town.territories.remove(territory.id)
             territory.town = null
             town.annexed.remove(territory.id)
@@ -234,7 +249,12 @@ class Town(
             return Result.success(territory)
         }
 
-        fun capture(town: Town, territory: Territory) {
+        fun capture(
+            town: Town,
+            territory: Territory,
+            commitWarState: Boolean = true,
+        ) = synchronized(Nodes.occupationPersistenceLock) {
+            FlagWar.clearTerritoryOccupation(territory)
             val current = territory.occupier
             if (current != null) {
                 current.captured.remove(territory.id)
@@ -248,16 +268,69 @@ class Town(
             town.needsUpdate()
             Nodes.needsSave = true
             Resident.renderMinimaps()
+            if (commitWarState) FlagWar.commitTerritoryOccupation(territory, town, colonized = false)
+        }
+
+        // transfer a defeated towns claimed land to the conquering town and remove the defeated town
+        internal fun annex(
+            annexingTown: Town,
+            defeatedTown: Town,
+        ) = synchronized(Nodes.occupationPersistenceLock) {
+            require(annexingTown !== defeatedTown) { "A town cannot annex itself" }
+            require(Nodes.towns[annexingTown.name] === annexingTown) { "The annexing town must still exist" }
+            require(Nodes.towns[defeatedTown.name] === defeatedTown) { "The defeated town must still exist" }
+
+            val transferredTerritories = defeatedTown.territories
+                .mapNotNull(Territory::fromId)
+                .toList()
+
+            destroy(defeatedTown)
+
+            transferredTerritories.forEach { territory ->
+                check(territory.town == null) { "Defeated territory ${territory.id} was not released" }
+                annexingTown.territories.add(territory.id)
+                annexingTown.annexed.add(territory.id)
+                territory.town = annexingTown
+            }
+            annexingTown.needsUpdate()
+            Nodes.needsSave = true
+            Resident.renderMinimaps()
         }
 
         fun release(territory: Territory) {
-            territory.occupier?.let { town ->
-                town.captured.remove(territory.id)
-                territory.occupier = null
-                town.needsUpdate()
-                Nodes.needsSave = true
-                Resident.renderMinimaps()
+            synchronized(Nodes.occupationPersistenceLock) {
+                FlagWar.clearTerritoryOccupation(territory)
+                territory.occupier?.let { town ->
+                    town.captured.remove(territory.id)
+                    territory.occupier = null
+                    town.needsUpdate()
+                    Nodes.needsSave = true
+                    Resident.renderMinimaps()
+                }
+                FlagWar.commitTerritoryOccupation(territory, null, colonized = false)
             }
+        }
+
+        internal fun restoreOccupation(
+            territory: Territory,
+            occupier: Town?,
+        ) {
+            var changed = false
+            Nodes.towns.values.forEach { town ->
+                if (town !== occupier && town.captured.remove(territory.id)) {
+                    town.needsUpdate()
+                    changed = true
+                }
+            }
+            if (occupier != null && occupier.captured.add(territory.id)) {
+                occupier.needsUpdate()
+                changed = true
+            }
+            if (territory.occupier !== occupier) {
+                territory.occupier = occupier
+                changed = true
+            }
+            if (changed) Nodes.needsSave = true
         }
 
         fun addToIncome(town: Town, material: Material, amount: Int) {
@@ -394,6 +467,14 @@ class Town(
             Nodes.needsSave = true
         }
 
+        fun setAiConfig(town: Town, config: AiTownConfig) {
+            config.requireRegisteredGuns()
+            if (town.aiConfig == config) return
+            town.aiConfig = config
+            town.needsUpdate()
+            Nodes.needsSave = true
+        }
+
         internal fun protectChest(town: Town, block: BlockVec, protect: Boolean) {
             if (protect) town.protectedBlocks.add(block) else town.protectedBlocks.remove(block)
             town.needsUpdate()
@@ -479,6 +560,11 @@ class Town(
 
     // persistent 3D cuboid plots inside the town's claimed territory
     val plots: LinkedHashMap<String, Plot> = linkedMapOf()
+
+    var aiConfig: AiTownConfig = AiTownConfig()
+        private set
+
+    val isAi: Boolean get() = aiConfig.controlled
 
     // color for displaying on map
     var color: Color = Color(
@@ -572,6 +658,15 @@ class Town(
         Message.print(sender, "- Residents[${this.residents.size}]${ChatColor.WHITE}: $residents")
     }
 
+    fun printAiConfig(sender: CommandSender) {
+        Message.print(sender, "${ChatColor.BOLD}$name AI defenders:")
+        Message.print(sender, "- AI-controlled${ChatColor.WHITE}: $isAi")
+        Message.print(sender, "- Defenders enabled${ChatColor.WHITE}: ${aiConfig.enabled}")
+        Message.print(sender, "- Enemies${ChatColor.WHITE}: ${aiConfig.enemyCount}")
+        Message.print(sender, "- Guns${ChatColor.WHITE}: ${aiConfig.guns.ifEmpty { listOf("None") }.joinToString(", ")}")
+        Message.print(sender, "- Deployment${ChatColor.WHITE}: entire campaign from safe positions near the town spawn")
+    }
+
     /**
      * Immutable save snapshot, must be composed of immutable primitives.
      * Used to generate json string serialization.
@@ -592,6 +687,7 @@ class Town(
         val income = t.income.storage.toMutableMap()
         val protectedBlocks: HashSet<BlockVec> = HashSet(t.protectedBlocks)
         val plots: List<Plot.PlotSaveState> = t.plots.values.map { it.getSaveState() }
+        val aiConfig: AiTownConfig = t.aiConfig
 
         override var jsonString: String? = null
 
@@ -612,6 +708,7 @@ class Town(
             val spawn = "[${this.spawnpoint[0]},${this.spawnpoint[1]},${this.spawnpoint[2]}]"
 
             val permissions = permissionsToJsonString(this.permissions)
+            val ai = if (this.aiConfig == AiTownConfig()) "" else "\"ai\":${this.aiConfig.toJsonString()},"
 
             val jsonStrong = (
                 "{" +
@@ -627,6 +724,7 @@ class Town(
                     "\"annexed\":$annexed," +
                     "\"captured\":$captured," +
                     "\"income\":$income," +
+                    ai +
                     "\"protect\":${blocksToJsonString(this.protectedBlocks)}," +
                     "\"plots\":[${this.plots.joinToString(",") { it.toJsonString() }}]" +
                     "}"

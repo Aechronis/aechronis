@@ -134,11 +134,7 @@ internal object MinimapMarkerRenderer {
         territoryChunk: TerritoryChunk,
     ): DiplomaticRelationship? {
         val territory = territoryChunk.territory
-        val representedTown = if (viewer.warEnabled) {
-            territoryChunk.occupier ?: territory.occupier ?: territory.town
-        } else {
-            territory.occupier ?: territory.town
-        }
+        val representedTown = territoryChunk.occupier ?: territory.occupier ?: territory.town
         return representedTown?.let { relationshipToTown(viewer, it) }
     }
 

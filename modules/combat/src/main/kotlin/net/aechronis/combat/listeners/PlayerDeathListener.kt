@@ -8,6 +8,8 @@ import net.aechronis.combat.utils.clearCombatAttribution
 import net.aechronis.combat.utils.combatDamageKind
 import net.aechronis.combat.utils.combatWeapon
 import net.kyori.adventure.text.Component
+import net.minestom.server.component.DataComponents
+import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
@@ -16,7 +18,7 @@ object PlayerDeathListener {
     fun onPlayerDeath(event: PlayerDeathEvent) {
         val player = event.player
         val damage = Combat.activeDamage(player)
-        val killer = damage?.attacker as? Player
+        val killer = damage?.attacker
         val weapon = damage?.combatWeapon()
         val damageKind = damage?.combatDamageKind()
         damage?.clearCombatAttribution()
@@ -26,7 +28,7 @@ object PlayerDeathListener {
         Combat.entityLastDamageTime.remove(player)
         LagCompensation.resetHistory(player)
 
-        val message = combatDeathMessage(player.name, killer?.name, weapon, damageKind, killer === player)
+        val message = combatDeathMessage(player.name, killer?.let(::attackerName), weapon, damageKind, killer === player)
         if (message != null) {
             event.deathText = message
             event.chatMessage = message
@@ -40,6 +42,12 @@ object PlayerDeathListener {
         Vehicle.playerVehicle[player]?.onExit(player)
         Vehicle.passengerVehicle[player]?.onPassengerExit(player)
     }
+
+    internal fun attackerName(attacker: Entity): Component =
+        when (attacker) {
+            is Player -> attacker.name
+            else -> attacker.get(DataComponents.CUSTOM_NAME) ?: Component.translatable(attacker.entityType.translationKey())
+        }
 
     internal fun weaponDeathMessage(
         victim: Component,

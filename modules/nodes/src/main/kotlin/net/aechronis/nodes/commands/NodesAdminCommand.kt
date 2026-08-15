@@ -11,6 +11,7 @@ package net.aechronis.nodes.commands
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.colonization.AiTownConfig
 import net.aechronis.nodes.commands.arguments.ArgumentNation
 import net.aechronis.nodes.commands.arguments.ArgumentResident
 import net.aechronis.nodes.commands.arguments.ArgumentResidentArray
@@ -174,6 +175,7 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
             Message.print(player, "/nodesadmin town open${ChatColor.WHITE}: Toggle town is open to join")
             Message.print(player, "/nodesadmin town income${ChatColor.WHITE}: View a town's income inventory")
             Message.print(player, "/nodesadmin town plot${ChatColor.WHITE}: Manage a town's plots")
+            Message.print(player, "/nodesadmin town ai${ChatColor.WHITE}: Configure AI defenders for a town")
             Message.print(player, "Run a command with no args to see usage.")
         }
 
@@ -197,6 +199,7 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
         addSubcommand(NodesAdminTownSetHomeCommand())
         addSubcommand(NodesAdminTownDefaultTownSpawnsCommand())
         addSubcommand(NodesAdminTownPlotCommand())
+        addSubcommand(NodesAdminTownAiCommand())
     }
 }
 
@@ -568,6 +571,95 @@ class NodesAdminTownDefaultTownSpawnsCommand : NodesCommand("defaulttownspawns",
             // TODO: move this out
             Nodes.needsSave = true
         }, townsArg)
+    }
+}
+
+class NodesAdminTownAiCommand : NodesCommand("ai", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, _, _ ->
+            Message.print(player, "[Nodes] AI town configuration:")
+            Message.print(player, "/nodesadmin town ai show <town>")
+            Message.print(player, "/nodesadmin town ai set <town> <field> <value>")
+            Message.print(player, "Fields: controlled, enemies, guns")
+            Message.print(player, "Gun IDs are comma-separated; use 'none' for no guns")
+            Message.print(player, "/nodesadmin town ai clear <town>")
+            Message.print(
+                player,
+                "Defender changes apply to the next campaign; disabling AI control ends active colonization",
+            )
+        }
+
+        addSubcommand(NodesAdminTownAiShowCommand())
+        addSubcommand(NodesAdminTownAiSetCommand())
+        addSubcommand(NodesAdminTownAiClearCommand())
+    }
+}
+
+class NodesAdminTownAiShowCommand : NodesCommand("show", "nodes.admin") {
+    init {
+        val townArg = ArgumentTown.create("town-name")
+        addSyntax({ player, _, context -> context[townArg].printAiConfig(player) }, townArg)
+    }
+}
+
+class NodesAdminTownAiSetCommand : NodesCommand("set", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, _, _ ->
+            Message.print(player, "Usage: /nodesadmin town ai set <town> <field> <value>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val fieldArg = ArgumentType.Word("field").from(
+            "controlled",
+            "enemies",
+            "guns",
+        )
+        val valueArg = ArgumentType.String("value")
+
+        addSyntax({ player, _, context ->
+            val town = context[townArg]
+            val field = context[fieldArg]
+            val value = context[valueArg]
+            val current = town.aiConfig
+            val updated = runCatching {
+                when (field) {
+                    "controlled" -> current.copy(controlled = value.toBooleanStrict())
+                    "enemies" -> current.copy(enemyCount = value.toInt())
+                    "guns" -> current.copy(
+                        guns = if (value.equals("none", ignoreCase = true)) {
+                            emptyList()
+                        } else {
+                            value.split(',').map(String::trim)
+                        },
+                    )
+                    else -> error("Unknown AI configuration field '$field'")
+                }.also(AiTownConfig::requireRegisteredGuns)
+            }.getOrElse { error ->
+                Message.error(player, "Invalid AI town configuration: ${error.message}")
+                return@addSyntax
+            }
+
+            Town.setAiConfig(town, updated)
+            Message.print(player, "Updated ${town.name} AI field '$field'")
+            if (field == "controlled" && !updated.controlled) {
+                Message.print(player, "Active colonization against ${town.name} will end")
+            } else {
+                Message.print(player, "Active colonization defenses keep their previous defender configuration")
+            }
+            town.printAiConfig(player)
+        }, townArg, fieldArg, valueArg)
+    }
+}
+
+class NodesAdminTownAiClearCommand : NodesCommand("clear", "nodes.admin") {
+    init {
+        val townArg = ArgumentTown.create("town-name")
+        addSyntax({ player, _, context ->
+            val town = context[townArg]
+            Town.setAiConfig(town, AiTownConfig())
+            Message.print(player, "Cleared AI control and defender configuration for ${town.name}")
+            Message.print(player, "Active colonization against ${town.name} will end")
+        }, townArg)
     }
 }
 

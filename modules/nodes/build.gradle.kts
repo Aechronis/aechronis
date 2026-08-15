@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
     implementation("net.minestom:minestom:2026.07.12-26.2")
+    implementation(project(":modules:combat"))
     implementation(project(":modules:utils"))
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")

@@ -10,6 +10,8 @@ package net.aechronis.nodes.listeners
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.colonization.Colonization
+import net.aechronis.nodes.colonization.canStartColonization
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.constants.ErrorAlreadyCaptured
 import net.aechronis.nodes.constants.ErrorAlreadyUnderAttack
@@ -35,6 +37,7 @@ import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.Attack
+import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
@@ -56,9 +59,10 @@ object NodesWorldListener {
         val blockPos = event.blockPosition
         val territoryChunk = TerritoryChunk.fromBlock(blockPos.blockX, blockPos.blockZ)
 
-        // if war enabled, and chunk is being attacked, do flag checks
-        if (FlagWar.enabled && territoryChunk?.attacker !== null) {
+        // If a war or colonization flag is active, protect its immediate area.
+        if (territoryChunk?.attacker !== null) {
             val attack = FlagWar.chunkToAttacker.get(territoryChunk.coord)!!
+            val context = if (attack.mode == AttackMode.COLONIZATION) "[Colonization]" else "[War]"
 
             if (blockInWarFlagNoBuildRegion(blockPos, attack)) {
                 // handle war flag breaking
@@ -76,19 +80,19 @@ object NodesWorldListener {
                                     DiplomaticRelationship.TOWN,
                                 )
                             ) {
-                                Message.error(player, "[War] Cannot break ally war flags")
+                                Message.error(player, "$context Cannot break ally flags")
                                 return
                             }
                         }
                     }
                     attack.cancel()
-                    Message.broadcast("${ChatColor.GOLD}[War] Attack at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ}) defeated by ${player.username}")
+                    Message.broadcast("${ChatColor.GOLD}$context Attack at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ}) defeated by ${player.username}")
                     return
                 }
                 event.isCancelled = true
                 Message.error(
                     player,
-                    "[War] Cannot break blocks within ${Nodes.config.flagNoBuildDistance} blocks of war flags",
+                    "$context Cannot break blocks within ${Nodes.config.flagNoBuildDistance} blocks of flags",
                 )
                 return
             }
@@ -111,6 +115,10 @@ object NodesWorldListener {
 
         // interacting in a town
         if (resident !== null) {
+            if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) {
+                return
+            }
+
             val plot = Plot.at(town, blockPos.blockX, blockPos.blockY, blockPos.blockZ)
             val plotPermission = plot?.let { getPlotPermission(TownPermissions.DESTROY, it, resident, town) }
             if (plotPermission != null) {
@@ -127,11 +135,6 @@ object NodesWorldListener {
             // territory occupier permissions
             val occupier: Town? = territory.occupier
             if (occupier !== null && hasOccupierPermissions(TownPermissions.DESTROY, town, occupier, resident)) {
-                return
-            }
-
-            // war permissions
-            if (hasWarPermissions(resident, territory, territoryChunk!!)) {
                 return
             }
         }
@@ -167,19 +170,22 @@ object NodesWorldListener {
         val blockPos = event.blockPosition
         val player: Player = event.player
 
-        // war specific tasks
-        if (FlagWar.enabled) {
-            val territoryChunk = TerritoryChunk.fromBlock(blockPos.blockX, blockPos.blockZ)
-            if (territoryChunk !== null) {
+        // War flags are globally available during war. Outside war, /colonize
+        // enables them only inside the specifically selected AI town.
+        val selectedColonizationTown = Colonization.selectedTown(player)
+        val flagTerritoryChunk = TerritoryChunk.fromBlock(blockPos.blockX, blockPos.blockZ)
+        if (FlagWar.enabled || selectedColonizationTown != null || flagTerritoryChunk?.attacker !== null) {
+            if (flagTerritoryChunk !== null) {
                 // disable block placement in flag no build distance
-                if (territoryChunk.attacker !== null) {
-                    val attack = FlagWar.chunkToAttacker.get(territoryChunk.coord)
+                if (flagTerritoryChunk.attacker !== null) {
+                    val attack = FlagWar.chunkToAttacker.get(flagTerritoryChunk.coord)
                     if (attack !== null) {
                         if (blockInWarFlagNoBuildRegion(blockPos, attack)) {
+                            val context = if (attack.mode == AttackMode.COLONIZATION) "[Colonization]" else "[War]"
                             event.isCancelled = true
                             Message.error(
                                 player,
-                                "[War] Cannot build within ${Nodes.config.flagNoBuildDistance} blocks of war flags",
+                                "$context Cannot build within ${Nodes.config.flagNoBuildDistance} blocks of flags",
                             )
                             return
                         }
@@ -192,70 +198,102 @@ object NodesWorldListener {
                     if (resident !== null) {
                         val town = resident.town
                         if (town !== null) {
-                            val result = FlagWar.beginAttack(player.uuid, town, territoryChunk, blockPos)
+                            val townAttacked = flagTerritoryChunk.territory.town
+                            val isColonization = Colonization.isAuthorized(player.uuid, town, townAttacked)
+                            if (!isColonization && !FlagWar.enabled) {
+                                val error = when {
+                                    townAttacked === selectedColonizationTown && town.nation == null ->
+                                        "[Colonization] You must be in a nation to colonize"
+                                    townAttacked === selectedColonizationTown && !canStartColonization(resident, town) ->
+                                        "[Colonization] You must be a town officer or town leader in your nation to colonize"
+                                    else ->
+                                        "[Colonization] Place the flag inside ${selectedColonizationTown?.name ?: "the selected AI town"}"
+                                }
+                                if (!canStartColonization(resident, town)) Colonization.clearSelection(player)
+                                Message.error(
+                                    player,
+                                    error,
+                                )
+                                event.isCancelled = true
+                                return
+                            }
+
+                            val result = if (isColonization) {
+                                FlagWar.beginColonizationAttack(player.uuid, town, flagTerritoryChunk, blockPos)
+                            } else {
+                                FlagWar.beginAttack(player.uuid, town, flagTerritoryChunk, blockPos)
+                            }
+                            val context = if (isColonization) "[Colonization]" else "[War]"
                             if (result.isSuccess) {
                                 // get town being attacked
-                                val townAttacked = territoryChunk.territory.town!!
+                                val attacked = townAttacked!!
 
                                 // reclaiming your town
-                                if (townAttacked === town) {
-                                    Message.broadcast("${ChatColor.DARK_RED}[War] ${event.player.username} is liberating ${townAttacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
+                                if (attacked === town) {
+                                    Message.broadcast("${ChatColor.DARK_RED}$context ${event.player.username} is liberating ${attacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
+                                } else if (isColonization) {
+                                    Message.broadcast("${ChatColor.DARK_RED}$context ${event.player.username} started colonizing ${attacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
                                 } else { // attacking enemy
-                                    Message.broadcast("${ChatColor.DARK_RED}[War] ${event.player.username} is attacking ${townAttacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
+                                    Message.broadcast("${ChatColor.DARK_RED}$context ${event.player.username} is attacking ${attacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
                                 }
+                                return
                             } else {
                                 when (result.exceptionOrNull()) {
-                                    ErrorNoTerritory -> Message.error(player, "[War] There is no territory here")
+                                    ErrorNoTerritory -> Message.error(player, "$context There is no territory here")
 
-                                    ErrorAlreadyUnderAttack -> Message.error(player, "[War] Chunk already under attack")
+                                    ErrorAlreadyUnderAttack -> Message.error(player, "$context Chunk already under attack")
 
                                     ErrorAlreadyCaptured -> Message.error(
                                         player,
-                                        "[War] Chunk already captured by town or allies",
+                                        "$context Chunk already captured by town or allies",
                                     )
 
                                     ErrorTownBlacklisted -> Message.error(
                                         player,
-                                        "[War] Cannot attack this town (blacklisted)",
+                                        "$context Cannot attack this town (blacklisted)",
                                     )
 
                                     ErrorTownNotWhitelisted -> Message.error(
                                         player,
-                                        "[War] Cannot attack this town (not whitelisted)",
+                                        "$context Cannot attack this town (not whitelisted)",
                                     )
 
-                                    ErrorNotEnemy -> Message.error(player, "[War] Chunk does not belong to an enemy")
+                                    ErrorNotEnemy -> Message.error(
+                                        player,
+                                        if (isColonization) "$context Chunk does not belong to the selected AI town" else "$context Chunk does not belong to an enemy",
+                                    )
 
-                                    ErrorAnnexDisabled -> Message.error(player, "[War] Territory annexing is disabled")
+                                    ErrorAnnexDisabled -> Message.error(player, "$context Territory annexing is disabled")
 
                                     ErrorNotBorderTerritory -> Message.error(
                                         player,
-                                        "[War] You can only attack border territories",
+                                        "$context You can only attack border territories",
                                     )
 
                                     ErrorChunkNotEdge -> Message.error(
                                         player,
-                                        "[War] Must attack from territory edge or from captured chunk",
+                                        "$context Must attack from territory edge or from captured chunk",
                                     )
 
                                     ErrorFlagTooHigh -> Message.error(
                                         player,
-                                        "[War] Flag placement too high, cannot create flag",
+                                        "$context Flag placement too high, cannot create flag",
                                     )
 
-                                    ErrorSkyBlocked -> Message.error(player, "[War] Flag must see the sky")
+                                    ErrorSkyBlocked -> Message.error(player, "$context Flag must see the sky")
 
                                     ErrorTooManyAttacks -> Message.error(
                                         player,
-                                        "[War] You cannot attack any more chunks at the same time",
+                                        "$context You cannot attack any more chunks at the same time",
                                     )
                                 }
 
                                 // cancel event
                                 event.isCancelled = true
+                                return
                             }
                         } else {
-                            Message.error(player, "[War] Cannot claim unless you are part of a town")
+                            Message.error(player, "Cannot claim unless you are part of a town")
                             event.isCancelled = true
                         }
                     } else {
@@ -283,6 +321,10 @@ object NodesWorldListener {
 
         // interacting in a town
         if (resident !== null) {
+            if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) {
+                return
+            }
+
             val plot = Plot.at(town, blockPos.blockX, blockPos.blockY, blockPos.blockZ)
             val plotPermission = plot?.let { getPlotPermission(TownPermissions.BUILD, it, resident, town) }
             if (plotPermission != null) {
@@ -302,13 +344,10 @@ object NodesWorldListener {
                 return
             }
 
-            // war permissions
-            if (hasWarPermissions(resident, territory, territoryChunk!!)) {
-                return
-            }
-
-            // ignore if war enabled and item in hand is a flag material
-            if (FlagWar.enabled && Nodes.config.flagBlocks.contains(block)) {
+            val canColonizeHere = resident.town?.let { residentTown ->
+                Colonization.isAuthorized(player.uuid, residentTown, town)
+            } == true
+            if ((FlagWar.enabled || canColonizeHere) && Nodes.config.flagBlocks.contains(block)) {
                 return
             }
         }
@@ -353,15 +392,14 @@ object NodesWorldListener {
                 return
             }
 
+            if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) {
+                return
+            }
+
             val plot = Plot.at(town, event.blockPosition.blockX, event.blockPosition.blockY, event.blockPosition.blockZ)
 
             // special permissions for using chests, furnaces, etc...
             if (PROTECTED_BLOCKS.contains(event.block)) {
-                // war permissions override
-                if (hasWarPermissions(resident, territory, territoryChunk!!)) {
-                    return
-                }
-
                 val plotPermission = plot?.let { getPlotPermission(TownPermissions.CHESTS, it, resident, town) }
 
                 // normal town permissions
@@ -394,11 +432,6 @@ object NodesWorldListener {
             // territory occupier permissions
             val occupier: Town? = territory.occupier
             if (occupier !== null && hasOccupierPermissions(TownPermissions.INTERACT, town, occupier, resident)) {
-                return
-            }
-
-            // war permissions
-            if (hasWarPermissions(resident, territory, territoryChunk!!)) {
                 return
             }
         }
@@ -499,7 +532,7 @@ private fun hasOccupierPermissions(perms: TownPermissions, town: Town, occupier:
 // bypass permissions and allow all interaction in
 // captured chunks/territories during wartime
 private fun hasWarPermissions(resident: Resident, territory: Territory, territoryChunk: TerritoryChunk): Boolean {
-    if (FlagWar.enabled) {
+    if (FlagWar.enabled || territoryChunk.attacker !== null || FlagWar.isColonized(territoryChunk.coord)) {
         val residentTown = resident.town
         val territoryTown = territory.town
 

@@ -5,8 +5,10 @@
 
 package net.aechronis.nodes.serdes
 
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import net.aechronis.nodes.colonization.AiTownConfig
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.objects.Farm
@@ -331,6 +333,14 @@ object Deserializer {
                     }
                 }
 
+                val aiElement = town.get("ai")
+                val aiConfig = aiTownConfigFromJson(aiElement) { field, error ->
+                    System.err.println("Invalid AI field '$field' in town $name; using its default: ${error.message}")
+                }
+                runCatching { aiConfig.requireRegisteredGuns() }.onFailure { error ->
+                    System.err.println("Invalid AI guns in town $name; defenders disabled: ${error.message}")
+                }
+
                 val townObject: Town? = Town.load(
                     uuid,
                     name,
@@ -347,6 +357,7 @@ object Deserializer {
                     permissions,
                     protectedBlocks,
                     plots,
+                    aiConfig,
                 )
 
                 if (townObject !== null) {
@@ -439,6 +450,32 @@ object Deserializer {
             nationAllies,
             nationEnemies,
         )
+    }
+
+    internal fun aiTownConfigFromJson(
+        element: JsonElement?,
+        onInvalid: (String, RuntimeException) -> Unit,
+    ): AiTownConfig {
+        if (element == null || element.isJsonNull) return AiTownConfig()
+        if (!element.isJsonObject) {
+            onInvalid("ai", IllegalArgumentException("Town AI configuration must be an object"))
+            return AiTownConfig()
+        }
+
+        val json = element.asJsonObject
+        var config = AiTownConfig()
+        fun update(field: String, transform: (JsonElement) -> AiTownConfig) {
+            val value = json.get(field) ?: return
+            config = runCatching { transform(value) }.getOrElse { error ->
+                onInvalid(field, error as? RuntimeException ?: IllegalArgumentException(error.message, error))
+                config
+            }
+        }
+
+        update("controlled") { config.copy(controlled = it.asBoolean) }
+        update("enemyCount") { config.copy(enemyCount = it.asInt) }
+        update("guns") { value -> config.copy(guns = value.asJsonArray.map { it.asString }) }
+        return config
     }
 
     private fun parsePlotPermissions(json: JsonObject): Map<TownPermissions, Boolean> {

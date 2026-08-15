@@ -303,7 +303,83 @@ class Gun(
         return true
     }
 
-    fun spread(speed: Float): Float {
+    fun fireFromEntity(
+        shooter: LivingEntity,
+        targetPosition: Pos,
+        validTargets: Collection<LivingEntity>,
+    ): LivingEntity? {
+        if (shooter.isDead || shooter.isRemoved) return null
+        val instance = shooter.instance ?: return null
+
+        shooter.lookAt(targetPosition)
+        val aimedOrigin = shooter.position.add(0.0, shooter.eyeHeight, 0.0).withLookAt(targetPosition)
+        val origin =
+            aimedOrigin.withView(
+                aimedOrigin.yaw + spread(),
+                aimedOrigin.pitch + spread(),
+            )
+
+        instance.playSound(soundFire, origin.x, origin.y, origin.z)
+
+        val ray = Ray(origin, origin.direction().mul(maxRange))
+        val blockHit = ray.firstBlock(instance)
+        val entityHit =
+            ray.firstEntity(
+                validTargets.filter { target ->
+                    target !== shooter &&
+                        !target.isDead &&
+                        !target.isRemoved &&
+                        target.instance === instance
+                },
+            )
+        val targetPlayers = validTargets.filterIsInstance<Player>().toSet()
+        val targetVehicles =
+            targetPlayers.mapNotNullTo(hashSetOf()) { player ->
+                Vehicle.playerVehicleEntity[player] ?: Vehicle.passengerVehicleEntity[player]
+            }
+        val vehicleHit = checkVehicleHit(instance, origin, ray.direction, ray.distance, targetVehicles)
+
+        val hitTarget: LivingEntity?
+        val trailEndPoint: Pos
+        val blockHitDistance = blockHit?.t ?: Double.POSITIVE_INFINITY
+        val entityHitDistance = entityHit?.t ?: Double.POSITIVE_INFINITY
+        val vehicleHitDistance = vehicleHit?.first ?: Double.POSITIVE_INFINITY
+        if (vehicleHit != null && vehicleHitDistance < blockHitDistance && vehicleHitDistance < entityHitDistance) {
+            val vehicleEntity = vehicleHit.second
+            val vehicle = vehicleHit.third
+            val hitPoint = origin.add(ray.direction.mul(vehicleHitDistance))
+            Particles.dustParticle(instance, hitPoint)
+            vehicle.takeDamage(vehicleEntity, ammo.ammoType, damage, shooter as? Player, itemName)
+            hitTarget = null
+            trailEndPoint = hitPoint
+        } else if (entityHit != null && entityHitDistance < blockHitDistance) {
+            hitTarget = entityHit.obj
+            Particles.bloodParticle(instance, entityHit.point.asPos())
+
+            val damageSource =
+                Damage
+                    .fromProjectile(shooter, null, damage)
+                    .withCombatAttribution(CombatDamageKind.PROJECTILE, itemName)
+            Combat.applyDamageWithoutImmunity(hitTarget, damageSource)
+            trailEndPoint = entityHit.point.asPos()
+        } else {
+            hitTarget = null
+            if (blockHit != null) {
+                Particles.dustParticle(instance, blockHit.point.asPos())
+                trailEndPoint = blockHit.point.asPos()
+            } else {
+                trailEndPoint = origin.add(ray.direction.mul(ray.distance))
+            }
+        }
+
+        if (bulletTrailParticle != null) {
+            Particles.particleLine(instance, bulletTrailParticle, origin, trailEndPoint)
+        }
+
+        return hitTarget
+    }
+
+    fun spread(speed: Float = 0F): Float {
         val max = spreadMin + speed / 7 * (spreadMax - spreadMin)
         return Random.nextFloat() * max * 2 - max
     }
@@ -326,39 +402,29 @@ class Gun(
         origin: Pos,
         direction: Vec,
         maxDistance: Double,
+        validVehicles: Set<Entity>? = null,
     ): Triple<Double, Entity, Vehicle>? {
-        val step = 0.25
-        var distance = 0.0
-
-        while (distance <= maxDistance) {
-            val checkPoint =
-                Vec(
-                    origin.x + direction.x * distance,
-                    origin.y + direction.y * distance,
-                    origin.z + direction.z * distance,
-                )
-
-            for ((entity, vehicle) in Vehicle.entityVehicle) {
-                if (entity.instance != instance) continue
-                val vehiclePos = entity.position
-
-                val hitPart =
-                    vehicle.hitbox.containsPoint(
-                        checkPoint,
-                        vehiclePos,
-                        vehiclePos.yaw,
-                        vehiclePos.pitch,
-                        vehicle.hitboxRoll(entity),
-                    )
-
-                if (hitPart != null) {
-                    return Triple(distance, entity, vehicle)
-                }
+        if (maxDistance <= 0.0 || direction.lengthSquared() == 0.0) return null
+        val vector = direction.normalize().mul(maxDistance)
+        var closest: Triple<Double, Entity, Vehicle>? = null
+        for ((entity, vehicle) in Vehicle.entityVehicle) {
+            if (entity.instance != instance) continue
+            if (validVehicles != null && entity !in validVehicles) continue
+            val vehiclePos = entity.position
+            val distance =
+                vehicle.hitbox.firstIntersection(
+                    origin,
+                    vector,
+                    vehiclePos,
+                    vehiclePos.yaw,
+                    vehiclePos.pitch,
+                    vehicle.hitboxRoll(entity),
+                ) ?: continue
+            if (closest == null || distance < closest.first) {
+                closest = Triple(distance, entity, vehicle)
             }
-
-            distance += step
         }
-        return null
+        return closest
     }
 }
 

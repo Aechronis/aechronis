@@ -7,9 +7,12 @@ package net.aechronis.nodes
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import net.aechronis.nodes.colonization.Colonization
+import net.aechronis.nodes.colonization.ColonizationMenu
 import com.google.gson.JsonParser
 import net.aechronis.nodes.commands.AllyChatCommand
 import net.aechronis.nodes.commands.AllyCommand
+import net.aechronis.nodes.commands.ColonizeCommand
 import net.aechronis.nodes.commands.GlobalChatCommand
 import net.aechronis.nodes.commands.NationChatCommand
 import net.aechronis.nodes.commands.NationCommand
@@ -92,6 +95,8 @@ object Nodes {
     internal var lastBackupTime: Long = 0
     val war = FlagWar
     internal var needsSave: Boolean = false
+
+    internal val occupationPersistenceLock = Any()
     internal val hiddenOreInvalidBlocks: OreBlockCache = OreBlockCache(2000)
     lateinit var config: NodesConfig
 
@@ -127,6 +132,7 @@ object Nodes {
         NodesPlayerMoveListener.init()
         NodesPlotSelectionListener.init()
         NodesWorldListener.init()
+        ColonizationMenu.init()
         TrainsListener.init()
         WaypointMenu.init()
         Trains.initialize(config.pathTrains)
@@ -145,6 +151,7 @@ object Nodes {
         MinecraftServer.getCommandManager().register(PortCommand())
         MinecraftServer.getCommandManager().register(WaypointCommand())
         MinecraftServer.getCommandManager().register(TrainCommand())
+        MinecraftServer.getCommandManager().register(ColonizeCommand())
         lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: System.currentTimeMillis()
         reloadManagers()
         MiningBoostManager.start()
@@ -177,7 +184,8 @@ object Nodes {
         Trains.cleanup()
         residents.values.forEach { it.destroyMinimap() }
         towns.values.forEach { town -> if (town.income.pushToStorage(true)) town.needsUpdate() }
-        if (FlagWar.enabled) FlagWar.cleanup()
+        FlagWar.cleanup()
+        Colonization.cleanup()
         saveWorld(checkIfNeedsSave = false, async = false)
         Files.writeString(config.pathLastBackupTime, System.currentTimeMillis().toString())
     }
@@ -313,6 +321,8 @@ object Nodes {
     }
 
     internal fun loadWorld(): Boolean {
+        FlagWar.resetForReload()
+        Colonization.cleanup()
         residents.values.forEach { it.destroyMinimap() }
         MiningBoostManager.reset()
 
@@ -365,12 +375,26 @@ object Nodes {
         val current = System.currentTimeMillis()
         val backup = current > lastBackupTime + config.backupPeriod
         val backupTimestamp = if (backup) current.also { lastBackupTime = it } else null
-        if (needsSave || !checkIfNeedsSave) {
-            saveWorldPreprocess()
+
+        val worldTask = synchronized(occupationPersistenceLock) {
+            if (needsSave || !checkIfNeedsSave) {
+                // failed occupation journal write must not be followed by
+                // a towns.json snapshot of the newer in-memory relationship
+                FlagWar.flushTerritoryOccupationJournal()
+                saveWorldPreprocess()
+                TaskSaveWorld(
+                    residents.values.map { it.getSaveState() },
+                    towns.values.map { it.getSaveState() },
+                    nations.values.map { it.getSaveState() },
+                    backupTimestamp,
+                ).also { needsSave = false }
+            } else {
+                null
+            }
+        }
+        if (worldTask != null) {
             val timeUpdate = measureNanoTime {
-                val task = TaskSaveWorld(residents.values.map { it.getSaveState() }, towns.values.map { it.getSaveState() }, nations.values.map { it.getSaveState() }, backupTimestamp)
-                if (async) CompletableFuture.runAsync { task.run() } else task.run()
-                needsSave = false
+                if (async) CompletableFuture.runAsync { worldTask.run() } else worldTask.run()
             }
             println("[Nodes] Saving world: ${timeUpdate}ns")
             val buildingTask = TaskSaveBuildings(buildings.map { it.getSaveState() }, config.pathBuildings)

@@ -363,6 +363,13 @@ data class Territory(
         resourceNodes = this.resourceNodes,
     )
 
+    fun borders(nation: Nation): Boolean {
+        for (neighborId in neighbors) {
+            if (fromId(neighborId)?.town?.nation === nation) return true
+        }
+        return false
+    }
+
     // print territory info
     fun printInfo(sender: CommandSender) {
         val town: String = this.town?.name ?: "${ChatColor.GRAY}None"

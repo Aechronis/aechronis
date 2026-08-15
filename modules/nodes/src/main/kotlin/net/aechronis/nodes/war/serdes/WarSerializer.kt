@@ -24,188 +24,103 @@ package net.aechronis.nodes.war.serdes
 import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.TerritoryChunk
+import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
-import java.nio.ByteBuffer
-import java.nio.CharBuffer
-import java.nio.channels.AsynchronousFileChannel
-import java.nio.charset.CharsetEncoder
 import java.nio.charset.StandardCharsets
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.Future
 
 object WarSerializer {
+    private var pendingWrite: CompletableFuture<Void> = CompletableFuture.completedFuture(null)
 
-    // pre-processed state
-
-    // occupied chunks for each territory in format:
-    // town.name -> [c0.x, c0.y, c1.x, c1.y , ... ] interleaved buffer
-    internal var occupiedChunks: HashMap<String, ArrayList<Int>> = hashMapOf()
-
-    // list of all serialized attacks as Json
-    internal val attacksJsonList: ArrayList<StringBuilder> = arrayListOf()
-
-    // pre-process war objects
-    fun save(async: Boolean) {
-        // val timePreprocess = measureNanoTime {
-
-        // convert occupiedChunks to json string
-        occupiedChunks.clear()
-
-        for (coord in FlagWar.occupiedChunks) {
-            val chunk = TerritoryChunk.fromCoord(coord)
-            if (chunk === null) {
-                continue
-            }
-            val town = chunk.occupier?.name
-            if (town != null) {
-                val coord = chunk.coord
-                val cx = coord.x
-                val cz = coord.z
-
-                occupiedChunks.get(town)?.let { chunkList ->
-                    chunkList.add(cx)
-                    chunkList.add(cz)
-                } ?: run {
-                    WarSerializer.occupiedChunks.put(town, arrayListOf(cx, cz))
-                }
-            }
-        }
-
-        // update json strings for each attack
-        attacksJsonList.clear()
-        for (attack in FlagWar.chunkToAttacker.values) {
-            attacksJsonList.add(attack.toJson())
-        }
-
-        // }
-
-        // println("[WAR] PRE-PROCESS TIME: ${timePreprocess.toString()}ns")
-
+    // snapshot mutable war state before dispatching any asynchronous file write
+    @Synchronized
+    fun save(async: Boolean): CompletableFuture<Void> {
+        val json = createJsonSnapshot()
         if (async) {
-            // write file in worker thread
-            CompletableFuture.runAsync { writeToJson(Nodes.config.pathWar) }
+            pendingWrite = pendingWrite.handle { _, _ -> null }.thenRunAsync {
+                writeSnapshot(Nodes.config.pathWar, json)
+            }
+            pendingWrite.exceptionally { error ->
+                System.err.println("Failed to save war state: ${error.message}")
+                null
+            }
+            return pendingWrite
         } else {
-            writeToJson(Nodes.config.pathWar)
+            pendingWrite.handle { _, _ -> null }.join()
+            writeSnapshot(Nodes.config.pathWar, json)
+            pendingWrite = CompletableFuture.completedFuture(null)
+            return pendingWrite
         }
     }
 
-    // save war json file synchronously on main thread
-    fun writeToJson(path: Path) {
-        // =============================================
-        // calculate string builder capacity
-
-        // war status [13]: {"war":false,
-        // occupied header + close bracket + comma [14]: "occupied":{},
-        // attacks header + close bracket [13]: "attacks":[]}
-        // -> 40 minimum
-        // will add arbitrary extra margin and up size to 60
-        var bufferSize = 60
-
-        // captured chunks format:
-        // "town": [0, 1, 2, 3, ...]
-        // -> get each integer size, then include brackets [] and commas ,
-        for ((townName, coordList) in occupiedChunks) {
-            // size of "townName":[]
-            bufferSize += (5 + townName.length + coordList.size)
-
-            // size of each integer
-            for (c in coordList) {
-                val intLength = 2 + c.toString().length
-                bufferSize += intLength
-            }
+    private fun createJsonSnapshot(): String {
+        val occupiedByTown = linkedMapOf<String, MutableList<Int>>()
+        FlagWar.occupiedChunks.forEach { coord ->
+            val chunk = TerritoryChunk.fromCoord(coord) ?: return@forEach
+            val townId = chunk.occupier?.uuid?.toString() ?: return@forEach
+            occupiedByTown.getOrPut(townId, ::mutableListOf).addAll(listOf(coord.x, coord.z))
         }
+        val colonized = FlagWar.colonizedChunks.flatMap { coord -> listOf(coord.x, coord.z) }
+        val territoryOccupations = FlagWar.territoryOccupations.entries
+            .sortedBy { (territoryId, _) -> territoryId.toInt() }
+            .joinToString(",") { (territoryId, occupation) ->
+                val owner = occupation.occupierId?.let { JsonPrimitive(it.toString()).toString() } ?: "null"
+                "${JsonPrimitive(territoryId.toInt().toString())}:{\"owner\":$owner,\"colonized\":${occupation.colonized}}"
+            }
+        val attacks = FlagWar.chunkToAttacker.values
+            .filter { it.mode == AttackMode.WAR }
+            .map { it.toJson().toString() }
 
-        // list of attack json objects
-        // add 1 to length to account for comma
-        for (s in attacksJsonList) {
-            bufferSize += (1 + s.length)
+        return buildString {
+            append("{\"war\":${FlagWar.enabled},")
+            append("\"flagAnnex\":${FlagWar.canAnnexTerritories},")
+            append("\"flagBordersOnly\":${FlagWar.canOnlyAttackBorders},")
+            append("\"flagDestruction\":${FlagWar.destructionEnabled},")
+            append("\"occupied\":{")
+            append(
+                occupiedByTown.entries.joinToString(",") { (townId, coordinates) ->
+                    "${JsonPrimitive(townId)}:${coordinates.joinToString(",", "[", "]")}"
+                },
+            )
+            append("},\"colonized\":${colonized.joinToString(",", "[", "]")},")
+            append("\"territoryOccupations\":{$territoryOccupations},")
+            append("\"attacks\":[${attacks.joinToString(",")}]}")
         }
-        // =============================================
+    }
 
-        // json string builder
-        val jsonString = StringBuilder(bufferSize)
-
-        var bytes: ByteBuffer
-
-        // val timeBuffers = measureNanoTime {
-
-        // ===============================
-        // War status and flags
-        // ===============================
-        jsonString.append("{\"war\":${FlagWar.enabled},")
-        jsonString.append("\"flagAnnex\":${FlagWar.canAnnexTerritories},")
-        jsonString.append("\"flagBordersOnly\":${FlagWar.canOnlyAttackBorders},")
-        jsonString.append("\"flagDestruction\":${FlagWar.destructionEnabled},")
-
-        // ===============================
-        // Occupied chunks
-        // ===============================
-        jsonString.append("\"occupied\":{")
-
-        var index = 1
-        for ((townName, coordList) in occupiedChunks) {
-            jsonString.append(JsonPrimitive(townName)).append(":[")
-            for ((i, c) in coordList.withIndex()) {
-                jsonString.append(c)
-                if (i < coordList.size - 1) {
-                    jsonString.append(",")
-                }
+    private fun writeSnapshot(
+        path: Path,
+        json: String,
+    ) {
+        val absolutePath = path.toAbsolutePath()
+        val parent = absolutePath.parent
+        Files.createDirectories(parent)
+        val temporary = Files.createTempFile(parent, ".${absolutePath.fileName}.", ".tmp")
+        try {
+            Files.writeString(
+                temporary,
+                json,
+                StandardCharsets.UTF_8,
+                StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+            )
+            try {
+                Files.move(
+                    temporary,
+                    absolutePath,
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary, absolutePath, StandardCopyOption.REPLACE_EXISTING)
             }
-
-            // add comma
-            if (index < occupiedChunks.size) {
-                jsonString.append("],")
-                index += 1
-            }
-            // no comma for last, close with "},"
-            else {
-                jsonString.append("]")
-            }
+        } finally {
+            Files.deleteIfExists(temporary)
         }
-
-        jsonString.append("},")
-
-        // ===============================
-        // Attacks
-        // ===============================
-        jsonString.append("\"attacks\":[")
-
-        for ((i, attack) in attacksJsonList.iterator().withIndex()) {
-            jsonString.append(attack)
-
-            // add comma
-            if (i < attacksJsonList.size - 1) {
-                jsonString.append(",")
-            }
-        }
-
-        jsonString.append("]}")
-
-        // ===============================
-
-        // get byte buffer
-        val encoder: CharsetEncoder = StandardCharsets.UTF_8.newEncoder()
-        val charBuffer: CharBuffer = CharBuffer.wrap(jsonString)
-        bytes = encoder.encode(charBuffer)
-
-        // }
-
-        // println("[WAR] BUFFER WRITE TIME: ${timeBuffers.toString()}ns")
-
-        // ===============================
-        // WRITE FILE
-        // ===============================
-        // val timeWrite = measureNanoTime {
-
-        val fileChannel: AsynchronousFileChannel = AsynchronousFileChannel.open(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
-
-        val operation: Future<Int> = fileChannel.write(bytes, 0)
-
-        operation.get()
-        // }
-
-        // println("[WAR] FILE SAVE TIME: ${timeWrite.toString()}ns")
     }
 }

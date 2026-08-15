@@ -24,6 +24,7 @@ import net.minestom.server.entity.metadata.display.TextDisplayMeta
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 class Attack(
     val attacker: UUID, // attacker's UUID
@@ -38,7 +39,13 @@ class Attack(
     val progressBar: BossBar, // progress bar
     val attackTime: Long, //
     var progress: Long, // initial progress, current tick count
+    val mode: AttackMode = AttackMode.WAR,
 ) : Runnable {
+    private val ended = AtomicBoolean(false)
+
+    // the town that owned the target when this attack was created
+    val targetTown: Town? = targetTerritory.town
+
     // no build region
     val noBuildXMin: Int
     val noBuildXMax: Int
@@ -97,6 +104,8 @@ class Attack(
         this.thread.cancel()
         FlagWar.cancelAttack(this)
     }
+
+    internal fun markEnded(): Boolean = ended.compareAndSet(false, true)
 
     // returns json format string as a StringBuilder
     // only used with WarSerializer objects
