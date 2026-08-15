@@ -90,6 +90,15 @@ data class NodesConfig(
     // respawn point for players without a town
     var defaultRespawnPoint: Pos = Pos(0.0, 64.0, 0.0),
 
+    // Enable the two-town Red/Blue test mode. Players choose a side on join,
+    // cannot leave it, and can only switch to the other configured town.
+    val testTownSelectionEnabled: Boolean = false,
+    val testTownRedName: String = "Red",
+    val testTownBlueName: String = "Blue",
+
+    // Lock the larger town once it has at least this many more members.
+    val testTownPopulationDifference: Int = 3,
+
     // ===================================
     // nation settings
     // ===================================

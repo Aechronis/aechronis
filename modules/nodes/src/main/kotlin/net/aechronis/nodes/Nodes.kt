@@ -50,6 +50,7 @@ import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.TerritoryPreprocessing
 import net.aechronis.nodes.objects.TerritoryResources
+import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.WaypointMenu
@@ -135,6 +136,7 @@ object Nodes {
         ColonizationMenu.init()
         TrainsListener.init()
         WaypointMenu.init()
+        TestTownSelection.init()
         Trains.initialize(config.pathTrains)
         MinecraftServer.getSchedulerManager().buildShutdownTask { cleanup() }
         MinecraftServer.getCommandManager().register(TownCommand())

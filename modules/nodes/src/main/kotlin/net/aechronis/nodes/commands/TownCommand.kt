@@ -14,6 +14,7 @@ import net.aechronis.nodes.objects.MinimapPosition
 import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
+import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
@@ -219,6 +220,13 @@ class TownApplyCommand : NodesCommand("apply", null, "join") {
         val townArg = ArgumentTown.create("town-name")
 
         addSyntax({ player, resident, context ->
+            if (TestTownSelection.isEnabled()) {
+                TestTownSelection.join(player, resident, context[townArg])
+                    .onSuccess { town -> Message.print(player, "You joined ${town.name} and were teleported to its spawn") }
+                    .onFailure { error -> Message.error(player, error.message ?: "Could not join that town") }
+                return@addSyntax
+            }
+
             if (resident.town != null) {
                 Message.error(player, "You are already a member of a town")
                 return@addSyntax
@@ -280,6 +288,11 @@ class TownInviteCommand : NodesCommand("invite") {
         val playerArg = ArgumentResident.create("player-name")
 
         addSyntax({ player, resident, town, context ->
+            if (TestTownSelection.isEnabled()) {
+                Message.error(player, "Invitations are disabled during test town selection; players must use /town join <town>")
+                return@addSyntax
+            }
+
             val invitee: Player? = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(context[playerArg].name)
             if (invitee == null) {
                 Message.error(player, "That player is not online")
@@ -564,6 +577,11 @@ class TownLeaveCommand : NodesCommand("leave") {
         }
 
         addSyntax({ player, resident, town, context ->
+            if (TestTownSelection.isEnabled()) {
+                Message.error(player, "You cannot leave during test town selection; use /town join <town> to switch sides")
+                return@addSyntax
+            }
+
             if (town.leader == resident) {
                 Message.error(player, "You must transfer leadership before leaving the town")
                 return@addSyntax

@@ -13,6 +13,7 @@ import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.ColonizationMenu
 import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Resident
+import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.war.FlagWar
 import net.minestom.server.MinecraftServer
@@ -34,6 +35,9 @@ object NodesPlayerJoinQuitListener {
         Resident.setOnline(resident, player)
         MiningBoostManager.onPlayerJoin(player)
         resident.createMinimap(player)
+        MinecraftServer.getSchedulerManager().scheduleNextTick {
+            if (player.isOnline) TestTownSelection.showJoinDialog(player, resident)
+        }
 
         // send any active war or colonization progress bars
         if (FlagWar.attackers[player.uuid]?.isNotEmpty() == true) {

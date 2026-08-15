@@ -365,7 +365,8 @@ class Town(
             resident.inviteThread = null
         }
 
-        fun addResident(town: Town, resident: Resident): Boolean {
+        fun addResident(town: Town, resident: Resident, bypassTestTownSelection: Boolean = false): Boolean {
+            if (Nodes.config.testTownSelectionEnabled && !bypassTestTownSelection) return false
             if (resident.town != null || Nodes.towns.values.any { it.residents.contains(resident) }) return false
 
             town.residents.add(resident)

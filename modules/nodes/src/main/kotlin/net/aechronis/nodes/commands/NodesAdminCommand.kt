@@ -271,7 +271,7 @@ class NodesAdminTownAddPlayerCommand : NodesCommand("addplayer", "nodes.admin") 
 
         addSyntax({ player, resident, context ->
             for (resident in context[playersArg]) {
-                if (Town.addResident(context[townArg], resident)) {
+                if (Town.addResident(context[townArg], resident, bypassTestTownSelection = true)) {
                     Message.print(player, "Added \"${resident.name}\" to town \"${context[townArg].name}\"")
                 } else {
                     Message.error(player, "${resident.name} is already a member of a town")

@@ -7,7 +7,9 @@ import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryId
+import net.aechronis.nodes.objects.TestTownSide
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.testTownLockedSide
 import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
@@ -234,6 +236,14 @@ class NodesTest {
         for (permission in allPermissions) {
             assertEquals(true, plot.playerPermission(resident.uuid, permission))
         }
+    }
+
+    @Test
+    fun `test town balance locks only the overpopulated side`() {
+        assertEquals(TestTownSide.RED, testTownLockedSide(redPopulation = 5, bluePopulation = 2, difference = 3))
+        assertEquals(TestTownSide.BLUE, testTownLockedSide(redPopulation = 2, bluePopulation = 5, difference = 3))
+        assertEquals(null, testTownLockedSide(redPopulation = 4, bluePopulation = 2, difference = 3))
+        assertEquals(TestTownSide.RED, testTownLockedSide(redPopulation = 2, bluePopulation = 0, difference = 0))
     }
 
     @Test
