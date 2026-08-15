@@ -139,15 +139,21 @@ open class Vehicle(
                 .schedule()
     }
 
-    open fun spawn(
+    fun spawn(
         player: Player,
+        pos: Pos,
+    ): Entity = spawn(requireNotNull(player.instance) { "Player must be in an instance to spawn a vehicle" }, pos)
+
+    /** Spawns a vehicle without consuming an item or requiring a player, for persistence restores. */
+    open fun spawn(
+        instance: Instance,
         pos: Pos,
     ): Entity {
         val entity = Entity(EntityType.ITEM_DISPLAY)
 
         // offset y so the bottom of the hitbox sits on the ground
         val adjustedPos = pos.add(0.0, hitbox.getGroundOffset(), 0.0)
-        entity.setInstance(player.instance, adjustedPos)
+        entity.setInstance(instance, adjustedPos)
 
         val meta = entity.entityMeta as ItemDisplayMeta
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(model)
@@ -229,6 +235,33 @@ open class Vehicle(
     }
 
     open fun onUnoccupiedTick(entity: Entity) {}
+
+    /**
+     * Removes riders and their temporary seat entities before a server shutdown.
+     * Subclasses can reset transient movement state before the normal exit logic runs.
+     */
+    open fun prepareForShutdown(entity: Entity) {
+        playerVehicleEntity.entries
+            .filter { it.value === entity }
+            .forEach { (player, _) ->
+                val seatPosition = getSeatWorldPos(entity, 0)
+                playerSeatEntity[player]?.teleport(seatPosition)
+                player.teleport(seatPosition)
+            }
+        entityPassengers[entity]
+            ?.toList()
+            ?.forEachIndexed { index, player ->
+                val seatPosition = getSeatWorldPos(entity, index + 1)
+                passengerSeatEntity[player]?.teleport(seatPosition)
+                player.teleport(seatPosition)
+            }
+
+        entityPassengers[entity]?.toList()?.forEach(::onPassengerExit)
+        playerVehicleEntity.entries
+            .filter { it.value === entity }
+            .map { it.key }
+            .forEach(::onExit)
+    }
 
     open fun onVehicleCollision(
         entity: Entity,

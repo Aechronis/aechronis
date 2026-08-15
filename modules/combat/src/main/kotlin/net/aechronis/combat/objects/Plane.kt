@@ -163,6 +163,19 @@ class Plane(
         }
     }
 
+    override fun prepareForShutdown(entity: Entity) {
+        entityDives.remove(entity)
+        playerVehicleEntity.entries
+            .filter { it.value === entity }
+            .forEach { (player, _) ->
+                playerState[player] = PlaneState.LANDED
+                playerThrottle[player] = 0f
+                playerRoll[player] = 0f
+            }
+        (entity.entityMeta as ItemDisplayMeta).leftRotation = setRoll(0f)
+        super.prepareForShutdown(entity)
+    }
+
     override fun destroy(
         entity: Entity,
         attacker: Player?,

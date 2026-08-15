@@ -224,12 +224,12 @@ class Drone(
     }
 
     override fun spawn(
-        player: Player,
+        instance: Instance,
         pos: Pos,
     ): Entity {
-        val entity = super.spawn(player, pos)
+        val entity = super.spawn(instance, pos)
 
-        entitySpider[entity] = spawnSpider(player.instance, entity.position.withPitch(0F))
+        entitySpider[entity] = spawnSpider(instance, entity.position.withPitch(0F))
         entityBattery[entity] = 1f
         entityHealth[entity] = rawHealth
 

@@ -112,18 +112,17 @@ object Vanilla {
         if (config.musicEnabled) MusicManager.init()
         if (config.kothEnabled) Koth.init()
 
-        Runtime.getRuntime().addShutdownHook(
-            Thread({
-                println("Vanilla: saving data before shutdown...")
-                if (config.playerDataEnabled) PlayerData.saveAll()
-                if (config.storageEnabled) Storage.saveAll()
-                println("Vanilla: data saved.")
-            }, "vanilla-shutdown-save"),
-        )
-
         // print load time
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
         println("└─ Vanilla Loaded in ${timeLoad}ms")
+    }
+
+    /** Called by the server's coordinated shutdown hook after vehicles have ejected their riders. */
+    fun saveBeforeShutdown() {
+        println("Vanilla: saving data before shutdown...")
+        if (config.playerDataEnabled) PlayerData.saveAll()
+        if (config.storageEnabled) Storage.saveAll()
+        println("Vanilla: data saved.")
     }
 }

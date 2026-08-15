@@ -16,5 +16,10 @@ class Health(
         return health <= 0f
     }
 
+    /** Restores persisted health while preserving this definition's configured maximum. */
+    internal fun restore(amount: Float) {
+        health = amount.coerceIn(0f, maxHealth)
+    }
+
     internal fun fresh(): Health = Health(maxHealth, damageByAmmoType)
 }

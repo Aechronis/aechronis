@@ -22,6 +22,7 @@ import net.aechronis.combat.objects.distanceToBoundingBox
 import net.aechronis.combat.objects.firstProjectileImpact
 import net.aechronis.combat.objects.isBombRelease
 import net.aechronis.combat.objects.selectProjectileImpact
+import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.combat.tasks.LeafRestoreManager
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.calculateVehicleCameraDistance
@@ -49,6 +50,9 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
@@ -300,6 +304,33 @@ class CombatTest {
         // initialize combat with test config
         LeafRestoreManager.restoreDelayMillis = 1_000L
         Combat.initialize()
+    }
+
+    @Test
+    fun `vehicle persistence saves health and ammo but excludes drones`(
+        @TempDir temporaryDirectory: Path,
+    ) {
+        val tank = Item.getFromName("m1a1-abrams") as Tank
+        val drone = Item.getFromName("drone") as Drone
+        val tankEntity = tank.spawn(instance, Pos(80.0, 61.0, 80.0))
+        val droneEntity = drone.spawn(instance, Pos(90.0, 61.0, 90.0))
+        Vehicle.entityHealth[tankEntity]!!.takeHp(AmmoTypes.NORMAL)
+        Vehicle.entityAmmo[tankEntity] = 3
+
+        try {
+            val savePath = temporaryDirectory.resolve("vehicles.json")
+            VehiclePersistence.initialize(savePath, instance)
+            VehiclePersistence.save()
+
+            val saved = Files.readString(savePath)
+            assertTrue(saved.contains("\"type\": \"m1a1-abrams\""))
+            assertTrue(saved.contains("\"health\": 490.0"))
+            assertTrue(saved.contains("\"ammo\": 3"))
+            assertFalse(saved.contains("\"type\": \"drone\""))
+        } finally {
+            tank.destroy(tankEntity)
+            drone.destroy(droneEntity)
+        }
     }
 
     @Test

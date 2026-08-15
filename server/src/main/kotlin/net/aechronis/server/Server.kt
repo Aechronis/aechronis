@@ -8,6 +8,7 @@ import me.lucko.luckperms.minestom.LuckPermsMinestom
 import me.lucko.spark.minestom.SparkMinestom
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
+import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.guard.Guard
 import net.aechronis.logger.Logger
 import net.aechronis.logger.LoggerConfig
@@ -192,6 +193,8 @@ fun main(args: Array<String>) {
         Boats.ussButler,
     )
 
+    VehiclePersistence.initialize(worldPath.resolve("vehicles.json"), Server.instance)
+
     // initialize luckperms
     LuckPermsMinestom
         .builder(Path.of("luckperms"))
@@ -226,6 +229,16 @@ fun main(args: Array<String>) {
     Combat.initialize()
 
     Vanilla.init()
+
+    Runtime.getRuntime().addShutdownHook(
+        Thread(
+            {
+                VehiclePersistence.saveForShutdown()
+                Vanilla.saveBeforeShutdown()
+            },
+            "server-state-shutdown-save",
+        ),
+    )
 
     val nodesConfig = NodesConfig(defaultRespawnPoint = Server.spawnPoint)
     Nodes.initialize(nodesConfig)

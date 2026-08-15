@@ -14,6 +14,7 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
+import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import kotlin.math.max
@@ -78,11 +79,11 @@ class Tank(
     }
 
     override fun spawn(
-        player: Player,
+        instance: Instance,
         pos: Pos,
     ): Entity {
         // spawn the body via the normal vehicle spawn
-        val body = super.spawn(player, pos)
+        val body = super.spawn(instance, pos)
 
         // spawn the turret as a second item display
         val turret = Entity(EntityType.ITEM_DISPLAY)

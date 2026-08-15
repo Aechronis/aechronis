@@ -5,7 +5,6 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
-import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import kotlin.math.floor
@@ -55,10 +54,10 @@ open class Boat(
     }
 
     override fun spawn(
-        player: Player,
+        instance: Instance,
         pos: Pos,
     ): Entity {
-        val entity = super.spawn(player, pos)
+        val entity = super.spawn(instance, pos)
         val instance = entity.instance ?: return entity
         val surfaceY = findWaterSurfaceY(instance, entity.position.x, entity.position.z, getCurrentSurfaceY(entity.position))
 
