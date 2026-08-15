@@ -6,6 +6,7 @@ import net.aechronis.combat.objects.ArmorPiece
 import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Drone
+import net.aechronis.combat.objects.Explosion
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Health
@@ -498,6 +499,38 @@ class CombatTest {
             assertFalse(Vehicle.entityHealth.containsKey(entity))
         } finally {
             Vehicle.entityHealth.remove(entity)
+        }
+    }
+
+    @Test
+    fun `explosion damages a vehicle when only its hitbox is in range`() {
+        val vehicle =
+            Car(
+                name = "explosion-hitbox-target",
+                itemName = Component.empty(),
+                scale = 1.0,
+                hitbox = Hitbox(listOf(HitboxPart(Vec(5.0, 0.0, 0.0), Vec(1.0, 1.0, 1.0)))),
+                health = Health(10F, mapOf(AmmoTypes.BOMB to 4F)),
+            )
+        val entity = vehicle.spawn(instance, Pos(120.0, 61.0, 120.0))
+        val impact = entity.position.add(5.0, 0.0, 0.0)
+
+        try {
+            assertEquals(0.0, vehicle.hitbox.distanceToPoint(impact, entity.position, 0f, 0f, 0f), 0.0001)
+            assertEquals(0f, damageAtDistance(20f, 1, entity.position.distance(impact)))
+
+            Explosion(
+                instance = instance,
+                pos = impact,
+                radius = 1,
+                fire = 0.0,
+                damage = 20f,
+                ammoType = AmmoTypes.BOMB,
+            )
+
+            assertEquals(6F, Vehicle.entityHealth[entity]?.health)
+        } finally {
+            if (Vehicle.entityVehicle.containsKey(entity)) vehicle.destroy(entity)
         }
     }
 

@@ -371,6 +371,32 @@ class Hitbox(
         return null
     }
 
+    /** Returns the shortest world-space distance from [point] to this oriented hitbox. */
+    internal fun distanceToPoint(
+        point: Point,
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): Double {
+        val localPoint =
+            rotatePointInverse(
+                Vec(point.x() - position.x, point.y() - position.y, point.z() - position.z),
+                yaw,
+                pitch,
+                roll,
+            )
+        return parts.minOfOrNull { part ->
+            val min = part.offset.sub(part.size)
+            val max = part.offset.add(part.size)
+            Vec(
+                localPoint.x.coerceIn(min.x, max.x),
+                localPoint.y.coerceIn(min.y, max.y),
+                localPoint.z.coerceIn(min.z, max.z),
+            ).distance(localPoint)
+        } ?: Double.POSITIVE_INFINITY
+    }
+
     // Returns the nearest intersection in world-space units along the segment.
     internal fun firstIntersection(
         origin: Point,

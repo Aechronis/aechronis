@@ -107,7 +107,16 @@ class Explosion private constructor(
 
         for ((entity, vehicle) in Vehicle.entityVehicle.toList()) {
             if (entity.instance != instance) continue
-            val blastDamage = damageAtDistance(damage, radius, entity.position.distance(pos))
+            val vehiclePosition = entity.position
+            val distance =
+                vehicle.hitbox.distanceToPoint(
+                    pos,
+                    vehiclePosition,
+                    vehiclePosition.yaw,
+                    vehiclePosition.pitch,
+                    vehicle.hitboxRoll(entity),
+                )
+            val blastDamage = damageAtDistance(damage, radius, distance)
             if (blastDamage > 0f) vehicle.takeDamage(entity, ammoType, blastDamage, source, weapon)
         }
 
