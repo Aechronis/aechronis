@@ -307,7 +307,7 @@ object Nodes {
         toBuild.forEach { data ->
             if (!data.chunks.contains(data.core)) {
                 println("[Nodes] Territory ${data.id} chunk does not contain core")
-                return
+                return@forEach
             }
             val resources = graph[data.id]!!.applyNeighborModifiers()
             val names = data.resourceNodes.sortedBy { resourceNodes[it]!!.priority }
