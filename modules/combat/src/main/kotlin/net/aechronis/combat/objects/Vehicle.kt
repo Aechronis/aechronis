@@ -141,6 +141,10 @@ open class Vehicle(
 
         entityVehicle[entity] = this
         health?.let { entityHealth[entity] = it.fresh() }
+        if (this is ArmedVehicle) {
+            require(maxAmmo > 0) { "Vehicle maxAmmo must be greater than zero" }
+            entityAmmo[entity] = maxAmmo
+        }
 
         return entity
     }
@@ -290,6 +294,50 @@ open class Vehicle(
         return vehiclePos.add(rotatedX, localOffset.y, rotatedZ)
     }
 
+    /** Returns the current magazine size for an armed vehicle, or null for an unarmed vehicle. */
+    fun getAmmo(entity: Entity): Int? = entityAmmo[entity]
+
+    /**
+     * Refills an empty vehicle magazine from the driver's inventory.
+     * An empty attempt starts the reload but does not fire until the next tick.
+     */
+    protected fun reloadAmmoIfEmpty(
+        player: Player,
+        entity: Entity,
+    ) {
+        val armedVehicle = this as? ArmedVehicle ?: return
+        val current = entityAmmo[entity] ?: return
+        if (current > 0) return
+
+        if (armedVehicle.ammo[player] == 0) {
+            val now = System.currentTimeMillis()
+            if (now - (emptyAmmoFeedbackAt[player] ?: 0L) < 500L) return
+            emptyAmmoFeedbackAt[player] = now
+            player.showTitle(
+                Title.title(
+                    Component.empty(),
+                    Component.text("✕").color(TextColor.color(0.5F, 0F, 0F)).shadowColor(ShadowColor.none()),
+                    0,
+                    10,
+                    10,
+                ),
+            )
+            return
+        }
+
+        emptyAmmoFeedbackAt.remove(player)
+        armedVehicle.ammo[player] -= 1
+        entityAmmo[entity] = armedVehicle.maxAmmo
+    }
+
+    /** Called after a successful shot to remove one round from the vehicle magazine. */
+    protected fun consumeAmmo(entity: Entity): Boolean {
+        val current = entityAmmo[entity] ?: return false
+        if (current <= 0) return false
+        entityAmmo[entity] = current - 1
+        return true
+    }
+
     // called when the vehicle takes damage
     open fun takeDamage(
         entity: Entity,
@@ -325,6 +373,7 @@ open class Vehicle(
         // clean up tracking
         entityVehicle.remove(entity)
         entityHealth.remove(entity)
+        entityAmmo.remove(entity)
 
         // remove the displayentity
         entity.remove()
@@ -341,6 +390,11 @@ open class Vehicle(
         var playerVehicleEntity: HashMap<Player, Entity> = HashMap()
         var entityVehicle: HashMap<Entity, Vehicle> = HashMap()
         var entityHealth: HashMap<Entity, Health> = HashMap()
+        var entityAmmo: HashMap<Entity, Int> = HashMap()
+
+        fun getEntityAmmo(entity: Entity): Int? = entityAmmo[entity]
+
+        val emptyAmmoFeedbackAt: HashMap<Player, Long> = HashMap()
 
         // driver seat
         val playerSeatEntity: HashMap<Player, Entity> = HashMap()

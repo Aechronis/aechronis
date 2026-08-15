@@ -39,6 +39,7 @@ object PlayerDisconnectListener {
 
         VehicleTickManager.playerLookingAtVehicle.remove(player)
         VehicleTickManager.playerLookingAtEntity.remove(player)
+        Vehicle.emptyAmmoFeedbackAt.remove(player)
 
         // cancel any active tasks before removing
         Combat.aimingResetTasks.remove(player)?.cancel()

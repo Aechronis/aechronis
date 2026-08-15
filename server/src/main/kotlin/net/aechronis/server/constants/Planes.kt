@@ -68,6 +68,8 @@ object Planes {
                     ),
                 ),
             placeTime = 2000,
+            ammo = Ammo.ammo762x39mm,
+            maxAmmo = 120,
             weapons = listOf(fighterWeapon),
             scale = 7.0,
         )

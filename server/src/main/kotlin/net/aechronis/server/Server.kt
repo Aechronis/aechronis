@@ -166,6 +166,7 @@ fun main(args: Array<String>) {
     Item.registerItems(
         // Ammo
         Ammo.ammo762x39mm,
+        Ammo.tankShell,
         // Guns
         Guns.ak47,
         // Armor

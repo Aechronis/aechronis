@@ -42,6 +42,8 @@ class Plane(
     val landingThrottle: Float = 35f,
     val maxThrottle: Float = 100f,
     val minAirThrottle: Float = 30f,
+    override val ammo: Ammo,
+    override val maxAmmo: Int,
     val weapons: List<PlaneWeapon> = emptyList(),
     val explosionDamage: Float = 20f,
     val seatOffset: List<Vec> = listOf(Vec.ZERO),
@@ -60,7 +62,12 @@ class Plane(
         seatOffset,
         invisibleWhileRiding,
         invulnerableWhileRiding,
-    ) {
+    ),
+    ArmedVehicle {
+    init {
+        require(maxAmmo > 0) { "Plane maxAmmo must be greater than zero" }
+    }
+
     override fun onEnter(
         player: Player,
         entity: Entity,
@@ -267,6 +274,11 @@ class Plane(
         if (weapons.isEmpty()) return
 
         val entity = playerVehicleEntity[player] ?: return
+        if ((getAmmo(entity) ?: 0) <= 0) {
+            reloadAmmoIfEmpty(player, entity)
+            return
+        }
+
         val position = entity.position
         val roll = playerRoll[player] ?: 0f
 
@@ -278,12 +290,17 @@ class Plane(
                 val firePos = position.add(worldOffset.x, worldOffset.y, worldOffset.z)
 
                 // fire the gun
-                mount.gun.fire(
-                    player,
-                    firePos,
-                    ignoreCooldown = true,
-                    ignoreAmmo = true,
-                )
+                if ((getAmmo(entity) ?: 0) <= 0) return
+
+                if (mount.gun.fire(
+                        player,
+                        firePos,
+                        ignoreCooldown = true,
+                        ignoreAmmo = true,
+                    )
+                ) {
+                    consumeAmmo(entity)
+                }
             }
         }
     }

@@ -191,13 +191,13 @@ class Gun(
         firePos: Pos? = null,
         ignoreCooldown: Boolean = false,
         ignoreAmmo: Boolean = false,
-    ) {
+    ): Boolean {
         val firedAtNanos = System.nanoTime()
         val now = System.currentTimeMillis()
-        if (now - (Combat.playerLastActionTimes[player] ?: 0L) < cooldown && !ignoreCooldown) return
-        if (Combat.reloadTasks[player] != null) return
+        if (now - (Combat.playerLastActionTimes[player] ?: 0L) < cooldown && !ignoreCooldown) return false
+        if (Combat.reloadTasks[player] != null) return false
         Combat.playerLastActionTimes[player] = now
-        if (!hasAmmo(player) && !ignoreAmmo) return
+        if (!hasAmmo(player) && !ignoreAmmo) return false
 
         // calculate position to fire bullet (ray) from
         val speed = Combat.playerSpeeds[player] ?: 0F
@@ -300,7 +300,7 @@ class Gun(
         // decrement ammo
         if (!ignoreAmmo) addAmmo(player, -1)
 
-        return
+        return true
     }
 
     fun spread(speed: Float): Float {

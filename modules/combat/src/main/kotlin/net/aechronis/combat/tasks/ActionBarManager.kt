@@ -1,6 +1,7 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.objects.ArmedVehicle
 import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
@@ -30,8 +31,12 @@ object ActionBarManager {
 
     fun updateActionBar(player: Player) {
         val vehicleTelemetry = vehicleTelemetry(player)
+        val vehicle = Vehicle.playerVehicle[player]
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
-        val ammo = gun?.takeIf { Combat.reloadTasks[player] == null }?.ammoText(player)
+        val ammo =
+            gun
+                ?.takeIf { vehicle !is ArmedVehicle && Combat.reloadTasks[player] == null }
+                ?.ammoText(player)
 
         val actionBar =
             when {
@@ -63,7 +68,12 @@ object ActionBarManager {
                 else -> null
             }
         val healthText = String.format(Locale.ROOT, "Health: [%.0f/%.0f]", health.first, health.second)
-        val text = listOfNotNull(movementTelemetry, healthText).joinToString(" ")
+        val ammoText =
+            (vehicle as? ArmedVehicle)?.let {
+                val currentAmmo = Vehicle.getEntityAmmo(entity) ?: it.maxAmmo
+                "Ammo: [$currentAmmo/${it.maxAmmo}]"
+            }
+        val text = listOfNotNull(movementTelemetry, healthText, ammoText).joinToString(" ")
         return Component.text(text, NamedTextColor.GRAY)
     }
 

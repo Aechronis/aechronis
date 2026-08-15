@@ -13,4 +13,11 @@ object Ammo {
             itemName = Component.text("7.62x39mm", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammoType = AmmoTypes.NORMAL,
         )
+
+    val tankShell =
+        Ammo(
+            name = "tank-shell",
+            itemName = Component.text("Tank Shell", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            ammoType = AmmoTypes.EXPLOSIVE,
+        )
 }

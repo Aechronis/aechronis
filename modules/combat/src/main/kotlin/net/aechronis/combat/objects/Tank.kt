@@ -45,7 +45,8 @@ class Tank(
     val projectileExplosionRadius: Int = 4,
     val projectileExplosionFire: Double = 0.1,
     val projectileExplosionDamage: Float = 20f,
-    val projectileAmmoType: AmmoTypes = AmmoTypes.MISSILE,
+    override val ammo: Ammo,
+    override val maxAmmo: Int,
     val barrelTipOffset: Vec = Vec(0.0, 0.0, 5.0),
     val fireCooldown: Long = 20000,
     seatOffsets: List<Vec> = listOf(Vec.ZERO),
@@ -70,7 +71,12 @@ class Tank(
         seatOffsets,
         invisibleWhileRiding,
         invulnerableWhileRiding,
-    ) {
+    ),
+    ArmedVehicle {
+    init {
+        require(maxAmmo > 0) { "Tank maxAmmo must be greater than zero" }
+    }
+
     override fun spawn(
         player: Player,
         pos: Pos,
@@ -173,6 +179,11 @@ class Tank(
         val last = lastFireTime[body] ?: 0L
         if (now - last < fireCooldown) return
 
+        if ((getAmmo(body) ?: 0) <= 0) {
+            reloadAmmoIfEmpty(player, body)
+            return
+        }
+
         val instance = body.instance ?: return
 
         val tip = rotatePoint(barrelTipOffset, yaw, pitch, 0f)
@@ -200,7 +211,7 @@ class Tank(
                 damage = projectileExplosionDamage,
                 source = player,
                 weapon = projectileName,
-                ammoType = projectileAmmoType,
+                ammoType = ammo.ammoType,
             )
         } else {
             Projectile.bypassingDamageImmunity(
@@ -215,10 +226,11 @@ class Tank(
                 source = player,
                 weapon = projectileName,
                 ignoredEntities = ignoredEntities,
-                ammoType = projectileAmmoType,
+                ammoType = ammo.ammoType,
             )
         }
 
+        consumeAmmo(body)
         lastFireTime[body] = now
     }
 

@@ -28,6 +28,8 @@ object Tanks {
             model = "aechronis:m1a1-abrams",
             hitbox = m1a1AbramsHitbox,
             scale = 3.0,
+            ammo = Ammo.tankShell,
+            maxAmmo = 10,
             health =
                 Health(
                     1000F,
