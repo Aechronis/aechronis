@@ -23,7 +23,7 @@ class Give : Command("give", "vanilla.give") {
                     return@addSyntax
                 }
             val item = context[itemArg]
-            target.inventory.addItemStack(item)
+            if (!target.inventory.addItemStack(item)) target.dropItem(item)
             sender.sendMessage(
                 Component.text(
                     "Gave ${item.amount()} ${item.material().name()} to ${target.username}",
@@ -39,7 +39,7 @@ class Give : Command("give", "vanilla.give") {
                     return@addSyntax
                 }
             val item = context[itemArg].withAmount(context[amountArg])
-            target.inventory.addItemStack(item)
+            if (!target.inventory.addItemStack(item)) target.dropItem(item)
         }, playerArg, itemArg, amountArg)
     }
 }

@@ -14,12 +14,22 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.WorldEventPacket
 import net.minestom.server.timer.TaskSchedule
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadLocalRandom
 import kotlin.math.abs
 import kotlin.math.max
 
 // https://github.com/IDev-mc/TreeFeller
 object TreeFeller {
+    private data class FellingPosition(
+        val instance: Instance,
+        val x: Int,
+        val y: Int,
+        val z: Int,
+    )
+
+    private val activePositions = ConcurrentHashMap.newKeySet<FellingPosition>()
+
     val logs =
         listOf(
             Block.OAK_LOG,
@@ -227,7 +237,7 @@ object TreeFeller {
     ) {
         val ox = player.position.blockX()
         val oz = player.position.blockZ()
-        val ordered =
+        val candidates =
             (logs.map { it to false } + leaves.map { it to true })
                 .sortedWith(
                     compareBy(
@@ -238,6 +248,11 @@ object TreeFeller {
                         },
                     ),
                 )
+        val ordered =
+            candidates.filter { (pos, _) ->
+                val (x, y, z) = pos
+                activePositions.add(FellingPosition(instance, x, y, z))
+            }
         if (ordered.isEmpty()) return
 
         val logMaterial = logBlock.registry()?.material()
@@ -252,8 +267,16 @@ object TreeFeller {
                 val (pos, leaf) = ordered[index++]
                 done++
                 val (x, y, z) = pos
-                val stateId = instance.getBlock(x, y, z).stateId()
+                val fellingPosition = FellingPosition(instance, x, y, z)
+                val current = instance.getBlock(x, y, z)
+                val isExpected = if (leaf) isLeaf(current) else current.compare(logBlock)
+                if (!isExpected) {
+                    activePositions.remove(fellingPosition)
+                    continue
+                }
+                val stateId = current.stateId()
                 instance.setBlock(x, y, z, Block.AIR)
+                activePositions.remove(fellingPosition)
                 instance
                     .getChunk(x shr 4, z shr 4)
                     ?.sendPacketToViewers(

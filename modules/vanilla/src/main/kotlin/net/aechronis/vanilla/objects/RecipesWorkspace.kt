@@ -89,7 +89,8 @@ class RecipesWorkspace(
                     inventory.setItemStack(gridSlot.slot, remainder)
                 }
 
-                currentStack.isSimilar(remainder) -> {
+                currentStack.isSimilar(remainder) &&
+                    currentStack.amount() + remainder.amount() <= currentStack.maxStackSize() -> {
                     inventory.setItemStack(
                         gridSlot.slot,
                         currentStack.withAmount(currentStack.amount() + remainder.amount()),

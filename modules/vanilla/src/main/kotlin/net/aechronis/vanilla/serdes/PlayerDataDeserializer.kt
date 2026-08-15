@@ -86,7 +86,7 @@ object PlayerDataDeserializer {
                     itemBuilder.put(key, entry.get(key)!!)
                 }
             }
-            val item = ItemStack.fromItemNBT(itemBuilder.build())
+            val item = runCatching { ItemStack.fromItemNBT(itemBuilder.build()) }.getOrNull() ?: continue
             target.setItemStack(slot.toInt(), item)
         }
     }

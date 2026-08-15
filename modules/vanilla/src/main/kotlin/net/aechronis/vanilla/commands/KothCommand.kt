@@ -13,9 +13,9 @@ class KothCommand : Command("koth", "vanilla.koth") {
     init {
         setDefaultExecutor { sender: Player, _ -> sendList(sender) }
 
-        addSyntax({ sender: Player, _ -> sendList(sender) }, ArgumentType.Literal("list"))
+        addSyntax("vanilla.koth", { sender: Player, _ -> sendList(sender) }, ArgumentType.Literal("list"))
 
-        addSyntax({ sender: Player, context ->
+        addSyntax("vanilla.koth.admin", { sender: Player, context ->
             val name = context[nameArg]
             val message =
                 if (Koth.start(name)) {
@@ -26,7 +26,7 @@ class KothCommand : Command("koth", "vanilla.koth") {
             sender.sendMessage(Component.text(message, NamedTextColor.LIGHT_PURPLE))
         }, ArgumentType.Literal("start"), nameArg)
 
-        addSyntax({ sender: Player, context ->
+        addSyntax("vanilla.koth.admin", { sender: Player, context ->
             val name = context[nameArg]
             val message =
                 if (Koth.stop(name)) {
@@ -37,8 +37,8 @@ class KothCommand : Command("koth", "vanilla.koth") {
             sender.sendMessage(Component.text(message, NamedTextColor.LIGHT_PURPLE))
         }, ArgumentType.Literal("stop"), nameArg)
 
-        addSyntax({ sender: Player, _ -> sendStatuses(sender) }, ArgumentType.Literal("status"))
-        addSyntax({ sender: Player, context ->
+        addSyntax("vanilla.koth", { sender: Player, _ -> sendStatuses(sender) }, ArgumentType.Literal("status"))
+        addSyntax("vanilla.koth", { sender: Player, context ->
             val name = context[nameArg]
             sender.sendMessage(
                 Component.text(

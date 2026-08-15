@@ -37,6 +37,7 @@ object CommandsListener {
         if (!Vanilla.config.playerDataEnabled) {
             Commands.closeViewsOf(event.player)
             Commands.removeEnderChest(event.player)
+            Commands.clearPlayerReferences(event.player)
         }
     }
 

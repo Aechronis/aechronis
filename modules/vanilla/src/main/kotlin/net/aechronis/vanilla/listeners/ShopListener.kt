@@ -8,6 +8,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerDeathEvent
+import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.inventory.Inventory
 import java.util.concurrent.ConcurrentHashMap
 
@@ -54,8 +55,15 @@ object ShopListener {
         KillShop.openInventories.remove(inv)
     }
 
+    fun onDisconnect(event: PlayerDisconnectEvent) {
+        KillShop.playerCooldowns.remove(event.player.uuid)
+        KillShop.openInventories.entries.removeIf { it.value == event.player.uuid }
+    }
+
     fun onDeath(event: PlayerDeathEvent) {
+        val victim = event.player
         val killer = event.player.lastDamageSource?.attacker as? Player ?: return
+        if (killer.uuid == victim.uuid) return
         killer.setTag(KillShop.POINTS_TAG, (killer.getTag(KillShop.POINTS_TAG) ?: 0) + 1)
     }
 
@@ -63,5 +71,6 @@ object ShopListener {
         Vanilla.eventNode.addListener(PlayerDeathEvent::class.java, ShopListener::onDeath)
         Vanilla.eventNode.addListener(InventoryPreClickEvent::class.java, ShopListener::onPreClick)
         Vanilla.eventNode.addListener(InventoryCloseEvent::class.java, ShopListener::onClose)
+        Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, ShopListener::onDisconnect)
     }
 }

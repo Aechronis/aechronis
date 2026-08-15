@@ -9,6 +9,7 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 
 object CombatListener {
     fun onDamage(event: EntityDamageEvent) {
+        if (event.isCancelled) return
         val victim = event.entity as? Player ?: return
         val attacker = event.damage.attacker as? Player ?: return
         if (attacker.uuid == victim.uuid) return

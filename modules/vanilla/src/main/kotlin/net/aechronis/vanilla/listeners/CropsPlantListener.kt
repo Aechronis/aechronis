@@ -17,7 +17,7 @@ import net.minestom.server.item.ItemStack
 
 object CropsPlantListener {
     fun onInteract(event: PlayerBlockInteractEvent) {
-        if (event.hand != PlayerHand.MAIN) return
+        if (event.isCancelled || event.hand != PlayerHand.MAIN) return
         val player = event.player
         val cropType = CropType.fromSeed(player.itemInMainHand.material()) ?: return
         val block = event.block
@@ -55,6 +55,7 @@ object CropsPlantListener {
     }
 
     fun onBreak(event: PlayerBlockBreakEvent) {
+        if (event.isCancelled) return
         val block = event.block
         val pos = event.blockPosition
         val instance = event.player.instance ?: return

@@ -46,7 +46,7 @@ object MusicListener {
     }
 
     fun onBreak(event: PlayerBlockBreakEvent) {
-        if (!event.block.compare(Block.JUKEBOX)) return
+        if (event.isCancelled || !event.block.compare(Block.JUKEBOX)) return
 
         event.isCancelled = true
         val instance = event.player.instance ?: return

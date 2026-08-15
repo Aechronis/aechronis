@@ -10,6 +10,7 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.util.AbstractMap.SimpleImmutableEntry
 import java.util.concurrent.ConcurrentHashMap
 
@@ -39,6 +40,7 @@ object PlayerData {
                 savePlayer(event.player, path)
             } finally {
                 Commands.removeEnderChest(event.player)
+                Commands.clearPlayerReferences(event.player)
             }
         }
 
@@ -85,15 +87,29 @@ object PlayerData {
         path: Path,
     ) {
         val data = PlayerDataSerializer.serialize(player)
+        val target = path.resolve("${player.uuid}.dat")
+        val temporary = path.resolve(".${player.uuid}.${Thread.currentThread().threadId()}.tmp")
 
-        val path: Path = path.resolve("${player.uuid}.dat")
-
-        Files.newOutputStream(path).use { out ->
-            BinaryTagIO.writer().writeNamed(
-                SimpleImmutableEntry("", data),
-                out,
-                BinaryTagIO.Compression.GZIP,
-            )
+        try {
+            Files.newOutputStream(temporary).use { out ->
+                BinaryTagIO.writer().writeNamed(
+                    SimpleImmutableEntry("", data),
+                    out,
+                    BinaryTagIO.Compression.GZIP,
+                )
+            }
+            try {
+                Files.move(
+                    temporary,
+                    target,
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            Files.deleteIfExists(temporary)
         }
     }
 }

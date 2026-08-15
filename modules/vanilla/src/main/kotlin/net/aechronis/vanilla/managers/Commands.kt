@@ -49,6 +49,12 @@ object Commands {
         }
     }
 
+    internal fun clearPlayerReferences(player: Player) {
+        lastLocation.remove(player.uuid)
+        ignored.remove(player.uuid)
+        removeLastSenderReferences(player)
+    }
+
     fun sendMessage(
         sender: Player,
         receiver: Player?,

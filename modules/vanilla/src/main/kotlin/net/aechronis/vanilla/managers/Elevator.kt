@@ -68,14 +68,14 @@ object Elevator {
         val timeStart = System.currentTimeMillis()
         Vanilla.eventNode.addListener(PlayerInputEvent::class.java, Elevator::onInput)
         Vanilla.eventNode.addListener(PlayerBlockPlaceEvent::class.java) { event ->
-            if (event.block === IRON) {
+            if (!event.isCancelled && event.block === IRON) {
                 val iid = event.player.instance?.uuid ?: return@addListener
                 val key = columnKey(event.blockPosition.blockX(), event.blockPosition.blockZ())
                 columns[iid]?.get(key)?.add(event.blockPosition.blockY())
             }
         }
         Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java) { event ->
-            if (event.block === IRON) {
+            if (!event.isCancelled && event.block === IRON) {
                 val iid = event.player.instance?.uuid ?: return@addListener
                 val key = columnKey(event.blockPosition.blockX(), event.blockPosition.blockZ())
                 columns[iid]?.get(key)?.remove(event.blockPosition.blockY())

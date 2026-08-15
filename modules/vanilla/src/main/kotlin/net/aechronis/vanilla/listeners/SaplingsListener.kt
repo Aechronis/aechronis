@@ -15,6 +15,7 @@ import net.minestom.server.item.Material
 
 object SaplingsListener {
     fun onPlace(event: PlayerBlockPlaceEvent) {
+        if (event.isCancelled) return
         val type = SaplingType.fromBlock(event.block) ?: return
         val instance = event.player.instance ?: return
         val pos = event.blockPosition.asVec()
@@ -22,7 +23,7 @@ object SaplingsListener {
     }
 
     fun onInteract(event: PlayerBlockInteractEvent) {
-        if (event.hand != PlayerHand.MAIN) return
+        if (event.isCancelled || event.hand != PlayerHand.MAIN) return
         val player = event.player
         if (player.itemInMainHand.material() != Material.BONE_MEAL) return
         val type = SaplingType.fromBlock(event.block) ?: return
@@ -34,10 +35,13 @@ object SaplingsListener {
 
         planted.boneMeal++
         if (planted.boneMeal >= Vanilla.config.saplingBoneMealAmount) {
-            if (planted.type.giant && Saplings.tryGiant(instance, key.pos, planted.type)) {
-                return
-            }
-            if (Saplings.grow(key, planted)) Saplings.saplings.remove(key)
+            val grew =
+                if (planted.type.giant) {
+                    Saplings.tryGiant(instance, key.pos, planted.type)
+                } else {
+                    Saplings.grow(key, planted)
+                }
+            if (grew) Saplings.saplings.remove(key)
         }
 
         if (player.gameMode == GameMode.CREATIVE) return
@@ -47,7 +51,7 @@ object SaplingsListener {
     }
 
     fun onBreak(event: PlayerBlockBreakEvent) {
-        if (SaplingType.fromBlock(event.block) == null) return
+        if (event.isCancelled || SaplingType.fromBlock(event.block) == null) return
         val instance = event.player.instance ?: return
         Saplings.saplings.remove(BlockKey(instance, event.blockPosition.asVec()))
     }

@@ -60,6 +60,41 @@ private val PickaxeBlocks =
         Material.IRON_BLOCK,
     )
 
+private val StonePickaxeBlocks =
+    PickaxeBlocks.filterNot {
+        it in
+            setOf(
+                Material.DIAMOND_ORE,
+                Material.DEEPSLATE_DIAMOND_ORE,
+                Material.GOLD_ORE,
+                Material.DEEPSLATE_GOLD_ORE,
+                Material.REDSTONE_ORE,
+                Material.DEEPSLATE_REDSTONE_ORE,
+                Material.EMERALD_ORE,
+                Material.DEEPSLATE_EMERALD_ORE,
+                Material.OBSIDIAN,
+                Material.CRYING_OBSIDIAN,
+                Material.ANCIENT_DEBRIS,
+                Material.RESPAWN_ANCHOR,
+                Material.NETHERITE_BLOCK,
+                Material.DIAMOND_BLOCK,
+                Material.EMERALD_BLOCK,
+                Material.GOLD_BLOCK,
+            )
+    }
+
+private val IronPickaxeBlocks =
+    PickaxeBlocks.filterNot {
+        it in
+            setOf(
+                Material.OBSIDIAN,
+                Material.CRYING_OBSIDIAN,
+                Material.ANCIENT_DEBRIS,
+                Material.RESPAWN_ANCHOR,
+                Material.NETHERITE_BLOCK,
+            )
+    }
+
 data class BlocksConfig(
     val blocksStoneType: List<Material> =
         listOf(),
@@ -86,10 +121,10 @@ data class BlocksConfig(
     val blocksSilkTouchable: Set<Material> = PickaxeBlocks.toSet(),
     val toolMinableBlocks: Map<Material, List<Material>> =
         mapOf(
-            Material.WOODEN_PICKAXE to PickaxeBlocks,
-            Material.GOLDEN_PICKAXE to PickaxeBlocks,
-            Material.STONE_PICKAXE to PickaxeBlocks,
-            Material.IRON_PICKAXE to PickaxeBlocks,
+            Material.WOODEN_PICKAXE to StonePickaxeBlocks,
+            Material.GOLDEN_PICKAXE to StonePickaxeBlocks,
+            Material.STONE_PICKAXE to StonePickaxeBlocks,
+            Material.IRON_PICKAXE to IronPickaxeBlocks,
             Material.DIAMOND_PICKAXE to PickaxeBlocks,
             Material.NETHERITE_PICKAXE to PickaxeBlocks,
         ),

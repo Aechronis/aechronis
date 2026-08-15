@@ -2,6 +2,7 @@ package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
 import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
@@ -37,13 +38,24 @@ object FallDamageListener {
 
         if (!event.isOnGround) {
             fallStartY.merge(player.uuid, newY, ::maxOf)
-        } else {
+        } else if (isActuallySupported(player, event.newPosition)) {
             val startY = fallStartY.remove(player.uuid) ?: return
             val damage = floor(startY - newY - 3.0).toFloat()
             if (damage > 0f && player.health > 0f) {
                 player.damage(FALL, damage)
             }
         }
+    }
+
+    private fun isActuallySupported(
+        player: Player,
+        position: net.minestom.server.coordinate.Pos,
+    ): Boolean {
+        val instance = player.instance ?: return false
+        val x = floor(position.x()).toInt()
+        val z = floor(position.z()).toInt()
+        val belowY = floor(position.y() - 0.01).toInt()
+        return instance.getBlock(x, belowY, z, Block.Getter.Condition.TYPE)?.isSolid == true
     }
 
     fun onDeath(event: PlayerDeathEvent) {

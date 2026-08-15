@@ -10,6 +10,7 @@ import net.minestom.server.event.player.PlayerBlockBreakEvent
 
 object TreeFellerListener {
     fun onBreakLog(event: PlayerBlockBreakEvent) {
+        if (event.isCancelled) return
         val player = event.player
         if (player.gameMode != GameMode.SURVIVAL) return
         val block = event.block

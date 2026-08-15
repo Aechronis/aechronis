@@ -14,7 +14,7 @@ class Fly : Command("fly", "vanilla.fly") {
             player.sendMessage(Component.text("/fly <speed> - Set fly speed", NamedTextColor.LIGHT_PURPLE))
         }
 
-        val speed = ArgumentType.Float("speed")
+        val speed = ArgumentType.Float("speed").between(0f, 20f)
 
         addSyntax({ sender: Player, _ ->
             sender.isAllowFlying = !sender.isAllowFlying
