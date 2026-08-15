@@ -1,18 +1,18 @@
 package net.aechronis.nodes.objects
 
 import com.google.gson.JsonObject
+import net.aechronis.combat.tasks.HasteEffectManager
 import net.aechronis.nodes.Nodes
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
-import net.minestom.server.potion.Potion
-import net.minestom.server.potion.PotionEffect
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 
 object MiningBoostManager {
+    private const val HASTE_EFFECT_SOURCE = "nodes:mining_boost"
     private const val HASTE_MAX_MULTIPLIER = 2
     private const val MINING_BOOST_MAX_MULTIPLIER = 5
     private const val MILLIS_PER_TICK = 50L
@@ -68,6 +68,7 @@ object MiningBoostManager {
     }
 
     fun onPlayerQuit(player: Player) {
+        HasteEffectManager.clear(player, HASTE_EFFECT_SOURCE)
         bossBar?.let(player::hideBossBar)
     }
 
@@ -122,8 +123,18 @@ object MiningBoostManager {
     /** Load the optional global boost object from towns.json. */
     @Synchronized
     fun load(json: JsonObject?) {
-        haste = json?.getAsJsonObject("haste")?.toActiveBoost(HASTE_MAX_MULTIPLIER)
-        miningBoost = json?.getAsJsonObject("boost")?.toActiveBoost(MINING_BOOST_MAX_MULTIPLIER)
+        haste =
+            json
+                ?.get("haste")
+                ?.takeIf { it.isJsonObject }
+                ?.asJsonObject
+                ?.toActiveBoost(HASTE_MAX_MULTIPLIER)
+        miningBoost =
+            json
+                ?.get("boost")
+                ?.takeIf { it.isJsonObject }
+                ?.asJsonObject
+                ?.toActiveBoost(MINING_BOOST_MAX_MULTIPLIER)
         expire(System.currentTimeMillis())
     }
 
@@ -136,7 +147,9 @@ object MiningBoostManager {
             MinecraftServer.getConnectionManager().onlinePlayers.forEach { updatePlayerEffect(it, activeHaste, now) }
             lastEffectUpdate = now
         } else if (activeHaste == null && lastEffectUpdate != 0L) {
-            MinecraftServer.getConnectionManager().onlinePlayers.forEach { it.removeEffect(PotionEffect.HASTE) }
+            MinecraftServer.getConnectionManager().onlinePlayers.forEach {
+                HasteEffectManager.clear(it, HASTE_EFFECT_SOURCE)
+            }
             lastEffectUpdate = 0L
         }
 
@@ -146,7 +159,8 @@ object MiningBoostManager {
     @Synchronized
     private fun updatePlayer(player: Player, now: Long) {
         expire(now)
-        haste?.let { updatePlayerEffect(player, it, now) } ?: player.removeEffect(PotionEffect.HASTE)
+        haste?.let { updatePlayerEffect(player, it, now) }
+            ?: HasteEffectManager.clear(player, HASTE_EFFECT_SOURCE)
         updateBossBar(now)
     }
 
@@ -155,7 +169,12 @@ object MiningBoostManager {
             .coerceAtLeast(1L)
             .coerceAtMost(Int.MAX_VALUE.toLong())
             .toInt()
-        player.addEffect(Potion(PotionEffect.HASTE, boost.multiplier - 1, remainingTicks))
+        HasteEffectManager.set(
+            player,
+            HASTE_EFFECT_SOURCE,
+            amplifier = boost.multiplier - 1,
+            durationTicks = remainingTicks,
+        )
     }
 
     private fun expire(now: Long) {
@@ -198,7 +217,7 @@ object MiningBoostManager {
 
     private fun clearEffectsAndBossBar() {
         MinecraftServer.getConnectionManager().onlinePlayers.forEach { player ->
-            player.removeEffect(PotionEffect.HASTE)
+            HasteEffectManager.clear(player, HASTE_EFFECT_SOURCE)
             bossBar?.let(player::hideBossBar)
         }
     }

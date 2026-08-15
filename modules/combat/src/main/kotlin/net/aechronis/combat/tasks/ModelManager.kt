@@ -1,9 +1,11 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
+import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.storage.HatCollection
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
@@ -19,10 +21,12 @@ import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.network.packet.server.play.EntityEquipmentPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.potion.Potion
-import net.minestom.server.potion.PotionEffect
 import net.minestom.server.timer.TaskSchedule
 
 object ModelManager {
+    private const val HIT_ANIMATION_HASTE_SOURCE = "combat:hit_animation"
+
+    private val hitAnimationDisabledPlayers = HashSet<Player>()
     private val sniperScopeModifier =
         AttributeModifier(
             "aechronis:sniper_scope",
@@ -70,14 +74,13 @@ object ModelManager {
         val instance = player.instance ?: return
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
         val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
+        val isPilotingDrone = Vehicle.playerVehicle[player] is Drone
+        setHitAnimationDisabled(player, gun != null || isLookingAtVehicle || isPilotingDrone)
         if (gun == null) restoreSniperScope(player)
         if (gun == null && !isLookingAtVehicle) {
-            enableHitAnimation(player)
             player.sendPacket(SetTimePacket(10000, instance.createTimePacket().clocks))
             return
         }
-
-        disableHitAnimation(player)
 
         // when gun is automatic, or looking at vehicle, show player fake blocks so they keep sending animation packets when holding down left/right click
         // we hide the block + outline with a resource pack shader
@@ -140,18 +143,31 @@ object ModelManager {
 
     internal fun clearPlayer(player: Player) {
         player.getAttribute(Attribute.MOVEMENT_SPEED).removeModifier(sniperScopeModifier)
-        enableHitAnimation(player)
-    }
-
-    fun disableHitAnimation(player: Player) {
-        player.getAttribute(Attribute.ATTACK_SPEED).addModifier(attackSpeedModifier)
-        player.getAttribute(Attribute.BLOCK_BREAK_SPEED).addModifier(blockBreakSpeedModifier)
-        player.addEffect(Potion(PotionEffect.HASTE, 10, 2))
-    }
-
-    fun enableHitAnimation(player: Player) {
+        hitAnimationDisabledPlayers.remove(player)
         player.getAttribute(Attribute.ATTACK_SPEED).removeModifier(attackSpeedModifier)
         player.getAttribute(Attribute.BLOCK_BREAK_SPEED).removeModifier(blockBreakSpeedModifier)
-        // we don't need to worry about haste as it only lasts 2 ticks
+        HasteEffectManager.clear(player, HIT_ANIMATION_HASTE_SOURCE)
+    }
+
+    internal fun setHitAnimationDisabled(
+        player: Player,
+        disabled: Boolean,
+    ) {
+        if (disabled) {
+            if (!hitAnimationDisabledPlayers.add(player)) return
+            player.getAttribute(Attribute.ATTACK_SPEED).addModifier(attackSpeedModifier)
+            player.getAttribute(Attribute.BLOCK_BREAK_SPEED).addModifier(blockBreakSpeedModifier)
+            HasteEffectManager.set(
+                player,
+                HIT_ANIMATION_HASTE_SOURCE,
+                amplifier = 10,
+                durationTicks = Potion.INFINITE_DURATION,
+            )
+        } else {
+            if (!hitAnimationDisabledPlayers.remove(player)) return
+            player.getAttribute(Attribute.ATTACK_SPEED).removeModifier(attackSpeedModifier)
+            player.getAttribute(Attribute.BLOCK_BREAK_SPEED).removeModifier(blockBreakSpeedModifier)
+            HasteEffectManager.clear(player, HIT_ANIMATION_HASTE_SOURCE)
+        }
     }
 }

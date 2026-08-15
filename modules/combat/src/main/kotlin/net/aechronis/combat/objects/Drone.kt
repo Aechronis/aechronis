@@ -2,7 +2,6 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
-import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.setRoll
 import net.kyori.adventure.key.Key
@@ -390,8 +389,6 @@ class Drone(
         val inputEvent = KeyPressListener.playerInputEvent[player]
 
         player.spectate(entitySpider[entity])
-
-        ModelManager.disableHitAnimation(player)
 
         if (inputEvent?.isHoldingShiftKey == true) {
             endFlight(player)
