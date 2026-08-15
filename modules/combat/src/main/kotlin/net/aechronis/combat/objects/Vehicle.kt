@@ -263,11 +263,6 @@ open class Vehicle(
             .forEach(::onExit)
     }
 
-    open fun onVehicleCollision(
-        entity: Entity,
-        other: Entity,
-    ) {}
-
     protected fun updatePassengerSeats(entity: Entity) {
         entityPassengers[entity]?.toList()?.forEachIndexed { index, passenger ->
             val passengerInput = KeyPressListener.playerInputEvent[passenger]

@@ -301,11 +301,6 @@ class Drone(
         detonate(entity, player)
     }
 
-    internal fun detonateOnVehicleCollision(entity: Entity) {
-        val pilot = playerVehicleEntity.entries.firstOrNull { it.value === entity }?.key
-        detonate(entity, pilot)
-    }
-
     private fun detonate(
         entity: Entity,
         pilot: Player?,

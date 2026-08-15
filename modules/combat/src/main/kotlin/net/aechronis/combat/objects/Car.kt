@@ -72,16 +72,6 @@ open class Car(
         }
     }
 
-    override fun onVehicleCollision(
-        entity: Entity,
-        other: Entity,
-    ) {
-        playerVehicleEntity.entries
-            .firstOrNull { it.value === entity }
-            ?.key
-            ?.let { playerSpeed[it] = 0f }
-    }
-
     override fun onTick(player: Player) {
         val entity = playerVehicleEntity[player] ?: return
         var currentSpeed = playerSpeed[player] ?: 0f
