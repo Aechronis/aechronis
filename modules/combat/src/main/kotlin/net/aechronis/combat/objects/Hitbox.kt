@@ -21,9 +21,142 @@ data class HitboxPart(
 )
 
 // collection of hitbox parts that make up a vehicles collision shape
+internal data class HitboxCollision(
+    val position: Pos,
+    val normal: Vec,
+)
+
 class Hitbox(
     val parts: List<HitboxPart>,
 ) {
+    // Resolves an axis-aligned entity bounding box intersecting this oriented hitbox.
+    // The returned position is the entity position (rather than its bounding-box centre).
+    internal fun resolveCollision(
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+        entityPosition: Pos,
+        entityBoxStart: Point,
+        entityBoxEnd: Point,
+        margin: Double = 0.05,
+    ): HitboxCollision? {
+        val worldCorners = mutableListOf<Vec>()
+        for (x in listOf(entityBoxStart.x(), entityBoxEnd.x())) {
+            for (y in listOf(entityBoxStart.y(), entityBoxEnd.y())) {
+                for (z in listOf(entityBoxStart.z(), entityBoxEnd.z())) {
+                    worldCorners += Vec(entityPosition.x + x, entityPosition.y + y, entityPosition.z + z)
+                }
+            }
+        }
+
+        val localCorners =
+            worldCorners.map {
+                rotatePointInverse(
+                    Vec(it.x - position.x, it.y - position.y, it.z - position.z),
+                    yaw,
+                    pitch,
+                    roll,
+                )
+            }
+        val entityMin =
+            Vec(
+                localCorners.minOf { it.x },
+                localCorners.minOf { it.y },
+                localCorners.minOf { it.z },
+            )
+        val entityMax =
+            Vec(
+                localCorners.maxOf { it.x },
+                localCorners.maxOf { it.y },
+                localCorners.maxOf { it.z },
+            )
+        val entityCenter = entityMin.add(entityMax).mul(0.5)
+        val entityCenterOffset =
+            Vec(
+                (entityBoxStart.x() + entityBoxEnd.x()) * 0.5,
+                (entityBoxStart.y() + entityBoxEnd.y()) * 0.5,
+                (entityBoxStart.z() + entityBoxEnd.z()) * 0.5,
+            )
+
+        var best: HitboxCollision? = null
+        var bestPenetration = Double.MAX_VALUE
+        for (part in parts) {
+            val partMin = part.offset.sub(part.size)
+            val partMax = part.offset.add(part.size)
+            val overlaps =
+                doubleArrayOf(
+                    min(partMax.x, entityMax.x) - max(partMin.x, entityMin.x),
+                    min(partMax.y, entityMax.y) - max(partMin.y, entityMin.y),
+                    min(partMax.z, entityMax.z) - max(partMin.z, entityMin.z),
+                )
+            if (overlaps.any { it <= 0.0 }) continue
+
+            val axis = overlaps.indices.minBy { overlaps[it] }
+            val partCenter = part.offset
+            val direction =
+                when (axis) {
+                    0 -> if (entityCenter.x < partCenter.x) -1.0 else 1.0
+                    1 -> if (entityCenter.y < partCenter.y) -1.0 else 1.0
+                    else -> if (entityCenter.z < partCenter.z) -1.0 else 1.0
+                }
+            val resolvedCenter =
+                when (axis) {
+                    0 ->
+                        entityCenter.withX(
+                            if (direction <
+                                0
+                            ) {
+                                partMin.x - (entityMax.x - entityCenter.x) - margin
+                            } else {
+                                partMax.x + (entityCenter.x - entityMin.x) + margin
+                            },
+                        )
+                    1 ->
+                        entityCenter.withY(
+                            if (direction <
+                                0
+                            ) {
+                                partMin.y - (entityMax.y - entityCenter.y) - margin
+                            } else {
+                                partMax.y + (entityCenter.y - entityMin.y) + margin
+                            },
+                        )
+                    else ->
+                        entityCenter.withZ(
+                            if (direction <
+                                0
+                            ) {
+                                partMin.z - (entityMax.z - entityCenter.z) - margin
+                            } else {
+                                partMax.z + (entityCenter.z - entityMin.z) + margin
+                            },
+                        )
+                }
+            val localNormal =
+                when (axis) {
+                    0 -> Vec(direction, 0.0, 0.0)
+                    1 -> Vec(0.0, direction, 0.0)
+                    else -> Vec(0.0, 0.0, direction)
+                }
+            val worldCenter = rotatePoint(resolvedCenter, yaw, pitch, roll).add(position.x, position.y, position.z)
+            val worldNormal = rotatePoint(localNormal, yaw, pitch, roll)
+            val resolvedPosition =
+                Pos(
+                    worldCenter.x - entityCenterOffset.x,
+                    worldCenter.y - entityCenterOffset.y,
+                    worldCenter.z - entityCenterOffset.z,
+                    entityPosition.yaw,
+                    entityPosition.pitch,
+                )
+            if (overlaps[axis] < bestPenetration) {
+                bestPenetration = overlaps[axis]
+                best = HitboxCollision(resolvedPosition, worldNormal)
+            }
+        }
+        return best
+    }
+
     // gets the y offset needed to place the vehicle on the ground
     fun getGroundOffset(): Double = -getBottomOffset()
 

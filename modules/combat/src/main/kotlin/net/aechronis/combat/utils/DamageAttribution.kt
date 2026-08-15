@@ -8,6 +8,7 @@ internal enum class CombatDamageKind {
     PROJECTILE,
     MELEE,
     EXPLOSION,
+    VEHICLE,
 }
 
 private val damageKindTag = Tag.String("combat:damage_kind")

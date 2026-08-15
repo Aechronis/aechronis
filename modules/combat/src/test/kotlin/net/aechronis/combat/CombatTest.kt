@@ -332,6 +332,43 @@ class CombatTest {
     }
 
     @Test
+    fun `hitbox collision resolves an entity outside the vehicle`() {
+        val hitbox = Hitbox(listOf(HitboxPart(Vec.ZERO, Vec(1.0, 1.0, 1.0))))
+
+        val collision =
+            hitbox.resolveCollision(
+                Pos.ZERO,
+                0f,
+                0f,
+                0f,
+                Pos.ZERO,
+                Vec(-0.25, 0.0, -0.25),
+                Vec(0.25, 1.8, 0.25),
+            )
+
+        assertNotNull(collision)
+        assertTrue(collision.position.x > 1.0)
+        assertTrue(collision.normal.x > 0.0)
+    }
+
+    @Test
+    fun `hitbox collision ignores an entity outside the hitbox`() {
+        val hitbox = Hitbox(listOf(HitboxPart(Vec.ZERO, Vec(1.0, 1.0, 1.0))))
+
+        assertNull(
+            hitbox.resolveCollision(
+                Pos.ZERO,
+                0f,
+                0f,
+                0f,
+                Pos(2.0, 0.0, 0.0),
+                Vec(-0.25, 0.0, -0.25),
+                Vec(0.25, 1.8, 0.25),
+            ),
+        )
+    }
+
+    @Test
     fun `hitbox distance includes offsets and half extents`() {
         val hitbox =
             Hitbox(
