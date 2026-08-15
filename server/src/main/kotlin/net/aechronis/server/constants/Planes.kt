@@ -6,6 +6,7 @@ import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.Plane
+import net.aechronis.combat.objects.PlaneBombWeapon
 import net.aechronis.combat.objects.PlaneWeapon
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -71,6 +72,40 @@ object Planes {
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 120,
             weapons = listOf(fighterWeapon),
+            scale = 7.0,
+        )
+
+    val bomber =
+        Plane(
+            name = "bomber",
+            itemName = Component.text("Bomber", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            itemModel = "aechronis:fighter",
+            model = "aechronis:fighter",
+            hitbox = fighterHitbox,
+            health =
+                Health(
+                    800F,
+                    mapOf(
+                        AmmoTypes.NORMAL to 1f,
+                        AmmoTypes.MISSILE to 1f,
+                        AmmoTypes.BOMB to 1f,
+                        AmmoTypes.EXPLOSIVE to 1f,
+                    ),
+                ),
+            placeTime = 2000,
+            ammo = Ammo.tankShell,
+            maxAmmo = 10,
+            bomb =
+                PlaneBombWeapon(
+                    projectileModel = "aechronis:m1a1-abrams-shell",
+                    projectileName = Component.text("Bomber shell"),
+                    releaseOffset = Vec(0.0, -1.5, 0.0),
+                    projectileSpeed = 4.0,
+                    projectileExplosionRadius = 4,
+                    projectileExplosionFire = 0.1,
+                    projectileExplosionDamage = 20f,
+                    fireCooldown = 20_000,
+                ),
             scale = 7.0,
         )
 }

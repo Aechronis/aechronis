@@ -180,6 +180,7 @@ fun main(args: Array<String>) {
         Hats.gasMask,
         // Vehicles - Planes
         Planes.fighter,
+        Planes.bomber,
         // Vehicles - Cars
         Cars.truck,
         // Vehicles - Tanks

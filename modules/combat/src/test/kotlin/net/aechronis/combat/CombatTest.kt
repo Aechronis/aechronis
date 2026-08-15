@@ -20,6 +20,7 @@ import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.damageAtDistance
 import net.aechronis.combat.objects.distanceToBoundingBox
 import net.aechronis.combat.objects.firstProjectileImpact
+import net.aechronis.combat.objects.isBombRelease
 import net.aechronis.combat.objects.selectProjectileImpact
 import net.aechronis.combat.tasks.LeafRestoreManager
 import net.aechronis.combat.utils.Ray
@@ -299,6 +300,13 @@ class CombatTest {
         // initialize combat with test config
         LeafRestoreManager.restoreDelayMillis = 1_000L
         Combat.initialize()
+    }
+
+    @Test
+    fun `plane bomb only releases on the initial fire-key press`() {
+        assertTrue(isBombRelease(isHoldingFireKey = true, wasHoldingFireKey = false))
+        assertFalse(isBombRelease(isHoldingFireKey = true, wasHoldingFireKey = true))
+        assertFalse(isBombRelease(isHoldingFireKey = false, wasHoldingFireKey = false))
     }
 
     @Test

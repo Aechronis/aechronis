@@ -2,6 +2,7 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
+import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.VehicleCameraDistance
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.setRoll
@@ -25,6 +26,24 @@ data class PlaneWeapon(
     val firePoints: List<Vec>,
 )
 
+data class PlaneBombWeapon(
+    val releaseOffset: Vec = Vec(0.0, -1.5, 0.0),
+    val projectileModel: String,
+    val projectileName: Component = Component.text("Bomb"),
+    val projectileSpeed: Double = 4.0,
+    val projectileExplosionRadius: Int = 4,
+    val projectileExplosionFire: Double = 0.1,
+    val projectileExplosionDamage: Float = 20f,
+    val fireCooldown: Long = 20_000,
+) {
+    init {
+        require(projectileSpeed > 0.0 && projectileSpeed.isFinite()) {
+            "Plane bomb projectileSpeed must be a positive finite number"
+        }
+        require(fireCooldown >= 0) { "Plane bomb fireCooldown cannot be negative" }
+    }
+}
+
 class Plane(
     name: String,
     itemName: Component,
@@ -45,6 +64,7 @@ class Plane(
     override val ammo: Ammo,
     override val maxAmmo: Int,
     val weapons: List<PlaneWeapon> = emptyList(),
+    val bomb: PlaneBombWeapon? = null,
     val explosionDamage: Float = 20f,
     val seatOffset: List<Vec> = listOf(Vec.ZERO),
     invisibleWhileRiding: Boolean = true,
@@ -98,6 +118,7 @@ class Plane(
             playerState.remove(player)
             takeoffCounter.remove(player)
             playerThrottle.remove(player)
+            playerBombFireHeld.remove(player)
             VehicleCameraDistance.restore(player)
         }
     }
@@ -110,6 +131,7 @@ class Plane(
         val instance = entity.instance
         val position = entity.position
 
+        lastBombFireTime.remove(entity)
         super.destroy(entity, attacker, weapon)
 
         if (instance != null) {
@@ -212,10 +234,16 @@ class Plane(
         val meta = entity.entityMeta as ItemDisplayMeta
         meta.leftRotation = setRoll((playerRoll[player] ?: 0f) / 55)
 
-        // fire guns when holding space while flying
-        if ((state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) && inputEvent?.isHoldingJumpKey == true) {
+        // Guns fire while held; bombs release only when the fire key is first pressed.
+        val canFire = state == PlaneState.FLYING || state == PlaneState.TAKING_OFF
+        val isHoldingFireKey = inputEvent?.isHoldingJumpKey == true
+        if (canFire && isHoldingFireKey) {
             fireGuns(player)
+            if (bomb != null && isBombRelease(isHoldingFireKey, playerBombFireHeld[player] == true)) {
+                fireBomb(player)
+            }
         }
+        playerBombFireHeld[player] = canFire && isHoldingFireKey
 
         super.onTick(player)
     }
@@ -305,10 +333,77 @@ class Plane(
         }
     }
 
+    private fun fireBomb(player: Player) {
+        val bomb = bomb ?: return
+        val entity = playerVehicleEntity[player] ?: return
+        val now = System.currentTimeMillis()
+        if (now - (lastBombFireTime[entity] ?: 0L) < bomb.fireCooldown) return
+
+        if ((getAmmo(entity) ?: 0) <= 0) {
+            reloadAmmoIfEmpty(player, entity)
+            return
+        }
+
+        val instance = entity.instance ?: return
+        val position = entity.position
+        val releaseOffset = rotatePoint(bomb.releaseOffset, position.yaw, position.pitch, playerRoll[player] ?: 0f)
+        val releasePos = position.add(releaseOffset.x, releaseOffset.y, releaseOffset.z)
+        val ignoredEntities =
+            buildSet<Entity> {
+                add(entity)
+                add(player)
+                addAll(entityPassengers[entity].orEmpty())
+            }
+        val obstruction =
+            firstProjectileImpact(
+                Ray(position, releasePos.asVec().sub(position)),
+                instance,
+                ignoredEntities,
+            )
+
+        if (obstruction != null) {
+            Explosion.bypassingDamageImmunity(
+                instance = instance,
+                pos = obstruction.point.asPos(),
+                radius = bomb.projectileExplosionRadius,
+                fire = bomb.projectileExplosionFire,
+                damage = bomb.projectileExplosionDamage,
+                source = player,
+                weapon = bomb.projectileName,
+                ammoType = ammo.ammoType,
+            )
+        } else {
+            Projectile.bypassingDamageImmunity(
+                instance = instance,
+                pos = releasePos,
+                model = bomb.projectileModel,
+                direction = Vec(0.0, -1.0, 0.0),
+                speed = bomb.projectileSpeed,
+                explosionRadius = bomb.projectileExplosionRadius,
+                explosionFire = bomb.projectileExplosionFire,
+                explosionDamage = bomb.projectileExplosionDamage,
+                source = player,
+                weapon = bomb.projectileName,
+                ignoredEntities = ignoredEntities,
+                ammoType = ammo.ammoType,
+            )
+        }
+
+        consumeAmmo(entity)
+        lastBombFireTime[entity] = now
+    }
+
     companion object {
         var playerRoll = hashMapOf<Player, Float>()
         var playerState = hashMapOf<Player, PlaneState>()
         var takeoffCounter = hashMapOf<Player, Int>()
         var playerThrottle = hashMapOf<Player, Float>()
+        var playerBombFireHeld = hashMapOf<Player, Boolean>()
+        var lastBombFireTime = hashMapOf<Entity, Long>()
     }
 }
+
+internal fun isBombRelease(
+    isHoldingFireKey: Boolean,
+    wasHoldingFireKey: Boolean,
+): Boolean = isHoldingFireKey && !wasHoldingFireKey
