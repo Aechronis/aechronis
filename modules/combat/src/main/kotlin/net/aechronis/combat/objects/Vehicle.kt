@@ -21,6 +21,8 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.timer.TaskSchedule
 import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.max
 import kotlin.math.sin
 
 open class Vehicle(
@@ -64,7 +66,23 @@ open class Vehicle(
     protected open fun canPlaceAt(
         instance: Instance,
         pos: Pos,
-    ): Boolean = true
+    ): Boolean {
+        val adjustedPosition = pos.add(0.0, hitbox.getGroundOffset(), 0.0)
+        return entityVehicle.none { (entity, vehicle) ->
+            entity.instance === instance &&
+                hitbox.intersects(
+                    vehicle.hitbox,
+                    adjustedPosition,
+                    adjustedPosition.yaw,
+                    adjustedPosition.pitch,
+                    0f,
+                    entity.position,
+                    entity.position.yaw,
+                    entity.position.pitch,
+                    vehicle.hitboxRoll(entity),
+                )
+        }
+    }
 
     private fun runPlaceTask(
         player: Player,
@@ -179,6 +197,7 @@ open class Vehicle(
     // called when a player exits this vehicle
     open fun onExit(player: Player) {
         LagCompensation.resetHistory(player)
+        val vehicleEntity = playerVehicleEntity[player]
         val seatEntity = playerSeatEntity.remove(player)
         if (seatEntity != null) {
             seatEntity.removePassenger(player)
@@ -186,6 +205,7 @@ open class Vehicle(
         }
         playerVehicle.remove(player)
         playerVehicleEntity.remove(player)
+        vehicleEntity?.let { moveToSafeExit(player, it) }
 
         // reveal the player again now that they've left
         if (invisibleWhileRiding) player.updateViewableRule { true }
@@ -209,6 +229,11 @@ open class Vehicle(
     }
 
     open fun onUnoccupiedTick(entity: Entity) {}
+
+    open fun onVehicleCollision(
+        entity: Entity,
+        other: Entity,
+    ) {}
 
     protected fun updatePassengerSeats(entity: Entity) {
         entityPassengers[entity]?.toList()?.forEachIndexed { index, passenger ->
@@ -267,7 +292,8 @@ open class Vehicle(
     // called when a passenger exits vehicle
     open fun onPassengerExit(player: Player) {
         LagCompensation.resetHistory(player)
-        passengerVehicleEntity.remove(player)?.let { entity ->
+        val vehicleEntity = passengerVehicleEntity.remove(player)
+        vehicleEntity?.let { entity ->
             entityPassengers[entity]?.let { passengers ->
                 passengers.remove(player)
                 if (passengers.isEmpty()) entityPassengers.remove(entity)
@@ -281,6 +307,7 @@ open class Vehicle(
             seatEntity.removePassenger(player)
             seatEntity.remove()
         }
+        vehicleEntity?.let { moveToSafeExit(player, it) }
 
         // reveal the player again now that they've left
         if (invisibleWhileRiding) player.updateViewableRule { true }
@@ -297,6 +324,82 @@ open class Vehicle(
         val rotatedX = localOffset.x * cos(yawRad) - localOffset.z * sin(yawRad)
         val rotatedZ = localOffset.x * sin(yawRad) + localOffset.z * cos(yawRad)
         return vehiclePos.add(rotatedX, localOffset.y, rotatedZ)
+    }
+
+    private fun moveToSafeExit(
+        player: Player,
+        source: Entity,
+    ) {
+        val instance = source.instance ?: return
+        val sourcePosition = source.position
+        val box = player.boundingBox
+        val clearance = max(box.width(), box.depth()) + 0.35
+        val baseRadius = hitbox.getMaxDistanceFrom(Vec.ZERO) + clearance
+        val yOffsets = listOf(0.0, 1.0, -1.0, 2.0)
+        val candidates =
+            buildList {
+                for (radius in listOf(baseRadius, baseRadius + 1.0, baseRadius + 2.0)) {
+                    for (step in 0 until 8) {
+                        val angle = Math.PI * 2.0 * step / 8.0
+                        for (yOffset in yOffsets) {
+                            add(
+                                Pos(
+                                    sourcePosition.x + sin(angle) * radius,
+                                    player.position.y + yOffset,
+                                    sourcePosition.z + cos(angle) * radius,
+                                    player.position.yaw,
+                                    player.position.pitch,
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        val safe = candidates.firstOrNull { candidate -> isSafeExitPosition(player, candidate, instance) }
+        if (safe != null) {
+            player.teleport(safe)
+            return
+        }
+
+        hitbox
+            .resolveCollision(
+                sourcePosition,
+                sourcePosition.yaw,
+                sourcePosition.pitch,
+                hitboxRoll(source),
+                player.position,
+                box.relativeStart(),
+                box.relativeEnd(),
+            )?.let { resolved -> player.teleport(resolved.position) }
+    }
+
+    private fun isSafeExitPosition(
+        player: Player,
+        position: Pos,
+        instance: Instance,
+    ): Boolean {
+        val box = player.boundingBox
+        val start = box.relativeStart()
+        val end = box.relativeEnd()
+        for (x in floor(position.x + start.x).toInt()..floor(position.x + end.x).toInt()) {
+            for (y in floor(position.y + start.y).toInt()..floor(position.y + end.y).toInt()) {
+                for (z in floor(position.z + start.z).toInt()..floor(position.z + end.z).toInt()) {
+                    if (instance.getBlock(x, y, z).isSolid) return false
+                }
+            }
+        }
+        return entityVehicle.none { (entity, vehicle) ->
+            entity.instance === instance &&
+                vehicle.hitbox.resolveCollision(
+                    entity.position,
+                    entity.position.yaw,
+                    entity.position.pitch,
+                    vehicle.hitboxRoll(entity),
+                    position,
+                    start,
+                    end,
+                ) != null
+        }
     }
 
     /** Returns the current magazine size for an armed vehicle, or null for an unarmed vehicle. */

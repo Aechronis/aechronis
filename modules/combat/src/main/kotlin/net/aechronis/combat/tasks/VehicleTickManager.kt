@@ -1,6 +1,7 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.utils.CombatDamageKind
@@ -57,6 +58,7 @@ object VehicleTickManager {
                 for ((entity, vehicle) in vehicles) {
                     handlePlayerCollisions(entity, vehicle, previousVehiclePositions[entity], collisionIndex)
                 }
+                handleVehicleCollisions(vehicles)
                 previousVehiclePositions.keys.removeIf { it !in activeEntities }
                 for ((entity, _) in vehicles) previousVehiclePositions[entity] = entity.position
                 lastImpacts.keys.removeIf { it.vehicle !in activeEntities }
@@ -140,6 +142,129 @@ object VehicleTickManager {
         lastImpacts.keys.removeIf { it.player === player }
         collisionIndex.removePlayer(player)
     }
+
+    private fun handleVehicleCollisions(vehicles: List<Pair<Entity, Vehicle>>) {
+        for (firstIndex in vehicles.indices) {
+            val (firstEntity, firstVehicle) = vehicles[firstIndex]
+            if (Vehicle.entityVehicle[firstEntity] !== firstVehicle) continue
+            for (secondIndex in firstIndex + 1 until vehicles.size) {
+                val (secondEntity, secondVehicle) = vehicles[secondIndex]
+                if (Vehicle.entityVehicle[secondEntity] !== secondVehicle || firstEntity.instance !== secondEntity.instance) continue
+
+                val firstPrevious = previousVehiclePositions[firstEntity]
+                val secondPrevious = previousVehiclePositions[secondEntity]
+                val firstBounds =
+                    VehicleCollisionIndex.sweptBounds(
+                        firstVehicle,
+                        firstEntity.position,
+                        firstPrevious,
+                        firstVehicle.hitboxRoll(firstEntity),
+                    )
+                val secondBounds =
+                    VehicleCollisionIndex.sweptBounds(
+                        secondVehicle,
+                        secondEntity.position,
+                        secondPrevious,
+                        secondVehicle.hitboxRoll(secondEntity),
+                    )
+                if (!boundsOverlap(firstBounds, secondBounds)) continue
+
+                val collision =
+                    firstVehicleCollision(firstEntity, firstVehicle, firstPrevious, secondEntity, secondVehicle, secondPrevious)
+                        ?: continue
+                val firstIsDrone = firstVehicle is Drone
+                val secondIsDrone = secondVehicle is Drone
+                if (firstVehicle is Drone) firstVehicle.detonateOnVehicleCollision(firstEntity)
+                if (secondVehicle is Drone && Vehicle.entityVehicle[secondEntity] === secondVehicle) {
+                    secondVehicle.detonateOnVehicleCollision(secondEntity)
+                }
+                if (firstIsDrone || secondIsDrone) continue
+
+                val firstDistance = movementLength(firstPrevious, firstEntity.position)
+                val secondDistance = movementLength(secondPrevious, secondEntity.position)
+                val moveFirst = firstDistance >= secondDistance
+                val movingEntity = if (moveFirst) firstEntity else secondEntity
+                val movingVehicle = if (moveFirst) firstVehicle else secondVehicle
+                val otherEntity = if (moveFirst) secondEntity else firstEntity
+                movingEntity.teleport(if (moveFirst) collision.firstSafe else collision.secondSafe)
+                movingVehicle.onVehicleCollision(movingEntity, otherEntity)
+            }
+        }
+    }
+
+    private data class VehicleCollision(
+        val firstSafe: Pos,
+        val secondSafe: Pos,
+    )
+
+    private fun firstVehicleCollision(
+        firstEntity: Entity,
+        firstVehicle: Vehicle,
+        firstPrevious: Pos?,
+        secondEntity: Entity,
+        secondVehicle: Vehicle,
+        secondPrevious: Pos?,
+    ): VehicleCollision? {
+        val firstStart = firstPrevious ?: firstEntity.position
+        val secondStart = secondPrevious ?: secondEntity.position
+        val firstMovement = movementLength(firstPrevious, firstEntity.position)
+        val secondMovement = movementLength(secondPrevious, secondEntity.position)
+        val samples = ceil(maxOf(firstMovement, secondMovement) * 4.0).toInt().coerceIn(1, 64)
+        var firstSafe = firstStart
+        var secondSafe = secondStart
+        for (sample in 1..samples) {
+            val factor = sample.toDouble() / samples
+            val firstPosition = interpolate(firstStart, firstEntity.position, factor)
+            val secondPosition = interpolate(secondStart, secondEntity.position, factor)
+            if (
+                firstVehicle.hitbox.intersects(
+                    secondVehicle.hitbox,
+                    firstPosition,
+                    firstPosition.yaw,
+                    firstPosition.pitch,
+                    firstVehicle.hitboxRoll(firstEntity),
+                    secondPosition,
+                    secondPosition.yaw,
+                    secondPosition.pitch,
+                    secondVehicle.hitboxRoll(secondEntity),
+                )
+            ) {
+                return VehicleCollision(firstSafe, secondSafe)
+            }
+            firstSafe = firstPosition
+            secondSafe = secondPosition
+        }
+        return null
+    }
+
+    private fun interpolate(
+        from: Pos,
+        to: Pos,
+        factor: Double,
+    ): Pos =
+        Pos(
+            from.x + (to.x - from.x) * factor,
+            from.y + (to.y - from.y) * factor,
+            from.z + (to.z - from.z) * factor,
+            (from.yaw + (to.yaw - from.yaw) * factor).toFloat(),
+            (from.pitch + (to.pitch - from.pitch) * factor).toFloat(),
+        )
+
+    private fun movementLength(
+        from: Pos?,
+        to: Pos,
+    ): Double = from?.let { Vec(to.x - it.x, to.y - it.y, to.z - it.z).length() } ?: 0.0
+
+    private fun boundsOverlap(
+        first: VehicleCollisionIndex.Bounds,
+        second: VehicleCollisionIndex.Bounds,
+    ): Boolean =
+        first.minX <= second.maxX &&
+            first.maxX >= second.minX &&
+            first.minY <= second.maxY &&
+            first.maxY >= second.minY &&
+            first.minZ <= second.maxZ &&
+            first.maxZ >= second.minZ
 
     private fun handlePlayerCollisions(
         entity: Entity,
@@ -231,23 +356,25 @@ object VehicleTickManager {
         movement: Vec,
         vehiclePosition: Pos,
     ) {
-        var direction = Vec(collisionNormal.x, 0.0, collisionNormal.z)
-        if (direction.lengthSquared() < 1.0e-6) {
-            direction = Vec(-movement.x, 0.0, -movement.z)
-        }
+        // A moving vehicle carries the target in its direction of travel; the
+        // collision normal is only a fallback for stationary overlaps.
+        val speed = movement.length()
+        var direction = Vec(movement.x, 0.0, movement.z)
+        if (direction.lengthSquared() < 1.0e-6) direction = Vec(collisionNormal.x, 0.0, collisionNormal.z)
         if (direction.lengthSquared() < 1.0e-6) {
             val away = Vec(player.position.x - vehiclePosition.x, 0.0, player.position.z - vehiclePosition.z)
             direction = if (away.lengthSquared() < 1.0e-6) Vec(0.0, 0.0, 1.0) else away
         }
         direction = direction.normalize()
 
-        val strength = (2.5 + movement.length() * 0.15).coerceAtMost(6.0)
+        val horizontalStrength = (1.5 + speed * 4.0).coerceAtMost(12.0)
+        val verticalStrength = (0.7 + speed * 1.2).coerceAtMost(2.5)
         val current = player.velocity
         val velocity =
             Vec(
-                current.x * 0.25 + direction.x * strength,
-                maxOf(current.y, 0.45),
-                current.z * 0.25 + direction.z * strength,
+                current.x * 0.2 + direction.x * horizontalStrength,
+                maxOf(current.y * 0.2, verticalStrength),
+                current.z * 0.2 + direction.z * horizontalStrength,
             )
         player.velocity = velocity
         Watchdog.recordKnockback(player, velocity, "vehicle")

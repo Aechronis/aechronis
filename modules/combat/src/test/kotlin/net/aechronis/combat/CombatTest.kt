@@ -397,6 +397,14 @@ class CombatTest {
     }
 
     @Test
+    fun `vehicle hitboxes detect rotated overlap and separation`() {
+        val hitbox = Hitbox(listOf(HitboxPart(Vec.ZERO, Vec(1.0, 1.0, 2.0))))
+
+        assertTrue(hitbox.intersects(hitbox, Pos.ZERO, 45f, 0f, 0f, Pos(1.0, 0.0, 0.0), -45f, 0f, 0f))
+        assertFalse(hitbox.intersects(hitbox, Pos.ZERO, 0f, 0f, 0f, Pos(10.0, 0.0, 0.0), 0f, 0f, 0f))
+    }
+
+    @Test
     fun `hitbox distance includes offsets and half extents`() {
         val hitbox =
             Hitbox(

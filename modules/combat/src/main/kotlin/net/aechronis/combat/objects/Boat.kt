@@ -78,6 +78,7 @@ open class Boat(
         instance: Instance,
         pos: Pos,
     ): Boolean {
+        if (!super.canPlaceAt(instance, pos)) return false
         val waterBlockY = floor(pos.y - 1.0).toInt()
         return footprintSamplePoints(pos).all { (x, z) ->
             instance.getBlock(floor(x).toInt(), waterBlockY, floor(z).toInt()).compare(Block.WATER)

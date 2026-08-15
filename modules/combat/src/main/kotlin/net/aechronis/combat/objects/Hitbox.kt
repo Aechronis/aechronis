@@ -102,7 +102,7 @@ class Hitbox(
                 }
             val resolvedCenter =
                 when (axis) {
-                    0 ->
+                    0 -> {
                         entityCenter.withX(
                             if (direction <
                                 0
@@ -112,7 +112,9 @@ class Hitbox(
                                 partMax.x + (entityCenter.x - entityMin.x) + margin
                             },
                         )
-                    1 ->
+                    }
+
+                    1 -> {
                         entityCenter.withY(
                             if (direction <
                                 0
@@ -122,7 +124,9 @@ class Hitbox(
                                 partMax.y + (entityCenter.y - entityMin.y) + margin
                             },
                         )
-                    else ->
+                    }
+
+                    else -> {
                         entityCenter.withZ(
                             if (direction <
                                 0
@@ -132,6 +136,7 @@ class Hitbox(
                                 partMax.z + (entityCenter.z - entityMin.z) + margin
                             },
                         )
+                    }
                 }
             val localNormal =
                 when (axis) {
@@ -155,6 +160,98 @@ class Hitbox(
             }
         }
         return best
+    }
+
+    internal fun intersects(
+        other: Hitbox,
+        position: Pos,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+        otherPosition: Pos,
+        otherYaw: Float,
+        otherPitch: Float,
+        otherRoll: Float,
+    ): Boolean {
+        if (parts.isEmpty() || other.parts.isEmpty()) return false
+        return parts.any { first ->
+            other.parts.any { second ->
+                orientedPartsIntersect(first, position, yaw, pitch, roll, second, otherPosition, otherYaw, otherPitch, otherRoll)
+            }
+        }
+    }
+
+    private fun orientedPartsIntersect(
+        first: HitboxPart,
+        firstPosition: Pos,
+        firstYaw: Float,
+        firstPitch: Float,
+        firstRoll: Float,
+        second: HitboxPart,
+        secondPosition: Pos,
+        secondYaw: Float,
+        secondPitch: Float,
+        secondRoll: Float,
+    ): Boolean {
+        fun axes(
+            yaw: Float,
+            pitch: Float,
+            roll: Float,
+        ) = listOf(
+            rotatePoint(Vec(1.0, 0.0, 0.0), yaw, pitch, roll),
+            rotatePoint(Vec(0.0, 1.0, 0.0), yaw, pitch, roll),
+            rotatePoint(Vec(0.0, 0.0, 1.0), yaw, pitch, roll),
+        )
+
+        fun dot(
+            first: Vec,
+            second: Vec,
+        ) = first.x * second.x + first.y * second.y + first.z * second.z
+
+        fun cross(
+            first: Vec,
+            second: Vec,
+        ) = Vec(
+            first.y * second.z - first.z * second.y,
+            first.z * second.x - first.x * second.z,
+            first.x * second.y - first.y * second.x,
+        )
+
+        fun centre(
+            part: HitboxPart,
+            origin: Pos,
+            yaw: Float,
+            pitch: Float,
+            roll: Float,
+        ) = rotatePoint(part.offset, yaw, pitch, roll).add(origin.x, origin.y, origin.z)
+
+        fun radius(
+            size: Vec,
+            axes: List<Vec>,
+            axis: Vec,
+        ) = size.x * abs(dot(axis, axes[0])) + size.y * abs(dot(axis, axes[1])) + size.z * abs(dot(axis, axes[2]))
+
+        val firstAxes = axes(firstYaw, firstPitch, firstRoll)
+        val secondAxes = axes(secondYaw, secondPitch, secondRoll)
+        val firstCentre = centre(first, firstPosition, firstYaw, firstPitch, firstRoll)
+        val secondCentre = centre(second, secondPosition, secondYaw, secondPitch, secondRoll)
+        val between = secondCentre.sub(firstCentre)
+        val testAxes =
+            buildList {
+                addAll(firstAxes)
+                addAll(secondAxes)
+                firstAxes.forEach { firstAxis -> secondAxes.forEach { secondAxis -> add(cross(firstAxis, secondAxis)) } }
+            }
+
+        return testAxes.all { axis ->
+            val lengthSquared = axis.lengthSquared()
+            if (lengthSquared < 1.0e-12) {
+                true
+            } else {
+                val normal = axis.mul(1.0 / sqrt(lengthSquared))
+                abs(dot(between, normal)) <= radius(first.size, firstAxes, normal) + radius(second.size, secondAxes, normal)
+            }
+        }
     }
 
     // gets the y offset needed to place the vehicle on the ground

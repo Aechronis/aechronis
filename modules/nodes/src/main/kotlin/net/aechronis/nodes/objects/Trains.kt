@@ -247,9 +247,11 @@ object Trains {
         }
     }
 
-    fun cancel(player: Player, message: String? = null) {
-        journeys.remove(player.uuid)?.task?.cancel()
+    fun cancel(player: Player, message: String? = null): Boolean {
+        val journey = journeys.remove(player.uuid) ?: return false
+        journey.task.cancel()
         message?.let { Message.error(player, it) }
+        return true
     }
 
     fun removeAt(position: BlockVec): TrainStation? = stationsByPosition[position]?.let(::remove)

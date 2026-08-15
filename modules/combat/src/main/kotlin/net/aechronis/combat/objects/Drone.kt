@@ -298,21 +298,30 @@ class Drone(
             onExit(player)
             return
         }
+        detonate(entity, player)
+    }
 
-        // The blast can't hurt the drone that detonated (it's destroyed anyway)
-        // nor the pilot's own operator clone (the pilot is flying it remotely).
+    internal fun detonateOnVehicleCollision(entity: Entity) {
+        val pilot = playerVehicleEntity.entries.firstOrNull { it.value === entity }?.key
+        detonate(entity, pilot)
+    }
+
+    private fun detonate(
+        entity: Entity,
+        pilot: Player?,
+    ) {
         entity.instance?.let { instance ->
-            Explosion(
+            Explosion.bypassingDamageImmunity(
                 instance = instance,
                 pos = entity.position,
                 radius = explosionRadius,
                 fire = explosionFire,
                 damage = explosionDamage,
-                source = player,
+                source = pilot,
+                weapon = null,
                 ammoType = explosionAmmoType,
             )
         }
-
         // destroy() ejects the pilot (via onExit) and clears the spider/payload
         destroy(entity)
     }
@@ -349,7 +358,7 @@ class Drone(
         for ((vehicleEntity, vehicle) in Vehicle.entityVehicle) {
             if (vehicleEntity == droneEntity || vehicleEntity.instance != instance) continue
             val vp = vehicleEntity.position
-            if (vehicle.hitbox.containsPoint(p.asVec(), vp, vp.yaw, vp.pitch, 0f) != null) return true
+            if (vehicle.hitbox.containsPoint(p.asVec(), vp, vp.yaw, vp.pitch, vehicle.hitboxRoll(vehicleEntity)) != null) return true
         }
 
         for (other in instance.players) {
@@ -497,12 +506,7 @@ class Drone(
         val impact = droneImpactPoint(player, entity, position, finalPos)
         if (impact != null) {
             entity.teleport(impact.withPitch(renderPitch))
-            if (projectileModel != null) {
-                endFlight(player)
-            } else {
-                // destroy() ejects the pilot (via onExit) and clears the spider
-                destroy(entity)
-            }
+            detonate(entity, player)
             return
         }
 
