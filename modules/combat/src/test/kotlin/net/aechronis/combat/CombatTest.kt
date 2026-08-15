@@ -310,6 +310,26 @@ class CombatTest {
     }
 
     @Test
+    fun `unattended plane dive accelerates up to its configured maximum`() {
+        val ammo = Ammo("dive-test-ammo", AmmoTypes.NORMAL, Component.empty())
+        val plane =
+            Plane(
+                name = "dive-test-plane",
+                itemName = Component.empty(),
+                scale = 1.0,
+                hitbox = Hitbox(emptyList()),
+                health = testHealth(10f),
+                ammo = ammo,
+                maxAmmo = 1,
+                diveAcceleration = 0.25,
+                maxDiveSpeed = 0.7,
+            )
+
+        assertEquals(0.55, plane.nextDiveSpeed(0.3), 0.0001)
+        assertEquals(0.7, plane.nextDiveSpeed(0.55), 0.0001)
+    }
+
+    @Test
     fun `health applies configured ammo damage and ignores missing ammo`() {
         val health = Health(100F, mapOf(AmmoTypes.NORMAL to 15F))
 

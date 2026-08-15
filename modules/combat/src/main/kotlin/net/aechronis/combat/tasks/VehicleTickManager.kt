@@ -43,6 +43,12 @@ object VehicleTickManager {
                     vehicle.onTick(player)
                 }
 
+                for ((entity, vehicle) in Vehicle.entityVehicle.toList()) {
+                    if (Vehicle.playerVehicleEntity.values.none { it === entity }) {
+                        vehicle.onUnoccupiedTick(entity)
+                    }
+                }
+
                 val vehicles = Vehicle.entityVehicle.toList()
                 val activeEntities = vehicles.map { (entity, _) -> entity }.toSet()
                 collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)

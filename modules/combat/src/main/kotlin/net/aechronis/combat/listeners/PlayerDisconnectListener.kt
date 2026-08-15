@@ -3,8 +3,6 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Grenade
 import net.aechronis.combat.objects.Hitbox
-import net.aechronis.combat.objects.Plane
-import net.aechronis.combat.objects.PlaneState
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.tasks.ModelManager
@@ -17,24 +15,7 @@ object PlayerDisconnectListener {
         val player = event.player
 
         // vehicle
-        val vehicle = Vehicle.playerVehicle[player]
-        if (vehicle != null) {
-            if (vehicle is Plane) {
-                val state = Plane.playerState[player]
-                if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
-                    val entity = Vehicle.playerVehicleEntity[player]
-                    if (entity != null) {
-                        vehicle.destroy(entity)
-                    } else {
-                        vehicle.onExit(player)
-                    }
-                } else {
-                    vehicle.onExit(player)
-                }
-            } else {
-                vehicle.onExit(player)
-            }
-        }
+        Vehicle.playerVehicle[player]?.onExit(player)
 
         Vehicle.passengerVehicle[player]?.onPassengerExit(player)
 

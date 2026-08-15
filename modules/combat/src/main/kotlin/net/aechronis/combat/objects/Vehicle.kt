@@ -191,7 +191,7 @@ open class Vehicle(
         if (invisibleWhileRiding) player.updateViewableRule { true }
     }
 
-    // called every tick
+    // called every tick while a driver occupies the vehicle
     open fun onTick(player: Player) {
         val entity = playerVehicleEntity[player] ?: return
         val inputEvent = KeyPressListener.playerInputEvent[player]
@@ -205,7 +205,12 @@ open class Vehicle(
             getSeatWorldPos(entity, 0).withView(playerView.yaw, playerView.pitch),
         )
 
-        // update passenger seat positions
+        updatePassengerSeats(entity)
+    }
+
+    open fun onUnoccupiedTick(entity: Entity) {}
+
+    protected fun updatePassengerSeats(entity: Entity) {
         entityPassengers[entity]?.toList()?.forEachIndexed { index, passenger ->
             val passengerInput = KeyPressListener.playerInputEvent[passenger]
             if (passengerInput?.isHoldingShiftKey == true) {

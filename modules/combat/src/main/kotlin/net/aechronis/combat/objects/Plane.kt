@@ -7,11 +7,14 @@ import net.aechronis.combat.utils.VehicleCameraDistance
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.setRoll
 import net.kyori.adventure.text.Component
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
+import net.minestom.server.instance.Instance
 import kotlin.math.abs
+import kotlin.math.ceil
 
 enum class PlaneState {
     LANDED,
@@ -19,6 +22,12 @@ enum class PlaneState {
     FLYING,
     CRASHED,
 }
+
+private data class DiveState(
+    var speed: Double,
+    var pitch: Float,
+    val roll: Float,
+)
 
 // weapon on a plane, i'll add projectiles to this at some point
 data class PlaneWeapon(
@@ -61,6 +70,14 @@ class Plane(
     val landingThrottle: Float = 35f,
     val maxThrottle: Float = 100f,
     val minAirThrottle: Float = 30f,
+    /** Maximum downward pitch an unattended plane reaches while diving. */
+    val divePitch: Float = 80f,
+    /** Degrees the unattended plane pitches down per tick. */
+    val divePitchSpeed: Float = 2f,
+    /** Additional blocks per tick gained by an unattended plane each tick. */
+    val diveAcceleration: Double = 0.02,
+    /** Maximum blocks per tick for an unattended plane. */
+    val maxDiveSpeed: Double = speed * 2.0,
     override val ammo: Ammo,
     override val maxAmmo: Int,
     val weapons: List<PlaneWeapon> = emptyList(),
@@ -86,14 +103,19 @@ class Plane(
     ArmedVehicle {
     init {
         require(maxAmmo > 0) { "Plane maxAmmo must be greater than zero" }
+        require(divePitch in 0f..90f) { "Plane divePitch must be between 0 and 90" }
+        require(divePitchSpeed > 0f && divePitchSpeed.isFinite()) { "Plane divePitchSpeed must be positive and finite" }
+        require(diveAcceleration > 0.0 && diveAcceleration.isFinite()) { "Plane diveAcceleration must be positive and finite" }
+        require(maxDiveSpeed > 0.0 && maxDiveSpeed.isFinite()) { "Plane maxDiveSpeed must be positive and finite" }
     }
 
     override fun onEnter(
         player: Player,
         entity: Entity,
     ) {
-        // only allow one pilot at a time
-        if (playerVehicleEntity.values.any { it == entity }) return
+        // only allow one pilot at a time, and never let a pilot reclaim a plane
+        // that is already in an uncontrolled dive.
+        if (playerVehicleEntity.values.any { it == entity } || entityDives.containsKey(entity)) return
 
         super.onEnter(player, entity)
         (entity.entityMeta as ItemDisplayMeta).setTransformationInterpolationDuration(3)
@@ -108,6 +130,24 @@ class Plane(
 
     override fun onExit(player: Player) {
         val entity = playerVehicleEntity[player]
+        val state = playerState[player]
+        if (entity != null &&
+            (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) &&
+            entity !in destroyingEntities
+        ) {
+            val instance = entity.instance ?: player.instance
+            if (instance != null &&
+                !hitbox.checkGroundCollision(
+                    instance,
+                    entity.position,
+                    entity.position.yaw,
+                    entity.position.pitch,
+                    playerRoll[player] ?: 0f,
+                )
+            ) {
+                beginDive(entity, playerThrottle[player] ?: minAirThrottle, playerRoll[player] ?: 0f)
+            }
+        }
         try {
             super.onExit(player)
         } finally {
@@ -132,7 +172,13 @@ class Plane(
         val position = entity.position
 
         lastBombFireTime.remove(entity)
-        super.destroy(entity, attacker, weapon)
+        entityDives.remove(entity)
+        destroyingEntities.add(entity)
+        try {
+            super.destroy(entity, attacker, weapon)
+        } finally {
+            destroyingEntities.remove(entity)
+        }
 
         if (instance != null) {
             Explosion(
@@ -145,6 +191,27 @@ class Plane(
                 weapon = weapon,
             )
         }
+    }
+
+    override fun onUnoccupiedTick(entity: Entity) {
+        val dive = entityDives[entity] ?: return
+        val instance = entity.instance ?: return
+        val position = entity.position
+
+        dive.pitch = approach(dive.pitch, divePitch, divePitchSpeed)
+        dive.speed = nextDiveSpeed(dive.speed)
+        val nextPosition = position.withPitch(dive.pitch)
+        val target = nextPosition.add(nextPosition.direction().mul(dive.speed)).withPitch(dive.pitch)
+        val impact = firstDiveCollision(instance, position, target, dive.roll)
+        if (impact != null) {
+            entity.teleport(impact)
+            destroy(entity)
+            return
+        }
+
+        entity.teleport(target)
+        (entity.entityMeta as ItemDisplayMeta).leftRotation = setRoll(dive.roll / 55)
+        updatePassengerSeats(entity)
     }
 
     override fun onTick(player: Player) {
@@ -263,6 +330,40 @@ class Plane(
             target - current < -maxStep -> current - maxStep
             else -> target
         }
+
+    internal fun nextDiveSpeed(current: Double): Double = (current + diveAcceleration).coerceAtMost(maxDiveSpeed)
+
+    private fun beginDive(
+        entity: Entity,
+        throttle: Float,
+        roll: Float,
+    ) {
+        val initialSpeed = (speed * throttle / maxThrottle).coerceAtLeast(speed * minAirThrottle / maxThrottle)
+        entityDives[entity] = DiveState(initialSpeed.coerceAtMost(maxDiveSpeed), entity.position.pitch, roll)
+    }
+
+    private fun firstDiveCollision(
+        instance: Instance,
+        from: Pos,
+        to: Pos,
+        roll: Float,
+    ): Pos? {
+        val movement = to.asVec().sub(from)
+        val samples = ceil(movement.length() / DIVE_COLLISION_SAMPLE_SPACING).toInt().coerceIn(1, MAX_DIVE_COLLISION_SAMPLES)
+        for (sample in 1..samples) {
+            val factor = sample.toDouble() / samples
+            val position =
+                Pos(
+                    from.x + movement.x * factor,
+                    from.y + movement.y * factor,
+                    from.z + movement.z * factor,
+                    to.yaw,
+                    from.pitch + (to.pitch - from.pitch) * factor.toFloat(),
+                )
+            if (hitbox.checkGroundCollision(instance, position, position.yaw, position.pitch, roll)) return position
+        }
+        return null
+    }
 
     internal fun nextThrottle(
         current: Float,
@@ -400,6 +501,11 @@ class Plane(
         var playerThrottle = hashMapOf<Player, Float>()
         var playerBombFireHeld = hashMapOf<Player, Boolean>()
         var lastBombFireTime = hashMapOf<Entity, Long>()
+        private val entityDives = HashMap<Entity, DiveState>()
+        private val destroyingEntities = HashSet<Entity>()
+
+        private const val DIVE_COLLISION_SAMPLE_SPACING = 0.25
+        private const val MAX_DIVE_COLLISION_SAMPLES = 128
     }
 }
 
