@@ -77,8 +77,8 @@ internal fun isSafeDefenderStandingPosition(
         !head.isLiquid
 }
 
- // chooses one nearby terrain edit that opens the direct route from [start] toward [target]
- // a one block step or drop is already walkable so left untouched
+// chooses one nearby terrain edit that opens the direct route from [start] toward [target]
+// a one block step or drop is already walkable so left untouched
 internal fun aiTerrainEdit(
     start: Pos,
     target: Pos,

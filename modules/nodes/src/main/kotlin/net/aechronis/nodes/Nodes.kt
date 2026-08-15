@@ -7,9 +7,9 @@ package net.aechronis.nodes
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.ColonizationMenu
-import com.google.gson.JsonParser
 import net.aechronis.nodes.commands.AllyChatCommand
 import net.aechronis.nodes.commands.AllyCommand
 import net.aechronis.nodes.commands.ColonizeCommand
