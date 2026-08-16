@@ -9,11 +9,14 @@ import net.minestom.server.event.server.ServerTickMonitorEvent
 import net.minestom.server.monitoring.TickMonitor
 import net.minestom.server.timer.TaskSchedule
 import net.minestom.server.utils.MathUtils
+import java.util.ArrayDeque
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 object TabManager {
     private const val BYTES_PER_MEBIBYTE = 1024L * 1024L
-    private const val UPDATE_INTERVAL_TICKS = 20
+    private const val NANOSECONDS_PER_SECOND = 1_000_000_000L
+    private const val UPDATE_INTERVAL_TICKS = 1
 
     private val runtime = Runtime.getRuntime()
     private val maxMemory = runtime.maxMemory() / BYTES_PER_MEBIBYTE
@@ -32,14 +35,27 @@ object TabManager {
 
     fun start() {
         val lastTick = AtomicReference<TickMonitor>()
-        Server.eventNode.addListener(ServerTickMonitorEvent::class.java) { event -> lastTick.set(event.tickMonitor) }
+        val ticksInPastSecond = AtomicInteger()
+        val recentTicks = ArrayDeque<Long>()
+
+        Server.eventNode.addListener(ServerTickMonitorEvent::class.java) { event ->
+            lastTick.set(event.tickMonitor)
+
+            val now = System.nanoTime()
+            val cutoff = now - NANOSECONDS_PER_SECOND
+            recentTicks.addLast(now)
+            while (recentTicks.peekFirst()?.let { it <= cutoff } == true) {
+                recentTicks.removeFirst()
+            }
+            ticksInPastSecond.set(recentTicks.size)
+        }
 
         MinecraftServer
             .getSchedulerManager()
             .buildTask {
                 val tickTime = lastTick.get()?.tickTime ?: 0.0
                 val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / BYTES_PER_MEBIBYTE
-                val footer = createFooter(tickTime, usedMemory)
+                val footer = createFooter(tickTime, ticksInPastSecond.get(), usedMemory)
 
                 Audiences.players().sendPlayerListHeaderAndFooter(header, footer)
             }.repeat(TaskSchedule.tick(UPDATE_INTERVAL_TICKS))
@@ -48,10 +64,18 @@ object TabManager {
 
     private fun createFooter(
         tickTime: Double,
+        ticksPerSecond: Int,
         usedMemory: Long,
     ): Component =
         Component
             .newline()
+            .append(Component.text("TPS: ", NamedTextColor.GOLD))
+            .append(
+                Component.text(
+                    "$ticksPerSecond / 20",
+                    NamedTextColor.GRAY,
+                ),
+            ).appendNewline()
             .append(Component.text("MSPT: ", NamedTextColor.GOLD))
             .append(Component.text("${MathUtils.round(tickTime, 1)} ms / 50ms", NamedTextColor.GRAY))
             .appendNewline()
