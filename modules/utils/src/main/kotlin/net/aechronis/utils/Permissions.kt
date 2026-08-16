@@ -15,15 +15,15 @@ fun Player.hasPermission(permission: String?): Boolean {
     if (System.getProperty("aechronis.dangerously-enable-all-permissions").toBoolean()) return true
 
     return try {
-            LuckPermsProvider
-                .get()
-                .userManager
-                .getUser(uuid)
-                ?.cachedData
-                ?.permissionData
-                ?.checkPermission(permission)
-                ?.asBoolean() == true
-        } catch (_: Exception) {
-            false
-        }
+        LuckPermsProvider
+            .get()
+            .userManager
+            .getUser(uuid)
+            ?.cachedData
+            ?.permissionData
+            ?.checkPermission(permission)
+            ?.asBoolean() == true
+    } catch (_: Exception) {
+        false
+    }
 }
