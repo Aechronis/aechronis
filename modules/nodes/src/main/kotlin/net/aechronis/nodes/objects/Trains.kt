@@ -14,6 +14,7 @@ import net.minestom.server.instance.block.Block
 import net.minestom.server.item.Material
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
+import org.everbuild.blocksandstuff.blocks.placement.common.AbstractRailPlacementRule.RailShape
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -316,9 +317,8 @@ object Trains {
             val current = queue.removeFirst()
             if (!globalVisited.add(current) || !isRail(instance.getBlock(current))) continue
             rails += current
-            railExits(current, instance.getBlock(current)).forEach { next ->
-                if (isRail(instance.getBlock(next)) && current in railExits(next, instance.getBlock(next))) queue += next
-            }
+            val currentBlock = instance.getBlock(current)
+            queue += connectedRailPositions(instance, current, currentBlock)
         }
         return rails
     }
@@ -342,7 +342,8 @@ object Trains {
             if (destination != null) {
                 return RailEdge(source.id, attachment.start, destination, stationsByPosition[destination], distance)
             }
-            val next = exits.filter { it in rails }
+            val next = connectedRailPositions(instance, current, instance.getBlock(current))
+                .filter { it != previous && it in rails }
             if (next.size != 1) return RailEdge(source.id, attachment.start, current, null, distance)
             previous = current
             current = next.single()
@@ -385,18 +386,49 @@ object Trains {
 
     internal fun railExits(position: BlockVec, block: Block): List<BlockVec> {
         fun exit(x: Int, y: Int, z: Int) = BlockVec(position.blockX() + x, position.blockY() + y, position.blockZ() + z)
-        return when (block.getProperty("shape")) {
-            "north_south" -> listOf(exit(0, 0, -1), exit(0, 0, 1))
-            "east_west" -> listOf(exit(-1, 0, 0), exit(1, 0, 0))
-            "ascending_east" -> listOf(exit(-1, 0, 0), exit(1, 1, 0))
-            "ascending_west" -> listOf(exit(1, 0, 0), exit(-1, 1, 0))
-            "ascending_north" -> listOf(exit(0, 0, 1), exit(0, 1, -1))
-            "ascending_south" -> listOf(exit(0, 0, -1), exit(0, 1, 1))
-            "south_east" -> listOf(exit(0, 0, 1), exit(1, 0, 0))
-            "south_west" -> listOf(exit(0, 0, 1), exit(-1, 0, 0))
-            "north_east" -> listOf(exit(0, 0, -1), exit(1, 0, 0))
-            "north_west" -> listOf(exit(0, 0, -1), exit(-1, 0, 0))
-            else -> emptyList()
+        return when (RailShape.fromString(block.getProperty("shape") ?: return emptyList())) {
+            RailShape.NORTH_SOUTH -> listOf(exit(0, 0, -1), exit(0, 0, 1))
+            RailShape.EAST_WEST -> listOf(exit(-1, 0, 0), exit(1, 0, 0))
+            RailShape.ASCENDING_EAST -> listOf(exit(-1, 0, 0), exit(1, 1, 0))
+            RailShape.ASCENDING_WEST -> listOf(exit(1, 0, 0), exit(-1, 1, 0))
+            RailShape.ASCENDING_NORTH -> listOf(exit(0, 0, 1), exit(0, 1, -1))
+            RailShape.ASCENDING_SOUTH -> listOf(exit(0, 0, -1), exit(0, 1, 1))
+            RailShape.SOUTH_EAST -> listOf(exit(0, 0, 1), exit(1, 0, 0))
+            RailShape.SOUTH_WEST -> listOf(exit(0, 0, 1), exit(-1, 0, 0))
+            RailShape.NORTH_EAST -> listOf(exit(0, 0, -1), exit(1, 0, 0))
+            RailShape.NORTH_WEST -> listOf(exit(0, 0, -1), exit(-1, 0, 0))
+            null -> emptyList()
+        }
+    }
+
+    /** Return all physically linked rails, including the lower end of an uphill link. */
+    private fun connectedRailPositions(instance: Instance, position: BlockVec, block: Block): Set<BlockVec> {
+        val exits = railExits(position, block)
+        val candidates = buildSet {
+            addAll(exits)
+            exits.filter { it.blockY() == position.blockY() }.forEach { exit ->
+                add(BlockVec(exit.blockX(), exit.blockY() - 1, exit.blockZ()))
+            }
+        }
+        return candidates.filterTo(linkedSetOf()) { candidate ->
+            val candidateBlock = instance.getBlock(candidate)
+            if (!isRail(candidateBlock)) return@filterTo false
+            railsAreLinked(position, block, candidate, candidateBlock) ||
+                railsAreLinked(candidate, candidateBlock, position, block)
+        }
+    }
+
+    /**
+     * BlocksAndStuff links an ascending rail to the side of the upper rail at
+     * that rail's own height. The two block coordinates therefore cannot be
+     * reciprocal even though the rails are physically connected.
+     */
+    internal fun railsAreLinked(from: BlockVec, fromBlock: Block, to: BlockVec, toBlock: Block): Boolean {
+        if (from in railExits(to, toBlock)) return true
+        if (RailShape.fromString(fromBlock.getProperty("shape") ?: return false)?.isAscending() != true) return false
+        if (to !in railExits(from, fromBlock) || to.blockY() != from.blockY() + 1) return false
+        return railExits(to, toBlock).any { exit ->
+            exit.blockX() == from.blockX() && exit.blockY() == to.blockY() && exit.blockZ() == from.blockZ()
         }
     }
 
