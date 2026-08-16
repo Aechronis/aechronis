@@ -12,6 +12,8 @@ import net.minestom.server.entity.Player
 fun Player.hasPermission(permission: String?): Boolean {
     if (permission == null) return true
 
+    if (System.getProperty("aechronis.dangerously-enable-all-permissions").toBoolean()) return true
+
     return try {
             LuckPermsProvider
                 .get()
