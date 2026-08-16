@@ -14,6 +14,7 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.entity.damage.DamageType
+import net.minestom.server.instance.Instance
 import net.minestom.server.particle.Particle
 import net.minestom.server.timer.TaskSchedule
 import kotlin.math.ceil
@@ -22,6 +23,8 @@ object VehicleTickManager {
     private const val IMPACT_COOLDOWN_MS = 700L
     private const val MIN_IMPACT_SPEED = 0.08
     private const val MAX_IMPACT_DAMAGE = 8F
+    private const val VEHICLE_INTERACTION_DISTANCE = 3.0
+    private const val LOOK_BROAD_PHASE_MARGIN = 1.0e-9
 
     private data class ImpactKey(
         val vehicle: Entity,
@@ -51,6 +54,7 @@ object VehicleTickManager {
                 }
 
                 val vehicles = Vehicle.entityVehicle.toList()
+                val vehicleLookIndex = prepareVehicleLookIndex(vehicles)
                 val activeEntities = vehicles.map { (entity, _) -> entity }.toSet()
                 collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)
 
@@ -88,46 +92,26 @@ object VehicleTickManager {
                         continue
                     }
 
-                    // raycast to check if looking at a vehicle
-                    val eyePos = player.position.add(0.0, player.eyeHeight, 0.0)
-                    val direction = eyePos.direction()
-
-                    var foundVehicle: Vehicle? = null
-                    var foundEntity: Entity? = null
-                    var distance = 0.0
-                    while (distance <= 3 && foundVehicle == null) {
-                        val checkPoint =
-                            Vec(
-                                eyePos.x + direction.x * distance,
-                                eyePos.y + direction.y * distance,
-                                eyePos.z + direction.z * distance,
-                            )
-
-                        for ((entity, vehicle) in vehicles) {
-                            val vehiclePos = entity.position
-
-                            val hitPart =
-                                vehicle.hitbox.containsPoint(
-                                    checkPoint,
-                                    vehiclePos,
-                                    vehiclePos.yaw,
-                                    vehiclePos.pitch,
-                                    0f,
-                                )
-
-                            if (hitPart != null) {
-                                foundVehicle = vehicle
-                                foundEntity = entity
-                                break
-                            }
-                        }
-
-                        distance += 1
+                    val instance = player.instance
+                    if (instance == null) {
+                        playerLookingAtVehicle.remove(player)
+                        playerLookingAtEntity.remove(player)
+                        continue
                     }
 
-                    if (foundVehicle != null && foundEntity != null) {
-                        playerLookingAtVehicle[player] = foundVehicle
-                        playerLookingAtEntity[player] = foundEntity
+                    // raycast to check if looking at a vehicle
+                    val eyePos = player.position.add(0.0, player.eyeHeight, 0.0)
+                    val target =
+                        findLookedAtVehicle(
+                            instance,
+                            eyePos,
+                            eyePos.direction().mul(VEHICLE_INTERACTION_DISTANCE),
+                            vehicleLookIndex,
+                        )
+
+                    if (target != null) {
+                        playerLookingAtEntity[player] = target.entity
+                        playerLookingAtVehicle[player] = target.vehicle
                     } else {
                         playerLookingAtVehicle.remove(player)
                         playerLookingAtEntity.remove(player)
@@ -136,6 +120,165 @@ object VehicleTickManager {
             }.repeat(TaskSchedule.tick(1))
             .schedule()
     }
+
+    internal class VehicleLookCandidate(
+        val entity: Entity,
+        val vehicle: Vehicle,
+        val position: Pos,
+        val boundingRadius: Double,
+        val hitbox: Hitbox.Prepared,
+    ) {
+        var queryStamp = 0L
+    }
+
+    internal class VehicleLookIndex(
+        candidates: Iterable<VehicleLookCandidate>,
+    ) {
+        private class InstanceBuckets {
+            val cells = HashMap<Long, MutableList<VehicleLookCandidate>>()
+            val oversized = ArrayList<VehicleLookCandidate>()
+        }
+
+        private val instances = HashMap<Instance, InstanceBuckets>()
+        private var query = 0L
+
+        init {
+            for (candidate in candidates) {
+                val instance = candidate.entity.instance ?: continue
+                val buckets = instances.getOrPut(instance, ::InstanceBuckets)
+                val radius = candidate.boundingRadius
+                val minX = cell(candidate.position.x - radius)
+                val maxX = cell(candidate.position.x + radius)
+                val minZ = cell(candidate.position.z - radius)
+                val maxZ = cell(candidate.position.z + radius)
+                val coveredCells = (maxX.toLong() - minX + 1L) * (maxZ.toLong() - minZ + 1L)
+
+                if (coveredCells > MAX_CELLS_PER_VEHICLE) {
+                    buckets.oversized.add(candidate)
+                    continue
+                }
+
+                for (x in minX..maxX) {
+                    for (z in minZ..maxZ) {
+                        buckets.cells.getOrPut(cellKey(x, z), ::ArrayList).add(candidate)
+                    }
+                }
+            }
+        }
+
+        fun findClosest(
+            instance: Instance,
+            origin: Pos,
+            vector: Vec,
+        ): VehicleLookCandidate? {
+            var closest: VehicleLookCandidate? = null
+            var closestDistance = Double.POSITIVE_INFINITY
+            val vectorLength = vector.length()
+
+            forEachCandidate(instance, origin, vector) { candidate ->
+                if (candidate.entity.instance !== instance) return@forEachCandidate
+
+                val dx = origin.x - candidate.position.x
+                val dy = origin.y - candidate.position.y
+                val dz = origin.z - candidate.position.z
+                val reach = vectorLength + candidate.boundingRadius + LOOK_BROAD_PHASE_MARGIN
+                if (dx * dx + dy * dy + dz * dz > reach * reach) return@forEachCandidate
+
+                val distance =
+                    candidate.hitbox.firstIntersection(
+                        origin,
+                        vector,
+                        vectorLength,
+                    ) ?: return@forEachCandidate
+                if (distance < closestDistance) {
+                    closest = candidate
+                    closestDistance = distance
+                }
+            }
+
+            return closest
+        }
+
+        internal fun candidateCount(
+            instance: Instance,
+            origin: Pos,
+            vector: Vec,
+        ): Int {
+            var count = 0
+            forEachCandidate(instance, origin, vector) { count += 1 }
+            return count
+        }
+
+        private inline fun forEachCandidate(
+            instance: Instance,
+            origin: Pos,
+            vector: Vec,
+            action: (VehicleLookCandidate) -> Unit,
+        ) {
+            val buckets = instances[instance] ?: return
+            val currentQuery = ++query
+
+            for (candidate in buckets.oversized) {
+                if (candidate.queryStamp == currentQuery) continue
+                candidate.queryStamp = currentQuery
+                action(candidate)
+            }
+
+            val endX = origin.x + vector.x
+            val endZ = origin.z + vector.z
+            val minX = cell(minOf(origin.x, endX))
+            val maxX = cell(maxOf(origin.x, endX))
+            val minZ = cell(minOf(origin.z, endZ))
+            val maxZ = cell(maxOf(origin.z, endZ))
+            for (x in minX..maxX) {
+                for (z in minZ..maxZ) {
+                    for (candidate in buckets.cells[cellKey(x, z)] ?: continue) {
+                        if (candidate.queryStamp == currentQuery) continue
+                        candidate.queryStamp = currentQuery
+                        action(candidate)
+                    }
+                }
+            }
+        }
+
+        companion object {
+            private const val CELL_SIZE = 8.0
+            private const val MAX_CELLS_PER_VEHICLE = 64L
+
+            private fun cell(value: Double): Int = kotlin.math.floor(value / CELL_SIZE).toInt()
+
+            private fun cellKey(
+                x: Int,
+                z: Int,
+            ): Long = (x.toLong() shl 32) xor (z.toLong() and 0xffffffffL)
+        }
+    }
+
+    internal fun prepareVehicleLookIndex(vehicles: Iterable<Pair<Entity, Vehicle>>): VehicleLookIndex =
+        VehicleLookIndex(
+            vehicles.map { (entity, vehicle) ->
+                val position = entity.position
+                VehicleLookCandidate(
+                    entity,
+                    vehicle,
+                    position,
+                    vehicle.hitbox.boundingRadius,
+                    vehicle.hitbox.prepare(
+                        position,
+                        position.yaw,
+                        position.pitch,
+                        vehicle.hitboxRoll(entity),
+                    ),
+                )
+            },
+        )
+
+    internal fun findLookedAtVehicle(
+        instance: Instance,
+        origin: Pos,
+        vector: Vec,
+        vehicles: VehicleLookIndex,
+    ): VehicleLookCandidate? = vehicles.findClosest(instance, origin, vector)
 
     fun removePlayer(player: Player) {
         lastImpacts.keys.removeIf { it.player === player }

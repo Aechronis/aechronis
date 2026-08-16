@@ -1,5 +1,6 @@
 package net.aechronis.combat.objects
 
+import net.aechronis.combat.utils.InverseRotation
 import net.aechronis.combat.utils.Particles
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.rotatePointInverse
@@ -29,6 +30,38 @@ internal data class HitboxCollision(
 class Hitbox(
     val parts: List<HitboxPart>,
 ) {
+    internal val boundingRadius: Double = getMaxDistanceFrom(Vec.ZERO)
+
+    internal inner class Prepared internal constructor(
+        position: Point,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ) {
+        private val position = Vec(position.x(), position.y(), position.z())
+        private val inverseRotation = InverseRotation(yaw, pitch, roll)
+
+        fun firstIntersection(
+            origin: Point,
+            vector: Vec,
+            vectorLength: Double = vector.length(),
+        ): Double? {
+            val localOrigin =
+                inverseRotation.apply(
+                    Vec(origin.x() - position.x, origin.y() - position.y, origin.z() - position.z),
+                )
+            val localVector = inverseRotation.apply(vector)
+            return this@Hitbox.firstIntersection(localOrigin, localVector, vectorLength)
+        }
+    }
+
+    internal fun prepare(
+        position: Point,
+        yaw: Float,
+        pitch: Float,
+        roll: Float,
+    ): Prepared = Prepared(position, yaw, pitch, roll)
+
     // Resolves an axis-aligned entity bounding box intersecting this oriented hitbox.
     // The returned position is the entity position (rather than its bounding-box centre).
     internal fun resolveCollision(
@@ -405,27 +438,25 @@ class Hitbox(
         yaw: Float,
         pitch: Float,
         roll: Float,
-    ): Double? {
-        val localOrigin =
-            rotatePointInverse(
-                Vec(origin.x() - position.x, origin.y() - position.y, origin.z() - position.z),
-                yaw,
-                pitch,
-                roll,
-            )
-        val localVector = rotatePointInverse(vector, yaw, pitch, roll)
-        val distance = vector.length()
+    ): Double? = prepare(position, yaw, pitch, roll).firstIntersection(origin, vector)
 
-        return parts
-            .mapNotNull { part ->
+    private fun firstIntersection(
+        localOrigin: Vec,
+        localVector: Vec,
+        distance: Double,
+    ): Double? {
+        var closest = Double.POSITIVE_INFINITY
+        for (part in parts) {
+            val intersection =
                 segmentBoxIntersection(
                     localOrigin,
                     localVector,
                     part.offset.sub(part.size),
                     part.offset.add(part.size),
-                )
-            }.minOrNull()
-            ?.times(distance)
+                ) ?: continue
+            if (intersection < closest) closest = intersection
+        }
+        return if (closest.isFinite()) closest * distance else null
     }
 
     // checks if a point is inside a specific hitbox part
