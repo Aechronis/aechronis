@@ -43,9 +43,38 @@ fun townNametagViewedByPlayer(
 ): String = townNametagForRelationship(town, townRelationshipViewedByPlayer(town, viewer), space)
 
 object Nametag {
-    private data class ViewerState(
+    internal class ViewerState(
         val relationships: MutableMap<Int, DiplomaticRelationship> = hashMapOf(),
-    )
+    ) {
+        private val memberTeams: MutableMap<String, Int> = hashMapOf()
+
+        fun createTown(
+            townId: Int,
+            relationship: DiplomaticRelationship,
+            members: Collection<String>,
+        ) {
+            relationships[townId] = relationship
+            members.forEach { member -> memberTeams[member] = townId }
+        }
+
+        fun removeTown(townId: Int): Boolean {
+            if (relationships.remove(townId) == null) return false
+            memberTeams.entries.removeIf { (_, memberTownId) -> memberTownId == townId }
+            return true
+        }
+
+        fun addMember(townId: Int, member: String): Boolean {
+            if (!relationships.containsKey(townId) || memberTeams[member] == townId) return false
+            memberTeams[member] = townId
+            return true
+        }
+
+        fun removeMember(townId: Int, member: String): Boolean {
+            if (memberTeams[member] != townId) return false
+            memberTeams.remove(member)
+            return true
+        }
+    }
 
     private val viewers: MutableMap<UUID, ViewerState> = hashMapOf()
     private var started: Boolean = false
@@ -71,9 +100,9 @@ object Nametag {
 
         initializeViewer(player)
         Town.fromPlayer(player)?.let { town ->
-            sendMembershipChange(
+            addMember(
                 town,
-                TeamsPacket.AddEntitiesToTeamAction(listOf(player.username)),
+                player.username,
                 excludedViewer = player.uuid,
             )
         }
@@ -82,9 +111,9 @@ object Nametag {
     internal fun onPlayerQuit(player: Player) {
         if (started) {
             Town.fromPlayer(player)?.let { town ->
-                sendMembershipChange(
+                removeMember(
                     town,
-                    TeamsPacket.RemoveEntitiesToTeamAction(listOf(player.username)),
+                    player.username,
                     excludedViewer = player.uuid,
                 )
             }
@@ -94,13 +123,13 @@ object Nametag {
 
     internal fun onResidentAdded(town: Town, player: Player) {
         if (!started) return
-        sendMembershipChange(town, TeamsPacket.AddEntitiesToTeamAction(listOf(player.username)))
+        addMember(town, player.username)
         refreshViewerRelationships(player)
     }
 
     internal fun onResidentRemoved(town: Town, player: Player) {
         if (!started) return
-        sendMembershipChange(town, TeamsPacket.RemoveEntitiesToTeamAction(listOf(player.username)))
+        removeMember(town, player.username)
         refreshViewerRelationships(player)
     }
 
@@ -115,7 +144,7 @@ object Nametag {
     internal fun onTownDestroyed(town: Town) {
         if (!started) return
         initializedOnlineViewers().forEach { (viewer, state) ->
-            if (state.relationships.remove(town.townNametagId) != null) {
+            if (state.removeTown(town.townNametagId)) {
                 viewer.sendPacket(TeamsPacket(teamName(town), TeamsPacket.RemoveTeamAction()))
             }
         }
@@ -163,7 +192,7 @@ object Nametag {
         members: List<String>,
     ) {
         val relationship = townRelationshipViewedByPlayer(town, viewer)
-        state.relationships[town.townNametagId] = relationship
+        state.createTown(town.townNametagId, relationship, members)
         viewer.sendPacket(
             TeamsPacket(
                 teamName(town),
@@ -184,14 +213,27 @@ object Nametag {
         }
     }
 
-    private fun sendMembershipChange(
+    private fun addMember(
         town: Town,
-        action: TeamsPacket.Action,
+        member: String,
         excludedViewer: UUID? = null,
     ) {
-        val packet = TeamsPacket(teamName(town), action)
+        val packet = TeamsPacket(teamName(town), TeamsPacket.AddEntitiesToTeamAction(listOf(member)))
         initializedOnlineViewers().forEach { (viewer, state) ->
-            if (viewer.uuid != excludedViewer && state.relationships.containsKey(town.townNametagId)) {
+            if (viewer.uuid != excludedViewer && state.addMember(town.townNametagId, member)) {
+                viewer.sendPacket(packet)
+            }
+        }
+    }
+
+    private fun removeMember(
+        town: Town,
+        member: String,
+        excludedViewer: UUID? = null,
+    ) {
+        val packet = TeamsPacket(teamName(town), TeamsPacket.RemoveEntitiesToTeamAction(listOf(member)))
+        initializedOnlineViewers().forEach { (viewer, state) ->
+            if (viewer.uuid != excludedViewer && state.removeMember(town.townNametagId, member)) {
                 viewer.sendPacket(packet)
             }
         }
