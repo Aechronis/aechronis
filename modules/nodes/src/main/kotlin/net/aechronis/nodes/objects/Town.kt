@@ -105,6 +105,7 @@ class Town(
                 leader.needsUpdate()
             }
             Nodes.towns[name] = town
+            Nametag.onTownCreated(town)
             Nodes.needsSave = true
             Resident.renderMinimaps()
             return Result.success(town)
@@ -220,6 +221,7 @@ class Town(
                 }
             }
             Nodes.towns.remove(town.name)
+            Nametag.onTownDestroyed(town)
             Nodes.needsSave = true
             Resident.renderMinimaps()
         }
@@ -382,6 +384,7 @@ class Town(
             town.needsUpdate()
             resident.needsUpdate()
             resident.minimap?.refresh()
+            resident.player()?.let { player -> Nametag.onResidentAdded(town, player) }
             Nodes.needsSave = true
             return true
         }
@@ -402,6 +405,7 @@ class Town(
             resident.needsUpdate()
             resident.minimap?.refresh()
             if (player != null) WaypointMenu.closeBrowse(player, resident)
+            if (player != null) Nametag.onResidentRemoved(town, player)
             Nodes.needsSave = true
         }
 
@@ -441,6 +445,7 @@ class Town(
             town.name = name
             town.updateNametags()
             Nodes.towns[name] = town
+            Nametag.onTownRenamed(town)
             town.needsUpdate()
             town.nation?.needsUpdate()
             town.residents.forEach { it.needsUpdate() }

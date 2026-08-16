@@ -3,14 +3,35 @@
  */
 
 package net.aechronis.nodes.objects
+
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.color.TeamColor
 import net.minestom.server.entity.Player
 import net.minestom.server.network.packet.server.play.TeamsPacket
-import net.minestom.server.timer.Task
-import net.minestom.server.timer.TaskSchedule
+import java.util.UUID
+
+private fun townRelationshipViewedByPlayer(town: Town, viewer: Player): DiplomaticRelationship = Town.relationshipOfTownToTown(
+    town,
+    Resident.fromPlayer(viewer)?.town,
+)
+
+private fun townNametagForRelationship(
+    town: Town,
+    relationship: DiplomaticRelationship,
+    space: Boolean,
+): String {
+    val text = when (relationship) {
+        DiplomaticRelationship.TOWN -> town.nametagTown
+        DiplomaticRelationship.NATION -> town.nametagNation
+        DiplomaticRelationship.ALLY -> town.nametagAlly
+        DiplomaticRelationship.ENEMY -> town.nametagEnemy
+        DiplomaticRelationship.NEUTRAL -> town.nametagNeutral
+    }
+    return if (space) "$text " else text
+}
 
 /**
  * Get town nametag text as VIEWED by input player
@@ -19,111 +40,188 @@ fun townNametagViewedByPlayer(
     town: Town,
     viewer: Player,
     space: Boolean = true, // append space to the end of string
-): String {
-    // get input player relation to this.player
-    val otherTown = Resident.fromPlayer(viewer)?.town
-    if (otherTown !== null) {
-        val townNation = town.nation
-        val otherNation = otherTown.nation
-        if (town === otherTown) {
-            return if (space) "${town.nametagTown} " else town.nametagTown
-        } else if (townNation !== null && townNation === otherNation) {
-            return if (space) "${town.nametagNation} " else town.nametagNation
-        } else if (townNation !== null && otherNation !== null && townNation.allies.contains(otherNation)) {
-            return if (space) "${town.nametagAlly} " else town.nametagAlly
-        } else if (townNation !== null && otherNation !== null && townNation.enemies.contains(otherNation)) {
-            return if (space) "${town.nametagEnemy} " else town.nametagEnemy
-        }
-    }
-
-    return if (space) "${town.nametagNeutral} " else town.nametagNeutral
-}
+): String = townNametagForRelationship(town, townRelationshipViewedByPlayer(town, viewer), space)
 
 object Nametag {
-    private var task: Task? = null
+    private data class ViewerState(
+        val relationships: MutableMap<Int, DiplomaticRelationship> = hashMapOf(),
+    )
 
-    /**
-     * Start the automatic nametag update scheduler
-     */
-    fun start(period: Long) {
-        if (this.task !== null) {
-            return
-        }
+    private val viewers: MutableMap<UUID, ViewerState> = hashMapOf()
+    private var started: Boolean = false
 
-        val runnable = Runnable {
-            updateAllText()
-        }
+    fun start() {
+        if (started) return
+        started = true
 
-        this.task = MinecraftServer.getSchedulerManager()
-            .buildTask(runnable)
-            .delay(TaskSchedule.millis(period))
-            .repeat(TaskSchedule.millis(period))
-            .schedule()
-    }
-
-    /**
-     * Stop the automatic nametag update scheduler
-     */
-    fun stop() {
-        val task = this.task
-        if (task === null) {
-            return
-        }
-
-        task.cancel()
-        this.task = null
-    }
-
-    /**
-     * Update nametag text for player
-     * Sends team packets directly to the player so they see customized prefixes
-     */
-    private fun updateTextForPlayer(player: Player) {
-        // remove all existing town teams for this viewer
-        for (town in Nodes.towns.values) {
-            val teamName = "t${town.townNametagId}"
-            player.sendPacket(TeamsPacket(teamName, TeamsPacket.RemoveTeamAction()))
-        }
-
-        // create teams for each town with prefix as viewed by this player
-        for (town in Nodes.towns.values) {
-            val teamName = "t${town.townNametagId}"
-            val prefix = townNametagViewedByPlayer(town, player, space = true)
-
-            // collect all players in this town to add to the team
-            val townMembers = mutableListOf<String>()
-            for (otherPlayer in MinecraftServer.getConnectionManager().onlinePlayers) {
-                val otherTown = Town.fromPlayer(otherPlayer)
-                if (otherTown === town) {
-                    townMembers.add(otherPlayer.username)
-                }
-            }
-
-            // create team with customized prefix for this viewer
-            val createAction = TeamsPacket.CreateTeamAction(
-                TeamsPacket.Settings(
-                    Component.text(teamName), // displayName
-                    Component.text(prefix), // displayName
-                    Component.empty(), // teamSuffix
-                    TeamsPacket.NameTagVisibility.ALWAYS, // nameTagVisibility
-                    TeamsPacket.CollisionRule.ALWAYS, // collisionRule
-                    TeamColor.WHITE, // teamColor
-                    0, // friendlyFlags (I don't think is actually does anything visible clientside)
-                ),
-                townMembers, // entities (players in this town)
-            )
-            player.sendPacket(TeamsPacket(teamName, createAction))
-        }
-    }
-
-    /**
-     * Update all player nametags
-     * Calls updateTextForPlayer for each online player
-     */
-    private fun updateAllText() {
         val onlinePlayers = MinecraftServer.getConnectionManager().onlinePlayers
-        for (player in onlinePlayers) {
-            updateTextForPlayer(player)
+        viewers.keys.retainAll(onlinePlayers.mapTo(hashSetOf()) { it.uuid })
+        onlinePlayers.forEach { player ->
+            if (viewers[player.uuid] == null) initializeViewer(player)
         }
     }
+
+    fun stop() {
+        started = false
+    }
+
+    /** Initialize every town team for a newly connected viewer. */
+    internal fun onPlayerJoin(player: Player) {
+        if (!started || viewers.containsKey(player.uuid)) return
+
+        initializeViewer(player)
+        Town.fromPlayer(player)?.let { town ->
+            sendMembershipChange(
+                town,
+                TeamsPacket.AddEntitiesToTeamAction(listOf(player.username)),
+                excludedViewer = player.uuid,
+            )
+        }
+    }
+
+    internal fun onPlayerQuit(player: Player) {
+        if (started) {
+            Town.fromPlayer(player)?.let { town ->
+                sendMembershipChange(
+                    town,
+                    TeamsPacket.RemoveEntitiesToTeamAction(listOf(player.username)),
+                    excludedViewer = player.uuid,
+                )
+            }
+        }
+        viewers.remove(player.uuid)
+    }
+
+    internal fun onResidentAdded(town: Town, player: Player) {
+        if (!started) return
+        sendMembershipChange(town, TeamsPacket.AddEntitiesToTeamAction(listOf(player.username)))
+        refreshViewerRelationships(player)
+    }
+
+    internal fun onResidentRemoved(town: Town, player: Player) {
+        if (!started) return
+        sendMembershipChange(town, TeamsPacket.RemoveEntitiesToTeamAction(listOf(player.username)))
+        refreshViewerRelationships(player)
+    }
+
+    internal fun onTownCreated(town: Town) {
+        if (!started) return
+        val members = onlineMembers(town)
+        initializedOnlineViewers().forEach { (viewer, state) ->
+            createTownTeam(viewer, state, town, members)
+        }
+    }
+
+    internal fun onTownDestroyed(town: Town) {
+        if (!started) return
+        initializedOnlineViewers().forEach { (viewer, state) ->
+            if (state.relationships.remove(town.townNametagId) != null) {
+                viewer.sendPacket(TeamsPacket(teamName(town), TeamsPacket.RemoveTeamAction()))
+            }
+        }
+        refreshRelationships()
+    }
+
+    internal fun onTownRenamed(town: Town) {
+        if (!started) return
+        initializedOnlineViewers().forEach { (viewer, state) ->
+            val relationship = state.relationships[town.townNametagId] ?: return@forEach
+            viewer.sendPacket(updateTeamPacket(town, relationship))
+        }
+    }
+
+    internal fun refreshRelationships() {
+        if (!started) return
+        initializedOnlineViewers().forEach { (viewer, _) -> refreshViewerRelationships(viewer) }
+    }
+
+    internal fun rebuildAllViewers() {
+        if (!started) return
+
+        val onlinePlayers = MinecraftServer.getConnectionManager().onlinePlayers
+        viewers.keys.retainAll(onlinePlayers.mapTo(hashSetOf()) { it.uuid })
+        onlinePlayers.forEach { player ->
+            viewers.remove(player.uuid)?.relationships?.keys?.forEach { townId ->
+                player.sendPacket(TeamsPacket(teamName(townId), TeamsPacket.RemoveTeamAction()))
+            }
+            initializeViewer(player)
+        }
+    }
+
+    private fun initializeViewer(player: Player) {
+        val state = ViewerState()
+        viewers[player.uuid] = state
+        Nodes.towns.values.forEach { town ->
+            createTownTeam(player, state, town, onlineMembers(town))
+        }
+    }
+
+    private fun createTownTeam(
+        viewer: Player,
+        state: ViewerState,
+        town: Town,
+        members: List<String>,
+    ) {
+        val relationship = townRelationshipViewedByPlayer(town, viewer)
+        state.relationships[town.townNametagId] = relationship
+        viewer.sendPacket(
+            TeamsPacket(
+                teamName(town),
+                TeamsPacket.CreateTeamAction(settings(town, relationship), members),
+            ),
+        )
+    }
+
+    private fun refreshViewerRelationships(viewer: Player) {
+        val state = viewers[viewer.uuid] ?: return
+        Nodes.towns.values.forEach { town ->
+            val relationship = townRelationshipViewedByPlayer(town, viewer)
+            val previous = state.relationships.put(town.townNametagId, relationship)
+            when {
+                previous == null -> createTownTeam(viewer, state, town, onlineMembers(town))
+                previous != relationship -> viewer.sendPacket(updateTeamPacket(town, relationship))
+            }
+        }
+    }
+
+    private fun sendMembershipChange(
+        town: Town,
+        action: TeamsPacket.Action,
+        excludedViewer: UUID? = null,
+    ) {
+        val packet = TeamsPacket(teamName(town), action)
+        initializedOnlineViewers().forEach { (viewer, state) ->
+            if (viewer.uuid != excludedViewer && state.relationships.containsKey(town.townNametagId)) {
+                viewer.sendPacket(packet)
+            }
+        }
+    }
+
+    private fun initializedOnlineViewers(): List<Pair<Player, ViewerState>> = MinecraftServer
+        .getConnectionManager().onlinePlayers.mapNotNull { player ->
+            viewers[player.uuid]?.let { state -> player to state }
+        }
+
+    private fun onlineMembers(town: Town): List<String> = MinecraftServer.getConnectionManager().onlinePlayers
+        .filter { player -> Town.fromPlayer(player) === town }
+        .map(Player::getUsername)
+
+    private fun updateTeamPacket(town: Town, relationship: DiplomaticRelationship): TeamsPacket = TeamsPacket(
+        teamName(town),
+        TeamsPacket.UpdateTeamAction(settings(town, relationship)),
+    )
+
+    private fun settings(town: Town, relationship: DiplomaticRelationship): TeamsPacket.Settings = TeamsPacket.Settings(
+        Component.text(teamName(town)),
+        Component.text(townNametagForRelationship(town, relationship, space = true)),
+        Component.empty(),
+        TeamsPacket.NameTagVisibility.ALWAYS,
+        TeamsPacket.CollisionRule.ALWAYS,
+        TeamColor.WHITE,
+        0,
+    )
+
+    private fun teamName(town: Town): String = teamName(town.townNametagId)
+
+    private fun teamName(townId: Int): String = "t$townId"
 }

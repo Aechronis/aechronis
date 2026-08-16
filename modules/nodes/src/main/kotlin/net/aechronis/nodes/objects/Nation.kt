@@ -76,6 +76,7 @@ class Nation(
             indexTownMembers(nation, town)
             town.needsUpdate()
             nation.needsUpdate()
+            Nametag.refreshRelationships()
             Nodes.needsSave = true
             Resident.renderMinimaps()
             return Result.success(nation)
@@ -115,6 +116,7 @@ class Nation(
             nation.residents.clear()
             nation.playersOnline.clear()
             Nodes.nations.remove(nation.name)
+            Nametag.refreshRelationships()
             Nodes.needsSave = true
             Resident.renderMinimaps()
         }
@@ -126,6 +128,7 @@ class Nation(
             town.needsUpdate()
             indexTownMembers(nation, town)
             nation.needsUpdate()
+            Nametag.refreshRelationships()
             Nodes.needsSave = true
             Resident.renderMinimaps()
             return Result.success(town)
@@ -144,6 +147,7 @@ class Nation(
             }
             town.needsUpdate()
             nation.needsUpdate()
+            Nametag.refreshRelationships()
             Nodes.needsSave = true
             Resident.renderMinimaps()
             return Result.success(town)
@@ -193,6 +197,7 @@ class Nation(
             }
             nation.needsUpdate()
             other.needsUpdate()
+            Nametag.refreshRelationships()
             Nodes.needsSave = true
             Resident.renderMinimaps()
             return Result.success(true)
@@ -206,6 +211,7 @@ class Nation(
             other.towns.forEach { it.needsUpdate() }
             nation.needsUpdate()
             other.needsUpdate()
+            Nametag.refreshRelationships()
             Nodes.needsSave = true
             Resident.renderMinimaps()
             return Result.success(true)
@@ -221,6 +227,7 @@ class Nation(
             enemy.towns.forEach { it.needsUpdate() }
             nation.needsUpdate()
             enemy.needsUpdate()
+            Nametag.refreshRelationships()
             Nodes.needsSave = true
             Resident.renderMinimaps()
             return Result.success(true)
@@ -233,6 +240,7 @@ class Nation(
             enemy.towns.forEach { it.needsUpdate() }
             nation.needsUpdate()
             enemy.needsUpdate()
+            Nametag.refreshRelationships()
             Nodes.needsSave = true
             Resident.renderMinimaps()
             return Result.success(true)

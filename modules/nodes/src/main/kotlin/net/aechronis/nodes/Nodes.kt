@@ -168,7 +168,7 @@ object Nodes {
         Nametag.stop()
         SaveManager.start(config.savePeriod)
         IncomeManager.start()
-        Nametag.start(config.nametagUpdatePeriod)
+        Nametag.start()
     }
 
     internal fun initializeOnlinePlayers() {
@@ -369,6 +369,7 @@ object Nodes {
                 MiningBoostManager.onPlayerJoin(player)
                 resident.createMinimap(player)
             }
+            Nametag.rebuildAllViewers()
         }
     }
 

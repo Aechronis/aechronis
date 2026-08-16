@@ -12,6 +12,7 @@ import net.aechronis.nodes.chat.Chat
 import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.ColonizationMenu
 import net.aechronis.nodes.objects.MiningBoostManager
+import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.WaypointMenu
@@ -33,6 +34,7 @@ object NodesPlayerJoinQuitListener {
 
         val resident: Resident = Resident.fromPlayer(player)!!
         Resident.setOnline(resident, player)
+        Nametag.onPlayerJoin(player)
         MiningBoostManager.onPlayerJoin(player)
         resident.createMinimap(player)
         MinecraftServer.getSchedulerManager().scheduleNextTick {
@@ -79,6 +81,7 @@ object NodesPlayerJoinQuitListener {
     fun onPlayerQuit(event: PlayerDisconnectEvent) {
         val player: Player = event.player
         val resident = Resident.fromPlayer(player)
+        Nametag.onPlayerQuit(player)
         MiningBoostManager.onPlayerQuit(player)
         if (resident != null) {
             resident.destroyMinimap()
