@@ -32,7 +32,7 @@ object TabManager {
             .appendNewline()
             .appendNewline()
             .appendNewline()
-            .append(Component.text("Iteration name goes here", NamedTextColor.GRAY))
+            .append(Component.text("A New Millennium", NamedTextColor.GRAY))
             .appendNewline()
             .append(Component.text("                                      ")) // force tab width
     private var eventNode: EventNode<Event>? = null
