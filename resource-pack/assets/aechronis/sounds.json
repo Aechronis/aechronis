@@ -1,112 +1,112 @@
 {
   "ak12.fire": {
     "sounds": [
-      "aechronis:ak74-fire"
+      "aechronis:generic-rifle-fire"
     ]
   },
   "ak12.reload": {
     "sounds": [
-      "aechronis:ak74-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "ak74.fire": {
     "sounds": [
-      "aechronis:ak74-fire"
+      "aechronis:generic-rifle-fire"
     ]
   },
   "ak74.reload": {
     "sounds": [
-      "aechronis:ak74-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "awp.fire": {
     "sounds": [
-      "aechronis:ak74-fire"
+      "aechronis:awp-fire"
     ]
   },
   "awp.reload": {
     "sounds": [
-      "aechronis:ak74-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "g3.fire": {
     "sounds": [
-      "aechronis:ak74-fire"
+      "aechronis:generic-rifle-fire"
     ]
   },
   "g3.reload": {
     "sounds": [
-      "aechronis:ak74-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "glock17.fire": {
     "sounds": [
-      "aechronis:m4a1-fire"
+      "aechronis:generic-rifle-fire"
     ]
   },
   "glock17.reload": {
     "sounds": [
-      "aechronis:m4a1-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "m4a1.fire": {
     "sounds": [
-      "aechronis:m4a1-fire"
+      "aechronis:generic-rifle-fire"
     ]
   },
   "m4a1.reload": {
     "sounds": [
-      "aechronis:m4a1-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "m9.fire": {
     "sounds": [
-      "aechronis:m4a1-fire"
+      "aechronis:generic-rifle-fire"
     ]
   },
   "m9.reload": {
     "sounds": [
-      "aechronis:m4a1-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "mg3.fire": {
     "sounds": [
-      "aechronis:ak74-fire"
+      "aechronis:generic-rifle-fire"
     ]
   },
   "mg3.reload": {
     "sounds": [
-      "aechronis:ak74-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "mp5.fire": {
     "sounds": [
-      "aechronis:m4a1-fire"
+      "aechronis:generic-rifle-fire"
     ]
   },
   "mp5.reload": {
     "sounds": [
-      "aechronis:m4a1-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "qbz-95.fire": {
     "sounds": [
-      "aechronis:ak74-fire"
+      "aechronis:generic-rifle-fire"
     ]
   },
   "qbz-95.reload": {
     "sounds": [
-      "aechronis:ak74-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "vz61.fire": {
     "sounds": [
-      "aechronis:m4a1-fire"
+      "aechronis:generic-rifle-fire"
     ]
   },
   "vz61.reload": {
     "sounds": [
-      "aechronis:m4a1-reload"
+      "aechronis:generic-rifle-reload"
     ]
   },
   "drone.buzz": {
