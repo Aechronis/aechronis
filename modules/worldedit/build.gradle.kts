@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     compileOnly(project(":modules:utils"))
-    compileOnly("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly("net.minestom:minestom:2026.08.07-26.2")
     api("com.sk89q.worldedit:worldedit-core:7.4.4") {
         exclude(group = "com.google.code.gson", module = "gson")
     }
@@ -15,7 +15,7 @@ dependencies {
     compileOnly(kotlin("stdlib"))
 
     testImplementation(project(":modules:utils"))
-    testImplementation("net.minestom:minestom:2026.07.12-26.2")
+    testImplementation("net.minestom:minestom:2026.08.07-26.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

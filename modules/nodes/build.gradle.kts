@@ -5,7 +5,7 @@ plugins {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2026.07.12-26.2")
+    implementation("net.minestom:minestom:2026.08.07-26.2")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     implementation(project(":modules:combat"))
     implementation(project(":modules:utils"))

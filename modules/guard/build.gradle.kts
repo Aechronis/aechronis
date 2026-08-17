@@ -5,7 +5,7 @@ plugins {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2026.07.12-26.2")
+    implementation("net.minestom:minestom:2026.08.07-26.2")
     implementation(project(":modules:utils"))
     compileOnly(project(":modules:worldedit"))
     implementation("com.google.code.gson:gson:2.14.0")

@@ -25,7 +25,7 @@ tasks.named<ShadowJar>("shadowJar") {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2026.07.12-26.2")
+    implementation("net.minestom:minestom:2026.08.07-26.2")
     implementation(project(":modules:utils"))
     implementation(project(":modules:nodes"))
     implementation(project(":modules:combat"))

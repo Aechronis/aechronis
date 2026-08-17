@@ -5,7 +5,7 @@ plugins {
 }
 
 dependencies {
-    api("net.minestom:minestom:2026.07.12-26.2")
+    api("net.minestom:minestom:2026.08.07-26.2")
     api("com.google.code.gson:gson:2.14.0")
     compileOnly(project(":modules:utils"))
 
