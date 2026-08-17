@@ -8,7 +8,7 @@ dependencies {
     implementation("net.minestom:minestom:2026.07.12-26.2")
     implementation(project(":modules:utils"))
     compileOnly(project(":modules:worldedit"))
-    implementation("com.google.code.gson:gson:2.13.2")
+    implementation("com.google.code.gson:gson:2.14.0")
 
     testImplementation(project(":modules:worldedit"))
     testImplementation("org.jetbrains.kotlin:kotlin-test")
