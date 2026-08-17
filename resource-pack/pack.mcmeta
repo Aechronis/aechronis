@@ -1,9 +1,21 @@
 {
   "pack": {
     "pack_format": 75,
-    "min_format": [22,0],
+    "min_format": [64,0],
     "max_format": [75,0],
-    "supported_formats": [22,75],
+    "supported_formats": [64,75],
     "description": "           §6§lAechronis\n§7   Template resource pack"
+  },
+  "overlays": {
+    "entries": [
+      {
+        "directory": "overlays/1.21.11",
+        "formats": [64,64]
+      },
+      {
+        "directory": "overlays/26.2",
+        "formats": [75,75]
+      }
+    ]
   }
 }

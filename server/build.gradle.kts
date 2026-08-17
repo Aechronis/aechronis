@@ -18,7 +18,19 @@ tasks.withType<Jar>().configureEach {
     }
 }
 
+val luckPermsJar =
+    configurations.runtimeClasspath.map { classpath ->
+        classpath.single { it.name.startsWith("luckperms-minestom-") && it.extension == "jar" }
+    }
+
 tasks.named<ShadowJar>("shadowJar") {
+    dependencies {
+        exclude(dependency("com.conceptmc:luckperms-minestom"))
+    }
+    from(luckPermsJar.map(::zipTree)) {
+        exclude("net/kyori/**")
+    }
+
     from(rootProject.file("resource-pack")) {
         into("embedded-resource-pack")
     }
