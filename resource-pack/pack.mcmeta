@@ -9,11 +9,11 @@
   "overlays": {
     "entries": [
       {
-        "directory": "overlays/1.21.11",
+        "directory": "overlay_1_21_11",
         "formats": [64,64]
       },
       {
-        "directory": "overlays/26.2",
+        "directory": "overlay_26_2",
         "formats": [75,75]
       }
     ]
