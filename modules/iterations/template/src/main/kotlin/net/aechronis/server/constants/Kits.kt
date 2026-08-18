@@ -10,14 +10,14 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 
 object Kits {
-    private const val PRIMARY_SLOT = 1
-    private const val SECONDARY_SLOT = 2
-    private const val MELEE_SLOT = 3
-    private const val TOOL_SLOT = 4
+    private const val PRIMARY_SLOT = 0
+    private const val SECONDARY_SLOT = 1
+    private const val MELEE_SLOT = 2
+    private const val TOOL_SLOT = 3
     private const val PRIMARY_AMMO_SLOT = 9
     private const val SECONDARY_AMMO_SLOT = 10
-    private const val FOOD_SLOT = 11
-    private const val BLOCKS_SLOT = 12
+    private const val FOOD_SLOT = 7
+    private const val BLOCKS_SLOT = 8
 
     private val usMarineArmor =
         listOf(
