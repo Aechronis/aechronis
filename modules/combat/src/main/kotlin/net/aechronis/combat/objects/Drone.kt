@@ -109,7 +109,7 @@ class Drone(
         playerInverted[player] = inverted
         playerPendingSwitch[player] = false
 
-        player.spectate(entitySpider[entity])
+        spectateCamera(player, entitySpider[entity])
 
         entitySpider[entity]?.let { camera ->
             spawnViewmodels(player, camera, camera.position.yaw, camera.position.pitch, inverted)
@@ -207,6 +207,7 @@ class Drone(
         }
 
         if (!retainCrashStatic) player.stopSpectating()
+        entitySpider[entity]?.removeViewer(player)
 
         // return the pilot to the operator clone's spot
         playerOperatorMannequin.remove(player)?.let { mannequin ->
@@ -396,11 +397,20 @@ class Drone(
         return spider
     }
 
+    private fun spectateCamera(
+        player: Player,
+        camera: LivingEntity?,
+    ) {
+        camera ?: return
+        camera.addViewer(player)
+        player.spectate(camera)
+    }
+
     override fun onTick(player: Player) {
         val entity = playerVehicleEntity[player] ?: return
         val inputEvent = KeyPressListener.playerInputEvent[player]
 
-        player.spectate(entitySpider[entity])
+        spectateCamera(player, entitySpider[entity])
 
         if (inputEvent?.isHoldingShiftKey == true) {
             endFlight(player)
@@ -543,7 +553,7 @@ class Drone(
                 freshSpider.setView(displayYaw, spiderPitch, displayYaw)
                 entitySpider[entity] = freshSpider
                 // spectate the fresh camera before removing the old one
-                player.spectate(freshSpider)
+                spectateCamera(player, freshSpider)
 
                 // respawn the viewmodel(s) on the fresh camera in lockstep
                 val oldViewmodel = playerViewmodel[player]
