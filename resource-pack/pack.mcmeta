@@ -3,18 +3,19 @@
     "pack_format": 88,
     "min_format": [75,0],
     "max_format": [88,0],
-    "supported_formats": [75,88],
     "description": "           §6§lAechronis\n§7   Template resource pack"
   },
   "overlays": {
     "entries": [
       {
         "directory": "overlay_1_21_11",
-        "formats": [75,75]
+        "min_format": [75,0],
+        "max_format": [75,0]
       },
       {
         "directory": "overlay_26_2",
-        "formats": [88,88]
+        "min_format": [88,0],
+        "max_format": [88,0]
       }
     ]
   }
