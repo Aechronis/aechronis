@@ -1173,72 +1173,72 @@ object FlagWar {
         if (chunk.coord == chunk.territory.core) {
             deferMinimapRefresh {
                 synchronized(Nodes.occupationPersistenceLock) {
-                val territory = chunk.territory
-                val territoryTown = territory.town
-                val attacker = Resident.fromUuid(attack.attacker)
-                val attackerTown = attack.town
-                val attackerNation = attackerTown.nation
+                    val territory = chunk.territory
+                    val territoryTown = territory.town
+                    val attacker = Resident.fromUuid(attack.attacker)
+                    val attackerTown = attack.town
+                    val attackerNation = attackerTown.nation
 
-                // cleanup territory chunks
-                for (coord in territory.chunks) {
-                    val territoryChunk = TerritoryChunk.fromCoord(coord)
-                    if (territoryChunk != null) {
-                        // cancel any concurrent attacks in this territory
-                        chunkToAttacker.get(territoryChunk.coord)?.cancel()
+                    // cleanup territory chunks
+                    for (coord in territory.chunks) {
+                        val territoryChunk = TerritoryChunk.fromCoord(coord)
+                        if (territoryChunk != null) {
+                            // cancel any concurrent attacks in this territory
+                            chunkToAttacker.get(territoryChunk.coord)?.cancel()
 
-                        // clear occupy/attack status from chunks
-                        territoryChunk.attacker = null
-                        territoryChunk.occupier = null
+                            // clear occupy/attack status from chunks
+                            territoryChunk.attacker = null
+                            territoryChunk.occupier = null
 
-                        // remove from internal list of occupied chunks
-                        occupiedChunks.remove(territoryChunk.coord)
-                        colonizedChunks.remove(territoryChunk.coord)
-                    }
-                }
-
-                // handle re-capturing your own territory, nation territory, or ally territory from enemy
-                if (territoryTown === attackerTown ||
-                    (attackerNation !== null && attackerNation === territoryTown?.nation) ||
-                    Town.areAllied(attackerTown, territoryTown)
-                ) {
-                    val occupier = territory.occupier
-                    Town.release(territory)
-                    Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} liberated territory (id=${territory.id}) from ${occupier?.name}!")
-                }
-                // captured enemy territory
-                else {
-                    Town.capture(attackerTown, territory, commitWarState = false)
-                    if (attack.mode == AttackMode.COLONIZATION) {
-                        // A completed colony must retain the same off-war control
-                        // that partial colony chunks have. Persist an occupier on
-                        // every chunk so the provenance survives war.json reloads.
-                        for (coord in territory.chunks) {
-                            TerritoryChunk.fromCoord(coord)?.let { territoryChunk ->
-                                territoryChunk.occupier = attackerTown
-                                occupiedChunks.add(coord)
-                                colonizedChunks.add(coord)
-                            }
+                            // remove from internal list of occupied chunks
+                            occupiedChunks.remove(territoryChunk.coord)
+                            colonizedChunks.remove(territoryChunk.coord)
                         }
-                        requestMinimapRefresh()
                     }
-                    commitTerritoryOccupation(
-                        territory,
-                        attackerTown,
-                        colonized = attack.mode == AttackMode.COLONIZATION,
-                    )
-                    val action = if (attack.mode == AttackMode.COLONIZATION) "colonized" else "captured"
-                    Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} $action territory (id=${territory.id}) from ${territoryTown?.name}!")
-                    if (territoryTown != null && shouldAnnexTown(territoryTown, territory)) {
-                        val defeatedTownName = territoryTown.name
-                        Town.annex(attackerTown, territoryTown)
-                        Message.broadcast(
-                            "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} annexed $defeatedTownName; " +
-                                "${attacker?.name ?: attackerTown.name} made the decisive capture!",
+
+                    // handle re-capturing your own territory, nation territory, or ally territory from enemy
+                    if (territoryTown === attackerTown ||
+                        (attackerNation !== null && attackerNation === territoryTown?.nation) ||
+                        Town.areAllied(attackerTown, territoryTown)
+                    ) {
+                        val occupier = territory.occupier
+                        Town.release(territory)
+                        Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} liberated territory (id=${territory.id}) from ${occupier?.name}!")
+                    }
+                    // captured enemy territory
+                    else {
+                        Town.capture(attackerTown, territory, commitWarState = false)
+                        if (attack.mode == AttackMode.COLONIZATION) {
+                            // A completed colony must retain the same off-war control
+                            // that partial colony chunks have. Persist an occupier on
+                            // every chunk so the provenance survives war.json reloads.
+                            for (coord in territory.chunks) {
+                                TerritoryChunk.fromCoord(coord)?.let { territoryChunk ->
+                                    territoryChunk.occupier = attackerTown
+                                    occupiedChunks.add(coord)
+                                    colonizedChunks.add(coord)
+                                }
+                            }
+                            requestMinimapRefresh()
+                        }
+                        commitTerritoryOccupation(
+                            territory,
+                            attackerTown,
+                            colonized = attack.mode == AttackMode.COLONIZATION,
                         )
+                        val action = if (attack.mode == AttackMode.COLONIZATION) "colonized" else "captured"
+                        Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} $action territory (id=${territory.id}) from ${territoryTown?.name}!")
+                        if (territoryTown != null && shouldAnnexTown(territoryTown, territory)) {
+                            val defeatedTownName = territoryTown.name
+                            Town.annex(attackerTown, territoryTown)
+                            Message.broadcast(
+                                "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} annexed $defeatedTownName; " +
+                                    "${attacker?.name ?: attackerTown.name} made the decisive capture!",
+                            )
+                        }
                     }
                 }
             }
-        }
         }
         // else, attacking normal chunk cases:
         // 1. your town, chunk captured by enemy -> liberating, remove flag

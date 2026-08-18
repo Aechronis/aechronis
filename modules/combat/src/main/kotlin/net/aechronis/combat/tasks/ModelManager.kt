@@ -26,6 +26,7 @@ import net.minestom.server.timer.TaskSchedule
 
 object ModelManager {
     private const val HIT_ANIMATION_HASTE_SOURCE = "combat:hit_animation"
+
     // X X X layer 1 A X A layer 2
     // X H X         X X X
     // X X X         A X A
