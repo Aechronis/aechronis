@@ -129,6 +129,13 @@ object FlagWar {
     // periodic task to check for save
     internal var saveTask: Task? = null
 
+    // One scheduler advances every active attack instead of one task per flag.
+    internal var attackTask: Task? = null
+
+    // Core captures can cancel many flags; refresh all minimaps once afterward.
+    private var minimapRefreshDeferrals: Int = 0
+    private var minimapRefreshPending: Boolean = false
+
     fun initialize(flagBlocks: Set<Block>) {
         this.flagBlocks.clear()
         FlagWar.flagBlocks.addAll(flagBlocks)
@@ -181,6 +188,10 @@ object FlagWar {
      * Load war state from .json file
      */
     internal fun load() {
+        // A reload must not leave a scheduler advancing discarded attacks.
+        attackTask?.cancel()
+        attackTask = null
+
         // clear all maps
         attackers.clear()
         chunkToAttacker.clear()
@@ -382,11 +393,10 @@ object FlagWar {
     internal fun resetForReload() {
         saveTask?.cancel()
         saveTask = null
+        attackTask?.cancel()
+        attackTask = null
 
-        chunkToAttacker.values.toList().forEach { attack ->
-            attack.thread.cancel()
-            cancelAttack(attack)
-        }
+        chunkToAttacker.values.toList().forEach(::cancelAttack)
         occupiedChunks.toList().forEach { coord ->
             TerritoryChunk.fromCoord(coord)?.let { chunk ->
                 chunk.attacker = null
@@ -410,9 +420,11 @@ object FlagWar {
 
     // cleanup when server is shutdown
     internal fun cleanup() {
-        // stop save task
+        // stop scheduled work
         saveTask?.cancel()
         saveTask = null
+        attackTask?.cancel()
+        attackTask = null
 
         // remove all progress bars from players
         for (attack in chunkToAttacker.values) {
@@ -434,7 +446,6 @@ object FlagWar {
                 chunk.attacker = null
                 chunk.occupier = null
             }
-            attack.thread.cancel()
             cancelAttack(attack)
         }
 
@@ -485,10 +496,7 @@ object FlagWar {
         saveTask = null
 
         // stop global war flags without touching independent colonization flags
-        chunkToAttacker.values.filter { it.mode == AttackMode.WAR }.toList().forEach { attack ->
-            attack.thread.cancel()
-            cancelAttack(attack)
-        }
+        chunkToAttacker.values.filter { it.mode == AttackMode.WAR }.toList().forEach(::cancelAttack)
 
         // clear global war captures while preserving colonized chunks
         for (coord in occupiedChunks.toList()) {
@@ -615,8 +623,9 @@ object FlagWar {
             }
 
             // check flag has vision to sky
+            val instance = MinecraftServer.getInstanceManager().instances.first()
             for (y in flagBaseY + 1..255) {
-                if (!MinecraftServer.getInstanceManager().instances.first().getBlock(flagBaseX, y, flagBaseZ).isAir) {
+                if (!instance.getBlock(flagBaseX, y, flagBaseZ).isAir) {
                     return Result.failure(ErrorSkyBlocked)
                 }
             }
@@ -709,14 +718,16 @@ object FlagWar {
             )
         }
 
+        val instance = MinecraftServer.getInstanceManager().instances.first()
+
         // no flag base block, set to default
-        if (!Nodes.config.flagBlocks.contains(MinecraftServer.getInstanceManager().instances.first().getBlock(flagBase))) {
-            MinecraftServer.getInstanceManager().instances.first().setBlock(flagBase, Nodes.config.flagBlockDefault)
+        if (!Nodes.config.flagBlocks.contains(instance.getBlock(flagBase))) {
+            instance.setBlock(flagBase, Nodes.config.flagBlockDefault)
         }
 
         // initialize flag blocks
-        MinecraftServer.getInstanceManager().instances.first().setBlock(flagBlock, Block.DEEPSLATE)
-        MinecraftServer.getInstanceManager().instances.first().setBlock(flagTorch, Block.TORCH)
+        instance.setBlock(flagBlock, Block.DEEPSLATE)
+        instance.setBlock(flagTorch, Block.TORCH)
 
         // create new attack instance
         val attack = Attack(
@@ -754,7 +765,8 @@ object FlagWar {
 
         // map chunk to the attack
         chunkToAttacker.put(chunk.coord, attack)
-        Resident.renderMinimaps()
+        startAttackTask()
+        requestMinimapRefresh()
 
         // map flag block to attack (for breaking)
         blockToAttacker.put(flagBlock, attack)
@@ -773,13 +785,11 @@ object FlagWar {
         if (!canAnnexTerritories && chunk.coord == chunk.territory.core) return
 
         val attack = createAttack(attacker, attackingTown, chunk, flagBase, mode = AttackMode.WAR)
-        val now = System.currentTimeMillis() / 1000
-        val remainingTicks = ((completionTime - now) * ATTACK_TICK).coerceAtLeast(0)
-        attack.progress = (attack.attackTime - remainingTicks).coerceIn(0, attack.attackTime)
+        attack.restoreCompletionTime(completionTime)
         attack.progressBar.progress(attack.progress.toFloat() / attack.attackTime.toFloat())
+        attack.textDisplay.updateProgress()
 
         if (attack.progress >= attack.attackTime) {
-            attack.thread.cancel()
             finishAttack(attack)
         }
     }
@@ -988,11 +998,8 @@ object FlagWar {
     }
 
     /**
-     * Create/update a flag attack beacon
-     * Uses an fast editing session with single packet send and
-     * no lighting updates
-     * - with block.setType(): takes ~2 ms to update
-     * - with edit session: takes ~200-300 us to update
+     * Create/update a flag attack beacon. Coordinates are recorded so only
+     * blocks owned by this attack are removed during cleanup.
      */
     internal fun createAttackBeacon(
         skyBeaconColorBlocks: MutableList<BlockVec>,
@@ -1008,28 +1015,67 @@ object FlagWar {
         val y0: Int = maxOf(flagBaseY + Nodes.config.flagBeaconSkyLevel, Nodes.config.flagBeaconMinSkyLevel)
         val xEnd: Int = x0 + size - 1
         val zEnd: Int = z0 + size - 1
-        val yEnd: Int = minOf(255, y0 + size) // truncate at map limit
+        val yEnd: Int = minOf(255, y0 + size - 1) // beacon is size blocks high
+        val instance = MinecraftServer.getInstanceManager().instances.first()
 
         for (y in y0..yEnd) {
             for (x in x0..xEnd) {
                 for (z in z0..zEnd) {
+                    val block = instance.getBlock(x, y, z)
+                    if (block != Block.AIR && block !in SKY_BEACON_BLOCKS) continue
+
+                    // Avoid allocating a coordinate unless this position will be changed.
                     val blockPos = BlockVec(x, y, z)
-                    val block = MinecraftServer.getInstanceManager().instances.first().getBlock(x, y, z)
-                    if (block == Block.AIR || SKY_BEACON_BLOCKS.contains(block)) {
-                        if (((y == y0 || y == yEnd) && (x == x0 || x == xEnd || z == z0 || z == zEnd)) ||
-                            // end caps, edges glowstone
-                            ((x == x0 || x == xEnd) && (z == z0 || z == zEnd))
-                        ) { // middle section corners glowstone
-                            // block.setType(BEACON_EDGE_BLOCK) // slow
-                            skyBeaconWireframeBlocks.add(blockPos)
-                            MinecraftServer.getInstanceManager().instances.first().setBlock(blockPos, SKY_BEACON_FRAME_BLOCK)
-                        } else { // color block
-                            // setFlagAttackColorBlock(block, progress) // slow
-                            skyBeaconColorBlocks.add(blockPos)
-                            MinecraftServer.getInstanceManager().instances.first().setBlock(blockPos, SKY_BEACON_BLOCK)
-                        }
+                    if (((y == y0 || y == yEnd) && (x == x0 || x == xEnd || z == z0 || z == zEnd)) ||
+                        ((x == x0 || x == xEnd) && (z == z0 || z == zEnd))
+                    ) {
+                        skyBeaconWireframeBlocks.add(blockPos)
+                        instance.setBlock(blockPos, SKY_BEACON_FRAME_BLOCK)
+                    } else {
+                        skyBeaconColorBlocks.add(blockPos)
+                        instance.setBlock(blockPos, SKY_BEACON_BLOCK)
                     }
                 }
+            }
+        }
+    }
+
+    private fun clearAttackBlocks(attack: Attack) {
+        val instance = MinecraftServer.getInstanceManager().instances.first()
+        instance.setBlock(attack.flagTorch, Block.AIR)
+        instance.setBlock(attack.flagBlock, Block.AIR)
+        instance.setBlock(attack.flagBase, Block.AIR)
+        attack.skyBeaconWireframeBlocks.forEach { instance.setBlock(it, Block.AIR) }
+        attack.skyBeaconColorBlocks.forEach { instance.setBlock(it, Block.AIR) }
+    }
+
+    private fun removeAttackReferences(attack: Attack) {
+        attackers[attack.attacker]?.let { attacks ->
+            attacks.remove(attack)
+            if (attacks.isEmpty()) attackers.remove(attack.attacker)
+        }
+        chunkToAttacker.remove(attack.coord)
+        blockToAttacker.remove(attack.flagBlock)
+        stopAttackTaskIfIdle()
+    }
+
+    private fun requestMinimapRefresh() {
+        if (minimapRefreshDeferrals > 0) {
+            minimapRefreshPending = true
+        } else {
+            Resident.renderMinimaps()
+        }
+    }
+
+    private inline fun deferMinimapRefresh(block: () -> Unit) {
+        minimapRefreshDeferrals++
+        try {
+            block()
+        } finally {
+            minimapRefreshDeferrals--
+            if (minimapRefreshDeferrals == 0 && minimapRefreshPending) {
+                minimapRefreshPending = false
+                Resident.renderMinimaps()
             }
         }
     }
@@ -1057,27 +1103,13 @@ object FlagWar {
         // remove progress bar from player
         attack.progressBar.removeViewer(Audiences.all())
 
-        // remove claim flag
-        MinecraftServer.getInstanceManager().instances.first().setBlock(attack.flagTorch, Block.AIR)
-        MinecraftServer.getInstanceManager().instances.first().setBlock(attack.flagBlock, Block.AIR)
-        MinecraftServer.getInstanceManager().instances.first().setBlock(attack.flagBase, Block.AIR)
-
-        // remove sky beacon
-        for (block in attack.skyBeaconWireframeBlocks) {
-            MinecraftServer.getInstanceManager().instances.first().setBlock(block, Block.AIR)
-        }
-        for (block in attack.skyBeaconColorBlocks) {
-            MinecraftServer.getInstanceManager().instances.first().setBlock(block, Block.AIR)
-        }
+        clearAttackBlocks(attack)
 
         // remove text display
         attack.textDisplay.remove()
 
-        // remove attack instance references
-        attackers.get(attack.attacker)?.remove(attack)
-        chunkToAttacker.remove(attack.coord)
-        blockToAttacker.remove(attack.flagBlock)
-        Resident.renderMinimaps()
+        removeAttackReferences(attack)
+        requestMinimapRefresh()
 
         // mark save needed
         needsSave = true
@@ -1111,26 +1143,12 @@ object FlagWar {
         // remove progress bar from player
         attack.progressBar.removeViewer(Audiences.all())
 
-        // remove claim flag
-        MinecraftServer.getInstanceManager().instances.first().setBlock(attack.flagTorch, Block.AIR)
-        MinecraftServer.getInstanceManager().instances.first().setBlock(attack.flagBlock, Block.AIR)
-        MinecraftServer.getInstanceManager().instances.first().setBlock(attack.flagBase, Block.AIR)
-
-        // remove sky beacon
-        for (block in attack.skyBeaconWireframeBlocks) {
-            MinecraftServer.getInstanceManager().instances.first().setBlock(block, Block.AIR)
-        }
-        for (block in attack.skyBeaconColorBlocks) {
-            MinecraftServer.getInstanceManager().instances.first().setBlock(block, Block.AIR)
-        }
+        clearAttackBlocks(attack)
 
         // remove town and cap progress textdisplay
         attack.textDisplay.remove()
 
-        // remove attack instance references
-        attackers.get(attack.attacker)?.remove(attack)
-        chunkToAttacker.remove(attack.coord)
-        blockToAttacker.remove(attack.flagBlock)
+        removeAttackReferences(attack)
 
         // mark that save required
         needsSave = true
@@ -1140,20 +1158,21 @@ object FlagWar {
         val chunk = TerritoryChunk.fromCoord(attack.coord)
         if (chunk == null || chunk.territory !== attack.targetTerritory) {
             println("finishAttack(): TerritoryChunk at ${attack.coord} is null")
-            Resident.renderMinimaps()
+            requestMinimapRefresh()
             return
         }
 
         if (attack.mode == AttackMode.WAR && chunk.coord == chunk.territory.core && !canAnnexTerritories) {
             chunk.attacker = null
-            Resident.renderMinimaps()
+            requestMinimapRefresh()
             return
         }
 
         // handle occupation state of chunk
         // if chunk is core chunk of territory, attacking town occupies territory
         if (chunk.coord == chunk.territory.core) {
-            synchronized(Nodes.occupationPersistenceLock) {
+            deferMinimapRefresh {
+                synchronized(Nodes.occupationPersistenceLock) {
                 val territory = chunk.territory
                 val territoryTown = territory.town
                 val attacker = Resident.fromUuid(attack.attacker)
@@ -1200,7 +1219,7 @@ object FlagWar {
                                 colonizedChunks.add(coord)
                             }
                         }
-                        Resident.renderMinimaps()
+                        requestMinimapRefresh()
                     }
                     commitTerritoryOccupation(
                         territory,
@@ -1219,6 +1238,7 @@ object FlagWar {
                     }
                 }
             }
+        }
         }
         // else, attacking normal chunk cases:
         // 1. your town, chunk captured by enemy -> liberating, remove flag
@@ -1281,7 +1301,7 @@ object FlagWar {
             }
 
             // update minimaps
-            Resident.renderMinimaps()
+            requestMinimapRefresh()
         }
     }
 
@@ -1304,30 +1324,22 @@ object FlagWar {
         }
     }
 
-    // update tick for attack instance
+    // Update one attack. Called by the single global attack scheduler.
     internal fun attackTick(attack: Attack) {
         if (attack.mode == AttackMode.COLONIZATION && !Colonization.attackRemainsAuthorized(attack)) {
             attack.cancel()
             return
         }
-        val progress = attack.progress + ATTACK_TICK
+        val progress = attack.updateProgressFromClock()
 
         if (progress >= attack.attackTime) {
-            // cancel thread, then finalize attack
-            attack.thread.cancel()
             finishAttack(attack)
-        } else { // update
-            attack.progress = progress
-
-            // update boss bar progress
-            val progressNormalized: Float = progress.toFloat() / attack.attackTime.toFloat()
-            attack.progressBar.progress(progressNormalized)
-
-            // update progress text
-            for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
-                attack.textDisplay.update(player)
-            }
+            return
         }
+
+        attack.progressBar.progress(progress.toFloat() / attack.attackTime.toFloat())
+        // At most five relationship-group entities are updated, never every player.
+        attack.textDisplay.updateProgress()
     }
 
     // intended to run on PlayerJoin event
@@ -1343,6 +1355,30 @@ object FlagWar {
                 attack.progressBar.addViewer(player)
             }
         }
+    }
+
+    /** Re-evaluate display grouping after diplomacy or membership changes. */
+    fun refreshAttackTextDisplays() {
+        chunkToAttacker.values.forEach { it.textDisplay.refreshPlayers() }
+    }
+
+    private fun startAttackTask() {
+        if (attackTask != null) return
+        attackTask = MinecraftServer.getSchedulerManager()
+            .buildTask {
+                // A snapshot allows completion/cancellation to remove entries
+                // without changing the collection currently being iterated.
+                chunkToAttacker.values.toList().forEach(::attackTick)
+            }
+            .delay(TaskSchedule.tick(ATTACK_TICK))
+            .repeat(TaskSchedule.tick(ATTACK_TICK))
+            .schedule()
+    }
+
+    private fun stopAttackTaskIfIdle() {
+        if (chunkToAttacker.isNotEmpty()) return
+        attackTask?.cancel()
+        attackTask = null
     }
 
     private fun startSaveTask(restart: Boolean = false) {

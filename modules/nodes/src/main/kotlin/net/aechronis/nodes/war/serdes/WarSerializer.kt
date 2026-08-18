@@ -63,9 +63,18 @@ object WarSerializer {
         FlagWar.occupiedChunks.forEach { coord ->
             val chunk = TerritoryChunk.fromCoord(coord) ?: return@forEach
             val townId = chunk.occupier?.uuid?.toString() ?: return@forEach
-            occupiedByTown.getOrPut(townId, ::mutableListOf).addAll(listOf(coord.x, coord.z))
+            val coordinates = occupiedByTown.getOrPut(townId, ::mutableListOf)
+            coordinates.add(coord.x)
+            coordinates.add(coord.z)
         }
-        val colonized = FlagWar.colonizedChunks.flatMap { coord -> listOf(coord.x, coord.z) }
+        val colonized = buildString {
+            append('[')
+            FlagWar.colonizedChunks.forEachIndexed { index, coord ->
+                if (index > 0) append(',')
+                append(coord.x).append(',').append(coord.z)
+            }
+            append(']')
+        }
         val territoryOccupations = FlagWar.territoryOccupations.entries
             .sortedBy { (territoryId, _) -> territoryId.toInt() }
             .joinToString(",") { (territoryId, occupation) ->
@@ -87,7 +96,7 @@ object WarSerializer {
                     "${JsonPrimitive(townId)}:${coordinates.joinToString(",", "[", "]")}"
                 },
             )
-            append("},\"colonized\":${colonized.joinToString(",", "[", "]")},")
+            append("},\"colonized\":$colonized,")
             append("\"territoryOccupations\":{$territoryOccupations},")
             append("\"attacks\":[${attacks.joinToString(",")}]}")
         }

@@ -6,6 +6,7 @@ package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.DiplomaticRelationship
+import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.color.TeamColor
@@ -162,6 +163,7 @@ object Nametag {
     internal fun refreshRelationships() {
         if (!started) return
         initializedOnlineViewers().forEach { (viewer, _) -> refreshViewerRelationships(viewer) }
+        FlagWar.refreshAttackTextDisplays()
     }
 
     internal fun rebuildAllViewers() {

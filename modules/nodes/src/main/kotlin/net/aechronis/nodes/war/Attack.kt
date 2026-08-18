@@ -1,13 +1,13 @@
 /**
- * Instance for attacking a chunk
- * - holds state data of attack
- * - functions as runnable thread for attack tick
+ * Instance for attacking a chunk. Holds the state for a flag attack; FlagWar
+ * owns the single scheduler that advances all active attacks.
  */
-
 package net.aechronis.nodes.war
 
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.objects.Coord
+import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.townNametagViewedByPlayer
@@ -21,32 +21,31 @@ import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.AbstractDisplayMeta
 import net.minestom.server.entity.metadata.display.TextDisplayMeta
-import net.minestom.server.timer.Task
-import net.minestom.server.timer.TaskSchedule
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 class Attack(
-    val attacker: UUID, // attacker's UUID
-    val town: Town, // attacker's town
-    val coord: Coord, // chunk coord under attack
-    val targetTerritory: Territory, // territory targeted when attack started
-    val flagBase: BlockVec, // fence base of flag
-    val flagBlock: BlockVec, // wool block for flag
-    val flagTorch: BlockVec, // torch block of flag
+    val attacker: UUID,
+    val town: Town,
+    val coord: Coord,
+    val targetTerritory: Territory,
+    val flagBase: BlockVec,
+    val flagBlock: BlockVec,
+    val flagTorch: BlockVec,
     val skyBeaconColorBlocks: List<BlockVec>,
     val skyBeaconWireframeBlocks: List<BlockVec>,
-    val progressBar: BossBar, // progress bar
-    val attackTime: Long, //
-    var progress: Long, // initial progress, current tick count
+    val progressBar: BossBar,
+    val attackTime: Long,
+    var progress: Long,
     val mode: AttackMode = AttackMode.WAR,
-) : Runnable {
+) {
     private val ended = AtomicBoolean(false)
 
-    // the town that owned the target when this attack was created
+    private var completionTimeMillis: Long = System.currentTimeMillis() + (attackTime - progress) * 50L
+
+    // The town that owned the target when this attack was created.
     val targetTown: Town? = targetTerritory.town
 
-    // no build region
     val noBuildXMin: Int
     val noBuildXMax: Int
     val noBuildZMin: Int
@@ -54,16 +53,11 @@ class Attack(
     val noBuildYMin: Int
     val noBuildYMax: Int = 255 // temporarily set to height
 
-    var thread: Task = MinecraftServer.getSchedulerManager()
-        .buildTask { this.run() }
-        .delay(TaskSchedule.tick(FlagWar.ATTACK_TICK))
-        .repeat(TaskSchedule.tick(FlagWar.ATTACK_TICK))
-        .schedule()
-
-    // text display used to show town name and progress on flag
+    // Text displays are shared by diplomatic relationship, not duplicated for
+    // every player. At most five display entities are created per attack.
     val textDisplay = AttackTextDisplay(this, flagBase.add(0.5, 3.0, 0.5).asPos())
 
-    // re-used json serialization StringBuilders
+    // Re-used JSON serialization builders.
     val jsonStringBase: StringBuilder
     val jsonString: StringBuilder
 
@@ -71,182 +65,148 @@ class Attack(
         val flagX = flagBase.blockX
         val flagY = flagBase.blockY
         val flagZ = flagBase.blockZ
+        noBuildXMin = flagX - Nodes.config.flagNoBuildDistance
+        noBuildXMax = flagX + Nodes.config.flagNoBuildDistance
+        noBuildZMin = flagZ - Nodes.config.flagNoBuildDistance
+        noBuildZMax = flagZ + Nodes.config.flagNoBuildDistance
+        noBuildYMin = flagY + Nodes.config.flagNoBuildYOffset
 
-        // set no build ranges
-        this.noBuildXMin = flagX - Nodes.config.flagNoBuildDistance
-        this.noBuildXMax = flagX + Nodes.config.flagNoBuildDistance
-        this.noBuildZMin = flagZ - Nodes.config.flagNoBuildDistance
-        this.noBuildZMax = flagZ + Nodes.config.flagNoBuildDistance
-        this.noBuildYMin = flagY + Nodes.config.flagNoBuildYOffset
-
-        // set boss bar progress
-        val progressNormalized: Float = this.progress.toFloat() / this.attackTime.toFloat()
-        this.progressBar.progress(progressNormalized)
-
-        // pre-generate main part of the JSON serialization string
-        this.jsonStringBase = generateFixedJsonBase(
-            this.attacker,
-            this.coord,
-            this.flagBase,
-        )
-
-        // full json StringBuilder, initialize capacity to be
-        // base capacity + room for completion timestamp length
-        val jsonStringBufferSize = this.jsonStringBase.capacity() + 20
-        this.jsonString = StringBuilder(jsonStringBufferSize)
+        progressBar.progress(progress.toFloat() / attackTime.toFloat())
+        jsonStringBase = generateFixedJsonBase(attacker, coord, flagBase)
+        jsonString = StringBuilder(jsonStringBase.length + 20)
     }
 
-    override fun run() {
-        FlagWar.attackTick(this)
-    }
-
-    fun cancel() {
-        this.thread.cancel()
-        FlagWar.cancelAttack(this)
-    }
+    fun cancel() = FlagWar.cancelAttack(this)
 
     internal fun markEnded(): Boolean = ended.compareAndSet(false, true)
 
-    // returns json format string as a StringBuilder
-    // only used with WarSerializer objects
+    internal fun updateProgressFromClock(nowMillis: Long = System.currentTimeMillis()): Long {
+        val remainingMillis = (completionTimeMillis - nowMillis).coerceAtLeast(0)
+        val remainingTicks = (remainingMillis * 20L + 999L) / 1000L
+        progress = (attackTime - remainingTicks).coerceIn(0, attackTime)
+        return progress
+    }
+
+    internal fun restoreCompletionTime(completionTimeSeconds: Long) {
+        completionTimeMillis = completionTimeSeconds * 1000L
+        updateProgressFromClock()
+    }
+
     fun toJson(): StringBuilder {
-        // reset json StringBuilder
-        this.jsonString.setLength(0)
-
-        // add base
-        this.jsonString.append(this.jsonStringBase)
-
-        // add completion time
-        val now = System.currentTimeMillis() / 1000
-        val remainingSeconds = (this.attackTime - this.progress) / FlagWar.ATTACK_TICK
-        val completionTime = now + remainingSeconds
-        this.jsonString.append("\"t\":$completionTime")
-        this.jsonString.append("}")
-
-        return this.jsonString
+        jsonString.setLength(0)
+        jsonString.append(jsonStringBase)
+        jsonString.append("\"t\":${completionTimeMillis / 1000L}")
+        jsonString.append("}")
+        return jsonString
     }
 }
 
-// pre-generate main part of the JSON serialization string
-// for the attack which does not change
-// (only part that changes is progress)
-// parts required for serialization:
-// - attacker: player uuid
-// - coord: chunk coord
-// - block: flag base block (fence)
-// - skyBeaconColorBlocks: track blocks in sky beacon
-// - skyBeaconWireframeBlocks: track blocks in sky beacon
-private fun generateFixedJsonBase(
-    attacker: UUID,
-    coord: Coord,
-    block: BlockVec,
-): StringBuilder {
-    val s = StringBuilder()
-
-    s.append("{")
-
-    // attacker uuid
-    s.append("\"id\":\"$attacker\",")
-
-    // chunk coord [c.x, c.z]
-    s.append("\"c\":[${coord.x},${coord.z}],")
-
-    // flag base block [b.x, b.y, b.z]
-    s.append("\"b\":[${block.blockX},${block.blockY},${block.blockZ}],")
-
-    return s
+private fun generateFixedJsonBase(attacker: UUID, coord: Coord, block: BlockVec): StringBuilder = StringBuilder().apply {
+    append("{")
+    append("\"id\":\"$attacker\",")
+    append("\"c\":[${coord.x},${coord.z}],")
+    append("\"b\":[${block.blockX},${block.blockY},${block.blockZ}],")
 }
 
 class AttackTextDisplay(
-    val attack: Attack,
-    val loc: Pos,
+    private val attack: Attack,
+    private val loc: Pos,
 ) {
-    // per-player displays
-    val playerTextDisplays: MutableMap<UUID, Entity> = mutableMapOf()
+    private class DisplayState(
+        val entity: Entity,
+        var townNameText: String,
+        val viewers: MutableSet<UUID> = hashSetOf(),
+    )
+
+    private val displays = mutableMapOf<DiplomaticRelationship, DisplayState>()
+    private val playerRelationships = mutableMapOf<UUID, DiplomaticRelationship>()
 
     init {
-        // create textdisplays for all online players
-        for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
-            update(player)
-        }
+        MinecraftServer.getConnectionManager().onlinePlayers.forEach(::update)
     }
 
-    /**
-     * Remove a player's TextDisplay.
-     */
     fun removePlayerTextDisplay(player: Player) {
-        // remove the display from the map
-        val display = playerTextDisplays.remove(player.uuid)
-
-        // remove the actual display
-        display?.remove()
+        val relationship = playerRelationships.remove(player.uuid) ?: return
+        val state = displays[relationship] ?: return
+        if (state.viewers.remove(player.uuid)) updateViewers(state)
     }
 
-    /**
-     * Update the progress text display with current timer.
-     */
+    /** Assign a player to the display matching their current relationship. */
     fun update(player: Player) {
-        var textDisplay = playerTextDisplays[player.uuid]
+        val relationship = Town.relationshipOfTownToTown(attack.town, Resident.fromPlayer(player)?.town)
+        val previous = playerRelationships.put(player.uuid, relationship)
+        if (previous == relationship) return
 
-        // create display
-        if (textDisplay == null) {
-            textDisplay = createTextDisplay(loc)
-            playerTextDisplays[player.uuid] = textDisplay
+        if (previous != null) {
+            displays[previous]?.let { state ->
+                if (state.viewers.remove(player.uuid)) updateViewers(state)
+            }
         }
 
-        // set viewable rule so only this player can see it
-        textDisplay.updateViewableRule { viewer -> viewer == player }
-
-        val remainingTicks = attack.attackTime - attack.progress
-        val remainingSeconds = remainingTicks / 20
-        val minutes = remainingSeconds / 60
-        val seconds = remainingSeconds % 60
-
-        val timeText = String.format("%02d:%02d", minutes, seconds)
-        val townNameText = townNametagViewedByPlayer(attack.town, player, false)
-        val text = "$townNameText\n$timeText"
-
-        setTextDisplayText(textDisplay, text)
+        val state = displays.getOrPut(relationship) {
+            DisplayState(createTextDisplay(loc), townNametagViewedByPlayer(attack.town, player, false)).also {
+                setTextDisplayText(it.entity, "${it.townNameText}\n${countdownText()}")
+            }
+        }
+        state.viewers.add(player.uuid)
+        updateViewers(state)
     }
 
-    /**
-     * Remove all entities, for cleanup.
-     */
-    fun remove() {
-        // Remove all per-player town name displays
-        for (display in playerTextDisplays.values) {
-            display.remove()
+    /** Refresh relationships after diplomacy or town-membership changes. */
+    fun refreshPlayers() {
+        val onlinePlayers = MinecraftServer.getConnectionManager().onlinePlayers
+        val onlineIds = onlinePlayers.mapTo(hashSetOf()) { it.uuid }
+        playerRelationships.keys.filter { it !in onlineIds }.toList().forEach { playerId ->
+            val relationship = playerRelationships.remove(playerId) ?: return@forEach
+            displays[relationship]?.let { state ->
+                if (state.viewers.remove(playerId)) updateViewers(state)
+            }
         }
-        playerTextDisplays.clear()
+        onlinePlayers.forEach { player ->
+            update(player)
+            playerRelationships[player.uuid]?.let { relationship ->
+                displays[relationship]?.townNameText = townNametagViewedByPlayer(attack.town, player, false)
+            }
+        }
+        updateProgress()
+    }
+
+    /** Update all currently-used relationship displays with one shared timer. */
+    fun updateProgress() {
+        val timeText = countdownText()
+        displays.values.forEach { state -> setTextDisplayText(state.entity, "${state.townNameText}\n$timeText") }
+    }
+
+    private fun countdownText(): String {
+        val remainingSeconds = (attack.attackTime - attack.progress) / 20
+        return "%02d:%02d".format(remainingSeconds / 60, remainingSeconds % 60)
+    }
+
+    fun remove() {
+        displays.values.forEach { it.entity.remove() }
+        displays.clear()
+        playerRelationships.clear()
+    }
+
+    private fun updateViewers(state: DisplayState) {
+        state.entity.updateViewableRule { viewer -> viewer.uuid in state.viewers }
     }
 }
 
-/**
- * Create a new textDisplay with associated metadata.
- */
-private fun createTextDisplay(
-    loc: Pos,
-): Entity {
+private fun createTextDisplay(loc: Pos): Entity {
     val textDisplay = Entity(EntityType.TEXT_DISPLAY)
     textDisplay.setInstance(MinecraftServer.getInstanceManager().instances.first(), loc)
     textDisplay.setNoGravity(true)
 
-    // Set billboard mode to CENTER so the text always faces the player
     val meta = textDisplay.entityMeta
     if (meta is TextDisplayMeta) {
-        meta.billboardRenderConstraints = AbstractDisplayMeta.BillboardConstraints.CENTER // face player
-        meta.backgroundColor = 0 // invisible bg
+        meta.billboardRenderConstraints = AbstractDisplayMeta.BillboardConstraints.CENTER
+        meta.backgroundColor = 0
     }
-
     return textDisplay
 }
 
-/**
- * Helper function to set text on a TEXT_DISPLAY entity.
- */
 private fun setTextDisplayText(entity: Entity, text: String) {
     val meta = entity.entityMeta
-    if (meta is TextDisplayMeta) {
-        meta.text = Component.text(text)
-    }
+    if (meta is TextDisplayMeta) meta.text = Component.text(text)
 }
