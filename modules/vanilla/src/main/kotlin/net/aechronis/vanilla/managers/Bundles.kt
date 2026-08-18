@@ -130,15 +130,16 @@ object Bundles {
         stored: List<StoredItem>,
     ) {
         val heldSlot = heldSlot(player, hand)
-        if (stored.any { it.slot !in 0..45 || it.slot == heldSlot } || stored.map { it.slot }.toSet().size != stored.size) {
+        if (stored.any { it.slot !in 0..45 } || stored.map { it.slot }.toSet().size != stored.size) {
             return
         }
-        if (stored.any { !player.inventory.getItemStack(it.slot).isAir }) return
+        if (stored.any { it.slot != heldSlot && !player.inventory.getItemStack(it.slot).isAir }) return
 
-        stored.forEach { player.inventory.setItemStack(it.slot, it.item) }
+        stored.filter { it.slot != heldSlot }.forEach { player.inventory.setItemStack(it.slot, it.item) }
+        val heldSlotItem = stored.firstOrNull { it.slot == heldSlot }?.item
         player.setItemInHand(
             hand,
-            if (held.amount() > 1) held.withAmount(held.amount() - 1) else ItemStack.AIR,
+            heldSlotItem ?: if (held.amount() > 1) held.withAmount(held.amount() - 1) else ItemStack.AIR,
         )
     }
 
