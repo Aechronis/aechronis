@@ -15,6 +15,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
+import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
@@ -31,6 +32,7 @@ import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket
 import net.minestom.server.particle.Particle
 import net.minestom.server.timer.TaskSchedule
+import java.math.BigDecimal
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -63,7 +65,21 @@ class Gun(
 ) : Item(
         name,
         itemName,
-        itemLore,
+        itemLore +
+            gunStatsLore(
+                ammo = ammo,
+                maxAmmo = maxAmmo,
+                damage = damage,
+                automatic = automatic,
+                sniper = sniper,
+                cooldown = cooldown,
+                reloadTime = reloadTime,
+                recoilMin = recoilMin,
+                recoilMax = recoilMax,
+                spreadMin = spreadMin,
+                spreadMax = spreadMax,
+                maxRange = maxRange,
+            ),
         itemModel,
         Material.WARPED_FUNGUS_ON_A_STICK,
     ) {
@@ -427,6 +443,48 @@ class Gun(
         return closest
     }
 }
+
+private fun gunStatsLore(
+    ammo: Ammo,
+    maxAmmo: Int,
+    damage: Float,
+    automatic: Boolean,
+    sniper: Boolean,
+    cooldown: Long,
+    reloadTime: Long,
+    recoilMin: Float,
+    recoilMax: Float,
+    spreadMin: Float,
+    spreadMax: Float,
+    maxRange: Double,
+): List<Component> =
+    listOf(
+        gunStat("Damage", damage.toStatString()),
+        Component
+            .text("Ammo: ", NamedTextColor.GRAY)
+            .append(ammo.itemName)
+            .decoration(TextDecoration.ITALIC, false),
+        gunStat("Magazine", "$maxAmmo ${if (maxAmmo == 1) "round" else "rounds"}"),
+        gunStat("Fire mode", if (automatic) "Automatic" else "Semi-automatic"),
+        gunStat("Fire rate", "${(60_000.0 / cooldown).roundToInt()} RPM"),
+        gunStat("Reload", "${reloadTime.toSecondsString()}s"),
+        gunStat("Recoil", "${recoilMin.toStatString()}-${recoilMax.toStatString()}°"),
+        gunStat("Spread", "${spreadMin.toStatString()}-${spreadMax.toStatString()}°"),
+        gunStat("Range", "${maxRange.toStatString()} blocks"),
+        gunStat("Scope", if (sniper) "Yes" else "No"),
+    )
+
+private fun gunStat(
+    name: String,
+    value: String,
+): Component =
+    Component
+        .text("$name: $value", NamedTextColor.GRAY)
+        .decoration(TextDecoration.ITALIC, false)
+
+private fun Number.toStatString(): String = BigDecimal(toString()).stripTrailingZeros().toPlainString()
+
+private fun Long.toSecondsString(): String = BigDecimal.valueOf(this, 3).stripTrailingZeros().toPlainString()
 
 internal fun bulletTrailOrigin(
     eyePos: Pos,
