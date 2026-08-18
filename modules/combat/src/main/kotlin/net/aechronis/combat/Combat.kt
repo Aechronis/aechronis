@@ -1,5 +1,6 @@
 package net.aechronis.combat
 
+import net.aechronis.combat.commands.AdsCommand
 import net.aechronis.combat.commands.CombatAdminCommand
 import net.aechronis.combat.commands.HatsCommand
 import net.aechronis.combat.listeners.AimingListener
@@ -33,6 +34,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.event.EventNode
 import net.minestom.server.timer.Task
+import java.util.UUID
 
 object Combat {
     // event nodes for listeners
@@ -42,6 +44,19 @@ object Combat {
 
     val playerAiming = HashMap<Player, Boolean>()
     val aimingResetTasks = HashMap<Player, Task>()
+
+    // This preference is intentionally process-local and retained across reconnects.
+    private val adsAnimationDisabledPlayers = HashSet<UUID>()
+
+    fun isAdsAnimationDisabled(playerUuid: UUID): Boolean = playerUuid in adsAnimationDisabledPlayers
+
+    fun toggleAdsAnimation(playerUuid: UUID): Boolean =
+        if (adsAnimationDisabledPlayers.remove(playerUuid)) {
+            false
+        } else {
+            adsAnimationDisabledPlayers.add(playerUuid)
+            true
+        }
 
     val reloadTasks = HashMap<Player, Task>()
 
@@ -152,6 +167,7 @@ object Combat {
 
         // register commands
         MinecraftServer.getCommandManager().register(CombatAdminCommand())
+        MinecraftServer.getCommandManager().register(AdsCommand())
         MinecraftServer.getCommandManager().register(HatsCommand())
 
         // run background schedulers/tasks

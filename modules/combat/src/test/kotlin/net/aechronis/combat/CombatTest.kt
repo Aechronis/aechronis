@@ -54,6 +54,7 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
@@ -687,6 +688,20 @@ class CombatTest {
         } finally {
             target.remove()
         }
+    }
+
+    @Test
+    fun `ADS animation suppression defaults false and toggles by UUID`() {
+        val playerUuid = UUID.randomUUID()
+
+        assertFalse(Combat.isAdsAnimationDisabled(playerUuid))
+        assertTrue(Combat.toggleAdsAnimation(playerUuid))
+        assertTrue(Combat.isAdsAnimationDisabled(playerUuid))
+
+        // The preference is keyed by UUID, so a reconnect using this UUID retains it.
+        assertTrue(Combat.isAdsAnimationDisabled(playerUuid))
+        assertFalse(Combat.toggleAdsAnimation(playerUuid))
+        assertFalse(Combat.isAdsAnimationDisabled(playerUuid))
     }
 
     @Test

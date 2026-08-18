@@ -141,7 +141,7 @@ object ModelManager {
             player.itemInMainHand = item.withItemModel(gun.itemModelReloading)
         } else if (!hasAmmo) {
             player.itemInMainHand = item.withItemModel(gun.itemModelEmpty)
-        } else if (isAiming) {
+        } else if (isAiming && !Combat.isAdsAnimationDisabled(player.uuid)) {
             player.itemInMainHand = item.withItemModel(gun.itemModelAiming)
         } else {
             player.itemInMainHand = item.withItemModel(gun.itemModel)
