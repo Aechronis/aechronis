@@ -174,12 +174,31 @@ object Guns {
             sniper = false,
             cooldown = 50,
             reloadTime = 8000,
-            recoilMin = 3F,
-            recoilMax = 3F,
+            recoilMin = 2F,
+            recoilMax = 2F,
             spreadMin = 6F,
             spreadMax = 6F,
             bulletTrailParticle = Particle.DUST_COLOR_TRANSITION.withScale(0.2F),
             bulletTrailOffset = Vec(-0.3, -0.1, 1.1),
+        )
+
+    val at4 =
+        Gun(
+            name = "at4",
+            itemName = Component.text("AT4", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            ammo = Ammo.rocket,
+            maxAmmo = 1,
+            damage = 750F,
+            automatic = false,
+            sniper = false,
+            cooldown = 1500,
+            reloadTime = 5000,
+            recoilMin = 8F,
+            recoilMax = 10F,
+            spreadMin = 0F,
+            spreadMax = 1F,
+            bulletTrailParticle = Particle.FLAME,
+            bulletTrailOffset = Vec(-0.3, -0.1, 1.2),
         )
 
     // 4
