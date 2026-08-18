@@ -13,8 +13,8 @@ out vec4 fragColor;
 // LCD goggle scan-out of the decoded 525-line raster: the 480i picture is
 // simply scaled to the panel (no CRT beam profile or phosphor shimmer).
 // Vertical hold is driven by the measured health of the received vsync
-// broad pulses: marginal vsync makes the picture hop and tear per field,
-// sustained loss free-runs into a roll through the blanking bar. The
+// broad pulses: sustained loss free-runs into a roll through the blanking
+// bar. The
 // control word's inverted flag is applied at the camera (encode pass), so
 // the picture inverts while artifacts stay screen-aligned.
 
@@ -33,19 +33,28 @@ void main() {
     float anim = GameTime * 24000.0;
     uint field = uint(floor(anim * 3.0));
 
+    // A crashed feed is complete receiver snow, not a damaged picture with
+    // OSD, color flashes, frame kicks, or a rolling vertical-blanking bar.
+    if (decodeFpv(GameTime).special) {
+        vec2 analogSize = vec2(float(ACTIVE_WIDTH), float(VISIBLE_LINES));
+        uvec2 px = uvec2(floor(gl_FragCoord.xy * analogSize / ScreenSize));
+        uvec3 seed = uvec3(px, field ^ 0x57A71Cu);
+        float snow = 0.5 * (hash1(seed) + hash1(seed ^ uvec3(0x9E37u, 0x85EBu, 0xC2B2u)));
+        fragColor = vec4(vec3(snow), 1.0);
+        return;
+    }
+
     // vertical lock health, measured from the received vsync broad pulses
     float vsyncQ = (texelFetch(LineInfoSampler, ivec2(0, 3), 0).g
                   + texelFetch(LineInfoSampler, ivec2(0, 4), 0).g
                   + texelFetch(LineInfoSampler, ivec2(0, 5), 0).g) / 3.0;
 
-    // goggle decoder behavior: marginal vsync hops/tears the frame per
-    // field, sustained loss free-runs into a continuous roll
-    float hopAmt = 1.0 - smoothstep(0.55, 0.85, vsyncQ);
+    // Goggle decoder behavior: sustained sync loss free-runs into a
+    // continuous roll. Horizontal tearing still comes from measured H-sync.
     float rollAmt = 1.0 - smoothstep(0.05, 0.4, vsyncQ);
     float roll = rollAmt * mod(anim * 6.5, float(LINES_PER_FRAME));
-    float vjit = 10.0 * hopAmt * gaussRand(uvec3(field, 0u, 0x77u));
 
-    float lf = float(VBI_LINES) + (1.0 - texCoord.y) * float(VISIBLE_LINES) + roll + vjit;
+    float lf = float(VBI_LINES) + (1.0 - texCoord.y) * float(VISIBLE_LINES) + roll;
     float xt = texCoord.x * float(ACTIVE_WIDTH);
 
     // panel scaler: linear blend between the two adjacent scanlines

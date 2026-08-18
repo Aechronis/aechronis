@@ -17,9 +17,9 @@ out vec4 fragColor;
 // quality, airspeed, the camera-inverted flag and a "special" mode where
 // the receiver sees no video at all, just static.
 //
-// Camera: wide-angle lens (mild center magnification + vignette), CMOS
-// rolling-shutter jello driven by airspeed (prop vibration), aggressive
-// sharpening, then NTSC-M composite generation with crystal-locked sync.
+// Camera: wide-angle lens (mild center magnification + vignette), subtle
+// throttle-driven CMOS rolling-shutter vibration, camera sharpening, then
+// NTSC-M composite generation with crystal-locked sync.
 // The inverted flag flips the camera mount: the picture inverts but the
 // OSD (injected downstream by the FC) stays upright, exactly like a real
 // upside-down camera install.
@@ -30,9 +30,9 @@ out vec4 fragColor;
 // It rides the composite signal, so it degrades with the link like
 // everything else.
 //
-// Link: falling link quality adds FM impairments: multipath fade bursts,
-// throttle/power-rail noise lines, RF dropouts, and below the FM threshold
-// the waveform is progressively captured by noise (full-frame snow).
+// Link: falling link quality raises the analog noise floor continuously. Near
+// the receiver threshold the waveform is progressively captured by noise, so
+// the existing decoder naturally loses color, then sync, then the picture.
 
 const float DIFF_PHASE = 0.19;  // ~11 deg chroma tint at white: a fixed
 const float DIFF_GAIN = 0.14;   // nonlinearity of the camera/VTX chain (FM
@@ -45,16 +45,7 @@ const float VIGNETTE = 0.20;
 float gSpeed;
 float gJelloPhase;
 ivec4 gOsd;      // x = RSSI 0-99, y = volts*10, z = airspeed mph
-bool gLand;      // LAND NOW visible this blink phase
-
-// smooth value noise in [0,1] for telemetry wander
-float wander1(float t, uint salt) {
-    float f = floor(t);
-    float x = t - f;
-    x = x * x * (3.0 - 2.0 * x);
-    return mix(hash1(uvec3(uint(f), 0u, salt)),
-               hash1(uvec3(uint(f) + 1u, 0u, salt)), x);
-}
+bool gLand;      // LAND NOW warning is visible
 
 // mild wide-angle remap, corners anchored so the full frame stays visible
 vec2 lensMap(vec2 p, float aspect) {
@@ -138,10 +129,10 @@ float cleanSignal(float u, int line, int framePar, bool flipped) {
         float aspect = ScreenSize.x / ScreenSize.y;
         float vSrc = 1.0 - (float(line - VBI_LINES) + 0.5) / float(VISIBLE_LINES);
 
-        // rolling-shutter jello: prop vibration (~180 Hz, aliased against
-        // the field rate) wobbles each scanline of the sensor readout while
-        // sync stays put; amplitude rises with airspeed
-        float jello = (0.3 + 3.5 * gSpeed * gSpeed)
+        // rolling-shutter jello: a small coherent ~160 Hz prop vibration
+        // wobbles the sensor readout while sync stays put. There is no motion
+        // at zero throttle and no per-frame random phase kick.
+        float jello = 1.25 * gSpeed * gSpeed
                     * sin(TAU * (0.0114 * float(line) + gJelloPhase));
 
         // 13-tap source read: light anti-alias kernel for luma, ~1.3 MHz
@@ -222,20 +213,16 @@ void main() {
     float battery = telem.r;
     float speed = telem.b + telem.a / 255.0;
 
-    // RSSI wander: real receivers never sit still, so a slow drift plus a
-    // faster flutter ride on top of the smoothed link, feeding the readout
-    // AND the signal degradation so the noise floor breathes with it
-    float wander = 0.030 * (2.0 * wander1(anim * 0.1, 0xA111u) - 1.0)
-                 + 0.012 * (2.0 * wander1(anim * 0.9, 0xA112u) - 1.0);
-    float link = clamp(telem.g + wander, 0.0, 1.0);
-    float d = 1.0 - link;
+    // Link strength is already smoothed in the telemetry pass. Keep every
+    // impairment tied to that measured value instead of inventing random
+    // fades or dropouts while the drone and controller are stationary.
+    float link = clamp(telem.g, 0.0, 1.0);
+    float loss = 1.0 - link;
 
     gSpeed = speed;
-    gJelloPhase = hash1(uvec3(field, 0u, 0x1E110u));
-
-    // multipath fade: flying through a null briefly shreds the whole frame
-    float fade = (hash1(uvec3(uint(anim * 0.3), 17u, 0xE0E0u))
-                  < 0.35 * smoothstep(0.25, 1.0, d)) ? 1.0 : 0.0;
+    // Eight whole vibration cycles per game tick remain continuous when the
+    // integer telemetry control word changes; only the sub-tick phase moves.
+    gJelloPhase = 8.0 * fract(anim);
 
     // OSD telemetry; speed 1.0 = 1.0 blocks/tick = 20 m/s = 44.74 mph
     float volt = mix(13.2, 16.8, battery) - 0.3 * speed;
@@ -243,35 +230,25 @@ void main() {
                  int(round(volt * 10.0)),
                  int(round(44.73873 * speed)),
                  0);
-    gLand = (battery < 0.12) && (((field / 21u) & 1u) == 0u);
+    // GameTime carries telemetry rather than a monotonic clock, so keep the
+    // warning steady instead of letting telemetry changes randomize its blink.
+    gLand = battery < 0.12;
 
     float s = cleanSignal(float(n), line, framePar, st.inverted);
 
-    // power-rail interference rising with current draw: stray noisy lines
-    float noisyLine = (hash1(uvec3(uint(line), field, 0x71E5u))
-                       < 0.012 * speed * speed + 0.06 * fade) ? 1.0 : 0.0;
-
-    // FM threshold: below it the receiver output is progressively CAPTURED
-    // by noise - the whole waveform (sync and burst included) collapses,
-    // which is what genuinely trips the decoder's color killer (B&W snow)
-    // and shreds line/vertical lock. "special" is no signal at all.
-    float breakdown = st.special ? 1.0
-        : clamp(0.92 * smoothstep(0.78, 1.0, d)
-                + 0.5 * fade * smoothstep(0.25, 0.75, d), 0.0, 1.0);
+    // FM threshold: a weakening carrier first raises the continuous noise
+    // floor, then progressively captures the complete waveform. Corrupting
+    // sync and burst here lets the real decoder stages produce color loss,
+    // tearing, and eventual roll without unrelated random effect switches.
+    float capture = smoothstep(0.58, 1.0, loss);
+    float breakdown = st.special ? 1.0 : capture * capture;
     s = mix(s, 30.0 + 22.0 * gaussRand(uvec3(uint(n), uint(line) ^ (field << 10), 0xB10Bu)), breakdown);
 
-    // above threshold the link is essentially clean: a gentle noise floor
-    float sigma = mix(0.3, 2.5, d) + fade * 4.0 + noisyLine * 11.0;
+    // Above threshold the picture remains recognizable while fine snow rises
+    // smoothly with distance. Randomness remains only in the physical noise.
+    float noiseRise = smoothstep(0.12, 1.0, loss);
+    float sigma = 0.28 + 3.2 * noiseRise * noiseRise;
     s += sigma * gaussRand(uvec3(uint(n), uint(line) ^ (field << 10), 0xA17Eu));
-
-    // occasional dropout: part of a line replaced by carrier-loss hash
-    float rd = hash1(uvec3(uint(line), field, 0xD120u));
-    if (rd < 0.013 * d * d + 0.05 * fade * d) {
-        float st2 = hash1(uvec3(uint(line), field, 0xD121u)) * 820.0;
-        float ln = 40.0 + 260.0 * hash1(uvec3(uint(line), field, 0xD122u));
-        float w = smoothstep(st2, st2 + 6.0, float(n)) - smoothstep(st2 + ln - 6.0, st2 + ln, float(n));
-        s = mix(s, 55.0 + 30.0 * gaussRand(uvec3(uint(n), field, 0xD123u)), 0.9 * w);
-    }
 
     // ~1 LSB dither so the 8-bit composite store doesn't band
     s += (hash1(uvec3(uint(n), uint(line), field ^ 0xD17Au)) - 0.5) * 0.78;

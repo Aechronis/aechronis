@@ -7,6 +7,7 @@ import net.aechronis.combat.utils.setRoll
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
+import net.minestom.server.MinecraftServer
 import net.minestom.server.collision.BoundingBox
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -26,6 +27,9 @@ import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacke
 import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.network.player.ResolvableProfile
+import net.minestom.server.timer.Task
+import net.minestom.server.timer.TaskSchedule
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -84,6 +88,7 @@ class Drone(
         player: Player,
         entity: Entity,
     ) {
+        clearCrashStatic(player)
         playerOriginalPos[player] = player.position
 
         spawnOperatorMannequin(player)
@@ -176,6 +181,7 @@ class Drone(
     ): Vec = Vec(0.0, if (inverted) down else -down, forward)
 
     override fun onExit(player: Player) {
+        val retainCrashStatic = hasCrashStatic(player)
         // restore the drone model's (and mounted payload's) visibility to the pilot
         val entity = playerVehicleEntity[player]
         entity?.addViewer(player)
@@ -194,8 +200,13 @@ class Drone(
         playerLockYaw.remove(player)
         playerLockPitch.remove(player)
         playerViewmodel.remove(player)?.remove()
-        // restore the normal shader/time signal in case we exited inverted
-        player.stopSpectating()
+        if (player.isOnline) {
+            for (slot in PILOT_HOTBAR_SLOTS) {
+                player.sendPacket(SetPlayerInventorySlotPacket(slot, player.inventory.getItemStack(slot)))
+            }
+        }
+
+        if (!retainCrashStatic) player.stopSpectating()
 
         // return the pilot to the operator clone's spot
         playerOperatorMannequin.remove(player)?.let { mannequin ->
@@ -376,6 +387,7 @@ class Drone(
         pos: Pos,
     ): LivingEntity {
         val spider = LivingEntity(EntityType.CAVE_SPIDER)
+        spider.isAutoViewable = false
         spider.setInstance(instance, pos)
         spider.setNoGravity(true)
         spider.isInvisible = true
@@ -498,6 +510,10 @@ class Drone(
         val impact = droneImpactPoint(player, entity, position, finalPos)
         if (impact != null) {
             entity.teleport(impact.withPitch(renderPitch))
+            entity.instance?.let { instance ->
+                val crashCamera = spawnSpider(instance, impact.withView(displayYaw, spiderPitch))
+                startCrashStatic(player, crashCamera)
+            }
             detonate(entity, player)
             return
         }
@@ -575,7 +591,7 @@ class Drone(
         }
 
         // fill the hotbar with glow lichen, which the resource pack retextures to nothing
-        for (slot in 0..8) {
+        for (slot in PILOT_HOTBAR_SLOTS) {
             player.sendPacket(SetPlayerInventorySlotPacket(slot, ItemStack.of(Material.GLOW_LICHEN).withCustomName(Component.empty())))
         }
     }
@@ -613,6 +629,28 @@ class Drone(
             max: Int,
         ) = (v.coerceIn(0f, 1f) * max).roundToInt().toLong()
         return (if (inverted) 12000L else 0L) + q(battery, 19) * 400L + q(link, 19) * 20L + q(speed, 9) * 2L
+    }
+
+    private fun startCrashStatic(
+        player: Player,
+        camera: LivingEntity,
+    ) {
+        clearCrashStatic(player)
+        camera.setAutoViewable(false)
+        camera.addViewer(player)
+        playerCrashStaticCameras[player] = camera
+
+        player.spectate(camera)
+        player.instance?.let { instance ->
+            player.sendPacket(SetTimePacket(CRASH_STATIC_TIME, instance.createTimePacket().clocks))
+        }
+
+        playerCrashStaticTasks[player] =
+            MinecraftServer
+                .getSchedulerManager()
+                .buildTask { finishCrashStatic(player, camera) }
+                .delay(TaskSchedule.seconds(CRASH_STATIC_SECONDS))
+                .schedule()
     }
 
     // wraps an angle in degrees to the range (-180, 180]
@@ -657,12 +695,44 @@ class Drone(
         val playerViewmodel = hashMapOf<Player, Entity>()
         val playerPayloadViewmodel = hashMapOf<Player, Entity>()
 
+        private val playerCrashStaticCameras = ConcurrentHashMap<Player, LivingEntity>()
+        private val playerCrashStaticTasks = ConcurrentHashMap<Player, Task>()
+
+        internal fun hasCrashStatic(player: Player): Boolean = playerCrashStaticCameras.containsKey(player)
+
+        internal fun crashStaticCamera(player: Player): LivingEntity? = playerCrashStaticCameras[player]
+
+        internal fun clearCrashStatic(
+            player: Player,
+            resetCamera: Boolean = true,
+        ) {
+            playerCrashStaticTasks.remove(player)?.cancel()
+            val camera = playerCrashStaticCameras.remove(player) ?: return
+            if (resetCamera && player.isOnline) player.stopSpectating()
+            camera.remove()
+        }
+
+        private fun finishCrashStatic(
+            player: Player,
+            camera: LivingEntity,
+        ) {
+            if (!playerCrashStaticCameras.remove(player, camera)) return
+            playerCrashStaticTasks.remove(player)
+            if (player.isOnline) player.stopSpectating()
+            camera.remove()
+        }
+
         const val BATTERY_IDLE_FRACTION = 0.25f
 
         const val BUZZ_THROTTLE_PITCH_GAIN = 0.6f
 
         const val TELEMETRY_TOP_SPEED = 1.0
         const val COLLISION_STEP = 0.3
+
+        const val CRASH_STATIC_TIME = 10000L
+        const val CRASH_STATIC_SECONDS = 2L
+
+        private val PILOT_HOTBAR_SLOTS = 0..8
 
         const val VIEWMODEL_FORWARD = -0.1 // blocks ahead of the camera
         const val VIEWMODEL_DOWN = -.35 // blocks below centre
