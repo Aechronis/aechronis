@@ -21,6 +21,8 @@ import net.minestom.server.particle.Particle
 import java.util.concurrent.CompletableFuture
 import kotlin.random.Random
 
+private const val SMOKE_SAMPLE_INTERVAL = 8
+
 class Explosion private constructor(
     val instance: Instance,
     val pos: Pos,
@@ -49,8 +51,9 @@ class Explosion private constructor(
         CompletableFuture.runAsync {
             val radiusSquared = radius * radius
             val positions = mutableListOf<Pos>()
+            var smokeSampleIndex = 0
 
-            // Collect all positions and send particles
+            // Collect all blast positions, emitting smoke at every eighth position.
             for (x in -radius..radius) {
                 val xSquared = x * x
                 for (y in -radius..radius) {
@@ -62,25 +65,27 @@ class Explosion private constructor(
                         val p = pos.add(x.toDouble(), y.toDouble(), z.toDouble())
                         positions.add(p)
 
-                        instance.sendGroupedPacket(
-                            ParticlePacket(
-                                Particle.CAMPFIRE_SIGNAL_SMOKE,
-                                p,
-                                Pos(1.0, 1.0, 1.0),
-                                0.05F,
-                                1,
-                            ),
-                        )
+                        if (smokeSampleIndex++ % SMOKE_SAMPLE_INTERVAL == 0) {
+                            instance.sendGroupedPacket(
+                                ParticlePacket(
+                                    Particle.CAMPFIRE_SIGNAL_SMOKE,
+                                    p,
+                                    Pos(1.0, 1.0, 1.0),
+                                    0.05F,
+                                    1,
+                                ),
+                            )
 
-                        instance.sendGroupedPacket(
-                            ParticlePacket(
-                                Particle.CAMPFIRE_COSY_SMOKE,
-                                p,
-                                Pos(1.0, 1.0, 1.0),
-                                0.1F,
-                                1,
-                            ),
-                        )
+                            instance.sendGroupedPacket(
+                                ParticlePacket(
+                                    Particle.CAMPFIRE_COSY_SMOKE,
+                                    p,
+                                    Pos(1.0, 1.0, 1.0),
+                                    0.1F,
+                                    1,
+                                ),
+                            )
+                        }
                     }
                 }
             }

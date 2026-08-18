@@ -9,6 +9,7 @@ import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.storage.HatCollection
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.attribute.Attribute
@@ -25,6 +26,22 @@ import net.minestom.server.timer.TaskSchedule
 
 object ModelManager {
     private const val HIT_ANIMATION_HASTE_SOURCE = "combat:hit_animation"
+    // X X X layer 1 A X A layer 2
+    // X H X         X X X
+    // X X X         A X A
+    private val fakeBlockOffsets =
+        buildList {
+            for (x in -1..1) {
+                for (z in -1..1) {
+                    add(Vec(x.toDouble(), 1.0, z.toDouble()))
+                }
+            }
+            add(Vec(0.0, 2.0, 0.0))
+            add(Vec(-1.0, 2.0, 0.0))
+            add(Vec(1.0, 2.0, 0.0))
+            add(Vec(0.0, 2.0, -1.0))
+            add(Vec(0.0, 2.0, 1.0))
+        }
 
     private val hitAnimationDisabledPlayers = HashSet<Player>()
     private val sniperScopeModifier =
@@ -85,20 +102,16 @@ object ModelManager {
         // when gun is automatic, or looking at vehicle, show player fake blocks so they keep sending animation packets when holding down left/right click
         // we hide the block + outline with a resource pack shader
         if (gun?.automatic == true || isLookingAtVehicle) {
-            for (y in 1..2) {
-                for (x in -1..1) {
-                    for (z in -1..1) {
-                        val pos: Pos = player.position.add(x.toDouble(), y.toDouble(), z.toDouble())
-                        if (!instance.isChunkLoaded(pos)) continue
-                        if (instance.getBlock(pos).isAir) {
-                            player.sendPacket(BlockChangePacket(pos, Block.GLOW_LICHEN))
-                            MinecraftServer
-                                .getSchedulerManager()
-                                .buildTask { player.sendPacket(BlockChangePacket(pos, Block.AIR)) }
-                                .delay(TaskSchedule.tick(1))
-                                .schedule()
-                        }
-                    }
+            for (offset in fakeBlockOffsets) {
+                val pos: Pos = player.position.add(offset)
+                if (!instance.isChunkLoaded(pos)) continue
+                if (instance.getBlock(pos).isAir) {
+                    player.sendPacket(BlockChangePacket(pos, Block.GLOW_LICHEN))
+                    MinecraftServer
+                        .getSchedulerManager()
+                        .buildTask { player.sendPacket(BlockChangePacket(pos, Block.AIR)) }
+                        .delay(TaskSchedule.tick(1))
+                        .schedule()
                 }
             }
         }
