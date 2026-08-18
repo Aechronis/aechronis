@@ -133,7 +133,7 @@ object Trains {
         stationsByPosition.containsKey(position)
 
     fun create(position: BlockVec, instance: Instance): Result<TrainStation> = runCatching {
-        require(instance.getBlock(position) == Block.GOLD_BLOCK) { "Stations must be created on a gold block" }
+        require(blockAt(instance, position) == Block.GOLD_BLOCK) { "Stations must be created on a gold block" }
         require(position !in stationsByPosition) { "A station already exists at this gold block" }
         TrainStation(nextStationId++, position).also {
             stations[it.id] = it
@@ -174,7 +174,7 @@ object Trains {
 
     fun scan(id: Int, instance: Instance): Result<Int> = runCatching {
         val station = stations[id] ?: error("Station not found")
-        if (instance.getBlock(station.position) != Block.GOLD_BLOCK) {
+        if (blockAt(instance, station.position) != Block.GOLD_BLOCK) {
             remove(id)
             return@runCatching 0
         }
@@ -197,7 +197,7 @@ object Trains {
         var changed = false
         val oldEdges = edges.toSet()
         stations.values.toList().forEach { station ->
-            if (instance.getBlock(station.position) != Block.GOLD_BLOCK) {
+            if (blockAt(instance, station.position) != Block.GOLD_BLOCK) {
                 stations.remove(station.id)
                 stationsByPosition.remove(station.position)
                 changed = true
@@ -298,7 +298,7 @@ object Trains {
     private fun buildComponents(instance: Instance, seeds: Iterable<BlockVec>) {
         val visited = hashSetOf<BlockVec>()
         seeds.forEach { seed ->
-            if (seed in visited || componentByRail.containsKey(seed) || !isRail(instance.getBlock(seed))) return@forEach
+            if (seed in visited || componentByRail.containsKey(seed) || !isRail(blockAt(instance, seed))) return@forEach
             val rails = collectComponent(instance, seed, visited)
             if (rails.isEmpty()) return@forEach
             val component = RailComponent(nextComponentId++, rails, buildEdges(instance, rails))
@@ -315,9 +315,9 @@ object Trains {
         queue += seed
         while (queue.isNotEmpty()) {
             val current = queue.removeFirst()
-            if (!globalVisited.add(current) || !isRail(instance.getBlock(current))) continue
+            val currentBlock = blockAt(instance, current)
+            if (!globalVisited.add(current) || !isRail(currentBlock)) continue
             rails += current
-            val currentBlock = instance.getBlock(current)
             queue += connectedRailPositions(instance, current, currentBlock)
         }
         return rails
@@ -337,12 +337,13 @@ object Trains {
         val visited = hashSetOf<BlockVec>()
         while (current in rails && visited.add(current) && distance < 10_000) {
             distance++
-            val exits = railExits(current, instance.getBlock(current)).filter { it != previous }
+            val currentBlock = blockAt(instance, current)
+            val exits = railExits(current, currentBlock).filter { it != previous }
             val destination = exits.firstOrNull { stationsByPosition[it] != null }
             if (destination != null) {
                 return RailEdge(source.id, attachment.start, destination, stationsByPosition[destination], distance)
             }
-            val next = connectedRailPositions(instance, current, instance.getBlock(current))
+            val next = connectedRailPositions(instance, current, currentBlock)
                 .filter { it != previous && it in rails }
             if (next.size != 1) return RailEdge(source.id, attachment.start, current, null, distance)
             previous = current
@@ -367,7 +368,7 @@ object Trains {
         positions.forEach { position ->
             val candidates = attachmentCandidatesByRail[position] ?: return@forEach
             attachmentsByRail.remove(position)
-            val block = instance.getBlock(position)
+            val block = blockAt(instance, position)
             if (!isRail(block)) return@forEach
             candidates.filter { attachment ->
                 stations[attachment.stationId]?.position in railExits(position, block)
@@ -411,7 +412,7 @@ object Trains {
             }
         }
         return candidates.filterTo(linkedSetOf()) { candidate ->
-            val candidateBlock = instance.getBlock(candidate)
+            val candidateBlock = blockAt(instance, candidate)
             if (!isRail(candidateBlock)) return@filterTo false
             railsAreLinked(position, block, candidate, candidateBlock) ||
                 railsAreLinked(candidate, candidateBlock, position, block)
@@ -437,6 +438,14 @@ object Trains {
         position.blockY() + y,
         position.blockZ() + direction.blockZ(),
     )
+
+    /** Load a chunk before reading it: unloaded chunks otherwise appear to contain air. */
+    private fun blockAt(instance: Instance, position: BlockVec): Block {
+        val chunkX = Math.floorDiv(position.blockX(), 16)
+        val chunkZ = Math.floorDiv(position.blockZ(), 16)
+        if (!instance.isChunkLoaded(chunkX, chunkZ)) instance.loadChunk(chunkX, chunkZ).join()
+        return instance.getBlock(position)
+    }
 
     private fun isRail(block: Block): Boolean = block.key() in railKeys
 

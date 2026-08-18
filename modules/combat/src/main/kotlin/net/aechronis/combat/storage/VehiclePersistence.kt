@@ -150,6 +150,9 @@ object VehiclePersistence {
     ): Pos? {
         val blockX = floor(position.x).toInt()
         val blockZ = floor(position.z).toInt()
+        val chunkX = Math.floorDiv(blockX, 16)
+        val chunkZ = Math.floorDiv(blockZ, 16)
+        if (!instance.isChunkLoaded(chunkX, chunkZ)) instance.loadChunk(chunkX, chunkZ).join()
         for (blockY in floor(position.y).toInt() downTo MIN_WORLD_Y) {
             if (instance.getBlock(blockX, blockY, blockZ).isSolid) {
                 return Pos(

@@ -9,11 +9,13 @@ import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.TestTownSide
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.testTownLockedSide
 import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
+import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
 import net.minestom.server.event.EventNode
@@ -21,6 +23,8 @@ import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
+import net.minestom.server.instance.InstanceContainer
+import net.minestom.server.instance.block.Block
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -40,6 +44,7 @@ import kotlin.test.assertTrue
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class NodesTest {
     private lateinit var tmpDir: Path
+    private lateinit var instance: InstanceContainer
     private var serverInitialized = false
 
     @BeforeAll
@@ -50,7 +55,7 @@ class NodesTest {
         server.start("0.0.0.0", 25565)
 
         // create instance
-        val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        instance = MinecraftServer.getInstanceManager().createInstanceContainer()
         instance.setGenerator(TestGenerator())
 
         val eventNode = EventNode.all("test-node").setPriority(0)
@@ -118,6 +123,22 @@ class NodesTest {
 
         // initialize nodes with test config
         Nodes.initialize(config)
+    }
+
+    @Test
+    fun `train station validation loads its chunk`() {
+        val trainInstance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        trainInstance.setGenerator { unit -> unit.modifier().fillHeight(64, 65, Block.GOLD_BLOCK) }
+        val position = BlockVec(320, 64, 320)
+        assertFalse(trainInstance.isChunkLoaded(20, 20))
+
+        val station = Trains.create(position, trainInstance).getOrThrow()
+        try {
+            assertTrue(trainInstance.isChunkLoaded(20, 20))
+        } finally {
+            Trains.remove(station.id)
+            trainInstance.unloadChunk(20, 20)
+        }
     }
 
     @Test

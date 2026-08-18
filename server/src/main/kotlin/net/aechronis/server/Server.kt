@@ -193,7 +193,18 @@ fun main(args: Array<String>) {
         Boats.ussButler,
     )
 
-    VehiclePersistence.initialize(worldPath.resolve("vehicles.json"), Server.instance)
+    val vehiclePath = Path.of("combat", "vehicles.json")
+    val legacyVehiclePath = worldPath.resolve("vehicles.json")
+    if (!Files.exists(vehiclePath) && Files.exists(legacyVehiclePath)) {
+        try {
+            Files.createDirectories(vehiclePath.parent)
+            Files.move(legacyVehiclePath, vehiclePath)
+            println("[Combat] Moved vehicle save from $legacyVehiclePath to $vehiclePath")
+        } catch (exception: Exception) {
+            System.err.println("[Combat] Failed to move vehicle save to $vehiclePath: ${exception.message}")
+        }
+    }
+    VehiclePersistence.initialize(vehiclePath, Server.instance)
 
     // initialize luckperms
     LuckPermsMinestom

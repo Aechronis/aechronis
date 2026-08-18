@@ -70,6 +70,9 @@ class CombatTest {
     val shipGen =
         Generator { unit ->
             unit.modifier().fillHeight(0, 60, Block.WATER)
+            if (unit.absoluteStart().blockX() == 320 && unit.absoluteStart().blockZ() == 320) {
+                unit.modifier().setBlock(320, 60, 320, Block.STONE)
+            }
         }
 
     @BeforeAll
@@ -318,17 +321,41 @@ class CombatTest {
         Vehicle.entityHealth[tankEntity]!!.takeHp(AmmoTypes.NORMAL)
         Vehicle.entityAmmo[tankEntity] = 3
 
+        var restoredPlane: Entity? = null
         try {
             val savePath = temporaryDirectory.resolve("vehicles.json")
-            VehiclePersistence.initialize(savePath, instance)
-            VehiclePersistence.save()
+            Files.writeString(
+                savePath,
+                """
+                {
+                  "version": 1,
+                  "vehicles": [
+                    {"type": "test-plane", "x": 320.0, "y": 100.0, "z": 320.0}
+                  ]
+                }
+                """.trimIndent(),
+            )
+            assertFalse(instance.isChunkLoaded(20, 20))
 
+            VehiclePersistence.initialize(savePath, instance)
+            restoredPlane =
+                assertNotNull(
+                    Vehicle.entityVehicle.entries
+                        .singleOrNull { (_, vehicle) ->
+                            vehicle.name == "test-plane"
+                        },
+                ).key
+            assertTrue(instance.isChunkLoaded(20, 20))
+
+            VehiclePersistence.save()
             val saved = Files.readString(savePath)
             assertTrue(saved.contains("\"type\": \"m1a1-abrams\""))
+            assertTrue(saved.contains("\"type\": \"test-plane\""))
             assertTrue(saved.contains("\"health\": 490.0"))
             assertTrue(saved.contains("\"ammo\": 3"))
             assertFalse(saved.contains("\"type\": \"drone\""))
         } finally {
+            restoredPlane?.let { entity -> Vehicle.entityVehicle[entity]?.destroy(entity) }
             tank.destroy(tankEntity)
             drone.destroy(droneEntity)
         }
