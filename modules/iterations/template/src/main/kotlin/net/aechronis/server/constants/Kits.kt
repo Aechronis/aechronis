@@ -61,7 +61,7 @@ object Kits {
                 TOOL_SLOT to ItemStack.of(Material.DIAMOND_PICKAXE),
                 PRIMARY_AMMO_SLOT to primary.ammo.toItemStack().withAmount(64),
                 SECONDARY_AMMO_SLOT to secondary.ammo.toItemStack().withAmount(32),
-                FOOD_SLOT to ItemStack.of(Material.BEEF, 64),
+                FOOD_SLOT to ItemStack.of(Material.COOKED_BEEF, 64),
                 BLOCKS_SLOT to ItemStack.of(Material.OAK_FENCE, 64),
             ) + armor.associate { it.slot.armorSlot() to it.toItemStack() },
         )

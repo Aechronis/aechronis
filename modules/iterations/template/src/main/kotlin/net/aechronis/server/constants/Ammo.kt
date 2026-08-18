@@ -26,5 +26,14 @@ object Ammo {
             name = "tank-shell",
             itemName = Component.text("Tank Shell", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammoType = AmmoTypes.EXPLOSIVE,
+            itemModel = "aechronis:shell",
+        )
+
+    val rocket =
+        Ammo(
+            name = "rpg-rocket",
+            itemName = Component.text("Rocket", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            ammoType = AmmoTypes.EXPLOSIVE,
+            itemModel = "aechronis:rpg-rocket",
         )
 }

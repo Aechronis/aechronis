@@ -11,21 +11,22 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
 
 object Cars {
-    private val truckHitbox =
+    // The model is 16 pixels wide/deep and is displayed at scale 3.0.
+    private val humveeHitbox =
         Hitbox(
             listOf(
                 HitboxPart(
-                    offset = Vec(0.4, 0.0, -1.0),
-                    size = Vec(1.4, 1.0, 3.0),
+                    offset = Vec(0.0, -0.24, 0.0),
+                    size = Vec(1.6, 1.2, 1.4),
                 ),
             ),
         )
 
-    val truck =
+    val humvee =
         Car(
-            name = "truck",
-            itemName = Component.text("Truck", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            hitbox = truckHitbox,
+            name = "humvee",
+            itemName = Component.text("Humvee", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            hitbox = humveeHitbox,
             health =
                 Health(
                     500F,
@@ -38,7 +39,7 @@ object Cars {
                 ),
             placeTime = 2000,
             scale = 3.0,
-            maxSpeed = 5f,
+            maxSpeed = 1.25f,
             turnSpeed = 10f,
             maxClimbHeight = 1.5f,
             seatOffsets =

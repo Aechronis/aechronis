@@ -109,6 +109,16 @@
       "aechronis:generic-rifle-reload"
     ]
   },
+  "at4.fire": {
+    "sounds": [
+      "aechronis:generic-rifle-fire"
+    ]
+  },
+  "at4.reload": {
+    "sounds": [
+      "aechronis:generic-rifle-reload"
+    ]
+  },
   "drone.buzz": {
     "sounds": [
       "aechronis:drone-buzz"

@@ -28,18 +28,55 @@ object Tanks {
             model = "aechronis:m1a1-abrams",
             hitbox = m1a1AbramsHitbox,
             scale = 3.0,
+            maxSpeed = 0.4f,
             ammo = Ammo.tankShell,
-            maxAmmo = 10,
+            maxAmmo = 5,
             health =
                 Health(
                     1500f,
                     mapOf(
-                        AmmoTypes.NORMAL to 2.5f,
+                        AmmoTypes.NORMAL to 0f,
                         AmmoTypes.EXPLOSIVE to 750f,
                         AmmoTypes.BOMB to 500f,
                         AmmoTypes.MISSILE to 750f,
                     ),
                 ),
             projectileModel = "aechronis:shell",
+        )
+
+    // Starter configuration for the T-90 body/turret/barrel models.
+    val t90 =
+        Tank(
+            name = "t-90",
+            itemName = Component.text("T-90", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            model = "aechronis:t-90",
+            hitbox =
+                Hitbox(
+                    listOf(
+                        // Body model bounds after applying its display scale (6.0).
+                        HitboxPart(
+                            offset = Vec(0.0, -1.9, -0.25),
+                            size = Vec(2.1, 0.9, 4.5),
+                        ),
+                    ),
+                ),
+            scale = 6.0,
+            maxSpeed = 0.6f,
+            ammo = Ammo.tankShell,
+            maxAmmo = 2,
+            health =
+                Health(
+                    1200f,
+                    mapOf(
+                        AmmoTypes.NORMAL to 0f,
+                        AmmoTypes.EXPLOSIVE to 750f,
+                        AmmoTypes.BOMB to 500f,
+                        AmmoTypes.MISSILE to 750f,
+                    ),
+                ),
+            projectileModel = "aechronis:shell",
+            projectileName = Component.text("T-90 cannon"),
+            fireCooldown = 10000,
+            barrelTipOffset = Vec(0.0, 0.0, 5.0),
         )
 }

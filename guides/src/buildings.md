@@ -187,7 +187,7 @@ Land factories convert oil into various land vehicles. Requires territory tier 3
 <img src="buildings/land-factory/1.webp" align="right" height="165">
 
 ### Tier 1
-* 16 oil -> Truck
+* 16 oil -> Humvee
 <br>
 <br>
 <br>
@@ -196,7 +196,7 @@ Land factories convert oil into various land vehicles. Requires territory tier 3
 <img src="buildings/land-factory/2.webp" align="right" height="230">
 
 ### Tier 2
-* 16 oil -> Truck
+* 16 oil -> Humvee
 
 **or**
 * 32 oil -> T-62
@@ -207,7 +207,7 @@ Land factories convert oil into various land vehicles. Requires territory tier 3
 <img src="buildings/land-factory/3.webp" align="right" height="230">
 
 ### Tier 3
-* 8 oil -> Truck
+* 8 oil -> Humvee
 
 **or**
 * 32 oil -> T-72B
