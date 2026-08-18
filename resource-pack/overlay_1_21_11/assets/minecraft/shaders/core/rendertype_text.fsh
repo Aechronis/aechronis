@@ -1,5 +1,7 @@
 #version 330
 
+#moj_import <aechronis:config.glsl>
+
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:dynamictransforms.glsl>
 
