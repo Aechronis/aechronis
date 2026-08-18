@@ -19,7 +19,9 @@ import net.aechronis.vanilla.commands.Message
 import net.aechronis.vanilla.commands.Music
 import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shop
+import net.aechronis.vanilla.commands.Shutdown
 import net.aechronis.vanilla.commands.Teleport
+import net.aechronis.vanilla.commands.TpsBar
 import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.CommandsListener
 import net.aechronis.vanilla.listeners.FallDamageListener
@@ -47,6 +49,7 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Path
 import net.aechronis.vanilla.managers.Music as MusicManager
+import net.aechronis.vanilla.managers.TpsBar as TpsBarManager
 import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
 object Vanilla {
@@ -80,6 +83,8 @@ object Vanilla {
                     Ignore(),
                     Gm(),
                     List(),
+                    TpsBar(),
+                    Shutdown(),
                 )
             if (config.musicEnabled) commands += Music()
             if (config.blocksEnabled) commands += Convert()
@@ -105,7 +110,10 @@ object Vanilla {
         if (config.cratesEnabled) Crates.init()
         if (config.itemsEnabled) Items.init()
         if (config.bundlesEnabled) Bundles.init()
-        if (config.commandsEnabled) CommandsListener.init()
+        if (config.commandsEnabled) {
+            CommandsListener.init()
+            TpsBarManager.init()
+        }
         if (config.blockDropsEnabled) PlayerBreakListener.init()
         if (config.fallDamageEnabled) FallDamageListener.init()
         if (config.fireDamageEnabled || config.drowningEnabled) EnvironmentalDamage.init()

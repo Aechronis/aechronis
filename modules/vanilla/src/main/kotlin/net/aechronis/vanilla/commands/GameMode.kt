@@ -15,17 +15,13 @@ class GameMode : Command("gamemode", "vanilla.gamemode") {
             player.sendMessage(Component.text("/gamemode <gamemode> <player>", NamedTextColor.LIGHT_PURPLE))
         }
 
-        val playerArg = ArgumentType.Entity("player-name").singleEntity(true).onlyPlayers(true)
+        val playerArg = PlayerTargets.argument("player-name")
         val gameModeArg = ArgumentType.Enum("gamemode", GameMode::class.java)
 
         addSyntax({ sender: Player, context ->
-            val player =
-                context[playerArg].findFirstPlayer(sender) ?: run {
-                    sender.sendMessage(Component.text("Player not found.", NamedTextColor.RED))
-                    return@addSyntax
-                }
-
-            player.gameMode = context[gameModeArg]
+            val targets = PlayerTargets.resolve(sender, context[playerArg]) ?: return@addSyntax
+            val gameMode = context[gameModeArg]
+            targets.forEach { it.gameMode = gameMode }
         }, gameModeArg, playerArg)
 
         addSyntax({ sender: Player, context ->

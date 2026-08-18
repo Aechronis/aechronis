@@ -3,6 +3,7 @@ package net.aechronis.vanilla.commands
 import net.aechronis.utils.Command
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
@@ -32,14 +33,26 @@ class Whitelist : Command("whitelist", "vanilla.whitelist") {
 
         addSyntax({ sender: Player, context ->
             val name = context[playerArg]
-            WhitelistManager.add(name)
-            sender.sendMessage(Component.text("Added $name to the whitelist", NamedTextColor.LIGHT_PURPLE))
+            if (name == "*") {
+                val players = MinecraftServer.getConnectionManager().onlinePlayers.toList()
+                players.forEach { WhitelistManager.add(it.username) }
+                sender.sendMessage(Component.text("Added ${players.size} player(s) to the whitelist", NamedTextColor.LIGHT_PURPLE))
+            } else {
+                WhitelistManager.add(name)
+                sender.sendMessage(Component.text("Added $name to the whitelist", NamedTextColor.LIGHT_PURPLE))
+            }
         }, addArg, playerArg)
 
         addSyntax({ sender: Player, context ->
             val name = context[playerArg]
-            WhitelistManager.remove(name)
-            sender.sendMessage(Component.text("Removed $name from the whitelist", NamedTextColor.LIGHT_PURPLE))
+            if (name == "*") {
+                val players = MinecraftServer.getConnectionManager().onlinePlayers.toList()
+                players.forEach { WhitelistManager.remove(it.username) }
+                sender.sendMessage(Component.text("Removed ${players.size} player(s) from the whitelist", NamedTextColor.LIGHT_PURPLE))
+            } else {
+                WhitelistManager.remove(name)
+                sender.sendMessage(Component.text("Removed $name from the whitelist", NamedTextColor.LIGHT_PURPLE))
+            }
         }, removeArg, playerArg)
     }
 }

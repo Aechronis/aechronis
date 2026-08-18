@@ -8,7 +8,7 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
 class InventorySee : Command("invsee", "vanilla.invsee", "inventorysee") {
-    private val playerArg = ArgumentType.Entity("player").singleEntity(true).onlyPlayers(true)
+    private val playerArg = PlayerTargets.argument()
     private val inventoryArg = ArgumentType.Word("inventory").from("inv", "ec").setDefaultValue("inv")
 
     init {
@@ -18,11 +18,12 @@ class InventorySee : Command("invsee", "vanilla.invsee", "inventorysee") {
         }
 
         addSyntax({ player: Player, context ->
-            val target =
-                context[playerArg].findFirstPlayer(player) ?: run {
-                    player.sendMessage(Component.text("Player not found.", NamedTextColor.RED))
-                    return@addSyntax
-                }
+            val targets = PlayerTargets.resolve(player, context[playerArg]) ?: return@addSyntax
+            if (targets.size != 1) {
+                player.sendMessage(Component.text("You can only view one inventory at a time.", NamedTextColor.RED))
+                return@addSyntax
+            }
+            val target = targets.single()
             when (context[inventoryArg]) {
                 "ec" -> Commands.openEnderChest(player, target)
                 else -> Commands.open(player, target)

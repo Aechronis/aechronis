@@ -1,6 +1,7 @@
 package net.aechronis.vanilla.commands
 
 import net.aechronis.utils.Command
+import net.aechronis.vanilla.managers.Commands.isBlocked
 import net.aechronis.vanilla.managers.Commands.sendMessage
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -9,7 +10,7 @@ import net.minestom.server.entity.Player
 import kotlin.collections.joinToString
 
 class Message : Command("message", null, "msg", "tell", "whisper", "w") {
-    val playerArg = ArgumentType.Entity("player-name").singleEntity(true).onlyPlayers(true)
+    val playerArg = PlayerTargets.argument("player-name")
     val messageArg = ArgumentType.StringArray("message")
 
     init {
@@ -19,7 +20,16 @@ class Message : Command("message", null, "msg", "tell", "whisper", "w") {
         }
 
         addSyntax({ sender: Player, context ->
-            sendMessage(sender, context[playerArg].findFirstPlayer(sender), context[messageArg].joinToString(" "))
+            val message = context[messageArg].joinToString(" ")
+            val targets = PlayerTargets.resolve(sender, context[playerArg]) ?: return@addSyntax
+            if (context[playerArg] == "*") {
+                targets.filter { !isBlocked(sender, it) }.forEach { target ->
+                    target.sendMessage(Component.text("${sender.username} Whispered: $message").color(NamedTextColor.LIGHT_PURPLE))
+                }
+                sender.sendMessage(Component.text("Message sent to ${targets.size} player(s).", NamedTextColor.LIGHT_PURPLE))
+            } else {
+                sendMessage(sender, targets.singleOrNull(), message)
+            }
         }, playerArg, messageArg)
     }
 }
