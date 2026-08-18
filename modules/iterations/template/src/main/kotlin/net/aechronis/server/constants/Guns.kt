@@ -111,7 +111,7 @@ object Guns {
             itemName = Component.text("AWP", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 5,
-            damage = 60F,
+            damage = 44F,
             automatic = false,
             sniper = true,
             cooldown = 1500,
