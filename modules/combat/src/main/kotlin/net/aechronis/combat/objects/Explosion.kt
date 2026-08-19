@@ -1,10 +1,14 @@
 package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.events.ExplosionBlockChange
+import net.aechronis.combat.events.ExplosionBlockChangeType
+import net.aechronis.combat.events.ExplosionBlockDamageEvent
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.withCombatAttribution
 import net.aechronis.combat.utils.withCombatDamageImmunityBypass
 import net.kyori.adventure.text.Component
+import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
@@ -17,9 +21,9 @@ import net.minestom.server.entity.damage.Damage
 import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
-import net.minestom.server.registry.RegistryKey
 import net.minestom.server.network.packet.server.play.ParticlePacket
 import net.minestom.server.particle.Particle
+import net.minestom.server.registry.RegistryKey
 import java.util.concurrent.CompletableFuture
 import kotlin.random.Random
 
@@ -51,6 +55,15 @@ class Explosion private constructor(
         // Take the snapshot before block destruction starts. Damage must not depend on
         // the asynchronous block pass winning a race with the entity update.
         val blast = collectBlastBlocks()
+        MinecraftServer.getGlobalEventHandler().call(
+            ExplosionBlockDamageEvent(
+                instance = instance,
+                position = pos,
+                sourceUuid = source?.uuid,
+                sourceName = source?.username,
+                changes = blast.changes,
+            ),
+        )
         if (damage > 0f) applyDamage(blast.affectedBlocks)
 
         CompletableFuture.runAsync {
@@ -86,14 +99,9 @@ class Explosion private constructor(
                 instance.setBlock(p, Block.AIR)
             }
 
-            // Second pass: place fire where appropriate (after destruction is complete).
-            if (fire > 0) {
-                blast.positions.forEach { p ->
-                    val blockBelow = instance.getBlock(p.add(0.0, -1.0, 0.0))
-                    if (Random.nextDouble() < fire && blockBelow != Block.AIR && blockBelow.isSolid) {
-                        instance.setBlock(p, Block.FIRE)
-                    }
-                }
+            // Second pass: place the fire positions selected during the snapshot pass.
+            blast.firePositions.forEach { block ->
+                instance.setBlock(block, Block.FIRE)
             }
         }
     }
@@ -101,7 +109,7 @@ class Explosion private constructor(
     private fun collectBlastBlocks(): BlastBlocks {
         val radiusSquared = radius * radius
         val positions = mutableListOf<Pos>()
-        val affectedBlocks = LinkedHashSet<BlockVec>()
+        val blocks = LinkedHashMap<BlockVec, Block>()
 
         for (x in -radius..radius) {
             val xSquared = x * x
@@ -112,15 +120,49 @@ class Explosion private constructor(
 
                     val p = pos.add(x.toDouble(), y.toDouble(), z.toDouble())
                     val block = p.asBlockVec()
-                    if (!instance.isChunkLoaded(block.blockX(), block.blockZ())) continue
+                    if (!instance.isChunkLoaded(block.blockX() shr 4, block.blockZ() shr 4)) continue
 
                     positions.add(p)
-                    if (instance.getBlock(block) != Block.AIR) affectedBlocks.add(block)
+                    blocks.putIfAbsent(block, instance.getBlock(block))
                 }
             }
         }
 
-        return BlastBlocks(positions, affectedBlocks)
+        val affectedBlocks =
+            blocks
+                .filterValues { it != Block.AIR }
+                .keys
+                .toCollection(LinkedHashSet())
+        val changes =
+            affectedBlocks
+                .map { block ->
+                    ExplosionBlockChange(
+                        position = block,
+                        oldBlock = requireNotNull(blocks[block]),
+                        newBlock = Block.AIR,
+                        type = ExplosionBlockChangeType.DAMAGE,
+                    )
+                }.toMutableList()
+
+        val firePositions = mutableListOf<BlockVec>()
+        if (fire > 0) {
+            blocks.keys.forEach { block ->
+                val below = BlockVec(block.blockX(), block.blockY() - 1, block.blockZ())
+                val blockBelow = if (below in blocks) Block.AIR else instance.getBlock(below)
+                if (Random.nextDouble() < fire && blockBelow != Block.AIR && blockBelow.isSolid) {
+                    firePositions += block
+                    changes +=
+                        ExplosionBlockChange(
+                            position = block,
+                            oldBlock = Block.AIR,
+                            newBlock = Block.FIRE,
+                            type = ExplosionBlockChangeType.FIRE,
+                        )
+                }
+            }
+        }
+
+        return BlastBlocks(positions, affectedBlocks, changes, firePositions)
     }
 
     private fun applyDamage(affectedBlocks: Set<BlockVec>) {
@@ -195,8 +237,14 @@ class Explosion private constructor(
         return minBlockDistance ?: hitboxDistance
     }
 
-    private fun floorBlockRange(start: Double, end: Double): IntRange =
-        kotlin.math.floor(start).toInt()..kotlin.math.floor(end - 1.0E-6).toInt()
+    private fun floorBlockRange(
+        start: Double,
+        end: Double,
+    ): IntRange {
+        val min = kotlin.math.floor(start).toInt()
+        val max = kotlin.math.floor(end - 1.0E-6).toInt()
+        return min..max
+    }
 
     private fun distanceToBlock(
         block: BlockVec,
@@ -214,6 +262,8 @@ class Explosion private constructor(
     private data class BlastBlocks(
         val positions: List<Pos>,
         val affectedBlocks: Set<BlockVec>,
+        val changes: List<ExplosionBlockChange>,
+        val firePositions: List<BlockVec>,
     )
 
     companion object {

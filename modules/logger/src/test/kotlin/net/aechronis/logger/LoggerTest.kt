@@ -2,6 +2,7 @@ package net.aechronis.logger
 
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
+import net.aechronis.combat.objects.Explosion
 import net.aechronis.logger.listeners.LootListener
 import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
@@ -793,6 +794,79 @@ class LoggerTest {
 
     @Test
     @Order(12)
+    fun `combat explosions log damage and fire for rollback`() {
+        val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        instance.loadChunk(0, 0).get(5, TimeUnit.SECONDS)
+        val position = BlockVec(2, 41, 2)
+        val support = BlockVec(2, 40, 2)
+        val started = System.currentTimeMillis() - 1_000
+        instance.setBlock(position, Block.STONE)
+        instance.setBlock(support, Block.STONE)
+
+        Explosion(
+            instance = instance,
+            pos = Pos(position.x(), position.y(), position.z()),
+            radius = 0,
+            fire = 1.0,
+        )
+
+        val deadline = System.currentTimeMillis() + 5_000
+        while (instance.getBlock(position) != Block.FIRE && System.currentTimeMillis() < deadline) {
+            Thread.sleep(10)
+        }
+        assertEquals(Block.FIRE, instance.getBlock(position))
+        Logger.repository.flushAsync().get(5, TimeUnit.SECONDS)
+
+        val entries = blockEntriesAt(position)
+        assertEquals(2, entries.size)
+        assertEquals(BlockAction.PLACE, entries[0].action)
+        assertEquals(BlockAction.BREAK, entries[1].action)
+        assertEquals(LogMetadata.COMBAT, entries[0].source)
+        assertEquals(LogMetadata.COMBAT, entries[0].origin)
+        assertEquals(Block.STONE.key().asString(), entries[1].blockOld)
+        assertEquals(Block.AIR.key().asString(), entries[1].blockNew)
+        assertEquals(Block.AIR.key().asString(), entries[0].blockOld)
+        assertEquals(Block.FIRE.key().asString(), entries[0].blockNew)
+
+        val params =
+            LookupParams(
+                users = listOf(LogMetadata.COMBAT),
+                source = LogMetadata.COMBAT,
+                since = started,
+                radius = 2,
+            )
+        val actor = RollbackActor(UUID.randomUUID(), "combat-rollback-operator")
+        val rollbackPlan =
+            Logger.rollbackService
+                .computePlanAsync(
+                    RollbackOperationKind.ROLLBACK,
+                    params,
+                    started,
+                    instance.uuid,
+                    Pos(position.x(), position.y(), position.z()),
+                    safeMode = true,
+                ).get(5, TimeUnit.SECONDS)
+        val rollbackResult = Logger.rollbackService.applyAsync(actor, rollbackPlan).get(5, TimeUnit.SECONDS)
+        assertEquals(2, rollbackResult.appliedCount)
+        assertEquals(Block.STONE, instance.getBlock(position))
+
+        val restorePlan =
+            Logger.rollbackService
+                .computePlanAsync(
+                    RollbackOperationKind.RESTORE,
+                    params,
+                    started,
+                    instance.uuid,
+                    Pos(position.x(), position.y(), position.z()),
+                    safeMode = true,
+                ).get(5, TimeUnit.SECONDS)
+        val restoreResult = Logger.rollbackService.applyAsync(actor, restorePlan).get(5, TimeUnit.SECONDS)
+        assertEquals(2, restoreResult.appliedCount)
+        assertEquals(Block.FIRE, instance.getBlock(position))
+    }
+
+    @Test
+    @Order(13)
     fun `close persists pending log entries`() {
         repeat(100) { index ->
             Logger.log(

@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
     compileOnly(project(":modules:utils"))
+    compileOnly(project(":modules:combat"))
     compileOnly("net.minestom:minestom:2026.07.12-26.2")
     compileOnly(project(":modules:vanilla"))
     compileOnly(project(":modules:worldedit"))
@@ -14,6 +15,7 @@ dependencies {
     compileOnly("com.zaxxer:HikariCP:7.1.0")
 
     testImplementation(project(":modules:utils"))
+    testImplementation(project(":modules:combat"))
     testImplementation(project(":modules:vanilla"))
     testImplementation(project(":modules:worldedit"))
     testImplementation("com.h2database:h2:2.4.240")

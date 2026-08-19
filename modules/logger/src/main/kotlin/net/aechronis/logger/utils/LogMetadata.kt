@@ -5,4 +5,5 @@ object LogMetadata {
     const val WORLDEDIT = "worldedit"
     const val LOOT = "loot"
     const val VANILLA = "vanilla"
+    const val COMBAT = "combat"
 }

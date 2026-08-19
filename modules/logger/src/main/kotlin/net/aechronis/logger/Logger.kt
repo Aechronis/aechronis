@@ -3,6 +3,7 @@ package net.aechronis.logger
 import net.aechronis.logger.commands.LoggerCommand
 import net.aechronis.logger.db.Database
 import net.aechronis.logger.listeners.BlockListener
+import net.aechronis.logger.listeners.CombatExplosionListener
 import net.aechronis.logger.listeners.EntityChangeListener
 import net.aechronis.logger.listeners.EntityListener
 import net.aechronis.logger.listeners.InventoryListener
@@ -77,6 +78,7 @@ object Logger {
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         BlockListener.init()
+        CombatExplosionListener.init()
         WorldEditListener.init()
         EntityListener.init()
         EntityChangeListener.init()
