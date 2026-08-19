@@ -61,7 +61,9 @@ open class WorldEditConfiguration(
         serverSideCUI = config.serverSideCUI
         initializeSnapshotConfiguration(config.snapshotsDirectory, config.snapshotsExperimental)
         shellSaveType = config.shellSaveType
-        extendedYLimit = config.extendedYLimit
+        // The compact WorldEdit position encoding only supports 0..255. Minestom
+        // worlds use negative build heights, so always use the extended encoding.
+        extendedYLimit = true
         setDefaultLocaleName(config.defaultLocale)
     }
 }

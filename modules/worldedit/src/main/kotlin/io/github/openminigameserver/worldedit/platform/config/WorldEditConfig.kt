@@ -43,6 +43,7 @@ data class WorldEditConfig(
     val snapshotsDirectory: String = "",
     val snapshotsExperimental: Boolean = false,
     val shellSaveType: String? = null,
-    val extendedYLimit: Boolean = false,
+    // Minestom uses the modern -64..319 build range.
+    val extendedYLimit: Boolean = true,
     val defaultLocale: String = "default",
 )

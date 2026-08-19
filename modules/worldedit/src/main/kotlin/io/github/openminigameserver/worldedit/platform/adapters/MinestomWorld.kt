@@ -24,6 +24,7 @@ import com.sk89q.worldedit.world.WorldUnloadedException
 import com.sk89q.worldedit.world.block.BaseBlock
 import com.sk89q.worldedit.world.block.BlockState
 import com.sk89q.worldedit.world.block.BlockStateHolder
+import io.github.openminigameserver.worldedit.platform.MinestomBlockRegistry
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
 import net.minestom.server.MinecraftServer
@@ -241,7 +242,9 @@ class MinestomWorld(
     override fun getBlock(position: BlockVector3): BlockState {
         checkLoadedChunk(position)
         val block = getWorld().getBlock(position.x(), position.y(), position.z())
-        return BlockStateIdAccess.getBlockStateById(block.stateId())!!
+        return MinestomBlockRegistry.getWorldEditBlockState(block)
+            ?: BlockStateIdAccess.getBlockStateById(block.stateId())
+            ?: throw IllegalStateException("No WorldEdit state registered for Minestom state ${block.stateId()} (${block.state()})")
     }
 
     override fun getFullBlock(position: BlockVector3): BaseBlock {
@@ -329,6 +332,14 @@ class MinestomWorld(
     }
 
     override fun id(): String = getWorld().uuid.toString()
+
+    /**
+     * WorldEdit uses inclusive bounds. AbstractWorld's legacy 0..255 bounds
+     * prevent selections and edits in the modern negative build area.
+     */
+    override fun getMinY(): Int = getWorld().cachedDimensionType.minY()
+
+    override fun getMaxY(): Int = getWorld().cachedDimensionType.minY() + getWorld().cachedDimensionType.height() - 1
 
     override fun getName(): String = id()
 

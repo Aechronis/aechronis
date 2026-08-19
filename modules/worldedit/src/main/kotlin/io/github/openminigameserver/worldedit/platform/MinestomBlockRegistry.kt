@@ -54,27 +54,30 @@ object MinestomBlockRegistry : BundledBlockRegistry() {
         }
     }
 
-    private fun Block.withProps(vararg properties: String): Int {
-        for (alt in possibleStates()) {
-            val altProps = alt.properties().map { "${it.key}=${it.value}" }
-            if (properties.toList().containsAll(altProps)) {
-                return alt.stateId()
-            }
-        }
-        return this.stateId()
+    private fun Block.nativeStateIdForProperties(properties: Map<String, String>): Int? =
+        possibleStates().firstOrNull { it.properties() == properties }?.stateId()
+
+    /** Convert a Minestom state to the corresponding WorldEdit state. */
+    fun getWorldEditBlockState(nativeState: Block): BlockState? {
+        val blockType = BlockType.REGISTRY[nativeState.key().asString()] ?: return null
+        val values =
+            nativeState
+                .properties()
+                .mapNotNull { (name, value) ->
+                    val property = blockType.getPropertyMap()[name] ?: return@mapNotNull null
+                    property to property.getValueFor(value)
+                }.toMap()
+        if (values.size != nativeState.properties().size) return null
+        return runCatching { blockType.getState(values) }.getOrNull()
     }
 
     override fun getInternalBlockStateId(state: BlockState): OptionalInt {
-        val result = blockMap[state.asString]?.stateId()?.let { OptionalInt.of(it) }
-        if (result != null) {
-            return result
-        } else {
-            val type = blockMap[state.blockType.id()]
-            val states = state.states.map { "${it.key.name}=${it.value}" }.toTypedArray()
-            val newState = type?.withProps(*states)
-            return newState?.let { OptionalInt.of(it) } ?: super.getInternalBlockStateId(
-                state,
-            )
+        val type = blockMap[state.blockType.id()]
+        if (type != null) {
+            val properties = state.states.entries.associate { it.key.name to it.value.toString() }
+            type.nativeStateIdForProperties(properties)?.let { return OptionalInt.of(it) }
         }
+
+        return super.getInternalBlockStateId(state)
     }
 }

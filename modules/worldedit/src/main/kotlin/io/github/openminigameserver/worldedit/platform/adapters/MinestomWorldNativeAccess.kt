@@ -10,6 +10,7 @@ import com.sk89q.worldedit.world.block.BlockState
 import com.sk89q.worldedit.world.block.BlockStateHolder
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
+import io.github.openminigameserver.worldedit.platform.MinestomBlockRegistry
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
@@ -70,7 +71,16 @@ class MinestomWorldNativeAccess(
     ): Chunk = getWorld().getChunk(x, z) ?: throw RuntimeException("Chunk $x,$z is not loaded")
 
     override fun toNative(state: BlockState): Block {
-        val stateId = BlockStateIdAccess.getBlockStateId(state)
+        // BlockStateIdAccess is WorldEdit's id table. It is not guaranteed to be
+        // Minestom's state id (in particular for states read from a schematic),
+        // so always ask the platform registry first.
+        val platformStateId = MinestomBlockRegistry.getInternalBlockStateId(state)
+        val stateId =
+            if (platformStateId.isPresent) {
+                platformStateId.asInt
+            } else {
+                BlockStateIdAccess.getBlockStateId(state)
+            }
         val block = Block.fromStateId(stateId) ?: Block.AIR
         if (!applyingFullBlock) return block
         return block.withHandler(fullBlockHandler).withNbt(fullBlockNbt)
