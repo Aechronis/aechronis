@@ -2,6 +2,7 @@ package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.BundleListener
+import net.kyori.adventure.nbt.BinaryTagIO
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
@@ -12,11 +13,14 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.item.component.CustomData
 import net.minestom.server.tag.Tag
+import java.io.ByteArrayOutputStream
 
 object Bundles {
     private const val DATA_KEY = "VanillaBundleKit"
     private const val ITEMS_KEY = "Items"
     private const val SLOT_KEY = "Slot"
+
+    private const val MAX_ITEM_NBT_BYTES = 32 * 1024
 
     private val previewSlots =
         (0..8).toList() +
@@ -39,7 +43,23 @@ object Bundles {
 
     fun isBundle(item: ItemStack): Boolean = item.material() in bundleMaterials
 
-    fun makeBundle(items: Map<Int, ItemStack>): ItemStack = makeBundle(ItemStack.of(Material.BUNDLE), items)
+    fun makeBundle(items: Map<Int, ItemStack>): ItemStack {
+        require(items.values.all(::isSafeForTransport)) {
+            "Bundles cannot contain items larger than $MAX_ITEM_NBT_BYTES bytes"
+        }
+        val bundle = makeBundle(ItemStack.of(Material.BUNDLE), items)
+        require(isSafeForTransport(bundle)) {
+            "Bundle data exceeds $MAX_ITEM_NBT_BYTES bytes"
+        }
+        return bundle
+    }
+
+    fun isSafeForTransport(item: ItemStack): Boolean =
+        runCatching {
+            val output = ByteArrayOutputStream()
+            BinaryTagIO.writer().writeNameless(item.toItemNBT(), output)
+            output.size() <= MAX_ITEM_NBT_BYTES
+        }.getOrDefault(false)
 
     fun use(
         player: Player,
@@ -47,6 +67,10 @@ object Bundles {
     ) {
         val held = player.getItemInHand(hand)
         if (!isBundle(held)) return
+        if (!isSafeForTransport(held)) {
+            player.setItemInHand(hand, ItemStack.AIR)
+            return
+        }
 
         val kitData = kitData(held)
         if (kitData != null || hasKitData(held)) {
@@ -74,8 +98,10 @@ object Bundles {
                 .toList()
 
         if (stored.isEmpty() || stored.size > Vanilla.config.bundleMaxItemStacks) return
+        if (stored.any { !isSafeForTransport(it.item) }) return
 
         val filled = makeBundle(held, stored.associate { it.slot to it.item })
+        if (!isSafeForTransport(filled)) return
 
         stored.forEach { player.inventory.setItemStack(it.slot, ItemStack.AIR) }
         player.setItemInHand(hand, filled)
@@ -175,6 +201,7 @@ object Bundles {
                 if (key != SLOT_KEY) itemBuilder.put(key, entry.get(key)!!)
             }
             val item = runCatching { ItemStack.fromItemNBT(itemBuilder.build()) }.getOrNull() ?: return null
+            if (!isSafeForTransport(item)) return null
             stored += StoredItem(slot, item)
         }
         return stored
