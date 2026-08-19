@@ -40,18 +40,24 @@ import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.LivingEntity
+import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.generator.Generator
+import net.minestom.server.network.packet.server.SendablePacket
+import net.minestom.server.network.player.GameProfile
+import net.minestom.server.network.player.PlayerConnection
 import net.minestom.server.particle.Particle
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
+import java.net.InetSocketAddress
+import java.net.SocketAddress
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
@@ -665,6 +671,44 @@ class CombatTest {
     }
 
     @Test
+    fun `explosion damages a player standing on an affected block despite damage immunity`() {
+        val block = BlockVec(160, 60, 160)
+        instance.loadChunk(block.blockX(), block.blockZ()).join()
+        instance.setBlock(block, Block.STONE)
+
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "explosion-target"))
+        player.setInstance(instance, Pos(160.5, 61.0, 160.5)).join()
+        player.gameMode = GameMode.SURVIVAL
+        player.health = 20f
+        Combat.entityLastDamageTime[player] = System.currentTimeMillis()
+
+        try {
+            // The player is two blocks above the impact and outside the radius, but
+            // the block under their feet is part of the blast.
+            Explosion(
+                instance = instance,
+                pos = Pos(160.5, 59.0, 160.5),
+                radius = 1,
+                fire = 0.0,
+                damage = 20f,
+            )
+
+            assertEquals(19f, player.health)
+        } finally {
+            Combat.entityLastDamageTime.remove(player)
+            player.remove()
+        }
+    }
+
+    @Test
+    fun `explosion damage remains based on configured weapon damage`() {
+        assertEquals(10f, damageAtDistance(10f, 4, 0.0))
+        assertEquals(30f, damageAtDistance(30f, 4, 0.0))
+        assertEquals(5f, damageAtDistance(10f, 4, 2.0))
+        assertEquals(15f, damageAtDistance(30f, 4, 2.0))
+    }
+
+    @Test
     fun `projectile uses the nearest entity or block impact`() {
         val target = LivingEntity(EntityType.ZOMBIE)
         val entityHit = Ray.Hit(1.0, Pos(1.0, 0.0, 0.0), target)
@@ -750,6 +794,12 @@ class CombatTest {
         if (System.getProperty("keepRunning") == "true") {
             Thread.currentThread().join()
         }
+    }
+
+    private class TestConnection : PlayerConnection() {
+        override fun sendPacket(packet: SendablePacket) = Unit
+
+        override fun getRemoteAddress(): SocketAddress = InetSocketAddress(0)
     }
 
     private class TestBoat(
