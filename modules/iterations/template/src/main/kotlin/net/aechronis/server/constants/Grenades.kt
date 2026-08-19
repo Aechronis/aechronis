@@ -16,9 +16,9 @@ object Grenades {
             fuseTimeMillis = 5_000L,
             throwSpeed = 1.0,
             gravity = 0.05,
-            explosionRadius = 4,
+            explosionRadius = 2,
             explosionFire = 0.0,
-            explosionDamage = 30F,
+            explosionDamage = 35F,
             ammoType = AmmoTypes.EXPLOSIVE,
         )
 }

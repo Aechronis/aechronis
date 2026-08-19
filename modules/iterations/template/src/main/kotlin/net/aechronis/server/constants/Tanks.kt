@@ -30,7 +30,9 @@ object Tanks {
             scale = 3.0,
             maxSpeed = 0.4f,
             ammo = Ammo.tankShell,
-            maxAmmo = 5,
+            maxAmmo = 3,
+            projectileExplosionDamage = 300f,
+            projectileExplosionRadius = 5,
             health =
                 Health(
                     1500f,
@@ -76,7 +78,9 @@ object Tanks {
                 ),
             projectileModel = "aechronis:shell",
             projectileName = Component.text("T-90 cannon"),
-            fireCooldown = 10000,
+            projectileExplosionDamage = 200f,
+            projectileExplosionRadius = 4,
+            fireCooldown = 5000,
             barrelTipOffset = Vec(0.0, 0.0, 5.0),
         )
 }
