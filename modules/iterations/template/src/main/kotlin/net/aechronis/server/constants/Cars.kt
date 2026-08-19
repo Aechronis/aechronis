@@ -32,9 +32,9 @@ object Cars {
                     500F,
                     mapOf(
                         AmmoTypes.NORMAL to 1f,
-                        AmmoTypes.MISSILE to 1f,
-                        AmmoTypes.BOMB to 1f,
-                        AmmoTypes.EXPLOSIVE to 1f,
+                        AmmoTypes.MISSILE to 500f,
+                        AmmoTypes.BOMB to 500f,
+                        AmmoTypes.EXPLOSIVE to 250f,
                     ),
                 ),
             placeTime = 2000,
