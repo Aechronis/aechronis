@@ -2,6 +2,7 @@ package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.ManagerTest
 import net.aechronis.vanilla.VanillaTest
+import net.aechronis.vanilla.commands.PlayerTargets
 import net.aechronis.vanilla.serdes.PlayerDataDeserializer
 import net.aechronis.vanilla.serdes.PlayerDataSerializer
 import net.kyori.adventure.nbt.BinaryTagTypes
@@ -71,6 +72,18 @@ class CommandsTest : ManagerTest() {
 
         assertTrue(Commands.getEnderChest(player).itemStacks.all { it.isAir })
         VanillaTest.remove(player)
+    }
+
+    @Test
+    fun `player target suggestions prioritize wildcard and filter names`() {
+        val names = listOf("AcuZulu", "AcuAlice", "AcuBob")
+
+        assertEquals(
+            listOf("*", "AcuAlice", "AcuBob", "AcuZulu"),
+            PlayerTargets.suggestions("", names),
+        )
+        assertEquals(listOf("AcuZulu"), PlayerTargets.suggestions("AcuZ", names))
+        assertEquals(listOf("*"), PlayerTargets.suggestions("*", names))
     }
 
     @Test

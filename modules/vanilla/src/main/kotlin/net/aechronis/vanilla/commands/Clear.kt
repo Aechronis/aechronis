@@ -10,7 +10,7 @@ import net.minestom.server.item.Material
 import kotlin.collections.List
 
 class Clear : Command("clear", "vanilla.clear") {
-    private val targetArg = ArgumentType.Word("target")
+    private val targetArg = PlayerTargets.argument("target")
     private val whitelistArg = ArgumentType.StringArray("whitelist")
 
     init {

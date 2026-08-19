@@ -19,7 +19,7 @@ class Whitelist : Command("whitelist", "vanilla.whitelist") {
         val enforceArg = ArgumentType.Literal("enforce")
         val addArg = ArgumentType.Literal("add")
         val removeArg = ArgumentType.Literal("remove")
-        val playerArg = ArgumentType.Word("player")
+        val playerArg = PlayerTargets.argument("player")
 
         addSyntax({ sender: Player, _ ->
             val enabled = WhitelistManager.toggle()
