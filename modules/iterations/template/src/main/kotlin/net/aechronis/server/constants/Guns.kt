@@ -182,6 +182,32 @@ object Guns {
             bulletTrailOffset = Vec(-0.3, -0.1, 1.1),
         )
 
+    val planeMg3 =
+        Gun(
+            name = "plane-mg3",
+            itemName = Component.text("Plane MachineGun", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            ammo = Ammo.ammo762x39mmExplosive,
+            maxAmmo = 200,
+            damage = 4F,
+            automatic = true,
+            sniper = false,
+            cooldown = 50,
+            reloadTime = 6000,
+            recoilMin = 1F,
+            recoilMax = 1F,
+            spreadMin = 3F,
+            spreadMax = 3F,
+            soundFire = mg3.soundFire,
+            soundReload = mg3.soundReload,
+            itemModel = "aechronis:mg3",
+            itemModelEmpty = "aechronis:mg3-empty",
+            itemModelReloading = "aechronis:mg3-reloading",
+            itemModelAiming = "aechronis:mg3-aiming",
+            bulletTrailParticle = Particle.DUST_COLOR_TRANSITION.withScale(1F),
+            maxRange = 250.0,
+            bulletTrailOffset = Vec(-0.3, -0.1, 1.1),
+        )
+
     val at4 =
         Gun(
             name = "at4",

@@ -36,7 +36,7 @@ object Tanks {
                     1500f,
                     mapOf(
                         AmmoTypes.NORMAL to 0f,
-                        AmmoTypes.EXPLOSIVE to 750f,
+                        AmmoTypes.EXPLOSIVE to 50f,
                         AmmoTypes.BOMB to 500f,
                         AmmoTypes.MISSILE to 750f,
                     ),
@@ -69,7 +69,7 @@ object Tanks {
                     1200f,
                     mapOf(
                         AmmoTypes.NORMAL to 0f,
-                        AmmoTypes.EXPLOSIVE to 750f,
+                        AmmoTypes.EXPLOSIVE to 50f,
                         AmmoTypes.BOMB to 500f,
                         AmmoTypes.MISSILE to 750f,
                     ),

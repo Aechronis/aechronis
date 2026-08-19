@@ -17,6 +17,7 @@ object ShopCatalog {
                 ShopItem(Tanks.m1a1Abrams.toItemStack(), cooldownTicks = 0L, cost = 20),
                 ShopItem(Tanks.t90.toItemStack(), cooldownTicks = 0L, cost = 20),
                 ShopItem(Ammo.tankShell.toItemStack(), cooldownTicks = 0L, cost = 5),
+                ShopItem(Ammo.ammo762x39mmExplosive.toItemStack(), cooldownTicks = 0L, cost = 5),
                 ShopItem(Guns.at4.toItemStack(), cooldownTicks = 0L, cost = 15),
                 ShopItem(Ammo.rocket.toItemStack(), cooldownTicks = 0L, cost = 5),
                 ShopItem(Grenades.rgo.toItemStack(), cooldownTicks = 0L, cost = 5),
