@@ -11,38 +11,61 @@ import net.minestom.server.instance.block.Block
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.click.Click
 import net.minestom.server.item.ItemStack
+import net.minestom.server.item.Material
 
 object BlocksListener {
+    private fun incomingMaterial(event: InventoryPreClickEvent): Material? {
+        val item =
+            when (val click = event.click) {
+                is Click.Left, is Click.Right -> event.player.inventory.cursorItem
+                is Click.LeftDrag, is Click.RightDrag, is Click.MiddleDrag -> event.player.inventory.cursorItem
+                is Click.HotbarSwap -> event.player.inventory.getItemStack(click.hotbarSlot)
+                is Click.OffhandSwap -> event.player.itemInOffHand
+                else -> ItemStack.AIR
+            }
+        return item.takeUnless(ItemStack::isAir)?.material()
+    }
+
     private fun onClick(event: InventoryPreClickEvent) {
         val open = event.player.openInventory as? Inventory ?: return
         if (open !in Blocks.stonecutters) return
 
         // A shift-click from the player inventory would otherwise move an item into an
-        // arbitrary decorative slot in this chest. Normal clicks remain available for placing
-        // an input stack in the converter.
+        // arbitrary decorative slot in this chest.
         if (event.inventory !== open) {
             if (event.click is Click.LeftShift || event.click is Click.RightShift) event.isCancelled = true
             return
         }
 
-        // The input slot is the only slot which uses normal inventory behaviour. Output and
-        // navigation slots are server-controlled, so never let the client insert items there.
-        if (event.slot == Blocks.INPUT_SLOT) return
-
-        event.isCancelled = true
         when (event.slot) {
-            Blocks.PREVIOUS_PAGE_SLOT -> Blocks.setConverterPage(open, (Blocks.currentConverterPage(open) - 1).coerceAtLeast(0))
-            Blocks.NEXT_PAGE_SLOT -> Blocks.setConverterPage(open, Blocks.currentConverterPage(open) + 1)
-            in Blocks.OUTPUT_START_SLOT..Blocks.OUTPUT_END_SLOT ->
-                Blocks.outputFor(open, event.slot)?.let {
-                    Blocks.convert(event.player, open, it)
-                }
+            in Blocks.INPUT_START_SLOT..Blocks.INPUT_END_SLOT -> {
+                val incoming = incomingMaterial(event)
+                if (incoming != null && !Blocks.canDeposit(open, incoming)) event.isCancelled = true
+            }
+            Blocks.CONVERT_BUTTON_SLOT -> {
+                event.isCancelled = true
+                Blocks.toggleConverterOptions(open)
+            }
+            Blocks.PREVIOUS_PAGE_SLOT -> {
+                event.isCancelled = true
+                Blocks.setConverterPage(open, (Blocks.currentConverterPage(open) - 1).coerceAtLeast(0))
+            }
+            Blocks.NEXT_PAGE_SLOT -> {
+                event.isCancelled = true
+                Blocks.setConverterPage(open, Blocks.currentConverterPage(open) + 1)
+            }
+            in Blocks.OUTPUT_START_SLOT..Blocks.OUTPUT_END_SLOT -> {
+                event.isCancelled = true
+                Blocks.outputFor(open, event.slot)?.let { Blocks.convert(event.player, open, it) }
+            }
+            else -> event.isCancelled = true
         }
     }
 
     private fun onInputChange(event: InventoryItemChangeEvent) {
         val open = event.inventory as? Inventory ?: return
-        if (open !in Blocks.stonecutters || event.slot != Blocks.INPUT_SLOT) return
+        if (open !in Blocks.stonecutters) return
+        if (event.slot !in Blocks.INPUT_START_SLOT..Blocks.INPUT_END_SLOT) return
         Blocks.refreshConverter(open, resetPage = true)
     }
 
@@ -57,11 +80,15 @@ object BlocksListener {
         val inv = event.inventory as? Inventory ?: return
         if (inv !in Blocks.stonecutters) return
 
-        val input = inv.getItemStack(Blocks.INPUT_SLOT)
+        val input =
+            (Blocks.INPUT_START_SLOT..Blocks.INPUT_END_SLOT)
+                .map { slot -> slot to inv.getItemStack(slot) }
+                .filterNot { (_, stack) -> stack.isAir }
         Blocks.closeConverter(inv)
-        if (input.isAir) return
-        inv.setItemStack(Blocks.INPUT_SLOT, ItemStack.AIR)
-        if (!event.player.inventory.addItemStack(input)) event.player.dropItem(input)
+        for ((slot, stack) in input) {
+            inv.setItemStack(slot, ItemStack.AIR)
+            if (!event.player.inventory.addItemStack(stack)) event.player.dropItem(stack)
+        }
     }
 
     fun init() {
