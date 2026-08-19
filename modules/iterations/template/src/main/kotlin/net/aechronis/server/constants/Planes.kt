@@ -30,9 +30,9 @@ object Planes {
                 Health(
                     1200f,
                     mapOf(
-                        AmmoTypes.NORMAL to 5f,
-                        AmmoTypes.EXPLOSIVE to 750f,
-                        AmmoTypes.BOMB to 500f,
+                        AmmoTypes.NORMAL to 2.5f,
+                        AmmoTypes.EXPLOSIVE to 15f,
+                        AmmoTypes.BOMB to 750f,
                         AmmoTypes.MISSILE to 750f,
                     ),
                 ),
@@ -46,7 +46,7 @@ object Planes {
                     projectileExplosionRadius = 6,
                     projectileExplosionFire = 0.3,
                     projectileExplosionDamage = 30f,
-                    fireCooldown = 15_000,
+                    fireCooldown = 2_000,
                 ),
             throttleStep = 3f,
             throttleDecay = 0.15f,
@@ -81,9 +81,9 @@ object Planes {
                 Health(
                     800f,
                     mapOf(
-                        AmmoTypes.NORMAL to 5f,
-                        AmmoTypes.EXPLOSIVE to 750f,
-                        AmmoTypes.BOMB to 500f,
+                        AmmoTypes.NORMAL to 2.5f,
+                        AmmoTypes.EXPLOSIVE to 15f,
+                        AmmoTypes.BOMB to 750f,
                         AmmoTypes.MISSILE to 750f,
                     ),
                 ),
@@ -95,14 +95,14 @@ object Planes {
             weapons =
                 listOf(
                     PlaneWeapon(
-                        gun = Guns.mg3,
+                        gun = Guns.planeMg3,
                         firePoints = listOf(Vec(1.75, 0.0, 2.0), Vec(-1.75, 0.0, 2.0)),
                     ),
                 ),
             scale = 7.0,
             speed = 2.4,
             turnSpeed = 0.14f,
-            ammo = Ammo.ammo762x39mm,
+            ammo = Ammo.ammo762x39mmExplosive,
             maxAmmo = 200,
             seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
         )
@@ -129,8 +129,8 @@ object Planes {
                     950f,
                     mapOf(
                         AmmoTypes.NORMAL to 2.5f,
-                        AmmoTypes.EXPLOSIVE to 750f,
-                        AmmoTypes.BOMB to 500f,
+                        AmmoTypes.EXPLOSIVE to 15f,
+                        AmmoTypes.BOMB to 750f,
                         AmmoTypes.MISSILE to 750f,
                     ),
                 ),
@@ -142,14 +142,14 @@ object Planes {
             weapons =
                 listOf(
                     PlaneWeapon(
-                        gun = Guns.mg3,
+                        gun = Guns.planeMg3,
                         firePoints = listOf(Vec(1.5, 0.0, 2.0), Vec(-1.5, 0.0, 2.0)),
                     ),
                 ),
             scale = 7.0,
             speed = 2.3,
             turnSpeed = 0.11f,
-            ammo = Ammo.ammo762x39mm,
+            ammo = Ammo.ammo762x39mmExplosive,
             maxAmmo = 200,
             seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
         )
@@ -176,8 +176,8 @@ object Planes {
                     1400f,
                     mapOf(
                         AmmoTypes.NORMAL to 2.5f,
-                        AmmoTypes.EXPLOSIVE to 750f,
-                        AmmoTypes.BOMB to 500f,
+                        AmmoTypes.EXPLOSIVE to 15f,
+                        AmmoTypes.BOMB to 750f,
                         AmmoTypes.MISSILE to 750f,
                     ),
                 ),
@@ -226,9 +226,9 @@ object Planes {
                 Health(
                     1000f,
                     mapOf(
-                        AmmoTypes.NORMAL to 5f,
-                        AmmoTypes.EXPLOSIVE to 750f,
-                        AmmoTypes.BOMB to 500f,
+                        AmmoTypes.NORMAL to 2.5f,
+                        AmmoTypes.EXPLOSIVE to 15f,
+                        AmmoTypes.BOMB to 750f,
                         AmmoTypes.MISSILE to 750f,
                     ),
                 ),
@@ -240,14 +240,14 @@ object Planes {
             weapons =
                 listOf(
                     PlaneWeapon(
-                        gun = Guns.mg3,
+                        gun = Guns.planeMg3,
                         firePoints = listOf(Vec(1.4, 0.0, 2.2), Vec(-1.4, 0.0, 2.2)),
                     ),
                 ),
             scale = 7.0,
             speed = 2.5,
             turnSpeed = 0.15f,
-            ammo = Ammo.ammo762x39mm,
+            ammo = Ammo.ammo762x39mmExplosive,
             maxAmmo = 200,
             seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
         )

@@ -21,6 +21,14 @@ object Ammo {
             itemName = Component.text("9mm", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
         )
 
+    val ammo762x39mmExplosive =
+        Ammo(
+            name = "762x39mm-explosive",
+            ammoType = AmmoTypes.EXPLOSIVE,
+            itemName = Component.text("Explosive 7.62x39mm", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            itemModel = "aechronis:762x39mm",
+        )
+
     val tankShell =
         Ammo(
             name = "tank-shell",
