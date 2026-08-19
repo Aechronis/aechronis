@@ -18,7 +18,16 @@ tasks.withType<Jar>().configureEach {
     }
 }
 
+val luckPermsBundle = configurations.create("luckPermsBundle")
+
 tasks.named<ShadowJar>("shadowJar") {
+    dependencies {
+        exclude(dependency("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT"))
+    }
+    from(luckPermsBundle.files.map(::zipTree)) {
+        exclude("net/kyori/adventure/**")
+    }
+
     from(rootProject.file("resource-pack")) {
         into("embedded-resource-pack")
     }
@@ -36,6 +45,7 @@ dependencies {
     implementation(project(":modules:worldedit"))
 
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
+    add("luckPermsBundle", "com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     implementation("com.h2database:h2:2.4.240")
     implementation("com.zaxxer:HikariCP:7.1.0")
     implementation("org.slf4j:slf4j-simple:2.0.18")
