@@ -3,6 +3,7 @@ package net.aechronis.guard
 import io.github.openminigameserver.worldedit.MinestomWorldEdit
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
 import io.github.openminigameserver.worldedit.platform.config.WorldEditConfig
+import net.aechronis.combat.events.ExplosionBlockDamageEvent
 import net.aechronis.guard.flags.BooleanFlagValue
 import net.aechronis.guard.flags.FlagName
 import net.aechronis.guard.objects.WorldEditSelection
@@ -17,6 +18,7 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.damage.Damage
+import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.event.entity.EntityDamageEvent
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
@@ -125,6 +127,33 @@ class GuardIntegrationTest {
         val victim = playerAt(6.0, 40.0, 6.0)
         val damage = Damage.fromPlayer(attacker, 1f)
         val event = EntityDamageEvent(victim, damage, damage.getSound(victim))
+
+        MinecraftServer.getGlobalEventHandler().call(event)
+
+        assertTrue(event.isCancelled)
+    }
+
+    @Test
+    fun `other damage is denied inside a protected zone`() {
+        val victim = playerAt(6.0, 40.0, 6.0)
+        val damage = Damage(DamageType.FALL, null, null, victim.position, 1f)
+        val event = EntityDamageEvent(victim, damage, damage.getSound(victim))
+
+        MinecraftServer.getGlobalEventHandler().call(event)
+
+        assertTrue(event.isCancelled)
+    }
+
+    @Test
+    fun `explosions are denied inside a protected zone`() {
+        val event =
+            ExplosionBlockDamageEvent(
+                instance = instance,
+                position = Pos(5.0, 40.0, 5.0),
+                sourceUuid = null,
+                sourceName = null,
+                changes = emptyList(),
+            )
 
         MinecraftServer.getGlobalEventHandler().call(event)
 

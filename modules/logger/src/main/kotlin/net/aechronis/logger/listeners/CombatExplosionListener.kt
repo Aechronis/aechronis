@@ -13,7 +13,7 @@ object CombatExplosionListener {
     private val combatActorUuid = UUID(0L, 0L)
 
     private fun onExplosion(event: ExplosionBlockDamageEvent) {
-        if (event.changes.isEmpty()) return
+        if (event.isCancelled || event.changes.isEmpty()) return
 
         val timestamp = System.currentTimeMillis()
         val playerUuid = event.sourceUuid ?: combatActorUuid

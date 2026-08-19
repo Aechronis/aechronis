@@ -4,7 +4,7 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.tag.Tag
 
-internal enum class CombatDamageKind {
+enum class CombatDamageKind {
     PROJECTILE,
     MELEE,
     EXPLOSION,

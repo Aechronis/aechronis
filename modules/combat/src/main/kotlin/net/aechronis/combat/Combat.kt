@@ -26,7 +26,9 @@ import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.tasks.PlayerPositionManager
 import net.aechronis.combat.tasks.ProjectileTickManager
 import net.aechronis.combat.tasks.VehicleTickManager
+import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.bypassesCombatDamageImmunity
+import net.aechronis.combat.utils.combatDamageKind
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.LivingEntity
@@ -89,6 +91,9 @@ object Combat {
     ) {
         entityLastDamageTime[entity] = now
     }
+
+    /** Returns Combat's classification for damage created by this module, if any. */
+    fun damageKind(damage: Damage): CombatDamageKind? = damage.combatDamageKind()
 
     fun applyDamage(
         entity: LivingEntity,

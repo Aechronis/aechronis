@@ -8,9 +8,11 @@ dependencies {
     implementation("net.minestom:minestom:2026.07.12-26.2")
     implementation(project(":modules:utils"))
     compileOnly(project(":modules:worldedit"))
+    compileOnly(project(":modules:combat"))
     implementation("com.google.code.gson:gson:2.14.0")
 
     testImplementation(project(":modules:worldedit"))
+    testImplementation(project(":modules:combat"))
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
     testImplementation("org.slf4j:slf4j-simple:2.0.18")

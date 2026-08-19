@@ -2,6 +2,7 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
+import net.aechronis.combat.events.VehicleSpawnEvent
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
@@ -55,6 +56,9 @@ open class Vehicle(
     ): Boolean {
         if (Combat.placeTasks[player] != null) return false // already placing
         val instance = player.instance ?: return false
+        val spawnEvent = VehicleSpawnEvent(player, this, instance, pos)
+        MinecraftServer.getGlobalEventHandler().call(spawnEvent)
+        if (spawnEvent.isCancelled) return false
         if (!canPlaceAt(instance, pos)) return false
 
         // create task

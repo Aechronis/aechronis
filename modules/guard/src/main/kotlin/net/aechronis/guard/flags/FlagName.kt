@@ -8,6 +8,9 @@ enum class FlagName(
     BLOCK_INTERACT("block-interact"),
     TELEPORT("teleport"),
     DAMAGE("damage"),
+    EXPLOSION("explosion"),
+    VEHICLE_SPAWN("vehicle-spawn"),
+    OTHER_DAMAGE("other-damage"),
     ;
 
     companion object {

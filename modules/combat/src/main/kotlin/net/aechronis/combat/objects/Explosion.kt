@@ -55,53 +55,57 @@ class Explosion private constructor(
         // Take the snapshot before block destruction starts. Damage must not depend on
         // the asynchronous block pass winning a race with the entity update.
         val blast = collectBlastBlocks()
-        MinecraftServer.getGlobalEventHandler().call(
+        val event =
             ExplosionBlockDamageEvent(
                 instance = instance,
                 position = pos,
                 sourceUuid = source?.uuid,
                 sourceName = source?.username,
                 changes = blast.changes,
-            ),
-        )
-        if (damage > 0f) applyDamage(blast.affectedBlocks)
+                sourcePlayer = source,
+            )
+        MinecraftServer.getGlobalEventHandler().call(event)
+        run explosion@{
+            if (event.isCancelled) return@explosion
+            if (damage > 0f) applyDamage(blast.affectedBlocks)
 
-        CompletableFuture.runAsync {
-            var smokeSampleIndex = 0
+            CompletableFuture.runAsync {
+                var smokeSampleIndex = 0
 
-            // Emit smoke at every eighth blast position.
-            blast.positions.forEach { p ->
-                if (smokeSampleIndex++ % SMOKE_SAMPLE_INTERVAL == 0) {
-                    instance.sendGroupedPacket(
-                        ParticlePacket(
-                            Particle.CAMPFIRE_SIGNAL_SMOKE,
-                            p,
-                            Pos(1.0, 1.0, 1.0),
-                            0.05F,
-                            1,
-                        ),
-                    )
+                // Emit smoke at every eighth blast position.
+                blast.positions.forEach { p ->
+                    if (smokeSampleIndex++ % SMOKE_SAMPLE_INTERVAL == 0) {
+                        instance.sendGroupedPacket(
+                            ParticlePacket(
+                                Particle.CAMPFIRE_SIGNAL_SMOKE,
+                                p,
+                                Pos(1.0, 1.0, 1.0),
+                                0.05F,
+                                1,
+                            ),
+                        )
 
-                    instance.sendGroupedPacket(
-                        ParticlePacket(
-                            Particle.CAMPFIRE_COSY_SMOKE,
-                            p,
-                            Pos(1.0, 1.0, 1.0),
-                            0.1F,
-                            1,
-                        ),
-                    )
+                        instance.sendGroupedPacket(
+                            ParticlePacket(
+                                Particle.CAMPFIRE_COSY_SMOKE,
+                                p,
+                                Pos(1.0, 1.0, 1.0),
+                                0.1F,
+                                1,
+                            ),
+                        )
+                    }
                 }
-            }
 
-            // First pass: destroy all blocks.
-            blast.positions.forEach { p ->
-                instance.setBlock(p, Block.AIR)
-            }
+                // First pass: destroy all blocks.
+                blast.positions.forEach { p ->
+                    instance.setBlock(p, Block.AIR)
+                }
 
-            // Second pass: place the fire positions selected during the snapshot pass.
-            blast.firePositions.forEach { block ->
-                instance.setBlock(block, Block.FIRE)
+                // Second pass: place the fire positions selected during the snapshot pass.
+                blast.firePositions.forEach { block ->
+                    instance.setBlock(block, Block.FIRE)
+                }
             }
         }
     }

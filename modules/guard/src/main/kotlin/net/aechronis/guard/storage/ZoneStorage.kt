@@ -14,8 +14,10 @@ import net.aechronis.guard.flags.StringFlagValue
 import net.aechronis.guard.flags.StringListFlagValue
 import net.aechronis.guard.objects.Zone
 import net.aechronis.guard.objects.ZoneBounds
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.util.UUID
 
 class ZoneStorage {
@@ -32,10 +34,22 @@ class ZoneStorage {
         path: Path,
         zones: Collection<Zone>,
     ) {
-        path.parent?.let(Files::createDirectories)
+        val parent = path.parent ?: Path.of(".")
+        Files.createDirectories(parent)
         val root = JsonObject()
         root.add("zones", JsonArray().also { array -> zones.forEach { array.add(writeZone(it)) } })
-        Files.newBufferedWriter(path).use { gson.toJson(root, it) }
+
+        val temporary = Files.createTempFile(parent, "${path.fileName}-", ".tmp")
+        try {
+            Files.newBufferedWriter(temporary).use { gson.toJson(root, it) }
+            try {
+                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            Files.deleteIfExists(temporary)
+        }
     }
 
     private fun readZone(json: JsonObject): Zone {

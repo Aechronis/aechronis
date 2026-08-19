@@ -13,6 +13,28 @@ import kotlin.test.assertEquals
 
 class ZoneStorageTest {
     @Test
+    fun `saves and reloads the protection flags`() {
+        val path = Files.createTempDirectory("guard-flag-storage-test").resolve("zones.json")
+        val zone =
+            Zone(
+                "protection",
+                UUID.randomUUID(),
+                ZoneBounds(0, 0, 0, 4, 4, 4),
+                flags =
+                    mapOf(
+                        FlagName.DAMAGE to BooleanFlagValue(false),
+                        FlagName.EXPLOSION to BooleanFlagValue(false),
+                        FlagName.VEHICLE_SPAWN to BooleanFlagValue(false),
+                        FlagName.OTHER_DAMAGE to BooleanFlagValue(false),
+                    ),
+            )
+
+        ZoneStorage().save(path, listOf(zone))
+
+        assertEquals(listOf(zone), ZoneStorage().load(path))
+    }
+
+    @Test
     fun `saves and reloads zones with typed flags`() {
         val path =
             Files.createTempDirectory("guard-storage-test").resolve("zones.json")

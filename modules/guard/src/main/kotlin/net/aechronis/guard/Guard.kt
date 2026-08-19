@@ -1,5 +1,7 @@
 package net.aechronis.guard
 
+import net.aechronis.combat.events.ExplosionBlockDamageEvent
+import net.aechronis.combat.events.VehicleSpawnEvent
 import net.aechronis.guard.commands.GuardCommand
 import net.aechronis.guard.flags.BooleanFlagValue
 import net.aechronis.guard.flags.FlagName
@@ -37,6 +39,7 @@ object Guard {
     private lateinit var policy: ZonePolicy
     private lateinit var registry: ZoneRegistry
     private val bypassOverrides = ConcurrentHashMap<UUID, Boolean>()
+    private val saveLock = Any()
 
     fun init(config: GuardConfig = GuardConfig()) {
         check(initialized.compareAndSet(false, true)) { "Guard is already initialized" }
@@ -60,11 +63,13 @@ object Guard {
         eventNode.addListener(PlayerMoveEvent::class.java, MoveListener::handle)
         eventNode.addListener(EntityTeleportEvent::class.java, TeleportListener::handle)
         eventNode.addListener(EntityDamageEvent::class.java, DamageListener::handle)
+        eventNode.addListener(ExplosionBlockDamageEvent::class.java, ::handleExplosion)
+        eventNode.addListener(VehicleSpawnEvent::class.java, ::handleVehicleSpawn)
         MinecraftServer
             .getCommandManager()
             .register(GuardCommand(config.adminPermission, config.bypassPermission))
 
-        Runtime.getRuntime().addShutdownHook(Thread(::save, "guard-zone-save"))
+        MinecraftServer.getSchedulerManager().buildShutdownTask(::save)
     }
 
     fun zones(): ZoneRegistry {
@@ -81,11 +86,57 @@ object Guard {
         flag: FlagName,
         deny: () -> Unit,
     ) {
-        if (instance == null || isBypassing(player)) return
+        check(instance, x, y, z, flag, player, deny)
+    }
+
+    fun check(
+        instance: Instance?,
+        x: Int,
+        y: Int,
+        z: Int,
+        flag: FlagName,
+        actor: Player? = null,
+        deny: () -> Unit,
+    ) {
+        if (instance == null || actor?.let(::isBypassing) == true) return
         val zone = registry.find(instance.uuid, x, y, z)
         if (!policy.allows(zone, flag)) {
             deny()
-            config.onDenied(player, flag)
+            actor?.let { config.onDenied(it, flag) }
+        }
+    }
+
+    private fun handleExplosion(event: ExplosionBlockDamageEvent) {
+        if (event.isCancelled) return
+
+        val positions =
+            buildSet {
+                add(Triple(event.position.blockX(), event.position.blockY(), event.position.blockZ()))
+                event.changes.forEach { change ->
+                    add(Triple(change.position.blockX(), change.position.blockY(), change.position.blockZ()))
+                }
+            }
+        for ((x, y, z) in positions) {
+            var denied = false
+            check(event.instance, x, y, z, FlagName.EXPLOSION, event.sourcePlayer) { denied = true }
+            if (denied) {
+                event.isCancelled = true
+                return
+            }
+        }
+    }
+
+    private fun handleVehicleSpawn(event: VehicleSpawnEvent) {
+        if (event.isCancelled) return
+        check(
+            event.instance,
+            event.position.blockX(),
+            event.position.blockY(),
+            event.position.blockZ(),
+            FlagName.VEHICLE_SPAWN,
+            event.player,
+        ) {
+            event.isCancelled = true
         }
     }
 
@@ -101,7 +152,9 @@ object Guard {
 
     fun save() {
         if (!initialized.get()) return
-        runCatching { storage.save(config.dataPath, registry.all()) }
-            .onFailure { println("Guard could not save zones to ${config.dataPath}: $it") }
+        synchronized(saveLock) {
+            runCatching { storage.save(config.dataPath, registry.all()) }
+                .onFailure { println("Guard could not save zones to ${config.dataPath}: $it") }
+        }
     }
 }
