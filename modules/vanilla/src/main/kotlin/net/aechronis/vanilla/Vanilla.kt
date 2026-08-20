@@ -24,6 +24,7 @@ import net.aechronis.vanilla.commands.Shutdown
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
 import net.aechronis.vanilla.commands.Whitelist
+import net.aechronis.vanilla.listeners.CombatInventoryListener
 import net.aechronis.vanilla.listeners.CommandsListener
 import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerActivityListener
@@ -66,6 +67,7 @@ object Vanilla {
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         PlayerActivityListener.init()
+        CombatInventoryListener.init()
 
         if (config.commandsEnabled) {
             val commands =
