@@ -97,9 +97,10 @@ class Explosion private constructor(
                     }
                 }
 
-                // First pass: destroy all blocks.
-                blast.positions.forEach { p ->
-                    instance.setBlock(p, Block.AIR)
+                // First pass: destroy the blocks affected by the explosion. Protected
+                // blocks are excluded from this snapshot and therefore remain intact.
+                blast.affectedBlocks.forEach { block ->
+                    instance.setBlock(block, Block.AIR)
                 }
 
                 // Second pass: place the fire positions selected during the snapshot pass.
@@ -134,7 +135,7 @@ class Explosion private constructor(
 
         val affectedBlocks =
             blocks
-                .filterValues { it != Block.AIR }
+                .filterValues { block -> !block.isAir && !isExplosionProof(block) }
                 .keys
                 .toCollection(LinkedHashSet())
         val changes =
@@ -151,6 +152,8 @@ class Explosion private constructor(
         val firePositions = mutableListOf<BlockVec>()
         if (fire > 0) {
             blocks.keys.forEach { block ->
+                if (isExplosionProof(requireNotNull(blocks[block]))) return@forEach
+
                 val below = BlockVec(block.blockX(), block.blockY() - 1, block.blockZ())
                 val blockBelow = if (below in blocks) Block.AIR else instance.getBlock(below)
                 if (Random.nextDouble() < fire && blockBelow != Block.AIR && blockBelow.isSolid) {
@@ -168,6 +171,9 @@ class Explosion private constructor(
 
         return BlastBlocks(positions, affectedBlocks, changes, firePositions)
     }
+
+    private fun isExplosionProof(block: Block): Boolean =
+        Combat.config.noBlockExplodeList.any { protectedBlock -> block.compare(protectedBlock) }
 
     private fun applyDamage(affectedBlocks: Set<BlockVec>) {
         val type = if (source != null) DamageType.PLAYER_EXPLOSION else DamageType.EXPLOSION

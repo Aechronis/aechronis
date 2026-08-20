@@ -39,6 +39,9 @@ import net.minestom.server.timer.Task
 import java.util.UUID
 
 object Combat {
+    var config: CombatConfig = CombatConfig()
+        private set
+
     // event nodes for listeners
     val lowPriorityEventNode = EventNode.all("combat-low-priority").setPriority(999)
     val eventNode = EventNode.all("combat")
@@ -141,7 +144,9 @@ object Combat {
 
     internal fun activeDamage(entity: LivingEntity): Damage? = activeDamage[entity]
 
-    fun initialize() {
+    fun initialize(config: CombatConfig = CombatConfig()) {
+        this.config = config
+
         // measure load time
         val timeStart = System.currentTimeMillis()
 
