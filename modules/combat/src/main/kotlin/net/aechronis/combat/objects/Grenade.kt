@@ -35,6 +35,8 @@ class Grenade(
         require(explosionDamage >= 0f) { "Grenade explosionDamage must be non-negative" }
     }
 
+    override fun toItemStack(): ItemStack = super.toItemStack().withMaxStackSize(1)
+
     fun use(player: Player): Boolean {
         val armed = Combat.armedGrenades[player]
         return if (armed === this) {

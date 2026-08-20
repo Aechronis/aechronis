@@ -8,6 +8,7 @@ import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Explosion
+import net.aechronis.combat.objects.Grenade
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Health
@@ -370,6 +371,13 @@ class CombatTest {
             tank.destroy(tankEntity)
             drone.destroy(droneEntity)
         }
+    }
+
+    @Test
+    fun `grenades have a stack size of one`() {
+        val grenade = Grenade(name = "test-grenade", itemName = Component.empty())
+
+        assertEquals(1, grenade.toItemStack().maxStackSize())
     }
 
     @Test
