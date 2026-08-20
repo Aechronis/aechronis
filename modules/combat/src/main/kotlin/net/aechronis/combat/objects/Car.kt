@@ -53,8 +53,8 @@ open class Car(
         player: Player,
         entity: Entity,
     ) {
-        // only allow one driver at a time
-        if (playerVehicleEntity.values.any { it == entity }) return
+        // only allow one driver at a time and reject stale/direct mounts
+        if (!canEnterAsDriver(player, entity)) return
 
         super.onEnter(player, entity)
         if (playerVehicleEntity[player] === entity) {

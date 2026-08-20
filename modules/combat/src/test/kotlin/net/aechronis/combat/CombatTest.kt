@@ -782,6 +782,76 @@ class CombatTest {
         waitFor { instance.getBlock(position).compare(Block.STONE) }
     }
 
+    @Test
+    fun `dismounted protected occupant immediately loses vehicle protection and is reconciled`() {
+        val vehicle = TestBoat()
+        val entity = vehicle.spawn(instance, Pos(200.0, 61.0, 200.0))
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "stale-occupant"))
+        player.setInstance(instance, Pos(202.0, 61.0, 200.0)).join()
+
+        try {
+            vehicle.onEnter(player, entity)
+            assertTrue(Vehicle.isProtectedOccupant(player))
+            val seat = requireNotNull(player.vehicle)
+
+            // This is the same state left behind by an external dismount.
+            seat.removePassenger(player)
+
+            assertFalse(Vehicle.isProtectedOccupant(player))
+            Vehicle.reconcileOccupant(player)
+            assertNull(Vehicle.playerVehicle[player])
+            assertNull(Vehicle.playerVehicleEntity[player])
+            assertNull(Vehicle.playerSeatEntity[player])
+            assertNull(player.vehicle)
+        } finally {
+            if (Vehicle.entityVehicle.containsKey(entity)) vehicle.destroy(entity)
+            player.remove()
+        }
+    }
+
+    @Test
+    fun `vehicle body invalidation force exits its protected occupant`() {
+        val vehicle = TestBoat()
+        val entity = vehicle.spawn(instance, Pos(205.0, 61.0, 205.0))
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "body-invalid"))
+        player.setInstance(instance, Pos(207.0, 61.0, 205.0)).join()
+
+        try {
+            vehicle.onEnter(player, entity)
+            assertTrue(Vehicle.isProtectedOccupant(player))
+
+            Vehicle.invalidateEntity(entity)
+
+            assertFalse(Vehicle.isProtectedOccupant(player))
+            assertNull(Vehicle.playerVehicle[player])
+            assertNull(Vehicle.playerVehicleEntity[player])
+            assertNull(Vehicle.playerSeatEntity[player])
+            assertNull(player.vehicle)
+        } finally {
+            if (Vehicle.entityVehicle.containsKey(entity)) vehicle.destroy(entity)
+            player.remove()
+        }
+    }
+
+    @Test
+    fun `invalid direct vehicle entry does not create occupant state`() {
+        val vehicle = TestBoat()
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "invalid-vehicle"))
+        player.setInstance(instance, Pos(210.0, 61.0, 210.0)).join()
+        val unregisteredEntity = Entity(EntityType.ITEM_DISPLAY)
+
+        try {
+            vehicle.onEnter(player, unregisteredEntity)
+
+            assertNull(Vehicle.playerVehicle[player])
+            assertNull(Vehicle.playerVehicleEntity[player])
+            assertNull(Vehicle.playerSeatEntity[player])
+            assertNull(player.vehicle)
+        } finally {
+            player.remove()
+        }
+    }
+
     private fun waitFor(condition: () -> Boolean) {
         val deadline = System.nanoTime() + 3_000_000_000L
         while (!condition() && System.nanoTime() < deadline) Thread.sleep(25L)

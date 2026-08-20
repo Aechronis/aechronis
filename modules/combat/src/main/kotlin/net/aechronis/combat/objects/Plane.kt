@@ -115,7 +115,7 @@ class Plane(
     ) {
         // only allow one pilot at a time, and never let a pilot reclaim a plane
         // that is already in an uncontrolled dive.
-        if (playerVehicleEntity.values.any { it == entity } || entityDives.containsKey(entity)) return
+        if (!canEnterAsDriver(player, entity) || entityDives.containsKey(entity)) return
 
         super.onEnter(player, entity)
         (entity.entityMeta as ItemDisplayMeta).setTransformationInterpolationDuration(3)
@@ -133,7 +133,8 @@ class Plane(
         val state = playerState[player]
         if (entity != null &&
             (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) &&
-            entity !in destroyingEntities
+            entity !in destroyingEntities &&
+            !Vehicle.isForcedExit(player)
         ) {
             val instance = entity.instance ?: player.instance
             if (instance != null &&

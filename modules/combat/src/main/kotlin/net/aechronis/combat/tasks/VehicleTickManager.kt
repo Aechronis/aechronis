@@ -42,6 +42,8 @@ object VehicleTickManager {
         MinecraftServer
             .getSchedulerManager()
             .buildTask {
+                Vehicle.reconcileOccupants()
+
                 // tick occupied vehicles
                 for ((player, vehicle) in Vehicle.playerVehicle.toList()) {
                     vehicle.onTick(player)

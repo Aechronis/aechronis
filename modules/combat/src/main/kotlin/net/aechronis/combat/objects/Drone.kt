@@ -88,11 +88,12 @@ class Drone(
         player: Player,
         entity: Entity,
     ) {
+        if (!canEnterAsDriver(player, entity)) return
+
         clearCrashStatic(player)
         playerOriginalPos[player] = player.position
 
         spawnOperatorMannequin(player)
-        player.updateViewableRule { false }
         playerOriginalBoundingBox[player] = player.boundingBox
         player.boundingBox = BoundingBox(0.0, 0.0, 0.0)
 
@@ -215,7 +216,6 @@ class Drone(
             player.teleport(mannequin.position)
             mannequin.remove()
         }
-        player.updateViewableRule { true }
         playerOriginalBoundingBox.remove(player)?.let { player.boundingBox = it }
     }
 

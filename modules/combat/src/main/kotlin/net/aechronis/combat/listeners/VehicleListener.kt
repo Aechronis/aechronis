@@ -7,6 +7,8 @@ import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.event.entity.EntityDespawnEvent
+import net.minestom.server.event.instance.RemoveEntityFromInstanceEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.event.player.PlayerUseItemOnBlockEvent
 import net.minestom.server.instance.Instance
@@ -16,6 +18,7 @@ import kotlin.math.floor
 object VehicleListener {
     fun onPlayerUseItemOnBlock(event: PlayerUseItemOnBlockEvent) {
         val player = event.player
+        Vehicle.reconcileOccupant(player)
 
         // check if player is already in a vehicle
         if (Vehicle.playerVehicle[player] != null) return
@@ -26,7 +29,7 @@ object VehicleListener {
         val lookingAtEntity = VehicleTickManager.playerLookingAtEntity[player]
         if (lookingAtVehicle != null && lookingAtEntity != null) {
             // check if vehicle already has a driver, if so, enter as passenger
-            val hasDriver = Vehicle.playerVehicleEntity.values.any { it == lookingAtEntity }
+            val hasDriver = Vehicle.hasActiveDriver(lookingAtEntity)
             if (hasDriver) {
                 lookingAtVehicle.onPassengerEnter(player, lookingAtEntity)
             } else {
@@ -48,6 +51,7 @@ object VehicleListener {
 
     fun onPlayerUseItem(event: PlayerUseItemEvent) {
         val player = event.player
+        Vehicle.reconcileOccupant(player)
 
         val boat = Item.getFromItemStack(player.itemInMainHand) as? Boat ?: return
         if (Vehicle.playerVehicle[player] != null) return
@@ -77,8 +81,18 @@ object VehicleListener {
         return null
     }
 
+    fun onEntityDespawn(event: EntityDespawnEvent) {
+        Vehicle.invalidateEntity(event.entity)
+    }
+
+    fun onEntityRemovedFromInstance(event: RemoveEntityFromInstanceEvent) {
+        Vehicle.invalidateEntity(event.entity)
+    }
+
     fun init() {
         Combat.eventNode.addListener(PlayerUseItemOnBlockEvent::class.java, VehicleListener::onPlayerUseItemOnBlock)
         Combat.eventNode.addListener(PlayerUseItemEvent::class.java, VehicleListener::onPlayerUseItem)
+        Combat.eventNode.addListener(EntityDespawnEvent::class.java, VehicleListener::onEntityDespawn)
+        Combat.eventNode.addListener(RemoveEntityFromInstanceEvent::class.java, VehicleListener::onEntityRemovedFromInstance)
     }
 }
