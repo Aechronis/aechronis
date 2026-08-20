@@ -17,6 +17,7 @@ import net.aechronis.vanilla.commands.KothCommand
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Message
 import net.aechronis.vanilla.commands.Music
+import net.aechronis.vanilla.commands.Ore
 import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Shutdown
@@ -40,6 +41,7 @@ import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.KillShop
 import net.aechronis.vanilla.managers.Koth
 import net.aechronis.vanilla.managers.Mannequin
+import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.PlayerData
 import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Saplings
@@ -92,6 +94,7 @@ object Vanilla {
             if (config.shopEnabled) commands += Shop()
             if (config.whitelistEnabled) commands += Whitelist()
             if (config.kothEnabled) commands += KothCommand()
+            if (config.oresEnabled) commands += Ore()
             MinecraftServer.getCommandManager().register(*commands.toTypedArray())
         }
         println("Loading Vanilla")
@@ -121,6 +124,7 @@ object Vanilla {
         if (config.combatEnabled) Combat.init()
         if (config.musicEnabled) MusicManager.init()
         if (config.kothEnabled) Koth.init()
+        if (config.oresEnabled) Ores.init(Path.of(config.path, config.oresPath))
 
         // print load time
         val timeEnd = System.currentTimeMillis()
@@ -133,6 +137,7 @@ object Vanilla {
         println("Vanilla: saving data before shutdown...")
         if (config.playerDataEnabled) PlayerData.saveAll()
         if (config.storageEnabled) Storage.saveAll()
+        if (config.oresEnabled) Ores.saveAll()
         println("Vanilla: data saved.")
     }
 }

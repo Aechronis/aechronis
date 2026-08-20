@@ -36,12 +36,14 @@ data class VanillaConfig(
     val musicEnabled: Boolean = true,
     val spawnEnabled: Boolean = true,
     val kothEnabled: Boolean = true,
+    val oresEnabled: Boolean = true,
     // Paths
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",
     val storagePath: String = "storage",
     val whitelistPath: String = "whitelist.json",
     val spawnPath: String = "spawn",
+    val oresPath: String = "ores.json",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),
     // Food
