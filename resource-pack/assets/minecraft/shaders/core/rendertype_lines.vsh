@@ -13,6 +13,9 @@ in float LineWidth;
 out float sphericalVertexDistance;
 out float cylindricalVertexDistance;
 out vec4 vertexColor;
+noperspective out vec3 encodedLinePosition;
+noperspective out vec2 encodedLineEndpoint;
+flat out float sourceLineWidth;
 
 const float VIEW_SHRINK = 1.0 - (1.0 / 256.0);
 const mat4 VIEW_SCALE = mat4(
@@ -45,6 +48,12 @@ void main() {
     sphericalVertexDistance = fog_spherical_distance(Position);
     cylindricalVertexDistance = fog_cylindrical_distance(Position);
     vertexColor = Color;
+
+    encodedLinePosition = Position;
+    int lineVertex = gl_VertexID % 4;
+    encodedLineEndpoint.x = lineVertex < 2 ? 0.0 : 1.0;
+    encodedLineEndpoint.y = lineVertex == 0 || lineVertex == 3 ? 1.0 : 0.0;
+    sourceLineWidth = LineWidth;
 	
 	int tickGameTime = int(GameTime * 24000);
 	if ((tickGameTime / 1000) % 10 == 1) {

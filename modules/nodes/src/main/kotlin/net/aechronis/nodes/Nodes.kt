@@ -43,6 +43,7 @@ import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.OreBlockCache
 import net.aechronis.nodes.objects.OreSampler
+import net.aechronis.nodes.objects.RelationshipHitbox
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.ResourceNode
 import net.aechronis.nodes.objects.Territory
@@ -124,6 +125,7 @@ object Nodes {
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         MinecraftServer.getGlobalEventHandler().addChild(highPriorityEventNode)
         MinimapPassengerTracker.init()
+        RelationshipHitbox.init()
         NodesChatListener.init()
         NodesChestProtectionListener.init()
         NodesChestProtectionDestroyListener.init()

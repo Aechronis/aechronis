@@ -83,6 +83,7 @@ object Nametag {
     fun start() {
         if (started) return
         started = true
+        RelationshipHitbox.start()
 
         val onlinePlayers = MinecraftServer.getConnectionManager().onlinePlayers
         viewers.keys.retainAll(onlinePlayers.mapTo(hashSetOf()) { it.uuid })
@@ -93,6 +94,7 @@ object Nametag {
 
     fun stop() {
         started = false
+        RelationshipHitbox.stop()
     }
 
     /** Initialize every town team for a newly connected viewer. */
@@ -107,6 +109,7 @@ object Nametag {
                 excludedViewer = player.uuid,
             )
         }
+        RelationshipHitbox.refreshTarget(player)
     }
 
     internal fun onPlayerQuit(player: Player) {
@@ -126,12 +129,14 @@ object Nametag {
         if (!started) return
         addMember(town, player.username)
         refreshViewerRelationships(player)
+        RelationshipHitbox.refreshTarget(player)
     }
 
     internal fun onResidentRemoved(town: Town, player: Player) {
         if (!started) return
         removeMember(town, player.username)
         refreshViewerRelationships(player)
+        RelationshipHitbox.refreshTarget(player)
     }
 
     internal fun onTownCreated(town: Town) {
@@ -139,6 +144,7 @@ object Nametag {
         val members = onlineMembers(town)
         initializedOnlineViewers().forEach { (viewer, state) ->
             createTownTeam(viewer, state, town, members)
+            RelationshipHitbox.refreshViewer(viewer)
         }
     }
 
@@ -185,6 +191,7 @@ object Nametag {
         Nodes.towns.values.forEach { town ->
             createTownTeam(player, state, town, onlineMembers(town))
         }
+        RelationshipHitbox.refreshViewer(player)
     }
 
     private fun createTownTeam(
@@ -213,6 +220,7 @@ object Nametag {
                 previous != relationship -> viewer.sendPacket(updateTeamPacket(town, relationship))
             }
         }
+        RelationshipHitbox.refreshViewer(viewer)
     }
 
     private fun addMember(
