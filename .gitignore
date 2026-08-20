@@ -23,5 +23,5 @@ dist/
 /server/vanilla/
 /server/world/
 /server/worldedit/
-/server/logger.db*
+/server/logger/
 /server/logs/

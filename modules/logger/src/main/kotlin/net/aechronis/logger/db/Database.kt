@@ -4,19 +4,21 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import net.aechronis.logger.LoggerConfig
 import net.aechronis.logger.utils.LogMetadata
+import java.nio.file.Files
 import java.nio.file.Path
 import javax.sql.DataSource
 
 class Database(
     private val config: LoggerConfig,
 ) : AutoCloseable {
-    private val databasePath =
+    private val databaseFile =
         Path
             .of(config.databasePath)
             .toAbsolutePath()
             .normalize()
-            .toString()
-            .replace('\\', '/')
+            .also { path -> path.parent?.let(Files::createDirectories) }
+
+    private val databasePath = databaseFile.toString().replace('\\', '/')
 
     private val pool: HikariDataSource =
         HikariDataSource(
