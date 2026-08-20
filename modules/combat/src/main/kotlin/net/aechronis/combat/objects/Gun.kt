@@ -216,10 +216,12 @@ class Gun(
         Combat.playerLastActionTimes[player] = now
         if (!hasAmmo(player) && !ignoreAmmo) return false
 
-        // calculate position to fire bullet (ray) from
+        // Calculate position to fire bullet (ray) from. ADS only affects handheld shots,
+        // matching the state which displays the aiming animation.
         val speed = Combat.playerSpeeds[player] ?: 0F
-        val offsetYaw = (firePos?.yaw ?: player.position.yaw) + spread(speed)
-        val offsetPitch = (firePos?.pitch ?: player.position.pitch) + spread(speed)
+        val aimingMultiplier = aimingMultiplier(firePos == null && Combat.playerAiming[player] == true)
+        val offsetYaw = (firePos?.yaw ?: player.position.yaw) + spread(speed) * aimingMultiplier
+        val offsetPitch = (firePos?.pitch ?: player.position.pitch) + spread(speed) * aimingMultiplier
 
         val offsetPos =
             if (firePos != null) {
@@ -311,8 +313,8 @@ class Gun(
             Particles.particleLine(player.instance, bulletTrailParticle, trailStart, trailEndPoint)
         }
 
-        // send recoil packet to player
-        recoil(player)
+        // Send recoil packet to player.
+        recoil(player, aimingMultiplier)
 
         // decrement ammo
         if (!ignoreAmmo) addAmmo(player, -1)
@@ -401,14 +403,17 @@ class Gun(
         return Random.nextFloat() * max * 2 - max
     }
 
-    fun recoil(player: Player) {
+    fun recoil(
+        player: Player,
+        multiplier: Float = 1F,
+    ) {
         player.sendPacket(
             PlayerPositionAndLookPacket(
                 -1,
                 Pos.ZERO,
                 Pos.ZERO,
                 0F,
-                -(Random.nextFloat() * (recoilMax - recoilMin) + recoilMin),
+                -(Random.nextFloat() * (recoilMax - recoilMin) + recoilMin) * multiplier,
                 RelativeFlags.VIEW or RelativeFlags.COORD or RelativeFlags.DELTA_COORD,
             ),
         )
@@ -444,6 +449,10 @@ class Gun(
         return closest
     }
 }
+
+internal const val AIMING_REDUCTION_MULTIPLIER = 0.67F
+
+internal fun aimingMultiplier(aiming: Boolean): Float = if (aiming) AIMING_REDUCTION_MULTIPLIER else 1F
 
 private fun gunStatsLore(
     ammo: Ammo,

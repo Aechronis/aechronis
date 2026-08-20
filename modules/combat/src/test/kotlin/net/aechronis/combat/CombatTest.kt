@@ -1,5 +1,6 @@
 package net.aechronis.combat
 
+import net.aechronis.combat.objects.AIMING_REDUCTION_MULTIPLIER
 import net.aechronis.combat.objects.Ammo
 import net.aechronis.combat.objects.AmmoTypes
 import net.aechronis.combat.objects.ArmorPiece
@@ -19,6 +20,7 @@ import net.aechronis.combat.objects.PlaneWeapon
 import net.aechronis.combat.objects.Projectile
 import net.aechronis.combat.objects.Tank
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.aimingMultiplier
 import net.aechronis.combat.objects.damageAtDistance
 import net.aechronis.combat.objects.distanceToBoundingBox
 import net.aechronis.combat.objects.firstProjectileImpact
@@ -775,6 +777,13 @@ class CombatTest {
         assertTrue(Combat.isAdsAnimationDisabled(playerUuid))
         assertFalse(Combat.toggleAdsAnimation(playerUuid))
         assertFalse(Combat.isAdsAnimationDisabled(playerUuid))
+    }
+
+    @Test
+    fun `ADS reduces recoil and spread to 67 percent`() {
+        assertEquals(AIMING_REDUCTION_MULTIPLIER, aimingMultiplier(true))
+        assertEquals(1F, aimingMultiplier(false))
+        assertEquals(6.7F, 10F * aimingMultiplier(true), 0.0001F)
     }
 
     @Test
