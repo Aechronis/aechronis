@@ -15,6 +15,7 @@ int idx = gl_VertexID;
 vec2 corner = corners[idx % 4];
 vec4 testColor = texelFetch(Sampler0, uv, 0);
 int idTex = id(uv);
+int controlVertex = int(round(testColor.r * 255));
 
 custom = 0;
 markerTypeData = 0;
@@ -24,14 +25,25 @@ territoryHomeData = 0;
 markerLocalCoord = vec2(0);
 markerFillColor = vec4(1);
 
-if (texSize == vec2(256) && round(testColor.a * 255) == 3 && ((idTex & 0xffff) == 0x0100)) // Markers
+bool isMarkerControlPixel =
+    controlVertex >= 1 && controlVertex <= 4 &&
+    round(testColor.a * 255) == 3 &&
+    ((idTex & 0xffff) == 0x0100);
+int markerType = 0;
+bool isMarker = false;
+if (isMarkerControlPixel)
 {
-#ifndef GL_ARB_shader_draw_parameters // Recover the quad corner from control pixels on older GPUs.
-    idx = int(round(testColor.r * 255)) - 1;
-    corner = corners[idx % 4];
-#endif
+    corner = corners[controlVertex - 1];
+    ivec4 markerData = ivec4(round(
+        texelFetch(Sampler0, uv + ivec2(0, 1 - int(corner.y) * 2), 0) * 255.0
+    ));
+    markerType = markerData.r;
+    isMarker = markerData.a == 3 && markerData.b == 0 && markerType >= 2 && markerType <= 16;
+}
+
+if (isMarker) // Markers
+{
     int meta = int(round(Color.b * 255));
-    int markerType = int(round(texelFetch(Sampler0, uv + ivec2(0, 1 - corner.y * 2), 0).r * 255));
     bool isWaypoint = markerType >= 7 && markerType <= 16;
     bool isDeathWaypoint = markerType == 8 || markerType == 10;
     bool isScaleTwelveWaypoint = markerType == 9 || markerType == 10 || markerType == 13 || markerType == 14 || markerType == 16;
