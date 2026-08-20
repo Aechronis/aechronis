@@ -30,6 +30,7 @@ data class VanillaConfig(
     val fallDamageEnabled: Boolean = true,
     val fireDamageEnabled: Boolean = true,
     val drowningEnabled: Boolean = true,
+    val voidDamageEnabled: Boolean = true,
     val serverLinksEnabled: Boolean = true,
     val combatEnabled: Boolean = true,
     val musicEnabled: Boolean = true,
@@ -105,4 +106,7 @@ data class VanillaConfig(
     val fireContactTicks: Int = 10,
     val fireDmg: Float = 1f,
     val drowningDmg: Float = 2f,
+    val voidDamageY: Double = -80.0,
+    val voidDamageTicks: Int = 10,
+    val voidDmg: Float = 4f,
 )

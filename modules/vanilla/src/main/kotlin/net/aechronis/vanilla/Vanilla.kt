@@ -116,7 +116,7 @@ object Vanilla {
         }
         if (config.blockDropsEnabled) PlayerBreakListener.init()
         if (config.fallDamageEnabled) FallDamageListener.init()
-        if (config.fireDamageEnabled || config.drowningEnabled) EnvironmentalDamage.init()
+        if (config.fireDamageEnabled || config.drowningEnabled || config.voidDamageEnabled) EnvironmentalDamage.init()
         if (config.serverLinksEnabled) ServerLinksListener.init()
         if (config.combatEnabled) Combat.init()
         if (config.musicEnabled) MusicManager.init()

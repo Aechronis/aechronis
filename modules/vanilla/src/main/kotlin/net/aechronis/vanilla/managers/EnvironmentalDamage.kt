@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 object EnvironmentalDamage {
     private val fireContactTicks = ConcurrentHashMap<UUID, Int>()
+    private val voidDamageTicks = ConcurrentHashMap<UUID, Int>()
     private val IN_FIRE: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:in_fire")
     private val ON_FIRE: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:on_fire")
     private val DROWN: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:drown")
@@ -45,6 +46,22 @@ object EnvironmentalDamage {
         }
         if (Vanilla.config.fireDamageEnabled) tickFire(player) else fireContactTicks.remove(player.uuid)
         if (Vanilla.config.drowningEnabled) tickDrowning(player)
+        if (Vanilla.config.voidDamageEnabled) tickVoid(player) else voidDamageTicks.remove(player.uuid)
+    }
+
+    private fun tickVoid(player: Player) {
+        if (player.position.y >= Vanilla.config.voidDamageY) {
+            voidDamageTicks.remove(player.uuid)
+            return
+        }
+
+        val ticks = (voidDamageTicks[player.uuid] ?: (Vanilla.config.voidDamageTicks - 1)) + 1
+        if (ticks >= Vanilla.config.voidDamageTicks) {
+            player.damage(DamageType.OUT_OF_WORLD, Vanilla.config.voidDmg)
+            voidDamageTicks[player.uuid] = 0
+        } else {
+            voidDamageTicks[player.uuid] = ticks
+        }
     }
 
     private fun tickFire(player: Player) {
@@ -122,6 +139,7 @@ object EnvironmentalDamage {
 
     private fun reset(player: Player) {
         fireContactTicks.remove(player.uuid)
+        voidDamageTicks.remove(player.uuid)
         player.fireTicks = 0
         player.entityMeta.airTicks = Vanilla.config.maxAirTicks
     }

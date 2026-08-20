@@ -29,6 +29,20 @@ class EnvironmentalDamageTest : ManagerTest() {
     }
 
     @Test
+    fun `the void damages immediately then every ten ticks below y minus 80`() {
+        val player = VanillaTest.createPlayer(Pos(2.5, -80.01, 2.5))
+
+        EnvironmentalDamage.tickPlayer(player)
+        assertEquals(16f, player.health)
+        repeat(9) { EnvironmentalDamage.tickPlayer(player) }
+        assertEquals(16f, player.health)
+        EnvironmentalDamage.tickPlayer(player)
+        assertEquals(12f, player.health)
+
+        VanillaTest.remove(player)
+    }
+
+    @Test
     fun `drowning damages after vanilla air supply expires`() {
         val player = VanillaTest.createPlayer(Pos(2.5, 40.0, 2.5))
         VanillaTest.instance.setBlock(2, 41, 2, Block.WATER)
