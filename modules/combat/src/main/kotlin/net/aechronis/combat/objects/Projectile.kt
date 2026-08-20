@@ -1,5 +1,6 @@
 package net.aechronis.combat.objects
 
+import net.aechronis.combat.utils.Particles
 import net.aechronis.combat.utils.Ray
 import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Point
@@ -14,6 +15,7 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import net.minestom.server.particle.Particle
 
 class Projectile private constructor(
     val instance: Instance,
@@ -29,6 +31,10 @@ class Projectile private constructor(
     val weapon: Component? = null,
     val ammoType: AmmoTypes? = null,
     val fuseDeadlineMillis: Long? = null,
+    val trailParticle: Particle? = null,
+    val trailSpacing: Double = 1.0,
+    val trailMaxParticles: Int = 96,
+    val maxRange: Double? = null,
     private val bypassDamageImmunity: Boolean,
     private val ignoredEntities: Set<Entity>,
 ) {
@@ -46,6 +52,10 @@ class Projectile private constructor(
         weapon: Component? = null,
         ammoType: AmmoTypes? = null,
         fuseDeadlineMillis: Long? = null,
+        trailParticle: Particle? = null,
+        trailSpacing: Double = 1.0,
+        trailMaxParticles: Int = 96,
+        maxRange: Double? = null,
     ) : this(
         instance,
         pos,
@@ -60,15 +70,27 @@ class Projectile private constructor(
         weapon,
         ammoType,
         fuseDeadlineMillis,
+        trailParticle,
+        trailSpacing,
+        trailMaxParticles,
+        maxRange,
         false,
         emptySet(),
     )
 
     private val entity: Entity
     private var velocity: Vec = direction.mul(speed)
+    private var travelledDistance = 0.0
     var isActive = true
 
     init {
+        require(speed.isFinite() && speed > 0.0) { "Projectile speed must be positive and finite" }
+        require(gravity.isFinite()) { "Projectile gravity must be finite" }
+        require(trailSpacing.isFinite() && trailSpacing > 0.0) { "Projectile trailSpacing must be positive and finite" }
+        require(trailMaxParticles >= 2) { "Projectile trailMaxParticles must be at least two" }
+        require(maxRange == null || (maxRange.isFinite() && maxRange > 0.0)) {
+            "Projectile maxRange must be positive and finite when set"
+        }
         val itemDisplay = Entity(EntityType.ITEM_DISPLAY)
 
         itemDisplay.setInstance(instance, pos.withDirection(velocity))
@@ -95,25 +117,51 @@ class Projectile private constructor(
             return
         }
 
-        // accelerate downward so the projectile arcs over time
+        // Accelerate downward so the projectile arcs over time, then limit this tick to its
+        // remaining range. This keeps both collision and the visual trail on the same path.
         velocity = velocity.sub(0.0, gravity, 0.0)
-        val nextPos = currentPos.add(velocity)
+        val remainingRange = maxRange?.let { it - travelledDistance }
+        if (remainingRange != null && remainingRange <= 0.0) {
+            expire()
+            return
+        }
+        val movement =
+            if (remainingRange != null && velocity.length() > remainingRange) {
+                velocity.normalize().mul(remainingRange)
+            } else {
+                velocity
+            }
+        val nextPos = currentPos.add(movement)
 
-        val impact = firstProjectileImpact(Ray(currentPos, velocity), instance, ignoredEntities + listOfNotNull(source))
+        val impact = firstProjectileImpact(Ray(currentPos, movement), instance, ignoredEntities + listOfNotNull(source))
+        val trailEnd = impact?.point?.asPos() ?: nextPos
+        trailParticle?.let { particle ->
+            Particles.particleLine(instance, particle, currentPos, trailEnd, trailSpacing, trailMaxParticles)
+        }
+        travelledDistance += currentPos.distance(trailEnd)
+
         if (impact != null) {
-            detonate(impact.point.asPos())
+            detonate(trailEnd)
+            return
+        }
+        if (remainingRange != null && travelledDistance >= maxRange) {
+            expire()
             return
         }
 
         // chunk is loaded
         if (!instance.isChunkLoaded(nextPos)) {
-            isActive = false
-            entity.remove()
+            expire()
             return
         }
 
         // move the entity
-        entity.teleport(nextPos.withDirection(velocity))
+        entity.teleport(nextPos.withDirection(movement))
+    }
+
+    private fun expire() {
+        isActive = false
+        entity.remove()
     }
 
     private fun detonate(pos: Pos) {
@@ -161,6 +209,10 @@ class Projectile private constructor(
             ignoredEntities: Set<Entity>,
             ammoType: AmmoTypes?,
             fuseDeadlineMillis: Long? = null,
+            trailParticle: Particle? = null,
+            trailSpacing: Double = 1.0,
+            trailMaxParticles: Int = 96,
+            maxRange: Double? = null,
         ): Projectile =
             Projectile(
                 instance,
@@ -176,6 +228,10 @@ class Projectile private constructor(
                 weapon,
                 ammoType,
                 fuseDeadlineMillis,
+                trailParticle,
+                trailSpacing,
+                trailMaxParticles,
+                maxRange,
                 true,
                 ignoredEntities,
             )

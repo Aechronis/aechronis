@@ -104,6 +104,8 @@ object Planes {
                     projectileExplosionRadius = 4,
                     projectileExplosionFire = 0.1,
                     projectileExplosionDamage = 20f,
+                    projectileTrailParticle = Particle.ELECTRIC_SPARK,
+                    projectileMaxRange = 128.0,
                     fireCooldown = 20_000,
                 ),
             scale = 7.0,

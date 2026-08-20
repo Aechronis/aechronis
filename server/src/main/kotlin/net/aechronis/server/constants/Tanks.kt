@@ -9,6 +9,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.particle.Particle
 
 object Tanks {
     private val m1a1AbramsHitbox =
@@ -40,6 +41,8 @@ object Tanks {
                         AmmoTypes.EXPLOSIVE to 1f,
                     ),
                 ),
+            projectileTrailParticle = Particle.ELECTRIC_SPARK,
+            projectileMaxRange = 128.0,
             seatOffsets = listOf(Vec(0.0, 1.0, 0.0)),
         )
 }

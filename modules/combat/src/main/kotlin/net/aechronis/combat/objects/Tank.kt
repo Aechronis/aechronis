@@ -17,6 +17,7 @@ import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import net.minestom.server.particle.Particle
 import kotlin.math.max
 import kotlin.math.min
 
@@ -53,6 +54,10 @@ class Tank(
     seatOffsets: List<Vec> = listOf(Vec.ZERO),
     invisibleWhileRiding: Boolean = true,
     invulnerableWhileRiding: Boolean = true,
+    val projectileTrailParticle: Particle? = Particle.ELECTRIC_SPARK,
+    val projectileTrailSpacing: Double = 1.0,
+    val projectileTrailMaxParticles: Int = 96,
+    val projectileMaxRange: Double = 128.0,
 ) : Car(
         name,
         itemName,
@@ -76,6 +81,16 @@ class Tank(
     ArmedVehicle {
     init {
         require(maxAmmo > 0) { "Tank maxAmmo must be greater than zero" }
+        require(projectileSpeed > 0.0 && projectileSpeed.isFinite()) {
+            "Tank projectileSpeed must be positive and finite"
+        }
+        require(projectileTrailSpacing > 0.0 && projectileTrailSpacing.isFinite()) {
+            "Tank projectileTrailSpacing must be positive and finite"
+        }
+        require(projectileTrailMaxParticles >= 2) { "Tank projectileTrailMaxParticles must be at least two" }
+        require(projectileMaxRange > 0.0 && projectileMaxRange.isFinite()) {
+            "Tank projectileMaxRange must be positive and finite"
+        }
     }
 
     override fun spawn(
@@ -228,6 +243,10 @@ class Tank(
                 weapon = projectileName,
                 ignoredEntities = ignoredEntities,
                 ammoType = ammo.ammoType,
+                trailParticle = projectileTrailParticle,
+                trailSpacing = projectileTrailSpacing,
+                trailMaxParticles = projectileTrailMaxParticles,
+                maxRange = projectileMaxRange,
             )
         }
 

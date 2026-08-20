@@ -8,7 +8,7 @@ import net.minestom.server.instance.block.Block
 import net.minestom.server.network.packet.server.play.ParticlePacket
 import net.minestom.server.particle.Particle
 import net.minestom.server.utils.PacketSendingUtils
-import kotlin.math.min
+import kotlin.math.ceil
 
 private const val DEFAULT_TRAIL_SPACING = 1.0
 private const val MAX_TRAIL_PARTICLES = 96
@@ -31,11 +31,11 @@ object Particles {
         from: Pos,
         to: Pos,
         spacing: Double = DEFAULT_TRAIL_SPACING,
+        maxParticles: Int = MAX_TRAIL_PARTICLES,
     ) {
-        val direction = to.sub(from)
         val distance = from.distance(to)
-        val steps = min((distance / spacing).toInt(), MAX_TRAIL_PARTICLES - 1)
-        if (steps <= 0) return
+        val count = particleLinePointCount(distance, spacing, maxParticles)
+        if (count == 0) return
 
         val viewers =
             instance.players.filter {
@@ -43,14 +43,32 @@ object Particles {
             }
         if (viewers.isEmpty()) return
 
-        val step = direction.div(steps.toDouble())
-        var current = from
+        if (count == 1) {
+            PacketSendingUtils.sendGroupedPacket(viewers, ParticlePacket(particle, from, Pos.ZERO, 0F, 1))
+            return
+        }
 
-        for (i in 0..steps) {
-            PacketSendingUtils.sendGroupedPacket(viewers, ParticlePacket(particle, current, Pos.ZERO, 0F, 1))
-            current = current.add(step)
+        val direction = to.sub(from)
+        for (index in 0 until count) {
+            val progress = index.toDouble() / (count - 1).toDouble()
+            val point = from.add(direction.mul(progress))
+            PacketSendingUtils.sendGroupedPacket(viewers, ParticlePacket(particle, point, Pos.ZERO, 0F, 1))
         }
     }
+}
+
+internal fun particleLinePointCount(
+    distance: Double,
+    spacing: Double = DEFAULT_TRAIL_SPACING,
+    maxParticles: Int = MAX_TRAIL_PARTICLES,
+): Int {
+    require(distance.isFinite() && distance >= 0.0) { "Tracer distance must be finite and non-negative" }
+    require(spacing.isFinite() && spacing > 0.0) { "Tracer spacing must be positive and finite" }
+    require(maxParticles >= 2) { "Tracer particle budget must be at least two" }
+    if (distance == 0.0) return 1
+
+    val segments = ceil(distance / spacing).coerceAtMost((maxParticles - 1).toDouble()).toInt()
+    return segments + 1
 }
 
 internal fun distanceSquaredToSegment(

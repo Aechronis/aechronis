@@ -16,6 +16,7 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneWeapon
+import net.aechronis.combat.objects.Projectile
 import net.aechronis.combat.objects.Tank
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.damageAtDistance
@@ -27,6 +28,7 @@ import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.combat.tasks.LeafRestoreManager
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.calculateVehicleCameraDistance
+import net.aechronis.combat.utils.particleLinePointCount
 import net.aechronis.combat.utils.withCombatDamageImmunityBypass
 import net.aechronis.utils.createTestServer
 import net.kyori.adventure.text.Component
@@ -706,6 +708,33 @@ class CombatTest {
         assertEquals(30f, damageAtDistance(30f, 4, 0.0))
         assertEquals(5f, damageAtDistance(10f, 4, 2.0))
         assertEquals(15f, damageAtDistance(30f, 4, 2.0))
+    }
+
+    @Test
+    fun `tracer line sampling preserves endpoints within its particle budget`() {
+        assertEquals(1, particleLinePointCount(0.0))
+        assertEquals(3, particleLinePointCount(1.0, spacing = 0.5))
+        assertEquals(96, particleLinePointCount(128.0))
+        assertEquals(10, particleLinePointCount(200.0, spacing = 1.0, maxParticles = 10))
+    }
+
+    @Test
+    fun `projectile expires when it reaches its configured range`() {
+        instance.loadChunk(0, 0).join()
+        val projectile =
+            Projectile(
+                instance = instance,
+                pos = Pos(4.0, 70.0, 4.0),
+                model = "aechronis:m1a1-abrams-shell",
+                direction = Vec(1.0, 0.0, 0.0),
+                speed = 4.0,
+                gravity = 0.0,
+                maxRange = 2.0,
+            )
+
+        projectile.onTick()
+
+        assertFalse(projectile.isActive)
     }
 
     @Test

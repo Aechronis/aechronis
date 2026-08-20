@@ -13,6 +13,7 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
+import net.minestom.server.particle.Particle
 import kotlin.math.abs
 import kotlin.math.ceil
 
@@ -44,10 +45,21 @@ data class PlaneBombWeapon(
     val projectileExplosionFire: Double = 0.1,
     val projectileExplosionDamage: Float = 20f,
     val fireCooldown: Long = 20_000,
+    val projectileTrailParticle: Particle? = Particle.ELECTRIC_SPARK,
+    val projectileTrailSpacing: Double = 1.0,
+    val projectileTrailMaxParticles: Int = 96,
+    val projectileMaxRange: Double = 128.0,
 ) {
     init {
         require(projectileSpeed > 0.0 && projectileSpeed.isFinite()) {
             "Plane bomb projectileSpeed must be a positive finite number"
+        }
+        require(projectileTrailSpacing > 0.0 && projectileTrailSpacing.isFinite()) {
+            "Plane bomb projectileTrailSpacing must be positive and finite"
+        }
+        require(projectileTrailMaxParticles >= 2) { "Plane bomb projectileTrailMaxParticles must be at least two" }
+        require(projectileMaxRange > 0.0 && projectileMaxRange.isFinite()) {
+            "Plane bomb projectileMaxRange must be positive and finite"
         }
         require(fireCooldown >= 0) { "Plane bomb fireCooldown cannot be negative" }
     }
@@ -430,7 +442,9 @@ class Plane(
             for (localPoint in mount.firePoints) {
                 // local point to world space
                 val worldOffset = rotatePoint(localPoint, position.yaw, position.pitch, roll)
-                val firePos = position.add(worldOffset.x, worldOffset.y, worldOffset.z)
+                // Preserve the body view explicitly: Pos.add only represents the muzzle position,
+                // while the ray and tracer must follow the plane's current aim.
+                val firePos = position.add(worldOffset.x, worldOffset.y, worldOffset.z).withView(position.yaw, position.pitch)
 
                 // fire the gun
                 if ((getAmmo(entity) ?: 0) <= 0) return
@@ -440,6 +454,7 @@ class Plane(
                         firePos,
                         ignoreCooldown = true,
                         ignoreAmmo = true,
+                        lagCompensate = false,
                     )
                 ) {
                     consumeAmmo(entity)
@@ -501,6 +516,10 @@ class Plane(
                 weapon = bomb.projectileName,
                 ignoredEntities = ignoredEntities,
                 ammoType = ammo.ammoType,
+                trailParticle = bomb.projectileTrailParticle,
+                trailSpacing = bomb.projectileTrailSpacing,
+                trailMaxParticles = bomb.projectileTrailMaxParticles,
+                maxRange = bomb.projectileMaxRange,
             )
         }
 

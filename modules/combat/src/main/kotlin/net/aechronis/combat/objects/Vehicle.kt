@@ -558,6 +558,8 @@ open class Vehicle(
     }
 
     companion object {
+        fun isVehicleOccupant(player: Player): Boolean = activeOccupant(player) != null
+
         // true while the player rides a vehicle that protects its occupants from damage
         fun isProtectedOccupant(player: Player): Boolean = activeOccupant(player)?.invulnerableWhileRiding == true
 

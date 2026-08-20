@@ -207,6 +207,7 @@ class Gun(
         firePos: Pos? = null,
         ignoreCooldown: Boolean = false,
         ignoreAmmo: Boolean = false,
+        lagCompensate: Boolean = firePos == null,
     ): Boolean {
         val firedAtNanos = System.nanoTime()
         val now = System.currentTimeMillis()
@@ -237,7 +238,7 @@ class Gun(
 
         val blockHit = ray.firstBlock(player.instance!!)
         val entityHit =
-            if (firePos == null) {
+            if (lagCompensate) {
                 LagCompensation.firstEntityHit(ray, player, player.instance, firedAtNanos)
             } else {
                 ray.firstEntity(
