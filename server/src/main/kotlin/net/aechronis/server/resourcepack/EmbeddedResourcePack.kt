@@ -11,9 +11,19 @@ import java.util.jar.JarFile
 object EmbeddedResourcePack {
     private const val EMBEDDED_ROOT = "embedded-resource-pack/"
 
-    fun install(directory: Path) {
+    fun install(
+        directory: Path,
+        codeLocation: Path = runningLocation(),
+    ) {
         val destination = directory.toAbsolutePath().normalize()
-        val jar = runningJar()
+        val jar = codeLocation.toAbsolutePath().normalize()
+        if (Files.isDirectory(jar, LinkOption.NOFOLLOW_LINKS)) {
+            require(Files.isRegularFile(destination.resolve("pack.mcmeta"), LinkOption.NOFOLLOW_LINKS)) {
+                "Cannot locate the live resource pack for exploded server classes: $destination"
+            }
+            println("[ResourcePack] using live pack at $destination")
+            return
+        }
         require(Files.isRegularFile(jar, LinkOption.NOFOLLOW_LINKS)) {
             "Cannot locate the running server JAR: $jar"
         }
@@ -51,22 +61,25 @@ object EmbeddedResourcePack {
         }
     }
 
-    fun defaultDirectory(): Path {
-        val location =
-            EmbeddedResourcePack::class.java
-                .protectionDomain
-                .codeSource
-                .location
-                .toURI()
-        val path = Path.of(location)
-        return if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-            path.parent
-        } else {
-            Path.of(".").toAbsolutePath().normalize()
+    fun defaultDirectory(
+        codeLocation: Path = runningLocation(),
+        workingDirectory: Path = Path.of("."),
+    ): Path {
+        val location = codeLocation.toAbsolutePath().normalize()
+        if (Files.isRegularFile(location, LinkOption.NOFOLLOW_LINKS)) return location.parent
+
+        var ancestor: Path? = location
+        while (ancestor != null) {
+            if (Files.isRegularFile(ancestor.resolve("resource-pack/pack.mcmeta"), LinkOption.NOFOLLOW_LINKS)) {
+                return ancestor
+            }
+            ancestor = ancestor.parent
         }
+
+        return workingDirectory.toAbsolutePath().normalize()
     }
 
-    private fun runningJar(): Path {
+    private fun runningLocation(): Path {
         val location =
             EmbeddedResourcePack::class.java
                 .protectionDomain
