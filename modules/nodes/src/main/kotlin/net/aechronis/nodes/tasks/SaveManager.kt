@@ -44,7 +44,7 @@ class TaskSaveWorld(
             nationsSnapshot,
         )
 
-        Files.writeString(Nodes.config.pathTowns, jsonStr)
+        AtomicFiles.writeString(Nodes.config.pathTowns, jsonStr)
 
         // if backup timestamp millis timestamp (using System.currentTimeMillis())
         // was provided, copy this saved world state to backup folder
@@ -65,17 +65,15 @@ internal class TaskSaveBackup(
 ) : Runnable {
     override fun run() {
         if (Files.exists(Nodes.config.pathTowns)) {
-            Files.createDirectories(Nodes.config.pathBackup) // create backup folder if it does not exist
-
             // save towns file backup
             val date = Date(timestamp)
             val backupName = "towns.${BACKUP_DATE_FORMATTER.format(date)}.json"
             val pathBackup = Nodes.config.pathBackup.resolve(backupName)
-            Files.copy(Nodes.config.pathTowns, pathBackup)
+            AtomicFiles.copy(Nodes.config.pathTowns, pathBackup)
         }
 
         // save last backup timestamp to file
-        Files.writeString(Nodes.config.pathLastBackupTime, timestamp.toString())
+        AtomicFiles.writeString(Nodes.config.pathLastBackupTime, timestamp.toString())
     }
 }
 
@@ -85,7 +83,7 @@ class TaskSaveBuildings(
 ) : Runnable {
     override fun run() {
         val jsonStr = Serializer.buildingsToJson(buildingsSnapshot)
-        Files.writeString(pathBuildingsSave, jsonStr)
+        AtomicFiles.writeString(pathBuildingsSave, jsonStr)
     }
 }
 

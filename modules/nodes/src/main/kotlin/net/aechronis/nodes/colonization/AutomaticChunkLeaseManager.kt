@@ -9,7 +9,10 @@ import net.minestom.server.timer.TaskSchedule
 import java.util.IdentityHashMap
 import java.util.concurrent.CompletableFuture
 
-internal class AutomaticChunkLeaseManager {
+internal class AutomaticChunkLeaseManager(
+    private val unloadGraceMillis: Long = AUTOMATIC_CHUNK_UNLOAD_GRACE_MILLIS,
+    private val cleanupRetryTicks: Int = AUTOMATIC_CHUNK_CLEANUP_RETRY_TICKS,
+) {
     private val leasesByInstance = IdentityHashMap<Instance, MutableMap<Coord, AutomaticChunkLease>>()
     private var cleanupTask: Task? = null
 
@@ -96,12 +99,12 @@ internal class AutomaticChunkLeaseManager {
             if (cleanupTask != null) return
             cleanupTask = MinecraftServer.getSchedulerManager()
                 .buildTask(::cleanupReleasedChunks)
-                .delay(TaskSchedule.tick(AUTOMATIC_CHUNK_CLEANUP_RETRY_TICKS))
+                .delay(TaskSchedule.tick(cleanupRetryTicks))
                 .schedule()
         }
     }
 
-    private fun cleanupReleasedChunks() {
+    internal fun cleanupReleasedChunks() {
         val leases = synchronized(leasesByInstance) {
             cleanupTask = null
             leasesByInstance.values.flatMap { it.values }.filter { it.sessions.isEmpty() }
@@ -122,7 +125,7 @@ internal class AutomaticChunkLeaseManager {
             removeLease(lease, instanceLeases)
             return@synchronized false
         }
-        if (System.currentTimeMillis() - lease.releasedAtMillis < AUTOMATIC_CHUNK_UNLOAD_GRACE_MILLIS) {
+        if (System.currentTimeMillis() - lease.releasedAtMillis < unloadGraceMillis) {
             return@synchronized true
         }
 
@@ -137,7 +140,13 @@ internal class AutomaticChunkLeaseManager {
         }
         if (loadedChunk.viewers.isNotEmpty() || containsEntity) return@synchronized true
 
-        val unloaded = runCatching { lease.instance.unloadChunk(loadedChunk) }.isSuccess
+        val unloaded =
+            runCatching {
+                lease.instance.saveChunkToStorage(loadedChunk).join()
+                lease.instance.unloadChunk(loadedChunk)
+            }.onFailure { error ->
+                System.err.println("Failed to save automatic chunk ${lease.coord} before unload: ${error.message}")
+            }.isSuccess
         if (unloaded) removeLease(lease, instanceLeases)
         !unloaded
     }

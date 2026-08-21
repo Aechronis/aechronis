@@ -110,20 +110,25 @@ object Storage {
     }
 
     fun saveAll() {
+        val chunks = flushToWorld()
+        val saves = chunks.map { chunk -> chunk.instance.saveChunkToStorage(chunk) }
+        CompletableFuture.allOf(*saves.toTypedArray()).join()
+    }
+
+    // copies every live barrel inventory into block NBT for the next world save
+    fun flushToWorld(): Set<Chunk> {
         val chunks = mutableSetOf<Chunk>()
+        var failure: Throwable? = null
         for (key in barrels.keys) {
             try {
                 if (writeToBlock(key)) key.instance.getChunkAt(key.pos)?.let(chunks::add)
             } catch (e: Exception) {
                 System.err.println("Failed to save storage at $key: ${e.message}")
+                if (failure == null) failure = e else failure.addSuppressed(e)
             }
         }
-        val saves = chunks.map { chunk -> chunk.instance.saveChunkToStorage(chunk) }
-        try {
-            CompletableFuture.allOf(*saves.toTypedArray()).join()
-        } catch (e: Exception) {
-            System.err.println("Failed to save one or more storage chunks: ${e.message}")
-        }
+        failure?.let { throw it }
+        return chunks
     }
 
     fun remove(key: BlockKey) {

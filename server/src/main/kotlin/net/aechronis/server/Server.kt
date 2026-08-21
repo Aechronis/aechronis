@@ -97,6 +97,8 @@ object Server {
 }
 
 fun main(args: Array<String>) {
+    System.setProperty("minestom.shutdown-on-signal", "false")
+
     val port = args.getOrNull(0)?.toInt() ?: 25565
     val velocitySecret = args.getOrNull(1)
     val resourcePackDirectory =
@@ -115,7 +117,7 @@ fun main(args: Array<String>) {
                 ),
             publicBaseUri = System.getProperty("aechronis.resourcePack.publicBaseUrl")?.let(::URI),
         )
-    Runtime.getRuntime().addShutdownHook(Thread(resourcePackServer::close, "resource-pack-server-shutdown"))
+    ServerShutdown.install(resourcePackServer)
 
     val allPermsPlayers =
         System
@@ -241,17 +243,7 @@ fun main(args: Array<String>) {
 
     Combat.initialize()
 
-    Vanilla.init()
-
-    Runtime.getRuntime().addShutdownHook(
-        Thread(
-            {
-                VehiclePersistence.saveForShutdown()
-                Vanilla.saveBeforeShutdown()
-            },
-            "server-state-shutdown-save",
-        ),
-    )
+    Vanilla.init(shutdownAction = ServerShutdown::shutdown)
 
     val nodesConfig = NodesConfig(defaultRespawnPoint = Server.spawnPoint)
     Nodes.initialize(nodesConfig)
@@ -263,6 +255,15 @@ fun main(args: Array<String>) {
     val worldEdit = MinestomWorldEdit()
     worldEdit.init()
     Guard.init()
+
+    ServerShutdown.configure(
+        saveState = {
+            VehiclePersistence.saveForShutdown()
+            Vanilla.saveBeforeShutdown()
+        },
+        stopServer = MinecraftServer::stopCleanly,
+        saveWorld = { WorldSaver.saveWorld().join() },
+    )
 
     PlayerJoinListener.init(resourcePackServer)
 

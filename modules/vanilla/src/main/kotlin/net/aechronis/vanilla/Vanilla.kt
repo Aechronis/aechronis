@@ -59,6 +59,7 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Path
 import net.aechronis.vanilla.managers.Music as MusicManager
+import net.aechronis.vanilla.managers.Shutdown as ShutdownManager
 import net.aechronis.vanilla.managers.TpsBar as TpsBarManager
 import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
@@ -67,8 +68,12 @@ object Vanilla {
     lateinit var config: VanillaConfig
         private set
 
-    fun init(c: VanillaConfig = VanillaConfig()) {
+    fun init(
+        c: VanillaConfig = VanillaConfig(),
+        shutdownAction: () -> Unit = { MinecraftServer.stopCleanly() },
+    ) {
         config = c
+        ShutdownManager.configure(shutdownAction)
         // measure load time
         val timeStart = System.currentTimeMillis()
 
@@ -148,10 +153,32 @@ object Vanilla {
     /** Called by the server's coordinated shutdown hook after vehicles have ejected their riders. */
     fun saveBeforeShutdown() {
         println("Vanilla: saving data before shutdown...")
-        if (config.playerDataEnabled) PlayerData.saveAll()
-        if (config.storageEnabled) Storage.saveAll()
-        if (config.oresEnabled) Ores.saveAll()
-        if (config.kothEnabled) Koth.saveAll()
+        runSaveStages(
+            "checkpoint" to ::saveCheckpoint,
+            "ores" to { if (config.oresEnabled) Ores.saveAll() },
+            "koth" to { if (config.kothEnabled) Koth.saveAll() },
+        )
         println("Vanilla: data saved.")
+    }
+
+    // flushes player and container state immediately before the containing world is saved
+    fun saveCheckpoint() {
+        runSaveStages(
+            "player data" to { if (config.playerDataEnabled) PlayerData.saveAll() },
+            "storage" to { if (config.storageEnabled) Storage.flushToWorld() },
+        )
+    }
+
+    private fun runSaveStages(vararg stages: Pair<String, () -> Unit>) {
+        var failure: Throwable? = null
+        stages.forEach { (name, save) ->
+            try {
+                save()
+            } catch (error: Throwable) {
+                System.err.println("Vanilla: failed to save $name: ${error.message}")
+                if (failure == null) failure = error else failure.addSuppressed(error)
+            }
+        }
+        failure?.let { throw it }
     }
 }

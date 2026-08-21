@@ -52,13 +52,16 @@ object PlayerData {
 
     fun saveAll() {
         if (!::dataPath.isInitialized) return
+        var failure: Throwable? = null
         for (player in tracked) {
             try {
                 savePlayer(player, dataPath)
             } catch (e: Exception) {
                 System.err.println("Failed to save player data for ${player.uuid}: ${e.message}")
+                if (failure == null) failure = e else failure.addSuppressed(e)
             }
         }
+        failure?.let { throw it }
     }
 
     fun hasSavedData(player: Player): Boolean = ::dataPath.isInitialized && Files.exists(dataPath.resolve("${player.uuid}.dat"))

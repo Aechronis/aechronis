@@ -12,6 +12,13 @@ object Shutdown {
 
     private val scheduledShutdown = AtomicLong(0)
 
+    @Volatile
+    private var shutdownAction: () -> Unit = { MinecraftServer.stopCleanly() }
+
+    fun configure(action: () -> Unit) {
+        shutdownAction = action
+    }
+
     /** Schedules a shutdown and returns false if one is already in progress. */
     fun schedule(seconds: Long): Boolean {
         require(seconds > 0)
@@ -26,7 +33,7 @@ object Shutdown {
                 if (remaining <= 0) {
                     broadcast(Component.text("Server shutting down now!", NamedTextColor.RED))
                     scheduledShutdown.set(0)
-                    MinecraftServer.stopCleanly()
+                    shutdownAction()
                     return@buildTask
                 }
 

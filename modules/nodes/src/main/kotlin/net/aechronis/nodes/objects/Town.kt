@@ -30,6 +30,7 @@ import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Player
+import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.ParticlePacket
@@ -58,6 +59,8 @@ class Town(
         fun fromUuid(uuid: UUID): Town? = Nodes.towns.values.firstOrNull { town -> town.uuid == uuid }
 
         fun fromPlayer(player: Player): Town? = Resident.fromPlayer(player)?.town
+
+        internal fun fromIncomeInventory(inventory: AbstractInventory): Town? = Nodes.towns.values.firstOrNull { town -> town.income.owns(inventory) }
 
         fun areAllied(town1: Town?, town2: Town?): Boolean {
             if (town1 == null || town2 == null) return false
@@ -509,10 +512,7 @@ class Town(
             return true
         }
 
-        fun incomeInventory(town: Town): Inventory {
-            if (!town.income.empty()) town.needsUpdate()
-            return town.income.getInventory()
-        }
+        fun incomeInventory(town: Town): Inventory = town.income.getInventory()
 
         fun setPermissions(town: Town, permissions: Iterable<TownPermissions>, group: PermissionsGroup, flag: Boolean) {
             permissions.forEach { if (flag) town.permissions[it].add(group) else town.permissions[it].remove(group) }
@@ -568,7 +568,9 @@ class Town(
             }.delay(TaskSchedule.millis(1000)).repeat(TaskSchedule.millis(1000)).schedule()
         }
 
-        internal fun onIncomeInventoryClose() {
+        internal fun onIncomeInventoryChanged(town: Town) {
+            if (!town.income.synchronizeFromInventory()) return
+            town.needsUpdate()
             Nodes.needsSave = true
         }
 
@@ -746,7 +748,7 @@ class Town(
         val territories = t.territories.toList()
         val annexed = t.annexed.toList()
         val captured = t.captured.toList()
-        val income = t.income.storage.toMutableMap()
+        val income = t.income.snapshot()
         val protectedBlocks: HashSet<BlockVec> = HashSet(t.protectedBlocks)
         val plots: List<Plot.PlotSaveState> = t.plots.values.map { it.getSaveState() }
         val aiConfig: AiTownConfig = t.aiConfig

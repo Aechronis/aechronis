@@ -1,118 +1,117 @@
 /**
  * IncomeInventory
  *
- * Inventory container for adding income to town
+ * Inventory container for withdrawing town income.
  */
 
 package net.aechronis.nodes.objects
 
+import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 
 class IncomeInventory {
-
     // normal items:
     // map material -> current amount of it in storage
     val storage: MutableMap<Material, Int> = mutableMapOf()
 
-    // inventory gui object, only populate when open
     @Suppress("PropertyName")
     val _inventory: Inventory = Inventory(InventoryType.CHEST_5_ROW, "Town Income")
 
-    // internal, add items to storage
-    @Suppress("FunctionName")
-    private fun _add(mat: Material, amount: Int) {
-        this.storage[mat]?.let { current ->
-            storage.put(mat, current + amount)
-        } ?: run {
-            storage.put(mat, amount)
-        }
+    private var materialized = false
+    private var updatingInventory = false
+    private var visibleSnapshot: Map<Material, Int> = emptyMap()
+
+    fun add(
+        material: Material,
+        amount: Int,
+    ) {
+        if (amount <= 0) return
+        storage[material] = (storage[material] ?: 0) + amount
+        if (materialized) refillVisibleItems()
     }
 
-    // public interface to add new items to storage
-    fun add(mat: Material, amount: Int) {
-        if (amount <= 0) {
-            return
-        }
-
-        this._add(mat, amount)
+    fun empty(): Boolean {
+        synchronizeFromInventory()
+        return storage.isEmpty()
     }
 
-    // checks if any items in inventory or storage
-    fun empty(): Boolean = (storage.isEmpty())
-
-    // get inventory for viewing
     fun getInventory(): Inventory {
-        // populate inventory
-        while (this.storage.isNotEmpty()) {
-            val item = this.storage.iterator().next()
-            val material = item.key
-            val amount = item.value
-            this.storage.remove(material)
-
-            // find empty slots and add items
-            val maxStackSize = material.maxStackSize()
-            var remainingAmount = amount
-
-            for (slot in 0 until _inventory.size) {
-                if (remainingAmount <= 0) break
-
-                val existingItem = _inventory.getItemStack(slot)
-
-                // check if slot is empty
-                if (existingItem.isAir) {
-                    val stackAmount = minOf(remainingAmount, maxStackSize)
-                    _inventory.setItemStack(slot, ItemStack.of(material, stackAmount))
-                    remainingAmount -= stackAmount
-                }
-                // check if slot has same material and can stack more
-                else if (existingItem.material() == material && existingItem.amount() < maxStackSize) {
-                    val canAdd = maxStackSize - existingItem.amount()
-                    val toAdd = minOf(remainingAmount, canAdd)
-                    _inventory.setItemStack(slot, existingItem.withAmount(existingItem.amount() + toAdd))
-                    remainingAmount -= toAdd
-                }
-            }
-
-            // if items couldn't fit, put back in storage
-            if (remainingAmount > 0) {
-                this.storage.put(material, remainingAmount)
-                return this._inventory
-            }
+        if (!materialized) {
+            materialized = true
+            visibleSnapshot = inventoryCounts()
+        } else {
+            synchronizeFromInventory()
         }
-
-        return this._inventory
+        refillVisibleItems()
+        return _inventory
     }
 
-    // moves items into storage and clear inventory
-    // use this before saving game state
-    // (still potential to dupe items if storage cleared and
-    // game crashes before next save finishes)
-    //
-    // By default, only pushes to backend if no players are viewing
-    // the income (so items don't seem like they're disappearing)
-    // "force" option force-pushes items to backend (e.g. on server close)
-    //
-    // return if items moved (needed to determine if town needsUpdate()):
-    // - true: if any items moved
-    // - false: if no items moved
-    fun pushToStorage(force: Boolean): Boolean {
-        var hasMovedItems = false
+    fun owns(inventory: AbstractInventory): Boolean = inventory === _inventory
 
-        val viewers = this._inventory.viewers
-        if (viewers.isEmpty() || force) {
-            for (slot in 0 until _inventory.size) {
-                val itemStack = _inventory.getItemStack(slot)
-                if (!itemStack.isAir) {
-                    this._add(itemStack.material(), itemStack.amount())
-                    hasMovedItems = true
+    fun synchronizeFromInventory(): Boolean {
+        if (!materialized || updatingInventory) return false
+        val current = inventoryCounts()
+        if (current == visibleSnapshot) return false
+
+        (current.keys + visibleSnapshot.keys).forEach { material ->
+            val delta = (current[material] ?: 0) - (visibleSnapshot[material] ?: 0)
+            if (delta == 0) return@forEach
+            val updated = (storage[material] ?: 0) + delta
+            if (updated > 0) storage[material] = updated else storage.remove(material)
+        }
+        visibleSnapshot = current
+        return true
+    }
+
+    fun snapshot(): Map<Material, Int> {
+        synchronizeFromInventory()
+        return storage.toMap()
+    }
+
+    fun pushToStorage(@Suppress("UNUSED_PARAMETER") force: Boolean): Boolean = synchronizeFromInventory()
+
+    private fun refillVisibleItems() {
+        val visible = inventoryCounts().toMutableMap()
+        updatingInventory = true
+        try {
+            storage.forEach { (material, total) ->
+                var remaining = total - (visible[material] ?: 0)
+                if (remaining <= 0) return@forEach
+
+                for (slot in 0 until _inventory.size) {
+                    if (remaining <= 0) break
+                    val existing = _inventory.getItemStack(slot)
+                    val maxStackSize = material.maxStackSize()
+                    when {
+                        existing.isAir -> {
+                            val added = minOf(remaining, maxStackSize)
+                            _inventory.setItemStack(slot, ItemStack.of(material, added))
+                            remaining -= added
+                        }
+
+                        existing.material() == material && existing.amount() < maxStackSize -> {
+                            val added = minOf(remaining, maxStackSize - existing.amount())
+                            _inventory.setItemStack(slot, existing.withAmount(existing.amount() + added))
+                            remaining -= added
+                        }
+                    }
                 }
             }
-            this._inventory.clear()
+        } finally {
+            visibleSnapshot = inventoryCounts()
+            updatingInventory = false
         }
+    }
 
-        return hasMovedItems
+    private fun inventoryCounts(): Map<Material, Int> {
+        val counts = mutableMapOf<Material, Int>()
+        for (slot in 0 until _inventory.size) {
+            val stack = _inventory.getItemStack(slot)
+            if (!stack.isAir) counts[stack.material()] = (counts[stack.material()] ?: 0) + stack.amount()
+        }
+        return counts
     }
 }
