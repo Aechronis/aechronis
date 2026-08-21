@@ -30,10 +30,17 @@ object BlocksListener {
         val open = event.player.openInventory as? Inventory ?: return
         if (open !in Blocks.stonecutters) return
 
-        // A shift-click from the player inventory would otherwise move an item into an
-        // arbitrary decorative slot in this chest.
+        // Route player-inventory shift-clicks into the converter inputs instead of letting
+        // Minestom place them in an arbitrary slot in this chest.
         if (event.inventory !== open) {
-            if (event.click is Click.LeftShift || event.click is Click.RightShift) event.isCancelled = true
+            if (event.inventory === event.player.inventory &&
+                (event.click is Click.LeftShift || event.click is Click.RightShift)
+            ) {
+                event.isCancelled = true
+                val remaining = Blocks.deposit(open, event.inventory.getItemStack(event.slot))
+                event.inventory.setItemStack(event.slot, remaining)
+                Blocks.refreshConverter(open, resetPage = true)
+            }
             return
         }
 
@@ -41,10 +48,6 @@ object BlocksListener {
             in Blocks.INPUT_START_SLOT..Blocks.INPUT_END_SLOT -> {
                 val incoming = incomingMaterial(event)
                 if (incoming != null && !Blocks.canDeposit(open, incoming)) event.isCancelled = true
-            }
-            Blocks.CONVERT_BUTTON_SLOT -> {
-                event.isCancelled = true
-                Blocks.toggleConverterOptions(open)
             }
             Blocks.PREVIOUS_PAGE_SLOT -> {
                 event.isCancelled = true

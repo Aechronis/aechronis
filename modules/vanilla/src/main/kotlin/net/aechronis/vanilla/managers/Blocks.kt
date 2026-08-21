@@ -16,7 +16,6 @@ object Blocks {
     internal const val OUTPUT_END_SLOT = 44
     internal const val PREVIOUS_PAGE_SLOT = 45
     private const val PAGE_SLOT = 47
-    internal const val CONVERT_BUTTON_SLOT = 49
     internal const val NEXT_PAGE_SLOT = 53
     private const val OUTPUTS_PER_PAGE = OUTPUT_END_SLOT - OUTPUT_START_SLOT + 1
 
@@ -24,13 +23,11 @@ object Blocks {
     val outputsByInput: MutableMap<Material, MutableList<Material>> = mutableMapOf()
     private val cycleByMaterial: MutableMap<Material, Set<Material>> = mutableMapOf()
     private val converterPages: MutableMap<Inventory, Int> = mutableMapOf()
-    private val converterOptionsVisible: MutableMap<Inventory, Boolean> = mutableMapOf()
 
     fun openConverter(player: Player) {
         val inv = Inventory(InventoryType.CHEST_6_ROW, Component.text("Block Converter"))
         stonecutters.add(inv)
         converterPages[inv] = 0
-        converterOptionsVisible[inv] = false
         refreshConverter(inv)
         player.openInventory(inv)
     }
@@ -57,34 +54,55 @@ object Blocks {
         return cycle?.contains(material) ?: (material == firstInput || material in outputsByInput[firstInput].orEmpty())
     }
 
+    /** Deposits as much of [stack] as possible into the converter input row. */
+    internal fun deposit(
+        inv: Inventory,
+        stack: ItemStack,
+    ): ItemStack {
+        if (stack.isAir || !canDeposit(inv, stack.material())) return stack
+
+        var remaining = stack
+        for (slot in INPUT_START_SLOT..INPUT_END_SLOT) {
+            if (remaining.isAir) break
+            val current = inv.getItemStack(slot)
+            if (current.isAir || !current.isSimilar(remaining)) continue
+
+            val moved = minOf(remaining.amount(), current.maxStackSize() - current.amount())
+            if (moved <= 0) continue
+            inv.setItemStack(slot, current.withAmount(current.amount() + moved))
+            remaining = remaining.consume(moved)
+        }
+
+        for (slot in INPUT_START_SLOT..INPUT_END_SLOT) {
+            if (remaining.isAir) break
+            if (!inv.getItemStack(slot).isAir) continue
+
+            val moved = minOf(remaining.amount(), remaining.maxStackSize())
+            inv.setItemStack(slot, remaining.withAmount(moved))
+            remaining = remaining.consume(moved)
+        }
+        return remaining
+    }
+
     internal fun refreshConverter(
         inv: Inventory,
         resetPage: Boolean = false,
     ) {
-        if (resetPage) {
-            converterPages[inv] = 0
-            converterOptionsVisible[inv] = false
-        }
+        if (resetPage) converterPages[inv] = 0
 
         val outputs = converterOptions(inv)
         val pageCount = maxOf(1, (outputs.size + OUTPUTS_PER_PAGE - 1) / OUTPUTS_PER_PAGE)
         val page = (converterPages[inv] ?: 0).coerceIn(0, pageCount - 1)
-        val showOptions = converterOptionsVisible[inv] == true
         converterPages[inv] = page
 
         for (slot in OUTPUT_START_SLOT..OUTPUT_END_SLOT) {
-            val output =
-                if (showOptions) {
-                    outputs.getOrNull(page * OUTPUTS_PER_PAGE + slot - OUTPUT_START_SLOT)
-                } else {
-                    null
-                }
+            val output = outputs.getOrNull(page * OUTPUTS_PER_PAGE + slot - OUTPUT_START_SLOT)
             inv.setItemStack(slot, output?.let(ItemStack::of) ?: ItemStack.AIR)
         }
 
         inv.setItemStack(
             PREVIOUS_PAGE_SLOT,
-            if (showOptions && page > 0) {
+            if (page > 0) {
                 ItemStack.of(Material.ARROW).withCustomName(Component.text("Previous page"))
             } else {
                 ItemStack.AIR
@@ -92,24 +110,15 @@ object Blocks {
         )
         inv.setItemStack(
             PAGE_SLOT,
-            if (showOptions && outputs.isNotEmpty()) {
+            if (outputs.isNotEmpty()) {
                 ItemStack.of(Material.PAPER).withCustomName(Component.text("Page ${page + 1}/$pageCount"))
             } else {
                 ItemStack.AIR
             },
         )
         inv.setItemStack(
-            CONVERT_BUTTON_SLOT,
-            if (outputs.isNotEmpty()) {
-                val name = if (showOptions) "Back to input" else "Choose conversion"
-                ItemStack.of(Material.LIME_CONCRETE).withCustomName(Component.text(name))
-            } else {
-                ItemStack.AIR
-            },
-        )
-        inv.setItemStack(
             NEXT_PAGE_SLOT,
-            if (showOptions && page < pageCount - 1) {
+            if (page < pageCount - 1) {
                 ItemStack.of(Material.ARROW).withCustomName(Component.text("Next page"))
             } else {
                 ItemStack.AIR
@@ -127,18 +136,11 @@ object Blocks {
         refreshConverter(inv)
     }
 
-    internal fun toggleConverterOptions(inv: Inventory) {
-        if (converterOptions(inv).isEmpty()) return
-        converterOptionsVisible[inv] = converterOptionsVisible[inv] != true
-        converterPages[inv] = 0
-        refreshConverter(inv)
-    }
-
     internal fun outputFor(
         inv: Inventory,
         slot: Int,
     ): Material? {
-        if (slot !in OUTPUT_START_SLOT..OUTPUT_END_SLOT || converterOptionsVisible[inv] != true) return null
+        if (slot !in OUTPUT_START_SLOT..OUTPUT_END_SLOT) return null
 
         val outputs = converterOptions(inv)
         val page = converterPages[inv] ?: return null
@@ -153,7 +155,6 @@ object Blocks {
         if (output !in converterOptions(inv)) return
 
         val total = inputStacks(inv).sumOf(ItemStack::amount)
-        converterOptionsVisible[inv] = false
         converterPages[inv] = 0
         for (slot in INPUT_START_SLOT..INPUT_END_SLOT) {
             inv.setItemStack(slot, ItemStack.AIR)
@@ -173,7 +174,6 @@ object Blocks {
     internal fun closeConverter(inv: Inventory) {
         stonecutters.remove(inv)
         converterPages.remove(inv)
-        converterOptionsVisible.remove(inv)
     }
 
     internal fun conversionOutputs(cycles: List<List<Material>>): Map<Material, List<Material>> {
