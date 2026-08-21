@@ -12,18 +12,55 @@ import kotlin.test.assertTrue
 
 class BlocksTest {
     @Test
-    fun `every unstripped overworld log crafts into four matching planks`() {
+    fun `every log variant crafts into four matching planks`() {
         val recipes =
             mapOf(
                 Material.OAK_LOG to Material.OAK_PLANKS,
+                Material.STRIPPED_OAK_LOG to Material.OAK_PLANKS,
+                Material.OAK_WOOD to Material.OAK_PLANKS,
+                Material.STRIPPED_OAK_WOOD to Material.OAK_PLANKS,
                 Material.SPRUCE_LOG to Material.SPRUCE_PLANKS,
+                Material.STRIPPED_SPRUCE_LOG to Material.SPRUCE_PLANKS,
+                Material.SPRUCE_WOOD to Material.SPRUCE_PLANKS,
+                Material.STRIPPED_SPRUCE_WOOD to Material.SPRUCE_PLANKS,
                 Material.BIRCH_LOG to Material.BIRCH_PLANKS,
+                Material.STRIPPED_BIRCH_LOG to Material.BIRCH_PLANKS,
+                Material.BIRCH_WOOD to Material.BIRCH_PLANKS,
+                Material.STRIPPED_BIRCH_WOOD to Material.BIRCH_PLANKS,
                 Material.JUNGLE_LOG to Material.JUNGLE_PLANKS,
+                Material.STRIPPED_JUNGLE_LOG to Material.JUNGLE_PLANKS,
+                Material.JUNGLE_WOOD to Material.JUNGLE_PLANKS,
+                Material.STRIPPED_JUNGLE_WOOD to Material.JUNGLE_PLANKS,
                 Material.ACACIA_LOG to Material.ACACIA_PLANKS,
+                Material.STRIPPED_ACACIA_LOG to Material.ACACIA_PLANKS,
+                Material.ACACIA_WOOD to Material.ACACIA_PLANKS,
+                Material.STRIPPED_ACACIA_WOOD to Material.ACACIA_PLANKS,
                 Material.CHERRY_LOG to Material.CHERRY_PLANKS,
+                Material.STRIPPED_CHERRY_LOG to Material.CHERRY_PLANKS,
+                Material.CHERRY_WOOD to Material.CHERRY_PLANKS,
+                Material.STRIPPED_CHERRY_WOOD to Material.CHERRY_PLANKS,
                 Material.DARK_OAK_LOG to Material.DARK_OAK_PLANKS,
+                Material.STRIPPED_DARK_OAK_LOG to Material.DARK_OAK_PLANKS,
+                Material.DARK_OAK_WOOD to Material.DARK_OAK_PLANKS,
+                Material.STRIPPED_DARK_OAK_WOOD to Material.DARK_OAK_PLANKS,
                 Material.PALE_OAK_LOG to Material.PALE_OAK_PLANKS,
+                Material.STRIPPED_PALE_OAK_LOG to Material.PALE_OAK_PLANKS,
+                Material.PALE_OAK_WOOD to Material.PALE_OAK_PLANKS,
+                Material.STRIPPED_PALE_OAK_WOOD to Material.PALE_OAK_PLANKS,
                 Material.MANGROVE_LOG to Material.MANGROVE_PLANKS,
+                Material.STRIPPED_MANGROVE_LOG to Material.MANGROVE_PLANKS,
+                Material.MANGROVE_WOOD to Material.MANGROVE_PLANKS,
+                Material.STRIPPED_MANGROVE_WOOD to Material.MANGROVE_PLANKS,
+                Material.BAMBOO_BLOCK to Material.BAMBOO_PLANKS,
+                Material.STRIPPED_BAMBOO_BLOCK to Material.BAMBOO_PLANKS,
+                Material.CRIMSON_STEM to Material.CRIMSON_PLANKS,
+                Material.STRIPPED_CRIMSON_STEM to Material.CRIMSON_PLANKS,
+                Material.CRIMSON_HYPHAE to Material.CRIMSON_PLANKS,
+                Material.STRIPPED_CRIMSON_HYPHAE to Material.CRIMSON_PLANKS,
+                Material.WARPED_STEM to Material.WARPED_PLANKS,
+                Material.STRIPPED_WARPED_STEM to Material.WARPED_PLANKS,
+                Material.WARPED_HYPHAE to Material.WARPED_PLANKS,
+                Material.STRIPPED_WARPED_HYPHAE to Material.WARPED_PLANKS,
             )
 
         for ((log, planks) in recipes) {
@@ -31,8 +68,38 @@ class BlocksTest {
             assertEquals(planks, result?.material())
             assertEquals(4, result?.amount())
         }
+    }
 
-        assertNull(craft(Material.STRIPPED_OAK_LOG))
+    @Test
+    fun `barrels craft from eight planks or the standard plank and slab recipe`() {
+        assertEquals(
+            Material.BARREL,
+            craft(
+                Material.OAK_PLANKS,
+                Material.SPRUCE_PLANKS,
+                Material.BIRCH_PLANKS,
+                Material.JUNGLE_PLANKS,
+                null,
+                Material.ACACIA_PLANKS,
+                Material.CHERRY_PLANKS,
+                Material.DARK_OAK_PLANKS,
+                Material.PALE_OAK_PLANKS,
+            )?.material(),
+        )
+        assertEquals(
+            Material.BARREL,
+            craft(
+                Material.CRIMSON_PLANKS,
+                Material.WARPED_SLAB,
+                Material.BAMBOO_PLANKS,
+                Material.MANGROVE_PLANKS,
+                null,
+                Material.CHERRY_PLANKS,
+                Material.DARK_OAK_PLANKS,
+                Material.BAMBOO_SLAB,
+                Material.PALE_OAK_PLANKS,
+            )?.material(),
+        )
     }
 
     @Test
