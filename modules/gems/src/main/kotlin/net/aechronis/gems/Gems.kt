@@ -581,7 +581,7 @@ private class GemCommand(
         setDefaultExecutor { sender, _ ->
             sender.sendMessage(Component.text("Usage: /gem <give|take> <player> <amount>", NamedTextColor.LIGHT_PURPLE))
         }
-        addSyntax({ sender, context ->
+        addSyntax("gems.admin", { sender, context ->
             val target = repository.findPlayer(context[player])
             if (target == null) {
                 sender.sendMessage(Component.text("No gem account exists for '${context[player]}'.", NamedTextColor.RED))
