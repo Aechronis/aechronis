@@ -352,10 +352,40 @@ object Gems {
         return path !in unobtainableBlockPaths && !isOreMaterial(path)
     }
 
+    /** Excludes mined ores, raw-ore blocks, and compact blocks made from their drops. */
     private fun isOreMaterial(key: String): Boolean =
         key == "ancient_debris" ||
             key.startsWith("raw_") ||
+            key in oreResourceBlockPaths ||
+            key in copperBlockPaths ||
             Regex("(^|_)ore(s)?($|_)").containsMatchIn(key)
+
+    private val oreResourceBlockPaths =
+        setOf(
+            "coal_block",
+            "copper_block",
+            "diamond_block",
+            "emerald_block",
+            "gold_block",
+            "iron_block",
+            "lapis_block",
+            "netherite_block",
+            "quartz_block",
+            "redstone_block",
+        )
+
+    // Copper storage blocks have oxidation and waxed variants, all of which are excluded.
+    private val copperBlockPaths =
+        setOf(
+            "copper_block",
+            "exposed_copper",
+            "oxidized_copper",
+            "waxed_copper_block",
+            "waxed_exposed_copper",
+            "waxed_oxidized_copper",
+            "waxed_weathered_copper",
+            "weathered_copper",
+        )
 
     /** Blocks with no survival-obtainable item form, plus Ender Chests by shop policy. */
     private val unobtainableBlockPaths =
