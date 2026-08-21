@@ -23,7 +23,7 @@ object Weapons {
                 shapeless(
                     ItemStack.of(Material.GUNPOWDER, 6),
                     Material.COAL to 1,
-                    Material.SULFUR to 2,
+                    Material.REDSTONE to 2,
                     Material.BLAZE_POWDER to 2,
                 ),
             )
