@@ -2,6 +2,8 @@ package net.aechronis.gems
 
 import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.utils.Command
+import net.aechronis.vanilla.managers.Storage
+import net.aechronis.vanilla.objects.StorageContents
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
@@ -21,6 +23,7 @@ import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerCustomClickEvent
+import net.minestom.server.instance.block.Block
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
@@ -70,7 +73,7 @@ object Gems {
         inventory.setItemStack(15, item(Material.GOLDEN_PICKAXE, "Haste", NamedTextColor.YELLOW, "1x–2x for one hour", "500–1500 gems"))
         inventory.setItemStack(
             22,
-            item(Material.BARREL, "Barrel of blocks", NamedTextColor.AQUA, "20 gems", "Select one non-ore block stack"),
+            item(Material.BARREL, "Barrel of blocks", NamedTextColor.AQUA, "20 gems", "Select a survival block"),
         )
         sessions[player.uuid] = ShopSession(ShopScreen.MAIN, inventory = inventory)
         if (!player.openInventory(inventory)) sessions.remove(player.uuid)
@@ -98,9 +101,7 @@ object Gems {
                 handleBlockClick(player, session, event.slot)
             }
 
-            else -> {
-                Unit
-            }
+            else -> return
         }
     }
 
@@ -239,12 +240,6 @@ object Gems {
         player: Player,
         session: ShopSession,
     ) {
-        val transaction = repository.purchase(player.uuid, "block-barrel", BLOCK_BARREL_COST)
-        if (transaction == null) {
-            player.sendMessage(Component.text("You need $BLOCK_BARREL_COST gems for a barrel of blocks.", NamedTextColor.RED))
-            return
-        }
-        player.sendMessage(Component.text("Block barrel purchased. Transaction ID: $transaction", NamedTextColor.GREEN))
         openBlocks(player, session, 0)
     }
 
@@ -289,13 +284,43 @@ object Gems {
 
             in 0 until BLOCKS_PER_PAGE -> {
                 val material = nonOreBlocks.getOrNull(session.page * BLOCKS_PER_PAGE + slot) ?: return
-                val stack = ItemStack.of(material, material.maxStackSize())
-                if (!player.inventory.addItemStack(stack)) player.dropItem(stack)
-                sessions.remove(player.uuid, session)
-                player.closeInventory()
-                player.sendMessage(Component.text("Received a stack of ${material.key().value()}.", NamedTextColor.GREEN))
+                placeBlockBarrel(player, session, material)
             }
         }
+    }
+
+    private fun placeBlockBarrel(
+        player: Player,
+        session: ShopSession,
+        material: Material,
+    ) {
+        val instance = player.instance ?: return
+        val position = player.position.asBlockVec()
+        if (!instance.getBlock(position).isAir) {
+            player.sendMessage(Component.text("Move so there is empty space at your feet to place the barrel.", NamedTextColor.RED))
+            return
+        }
+
+        val contents = StorageContents()
+        val stack = ItemStack.of(material, material.maxStackSize())
+        for (slot in 0 until contents.inventory.size) {
+            contents.inventory.setItemStack(slot, stack)
+        }
+
+        val transaction = repository.purchase(player.uuid, "block-barrel:${material.key().value()}", BLOCK_BARREL_COST)
+        if (transaction == null) {
+            player.sendMessage(Component.text("You need $BLOCK_BARREL_COST gems for a barrel of blocks.", NamedTextColor.RED))
+            return
+        }
+
+        // Only replace air: a shop purchase must never delete a player's block.
+        instance.setBlock(position, Storage.withContents(Block.BARREL, contents))
+        Storage.register(Storage.keyFor(instance, position), contents)
+        sessions.remove(player.uuid, session)
+        player.closeInventory()
+        player.sendMessage(
+            Component.text("Placed a barrel full of ${material.key().value()}. Transaction ID: $transaction", NamedTextColor.GREEN),
+        )
     }
 
     private fun item(
@@ -318,16 +343,58 @@ object Gems {
         Material
             .values()
             .filter(Material::isBlock)
-            .filterNot { material -> isOreMaterial(material.key().value()) }
+            .filter(::isSurvivalObtainableBlock)
             .sortedBy { it.key().asString() }
     }
 
-    private fun isOreMaterial(key: String): Boolean {
-        val path = key.substringAfter(':')
-        return path == "ancient_debris" ||
-            path.startsWith("raw_") ||
-            Regex("(^|_)ore(s)?($|_)").containsMatchIn(path)
+    private fun isSurvivalObtainableBlock(material: Material): Boolean {
+        val path = material.key().value()
+        return path !in unobtainableBlockPaths && !isOreMaterial(path)
     }
+
+    private fun isOreMaterial(key: String): Boolean =
+        key == "ancient_debris" ||
+            key.startsWith("raw_") ||
+            Regex("(^|_)ore(s)?($|_)").containsMatchIn(key)
+
+    /** Blocks with no survival-obtainable item form, plus Ender Chests by shop policy. */
+    private val unobtainableBlockPaths =
+        setOf(
+            "air",
+            "barrier",
+            "bedrock",
+            "budding_amethyst",
+            "chain_command_block",
+            "chorus_plant",
+            "command_block",
+            "dirt_path",
+            "end_portal_frame",
+            "ender_chest",
+            "farmland",
+            "infested_chiseled_stone_bricks",
+            "infested_cobblestone",
+            "infested_cracked_stone_bricks",
+            "infested_deepslate",
+            "infested_mossy_stone_bricks",
+            "infested_stone",
+            "infested_stone_bricks",
+            "jigsaw",
+            "large_fern",
+            "light",
+            "petrified_oak_slab",
+            "repeating_command_block",
+            "reinforced_deepslate",
+            "spawner",
+            "structure_block",
+            "structure_void",
+            "suspicious_gravel",
+            "suspicious_sand",
+            "tall_grass",
+            "test_block",
+            "test_instance_block",
+            "trial_spawner",
+            "vault",
+        )
 }
 
 private class ShopSession(
