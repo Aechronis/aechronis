@@ -11,25 +11,30 @@ class RecipeBookRecipe(
     private val recipe: Recipe,
 ) : MinestomRecipe {
     override fun createRecipeDisplays(): List<RecipeDisplay> =
-        listOf(
-            when (recipe) {
-                is Shaped ->
+        when (recipe) {
+            is Shaped ->
+                listOf(
                     RecipeDisplay.CraftingShaped(
                         recipe.patternWidth,
                         recipe.patternHeight,
                         recipe.pattern.map(::slotDisplay),
                         SlotDisplay.ItemStack(recipe.output),
                         SlotDisplay.Item(Material.CRAFTING_TABLE),
-                    )
-                is RecipesShapeless ->
+                    ),
+                )
+            is RecipesShapeless ->
+                listOf(
                     RecipeDisplay.CraftingShapeless(
                         recipe.recipesIngredients.map(::slotDisplay),
                         SlotDisplay.ItemStack(recipe.output),
                         SlotDisplay.Item(Material.CRAFTING_TABLE),
-                    )
-                else -> error("Recipe book display is not implemented for ${recipe::class.qualifiedName}")
-            },
-        )
+                    ),
+                )
+            // Some server-only recipes (for example, unlock recipes) do not have enough
+            // information to be represented by the vanilla recipe-book protocol. They must
+            // remain functional without preventing every recipe from being registered.
+            else -> emptyList()
+        }
 
     override fun recipeBookCategory(): RecipeBookCategory = RecipeBookCategory.CRAFTING_MISC
 

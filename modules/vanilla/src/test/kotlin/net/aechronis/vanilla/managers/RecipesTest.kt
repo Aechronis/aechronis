@@ -1,7 +1,10 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.ManagerTest
+import net.aechronis.vanilla.objects.Recipe
 import net.aechronis.vanilla.objects.RecipeBookRecipe
+import net.aechronis.vanilla.objects.RecipesGrid
+import net.aechronis.vanilla.objects.RecipesResult
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.network.packet.server.SendablePacket
@@ -38,6 +41,15 @@ class RecipesTest : ManagerTest() {
     }
 
     @Test
+    fun `server-only recipes do not prevent recipe-book registration`() {
+        val recipe = RecipeBookRecipe(ServerOnlyRecipe)
+
+        assertEquals(emptyList(), recipe.createRecipeDisplays())
+        MinecraftServer.getRecipeManager().addRecipe(recipe)
+        MinecraftServer.getRecipeManager().removeRecipe(recipe)
+    }
+
+    @Test
     fun `recipe refresh unlocks every configured recipe for players`() {
         Recipes.init()
         val connection = PacketConnection()
@@ -52,6 +64,10 @@ class RecipesTest : ManagerTest() {
 
     private fun recipeBookRecipes(): List<RecipeBookRecipe> =
         MinecraftServer.getRecipeManager().recipes.filterIsInstance<RecipeBookRecipe>()
+
+    private object ServerOnlyRecipe : Recipe {
+        override fun match(recipesGrid: RecipesGrid): RecipesResult? = null
+    }
 
     private class PacketConnection : PlayerConnection() {
         val packets = mutableListOf<SendablePacket>()
