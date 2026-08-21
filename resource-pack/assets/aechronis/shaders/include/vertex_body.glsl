@@ -101,20 +101,11 @@ if (isMarker) // Markers
     float yaw = atan(local.z, local.x);
     mat2 rotAngle = mat2_rotate_z(yaw);
 
-    // Text opacity carries the client-reported player yaw. Compare it with the frame-smooth
-    // camera yaw so the front-facing third-person view can hide the minimap.
-    int minimapOpacity = int(clamp(round(Color.a * 255.0) - PLAYER_YAW_OPACITY_OFFSET, 0.0, 251.0));
-    int playerYawIndex = minimapOpacity / int(MINIMAP_POSITION_BUCKETS);
-    int minimapPosition = minimapOpacity - playerYawIndex * int(MINIMAP_POSITION_BUCKETS);
-    float playerYaw = float(playerYawIndex) / PLAYER_YAW_BUCKETS * 2.0 * PI + PI;
-    float cameraPlayerDelta = atan(sin(yaw - playerYaw), cos(yaw - playerYaw));
-    float frontCameraError = PI - abs(cameraPlayerDelta);
-    float cameraDepth = abs((ModelViewMat * vec4(Position, 1.0)).z);
-    // A normal fast turn can make round-trip yaw metadata briefly stale. First require the
-    // text display to be displaced from the camera, then check for the 180-degree F5 reversal.
-    bool isFrontCamera =
-        cameraDepth > THIRD_PERSON_MIN_CAMERA_DEPTH &&
-        frontCameraError < FRONT_CAMERA_YAW_TOLERANCE;
+    int minimapPosition = int(clamp(
+        round(Color.a * 255.0) - MINIMAP_OPACITY_OFFSET,
+        0.0,
+        MINIMAP_POSITION_BUCKETS - 1.0
+    ));
 
     float offset = (1.0 + MAP_CROP_RADIUS) / 128.0;
     mat2 markerRotAngle = markerType == 4 ? mat2(1, 0, 0, 1) : rotAngle;
@@ -122,7 +113,7 @@ if (isMarker) // Markers
     uvCoord = map * 128;
     bool allowPartialVisibility = markerType == 3 || markerType == 5;
     bool markerCenterOutsideCrop = !isWaypoint && !allowPartialVisibility && length(markerCoordinate) > MAP_CROP_RADIUS * 2.0;
-    if (isFrontCamera || markerCenterOutsideCrop)
+    if (markerCenterOutsideCrop)
         custom = 3;
     // Waypoints bypass the circular fragment crop so the entire glyph can cross the ring smoothly.
     else if (isWaypoint)

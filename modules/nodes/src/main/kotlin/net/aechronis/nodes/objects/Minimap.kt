@@ -21,13 +21,10 @@ import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.roundToInt
 
 private const val DEFAULT_MINIMAP_SCALE = 4
 private const val SNEAKING_MINIMAP_SCALE = 12
-private const val YAW_BUCKET_COUNT = 62
-private const val POSITION_BUCKET_COUNT = 4
-private const val YAW_OPACITY_OFFSET = 4
+private const val MINIMAP_OPACITY_OFFSET = 4
 
 enum class MinimapPosition(val id: String, internal val shaderValue: Int) {
     TOP_LEFT("top-left", 0),
@@ -46,17 +43,7 @@ enum class MinimapPosition(val id: String, internal val shaderValue: Int) {
     }
 }
 
-internal object MinimapYawCodec {
-    fun index(yawDegrees: Float): Int {
-        if (!yawDegrees.isFinite()) return 0
-        val normalized = ((yawDegrees % 360f) + 360f) % 360f
-        return (normalized * YAW_BUCKET_COUNT / 360f).roundToInt().coerceIn(0, YAW_BUCKET_COUNT - 1)
-    }
-
-    fun opacity(index: Int, position: MinimapPosition): Byte = (
-        index.coerceIn(0, YAW_BUCKET_COUNT - 1) * POSITION_BUCKET_COUNT + position.shaderValue + YAW_OPACITY_OFFSET
-        ).toByte()
-}
+internal fun minimapOpacity(position: MinimapPosition): Byte = (position.shaderValue + MINIMAP_OPACITY_OFFSET).toByte()
 
 internal fun augmentPassengerIds(
     vehicleEntityId: Int,
@@ -142,7 +129,6 @@ class Minimap(
     private var destroyed = false
     private var entitiesSpawned = false
     private var renderGeneration = 0L
-    private var lastYawIndex = MinimapYawCodec.index(player.position.yaw)
     private var lastMarkerHash: Int? = null
     private var lastRasterX = Int.MIN_VALUE
     private var lastRasterZ = Int.MIN_VALUE
@@ -218,14 +204,6 @@ class Minimap(
     fun updateWaypointDisplayTransforms(position: Pos) {
         if (destroyed) return
         waypointDisplays.updateTransforms(position)
-    }
-
-    fun updateYaw(yawDegrees: Float) {
-        if (destroyed || !entitiesSpawned || !player.isOnline) return
-        val nextYawIndex = MinimapYawCodec.index(yawDegrees)
-        if (nextYawIndex == lastYawIndex) return
-        lastYawIndex = nextYawIndex
-        updateHudMetadata()
     }
 
     fun updateSettings() {
@@ -313,7 +291,7 @@ class Minimap(
         ),
     )
 
-    private fun minimapOpacity(): Byte = MinimapYawCodec.opacity(lastYawIndex, resident.minimapPosition)
+    private fun minimapOpacity(): Byte = minimapOpacity(resident.minimapPosition)
 
     private fun updateHudMetadata() {
         player.sendPacket(

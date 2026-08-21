@@ -19,7 +19,6 @@ object NodesPlayerMoveListener {
         val player = event.player
         val resident = Resident.fromPlayer(player) ?: return
         resident.minimap?.let { minimap ->
-            minimap.updateYaw(event.newPosition.yaw)
             minimap.updateWaypointDisplayTransforms(event.newPosition)
         }
 
@@ -58,7 +57,6 @@ object NodesPlayerMoveListener {
         val player = event.entity as? Player ?: return
         val resident = Resident.fromPlayer(player) ?: return
         resident.minimap?.let { minimap ->
-            minimap.updateYaw(event.newPosition.yaw)
             minimap.updateWaypointDisplayTransforms(event.newPosition)
         }
 
