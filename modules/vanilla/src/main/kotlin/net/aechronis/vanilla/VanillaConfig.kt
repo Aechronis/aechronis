@@ -4,6 +4,7 @@ import net.aechronis.vanilla.config.BlocksConfig
 import net.aechronis.vanilla.config.CratesConfig
 import net.aechronis.vanilla.config.FoodConfig
 import net.aechronis.vanilla.config.MusicConfig
+import net.aechronis.vanilla.config.PunishConfig
 import net.aechronis.vanilla.config.RecipesConfig
 import net.aechronis.vanilla.config.ShopConfig
 
@@ -36,6 +37,7 @@ data class VanillaConfig(
     val spawnEnabled: Boolean = true,
     val kothEnabled: Boolean = true,
     val oresEnabled: Boolean = true,
+    val punishEnabled: Boolean = true,
     // Paths
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",
@@ -44,6 +46,8 @@ data class VanillaConfig(
     val spawnPath: String = "spawn",
     val oresPath: String = "ores.json",
     val kothsPath: String = "koth.json",
+    // Punishments
+    val punishConfig: PunishConfig = PunishConfig(),
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),
     // Food

@@ -1,6 +1,7 @@
 package net.aechronis.vanilla
 
 import net.aechronis.vanilla.commands.Back
+import net.aechronis.vanilla.commands.BanCommand
 import net.aechronis.vanilla.commands.Broadcast
 import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.Convert
@@ -10,6 +11,7 @@ import net.aechronis.vanilla.commands.Fly
 import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
 import net.aechronis.vanilla.commands.Gm
+import net.aechronis.vanilla.commands.HistoryCommand
 import net.aechronis.vanilla.commands.Ignore
 import net.aechronis.vanilla.commands.InventorySee
 import net.aechronis.vanilla.commands.Kill
@@ -17,12 +19,16 @@ import net.aechronis.vanilla.commands.KothCommand
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Message
 import net.aechronis.vanilla.commands.Music
+import net.aechronis.vanilla.commands.MuteCommand
 import net.aechronis.vanilla.commands.Ore
+import net.aechronis.vanilla.commands.PunishCommand
 import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Shutdown
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
+import net.aechronis.vanilla.commands.UnbanCommand
+import net.aechronis.vanilla.commands.UnmuteCommand
 import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.CombatInventoryListener
 import net.aechronis.vanilla.listeners.CommandsListener
@@ -44,6 +50,7 @@ import net.aechronis.vanilla.managers.Koth
 import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.PlayerData
+import net.aechronis.vanilla.managers.Punish
 import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Storage
@@ -90,6 +97,9 @@ object Vanilla {
                     TpsBar(),
                     Shutdown(),
                 )
+            if (config.punishEnabled) {
+                commands += listOf(PunishCommand(), MuteCommand(), BanCommand(), HistoryCommand(), UnmuteCommand(), UnbanCommand())
+            }
             if (config.musicEnabled) commands += Music()
             if (config.blocksEnabled) commands += Convert()
             if (config.recipesEnabled) commands += Craft()
@@ -101,6 +111,7 @@ object Vanilla {
         }
         println("Loading Vanilla")
         if (config.playerDataEnabled) PlayerData.init(Path.of(config.path, config.playerDataPath))
+        if (config.punishEnabled) Punish.init(Path.of(config.path, config.punishConfig.databasePath), config.punishConfig)
         if (config.storageEnabled) Storage.init(Path.of(config.path, config.storagePath))
         if (config.whitelistEnabled) WhitelistManager.init(Path.of(config.path, config.whitelistPath))
         if (config.recipesEnabled) Recipes.init()

@@ -7,6 +7,7 @@ plugins {
 dependencies {
     api("net.minestom:minestom:2026.07.12-26.2")
     api("com.google.code.gson:gson:2.14.0")
+    implementation("com.h2database:h2:2.4.240")
     compileOnly(project(":modules:utils"))
 
     testImplementation("com.google.code.gson:gson:2.14.0")
