@@ -135,7 +135,7 @@ object Blocks {
     private val WoodTypes =
         listOf("oak", "spruce", "birch", "jungle", "acacia", "cherry", "dark_oak", "pale_oak", "mangrove")
 
-    private val WoodCycle =
+    private val LogCycle =
         cycle(
             *WoodTypes
                 .flatMap { type ->
@@ -144,6 +144,25 @@ object Blocks {
                         "stripped_${type}_log",
                         "${type}_wood",
                         "stripped_${type}_wood",
+                    )
+                }.toTypedArray(),
+            "bamboo_block",
+            "stripped_bamboo_block",
+            "crimson_stem",
+            "stripped_crimson_stem",
+            "crimson_hyphae",
+            "stripped_crimson_hyphae",
+            "warped_stem",
+            "stripped_warped_stem",
+            "warped_hyphae",
+            "stripped_warped_hyphae",
+        )
+
+    private val WoodCycle =
+        cycle(
+            *WoodTypes
+                .flatMap { type ->
+                    listOf(
                         "${type}_planks",
                         "${type}_stairs",
                         "${type}_slab",
@@ -182,10 +201,6 @@ object Blocks {
             *listOf("crimson", "warped")
                 .flatMap { type ->
                     listOf(
-                        "${type}_stem",
-                        "stripped_${type}_stem",
-                        "${type}_hyphae",
-                        "stripped_${type}_hyphae",
                         "${type}_planks",
                         "${type}_stairs",
                         "${type}_slab",
@@ -247,6 +262,7 @@ object Blocks {
 
     private val BuildingBlockConverterCycles =
         listOf(
+            LogCycle,
             WoodCycle,
             NetherWoodCycle,
             DyeCycle,
@@ -672,24 +688,6 @@ object Blocks {
                 "resin_brick_stairs",
                 "resin_brick_slab",
                 "resin_brick_wall",
-            ),
-            cycle(
-                "obsidian",
-                "crying_obsidian",
-                "ancient_debris",
-                "respawn_anchor",
-                "netherite_block",
-            ),
-            cycle(
-                "coal_block",
-                "iron_block",
-                "gold_block",
-                "diamond_block",
-                "emerald_block",
-                "lapis_block",
-                "raw_iron_block",
-                "raw_copper_block",
-                "raw_gold_block",
             ),
             cycle(
                 "lantern",
