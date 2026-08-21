@@ -6,6 +6,7 @@ import java.nio.file.Files
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -24,6 +25,25 @@ class WhitelistTest : ManagerTest() {
             assertFalse(Whitelist.isWhitelistedName(name))
         } finally {
             Whitelist.remove(name)
+        }
+    }
+
+    @Test
+    fun `entries default to tier one and support tier two`() {
+        val weakName = "weak-${UUID.randomUUID()}"
+        val adminName = "admin-${UUID.randomUUID()}"
+        val unknownUuid = UUID.randomUUID()
+
+        try {
+            Whitelist.add(weakName)
+            Whitelist.add(adminName, Whitelist.SUPER_ADMIN_TIER)
+
+            assertEquals(Whitelist.WEAK_TIER, Whitelist.whitelistTier(unknownUuid, weakName))
+            assertEquals(Whitelist.SUPER_ADMIN_TIER, Whitelist.whitelistTier(unknownUuid, adminName))
+            assertFailsWith<IllegalArgumentException> { Whitelist.add("invalid-${UUID.randomUUID()}", 3) }
+        } finally {
+            Whitelist.remove(weakName)
+            Whitelist.remove(adminName)
         }
     }
 

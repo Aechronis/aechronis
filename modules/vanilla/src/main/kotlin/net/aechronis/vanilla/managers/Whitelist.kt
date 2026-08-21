@@ -2,6 +2,7 @@ package net.aechronis.vanilla.managers
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.listeners.WhitelistListener
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
@@ -11,9 +12,14 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 object Whitelist {
+    const val WEAK_TIER = 1
+    const val SUPER_ADMIN_TIER = 2
+    const val BYPASS_PERMISSION = "vanilla.whitelist"
+
     data class Entry(
         val uuid: String?,
         val name: String,
+        val tier: Int = WEAK_TIER,
     )
 
     var enabled: Boolean = false
@@ -37,23 +43,32 @@ object Whitelist {
 
     fun isWhitelistedName(name: String): Boolean = entries.containsKey(name.lowercase())
 
+    /** Returns the tier explicitly assigned to a whitelist entry, if any. */
+    fun whitelistTier(
+        uuid: UUID,
+        name: String,
+    ): Int? = findEntry(uuid, name)?.tier
+
+    /**
+     * Returns a player's effective access tier. The permission bypass is deliberately
+     * limited to [WEAK_TIER]; only an explicit tier-two entry grants super-admin access.
+     */
+    fun accessTier(
+        uuid: UUID,
+        name: String,
+    ): Int = maxOf(whitelistTier(uuid, name) ?: 0, if (uuid.hasPermission(BYPASS_PERMISSION)) WEAK_TIER else 0)
+
     fun isWhitelisted(
         uuid: UUID,
         name: String,
-    ): Boolean {
-        val uuidString = uuid.toString()
-        return entries.values.any { entry ->
-            val storedUuid = entry.uuid
-            if (storedUuid == null) {
-                entry.name.equals(name, ignoreCase = true)
-            } else {
-                storedUuid.equals(uuidString, ignoreCase = true)
-            }
-        }
-    }
+    ): Boolean = accessTier(uuid, name) >= WEAK_TIER
 
-    fun add(name: String) {
-        entries[name.lowercase()] = Entry(resolveUuid(name), name)
+    fun add(
+        name: String,
+        tier: Int = WEAK_TIER,
+    ) {
+        require(tier in WEAK_TIER..SUPER_ADMIN_TIER) { "Whitelist tier must be between $WEAK_TIER and $SUPER_ADMIN_TIER" }
+        entries[name.lowercase()] = Entry(resolveUuid(name), name, tier)
         save()
     }
 
@@ -79,6 +94,17 @@ object Whitelist {
         }
     }
 
+    private fun findEntry(
+        uuid: UUID,
+        name: String,
+    ): Entry? {
+        val uuidString = uuid.toString()
+        return entries.values.firstOrNull { entry ->
+            entry.uuid?.equals(uuidString, ignoreCase = true)
+                ?: entry.name.equals(name, ignoreCase = true)
+        }
+    }
+
     private fun resolveUuid(name: String): String? =
         MinecraftServer
             .getConnectionManager()
@@ -93,7 +119,11 @@ object Whitelist {
                 Files.newBufferedReader(entriesFile).use { reader ->
                     val type = object : TypeToken<List<Entry>>() {}.type
                     val loaded: List<Entry>? = gson.fromJson(reader, type)
-                    loaded?.forEach { entries[it.name.lowercase()] = it }
+                    loaded?.forEach { entry ->
+                        // Older whitelist files have no tier, which Gson reads as zero.
+                        val tier = entry.tier.takeIf { it in WEAK_TIER..SUPER_ADMIN_TIER } ?: WEAK_TIER
+                        entries[entry.name.lowercase()] = Entry(entry.uuid, entry.name, tier)
+                    }
                 }
             }.onFailure { error ->
                 System.err.println("Failed to load whitelist: ${error.message}")
