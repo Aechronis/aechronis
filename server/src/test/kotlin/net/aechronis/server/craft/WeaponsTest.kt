@@ -32,8 +32,8 @@ class WeaponsTest {
         val result =
             craft(
                 Material.COAL,
-                Material.SULFUR,
-                Material.SULFUR,
+                Material.REDSTONE,
+                Material.REDSTONE,
                 Material.BLAZE_POWDER,
                 Material.BLAZE_POWDER,
             )
