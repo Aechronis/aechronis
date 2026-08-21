@@ -210,6 +210,7 @@ fun main(args: Array<String>) {
     // initialize luckperms
     LuckPermsMinestom
         .builder(Path.of("luckperms"))
+        .permissionSuggestions(LuckPermsPermissions.all)
         .commandRegistry(CommandRegistry.minestom())
         .configurationAdapter { plugin ->
             EnvironmentVariableConfigAdapter(plugin)
