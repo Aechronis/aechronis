@@ -13,11 +13,25 @@ import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.item.ItemStack
+import net.minestom.server.item.Material
 
 object CropsPlantListener {
+    private val hoes =
+        setOf(
+            Material.WOODEN_HOE,
+            Material.STONE_HOE,
+            Material.IRON_HOE,
+            Material.GOLDEN_HOE,
+            Material.DIAMOND_HOE,
+            Material.NETHERITE_HOE,
+        )
+
     fun onInteract(event: PlayerBlockInteractEvent) {
-        if (event.isCancelled || event.hand != PlayerHand.MAIN) return
+        if (event.isCancelled) return
+        if (hoe(event)) return
+        if (event.hand != PlayerHand.MAIN) return
         val player = event.player
         val cropType = CropType.fromSeed(player.itemInMainHand.material()) ?: return
         val block = event.block
@@ -37,6 +51,47 @@ object CropsPlantListener {
         player.itemInMainHand =
             if (held.amount() > 1) held.withAmount(held.amount() - 1) else ItemStack.AIR
     }
+
+    private fun hoe(event: PlayerBlockInteractEvent): Boolean {
+        val player = event.player
+        val held = player.getItemInHand(event.hand)
+        if (held.material() !in hoes) return false
+
+        val above = event.instance.getBlock(event.blockPosition.add(0, 1, 0))
+        val result = hoeResult(event.block, above, event.blockFace) ?: return false
+
+        event.isCancelled = true
+        event.isBlockingItemUse = true
+        event.instance.setBlock(event.blockPosition, result)
+
+        if (event.block.compare(Block.ROOTED_DIRT)) {
+            Items.spawn(
+                event.instance,
+                event.blockPosition.add(0.5, 1.2, 0.5).asPos(),
+                ItemStack.of(Material.HANGING_ROOTS),
+            )
+        }
+
+        return true
+    }
+
+    internal fun hoeResult(
+        block: Block,
+        above: Block,
+        face: BlockFace,
+    ): Block? =
+        if (face != BlockFace.BOTTOM &&
+            above.isAir &&
+            (
+                block.compare(Block.GRASS_BLOCK) ||
+                    block.compare(Block.DIRT) ||
+                    block.compare(Block.DIRT_PATH)
+            )
+        ) {
+            Block.FARMLAND.withProperty("moisture", "0")
+        } else {
+            null
+        }
 
     fun onPlace(event: PlayerBlockPlaceEvent) {
         val placed = event.block
