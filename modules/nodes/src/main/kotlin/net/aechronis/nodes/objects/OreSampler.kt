@@ -153,6 +153,9 @@ private class ItemDistribution(inputItems: List<OreDeposit>) {
 class OreSampler(
     ores: ArrayList<OreDeposit>,
 ) {
+    /** Effective deposits used by this sampler, retained for rate display. */
+    val deposits: List<OreDeposit> = ores.toList()
+
     // array maps each y height level -> OreTable
     // array is thus always 256 sized pointers to OreTable
     private val itemsAtHeight: Array<ItemDistribution?> = arrayOfNulls(256)

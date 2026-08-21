@@ -1007,7 +1007,7 @@ class TownUntrustCommand : NodesCommand("untrust") {
     }
 }
 
-class TownFlyCommand : NodesCommand("fly") {
+class TownFlyCommand : NodesCommand("fly", "nodes.fly") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage: /town fly")

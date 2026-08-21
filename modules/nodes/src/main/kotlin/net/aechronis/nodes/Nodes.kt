@@ -19,6 +19,7 @@ import net.aechronis.nodes.commands.NationCommand
 import net.aechronis.nodes.commands.NodesAdminCommand
 import net.aechronis.nodes.commands.PlayerCommand
 import net.aechronis.nodes.commands.PortCommand
+import net.aechronis.nodes.commands.RatesCommand
 import net.aechronis.nodes.commands.TerritoryCommand
 import net.aechronis.nodes.commands.TownChatCommand
 import net.aechronis.nodes.commands.TownCommand
@@ -152,6 +153,7 @@ object Nodes {
         MinecraftServer.getCommandManager().register(AllyChatCommand())
         MinecraftServer.getCommandManager().register(PlayerCommand())
         MinecraftServer.getCommandManager().register(TerritoryCommand())
+        MinecraftServer.getCommandManager().register(RatesCommand())
         MinecraftServer.getCommandManager().register(PortCommand())
         MinecraftServer.getCommandManager().register(WaypointCommand())
         MinecraftServer.getCommandManager().register(TrainCommand())

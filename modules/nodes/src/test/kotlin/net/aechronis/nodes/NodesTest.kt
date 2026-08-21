@@ -1,5 +1,6 @@
 package net.aechronis.nodes
 
+import net.aechronis.nodes.commands.TownFlyCommand
 import net.aechronis.nodes.commands.arguments.matchingResidents
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
@@ -19,17 +20,25 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
+import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
+import net.minestom.server.network.packet.server.SendablePacket
+import net.minestom.server.network.player.GameProfile
+import net.minestom.server.network.player.PlayerConnection
+import net.minestom.server.potion.PotionEffect
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import java.net.InetSocketAddress
+import java.net.SocketAddress
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -148,8 +157,58 @@ class NodesTest {
     }
 
     @Test
+    fun `rates command is registered and territory ores remain inspectable`() {
+        assertNotNull(MinecraftServer.getCommandManager().getCommand("rates"))
+
+        val territory = Nodes.territories.values.first { it.ores.deposits.isNotEmpty() }
+        assertTrue(territory.ores.deposits.all { it.dropChance >= 0.0 })
+    }
+
+    @Test
+    fun `town fly uses the dedicated command permission`() {
+        assertEquals("nodes.command.town.fly", TownFlyCommand().permission)
+    }
+
+    @Test
+    fun `leaving own town territory disables flight`() {
+        val town = Nodes.towns.values.first()
+        val home = Territory.fromId(town.home)!!
+        val destination = Nodes.territories.values.first { it.town !== town }
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "flight-test"))
+        val resident = Resident(player.uuid, player.username)
+        Nodes.residents[resident.uuid] = resident
+        resident.town = town
+
+        try {
+            player.setInstance(instance, positionIn(home)).join()
+            player.gameMode = GameMode.SURVIVAL
+            player.isAllowFlying = true
+
+            MinecraftServer.getGlobalEventHandler().call(PlayerMoveEvent(player, positionIn(destination), false))
+
+            assertFalse(player.isAllowFlying)
+            assertTrue(player.hasEffect(PotionEffect.SLOW_FALLING))
+        } finally {
+            Nodes.residents.remove(resident.uuid)
+            player.remove()
+        }
+    }
+
+    @Test
     fun `towns are loaded`() {
         assertTrue(Town.count() > 0, "Should have loaded towns")
+    }
+
+    private fun positionIn(territory: Territory): Pos = Pos(
+        territory.core.x * 16.0 + 8.0,
+        60.0,
+        territory.core.z * 16.0 + 8.0,
+    )
+
+    private class TestConnection : PlayerConnection() {
+        override fun sendPacket(packet: SendablePacket) = Unit
+
+        override fun getRemoteAddress(): SocketAddress = InetSocketAddress(0)
     }
 
     @Test
