@@ -166,7 +166,7 @@ class NodesTest {
 
     @Test
     fun `town fly uses the dedicated command permission`() {
-        assertEquals("nodes.command.town.fly", TownFlyCommand().permission)
+        assertEquals("nodes.fly", TownFlyCommand().permission)
     }
 
     @Test
