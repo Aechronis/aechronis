@@ -3,10 +3,10 @@ package net.aechronis.vanilla.objects
 import net.minestom.server.item.ItemStack
 
 class Shaped(
-    private val patternWidth: Int,
-    private val patternHeight: Int,
-    private val pattern: Array<RecipesIngredient?>,
-    private val output: ItemStack,
+    val patternWidth: Int,
+    val patternHeight: Int,
+    val pattern: Array<RecipesIngredient?>,
+    val output: ItemStack,
 ) : Recipe {
     private val requiredCount = pattern.count { it != null }
 

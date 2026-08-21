@@ -20,6 +20,8 @@ import net.minestom.server.item.Material
 import net.minestom.server.utils.inventory.PlayerInventoryUtils
 
 object RecipesListener {
+    private var initialized = false
+
     fun onPlayerQuit(event: PlayerDisconnectEvent) {
         workspaces.remove(event.player.inventory)
     }
@@ -190,6 +192,9 @@ object RecipesListener {
     }
 
     fun init() {
+        if (initialized) return
+        initialized = true
+
         Vanilla.eventNode.addListener(InventoryPreClickEvent::class.java, RecipesListener::onInvClick)
         Vanilla.eventNode.addListener(PlayerBlockInteractEvent::class.java, RecipesListener::onInteract)
         Vanilla.eventNode.addListener(InventoryItemChangeEvent::class.java, RecipesListener::onInvChange)
