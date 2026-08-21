@@ -49,6 +49,11 @@ object HatCollection {
         playerSelectedHat.remove(uuid)
     }
 
+    fun owns(
+        uuid: UUID,
+        hat: Hat,
+    ): Boolean = playerCollections[uuid]?.contains(hat.name) == true
+
     fun give(
         uuid: UUID,
         hat: Hat,

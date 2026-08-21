@@ -72,14 +72,24 @@ object RecipesListener {
         if (click is Click.LeftShift || click is Click.RightShift) {
             while (true) {
                 val match = workspace.recipesResult ?: break
-                if (!player.inventory.addItemStack(match.result)) break
+                if (!match.recipe.canCraft(player)) break
+                if (match.recipe.grantsItem() && !player.inventory.addItemStack(match.result)) break
                 workspace.craft(player)
+                match.recipe.onCraft(player)
             }
             return
         }
 
         // normal click on result slot
         val match = workspace.recipesResult ?: return
+        if (!match.recipe.canCraft(player)) return
+
+        if (!match.recipe.grantsItem()) {
+            workspace.craft(player)
+            match.recipe.onCraft(player)
+            return
+        }
+
         val resultStack = match.result
         if (resultStack.isAir) return
 
@@ -104,6 +114,7 @@ object RecipesListener {
             }
 
         workspace.craft(player)
+        match.recipe.onCraft(player)
     }
 
     private fun depositIntoGrid(

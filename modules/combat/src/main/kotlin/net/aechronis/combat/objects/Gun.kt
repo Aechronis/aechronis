@@ -28,6 +28,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.RelativeFlags
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.instance.Instance
+import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket
 import net.minestom.server.particle.Particle
@@ -115,6 +116,8 @@ class Gun(
     fun getAmmo(player: Player): Int = damageToAmmo(player.itemInMainHand.get(DataComponents.DAMAGE) ?: 0)
 
     fun hasAmmo(player: Player): Boolean = getAmmo(player) > 0
+
+    fun toEmptyItemStack(): ItemStack = toItemStack().with(DataComponents.DAMAGE, ammoToDamage(0))
 
     private fun damageToAmmo(damage: Int): Int = ((99 - damage) * maxAmmo.toDouble() / 98).roundToInt().coerceIn(0, maxAmmo)
 
