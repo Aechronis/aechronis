@@ -33,7 +33,7 @@ object NodesChestProtectionListener {
             return
         }
 
-        if (PROTECTED_BLOCKS.contains(event.block)) {
+        if (PROTECTED_BLOCKS.any { event.block.compare(it) }) {
             val town: Town = resident.town!!
             val territory: Territory? =
                 Territory.fromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)

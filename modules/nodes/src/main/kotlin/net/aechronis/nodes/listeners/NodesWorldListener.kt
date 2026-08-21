@@ -388,7 +388,7 @@ object NodesWorldListener {
         }
 
         if (resident !== null) {
-            if (!INTERACTIVE_BLOCKS.contains(event.block)) {
+            if (INTERACTIVE_BLOCKS.none { event.block.compare(it) }) {
                 return
             }
 
@@ -399,7 +399,7 @@ object NodesWorldListener {
             val plot = Plot.at(town, event.blockPosition.blockX, event.blockPosition.blockY, event.blockPosition.blockZ)
 
             // special permissions for using chests, furnaces, etc...
-            if (PROTECTED_BLOCKS.contains(event.block)) {
+            if (PROTECTED_BLOCKS.any { event.block.compare(it) }) {
                 val plotPermission = plot?.let { getPlotPermission(TownPermissions.CHESTS, it, resident, town) }
 
                 // normal town permissions
