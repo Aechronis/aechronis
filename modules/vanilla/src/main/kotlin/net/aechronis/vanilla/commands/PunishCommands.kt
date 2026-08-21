@@ -166,18 +166,12 @@ open class RevokePunishmentCommand(
 
 private fun targetArgument(name: String) =
     ArgumentType.Word(name).setSuggestionCallback { _, _, suggestion ->
-        val input = suggestion.input
-        val start = suggestion.start.coerceIn(0, input.length)
-        val end = (start + suggestion.length).coerceIn(start, input.length)
-        Punish.namesMatching(input.substring(start, end)).forEach { suggestion.addEntry(SuggestionEntry(it)) }
+        Punish.namesMatching(suggestion.input.substringAfterLast(" ")).forEach { suggestion.addEntry(SuggestionEntry(it)) }
     }
 
 private fun templateArgument() =
     ArgumentType.Word("reason-id").setSuggestionCallback { _, _, suggestion ->
-        val input = suggestion.input
-        val start = suggestion.start.coerceIn(0, input.length)
-        val end = (start + suggestion.length).coerceIn(start, input.length)
-        Punish.templateIdsMatching(input.substring(start, end)).forEach { suggestion.addEntry(SuggestionEntry(it)) }
+        Punish.templateIdsMatching(suggestion.input.substringAfterLast(" ")).forEach { suggestion.addEntry(SuggestionEntry(it)) }
     }
 
 private fun applied(

@@ -11,14 +11,13 @@ import net.minestom.server.entity.Player
 object PlayerTargets {
     fun argument(name: String = "player") =
         ArgumentType.Word(name).setSuggestionCallback { _, _, suggestion ->
-            val input = suggestion.getInput()
-            val start = suggestion.getStart().coerceIn(0, input.length)
-            val end = (start + suggestion.getLength()).coerceIn(start, input.length)
-            val prefix = input.substring(start, end)
+            val prefix = typedToken(suggestion.getInput())
             val playerNames = MinecraftServer.getConnectionManager().onlinePlayers.map(Player::getUsername)
 
             suggestions(prefix, playerNames).forEach { suggestion.addEntry(SuggestionEntry(it)) }
         }
+
+    internal fun typedToken(input: String): String = input.substringAfterLast(" ")
 
     internal fun suggestions(
         prefix: String,
@@ -36,17 +35,22 @@ object PlayerTargets {
             )
         }
 
+    internal fun resolve(
+        target: String,
+        players: Collection<Player>,
+    ): kotlin.collections.List<Player>? {
+        if (target == "*") return players.toList()
+
+        return players.firstOrNull { it.username.equals(target, ignoreCase = true) }?.let(::listOf)
+    }
+
     fun resolve(
         sender: Player,
         target: String,
-    ): kotlin.collections.List<Player>? {
-        if (target == "*") return MinecraftServer.getConnectionManager().onlinePlayers.toList()
-
-        val player = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(target)
-        if (player == null) {
-            sender.sendMessage(Component.text("Player not found: $target", NamedTextColor.RED))
-            return null
-        }
-        return listOf(player)
-    }
+    ): kotlin.collections.List<Player>? =
+        resolve(target, MinecraftServer.getConnectionManager().onlinePlayers)
+            ?: run {
+                sender.sendMessage(Component.text("Player not found: $target", NamedTextColor.RED))
+                null
+            }
 }

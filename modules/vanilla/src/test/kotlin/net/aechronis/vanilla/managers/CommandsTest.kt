@@ -82,8 +82,22 @@ class CommandsTest : ManagerTest() {
             listOf("*", "AcuAlice", "AcuBob", "AcuZulu"),
             PlayerTargets.suggestions("", names),
         )
-        assertEquals(listOf("AcuZulu"), PlayerTargets.suggestions("AcuZ", names))
+        assertEquals("AcuZ", PlayerTargets.typedToken("give AcuZ"))
+        assertEquals(listOf("AcuZulu"), PlayerTargets.suggestions(PlayerTargets.typedToken("give AcuZ"), names))
         assertEquals(listOf("*"), PlayerTargets.suggestions("*", names))
+    }
+
+    @Test
+    fun `wildcard player target resolves every supplied player`() {
+        val sender = VanillaTest.createPlayer(Pos(78.5, 40.0, 30.5))
+        val target = VanillaTest.createPlayer(Pos(80.5, 40.0, 30.5))
+
+        try {
+            assertEquals(listOf(sender, target), PlayerTargets.resolve("*", listOf(sender, target)))
+        } finally {
+            VanillaTest.remove(sender)
+            VanillaTest.remove(target)
+        }
     }
 
     @Test
