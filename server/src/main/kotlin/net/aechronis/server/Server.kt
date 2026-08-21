@@ -9,6 +9,7 @@ import me.lucko.spark.minestom.SparkMinestom
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.storage.VehiclePersistence
+import net.aechronis.gems.Gems
 import net.aechronis.guard.Guard
 import net.aechronis.logger.Logger
 import net.aechronis.logger.LoggerConfig
@@ -256,6 +257,7 @@ fun main(args: Array<String>) {
 
     val logger = LoggerConfig(limit = 999999999)
     Logger.init(logger)
+    Gems.initialize()
 
     val worldEdit = MinestomWorldEdit()
     worldEdit.init()

@@ -29,6 +29,7 @@ include(
     ":modules:worldedit",
     ":modules:logger",
     ":modules:watchdog",
+    ":modules:gems",
 )
 
 include(":modules:guard")
