@@ -299,6 +299,62 @@ class Town(
             Resident.renderMinimaps()
         }
 
+        /**
+         * Moves every non-home territory from [source] to [destination].
+         * The source town, its home territory, and its residents remain intact.
+         */
+        internal fun mergeTerritories(destination: Town, source: Town): Int = synchronized(Nodes.occupationPersistenceLock) {
+            require(destination !== source) { "A town cannot merge into itself" }
+
+            val transferred = source.territories
+                .asSequence()
+                .filter { it != source.home }
+                .mapNotNull(Territory::fromId)
+                .toList()
+
+            transferred.forEach { territory ->
+                // Territory occupations belong to the previous ownership state and must not
+                // survive an administrative ownership transfer.
+                release(territory)
+                source.territories.remove(territory.id)
+                source.annexed.remove(territory.id)
+                destination.territories.add(territory.id)
+                territory.town = destination
+            }
+
+            if (transferred.isNotEmpty()) {
+                source.needsUpdate()
+                destination.needsUpdate()
+                Nodes.needsSave = true
+                Resident.renderMinimaps()
+            }
+            transferred.size
+        }
+
+        /**
+         * Moves all residents from [source] to [destination] as regular residents.
+         * Leadership and officer roles are deliberately not transferred.
+         */
+        internal fun moveResidents(destination: Town, source: Town): Int {
+            require(destination !== source) { "A town cannot move residents into itself" }
+
+            val transferred = source.residents.toList()
+            setLeader(source, null)
+            transferred.forEach { resident ->
+                removeResident(source, resident)
+                check(addResident(destination, resident, bypassTestTownSelection = true)) {
+                    "Could not move resident ${resident.name} from ${source.name} to ${destination.name}"
+                }
+            }
+            // Clear any stale role records left by malformed saved data as well.
+            if (source.officers.isNotEmpty()) {
+                source.officers.clear()
+                source.needsUpdate()
+                Nodes.needsSave = true
+            }
+            return transferred.size
+        }
+
         fun release(territory: Territory) {
             synchronized(Nodes.occupationPersistenceLock) {
                 FlagWar.clearTerritoryOccupation(territory)

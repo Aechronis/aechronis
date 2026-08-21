@@ -1,6 +1,5 @@
 package net.aechronis.nodes.commands.arguments
 
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Resident
 import net.minestom.server.command.builder.arguments.Argument
 import net.minestom.server.command.builder.arguments.ArgumentType
@@ -13,14 +12,11 @@ object ArgumentResidentArray {
      */
     fun create(id: String): Argument<List<Resident>> {
         val stringArray = ArgumentType.StringArray(id)
-        stringArray.setSuggestionCallback { sender, context, suggestion ->
-            val input = suggestion.input.substringAfterLast(" ").lowercase()
-
-            Nodes.residents.values
-                .filter { it.name.startsWith(input) }
-                .forEach { resident ->
-                    suggestion.addEntry(SuggestionEntry(resident.name))
-                }
+        stringArray.setSuggestionCallback { _, _, suggestion ->
+            val input = suggestion.input.substringAfterLast(" ")
+            matchingResidents(input).forEach { resident ->
+                suggestion.addEntry(SuggestionEntry(resident.name))
+            }
         }
         return stringArray.map { inputs ->
             inputs.map { input ->

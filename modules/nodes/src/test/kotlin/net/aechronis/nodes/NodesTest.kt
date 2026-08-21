@@ -1,5 +1,6 @@
 package net.aechronis.nodes
 
+import net.aechronis.nodes.commands.arguments.matchingResidents
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.objects.MinimapPosition
@@ -256,6 +257,84 @@ class NodesTest {
         Plot.setPlayerPermissions(town, plot, resident, allPermissions, true)
         for (permission in allPermissions) {
             assertEquals(true, plot.playerPermission(resident.uuid, permission))
+        }
+    }
+
+    @Test
+    fun `admin merge transfers non-home territories without moving residents`() {
+        val territories = Nodes.territories.values.filter { it.town == null }.take(4)
+        assertEquals(4, territories.size)
+        val destination = Town.create("MergeDestination", territories[0], null).getOrThrow()
+        val source = Town.create("MergeSource", territories[1], null).getOrThrow()
+        Town.addTerritory(source, territories[2]).getOrThrow()
+        Town.addTerritory(source, territories[3]).getOrThrow()
+        val resident = Resident(UUID.randomUUID(), "merge-resident")
+        Nodes.residents[resident.uuid] = resident
+        assertTrue(Town.addResident(source, resident, bypassTestTownSelection = true))
+
+        try {
+            assertEquals(2, Town.mergeTerritories(destination, source))
+
+            assertEquals(setOf(source.home), source.territories)
+            assertEquals(source, Territory.fromId(source.home)?.town)
+            assertEquals(destination, Territory.fromId(territories[2].id)?.town)
+            assertEquals(destination, Territory.fromId(territories[3].id)?.town)
+            assertEquals(source, resident.town)
+            assertTrue(source.residents.contains(resident))
+        } finally {
+            Town.destroy(destination)
+            Town.destroy(source)
+            Nodes.residents.remove(resident.uuid)
+        }
+    }
+
+    @Test
+    fun `admin move transfers residents without ranks`() {
+        val territories = Nodes.territories.values.filter { it.town == null }.take(2)
+        assertEquals(2, territories.size)
+        val destination = Town.create("MoveDestination", territories[0], null).getOrThrow()
+        val source = Town.create("MoveSource", territories[1], null).getOrThrow()
+        val leader = Resident(UUID.randomUUID(), "move-leader")
+        val officer = Resident(UUID.randomUUID(), "move-officer")
+        Nodes.residents[leader.uuid] = leader
+        Nodes.residents[officer.uuid] = officer
+        assertTrue(Town.addResident(source, leader, bypassTestTownSelection = true))
+        assertTrue(Town.addResident(source, officer, bypassTestTownSelection = true))
+        assertTrue(Town.addOfficer(source, officer))
+        Town.setLeader(source, leader)
+
+        try {
+            assertEquals(2, Town.moveResidents(destination, source))
+
+            assertTrue(source.residents.isEmpty())
+            assertTrue(source.officers.isEmpty())
+            assertEquals(null, source.leader)
+            assertEquals(destination, leader.town)
+            assertEquals(destination, officer.town)
+            assertTrue(destination.residents.containsAll(listOf(leader, officer)))
+            assertEquals(null, destination.leader)
+            assertFalse(destination.officers.contains(leader))
+            assertFalse(destination.officers.contains(officer))
+        } finally {
+            Town.destroy(destination)
+            Town.destroy(source)
+            Nodes.residents.remove(leader.uuid)
+            Nodes.residents.remove(officer.uuid)
+        }
+    }
+
+    @Test
+    fun `resident suggestions are case insensitive and sorted`() {
+        val alpha = Resident(UUID.randomUUID(), "SuggestionAlpha")
+        val beta = Resident(UUID.randomUUID(), "suggestionBeta")
+        Nodes.residents[alpha.uuid] = alpha
+        Nodes.residents[beta.uuid] = beta
+
+        try {
+            assertEquals(listOf("SuggestionAlpha", "suggestionBeta"), matchingResidents("SuGgEsTiOn").map { it.name })
+        } finally {
+            Nodes.residents.remove(alpha.uuid)
+            Nodes.residents.remove(beta.uuid)
         }
     }
 

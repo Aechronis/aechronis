@@ -33,6 +33,7 @@ import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
+import net.minestom.server.MinecraftServer
 import net.minestom.server.adventure.audience.Audiences
 import net.minestom.server.command.builder.arguments.ArgumentBoolean
 import net.minestom.server.command.builder.arguments.ArgumentType
@@ -46,6 +47,7 @@ class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
             Message.print(player, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
             Message.print(player, "/nodesadmin building${ChatColor.WHITE}: Manage buildings (see \"/nodesadmin building help\")")
             Message.print(player, "/nda trains${ChatColor.WHITE}: Manage train stations")
+            Message.print(player, "/nda teleport${ChatColor.WHITE}: Teleport to a territory's core chunk")
             Message.print(player, "/nodesadmin reasorce${ChatColor.WHITE}: Add or remove a territory resource node")
             Message.print(player, "/nodesadmin save${ChatColor.WHITE}: Force save world")
             Message.print(player, "/nodesadmin load${ChatColor.WHITE}: Force load world")
@@ -59,6 +61,7 @@ class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
         addSubcommand(NodesAdminNationCommand())
         addSubcommand(NodesAdminBuildingCommand())
         addSubcommand(NodesAdminTrainsCommand())
+        addSubcommand(NodesAdminTeleportCommand())
         addSubcommand(NodesAdminReasorceCommand())
         addSubcommand(NodesAdminSaveCommand())
         addSubcommand(NodesAdminLoadCommand())
@@ -76,6 +79,7 @@ class NodesAdminHelpCommand : NodesCommand("help", "nodes.admin") {
             Message.print(player, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
             Message.print(player, "/nodesadmin building${ChatColor.WHITE}: Manage buildings (see \"/nodesadmin building help\")")
             Message.print(player, "/nda trains${ChatColor.WHITE}: Manage train stations")
+            Message.print(player, "/nda teleport <territory-id>${ChatColor.WHITE}: Teleport to a territory's core chunk")
             Message.print(player, "/nodesadmin reasorce${ChatColor.WHITE}: Add or remove a territory resource node")
             Message.print(player, "/nodesadmin save${ChatColor.WHITE}: Force save world")
             Message.print(player, "/nodesadmin load${ChatColor.WHITE}: Force load world")
@@ -158,6 +162,8 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
             Message.print(player, "${ChatColor.BOLD}[Nodes] Admin town management:")
             Message.print(player, "/nodesadmin town create${ChatColor.WHITE}: Create a new town")
             Message.print(player, "/nodesadmin town delete${ChatColor.WHITE}: Delete existing town")
+            Message.print(player, "/nda town merge <townA> <townB>${ChatColor.WHITE}: Move Town B's non-home territories into Town A")
+            Message.print(player, "/nda town move <townA> <townB>${ChatColor.WHITE}: Move Town B's residents into Town A")
             Message.print(player, "/nodesadmin town rename${ChatColor.WHITE}: Rename a town")
             Message.print(player, "/nodesadmin town addplayer${ChatColor.WHITE}: Add players to town")
             Message.print(player, "/nodesadmin town removeplayer${ChatColor.WHITE}: Remove players from town")
@@ -181,6 +187,8 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
 
         addSubcommand(NodesAdminTownCreateCommand())
         addSubcommand(NodesAdminTownDeleteCommand())
+        addSubcommand(NodesAdminTownMergeCommand())
+        addSubcommand(NodesAdminTownMoveCommand())
         addSubcommand(NodesAdminTownRenameCommand())
         addSubcommand(NodesAdminTownAddPlayerCommand())
         addSubcommand(NodesAdminTownRemovePlayerCommand())
@@ -241,6 +249,52 @@ class NodesAdminTownDeleteCommand : NodesCommand("delete", "nodes.admin") {
             Town.destroy(context[townArg])
             Message.print(player, "Town \"${context[townArg].name}\" has been deleted")
         }, townArg)
+    }
+}
+
+class NodesAdminTownMergeCommand : NodesCommand("merge", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, _, _ ->
+            Message.print(player, "Usage: /nda town merge <townA> <townB>")
+        }
+
+        val destinationArg = ArgumentTown.create("townA")
+        val sourceArg = ArgumentTown.create("townB")
+
+        addSyntax({ player, _, context ->
+            val destination = context[destinationArg]
+            val source = context[sourceArg]
+            if (destination === source) {
+                Message.error(player, "Town A and Town B must be different towns")
+                return@addSyntax
+            }
+
+            val moved = Town.mergeTerritories(destination, source)
+            Message.print(player, "Moved $moved non-home territories from ${source.name} to ${destination.name}; ${source.name} retains its home territory")
+        }, destinationArg, sourceArg)
+    }
+}
+
+class NodesAdminTownMoveCommand : NodesCommand("move", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, _, _ ->
+            Message.print(player, "Usage: /nda town move <townA> <townB>")
+        }
+
+        val destinationArg = ArgumentTown.create("townA")
+        val sourceArg = ArgumentTown.create("townB")
+
+        addSyntax({ player, _, context ->
+            val destination = context[destinationArg]
+            val source = context[sourceArg]
+            if (destination === source) {
+                Message.error(player, "Town A and Town B must be different towns")
+                return@addSyntax
+            }
+
+            val moved = Town.moveResidents(destination, source)
+            Message.print(player, "Moved $moved residents from ${source.name} to ${destination.name} as regular residents")
+        }, destinationArg, sourceArg)
     }
 }
 
@@ -624,7 +678,9 @@ class NodesAdminTownAiSetCommand : NodesCommand("set", "nodes.admin") {
             val updated = runCatching {
                 when (field) {
                     "controlled" -> current.copy(controlled = value.toBooleanStrict())
+
                     "enemies" -> current.copy(enemyCount = value.toInt())
+
                     "guns" -> current.copy(
                         guns = if (value.equals("none", ignoreCase = true)) {
                             emptyList()
@@ -632,6 +688,7 @@ class NodesAdminTownAiSetCommand : NodesCommand("set", "nodes.admin") {
                             value.split(',').map(String::trim)
                         },
                     )
+
                     else -> error("Unknown AI configuration field '$field'")
                 }.also(AiTownConfig::requireRegisteredGuns)
             }.getOrElse { error ->
@@ -1024,6 +1081,32 @@ class NodesAdminBuildingSetTierCommand : NodesCommand("settier", "nodes.admin") 
             Building.setTier(building, context[tierArg])
             Message.print(player, "${building.type} in chunk (${building.chunkX}, ${building.chunkZ}) set to tier ${building.tier}")
         }, tierArg)
+    }
+}
+
+class NodesAdminTeleportCommand : NodesCommand("teleport", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /nda teleport <territory-id>")
+        }
+
+        val territoryArg = ArgumentTerritory.create("territory-id")
+
+        addSyntax({ player, resident, context ->
+            val territory = context[territoryArg]
+            val instance = MinecraftServer.getInstanceManager().instances.firstOrNull()
+            if (instance == null) {
+                Message.error(player, "The world is unavailable")
+                return@addSyntax
+            }
+
+            // Ensure the terrain is available before finding a position above its surface.
+            instance.loadChunk(territory.core.x, territory.core.z).join()
+            val destination = Territory.defaultSpawnLocation(territory)
+                .withView(player.position.yaw, player.position.pitch)
+            player.teleport(destination)
+            Message.print(player, "Teleported to territory id=${territory.id} core chunk")
+        }, territoryArg)
     }
 }
 
