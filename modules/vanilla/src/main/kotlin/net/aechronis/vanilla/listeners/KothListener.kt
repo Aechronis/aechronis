@@ -13,8 +13,8 @@ object KothListener {
         val now = System.currentTimeMillis()
         for (state in Koth.active.values) {
             if (state.capturer == player.uuid) {
-                if (!Koth.isInside(state.config, player, event.newPosition)) Koth.resetCapture(state)
-            } else if (state.capturer == null && Koth.isInside(state.config, player, event.newPosition)) {
+                if (!Koth.isInside(state.definition, player, event.newPosition)) Koth.resetCapture(state)
+            } else if (state.capturer == null && Koth.isInside(state.definition, player, event.newPosition)) {
                 Koth.beginCapture(state, player.uuid, now)
             }
         }

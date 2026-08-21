@@ -125,7 +125,7 @@ object Vanilla {
         if (config.serverLinksEnabled) ServerLinksListener.init()
         if (config.combatEnabled) Combat.init()
         if (config.musicEnabled) MusicManager.init()
-        if (config.kothEnabled) Koth.init()
+        if (config.kothEnabled) Koth.init(Path.of(config.path, config.kothsPath))
         if (config.oresEnabled) Ores.init(Path.of(config.path, config.oresPath))
 
         // print load time
@@ -140,6 +140,7 @@ object Vanilla {
         if (config.playerDataEnabled) PlayerData.saveAll()
         if (config.storageEnabled) Storage.saveAll()
         if (config.oresEnabled) Ores.saveAll()
+        if (config.kothEnabled) Koth.saveAll()
         println("Vanilla: data saved.")
     }
 }

@@ -3,7 +3,6 @@ package net.aechronis.vanilla
 import net.aechronis.vanilla.config.BlocksConfig
 import net.aechronis.vanilla.config.CratesConfig
 import net.aechronis.vanilla.config.FoodConfig
-import net.aechronis.vanilla.config.KothsConfig
 import net.aechronis.vanilla.config.MusicConfig
 import net.aechronis.vanilla.config.RecipesConfig
 import net.aechronis.vanilla.config.ShopConfig
@@ -44,6 +43,7 @@ data class VanillaConfig(
     val whitelistPath: String = "whitelist.json",
     val spawnPath: String = "spawn",
     val oresPath: String = "ores.json",
+    val kothsPath: String = "koth.json",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),
     // Food
@@ -56,8 +56,6 @@ data class VanillaConfig(
     val musicConfig: MusicConfig = MusicConfig(),
     // Recipes
     val recipesConfig: RecipesConfig = RecipesConfig(),
-    // koths
-    val kothsConfig: KothsConfig = KothsConfig(),
     // Crops
     val cropGrowthCheckSeconds: Long = 20L,
     val wheatMsPerStage: Long = 72_000L,
