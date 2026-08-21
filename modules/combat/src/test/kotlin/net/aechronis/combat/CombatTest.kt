@@ -381,6 +381,17 @@ class CombatTest {
     }
 
     @Test
+    fun `hats provide helmet armor protection`() {
+        val hat = Hat(name = "protection-test-hat", itemName = Component.empty(), protection = 0.15F)
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "hat-protection"))
+        Item.registerItems(hat)
+        player.helmet = hat.toItemStack()
+
+        assertEquals(0.85F, ArmorPiece.getTotalProtection(player), 0.0001F)
+        assertEquals(1, player.helmet.maxStackSize())
+    }
+
+    @Test
     fun `plane bomb only releases on the initial fire-key press`() {
         assertTrue(isBombRelease(isHoldingFireKey = true, wasHoldingFireKey = false))
         assertFalse(isBombRelease(isHoldingFireKey = true, wasHoldingFireKey = true))

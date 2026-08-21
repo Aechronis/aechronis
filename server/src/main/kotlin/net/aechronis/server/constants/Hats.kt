@@ -10,5 +10,6 @@ object Hats {
         Hat(
             name = "gas-mask",
             itemName = Component.text("Gas mask", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            protection = 0.1F,
         )
 }

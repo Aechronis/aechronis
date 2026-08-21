@@ -3,10 +3,8 @@ package net.aechronis.combat.tasks
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
-import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Vehicle
-import net.aechronis.combat.storage.HatCollection
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -71,21 +69,9 @@ object ModelManager {
             .buildTask {
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
                     updateModel(player)
-                    updateHat(player)
                 }
             }.repeat(TaskSchedule.tick(1))
             .schedule()
-    }
-
-    fun updateHat(player: Player) {
-        val equippedHat = HatCollection.getEquippedHat(player.uuid)
-        val currentHelmet = player.helmet
-
-        if (equippedHat != null) {
-            player.helmet = equippedHat.toItemStack()
-        } else if (Item.getFromItemStack(currentHelmet) is Hat) {
-            player.helmet = ItemStack.AIR
-        }
     }
 
     fun updateModel(player: Player) {

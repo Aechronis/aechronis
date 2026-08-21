@@ -29,7 +29,7 @@ object MannequinDamageListener {
             return
         }
 
-        // other mannequins (hat preview, corpses) ignore damage entirely
+        // other mannequins (such as corpses) ignore damage entirely
         if (
             entity.entityType == EntityType.MANNEQUIN &&
             entity.getTag(EntityTags.DAMAGEABLE_MANNEQUIN) != true

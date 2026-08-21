@@ -12,6 +12,7 @@ package net.aechronis.combat.commands
 import net.aechronis.combat.commands.arguments.ArgumentHat
 import net.aechronis.combat.commands.arguments.ArgumentItem
 import net.aechronis.combat.objects.Explosion
+import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.utils.Message
@@ -46,7 +47,10 @@ class CombatAdminGiveCommand : Command("give", "combat.admin") {
         val itemArg = ArgumentItem.create("item-name")
 
         addSyntax({ player: Player, context ->
-            player.inventory.addItemStack(context[itemArg].toItemStack())
+            val item = context[itemArg]
+            if (item is Hat) HatCollection.give(player.uuid, item)
+            val stack = item.toItemStack()
+            if (!player.inventory.addItemStack(stack)) player.dropItem(stack)
         }, itemArg)
     }
 }
@@ -118,6 +122,8 @@ class CombatAdminHatGiveCommand : Command("give", "combat.admin") {
             val hat = context[hatArg]
 
             HatCollection.give(target.uuid, hat)
+            val stack = hat.toItemStack()
+            if (!target.inventory.addItemStack(stack)) target.dropItem(stack)
             Message.print(sender, "Gave hat '${hat.name}' to ${target.username}")
         }, playerArg, hatArg)
     }

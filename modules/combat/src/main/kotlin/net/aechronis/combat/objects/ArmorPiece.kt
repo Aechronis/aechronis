@@ -14,20 +14,21 @@ import net.minestom.server.item.Material
 import net.minestom.server.item.component.AttributeList
 import net.minestom.server.item.component.Equippable
 
-class ArmorPiece(
+open class ArmorPiece(
     name: String,
     itemName: Component,
     itemLore: List<Component> = emptyList(),
     itemModel: String = "${Tags.NAMESPACE}:$name",
     val slot: EquipmentSlot,
     val protection: Float,
-    val assetId: String = "${Tags.NAMESPACE}:$name",
+    val assetId: String? = "${Tags.NAMESPACE}:$name",
+    material: Material = Material.WARPED_FUNGUS_ON_A_STICK,
 ) : Item(
         name,
         itemName,
         itemLore,
         itemModel,
-        Material.WARPED_FUNGUS_ON_A_STICK,
+        material,
     ) {
     private val armorSlotGroup =
         when (slot) {

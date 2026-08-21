@@ -43,11 +43,6 @@ object PlayerDisconnectListener {
         ModelManager.clearPlayer(player)
         KeyPressListener.playerInputEvent.remove(player)
         Hitbox.viewingHitboxes.remove(player)
-
-        // clean up hat menu entities
-        HatListener.playerCamera.remove(player.uuid)?.remove()
-        HatListener.playerMannequin.remove(player.uuid)?.remove()
-
         // save and unload hat collection
         HatCollection.unload(player.uuid)
     }
