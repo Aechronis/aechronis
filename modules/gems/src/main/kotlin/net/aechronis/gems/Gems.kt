@@ -563,6 +563,9 @@ private class GemCommand(
             net.minestom.server.command.builder.arguments.ArgumentType
                 .Word("action")
                 .from("give", "take")
+        val balanceAction =
+            net.minestom.server.command.builder.arguments.ArgumentType
+                .Literal("balance")
         val player =
             net.minestom.server.command.builder.arguments.ArgumentType
                 .Word("player")
@@ -579,8 +582,21 @@ private class GemCommand(
             }
         }
         setDefaultExecutor { sender, _ ->
-            sender.sendMessage(Component.text("Usage: /gem <give|take> <player> <amount>", NamedTextColor.LIGHT_PURPLE))
+            sender.sendMessage(
+                Component.text(
+                    "Usage: /gem balance <player> | /gem <give|take> <player> <amount>",
+                    NamedTextColor.LIGHT_PURPLE,
+                ),
+            )
         }
+        addSyntax("gems.admin", { sender, context ->
+            val target = repository.findPlayer(context[player])
+            if (target == null) {
+                sender.sendMessage(Component.text("No gem account exists for '${context[player]}'.", NamedTextColor.RED))
+                return@addSyntax
+            }
+            sender.sendMessage(Component.text("${target.name}'s gem balance: ${target.balance}", NamedTextColor.GREEN))
+        }, balanceAction, player)
         addSyntax("gems.admin", { sender, context ->
             val target = repository.findPlayer(context[player])
             if (target == null) {
