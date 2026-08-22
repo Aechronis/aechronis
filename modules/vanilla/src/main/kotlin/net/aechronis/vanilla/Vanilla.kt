@@ -37,6 +37,7 @@ import net.aechronis.vanilla.listeners.PlayerActivityListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.listeners.ServerLinksListener
 import net.aechronis.vanilla.managers.Blocks
+import net.aechronis.vanilla.managers.Boats
 import net.aechronis.vanilla.managers.Bundles
 import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Crates
@@ -131,6 +132,7 @@ object Vanilla {
         if (config.cratesEnabled) Crates.init()
         if (config.itemsEnabled) Items.init()
         if (config.bundlesEnabled) Bundles.init()
+        if (config.boatsEnabled) Boats.init()
         if (config.commandsEnabled) {
             CommandsListener.init()
             TpsBarManager.init()

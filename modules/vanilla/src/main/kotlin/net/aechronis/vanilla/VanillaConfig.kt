@@ -26,6 +26,7 @@ data class VanillaConfig(
     val cratesEnabled: Boolean = true,
     val itemsEnabled: Boolean = true,
     val bundlesEnabled: Boolean = true,
+    val boatsEnabled: Boolean = true,
     val blockDropsEnabled: Boolean = true,
     val fallDamageEnabled: Boolean = true,
     val fireDamageEnabled: Boolean = true,
