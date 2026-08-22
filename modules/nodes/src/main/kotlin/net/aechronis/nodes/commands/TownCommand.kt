@@ -16,6 +16,7 @@ import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
 import net.minestom.server.MinecraftServer
@@ -24,6 +25,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.potion.Potion
 import net.minestom.server.potion.PotionEffect
 import net.minestom.server.timer.TaskSchedule
+import java.util.Locale
 
 class TownCommand : NodesCommand("t", null, "town") {
     init {
@@ -40,6 +42,8 @@ class TownCommand : NodesCommand("t", null, "town") {
             Message.print(player, "/town list${ChatColor.WHITE}: List all towns")
             Message.print(player, "/town info${ChatColor.WHITE}: View town details")
             Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
+            Message.print(player, "/town income${ChatColor.WHITE}: Open town income")
+            Message.print(player, "/town income info${ChatColor.WHITE}: View income rates per income tick")
             Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
             Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
             Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
@@ -66,6 +70,8 @@ class TownCommand : NodesCommand("t", null, "town") {
                 Message.print(player, "/town list${ChatColor.WHITE}: List all towns")
                 Message.print(player, "/town info${ChatColor.WHITE}: View town details")
                 Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
+                Message.print(player, "/town income${ChatColor.WHITE}: Open town income")
+                Message.print(player, "/town income info${ChatColor.WHITE}: View income rates per income tick")
                 Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
                 Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
                 Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
@@ -117,6 +123,8 @@ class TownHelpCommand : NodesCommand("help") {
             Message.print(player, "/town list${ChatColor.WHITE}: List all towns")
             Message.print(player, "/town info${ChatColor.WHITE}: View town details")
             Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
+            Message.print(player, "/town income${ChatColor.WHITE}: Open town income")
+            Message.print(player, "/town income info${ChatColor.WHITE}: View income rates per income tick")
             Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
             Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
             Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
@@ -770,30 +778,58 @@ class TownOnlineCommand : NodesCommand("online") {
 
 class TownIncomeCommand : NodesCommand("income") {
     init {
-        setDefaultExecutor { player, resident, context ->
+        setDefaultExecutor { player, _, _ ->
             Message.print(player, "Usage: /town income")
+            Message.print(player, "/town income info: View income rates per income tick")
         }
 
-        addSyntax({ player, resident, town, context ->
-            // check player permissions
-            val hasPermissions = if (resident === town.leader || town.officers.contains(resident)) {
-                true
-            } else if (town.permissions[TownPermissions.INCOME].contains(PermissionsGroup.TOWN) && resident.town === town) {
-                true
-            } else if (town.permissions[TownPermissions.INCOME].contains(PermissionsGroup.TRUSTED) && resident.town === town && resident.trusted) {
-                true
-            } else {
-                false
+        addSyntax({ player, resident, town, _ ->
+            if (!canViewIncome(resident, town)) {
+                Message.error(player, "You do not have permissions to view town income")
+                return@addSyntax
             }
 
-            // open town inventory
-            if (hasPermissions) {
-                player.openInventory(Town.incomeInventory(town))
-            } else {
+            player.openInventory(Town.incomeInventory(town))
+        })
+
+        addSubcommand(TownIncomeInfoCommand())
+    }
+
+    companion object {
+        fun canViewIncome(resident: Resident, town: Town): Boolean {
+            if (resident === town.leader || town.officers.contains(resident)) return true
+            if (town.permissions[TownPermissions.INCOME].contains(PermissionsGroup.TOWN) && resident.town === town) return true
+            if (town.permissions[TownPermissions.INCOME].contains(PermissionsGroup.TRUSTED) && resident.town === town && resident.trusted) return true
+            return false
+        }
+    }
+}
+
+class TownIncomeInfoCommand : NodesCommand("info") {
+    init {
+        addSyntax({ player, resident, town, _ ->
+            if (!TownIncomeCommand.canViewIncome(resident, town)) {
                 Message.error(player, "You do not have permissions to view town income")
+                return@addSyntax
             }
+
+            val rates = IncomeCalculator.calculate()[town].orEmpty().filterValues { it > 0.0 }
+            Message.print(player, "${ChatColor.BOLD}Income rates for ${town.name}:")
+            Message.print(player, "Per income tick (every hour):")
+            if (rates.isEmpty()) {
+                Message.print(player, "- None")
+            } else {
+                rates.entries
+                    .sortedBy { (material, _) -> material.name() }
+                    .forEach { (material, amount) ->
+                        Message.print(player, "- ${material.name()}${ChatColor.WHITE}: ${formatIncome(amount)}")
+                    }
+            }
+            Message.print(player, "Fractional amounts are averages; income is randomly rounded when collected.")
         })
     }
+
+    private fun formatIncome(amount: Double): String = String.format(Locale.ROOT, "%.2f", amount)
 }
 
 class TownPermissionsCommand : NodesCommand("permissions", "perms") {

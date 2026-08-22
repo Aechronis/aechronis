@@ -6,7 +6,7 @@
 
 Nodes is a claiming system seperated by territorys [see on dynmap](https://map.aechronis.net)
 each node has its own reasorces:
-- income (goes into /t income every hour)
+- income (goes into /t income every hour; view rates with /t income info)
 - ores (when you mine stone ore has chance to go into inv) 
 - crops (allows crops to grow in that node) 
 - animals (allows animals to be bread in that region)

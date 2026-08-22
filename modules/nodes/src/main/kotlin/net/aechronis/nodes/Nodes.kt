@@ -57,6 +57,7 @@ import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.serdes.Deserializer
+import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.tasks.IncomeManager
 import net.aechronis.nodes.tasks.SaveManager
 import net.aechronis.nodes.tasks.SerialSaveQueue
@@ -68,7 +69,6 @@ import net.aechronis.nodes.war.FlagWar
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
-import net.minestom.server.item.Material
 import net.minestom.server.timer.Task
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
@@ -502,30 +502,13 @@ object Nodes {
             val fractional = kotlin.math.max(0.0, rate - integer)
             return integer.toInt() + if (fractional > 0.0 && ThreadLocalRandom.current().nextDouble() < fractional) 1 else 0
         }
-        val taxRate = config.taxIncomeRate.coerceIn(0.0, 1.0)
-        val keptRate = 1.0 - taxRate
-        towns.values.forEach { town ->
+
+        val incomes = IncomeCalculator.calculate()
+        incomes.forEach { (town, income) ->
             try {
-                val own = mutableMapOf<Material, Double>()
-                val incomes = HashMap<Town, MutableMap<Material, Double>>()
-                incomes[town] = own
-                town.territories.forEach { id ->
-                    val territory = Territory.fromId(id) ?: return@forEach
-                    val territoryIncome = mutableMapOf<Material, Double>()
-                    territory.income.forEach { (material, amount) -> territoryIncome[material] = (territoryIncome[material] ?: 0.0) + amount }
-                    territory.chunks.forEach { coord ->
-                        chunkToBuilding[listOf(coord.x, coord.z)]?.income()?.forEach { (material, amount) -> territoryIncome[material] = (territoryIncome[material] ?: 0.0) + amount }
-                        Trains.incomeAt(coord.x, coord.z).forEach { (material, amount) -> territoryIncome[material] = (territoryIncome[material] ?: 0.0) + amount }
-                    }
-                    territory.occupier?.let { occupier ->
-                        val occupierIncome = incomes.getOrPut(occupier) { mutableMapOf() }
-                        territoryIncome.forEach { (material, amount) ->
-                            occupierIncome[material] = (occupierIncome[material] ?: 0.0) + amount * taxRate
-                            own[material] = (own[material] ?: 0.0) + amount * keptRate
-                        }
-                    } ?: territoryIncome.forEach { (material, amount) -> own[material] = (own[material] ?: 0.0) + amount }
+                income.forEach { (material, amount) ->
+                    rateToAmount(amount).takeIf { it > 0 }?.let { Town.addToIncome(town, material, it) }
                 }
-                incomes.forEach { (_, income) -> income.forEach { (material, amount) -> rateToAmount(amount).takeIf { it > 0 }?.let { Town.addToIncome(town, material, it) } } }
             } catch (err: Exception) {
                 println("Error running income for town ${town.name}")
                 err.printStackTrace()

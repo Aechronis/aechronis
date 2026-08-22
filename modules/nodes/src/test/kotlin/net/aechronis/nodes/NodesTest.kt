@@ -13,6 +13,7 @@ import net.aechronis.nodes.objects.TestTownSide
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.testTownLockedSide
+import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
@@ -29,6 +30,7 @@ import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
+import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.player.GameProfile
 import net.minestom.server.network.player.PlayerConnection
@@ -162,6 +164,42 @@ class NodesTest {
 
         val territory = Nodes.territories.values.first { it.ores.deposits.isNotEmpty() }
         assertTrue(territory.ores.deposits.all { it.dropChance >= 0.0 })
+    }
+
+    @Test
+    fun `town income rates aggregate territory income without changing storage`() {
+        assertNotNull(MinecraftServer.getCommandManager().getCommand("t"))
+
+        val town = Nodes.towns.values.first()
+        val storedBefore = town.income.snapshot()
+        val rates = IncomeCalculator.calculate()[town].orEmpty()
+        val expected = mutableMapOf<Material, Double>()
+        val taxRate = Nodes.config.taxIncomeRate.coerceIn(0.0, 1.0)
+
+        Nodes.towns.values.forEach { owner ->
+            owner.territories.forEach { territoryId ->
+                val territory = Territory.fromId(territoryId) ?: return@forEach
+                val factor = if (territory.occupier == null) {
+                    if (owner === town) 1.0 else 0.0
+                } else {
+                    when {
+                        owner === town -> 1.0 - taxRate
+                        territory.occupier === town -> taxRate
+                        else -> 0.0
+                    }
+                }
+                if (factor > 0.0) {
+                    territory.income.forEach { (material, amount) ->
+                        expected[material] = (expected[material] ?: 0.0) + amount * factor
+                    }
+                }
+            }
+        }
+
+        expected.forEach { (material, amount) ->
+            assertTrue((rates[material] ?: 0.0) >= amount - 1.0e-9)
+        }
+        assertEquals(storedBefore, town.income.snapshot())
     }
 
     @Test
