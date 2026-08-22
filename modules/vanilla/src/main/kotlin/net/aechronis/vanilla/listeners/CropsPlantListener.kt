@@ -88,7 +88,10 @@ object CropsPlantListener {
                     block.compare(Block.DIRT_PATH)
             )
         ) {
-            Block.FARMLAND.withProperty("moisture", "0")
+            Block.FARMLAND.withProperty(
+                "moisture",
+                if (block.compare(Block.GRASS_BLOCK) || block.compare(Block.DIRT)) "7" else "0",
+            )
         } else {
             null
         }
