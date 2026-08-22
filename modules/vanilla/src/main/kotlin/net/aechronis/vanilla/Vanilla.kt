@@ -36,6 +36,7 @@ import net.aechronis.vanilla.managers.Bundles
 import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Crates
 import net.aechronis.vanilla.managers.Crops
+import net.aechronis.vanilla.managers.Efficiency
 import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.EnvironmentalDamage
 import net.aechronis.vanilla.managers.Food
@@ -122,6 +123,7 @@ object Vanilla {
         if (config.itemsEnabled) Items.init()
         if (config.bundlesEnabled) Bundles.init()
         if (config.boatsEnabled) Boats.init()
+        if (config.efficiencyEnabled) Efficiency.init()
         if (config.commandsEnabled) {
             CommandsListener.init()
             TpsBarManager.init()
