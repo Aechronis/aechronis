@@ -72,6 +72,7 @@ data class VanillaConfig(
     // Mannequins
     val mannequinDespawnTime: Int = 60,
     // Items (drop & pickup)
+    val itemPickupDelayMs: Long = 500L,
     val dropPickupDelayMs: Long = 2_000L,
     val dropDespawnSeconds: Long = 300L,
     val dropThrowVelocity: Double = 6.0,

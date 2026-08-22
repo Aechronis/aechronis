@@ -9,7 +9,6 @@ import net.minestom.server.entity.ItemEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
-import net.minestom.server.timer.TaskSchedule
 import java.time.Duration
 
 object Items {
@@ -25,17 +24,13 @@ object Items {
         position: Pos,
         stack: ItemStack,
         velocity: Vec = Vec.ZERO,
+        pickupDelayMs: Long = Vanilla.config.itemPickupDelayMs,
     ): ItemEntity {
         val config = Vanilla.config
         val item = ItemEntity(stack.withMaxStackSize(stack.material().maxStackSize()))
-        item.isPickable = false
+        item.setPickupDelay(Duration.ofMillis(pickupDelayMs))
         item.setInstance(instance, position)
         item.velocity = velocity
-        item
-            .scheduler()
-            .buildTask { item.isPickable = true }
-            .delay(TaskSchedule.millis(config.dropPickupDelayMs))
-            .schedule()
         item.scheduleRemove(Duration.ofSeconds(config.dropDespawnSeconds))
         return item
     }

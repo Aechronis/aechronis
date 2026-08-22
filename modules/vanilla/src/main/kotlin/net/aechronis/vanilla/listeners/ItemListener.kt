@@ -20,7 +20,7 @@ object ItemListener {
         val velocity = direction.mul(config.dropThrowVelocity).add(0.0, config.dropThrowUpwardVelocity, 0.0)
         val position = player.position.add(0.0, config.dropSpawnHeight, 0.0)
 
-        Items.spawn(instance, position, event.itemStack, velocity)
+        Items.spawn(instance, position, event.itemStack, velocity, pickupDelayMs = config.dropPickupDelayMs)
     }
 
     fun onPickup(event: PickupItemEvent) {
