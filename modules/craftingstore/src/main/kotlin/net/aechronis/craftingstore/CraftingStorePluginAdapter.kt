@@ -47,7 +47,7 @@ internal class CraftingStorePluginAdapter(
         object : PluginConfiguration {
             override fun getName() = "CraftingStore"
 
-            override fun getMainCommands() = arrayOf("craftingstore", "cs")
+            override fun getMainCommands() = arrayOf("craftingstore")
 
             override fun getVersion() = options.upstreamVersion
 
@@ -179,7 +179,7 @@ internal class CraftingStorePluginAdapter(
         manager.register(AdminCommand())
     }
 
-    private inner class AdminCommand : Command("craftingstore", "cs") {
+    private inner class AdminCommand : Command("craftingstore") {
         private val action = ArgumentType.Word("action").from("reload", "key", "debug")
         private val key = ArgumentType.Word("key")
         private val value = ArgumentType.Word("value").from("true", "false")
