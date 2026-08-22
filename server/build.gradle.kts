@@ -57,6 +57,7 @@ dependencies {
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     add("luckPermsBundle", "com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     implementation("com.h2database:h2:2.4.240")
+    runtimeOnly("org.mariadb.jdbc:mariadb-java-client:3.5.10")
     implementation("com.zaxxer:HikariCP:7.1.0")
     implementation("org.slf4j:slf4j-simple:2.0.18")
     implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
