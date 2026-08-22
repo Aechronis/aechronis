@@ -1,15 +1,20 @@
 package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
+import net.aechronis.vanilla.managers.Items
 import net.minestom.server.collision.BoundingBox
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.Player
+import net.minestom.server.event.entity.EntityAttackEvent
+import net.minestom.server.event.player.PlayerEntityInteractEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import kotlin.math.floor
 
@@ -41,6 +46,23 @@ object BoatListener {
             Material.BAMBOO_CHEST_RAFT to EntityType.BAMBOO_CHEST_RAFT,
         )
 
+    private val boatEntityTypes = boatTypes.values.toSet()
+    private val boatItems = boatTypes.entries.associate { (material, entityType) -> entityType to material }
+
+    private val chestBoatEntityTypes =
+        setOf(
+            EntityType.OAK_CHEST_BOAT,
+            EntityType.SPRUCE_CHEST_BOAT,
+            EntityType.BIRCH_CHEST_BOAT,
+            EntityType.JUNGLE_CHEST_BOAT,
+            EntityType.ACACIA_CHEST_BOAT,
+            EntityType.CHERRY_CHEST_BOAT,
+            EntityType.DARK_OAK_CHEST_BOAT,
+            EntityType.PALE_OAK_CHEST_BOAT,
+            EntityType.MANGROVE_CHEST_BOAT,
+            EntityType.BAMBOO_CHEST_RAFT,
+        )
+
     fun onUseItem(event: PlayerUseItemEvent) {
         if (event.isCancelled) return
 
@@ -67,6 +89,33 @@ object BoatListener {
         event.isCancelled = true
         if (player.gameMode != GameMode.CREATIVE) {
             player.setItemInHand(event.hand, held.consume(1))
+        }
+    }
+
+    fun onInteract(event: PlayerEntityInteractEvent) {
+        val player = event.player
+        val boat = event.target
+        if (boat.entityType !in boatEntityTypes) return
+        if (player.gameMode == GameMode.SPECTATOR || player.vehicle != null) return
+
+        val capacity = if (boat.entityType in chestBoatEntityTypes) 1 else 2
+        if (boat.passengers.size >= capacity) return
+
+        boat.addPassenger(player)
+    }
+
+    fun onAttack(event: EntityAttackEvent) {
+        val player = event.entity as? Player ?: return
+        if (player.gameMode == GameMode.SPECTATOR) return
+
+        val boat = event.target
+        val material = boatItems[boat.entityType] ?: return
+        val instance = boat.instance ?: return
+        val position = boat.position
+
+        boat.remove()
+        if (player.gameMode != GameMode.CREATIVE) {
+            Items.spawn(instance, position, ItemStack.of(material))
         }
     }
 
@@ -123,5 +172,7 @@ object BoatListener {
 
     fun init() {
         Vanilla.eventNode.addListener(PlayerUseItemEvent::class.java, BoatListener::onUseItem)
+        Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, BoatListener::onInteract)
+        Vanilla.eventNode.addListener(EntityAttackEvent::class.java, BoatListener::onAttack)
     }
 }
