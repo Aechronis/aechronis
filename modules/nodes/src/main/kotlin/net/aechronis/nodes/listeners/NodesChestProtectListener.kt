@@ -85,7 +85,7 @@ object NodesChestProtectionDestroyListener {
             return
         }
 
-        if (resident.hasTownProtectedChestPermissions(town)) {
+        if (resident.hasTownPermissionBypass() || resident.hasTownProtectedChestPermissions(town)) {
             Town.protectChest(town, event.blockPosition, false)
             return
         }

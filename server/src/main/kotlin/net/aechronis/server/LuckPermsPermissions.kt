@@ -32,6 +32,7 @@ object LuckPermsPermissions {
             "logger.undo",
             // nodes
             "nodes.admin",
+            "nodes.bypass",
             "*",
             // vanilla
             "vanilla.admin",

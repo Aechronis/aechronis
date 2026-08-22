@@ -14,6 +14,7 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.chat.ChatMode
 import net.aechronis.nodes.serdes.SaveState
 import net.aechronis.nodes.utils.ChatColor
+import net.aechronis.utils.hasPermission
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.CommandSender
 import net.minestom.server.coordinate.Pos
@@ -449,6 +450,8 @@ class Resident(val uuid: UUID, val name: String) {
     /**
      * Permissions for town protected chests
      */
+    fun hasTownPermissionBypass(): Boolean = uuid.hasPermission("nodes.bypass")
+
     fun hasTownProtectedChestPermissions(town: Town): Boolean {
         if (this.town != town) {
             return false
