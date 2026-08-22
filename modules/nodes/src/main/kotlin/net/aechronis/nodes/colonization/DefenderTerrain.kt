@@ -71,9 +71,7 @@ internal fun isSafeDefenderStandingPosition(
     val head = instance.getBlock(x, y + 1, z)
     return floor.blocksMotion() &&
         !floor.isLiquid &&
-        !feet.blocksMotion() &&
         !feet.isLiquid &&
-        !head.blocksMotion() &&
         !head.isLiquid
 }
 
