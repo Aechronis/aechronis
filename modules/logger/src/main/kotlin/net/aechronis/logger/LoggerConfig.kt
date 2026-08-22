@@ -11,6 +11,7 @@ data class LoggerConfig(
     val rollbackSafetyDefault: Boolean = true,
     val defaultRollbackRadius: Int = 10,
     val rollbackBatchSize: Int = 500,
+    val chunkRestoreTickBudgetMillis: Long = 10,
     val inventoryChangeTableName: String = "inventory_change",
     val entityChangeTableName: String = "entity_change",
     val originalWorldPath: String = "logger/original",

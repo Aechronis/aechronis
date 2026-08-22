@@ -31,7 +31,7 @@ class RestoreChunk : Command("restorechunk", "logger.restorechunk", "rc") {
         }, chunkX, chunkZ)
 
         val radiusLiteral = ArgumentType.Literal("radius")
-        val radius = ArgumentType.Integer("radius").between(1, MAX_CHUNK_RADIUS)
+        val radius = ArgumentType.Integer("chunk-radius").between(1, MAX_CHUNK_RADIUS)
         addSyntax({ sender: Player, context ->
             preview(sender, sender.position.blockX() shr 4, sender.position.blockZ() shr 4, context.get(radius))
         }, radiusLiteral, radius)

@@ -394,15 +394,32 @@ class Rollback(
         changes: List<RollbackChange>,
     ) {
         if (changes.isEmpty()) return
+        val sequences = changes.map(RollbackChange::sequence).distinct().sorted()
+        val ranges = mutableListOf<IntRange>()
+        var rangeStart = sequences.first()
+        var rangeEnd = rangeStart
+        for (sequence in sequences.drop(1)) {
+            if (sequence == rangeEnd + 1) {
+                rangeEnd = sequence
+            } else {
+                ranges += rangeStart..rangeEnd
+                rangeStart = sequence
+                rangeEnd = sequence
+            }
+        }
+        ranges += rangeStart..rangeEnd
         connection
-            .prepareStatement("UPDATE rollback_change SET applied = TRUE WHERE operation_id = ? AND sequence_no = ?")
-            .use { statement ->
-                for (change in changes) {
+            .prepareStatement(
+                "UPDATE rollback_change SET applied = TRUE " +
+                    "WHERE operation_id = ? AND sequence_no BETWEEN ? AND ? AND applied = FALSE",
+            ).use { statement ->
+                for (range in ranges) {
                     statement.setLong(1, operationId)
-                    statement.setInt(2, change.sequence)
-                    statement.addBatch()
+                    statement.setInt(2, range.first)
+                    statement.setInt(3, range.last)
+                    val updated = statement.executeUpdate()
+                    check(updated == range.last - range.first + 1) { "rollback change row is missing or already applied" }
                 }
-                statement.executeBatch().forEach { count -> check(count == 1) { "rollback change row is missing" } }
             }
     }
 

@@ -6,10 +6,19 @@ import net.aechronis.logger.utils.EntityStateCodec
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
 import net.minestom.server.MinecraftServer
+import net.minestom.server.coordinate.BlockVec
+import net.minestom.server.coordinate.CoordConversion
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.event.EventDispatcher
+import net.minestom.server.event.instance.InstanceSectionInvalidateEvent
+import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
+import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
 import net.minestom.server.inventory.PlayerInventory
+import net.minestom.server.network.packet.server.play.BlockEntityDataPacket
+import net.minestom.server.network.packet.server.play.MultiBlockChangePacket
+import net.minestom.server.utils.block.BlockUtils
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
@@ -75,6 +84,65 @@ private data class PreparedWorldChanges(
     val changes: List<RollbackChange>,
     val skippedCount: Int,
 )
+
+private data class PreparedBlockMutation(
+    val change: RollbackChange,
+    val expected: Block?,
+    val target: Block?,
+)
+
+private class ChunkRestoreTiming(
+    private val changeCount: Int,
+    private val chunkCount: Int,
+) {
+    private val startedAt = System.nanoTime()
+    private var chunksLoadedAt = startedAt
+    private var preparedAt = startedAt
+    private var persistedAt = startedAt
+    private var applyingAt = startedAt
+    private var appliedAt = startedAt
+
+    fun chunksLoaded() {
+        chunksLoadedAt = System.nanoTime()
+    }
+
+    fun prepared() {
+        preparedAt = System.nanoTime()
+    }
+
+    fun persisted() {
+        persistedAt = System.nanoTime()
+    }
+
+    fun applying() {
+        applyingAt = System.nanoTime()
+    }
+
+    fun applied() {
+        appliedAt = System.nanoTime()
+    }
+
+    fun completed(
+        operationId: Long,
+        appliedCount: Int,
+        skippedCount: Int,
+    ) {
+        val completedAt = System.nanoTime()
+        println(
+            "[Logger] Chunk restore #$operationId completed: chunks=$chunkCount changes=$changeCount " +
+                "applied=$appliedCount skipped=$skippedCount; " +
+                "load=${millis(chunksLoadedAt - startedAt)}ms " +
+                "prepare=${millis(preparedAt - chunksLoadedAt)}ms " +
+                "persist=${millis(persistedAt - preparedAt)}ms " +
+                "start=${millis(applyingAt - persistedAt)}ms " +
+                "apply=${millis(appliedAt - applyingAt)}ms " +
+                "finalize=${millis(completedAt - appliedAt)}ms " +
+                "total=${millis(completedAt - startedAt)}ms",
+        )
+    }
+
+    private fun millis(nanos: Long): Long = TimeUnit.NANOSECONDS.toMillis(nanos)
+}
 
 private class StorageWorldChangeFailure(
     cause: Throwable,
@@ -282,7 +350,20 @@ class RollbackService(
         val result =
             trackedResult<RollbackExecutionResult>()
                 ?: return CompletableFuture.failedFuture(IllegalStateException("rollback service is closing"))
-        beginApply(actor, plan, result)
+        val timing =
+            if (plan.kind == RollbackOperationKind.CHUNK_RESTORE) {
+                ChunkRestoreTiming(
+                    changeCount = plan.blockChanges.size,
+                    chunkCount =
+                        plan.blockChanges
+                            .map { (it.x shr 4) to (it.z shr 4) }
+                            .toSet()
+                            .size,
+                )
+            } else {
+                null
+            }
+        beginApply(actor, plan, result, timing)
         return result
     }
 
@@ -334,6 +415,7 @@ class RollbackService(
         actor: RollbackActor,
         plan: RollbackPlan,
         result: CompletableFuture<RollbackExecutionResult>,
+        timing: ChunkRestoreTiming?,
     ) {
         if (!activeInstances.add(plan.instanceUuid)) {
             result.completeExceptionally(IllegalStateException("another rollback is already running in this instance"))
@@ -371,8 +453,9 @@ class RollbackService(
                             if (loadFailure != null) {
                                 result.completeExceptionally(loadFailure)
                             } else {
+                                timing?.chunksLoaded()
                                 instance.scheduleNextTick {
-                                    prepareAndPersist(actor, instance, plan, result)
+                                    prepareAndPersist(actor, instance, plan, result, timing)
                                 }
                             }
                         }
@@ -561,22 +644,65 @@ class RollbackService(
         )
     }
 
+    private fun prepareChunkRestoreChanges(plan: RollbackPlan): PreparedWorldChanges =
+        PreparedWorldChanges(
+            changes =
+                plan.blockChanges.mapIndexed { sequence, change ->
+                    RollbackChange(
+                        operationId = 0,
+                        sequence = sequence,
+                        blockLogId = change.blockLogId,
+                        changeKind = RollbackChangeKind.BLOCK,
+                        x = change.x,
+                        y = change.y,
+                        z = change.z,
+                        beforeBlockState = change.expectedState,
+                        beforeBlockNbt = change.expectedNbt,
+                        beforeBlockHandler = change.expectedHandlerKey,
+                        afterBlockState = change.targetState,
+                        afterBlockNbt = change.targetNbt,
+                        afterBlockHandler = change.targetHandlerKey,
+                    )
+                },
+            skippedCount = 0,
+        )
+
     private fun prepareAndPersist(
         actor: RollbackActor,
         instance: Instance,
         plan: RollbackPlan,
         result: CompletableFuture<RollbackExecutionResult>,
+        timing: ChunkRestoreTiming?,
+        preparedChunkRestore: PreparedWorldChanges? = null,
     ) {
         if (result.isDone) return
+        if (
+            plan.kind == RollbackOperationKind.CHUNK_RESTORE &&
+            plan.storageChanges.isEmpty() &&
+            plan.inventoryChanges.isEmpty() &&
+            plan.entityChanges.isEmpty() &&
+            preparedChunkRestore == null
+        ) {
+            CompletableFuture
+                .supplyAsync({ prepareChunkRestoreChanges(plan) }, executor)
+                .whenComplete { prepared, failure ->
+                    if (failure != null) {
+                        result.completeExceptionally(failure)
+                    } else {
+                        prepareAndPersist(actor, instance, plan, result, timing, prepared)
+                    }
+                }
+            return
+        }
         val simulatedInventory = mutableMapOf<Pair<UUID, Int>, net.minestom.server.item.ItemStack>()
         val simulatedEntities = mutableMapOf<UUID, Boolean>()
         val changes = mutableListOf<RollbackChange>()
         var skipped = plan.skippedBlockCount
 
         try {
-            val preparedWorld = prepareWorldChanges(instance, plan)
-            changes += preparedWorld.changes
-            skipped += preparedWorld.skippedCount
+            val worldPreparation = preparedChunkRestore ?: prepareWorldChanges(instance, plan)
+            changes += worldPreparation.changes
+            skipped += worldPreparation.skippedCount
             for (candidate in plan.inventoryChanges) {
                 val player = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(candidate.playerUuid)
                 if (player == null || candidate.slot !in 0 until player.inventory.size) {
@@ -633,6 +759,7 @@ class RollbackService(
             result.completeExceptionally(exception)
             return
         }
+        timing?.prepared()
 
         if (changes.isEmpty()) {
             result.complete(RollbackExecutionResult(plan.kind, 0, 0, skipped))
@@ -660,6 +787,7 @@ class RollbackService(
                 return@whenComplete
             }
             operationIds[result] = operationId
+            timing?.persisted()
             if (result.isDone) {
                 Logger.rollback.updateStatusAsync(operationId, RollbackStatus.FAILED)
                 return@whenComplete
@@ -680,8 +808,9 @@ class RollbackService(
                         Logger.rollback.updateStatusAsync(operationId, RollbackStatus.RECOVERY_REQUIRED)
                         return@whenComplete
                     }
+                    timing?.applying()
                     instance.scheduleNextTick {
-                        applyBatches(instance, operationId, plan, changes, skipped, result)
+                        applyBatches(instance, operationId, plan, changes, skipped, result, timing)
                     }
                 }
         }
@@ -821,6 +950,200 @@ class RollbackService(
         return result
     }
 
+    private fun applyChunkRestoreWorldChanges(
+        instance: Instance,
+        changes: List<RollbackChange>,
+        reverse: Boolean,
+        tolerateConflicts: Boolean,
+        applied: MutableList<RollbackChange>,
+    ): CompletableFuture<Int> {
+        val result = CompletableFuture<Int>()
+        CompletableFuture
+            .supplyAsync({
+                changes.map { change ->
+                    val expectedState = if (reverse) change.afterBlockState else change.beforeBlockState
+                    val expectedNbt = if (reverse) change.afterBlockNbt else change.beforeBlockNbt
+                    val expectedHandler = if (reverse) change.afterBlockHandler else change.beforeBlockHandler
+                    val targetState = if (reverse) change.beforeBlockState else change.afterBlockState
+                    val targetNbt = if (reverse) change.beforeBlockNbt else change.afterBlockNbt
+                    val targetHandler = if (reverse) change.beforeBlockHandler else change.afterBlockHandler
+                    PreparedBlockMutation(
+                        change = change,
+                        expected = block(expectedState, null, expectedNbt, expectedHandler),
+                        target = block(targetState, null, targetNbt, targetHandler),
+                    )
+                }
+            }, executor)
+            .whenComplete { mutations, preparationFailure ->
+                if (preparationFailure != null) {
+                    result.completeExceptionally(preparationFailure)
+                    return@whenComplete
+                }
+
+                var index = 0
+                var skipped = 0
+                lateinit var scheduleNextBatch: () -> Unit
+
+                fun conflict(message: String) {
+                    if (!tolerateConflicts) error(message)
+                    skipped++
+                    index++
+                }
+
+                fun applyManagedTransition(mutation: PreparedBlockMutation) {
+                    val change = mutation.change
+                    val x = change.x ?: error("block x is missing")
+                    val y = change.y ?: error("block y is missing")
+                    val z = change.z ?: error("block z is missing")
+                    val expected = mutation.expected
+                    val target = mutation.target
+                    val matches =
+                        expected != null &&
+                            target != null &&
+                            sameBlock(instance.getBlock(x, y, z), expected, expected.handler()?.key?.asString())
+                    if (!matches) {
+                        conflict("block at $x,$y,$z changed after preview")
+                        return
+                    }
+                    if (!VanillaStorage.applyBlockTransition(instance, x, y, z, target)) {
+                        conflict("block transition at $x,$y,$z was rejected")
+                        return
+                    }
+                    applied += change
+                    index++
+                }
+
+                fun applyChunkSegment(
+                    chunk: Chunk,
+                    tickStartedAt: Long,
+                    tickBudgetNanos: Long,
+                ): Int {
+                    val sectionUpdates = linkedMapOf<Int, MutableList<Long>>()
+                    val blockEntityUpdates = mutableListOf<BlockEntityDataPacket>()
+                    val invalidatedSections = linkedSetOf<Int>()
+                    var visited = 0
+                    chunk.lockWriteLock()
+                    try {
+                        while (index < mutations.size) {
+                            if (visited > 0 && System.nanoTime() - tickStartedAt >= tickBudgetNanos) break
+                            val mutation = mutations[index]
+                            val change = mutation.change
+                            val x = change.x ?: error("block x is missing")
+                            val y = change.y ?: error("block y is missing")
+                            val z = change.z ?: error("block z is missing")
+                            if ((x shr 4) != chunk.chunkX || (z shr 4) != chunk.chunkZ) break
+                            val expected = mutation.expected
+                            val target = mutation.target
+                            val current = chunk.getBlock(x, y, z)
+                            if (current.compare(Block.BARREL) || target?.compare(Block.BARREL) == true) break
+
+                            visited++
+                            val matches =
+                                expected != null &&
+                                    target != null &&
+                                    sameBlock(current, expected, expected.handler()?.key?.asString())
+                            if (!matches) {
+                                conflict("block at $x,$y,$z changed after preview")
+                                continue
+                            }
+
+                            chunk.setBlock(x, y, z, target)
+                            applied += change
+                            index++
+                            val sectionY = y shr 4
+                            invalidatedSections += sectionY
+                            sectionUpdates
+                                .getOrPut(sectionY, ::mutableListOf)
+                                .add(
+                                    CoordConversion.encodeSectionBlockChange(
+                                        CoordConversion.globalToSectionRelative(x),
+                                        CoordConversion.globalToSectionRelative(y),
+                                        CoordConversion.globalToSectionRelative(z),
+                                        target.stateId().toLong(),
+                                    ),
+                                )
+                            target.registry()?.blockEntityType()?.let { type ->
+                                blockEntityUpdates +=
+                                    BlockEntityDataPacket(
+                                        BlockVec(x, y, z),
+                                        type,
+                                        BlockUtils.extractClientNbt(target),
+                                    )
+                            }
+                        }
+                    } finally {
+                        chunk.unlockWriteLock()
+                    }
+
+                    if (sectionUpdates.isNotEmpty()) {
+                        (instance as? InstanceContainer)?.refreshLastBlockChangeTime()
+                        sectionUpdates.forEach { (sectionY, updates) ->
+                            chunk.sendPacketToViewers(
+                                MultiBlockChangePacket(chunk.chunkX, sectionY, chunk.chunkZ, updates.toLongArray()),
+                            )
+                        }
+                        blockEntityUpdates.forEach(chunk::sendPacketToViewers)
+                        invalidatedSections.forEach { sectionY ->
+                            EventDispatcher.call(
+                                InstanceSectionInvalidateEvent(instance, chunk.chunkX, sectionY, chunk.chunkZ),
+                            )
+                        }
+                    }
+                    return visited
+                }
+
+                scheduleNextBatch = {
+                    instance.scheduleNextTick {
+                        if (result.isDone) return@scheduleNextTick
+                        if (closing.get()) {
+                            result.completeExceptionally(IllegalStateException("rollback service is closing"))
+                            return@scheduleNextTick
+                        }
+                        try {
+                            val tickStartedAt = System.nanoTime()
+                            val tickBudgetNanos =
+                                TimeUnit.MILLISECONDS.toNanos(Logger.config.chunkRestoreTickBudgetMillis.coerceAtLeast(1))
+                            var visited = 0
+                            while (index < mutations.size) {
+                                if (visited > 0 && System.nanoTime() - tickStartedAt >= tickBudgetNanos) break
+                                val mutation = mutations[index]
+                                val change = mutation.change
+                                val x = change.x ?: error("block x is missing")
+                                val y = change.y ?: error("block y is missing")
+                                val z = change.z ?: error("block z is missing")
+                                val current = instance.getBlock(x, y, z)
+                                if (current.compare(Block.BARREL) || mutation.target?.compare(Block.BARREL) == true) {
+                                    applyManagedTransition(mutation)
+                                    visited++
+                                    continue
+                                }
+                                val chunk =
+                                    instance.getChunk(x shr 4, z shr 4)
+                                        ?: error("chunk ${x shr 4},${z shr 4} unloaded during chunk restore")
+                                check(!chunk.isReadOnly) { "chunk ${chunk.chunkX},${chunk.chunkZ} is read-only" }
+                                val segmentVisited = applyChunkSegment(chunk, tickStartedAt, tickBudgetNanos)
+                                if (segmentVisited == 0) {
+                                    applyManagedTransition(mutation)
+                                    visited++
+                                } else {
+                                    visited += segmentVisited
+                                }
+                            }
+                            if (index == mutations.size) {
+                                result.complete(skipped)
+                            } else {
+                                scheduleNextBatch()
+                            }
+                        } catch (failure: Throwable) {
+                            result.completeExceptionally(failure)
+                        }
+                    }
+                }
+                scheduleNextBatch()
+            }
+        return result
+    }
+
     private fun isStorageWorldChangeFailure(failure: Throwable): Boolean {
         var current: Throwable? = failure
         while (current != null) {
@@ -837,6 +1160,7 @@ class RollbackService(
         changes: List<RollbackChange>,
         initialSkipped: Int,
         result: CompletableFuture<RollbackExecutionResult>,
+        timing: ChunkRestoreTiming?,
     ) {
         val worldChanges =
             changes.filter {
@@ -845,13 +1169,28 @@ class RollbackService(
         val inventoryChanges = changes.filter { it.changeKind == RollbackChangeKind.INVENTORY }
         val entityChanges = changes.filter { it.changeKind == RollbackChangeKind.ENTITY }
         val appliedWorld = mutableListOf<RollbackChange>()
-        applyWorldChanges(
-            instance,
-            worldChanges,
-            reverse = false,
-            tolerateUnlinkedBlockConflicts = true,
-            appliedWorld,
-        ).whenComplete { runtimeSkipped, worldFailure ->
+        val worldResult =
+            if (
+                plan.kind == RollbackOperationKind.CHUNK_RESTORE &&
+                worldChanges.all { it.changeKind == RollbackChangeKind.BLOCK }
+            ) {
+                applyChunkRestoreWorldChanges(
+                    instance,
+                    worldChanges,
+                    reverse = false,
+                    tolerateConflicts = true,
+                    appliedWorld,
+                )
+            } else {
+                applyWorldChanges(
+                    instance,
+                    worldChanges,
+                    reverse = false,
+                    tolerateUnlinkedBlockConflicts = true,
+                    appliedWorld,
+                )
+            }
+        worldResult.whenComplete { runtimeSkipped, worldFailure ->
             if (result.isDone) return@whenComplete
             if (worldFailure != null) {
                 finishApplyFailure(
@@ -904,11 +1243,13 @@ class RollbackService(
 
                     val applied = appliedWorld + appliedInventory + appliedEntities
                     val rolledBack = plan.kind == RollbackOperationKind.ROLLBACK
+                    timing?.applied()
                     Logger.rollback
                         .completeOperationAsync(operationId, applied, rolledBack, skipped)
                         .whenComplete { _, failure ->
                             if (result.isDone) return@whenComplete
                             if (failure == null) {
+                                timing?.completed(operationId, applied.size, skipped)
                                 result.complete(RollbackExecutionResult(plan.kind, operationId, applied.size, skipped))
                             } else {
                                 val compensation =
@@ -1045,13 +1386,28 @@ class RollbackService(
         val inventoryChanges = changes.filter { it.changeKind == RollbackChangeKind.INVENTORY }
         val entityChanges = changes.filter { it.changeKind == RollbackChangeKind.ENTITY }
         val appliedWorld = mutableListOf<RollbackChange>()
-        applyWorldChanges(
-            instance,
-            worldChanges,
-            reverse = undo,
-            tolerateUnlinkedBlockConflicts = false,
-            appliedWorld,
-        ).whenComplete { _, worldFailure ->
+        val worldResult =
+            if (
+                operation.kind == RollbackOperationKind.CHUNK_RESTORE &&
+                worldChanges.all { it.changeKind == RollbackChangeKind.BLOCK }
+            ) {
+                applyChunkRestoreWorldChanges(
+                    instance,
+                    worldChanges,
+                    reverse = undo,
+                    tolerateConflicts = false,
+                    appliedWorld,
+                )
+            } else {
+                applyWorldChanges(
+                    instance,
+                    worldChanges,
+                    reverse = undo,
+                    tolerateUnlinkedBlockConflicts = false,
+                    appliedWorld,
+                )
+            }
+        worldResult.whenComplete { _, worldFailure ->
             if (result.isDone) return@whenComplete
             if (worldFailure != null) {
                 finishReplayFailure(

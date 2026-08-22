@@ -11,12 +11,20 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.Semaphore
+import java.util.concurrent.TimeUnit
 
 class OriginalChunkService(
     originalWorldPath: Path,
     private val executor: ExecutorService = Executors.newVirtualThreadPerTaskExecutor(),
+    parallelism: Int = minOf(Runtime.getRuntime().availableProcessors(), MAX_PARALLEL_CHUNK_READS).coerceAtLeast(1),
 ) : AutoCloseable {
     private val originalWorldPath = originalWorldPath.toAbsolutePath().normalize()
+    private val chunkReadPermits = Semaphore(parallelism)
+
+    init {
+        require(parallelism > 0) { "chunk restore parallelism must be positive" }
+    }
 
     fun computePlanAsync(
         instance: Instance,
@@ -37,35 +45,56 @@ class OriginalChunkService(
             )
         }
 
-        return CompletableFuture.supplyAsync({
-            val loader = AnvilLoader(originalWorldPath, DimensionType.OVERWORLD.key())
-            val timestamp = System.currentTimeMillis()
-            val changes = mutableListOf<BlockChangePlan>()
-            for (chunkZ in centerChunkZ - radius..centerChunkZ + radius) {
-                for (chunkX in centerChunkX - radius..centerChunkX + radius) {
-                    val originalChunk =
-                        loader.loadChunk(instance, chunkX, chunkZ)
-                            ?: throw IllegalArgumentException("chunk $chunkX,$chunkZ is absent from $originalWorldPath")
+        val startedAt = System.nanoTime()
+        val timestamp = System.currentTimeMillis()
+        val coordinates =
+            (centerChunkZ - radius..centerChunkZ + radius).flatMap { chunkZ ->
+                (centerChunkX - radius..centerChunkX + radius).map { chunkX -> chunkX to chunkZ }
+            }
+        val chunkPlans =
+            coordinates.map { (chunkX, chunkZ) ->
+                CompletableFuture.supplyAsync({
+                    chunkReadPermits.acquire()
                     try {
-                        val liveChunk = instance.loadChunk(chunkX, chunkZ).join()
-                        changes += compileChanges(liveChunk, originalChunk, timestamp)
+                        val loader = AnvilLoader(originalWorldPath, DimensionType.OVERWORLD.key())
+                        val originalChunk =
+                            loader.loadChunk(instance, chunkX, chunkZ)
+                                ?: throw IllegalArgumentException("chunk $chunkX,$chunkZ is absent from $originalWorldPath")
+                        try {
+                            val liveChunk = instance.loadChunk(chunkX, chunkZ).join()
+                            compileChanges(liveChunk, originalChunk, timestamp)
+                        } finally {
+                            loader.unloadChunk(originalChunk)
+                        }
                     } finally {
-                        loader.unloadChunk(originalChunk)
+                        chunkReadPermits.release()
                     }
+                }, executor)
+            }
+        return CompletableFuture
+            .allOf(*chunkPlans.toTypedArray())
+            .thenApply {
+                RollbackPlan(
+                    kind = RollbackOperationKind.CHUNK_RESTORE,
+                    instanceUuid = instance.uuid,
+                    targetTs = timestamp,
+                    queryDesc =
+                        "original chunks within radius $radius of $centerChunkX,$centerChunkZ from $originalWorldPath",
+                    safeMode = true,
+                    blockChanges = chunkPlans.flatMap(CompletableFuture<List<BlockChangePlan>>::join),
+                    skippedBlockCount = 0,
+                )
+            }.whenComplete { plan, failure ->
+                val elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+                if (failure == null) {
+                    println(
+                        "[Logger] Chunk restore preview scanned ${coordinates.size} chunk(s), " +
+                            "found ${plan.totalChangeCount} change(s) in ${elapsedMillis}ms",
+                    )
+                } else {
+                    println("[Logger] Chunk restore preview failed after ${elapsedMillis}ms: $failure")
                 }
             }
-
-            RollbackPlan(
-                kind = RollbackOperationKind.CHUNK_RESTORE,
-                instanceUuid = instance.uuid,
-                targetTs = timestamp,
-                queryDesc =
-                    "original chunks within radius $radius of $centerChunkX,$centerChunkZ from $originalWorldPath",
-                safeMode = true,
-                blockChanges = changes,
-                skippedBlockCount = 0,
-            )
-        }, executor)
     }
 
     private fun compileChanges(
@@ -128,5 +157,9 @@ class OriginalChunkService(
 
     override fun close() {
         executor.close()
+    }
+
+    private companion object {
+        const val MAX_PARALLEL_CHUNK_READS = 8
     }
 }
