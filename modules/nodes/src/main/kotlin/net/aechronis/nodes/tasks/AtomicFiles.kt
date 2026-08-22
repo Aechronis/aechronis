@@ -4,6 +4,7 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.PosixFileAttributeView
 
 internal object AtomicFiles {
     fun writeString(
@@ -40,6 +41,7 @@ internal object AtomicFiles {
         temporary: Path,
         target: Path,
     ) {
+        preservePermissions(target, temporary)
         try {
             Files.move(
                 temporary,
@@ -50,5 +52,16 @@ internal object AtomicFiles {
         } catch (_: AtomicMoveNotSupportedException) {
             Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING)
         }
+    }
+
+    private fun preservePermissions(
+        source: Path,
+        target: Path,
+    ) {
+        if (!Files.exists(source)) return
+
+        val sourceAttributes = Files.getFileAttributeView(source, PosixFileAttributeView::class.java) ?: return
+        val targetAttributes = Files.getFileAttributeView(target, PosixFileAttributeView::class.java) ?: return
+        targetAttributes.setPermissions(sourceAttributes.readAttributes().permissions())
     }
 }
