@@ -69,6 +69,21 @@ object Tools {
             addAll(tools(setOf(Material.COBBLESTONE), stoneTools))
             addAll(tools(setOf(Material.IRON_INGOT), diamondTools))
             addAll(tools(setOf(Material.DIAMOND_BLOCK), diamondTools, memeEnchantments))
+            add(
+                Shaped(
+                    3,
+                    2,
+                    arrayOf(
+                        RecipesIngredient.of(Material.IRON_INGOT)!!,
+                        RecipesIngredient.of(Material.IRON_INGOT)!!,
+                        RecipesIngredient.of(Material.IRON_INGOT)!!,
+                        null,
+                        RecipesIngredient.of(Material.REDSTONE)!!,
+                        null,
+                    ),
+                    ItemStack.of(Material.BUNDLE),
+                ),
+            )
         }
 
     private fun tools(
