@@ -13,4 +13,5 @@ data class LoggerConfig(
     val rollbackBatchSize: Int = 500,
     val inventoryChangeTableName: String = "inventory_change",
     val entityChangeTableName: String = "entity_change",
+    val originalWorldPath: String = "logger/original",
 )

@@ -9,7 +9,7 @@ class LoggerCommand : Command("logger", "logger", "lo") {
         setDefaultExecutor { sender, _ ->
             sender.sendMessage(
                 Component.text(
-                    "Usage: /logger inspect | lookup | snapshot | rollback | restore | undo | redo | safety | recover",
+                    "Usage: /logger inspect | lookup | snapshot | rollback | restore | restorechunk | undo | redo | safety | recover",
                     NamedTextColor.GOLD,
                 ),
             )
@@ -20,6 +20,7 @@ class LoggerCommand : Command("logger", "logger", "lo") {
         addSubcommand(Snapshot())
         addSubcommand(Rollback())
         addSubcommand(Restore())
+        addSubcommand(RestoreChunk())
         addSubcommand(Undo())
         addSubcommand(Redo())
         addSubcommand(Safety())

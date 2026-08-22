@@ -11,6 +11,7 @@ import net.aechronis.logger.listeners.InventorySnapshotListener
 import net.aechronis.logger.listeners.LootListener
 import net.aechronis.logger.listeners.WorldEditListener
 import net.aechronis.logger.objects.FeatureLogEntry
+import net.aechronis.logger.objects.OriginalChunkService
 import net.aechronis.logger.objects.PendingRollbackRegistry
 import net.aechronis.logger.objects.RollbackSafety
 import net.aechronis.logger.objects.RollbackService
@@ -27,6 +28,7 @@ import net.aechronis.logger.repos.StorageChange
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerDisconnectEvent
+import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 
 object Logger {
@@ -38,6 +40,7 @@ object Logger {
     lateinit var inventoryChange: InventoryChange
     lateinit var entityChange: EntityChange
     lateinit var rollbackService: RollbackService
+    lateinit var originalChunkService: OriginalChunkService
     lateinit var config: LoggerConfig
 
     private lateinit var database: Database
@@ -75,6 +78,7 @@ object Logger {
         inventoryChange = InventoryChange(database)
         entityChange = EntityChange(database)
         rollbackService = RollbackService()
+        originalChunkService = OriginalChunkService(Path.of(config.originalWorldPath))
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         BlockListener.init()
@@ -129,6 +133,7 @@ object Logger {
         var failure: Exception? = null
         val resources =
             listOf(
+                originalChunkService,
                 rollbackService,
                 repository,
                 featureLog,

@@ -70,6 +70,48 @@ fun showRollbackPreview(
     }
 }
 
+fun showChunkRestorePreview(
+    player: Player,
+    plan: RollbackPlan,
+    token: String,
+    centerChunkX: Int,
+    centerChunkZ: Int,
+    radius: Int,
+) {
+    val lines =
+        plan.blockChanges
+            .take(CHUNK_PREVIEW_LIMIT)
+            .map(::blockChangeLine)
+            .toMutableList()
+    val omitted = plan.blockChanges.size - lines.size
+    if (omitted > 0) {
+        lines += Component.text("  ...and $omitted more block changes", NamedTextColor.DARK_GRAY)
+    }
+    val title =
+        if (radius == 0) {
+            "Restore original chunk $centerChunkX,$centerChunkZ: ${plan.totalChangeCount} changes"
+        } else {
+            val chunkCount = (radius * 2 + 1) * (radius * 2 + 1)
+            "Restore $chunkCount original chunks around $centerChunkX,$centerChunkZ: ${plan.totalChangeCount} changes"
+        }
+    Pages.send(player, title, lines)
+    player.sendMessage(
+        Component
+            .text("[Confirm Chunk Restore]", NamedTextColor.RED)
+            .hoverEvent(HoverEvent.showText(Component.text("Replace the selected chunks with blocks from logger/original.")))
+            .clickEvent(ClickEvent.runCommand("/logger restorechunk confirm:$token"))
+            .append(Component.text("  "))
+            .append(
+                Component
+                    .text("[Cancel]", NamedTextColor.GRAY)
+                    .hoverEvent(HoverEvent.showText(Component.text("Discard this preview without applying it.")))
+                    .clickEvent(ClickEvent.runCommand("/logger restorechunk cancel:$token")),
+            ),
+    )
+}
+
+private const val CHUNK_PREVIEW_LIMIT = 200
+
 private fun blockChangeLine(change: BlockChangePlan): Component =
     Component
         .text("  block @ ${change.x},${change.y},${change.z} -> ", NamedTextColor.GRAY)

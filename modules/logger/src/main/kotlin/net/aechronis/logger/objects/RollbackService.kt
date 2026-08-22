@@ -56,7 +56,7 @@ private data class BlockCandidate(
     val plan: BlockChangePlan,
 ) : WorldChangeCandidate {
     override val timestamp: Long = plan.timestamp
-    override val historyId: Long = plan.blockLogId
+    override val historyId: Long = plan.blockLogId ?: 0
 }
 
 private data class StorageCandidate(
@@ -125,6 +125,10 @@ class RollbackService(
                             center.blockY(),
                             center.blockZ(),
                         )
+                    }
+
+                    RollbackOperationKind.CHUNK_RESTORE -> {
+                        error("unreachable")
                     }
 
                     RollbackOperationKind.LEGACY -> {
@@ -433,9 +437,24 @@ class RollbackService(
                         continue
                     }
                     val current = simulated[position] ?: instance.getBlock(position.x, position.y, position.z)
-                    val expected = block(value.expectedState, value.expectedMaterialKey, value.expectedNbt)
-                    val target = block(value.targetState, value.targetMaterialKey, value.targetNbt)
-                    if (target == null || (plan.safeMode && (expected == null || !sameBlock(current, expected)))) {
+                    val expected =
+                        block(
+                            value.expectedState,
+                            value.expectedMaterialKey,
+                            value.expectedNbt,
+                            value.expectedHandlerKey,
+                        )
+                    val target =
+                        block(
+                            value.targetState,
+                            value.targetMaterialKey,
+                            value.targetNbt,
+                            value.targetHandlerKey,
+                        )
+                    if (
+                        target == null ||
+                        (plan.safeMode && (expected == null || !sameBlock(current, expected, value.expectedHandlerKey)))
+                    ) {
                         invalidPositions += position
                         prepared += PreparedWorldCandidate(position, null)
                         continue
@@ -453,8 +472,10 @@ class RollbackService(
                                 z = value.z,
                                 beforeBlockState = current.state(),
                                 beforeBlockNbt = ItemCodec.encodeBlockNbt(current.nbt()),
+                                beforeBlockHandler = current.handler()?.key?.asString(),
                                 afterBlockState = target.state(),
                                 afterBlockNbt = ItemCodec.encodeBlockNbt(target.nbt()),
+                                afterBlockHandler = target.handler()?.key?.asString(),
                             ),
                         )
                     simulated[position] = target
@@ -720,11 +741,16 @@ class RollbackService(
                         }
                         val expectedState = if (reverse) change.afterBlockState else change.beforeBlockState
                         val expectedNbt = if (reverse) change.afterBlockNbt else change.beforeBlockNbt
+                        val expectedHandler = if (reverse) change.afterBlockHandler else change.beforeBlockHandler
                         val targetState = if (reverse) change.beforeBlockState else change.afterBlockState
                         val targetNbt = if (reverse) change.beforeBlockNbt else change.afterBlockNbt
-                        val expected = block(expectedState, null, expectedNbt)
-                        val target = block(targetState, null, targetNbt)
-                        val matches = expected != null && target != null && sameBlock(instance.getBlock(x, y, z), expected)
+                        val targetHandler = if (reverse) change.beforeBlockHandler else change.afterBlockHandler
+                        val expected = block(expectedState, null, expectedNbt, expectedHandler)
+                        val target = block(targetState, null, targetNbt, targetHandler)
+                        val matches =
+                            expected != null &&
+                                target != null &&
+                                sameBlock(instance.getBlock(x, y, z), expected, expectedHandler)
                         if (!matches) {
                             if (!tolerateUnlinkedBlockConflicts || position in linkedPositions) {
                                 error("block at $x,$y,$z changed after preview")
@@ -1427,15 +1453,24 @@ class RollbackService(
         state: String?,
         materialKey: String?,
         nbt: ByteArray?,
+        handlerKey: String? = null,
     ): Block? {
         val base = state?.let(Block::fromState) ?: materialKey?.let(Block::fromKey) ?: return null
-        return base.withNbt(ItemCodec.decodeBlockNbt(nbt))
+        val withNbt = base.withNbt(ItemCodec.decodeBlockNbt(nbt))
+        return handlerKey
+            ?.let { MinecraftServer.getBlockManager().getHandlerOrDummy(it) }
+            ?.let(withNbt::withHandler)
+            ?: withNbt
     }
 
     private fun sameBlock(
         first: Block,
         second: Block,
-    ): Boolean = first.state() == second.state() && first.nbt() == second.nbt()
+        handlerKey: String? = null,
+    ): Boolean =
+        first.state() == second.state() &&
+            first.nbt() == second.nbt() &&
+            (handlerKey == null || first.handler()?.key?.asString() == handlerKey)
 
     private fun trackOperation(
         result: CompletableFuture<*>,

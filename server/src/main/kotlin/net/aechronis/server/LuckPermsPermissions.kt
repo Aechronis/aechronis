@@ -22,6 +22,7 @@ object LuckPermsPermissions {
             "logger",
             "logger.redo",
             "logger.restore",
+            "logger.restorechunk",
             "logger.rollback",
             "logger.rollback.confirm",
             "logger.rollback.force",

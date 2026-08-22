@@ -102,8 +102,9 @@ class Rollback(
                       storage_source, storage_id, storage_action, item_data, amount, storage_slot,
                      inventory_player_uuid, inventory_slot, before_item_data, after_item_data,
                      entity_uuid, entity_type, entity_action, entity_x, entity_y, entity_z, entity_yaw, entity_pitch,
-                      entity_velocity_x, entity_velocity_y, entity_velocity_z, entity_tag_data)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      entity_velocity_x, entity_velocity_y, entity_velocity_z, entity_tag_data,
+                      before_block_handler, after_block_handler)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
             ).use { statement ->
                 for (change in changes) {
@@ -144,6 +145,8 @@ class Rollback(
                     statement.setObject(35, change.entityVelocity?.y())
                     statement.setObject(36, change.entityVelocity?.z())
                     statement.setNullableBytes(37, change.entityTagData)
+                    statement.setNullableString(38, change.beforeBlockHandler)
+                    statement.setNullableString(39, change.afterBlockHandler)
                     statement.addBatch()
                 }
                 statement.executeBatch()
@@ -501,8 +504,10 @@ class Rollback(
             z = results.getNullableInt("z"),
             beforeBlockState = results.getString("before_block_state"),
             beforeBlockNbt = results.getBytes("before_block_nbt"),
+            beforeBlockHandler = results.getString("before_block_handler"),
             afterBlockState = results.getString("after_block_state"),
             afterBlockNbt = results.getBytes("after_block_nbt"),
+            afterBlockHandler = results.getString("after_block_handler"),
             storageSource = results.getString("storage_source"),
             storageId = results.getString("storage_id"),
             storageAction = results.getString("storage_action")?.let(StorageChangeAction::fromValue),
@@ -573,6 +578,7 @@ class Rollback(
                 "storage_source, storage_id, storage_action, item_data, amount, storage_slot, " +
                 "inventory_player_uuid, inventory_slot, before_item_data, after_item_data, " +
                 "entity_uuid, entity_type, entity_action, entity_x, entity_y, entity_z, entity_yaw, entity_pitch, " +
-                "entity_velocity_x, entity_velocity_y, entity_velocity_z, entity_tag_data"
+                "entity_velocity_x, entity_velocity_y, entity_velocity_z, entity_tag_data, " +
+                "before_block_handler, after_block_handler"
     }
 }

@@ -316,8 +316,10 @@ class Database(
                 z INTEGER,
                 before_block_state VARCHAR,
                 before_block_nbt BLOB,
+                before_block_handler VARCHAR,
                 after_block_state VARCHAR,
                 after_block_nbt BLOB,
+                after_block_handler VARCHAR,
                 storage_source VARCHAR,
                 storage_id VARCHAR,
                 storage_action VARCHAR,
@@ -378,6 +380,8 @@ class Database(
                 stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_velocity_y DOUBLE PRECISION")
                 stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_velocity_z DOUBLE PRECISION")
                 stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_tag_data BLOB")
+                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS before_block_handler VARCHAR")
+                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS after_block_handler VARCHAR")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_rollback_actor ON rollback_operation (actor_uuid, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_rollback_change_op ON rollback_change (operation_id)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_rollback_change_log ON rollback_change (block_log_id)")

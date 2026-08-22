@@ -8,6 +8,7 @@ enum class RollbackOperationKind(
 ) {
     ROLLBACK("rollback"),
     RESTORE("restore"),
+    CHUNK_RESTORE("chunk_restore"),
     SNAPSHOT("snapshot"),
     LEGACY("legacy"),
     ;
@@ -18,7 +19,7 @@ enum class RollbackOperationKind(
 }
 
 data class BlockChangePlan(
-    val blockLogId: Long,
+    val blockLogId: Long?,
     val timestamp: Long,
     val x: Int,
     val y: Int,
@@ -29,6 +30,8 @@ data class BlockChangePlan(
     val targetState: String?,
     val targetMaterialKey: String,
     val targetNbt: ByteArray?,
+    val expectedHandlerKey: String? = null,
+    val targetHandlerKey: String? = null,
 )
 
 enum class RollbackDomain {
@@ -152,8 +155,10 @@ data class RollbackChange(
     val z: Int? = null,
     val beforeBlockState: String? = null,
     val beforeBlockNbt: ByteArray? = null,
+    val beforeBlockHandler: String? = null,
     val afterBlockState: String? = null,
     val afterBlockNbt: ByteArray? = null,
+    val afterBlockHandler: String? = null,
     val storageSource: String? = null,
     val storageId: String? = null,
     val storageAction: StorageChangeAction? = null,
