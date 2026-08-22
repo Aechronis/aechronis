@@ -10,6 +10,7 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.CompletableFuture
 
 fun show(
     player: Player,
@@ -17,17 +18,36 @@ fun show(
     y: Int,
     z: Int,
 ) {
-    Logger.repository
-        .lookupAsync(x, y, z, 200)
-        .whenComplete { entries, exception ->
+    val blockFuture = Logger.repository.lookupAsync(x, y, z, INSPECT_LIMIT)
+    val storageFuture: CompletableFuture<List<StorageChange>> =
+        player.instance?.let { instance ->
+            Logger.storageChange.lookupAsync(VanillaStorage.storageId(instance.uuid, x, y, z), INSPECT_LIMIT)
+        } ?: CompletableFuture.completedFuture(emptyList())
+
+    blockFuture
+        .thenCombine(storageFuture) { blockEntries, storageEntries ->
+            val blockLines = blockEntries.map { InspectLine(it.timestamp, line(it)) }
+            val storageLines = storageEntries.map { InspectLine(it.timestamp, storageLine(it)) }
+            (blockLines + storageLines)
+                .sortedByDescending(InspectLine::timestamp)
+                .take(INSPECT_LIMIT)
+                .map(InspectLine::component)
+        }.whenComplete { lines, exception ->
             if (exception != null) {
                 println("inspect lookup failed: $exception")
                 player.sendMessage(Component.text("[Logger] lookup failed", NamedTextColor.RED))
                 return@whenComplete
             }
-            Pages.send(player, "$x,$y,$z", entries.map { line(it) })
+            Pages.send(player, "$x,$y,$z", lines)
         }
 }
+
+private const val INSPECT_LIMIT = 200
+
+private data class InspectLine(
+    val timestamp: Long,
+    val component: Component,
+)
 
 fun showLookup(
     player: Player,

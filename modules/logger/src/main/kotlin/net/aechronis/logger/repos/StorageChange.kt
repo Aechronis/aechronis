@@ -3,6 +3,7 @@ package net.aechronis.logger.repos
 import net.aechronis.logger.db.Database
 import net.aechronis.logger.objects.StorageChange
 import net.aechronis.logger.objects.StorageChangeAction
+import net.aechronis.logger.objects.VanillaStorage
 import net.aechronis.logger.params.LookupParams
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
@@ -214,6 +215,132 @@ class StorageChange(
             }
             rows
         }, executor)
+
+    fun lookupAsync(
+        storageId: String,
+        limit: Int = 200,
+    ): CompletableFuture<List<StorageChange>> {
+        require(limit > 0) { "storage lookup limit must be positive" }
+        return flushAsync().thenApplyAsync({
+            val rows = mutableListOf<StorageChange>()
+            database.dataSource.connection.use { connection ->
+                connection
+                    .prepareStatement(
+                        "SELECT $selectColumns FROM \"$table\" WHERE storage_id = ? ORDER BY ts DESC, id DESC LIMIT ?",
+                    ).use { statement ->
+                        statement.setString(1, storageId)
+                        statement.setInt(2, limit)
+                        statement.executeQuery().use { results ->
+                            while (results.next()) rows += mapRow(results)
+                        }
+                    }
+            }
+            rows
+        }, executor)
+    }
+
+    fun searchAsync(
+        params: LookupParams,
+        actions: Set<StorageChangeAction>,
+        centerX: Int,
+        centerY: Int,
+        centerZ: Int,
+        limit: Int = 200,
+    ): CompletableFuture<List<StorageChange>> {
+        require(limit > 0) { "storage lookup limit must be positive" }
+        return flushAsync().thenApplyAsync({
+            val sql = StringBuilder("SELECT $selectColumns FROM \"$table\" WHERE 1=1")
+            val args = mutableListOf<Any>()
+            if (params.users.isNotEmpty()) {
+                sql.append(" AND LOWER(player_name) IN (${placeholders(params.users.size)})")
+                params.users.forEach { args += it.lowercase() }
+            }
+            params.source?.let {
+                sql.append(" AND LOWER(source) = ?")
+                args += it.lowercase()
+            }
+            params.origin?.let {
+                sql.append(" AND LOWER(origin) = ?")
+                args += it.lowercase()
+            }
+            params.since?.let {
+                sql.append(" AND ts >= ?")
+                args += it
+            }
+            params.until?.let {
+                sql.append(" AND ts <= ?")
+                args += it
+            }
+            sql.append(" AND action IN (${placeholders(actions.size)})")
+            actions.forEach { action -> args += action.value }
+            sql.append(" ORDER BY ts DESC, id DESC")
+
+            val pageSize = minOf(limit, 512)
+            val rows = mutableListOf<StorageChange>()
+            var offset = 0
+            database.dataSource.connection.use { connection ->
+                connection.transactionIsolation = Connection.TRANSACTION_REPEATABLE_READ
+                connection.autoCommit = false
+                while (rows.size < limit) {
+                    var fetched = 0
+                    connection.prepareStatement("$sql LIMIT ? OFFSET ?").use { statement ->
+                        statement.bindAll(args + pageSize + offset)
+                        statement.executeQuery().use { results ->
+                            while (results.next()) {
+                                fetched++
+                                val change = mapRow(results)
+                                if (matchesLookup(change, params, centerX, centerY, centerZ)) {
+                                    rows += change
+                                    if (rows.size == limit) break
+                                }
+                            }
+                        }
+                    }
+                    if (fetched < pageSize) break
+                    offset += fetched
+                }
+                connection.commit()
+            }
+            rows
+        }, executor)
+    }
+
+    private fun matchesLookup(
+        change: StorageChange,
+        params: LookupParams,
+        centerX: Int,
+        centerY: Int,
+        centerZ: Int,
+    ): Boolean {
+        val itemKey =
+            change.item
+                .material()
+                .key()
+                .asString()
+        if (params.include.isNotEmpty() && itemKey !in params.include) return false
+        if (itemKey in params.exclude) return false
+
+        if (params.radius == null && params.chunkRadius == null) return true
+        val location = VanillaStorage.parseStorageId(change.storageId) ?: return false
+        params.radius?.let { radius ->
+            if (
+                location.second !in centerX - radius..centerX + radius ||
+                location.third !in centerY - radius..centerY + radius ||
+                location.fourth !in centerZ - radius..centerZ + radius
+            ) {
+                return false
+            }
+        }
+        params.chunkRadius?.let { chunkRadius ->
+            val expand = chunkRadius - 1
+            val minX = ((centerX shr 4) - expand) shl 4
+            val maxX = (((centerX shr 4) + expand) shl 4) + 15
+            val minZ = ((centerZ shr 4) - expand) shl 4
+            val maxZ = (((centerZ shr 4) + expand) shl 4) + 15
+            if (location.second !in minX..maxX || location.fourth !in minZ..maxZ) return false
+        }
+        return true
+    }
 
     private fun mapRow(results: ResultSet): StorageChange =
         StorageChange(

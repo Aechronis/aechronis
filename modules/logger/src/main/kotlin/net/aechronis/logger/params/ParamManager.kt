@@ -1,6 +1,7 @@
 package net.aechronis.logger.params
 
 import net.aechronis.logger.objects.BlockAction
+import net.aechronis.logger.objects.StorageChangeAction
 
 sealed interface ParseResult {
     data class Ok(
@@ -119,6 +120,31 @@ object ParamManager {
             return ParseResult.Err("Invalid action: ''")
         }
 
+        val mappedStorageActions = actionTokens.map(::mapStorageAction)
+        if (mappedStorageActions.any { it != null }) {
+            if (mappedStorageActions.any { it == null }) {
+                return ParseResult.Err("Container actions cannot be combined with other action types")
+            }
+            return ParseResult.Ok(
+                LookupQuery.Storage(
+                    params =
+                        LookupParams(
+                            users = users,
+                            since = since,
+                            until = until,
+                            radius = radius,
+                            chunkRadius = chunkRadius,
+                            include = include,
+                            exclude = exclude,
+                            source = context,
+                            origin = origin,
+                            global = global,
+                        ),
+                    actions = mappedStorageActions.filterNotNull().flatten().toSet(),
+                ),
+            )
+        }
+
         var actions: MutableSet<BlockAction>? = null
         for (actionToken in actionTokens) {
             val mapped = mapAction(actionToken) ?: return ParseResult.Err("Invalid action: '$actionToken'")
@@ -153,6 +179,14 @@ object ParamManager {
             "place" -> setOf(BlockAction.PLACE)
             "interact", "use" -> setOf(BlockAction.INTERACT)
             "block" -> setOf(BlockAction.BREAK, BlockAction.PLACE)
+            else -> null
+        }
+
+    private fun mapStorageAction(value: String): Set<StorageChangeAction>? =
+        when (value.lowercase()) {
+            "container", "storage", "item" -> StorageChangeAction.entries.toSet()
+            "+container", "+storage", "deposit" -> setOf(StorageChangeAction.DEPOSIT)
+            "-container", "-storage", "withdraw" -> setOf(StorageChangeAction.WITHDRAW)
             else -> null
         }
 

@@ -3,6 +3,7 @@ package net.aechronis.logger.commands
 import net.aechronis.logger.Logger
 import net.aechronis.logger.objects.showFeatureLookup
 import net.aechronis.logger.objects.showLookup
+import net.aechronis.logger.objects.showStorageLookup
 import net.aechronis.logger.params.LookupQuery
 import net.aechronis.logger.params.LookupSuggestions
 import net.aechronis.logger.params.ParamManager
@@ -56,6 +57,24 @@ class LoggerLookupCommand : Command("lookup", "logger", "l") {
                                         showFeatureLookup(sender, entries, query.params.human())
                                     } else {
                                         println("lookup failed: $failure")
+                                        sender.sendMessage(Component.text("[Logger] lookup failed", NamedTextColor.RED))
+                                    }
+                                }
+                        }
+
+                        is LookupQuery.Storage -> {
+                            Logger.storageChange
+                                .searchAsync(
+                                    query.params,
+                                    query.actions,
+                                    position.blockX(),
+                                    position.blockY(),
+                                    position.blockZ(),
+                                ).whenComplete { entries, failure ->
+                                    if (failure == null) {
+                                        showStorageLookup(sender, entries, query.human())
+                                    } else {
+                                        println("storage lookup failed: $failure")
                                         sender.sendMessage(Component.text("[Logger] lookup failed", NamedTextColor.RED))
                                     }
                                 }

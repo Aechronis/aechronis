@@ -82,7 +82,14 @@ object VanillaStorage {
         }
     }
 
-    fun storageId(key: BlockKey): String = "${key.instance.uuid}:${key.pos.blockX()}:${key.pos.blockY()}:${key.pos.blockZ()}"
+    fun storageId(key: BlockKey): String = storageId(key.instance.uuid, key.pos.blockX(), key.pos.blockY(), key.pos.blockZ())
+
+    internal fun storageId(
+        instanceUuid: UUID,
+        x: Int,
+        y: Int,
+        z: Int,
+    ): String = "$instanceUuid:$x:$y:$z"
 
     internal fun snapshotBlock(
         instance: Instance,
