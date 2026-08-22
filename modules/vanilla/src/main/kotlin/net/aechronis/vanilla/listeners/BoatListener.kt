@@ -11,6 +11,7 @@ import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.event.entity.EntityAttackEvent
 import net.minestom.server.event.player.PlayerEntityInteractEvent
+import net.minestom.server.event.player.PlayerInputEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
@@ -119,6 +120,16 @@ object BoatListener {
         }
     }
 
+    fun onInput(event: PlayerInputEvent) {
+        if (!event.hasPressedShiftKey()) return
+
+        val player = event.player
+        val boat = player.vehicle ?: return
+        if (boat.entityType !in boatEntityTypes) return
+
+        boat.removePassenger(player)
+    }
+
     internal fun entityType(material: Material): EntityType? = boatTypes[material]
 
     internal fun findWaterPlacementPosition(
@@ -174,5 +185,6 @@ object BoatListener {
         Vanilla.eventNode.addListener(PlayerUseItemEvent::class.java, BoatListener::onUseItem)
         Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, BoatListener::onInteract)
         Vanilla.eventNode.addListener(EntityAttackEvent::class.java, BoatListener::onAttack)
+        Vanilla.eventNode.addListener(PlayerInputEvent::class.java, BoatListener::onInput)
     }
 }
