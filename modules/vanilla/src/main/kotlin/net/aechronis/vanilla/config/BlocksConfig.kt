@@ -106,6 +106,8 @@ data class BlocksConfig(
             Material.STONE to listOf(ItemStack.of(Material.COBBLESTONE)),
             Material.DEEPSLATE to listOf(ItemStack.of(Material.COBBLED_DEEPSLATE)),
             Material.GRASS_BLOCK to listOf(ItemStack.of(Material.DIRT)),
+            Material.SHORT_GRASS to listOf(ItemStack.of(Material.WHEAT_SEEDS)),
+            Material.TALL_GRASS to listOf(ItemStack.of(Material.WHEAT_SEEDS)),
             Material.GLOWSTONE to listOf(ItemStack.of(Material.GLOWSTONE_DUST, 3)),
             Material.SEA_LANTERN to listOf(ItemStack.of(Material.PRISMARINE_CRYSTALS, 3)),
             Material.AMETHYST_CLUSTER to listOf(ItemStack.of(Material.AMETHYST_SHARD, 4)),
