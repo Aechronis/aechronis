@@ -1,6 +1,7 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
+import net.aechronis.vanilla.listeners.FallDamageListener
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
@@ -60,6 +61,7 @@ object Elevator {
         if (instance.getBlock(bx, targetY + 1, bz, TYPE)?.isAir == true &&
             instance.getBlock(bx, targetY + 2, bz, TYPE)?.isAir == true
         ) {
+            FallDamageListener.reset(player)
             player.teleport(Pos(pos.x(), (targetY + 1).toDouble(), pos.z(), pos.yaw(), pos.pitch()))
         }
     }
