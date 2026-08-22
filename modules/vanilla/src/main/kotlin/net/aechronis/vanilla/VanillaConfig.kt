@@ -98,7 +98,7 @@ data class VanillaConfig(
         listOf(
             "Map" to "https://map.aechronis.net",
             "Website" to "https://aechronis.net",
-            "Discord" to "https://discord.aechronis.net",
+            "Discord" to "https://discord.gg/aechronis",
             "Store" to "https://shop.aechronis.net",
         ),
     // Combat
