@@ -52,15 +52,17 @@ object TreeFeller {
             BlockTags.PALE_OAK_LOGS to Material.PALE_OAK_SAPLING,
         )
 
-    private val ORTHOGONAL =
-        listOf(
-            Triple(1, 0, 0),
-            Triple(-1, 0, 0),
-            Triple(0, 1, 0),
-            Triple(0, -1, 0),
-            Triple(0, 0, 1),
-            Triple(0, 0, -1),
-        )
+    private val ADJACENT_OFFSETS =
+        buildList {
+            for (dx in -1..1) {
+                for (dy in -1..1) {
+                    for (dz in -1..1) {
+                        if (dx == 0 && dy == 0 && dz == 0) continue
+                        add(Triple(dx, dy, dz))
+                    }
+                }
+            }
+        }
 
     fun isLog(block: Block) = blockIsInTag(block, BlockTags.LOGS) || blockIsInTag(block, BlockTags.BAMBOO_BLOCKS)
 
@@ -82,19 +84,25 @@ object TreeFeller {
         logBlock: Block,
     ): Boolean {
         if (!isLog(logBlock)) return false
-        val maxHeight = Vanilla.config.treeFellerMaxHeight
-        val x = origin.blockX()
-        val z = origin.blockZ()
-        var y = origin.blockY()
-        var scanned = 0
-        while (scanned++ < maxHeight) {
-            for (dx in -1..1) {
-                for (dz in -1..1) {
-                    if (isLeaf(instance.getBlock(x + dx, y, z + dz))) return true
+        val maxDistance = Vanilla.config.treeFellerMaxHeight.coerceAtLeast(0)
+        val maxSize = Vanilla.config.treeFellerMaxSize.coerceAtLeast(1)
+        val originPosition = Triple(origin.blockX(), origin.blockY(), origin.blockZ())
+        val visited = hashSetOf(originPosition)
+        val queue = ArrayDeque<Pair<Triple<Int, Int, Int>, Int>>()
+        queue.add(originPosition to 0)
+
+        while (queue.isNotEmpty()) {
+            val (position, distance) = queue.removeFirst()
+            val (x, y, z) = position
+            for ((dx, dy, dz) in ADJACENT_OFFSETS) {
+                val adjacent = Triple(x + dx, y + dy, z + dz)
+                val adjacentBlock = instance.getBlock(adjacent.first, adjacent.second, adjacent.third)
+                if (isLeaf(adjacentBlock)) return true
+                if (distance < maxDistance && isLog(adjacentBlock) && visited.add(adjacent)) {
+                    if (visited.size >= maxSize) return false
+                    queue.add(adjacent to distance + 1)
                 }
             }
-            if (!isLog(instance.getBlock(x, y + 1, z))) break
-            y++
         }
         return false
     }
@@ -112,17 +120,12 @@ object TreeFeller {
         while (i < found.size) {
             if (found.size >= maxSize) return emptyList()
             val (cx, cy, cz) = found[i++]
-            for (dx in -1..1) {
-                for (dy in -1..1) {
-                    for (dz in -1..1) {
-                        if (dx == 0 && dy == 0 && dz == 0) continue
-                        val key = Triple(cx + dx, cy + dy, cz + dz)
-                        if (key in visited) continue
-                        visited.add(key)
-                        if (isLog(instance.getBlock(key.first, key.second, key.third))) {
-                            found.add(key)
-                        }
-                    }
+            for ((dx, dy, dz) in ADJACENT_OFFSETS) {
+                val key = Triple(cx + dx, cy + dy, cz + dz)
+                if (key in visited) continue
+                visited.add(key)
+                if (isLog(instance.getBlock(key.first, key.second, key.third))) {
+                    found.add(key)
                 }
             }
         }
@@ -156,7 +159,7 @@ object TreeFeller {
         val queue = ArrayDeque<Triple<Int, Int, Int>>()
 
         for ((lx, ly, lz) in logs) {
-            for ((dx, dy, dz) in ORTHOGONAL) {
+            for ((dx, dy, dz) in ADJACENT_OFFSETS) {
                 val key = Triple(lx + dx, ly + dy, lz + dz)
                 if (key in logSet || key in visited) continue
                 visited.add(key)
@@ -170,7 +173,7 @@ object TreeFeller {
         while (queue.isNotEmpty()) {
             if (found.size >= maxLeaves) break
             val (cx, cy, cz) = queue.removeFirst()
-            for ((dx, dy, dz) in ORTHOGONAL) {
+            for ((dx, dy, dz) in ADJACENT_OFFSETS) {
                 val key = Triple(cx + dx, cy + dy, cz + dz)
                 if (key in logSet || key in visited) continue
                 visited.add(key)

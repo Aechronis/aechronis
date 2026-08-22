@@ -85,11 +85,11 @@ data class VanillaConfig(
     // Elevator
     val elevatorMaxSearch: Int = 120,
     // TreeFeller
-    val treeFellerMaxSize: Int = 120,
-    val treeFellerMaxHeight: Int = 26,
+    val treeFellerMaxSize: Int = 300,
+    val treeFellerMaxHeight: Int = 50,
     val treeFellerBreakLeaves: Boolean = true,
-    val treeFellerLeafMaxDistance: Int = 6,
-    val treeFellerMaxLeaves: Int = 600,
+    val treeFellerLeafMaxDistance: Int = 10,
+    val treeFellerMaxLeaves: Int = 1000,
     val treeFellerBlocksPerTick: Int = 8,
     val treeFellerTickInterval: Int = 1,
     val treeFellerSaplingChance: Double = 0.05,
