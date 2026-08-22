@@ -1,5 +1,6 @@
 package net.aechronis.server.craft
 
+import net.aechronis.combat.objects.ArmorPiece
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.server.constants.Ammo
@@ -69,60 +70,31 @@ object Weapons {
                     Material.BLACK_DYE to 1,
                 ),
             )
-            add(
-                shapeless(
-                    Armor.usMarineJacket.toItemStack(),
-                    Material.GOLD_INGOT to 2,
-                    Material.DIAMOND to 2,
-                    Material.IRON_BLOCK to 1,
-                    Material.YELLOW_DYE to 1,
+            addAll(uniformRecipes(Armor.usMarineJacket, Armor.usMarineTrousers, Armor.usMarineBoots, Material.YELLOW_DYE))
+            addAll(uniformRecipes(Armor.idfJacket, Armor.idfTrousers, Armor.idfBoots, Material.GREEN_DYE))
+            addAll(uniformRecipes(Armor.chineseArmyJacket, Armor.chineseArmyTrousers, Armor.chineseArmyBoots, Material.RED_DYE))
+            addAll(uniformRecipes(Armor.iranJacket, Armor.iranTrousers, Armor.iranBoots, Material.WHITE_DYE))
+            addAll(uniformRecipes(Armor.iraqJacket, Armor.iraqTrousers, Armor.iraqBoots, Material.BLACK_DYE))
+            addAll(uniformRecipes(Armor.kurdJacket, Armor.kurdTrousers, Armor.kurdBoots, Material.BLUE_DYE))
+            addAll(
+                uniformRecipes(
+                    Armor.lebanonInsurgentJacket,
+                    Armor.lebanonInsurgentTrousers,
+                    Armor.lebanonInsurgentBoots,
+                    Material.ORANGE_DYE,
                 ),
             )
-            add(
-                shapeless(
-                    Armor.usMarineTrousers.toItemStack(),
-                    Material.GOLD_INGOT to 2,
-                    Material.DIAMOND to 2,
-                    Material.IRON_INGOT to 4,
-                    Material.YELLOW_DYE to 1,
+            addAll(
+                uniformRecipes(
+                    Armor.palestineInsurgentJacket,
+                    Armor.palestineInsurgentTrousers,
+                    Armor.palestineInsurgentBoots,
+                    Material.LIGHT_BLUE_DYE,
                 ),
             )
-            add(
-                shapeless(
-                    Armor.usMarineBoots.toItemStack(),
-                    Material.GOLD_INGOT to 1,
-                    Material.DIAMOND to 1,
-                    Material.IRON_INGOT to 2,
-                    Material.YELLOW_DYE to 1,
-                ),
-            )
-            add(
-                shapeless(
-                    Armor.idfJacket.toItemStack(),
-                    Material.GOLD_INGOT to 2,
-                    Material.DIAMOND to 2,
-                    Material.IRON_BLOCK to 1,
-                    Material.GREEN_DYE to 1,
-                ),
-            )
-            add(
-                shapeless(
-                    Armor.idfTrousers.toItemStack(),
-                    Material.GOLD_INGOT to 2,
-                    Material.DIAMOND to 2,
-                    Material.IRON_INGOT to 4,
-                    Material.GREEN_DYE to 1,
-                ),
-            )
-            add(
-                shapeless(
-                    Armor.idfBoots.toItemStack(),
-                    Material.GOLD_INGOT to 1,
-                    Material.DIAMOND to 1,
-                    Material.IRON_INGOT to 2,
-                    Material.GREEN_DYE to 1,
-                ),
-            )
+            addAll(uniformRecipes(Armor.russiaArmyJacket, Armor.russiaArmyTrousers, Armor.russiaArmyBoots, Material.LIGHT_GRAY_DYE))
+            addAll(uniformRecipes(Armor.syriaJacket, Armor.syriaTrousers, Armor.syriaBoots, Material.BROWN_DYE))
+            addAll(uniformRecipes(Armor.turkeyJacket, Armor.turkeyTrousers, Armor.turkeyBoots, Material.PURPLE_DYE))
 
             add(shapeless(Guns.m4a1.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 7, Material.IRON_BLOCK to 1))
             add(shapeless(Guns.ak12.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 4, Material.IRON_BLOCK to 1))
@@ -136,6 +108,36 @@ object Weapons {
             add(shapeless(Guns.mg3.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 6, Material.IRON_BLOCK to 1))
             add(shapeless(Guns.at4.toEmptyItemStack(), Material.GOLD_BLOCK to 2, Material.DIAMOND_BLOCK to 1, Material.IRON_BLOCK to 2))
         }
+
+    private fun uniformRecipes(
+        jacket: ArmorPiece,
+        trousers: ArmorPiece,
+        boots: ArmorPiece,
+        dye: Material,
+    ): List<Recipe> =
+        listOf(
+            shapeless(
+                jacket.toItemStack(),
+                Material.GOLD_INGOT to 2,
+                Material.DIAMOND to 2,
+                Material.IRON_BLOCK to 1,
+                dye to 1,
+            ),
+            shapeless(
+                trousers.toItemStack(),
+                Material.GOLD_INGOT to 2,
+                Material.DIAMOND to 2,
+                Material.IRON_INGOT to 4,
+                dye to 1,
+            ),
+            shapeless(
+                boots.toItemStack(),
+                Material.GOLD_INGOT to 1,
+                Material.DIAMOND to 1,
+                Material.IRON_INGOT to 2,
+                dye to 1,
+            ),
+        )
 
     private fun shapeless(
         output: ItemStack,
