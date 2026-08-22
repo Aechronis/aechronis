@@ -81,6 +81,27 @@ class GemRepository(
                 }
         }
 
+    fun findPlayerByUuid(uuid: UUID): GemPlayer? =
+        DriverManager.getConnection(url).use { connection ->
+            connection
+                .prepareStatement(
+                    "SELECT player_uuid, player_name, gem_amount FROM gems WHERE player_uuid = ?",
+                ).use { statement ->
+                    statement.setString(1, uuid.toString())
+                    statement.executeQuery().use { rows ->
+                        if (rows.next()) {
+                            GemPlayer(
+                                UUID.fromString(rows.getString("player_uuid")),
+                                rows.getString("player_name"),
+                                rows.getLong("gem_amount"),
+                            )
+                        } else {
+                            null
+                        }
+                    }
+                }
+        }
+
     fun findPlayer(name: String): GemPlayer? =
         DriverManager.getConnection(url).use { connection ->
             connection
@@ -101,6 +122,64 @@ class GemRepository(
                     }
                 }
         }
+
+    /** Credits a CraftingStore refund exactly once for the supplied reference. */
+    fun refund(
+        uuid: UUID,
+        amount: Long,
+        reference: String,
+    ): Boolean {
+        require(amount > 0L) { "Refund amount must be positive" }
+        val product = "craftingstore-refund:${reference.take(48)}"
+        return DriverManager.getConnection(url).use { connection ->
+            connection.autoCommit = false
+            try {
+                connection
+                    .prepareStatement(
+                        "SELECT 1 FROM gem_transactions WHERE player_uuid = ? AND product = ? LIMIT 1",
+                    ).use { statement ->
+                        statement.setString(1, uuid.toString())
+                        statement.setString(2, product)
+                        statement.executeQuery().use { rows ->
+                            if (rows.next()) {
+                                connection.commit()
+                                return@use true
+                            }
+                        }
+                    }
+                val changed =
+                    connection
+                        .prepareStatement(
+                            "UPDATE gems SET gem_amount = gem_amount + ? WHERE player_uuid = ?",
+                        ).use { statement ->
+                            statement.setLong(1, amount)
+                            statement.setString(2, uuid.toString())
+                            statement.executeUpdate() == 1
+                        }
+                if (!changed) {
+                    connection.rollback()
+                    return@use false
+                }
+                val inserted =
+                    connection
+                        .prepareStatement(
+                            "INSERT INTO gem_transactions (transaction_id, player_uuid, player_name, product, amount, created_at) SELECT ?, player_uuid, player_name, ?, ?, ? FROM gems WHERE player_uuid = ?",
+                        ).use { statement ->
+                            statement.setString(1, UUID.randomUUID().toString())
+                            statement.setString(2, product)
+                            statement.setLong(3, amount)
+                            statement.setLong(4, System.currentTimeMillis())
+                            statement.setString(5, uuid.toString())
+                            statement.executeUpdate() == 1
+                        }
+                if (inserted) connection.commit() else connection.rollback()
+                inserted
+            } catch (exception: Exception) {
+                connection.rollback()
+                throw exception
+            }
+        }
+    }
 
     fun adjust(
         uuid: UUID,

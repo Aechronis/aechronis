@@ -1,4 +1,5 @@
 * `/server` - [AGPL-3.0](server/LICENSE)
+* `/modules/craftingstore` - [MIT](modules/craftingstore/LICENSE)
 * `/modules/combat` - [AGPL-3.0](modules/combat/LICENSE)
 * `/modules/logger` - [AGPL-3.0](modules/logger/LICENSE)
 * `/modules/nodes` - [GPL-3.0](modules/nodes/LICENSE)

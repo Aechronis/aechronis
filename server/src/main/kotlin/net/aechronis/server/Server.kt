@@ -256,10 +256,14 @@ fun main(args: Array<String>) {
     worldEdit.init()
     Guard.init()
 
+    // CraftingStore is last: all commands which a donation may dispatch are now registered.
+    CraftingStoreIntegration.initialize()
+
     ServerShutdown.configure(
         saveState = {
             VehiclePersistence.saveForShutdown()
             Vanilla.saveBeforeShutdown()
+            CraftingStoreIntegration.shutdown()
         },
         stopServer = MinecraftServer::stopCleanly,
         saveWorld = { WorldSaver.saveWorld().join() },

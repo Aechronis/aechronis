@@ -44,6 +44,21 @@ private val BOOST_CONFIRM_ACTION = Key.key("gems", "boost_confirm")
 private val CANCEL_ACTION = Key.key("gems", "cancel")
 
 object Gems {
+    /** Minimal transaction bridge for integrations such as CraftingStore. */
+    fun craftingStoreWithdraw(
+        uuid: UUID,
+        amount: Long,
+        reason: String,
+    ): UUID? = repository.purchase(uuid, reason, amount)
+
+    fun craftingStoreRefund(
+        uuid: UUID,
+        amount: Long,
+        reason: String,
+    ): Boolean = repository.refund(uuid, amount, reason)
+
+    fun craftingStoreBalance(uuid: UUID): Long? = repository.findPlayerByUuid(uuid)?.balance
+
     private val initialized = AtomicBoolean()
     private val sessions = ConcurrentHashMap<UUID, ShopSession>()
     private val repository = GemRepository()

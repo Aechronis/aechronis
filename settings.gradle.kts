@@ -9,6 +9,7 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
+        maven("https://jitpack.io")
         maven("https://maven.conceptmc.com/releases")
         maven("https://repo.hypera.dev/snapshots/")
         maven("https://repo.lucko.me/")
@@ -30,6 +31,7 @@ include(
     ":modules:logger",
     ":modules:watchdog",
     ":modules:gems",
+    ":modules:craftingstore",
 )
 
 include(":modules:guard")
