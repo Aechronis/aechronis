@@ -4,19 +4,23 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.server.Server
 import net.aechronis.vanilla.Vanilla
 import net.minestom.server.MinecraftServer
+import net.minestom.server.instance.Chunk
 import net.minestom.server.timer.TaskSchedule
 import java.util.concurrent.CompletableFuture
 
 object WorldSaver {
     private const val SAVE_INTERVAL_MINUTES = 5L
-    private const val CHUNK_SAVE_BATCH_SIZE = 512
-    private const val PROGRESS_LOG_BATCHES = 16
+    private const val CHUNK_SAVE_BATCH_SIZE = 8
+    private const val PROGRESS_LOG_CHUNKS = 8_192
+    private val checkpointLock = Any()
+    private val worldSaveQueue = SerialFutureQueue()
+    private var activeCheckpoint = CompletableFuture.completedFuture<Void>(null)
 
     fun start() {
         MinecraftServer
             .getSchedulerManager()
             .buildTask {
-                runCatching(::saveCheckpoint).onFailure { error ->
+                runCatching(::startCheckpoint).onFailure { error ->
                     System.err.println("Failed to save server checkpoint: ${error.message}")
                     error.printStackTrace()
                 }
@@ -24,15 +28,38 @@ object WorldSaver {
             .schedule()
     }
 
-    // runs on the tick thread so all persistence domains observe the same quiescent state
-    internal fun saveCheckpoint() {
-        Vanilla.saveCheckpoint()
-        Nodes.saveWorld(checkIfNeedsSave = true, async = false)
-        saveWorld().join()
+    private fun startCheckpoint() {
+        val checkpoint =
+            synchronized(checkpointLock) {
+                if (!activeCheckpoint.isDone) {
+                    println("[WorldSave] Previous checkpoint is still running; skipping this interval.")
+                    return
+                }
+                saveCheckpoint().also { activeCheckpoint = it }
+            }
+
+        checkpoint.whenComplete { _, error ->
+            if (error != null) {
+                System.err.println("Failed to save server checkpoint: ${error.message}")
+                error.printStackTrace()
+            }
+        }
     }
+
+    // snapshot preparation runs on the tick thread; bulk persistence completes in the background
+    internal fun saveCheckpoint(): CompletableFuture<Void> =
+        saveCheckpointAsync(
+            prepare = Vanilla::saveCheckpoint,
+            saveState = { Nodes.saveWorld(checkIfNeedsSave = true, async = true) },
+            saveChunks = ::saveWorld,
+        )
 
     fun saveWorld(): CompletableFuture<Void> {
         val chunks = Server.instance.chunks.toList()
+        return worldSaveQueue.submit { saveChunks(chunks) }
+    }
+
+    private fun saveChunks(chunks: List<Chunk>): CompletableFuture<Void> {
         val startedAt = System.nanoTime()
         println("[WorldSave] Saving ${chunks.size} loaded chunks in batches of $CHUNK_SAVE_BATCH_SIZE...")
 
@@ -41,7 +68,7 @@ object WorldSaver {
             batchSize = CHUNK_SAVE_BATCH_SIZE,
             saveItem = Server.instance::saveChunkToStorage,
             onProgress = { saved, total ->
-                if (saved == total || saved % (CHUNK_SAVE_BATCH_SIZE * PROGRESS_LOG_BATCHES) == 0) {
+                if (saved == total || saved % PROGRESS_LOG_CHUNKS == 0) {
                     println("[WorldSave] Saved $saved/$total loaded chunks.")
                 }
             },
@@ -56,6 +83,33 @@ object WorldSaver {
             }
         }
     }
+}
+
+internal fun saveCheckpointAsync(
+    prepare: () -> Unit,
+    saveState: () -> CompletableFuture<Void>,
+    saveChunks: () -> CompletableFuture<Void>,
+): CompletableFuture<Void> {
+    prepare()
+    return CompletableFuture.allOf(saveState(), saveChunks())
+}
+
+internal class SerialFutureQueue {
+    private val lock = Any()
+    private var tail = CompletableFuture.completedFuture<Void>(null)
+
+    fun submit(save: () -> CompletableFuture<Void>): CompletableFuture<Void> =
+        synchronized(lock) {
+            tail
+                .handle { _, _ -> null }
+                .thenCompose {
+                    try {
+                        save()
+                    } catch (error: Throwable) {
+                        CompletableFuture.failedFuture(error)
+                    }
+                }.also { tail = it }
+        }
 }
 
 internal fun <T> saveInBatches(
