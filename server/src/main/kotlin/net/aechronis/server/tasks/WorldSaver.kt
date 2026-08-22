@@ -90,9 +90,24 @@ internal fun saveCheckpointAsync(
     saveState: () -> CompletableFuture<Void>,
     saveChunks: () -> CompletableFuture<Void>,
 ): CompletableFuture<Void> {
-    prepare()
-    return CompletableFuture.allOf(saveState(), saveChunks())
+    val preparation =
+        try {
+            prepare()
+            CompletableFuture.completedFuture<Void>(null)
+        } catch (error: Throwable) {
+            CompletableFuture.failedFuture(error)
+        }
+    val stateSave = invokeSave(saveState)
+    val chunkSave = invokeSave(saveChunks)
+    return CompletableFuture.allOf(preparation, stateSave, chunkSave)
 }
+
+private fun invokeSave(save: () -> CompletableFuture<Void>): CompletableFuture<Void> =
+    try {
+        save()
+    } catch (error: Throwable) {
+        CompletableFuture.failedFuture(error)
+    }
 
 internal class SerialFutureQueue {
     private val lock = Any()
