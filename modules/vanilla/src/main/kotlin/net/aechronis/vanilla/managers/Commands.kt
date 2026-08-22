@@ -60,11 +60,6 @@ object Commands {
         receiver: Player?,
         message: String,
     ) {
-        if (Punish.isMuted(sender.uuid)) {
-            sender.sendMessage(Component.text("You are currently muted.", NamedTextColor.RED))
-            return
-        }
-
         if (receiver == null) {
             sender.sendMessage(Component.text("Player not found.", NamedTextColor.RED))
             return
