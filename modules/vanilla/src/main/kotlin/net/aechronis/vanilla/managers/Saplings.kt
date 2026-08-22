@@ -11,6 +11,7 @@ import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.block.BlockTags
 import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.timer.TaskSchedule
 import java.util.concurrent.ConcurrentHashMap
@@ -23,6 +24,7 @@ object Saplings {
     fun init() {
         val timeStart = System.currentTimeMillis()
 
+        registerPlacementRules()
         SaplingsListener.init()
 
         MinecraftServer
@@ -33,6 +35,18 @@ object Saplings {
 
         val timeEnd = System.currentTimeMillis()
         println("├─ Saplings enabled in ${timeEnd - timeStart}ms")
+    }
+
+    internal fun registerPlacementRules() {
+        val registry = MinecraftServer.process().blocks()
+        val saplingTag = requireNotNull(registry.getTag(BlockTags.SAPLINGS))
+        val blockManager = MinecraftServer.getBlockManager()
+        for (key in saplingTag) {
+            val block = requireNotNull(registry.get(key))
+            val existing = blockManager.getBlockPlacementRule(block)
+            if (existing is SaplingPlacementRule) continue
+            blockManager.registerBlockPlacementRule(SaplingPlacementRule(block, existing))
+        }
     }
 
     private fun growthTick() {

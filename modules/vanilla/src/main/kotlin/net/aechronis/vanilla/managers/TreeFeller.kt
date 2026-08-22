@@ -2,7 +2,6 @@ package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.TreeFellerListener
-import net.aechronis.vanilla.objects.SaplingType
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Point
@@ -10,9 +9,11 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.block.BlockTags
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.WorldEventPacket
+import net.minestom.server.registry.TagKey
 import net.minestom.server.timer.TaskSchedule
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadLocalRandom
@@ -30,62 +31,25 @@ object TreeFeller {
 
     private val activePositions = ConcurrentHashMap.newKeySet<FellingPosition>()
 
-    val logs =
-        listOf(
-            Block.OAK_LOG,
-            Block.SPRUCE_LOG,
-            Block.BIRCH_LOG,
-            Block.JUNGLE_LOG,
-            Block.ACACIA_LOG,
-            Block.DARK_OAK_LOG,
-            Block.CHERRY_LOG,
-            Block.MANGROVE_LOG,
-            Block.PALE_OAK_LOG,
-            Block.STRIPPED_OAK_LOG,
-            Block.STRIPPED_SPRUCE_LOG,
-            Block.STRIPPED_BIRCH_LOG,
-            Block.STRIPPED_JUNGLE_LOG,
-            Block.STRIPPED_ACACIA_LOG,
-            Block.STRIPPED_DARK_OAK_LOG,
-            Block.STRIPPED_CHERRY_LOG,
-            Block.STRIPPED_MANGROVE_LOG,
-            Block.STRIPPED_PALE_OAK_LOG,
-            Block.STRIPPED_BAMBOO_BLOCK,
-            Block.STRIPPED_CRIMSON_STEM,
-            Block.STRIPPED_WARPED_STEM,
-            Block.BAMBOO_BLOCK,
-            Block.CRIMSON_STEM,
-            Block.WARPED_STEM,
-        )
+    val logs: List<Block> by lazy {
+        MinecraftServer
+            .process()
+            .blocks()
+            .values()
+            .filter(::isLog)
+    }
 
-    private val strippedLogs =
-        mapOf(
-            Block.STRIPPED_OAK_LOG to Block.OAK_LOG,
-            Block.STRIPPED_SPRUCE_LOG to Block.SPRUCE_LOG,
-            Block.STRIPPED_BIRCH_LOG to Block.BIRCH_LOG,
-            Block.STRIPPED_JUNGLE_LOG to Block.JUNGLE_LOG,
-            Block.STRIPPED_ACACIA_LOG to Block.ACACIA_LOG,
-            Block.STRIPPED_DARK_OAK_LOG to Block.DARK_OAK_LOG,
-            Block.STRIPPED_CHERRY_LOG to Block.CHERRY_LOG,
-            Block.STRIPPED_MANGROVE_LOG to Block.MANGROVE_LOG,
-            Block.STRIPPED_PALE_OAK_LOG to Block.PALE_OAK_LOG,
-        )
-
-    private val leaves =
+    private val saplingsByLogTag =
         listOf(
-            Block.OAK_LEAVES,
-            Block.SPRUCE_LEAVES,
-            Block.BIRCH_LEAVES,
-            Block.JUNGLE_LEAVES,
-            Block.ACACIA_LEAVES,
-            Block.DARK_OAK_LEAVES,
-            Block.CHERRY_LEAVES,
-            Block.MANGROVE_LEAVES,
-            Block.PALE_OAK_LEAVES,
-            Block.AZALEA_LEAVES,
-            Block.FLOWERING_AZALEA_LEAVES,
-            Block.NETHER_WART_BLOCK,
-            Block.WARPED_WART_BLOCK,
+            BlockTags.OAK_LOGS to Material.OAK_SAPLING,
+            BlockTags.SPRUCE_LOGS to Material.SPRUCE_SAPLING,
+            BlockTags.BIRCH_LOGS to Material.BIRCH_SAPLING,
+            BlockTags.JUNGLE_LOGS to Material.JUNGLE_SAPLING,
+            BlockTags.ACACIA_LOGS to Material.ACACIA_SAPLING,
+            BlockTags.DARK_OAK_LOGS to Material.DARK_OAK_SAPLING,
+            BlockTags.CHERRY_LOGS to Material.CHERRY_SAPLING,
+            BlockTags.MANGROVE_LOGS to Material.MANGROVE_PROPAGULE,
+            BlockTags.PALE_OAK_LOGS to Material.PALE_OAK_SAPLING,
         )
 
     private val ORTHOGONAL =
@@ -98,15 +62,26 @@ object TreeFeller {
             Triple(0, 0, -1),
         )
 
-    fun isLog(block: Block) = logs.any { block.compare(it) }
+    fun isLog(block: Block) = blockIsInTag(block, BlockTags.LOGS) || blockIsInTag(block, BlockTags.BAMBOO_BLOCKS)
 
-    private fun isLeaf(block: Block) = leaves.any { block.compare(it) }
+    internal fun isLeaf(block: Block) = blockIsInTag(block, BlockTags.LEAVES) || blockIsInTag(block, BlockTags.WART_BLOCKS)
+
+    private fun blockIsInTag(
+        block: Block,
+        tag: TagKey<Block>,
+    ): Boolean =
+        MinecraftServer
+            .process()
+            .blocks()
+            .getTag(tag)
+            ?.contains(block) == true
 
     fun isTree(
         origin: Point,
         instance: Instance,
         logBlock: Block,
     ): Boolean {
+        if (!isLog(logBlock)) return false
         val maxHeight = Vanilla.config.treeFellerMaxHeight
         val x = origin.blockX()
         val z = origin.blockZ()
@@ -118,7 +93,7 @@ object TreeFeller {
                     if (isLeaf(instance.getBlock(x + dx, y, z + dz))) return true
                 }
             }
-            if (!instance.getBlock(x, y + 1, z).compare(logBlock)) break
+            if (!isLog(instance.getBlock(x, y + 1, z))) break
             y++
         }
         return false
@@ -129,6 +104,7 @@ object TreeFeller {
         instance: Instance,
         logBlock: Block,
     ): List<Triple<Int, Int, Int>> {
+        if (!isLog(logBlock)) return emptyList()
         val maxSize = Vanilla.config.treeFellerMaxSize
         val found = mutableListOf(Triple(origin.blockX(), origin.blockY(), origin.blockZ()))
         val visited = HashSet(found)
@@ -143,7 +119,7 @@ object TreeFeller {
                         val key = Triple(cx + dx, cy + dy, cz + dz)
                         if (key in visited) continue
                         visited.add(key)
-                        if (instance.getBlock(key.first, key.second, key.third).compare(logBlock)) {
+                        if (isLog(instance.getBlock(key.first, key.second, key.third))) {
                             found.add(key)
                         }
                     }
@@ -208,14 +184,7 @@ object TreeFeller {
         return found
     }
 
-    fun saplingMaterial(logBlock: Block): Material? {
-        val originalLog = strippedLogs.entries.firstOrNull { it.key.compare(logBlock) }?.value ?: logBlock
-        return SaplingType.ALL
-            .firstOrNull { it.logBlock.compare(originalLog) }
-            ?.saplingBlock
-            ?.registry()
-            ?.material()
-    }
+    fun saplingMaterial(logBlock: Block): Material? = saplingsByLogTag.firstOrNull { (tag, _) -> blockIsInTag(logBlock, tag) }?.second
 
     private fun rollLeafDrop(saplingMaterial: Material?): List<ItemStack> {
         val saplingChance = Vanilla.config.treeFellerSaplingChance
@@ -255,7 +224,6 @@ object TreeFeller {
             }
         if (ordered.isEmpty()) return
 
-        val logMaterial = logBlock.registry()?.material()
         val saplingMaterial = saplingMaterial(logBlock)
         val perTick = Vanilla.config.treeFellerBlocksPerTick.coerceAtLeast(1)
         val interval = Vanilla.config.treeFellerTickInterval.coerceAtLeast(1)
@@ -269,7 +237,7 @@ object TreeFeller {
                 val (x, y, z) = pos
                 val fellingPosition = FellingPosition(instance, x, y, z)
                 val current = instance.getBlock(x, y, z)
-                val isExpected = if (leaf) isLeaf(current) else current.compare(logBlock)
+                val isExpected = if (leaf) isLeaf(current) else isLog(current)
                 if (!isExpected) {
                     activePositions.remove(fellingPosition)
                     continue
@@ -282,7 +250,12 @@ object TreeFeller {
                     ?.sendPacketToViewers(
                         WorldEventPacket(2001, BlockVec(x, y, z), stateId, false),
                     )
-                val drops = if (leaf) rollLeafDrop(saplingMaterial) else logMaterial?.let { listOf(ItemStack.of(it)) }
+                val drops =
+                    if (leaf) {
+                        rollLeafDrop(saplingMaterial)
+                    } else {
+                        current.registry()?.material()?.let { listOf(ItemStack.of(it)) }
+                    }
                 if (!drops.isNullOrEmpty()) {
                     val dropPos = Pos(x + 0.5, y + 0.5, z + 0.5)
                     for (stack in drops) Items.spawn(instance, dropPos, stack)
