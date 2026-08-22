@@ -823,7 +823,7 @@ object Blocks {
     val list: List<Recipe> =
         buildList {
             for ((log, planks) in logPlanks) {
-                add(RecipesShapeless(listOf(RecipesIngredient.of(log)!!), ItemStack.of(planks, 4)))
+                add(RecipesShapeless(listOf(RecipesIngredient.of(log)!!), ItemStack.of(planks, 8)))
             }
 
             add(Shaped(1, 2, arrayOf(anyPlank, anyPlank), ItemStack.of(Material.STICK, 4)))
@@ -865,7 +865,7 @@ object Blocks {
                     anyPlank,
                     anyPlank,
                 ),
-                ItemStack.of(Material.BARREL),
+                ItemStack.of(Material.BARREL, 2),
             ),
             Shaped(
                 3,
@@ -881,7 +881,7 @@ object Blocks {
                     anyWoodSlab,
                     anyPlank,
                 ),
-                ItemStack.of(Material.BARREL),
+                ItemStack.of(Material.BARREL, 2),
             ),
         )
 
