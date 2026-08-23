@@ -32,6 +32,8 @@ object Drones {
             pitchSpeed = 5F,
             maxRange = 3000,
             batteryLifeTicks = 10000,
+            explosionDamage = 0F,
+            explosionRadius = 0,
             buzzSound = Sound.sound(Key.key("aechronis:drone.buzz"), Sound.Source.PLAYER, 1f, 1f),
             buzzPeriodTicks = 5,
         )
