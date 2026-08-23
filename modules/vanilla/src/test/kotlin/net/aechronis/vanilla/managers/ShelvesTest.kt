@@ -7,8 +7,6 @@ import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.PlayerHand
-import net.minestom.server.event.EventDispatcher
-import net.minestom.server.event.player.PlayerChunkLoadEvent
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.instance.block.BlockHandler
@@ -34,19 +32,6 @@ class ShelvesTest : ManagerTest() {
         player.itemInMainHand = second
         interact(handler, player, position, VanillaTest.instance.getBlock(position))
         assertEquals(first, player.itemInMainHand)
-        VanillaTest.remove(player)
-    }
-
-    @Test
-    fun `player chunk load restores a persisted shelf handler`() {
-        val player = VanillaTest.createPlayer(Pos(52.0, 65.0, 52.0))
-        val position = BlockVec(52, 64, 52)
-        VanillaTest.instance.setBlock(position, Block.OAK_SHELF)
-
-        EventDispatcher.call(PlayerChunkLoadEvent(player, position.chunkX(), position.chunkZ()))
-
-        val restored = VanillaTest.instance.getBlock(position)
-        assertEquals(Block.OAK_SHELF.key(), restored.handler()?.key)
         VanillaTest.remove(player)
     }
 

@@ -10,10 +10,8 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Point
 import net.minestom.server.entity.Player
-import net.minestom.server.event.player.PlayerChunkLoadEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerEditSignEvent
-import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockFace
@@ -52,7 +50,6 @@ object Signs {
             manager.registerBlockPlacementRule(SignPlacementRule(block.defaultState()))
         }
         Vanilla.eventNode.addListener(PlayerEditSignEvent::class.java, ::onEdit)
-        Vanilla.eventNode.addListener(PlayerChunkLoadEvent::class.java, ::onPlayerChunkLoad)
         Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java) { sessions.remove(it.player) }
     }
 
@@ -87,39 +84,6 @@ object Signs {
         MinecraftServer.getBlockManager().getHandler(block.key().asString()) ?: SignHandler(block.defaultState())
 
     private fun isSign(block: Block): Boolean = block.key().asString().let { it.endsWith("_sign") || it.endsWith("_hanging_sign") }
-
-    private fun onPlayerChunkLoad(event: PlayerChunkLoadEvent) {
-        val instance = event.player.instance ?: return
-        instance.getChunk(event.chunkX, event.chunkZ)?.let(::restoreChunk)
-    }
-
-    /** Rebind persisted signs only after their chunk is actually being viewed. */
-    private fun restoreChunk(chunk: Chunk) {
-        if (!chunk.isLoaded) return
-        val signs = mutableListOf<Pair<BlockVec, Block>>()
-        chunk.lockReadLock()
-        try {
-            for (x in chunk.chunkX * 16..<chunk.chunkX * 16 + 16) {
-                for (z in chunk.chunkZ * 16..<chunk.chunkZ * 16 + 16) {
-                    for (y in chunk.minSection * 16..<chunk.maxSection * 16) {
-                        val block = chunk.getBlock(x, y, z)
-                        if (isSign(block)) signs += BlockVec(x, y, z) to block
-                    }
-                }
-            }
-        } finally {
-            chunk.unlockReadLock()
-        }
-        val instance = chunk.instance
-        if (!chunk.isLoaded || instance.getChunk(chunk.chunkX, chunk.chunkZ) !== chunk) return
-        signs.forEach { (position, block) ->
-            val handler = handlerFor(block)
-            if (block.nbt() == null || block.handler()?.key != handler.key) {
-                val restored = (if (block.nbt() == null) block.withNbt(defaultNbt()) else block).withHandler(handler)
-                instance.setBlock(position, restored, false)
-            }
-        }
-    }
 
     private fun defaultNbt(): CompoundBinaryTag =
         CompoundBinaryTag

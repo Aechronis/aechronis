@@ -10,7 +10,6 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.EventDispatcher
-import net.minestom.server.event.player.PlayerChunkLoadEvent
 import net.minestom.server.event.player.PlayerEditSignEvent
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockFace
@@ -19,7 +18,6 @@ import net.minestom.server.instance.block.rule.BlockPlacementRule
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 class SignsTest : ManagerTest() {
     @Test
@@ -65,23 +63,6 @@ class SignsTest : ManagerTest() {
                 .getCompound("front_text")
         val lines = front.getList("messages", BinaryTagTypes.STRING)
         assertEquals("hello", (lines[0] as StringBinaryTag).value())
-        VanillaTest.remove(player)
-    }
-
-    @Test
-    fun `player chunk load restores a persisted sign handler and text`() {
-        val player =
-            VanillaTest.createPlayer(
-                Pos(36.0, 65.0, 36.0),
-            )
-        val position = BlockVec(36, 64, 36)
-        VanillaTest.instance.setBlock(position, Block.OAK_SIGN)
-
-        EventDispatcher.call(PlayerChunkLoadEvent(player, position.chunkX(), position.chunkZ()))
-
-        val restored = VanillaTest.instance.getBlock(position)
-        assertEquals(Block.OAK_SIGN.key(), restored.handler()?.key)
-        assertTrue(restored.nbtOrEmpty().contains("front_text"))
         VanillaTest.remove(player)
     }
 

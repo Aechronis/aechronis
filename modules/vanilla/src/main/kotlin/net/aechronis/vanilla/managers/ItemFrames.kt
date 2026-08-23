@@ -1,6 +1,7 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.Vanilla
+import net.kyori.adventure.nbt.BinaryTag
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
@@ -11,9 +12,9 @@ import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.metadata.other.ItemFrameMeta
 import net.minestom.server.event.entity.EntityAttackEvent
+import net.minestom.server.event.instance.InstanceChunkLoadEvent
 import net.minestom.server.event.instance.InstanceChunkUnloadEvent
 import net.minestom.server.event.player.PlayerBlockBreakEvent
-import net.minestom.server.event.player.PlayerChunkLoadEvent
 import net.minestom.server.event.player.PlayerEntityInteractEvent
 import net.minestom.server.event.player.PlayerUseItemOnBlockEvent
 import net.minestom.server.instance.Chunk
@@ -21,12 +22,15 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import net.minestom.server.tag.Tag
 import net.minestom.server.utils.Direction
 import net.minestom.server.utils.Rotation
 import java.util.concurrent.ConcurrentHashMap
 
 object ItemFrames {
     private const val FRAME_DATA = "aechronis:item_frames"
+    private val frameAnchorsTag: Tag<BinaryTag> = Tag.NBT("aechronis:item_frame_anchors")
+    private val frameAnchorsIndexedTag = Tag.Boolean("aechronis:item_frame_anchors_indexed")
 
     private data class Frame(
         val instance: Instance,
@@ -35,16 +39,23 @@ object ItemFrames {
         val glowing: Boolean,
     )
 
+    private data class FrameKey(
+        val instance: Instance,
+        val support: BlockVec,
+        val face: BlockFace,
+    )
+
     private val frames = ConcurrentHashMap<Entity, Frame>()
+    private val framesByAnchor = ConcurrentHashMap<FrameKey, Entity>()
 
     fun init() {
         Vanilla.eventNode.addListener(PlayerUseItemOnBlockEvent::class.java, ::onUseOnBlock)
         Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, ::onInteract)
         Vanilla.eventNode.addListener(EntityAttackEvent::class.java, ::onAttack)
         Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java, ::onSupportBreak)
-        // Frames are recreated only when a player receives a chunk. Loading every world chunk at
-        // startup is both unnecessary and races chunk unloading.
-        Vanilla.eventNode.addListener(PlayerChunkLoadEvent::class.java, ::onPlayerChunkLoad)
+        // Anvil loads chunks on virtual threads. Restore only this chunk's indexed frame anchors
+        // on the next instance tick; never scan while a player is being sent a chunk.
+        Vanilla.eventNode.addListener(InstanceChunkLoadEvent::class.java, ::onChunkLoad)
         Vanilla.eventNode.addListener(InstanceChunkUnloadEvent::class.java, ::onChunkUnload)
     }
 
@@ -55,7 +66,8 @@ object ItemFrames {
         if (event.player.gameMode == GameMode.SPECTATOR) return
         val support = BlockVec(event.position)
         if (!instance.getBlock(support).isSolid) return
-        if (frames.values.any { it.instance === instance && it.support == support && it.face == event.blockFace }) return
+        val key = FrameKey(instance, support, event.blockFace)
+        if (framesByAnchor.containsKey(key)) return
 
         val entity = Entity(if (glowing) EntityType.GLOW_ITEM_FRAME else EntityType.ITEM_FRAME)
         entity.editEntityMeta(ItemFrameMeta::class.java) { meta -> meta.direction = frameDirection(event.blockFace) }
@@ -68,8 +80,9 @@ object ItemFrames {
                         .vec()
                         .mul(0.46875),
                 ).asPos()
-        entity.setInstance(instance, position)
         val frame = Frame(instance, support, event.blockFace, glowing)
+        if (framesByAnchor.putIfAbsent(key, entity) != null) return
+        entity.setInstance(instance, position)
         frames[entity] = frame
         saveAnchor(frame)
         if (event.player.gameMode != GameMode.CREATIVE) consume(event.player, event.hand, event.itemStack)
@@ -91,8 +104,9 @@ object ItemFrames {
     }
 
     private fun onAttack(event: EntityAttackEvent) {
-        val frame = frames.remove(event.target) ?: return
         val entity = event.target
+        val frame = frames.remove(entity) ?: return
+        framesByAnchor.remove(FrameKey(frame.instance, frame.support, frame.face), entity)
         saveAnchor(frame)
         val player = event.entity as? net.minestom.server.entity.Player
         val meta = entity.entityMeta as? ItemFrameMeta
@@ -112,10 +126,14 @@ object ItemFrames {
             .forEach { (entity, _) -> onAttack(EntityAttackEvent(event.player, entity)) }
     }
 
-    private fun onPlayerChunkLoad(event: PlayerChunkLoadEvent) {
-        val instance = event.player.instance ?: return
-        val chunk = instance.getChunk(event.chunkX, event.chunkZ) ?: return
-        restoreChunk(chunk)
+    private fun onChunkLoad(event: InstanceChunkLoadEvent) {
+        val chunk = event.chunk
+        val (indexed, anchors) = anchorsForLoad(chunk)
+        event.instance.scheduleNextTick { instance ->
+            if (!chunk.isLoaded || instance.getChunk(chunk.chunkX, chunk.chunkZ) !== chunk) return@scheduleNextTick
+            if (!indexed) writeAnchors(chunk, anchors)
+            restoreAnchors(chunk, anchors)
+        }
     }
 
     private fun onChunkUnload(event: InstanceChunkUnloadEvent) {
@@ -123,10 +141,14 @@ object ItemFrames {
         val chunkX = event.chunkX
         val chunkZ = event.chunkZ
         // Minestom removes non-player entities with their chunk. Forget their old anchors so a
-        // later player chunk load can restore them.
-        frames.entries.removeIf { (_, frame) ->
-            frame.instance === instance && frame.support.chunkX() == chunkX && frame.support.chunkZ() == chunkZ
-        }
+        // later physical chunk load can restore them.
+        frames.entries
+            .filter { (_, frame) ->
+                frame.instance === instance && frame.support.chunkX() == chunkX && frame.support.chunkZ() == chunkZ
+            }.forEach { (entity, frame) ->
+                frames.remove(entity, frame)
+                framesByAnchor.remove(FrameKey(frame.instance, frame.support, frame.face), entity)
+            }
     }
 
     private fun saveAnchor(frame: Frame) {
@@ -138,6 +160,7 @@ object ItemFrames {
             }
         if (anchored.isEmpty()) {
             frame.instance.setBlock(frame.support, block.withNbt(block.nbtOrEmpty().remove(FRAME_DATA)), false)
+            updateAnchorIndex(frame.instance, frame.support, present = false)
             return
         }
 
@@ -154,41 +177,105 @@ object ItemFrames {
             records.add(record.build())
         }
         frame.instance.setBlock(frame.support, block.withNbt(block.nbtOrEmpty().put(FRAME_DATA, records.build())), false)
+        updateAnchorIndex(frame.instance, frame.support, present = true)
     }
 
-    private fun restoreChunk(chunk: Chunk) {
-        if (!chunk.isLoaded) return
-        val instance = chunk.instance
-        val records = mutableListOf<Pair<BlockVec, CompoundBinaryTag>>()
-        val minY = chunk.minSection * 16
-        val maxY = chunk.maxSection * 16
-
-        // Read from the chunk supplied by the event while it is locked. Instance#getBlock can
-        // consult an already-unloaded chunk while the asynchronous loader is completing.
+    /** Returns the persisted index, or discovers legacy anchors once off the tick thread. */
+    private fun anchorsForLoad(chunk: Chunk): Pair<Boolean, Set<BlockVec>> {
         chunk.lockReadLock()
         try {
-            for (x in chunk.chunkX * 16..<chunk.chunkX * 16 + 16) {
-                for (z in chunk.chunkZ * 16..<chunk.chunkZ * 16 + 16) {
-                    for (y in minY..<maxY) {
-                        val support = BlockVec(x, y, z)
-                        chunk.getBlock(support).nbtOrEmpty().getList(FRAME_DATA, BinaryTagTypes.COMPOUND).forEach { entry ->
-                            (entry as? CompoundBinaryTag)?.let { records += support to it }
-                        }
-                    }
-                }
-            }
+            if (chunk.getTag(frameAnchorsIndexedTag) == true) return true to indexedAnchors(chunk)
+            // Compatibility for existing item frames. The scan is done by Anvil's virtual loader
+            // thread, never by Player#sendPendingChunks or an instance tick.
+            return false to scanFrameAnchors(chunk)
         } finally {
             chunk.unlockReadLock()
         }
+    }
 
-        synchronized(frames) {
-            if (!chunk.isLoaded || instance.getChunk(chunk.chunkX, chunk.chunkZ) !== chunk) return
-            for ((support, record) in records) {
+    private fun indexedAnchors(chunk: Chunk): Set<BlockVec> =
+        ((chunk.getTag(frameAnchorsTag) as? ListBinaryTag) ?: return emptySet())
+            .mapNotNull { entry ->
+                val record = entry as? CompoundBinaryTag ?: return@mapNotNull null
+                val x = record.getInt("x", Int.MIN_VALUE)
+                val y = record.getInt("y", Int.MIN_VALUE)
+                val z = record.getInt("z", Int.MIN_VALUE)
+                if (x == Int.MIN_VALUE || y == Int.MIN_VALUE || z == Int.MIN_VALUE) null else BlockVec(x, y, z)
+            }.filterTo(mutableSetOf()) { it.chunkX() == chunk.chunkX && it.chunkZ() == chunk.chunkZ }
+
+    private fun scanFrameAnchors(chunk: Chunk): Set<BlockVec> {
+        val anchors = mutableSetOf<BlockVec>()
+        for (x in chunk.chunkX * 16..<chunk.chunkX * 16 + 16) {
+            for (z in chunk.chunkZ * 16..<chunk.chunkZ * 16 + 16) {
+                for (y in chunk.minSection * 16..<chunk.maxSection * 16) {
+                    val support = BlockVec(x, y, z)
+                    if (
+                        !chunk
+                            .getBlock(support)
+                            .nbtOrEmpty()
+                            .getList(FRAME_DATA, BinaryTagTypes.COMPOUND)
+                            .isEmpty()
+                    ) {
+                        anchors += support
+                    }
+                }
+            }
+        }
+        return anchors
+    }
+
+    private fun writeAnchors(
+        chunk: Chunk,
+        anchors: Collection<BlockVec>,
+    ) {
+        val records = ListBinaryTag.builder(BinaryTagTypes.COMPOUND)
+        anchors.forEach { anchor ->
+            records.add(
+                CompoundBinaryTag
+                    .builder()
+                    .putInt("x", anchor.blockX())
+                    .putInt("y", anchor.blockY())
+                    .putInt("z", anchor.blockZ())
+                    .build(),
+            )
+        }
+        chunk.setTag(frameAnchorsTag, records.build())
+        chunk.setTag(frameAnchorsIndexedTag, true)
+    }
+
+    private fun updateAnchorIndex(
+        instance: Instance,
+        support: BlockVec,
+        present: Boolean,
+    ) {
+        val chunk = instance.getChunk(support.chunkX(), support.chunkZ()) ?: return
+        chunk.lockWriteLock()
+        try {
+            val anchors = indexedAnchors(chunk).toMutableSet()
+            if (present) anchors += support else anchors -= support
+            writeAnchors(chunk, anchors)
+        } finally {
+            chunk.unlockWriteLock()
+        }
+    }
+
+    private fun restoreAnchors(
+        chunk: Chunk,
+        anchors: Collection<BlockVec>,
+    ) {
+        if (!chunk.isLoaded) return
+        val instance = chunk.instance
+        for (support in anchors) {
+            val records = instance.getBlock(support).nbtOrEmpty().getList(FRAME_DATA, BinaryTagTypes.COMPOUND)
+            for (entry in records) {
+                val record = entry as? CompoundBinaryTag ?: continue
                 val face =
                     runCatching { BlockFace.valueOf((record.getString("face", "") ?: "").uppercase()) }.getOrNull() ?: continue
-                if (frames.values.any { it.instance === instance && it.support == support && it.face == face }) continue
+                val key = FrameKey(instance, support, face)
+                if (framesByAnchor.containsKey(key)) continue
                 val glowing = record.getBoolean("glowing", false)
                 val entity = Entity(if (glowing) EntityType.GLOW_ITEM_FRAME else EntityType.ITEM_FRAME)
+                if (framesByAnchor.putIfAbsent(key, entity) != null) continue
                 entity.editEntityMeta(ItemFrameMeta::class.java) { meta ->
                     meta.direction = frameDirection(face)
                     meta.rotation = Rotation.entries.getOrElse(record.getByte("rotation", 0).toInt()) { Rotation.NONE }
