@@ -83,6 +83,7 @@ object Blocks {
     private val anyPlank = RecipesIngredient.of(planks)!!
     private val anyWoodSlab = RecipesIngredient.of(slabs)!!
     private val cobblestone = RecipesIngredient.of(Material.COBBLESTONE)!!
+    private val ironIngot = RecipesIngredient.of(Material.IRON_INGOT)!!
     private val stick = RecipesIngredient.of(Material.STICK)!!
 
     private val cycleBases =
@@ -828,6 +829,24 @@ object Blocks {
 
             add(Shaped(1, 2, arrayOf(anyPlank, anyPlank), ItemStack.of(Material.STICK, 4)))
             add(Shaped(2, 2, arrayOf(anyPlank, anyPlank, anyPlank, anyPlank), ItemStack.of(Material.CRAFTING_TABLE)))
+            add(
+                Shaped(
+                    3,
+                    3,
+                    arrayOf(
+                        ironIngot,
+                        null,
+                        ironIngot,
+                        ironIngot,
+                        stick,
+                        ironIngot,
+                        ironIngot,
+                        null,
+                        ironIngot,
+                    ),
+                    ItemStack.of(Material.RAIL, 32),
+                ),
+            )
             addAll(barrelRecipes())
             add(
                 Shaped(
