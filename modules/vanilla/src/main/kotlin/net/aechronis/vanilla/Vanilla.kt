@@ -39,6 +39,7 @@ import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Efficiency
 import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.EnvironmentalDamage
+import net.aechronis.vanilla.managers.Filter
 import net.aechronis.vanilla.managers.Food
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.KillShop
@@ -75,6 +76,7 @@ object Vanilla {
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         PlayerActivityListener.init()
         CombatInventoryListener.init()
+        Filter.init()
 
         if (config.commandsEnabled) {
             val commands =

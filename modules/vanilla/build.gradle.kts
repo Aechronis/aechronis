@@ -7,6 +7,7 @@ plugins {
 dependencies {
     api("net.minestom:minestom:2026.07.12-26.2")
     api("com.google.code.gson:gson:2.14.0")
+    implementation("com.modernmt.text:profanity-filter:1.0.1")
     compileOnly(project(":modules:utils"))
 
     testImplementation("com.google.code.gson:gson:2.14.0")
