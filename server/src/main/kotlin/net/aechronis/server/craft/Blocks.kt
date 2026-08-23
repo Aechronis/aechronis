@@ -242,6 +242,7 @@ object Blocks {
 
     private val ColoredCycle =
         cycle(
+            "terracotta",
             *Colors
                 .flatMap { color ->
                     listOf(
@@ -354,6 +355,7 @@ object Blocks {
                 "cobblestone_stairs",
                 "cobblestone_slab",
                 "cobblestone_wall",
+                "iron_bars",
                 "mossy_cobblestone",
                 "mossy_cobblestone_stairs",
                 "mossy_cobblestone_wall",
@@ -430,9 +432,14 @@ object Blocks {
                 "red_sandstone_wall",
                 "cut_red_sandstone_slab",
                 "smooth_red_sandstone_stairs",
+            ),
+            cycle(
                 "glass",
                 "glass_pane",
                 "tinted_glass",
+                *Colors
+                    .flatMap { color -> listOf("${color}_stained_glass", "${color}_stained_glass_pane") }
+                    .toTypedArray(),
             ),
             cycle(
                 "deepslate",
