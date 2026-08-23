@@ -40,6 +40,7 @@ object Smelting {
             Material.SALMON to Material.COOKED_SALMON,
             Material.POTATO to Material.BAKED_POTATO,
             Material.KELP to Material.DRIED_KELP,
+            Material.SAND to Material.GLASS,
         )
 
     val list: List<Recipe> =
