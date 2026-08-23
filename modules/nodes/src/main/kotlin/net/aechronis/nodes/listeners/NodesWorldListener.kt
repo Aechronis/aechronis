@@ -174,6 +174,8 @@ object NodesWorldListener {
         val blockPos = event.blockPosition
         val player: Player = event.player
 
+        NodesBlockPlacementCooldownListener.apply(player, blockPos.blockX, blockPos.blockZ)
+
         // War flags are globally available during war. Outside war, /colonize
         // enables them only inside the specifically selected AI town.
         val selectedColonizationTown = Colonization.selectedTown(player)
