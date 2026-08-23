@@ -41,7 +41,7 @@ object Ammo {
         Ammo(
             name = "rpg-rocket",
             itemName = Component.text("Rocket", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            ammoType = AmmoTypes.EXPLOSIVE,
+            ammoType = AmmoTypes.MISSILE,
             itemModel = "aechronis:rpg-rocket",
         )
 }

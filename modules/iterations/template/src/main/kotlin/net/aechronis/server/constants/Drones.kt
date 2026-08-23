@@ -13,12 +13,8 @@ object Drones {
         Hitbox(
             listOf(
                 HitboxPart(
-                    offset = Vec(0.0, 0.0, -2.0),
-                    size = Vec(1.0, 1.0, 8.0),
-                ),
-                HitboxPart(
-                    offset = Vec(0.0, -0.5, 0.0),
-                    size = Vec(8.0, 0.5, 2.0),
+                    offset = Vec(0.0, 0.0, 0.0),
+                    size = Vec(1.5, 1.5, 1.5),
                 ),
             ),
         )
