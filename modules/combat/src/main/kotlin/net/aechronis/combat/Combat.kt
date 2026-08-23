@@ -18,6 +18,7 @@ import net.aechronis.combat.listeners.PlayerDeathListener
 import net.aechronis.combat.listeners.PlayerDisconnectListener
 import net.aechronis.combat.listeners.ReloadListener
 import net.aechronis.combat.listeners.VehicleListener
+import net.aechronis.combat.listeners.WeaponLoreListener
 import net.aechronis.combat.objects.Grenade
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.tasks.ActionBarManager
@@ -174,6 +175,7 @@ object Combat {
         KeyPressListener.init()
         HatListener.init()
         LagCompensationListener.init()
+        WeaponLoreListener.init()
 
         // register commands
         MinecraftServer.getCommandManager().register(CombatAdminCommand())
