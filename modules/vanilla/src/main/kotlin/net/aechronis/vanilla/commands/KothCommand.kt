@@ -4,6 +4,7 @@ import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Koth
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.minestom.server.command.builder.CommandContext
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
@@ -14,7 +15,13 @@ class KothCommand : Command("koth", "vanilla.koth") {
     private val radiusArg = ArgumentType.Double("display-radius").min(0.01)
     private val rewardArg = ArgumentType.StringArray("command")
     private val indexArg = ArgumentType.Integer("index").min(0)
-    private val scheduleArg = ArgumentType.StringArray("cron-expression")
+
+    // Cron fields are separate arguments so the command parser does not treat the expression as an ambiguous greedy string.
+    private val minuteArg = ArgumentType.Word("minute")
+    private val hourArg = ArgumentType.Word("hour")
+    private val dayOfMonthArg = ArgumentType.Word("day-of-month")
+    private val monthArg = ArgumentType.Word("month")
+    private val dayOfWeekArg = ArgumentType.Word("day-of-week")
 
     init {
         setDefaultExecutor { sender: Player, _ -> sendList(sender) }
@@ -92,27 +99,49 @@ class KothCommand : Command("koth", "vanilla.koth") {
             sender.message(rewards?.mapIndexed { index, command -> "$index: $command" }?.joinToString(" | ") ?: "Unknown KOTH: $name")
         }, ArgumentType.Literal("reward"), ArgumentType.Literal("list"), nameArg)
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
-            val name = context[nameArg]
-            sender.message(
-                if (Koth.addSchedule(name, context[scheduleArg].joinToString(" "))) {
-                    "Added schedule for $name."
-                } else {
-                    "Unable to add schedule; use five-field cron (for example, 0 18 * * *)."
-                },
-            )
-        }, ArgumentType.Literal("schedule"), ArgumentType.Literal("add"), nameArg, scheduleArg)
+        addSyntax(
+            "vanilla.koth.admin",
+            { sender: Player, context ->
+                val name = context[nameArg]
+                sender.message(
+                    if (Koth.addSchedule(name, scheduleExpression(context))) {
+                        "Added schedule for $name."
+                    } else {
+                        "Unable to add schedule; use five cron fields: minute hour day-of-month month day-of-week (for example, 0 */3 * * *)."
+                    },
+                )
+            },
+            ArgumentType.Literal("schedule"),
+            ArgumentType.Literal("add"),
+            nameArg,
+            minuteArg,
+            hourArg,
+            dayOfMonthArg,
+            monthArg,
+            dayOfWeekArg,
+        )
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
-            val name = context[nameArg]
-            sender.message(
-                if (Koth.removeSchedule(name, context[scheduleArg].joinToString(" "))) {
-                    "Removed schedule for $name."
-                } else {
-                    "Unknown schedule; use the saved five-field cron expression."
-                },
-            )
-        }, ArgumentType.Literal("schedule"), ArgumentType.Literal("remove"), nameArg, scheduleArg)
+        addSyntax(
+            "vanilla.koth.admin",
+            { sender: Player, context ->
+                val name = context[nameArg]
+                sender.message(
+                    if (Koth.removeSchedule(name, scheduleExpression(context))) {
+                        "Removed schedule for $name."
+                    } else {
+                        "Unknown schedule; use the saved five-field cron expression."
+                    },
+                )
+            },
+            ArgumentType.Literal("schedule"),
+            ArgumentType.Literal("remove"),
+            nameArg,
+            minuteArg,
+            hourArg,
+            dayOfMonthArg,
+            monthArg,
+            dayOfWeekArg,
+        )
 
         addSyntax("vanilla.koth.admin", { sender: Player, context ->
             val name = context[nameArg]
@@ -125,6 +154,15 @@ class KothCommand : Command("koth", "vanilla.koth") {
             sender.message(Koth.status(name) ?: "Unknown KOTH: $name")
         }, ArgumentType.Literal("status"), nameArg)
     }
+
+    private fun scheduleExpression(context: CommandContext): String =
+        listOf(
+            context[minuteArg],
+            context[hourArg],
+            context[dayOfMonthArg],
+            context[monthArg],
+            context[dayOfWeekArg],
+        ).joinToString(" ")
 
     private fun sendList(sender: Player) {
         val names = Koth.configuredNames()

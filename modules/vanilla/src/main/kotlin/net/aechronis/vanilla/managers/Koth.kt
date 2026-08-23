@@ -66,6 +66,9 @@ object Koth {
     private val scheduledRuns = mutableMapOf<String, LocalDateTime>()
     internal val active = linkedMapOf<String, ActiveKoth>()
     internal val deadPlayers = mutableSetOf<UUID>()
+    private val captureGlowReferences = mutableMapOf<UUID, Int>()
+    private val captureGlowPreviousStates = mutableMapOf<UUID, Boolean>()
+    private val captureGlowPlayers = mutableMapOf<UUID, Player>()
     private val gson = GsonBuilder().setPrettyPrinting().create()
     private val cronParser = CronParser(CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX))
     private lateinit var file: Path
@@ -143,8 +146,9 @@ object Koth {
         command: String,
     ): Boolean {
         val saved = definitions[name] ?: return false
-        if (command.isBlank()) return false
-        saved.rewardCommands += command.removePrefix("/")
+        val normalized = command.trim().removePrefix("/").trim()
+        if (normalized.isBlank()) return false
+        saved.rewardCommands += normalized
         save()
         return true
     }
@@ -242,7 +246,7 @@ object Koth {
                 state.capturer != null && capturer == null -> resetCapture(state)
                 capturer != null && !isInside(state.definition, capturer) -> resetCapture(state)
                 capturer != null && now - (state.captureStartedAt ?: now) >= state.definition.saved.captureSeconds * 1000 -> {
-                    finish(name, capturer.uuid)
+                    finish(name, capturer)
                 }
             }
         }
@@ -269,8 +273,26 @@ object Koth {
         player: UUID,
         now: Long,
     ) {
+        beginCapture(state, player, now, findPlayer(player))
+    }
+
+    internal fun beginCapture(
+        state: ActiveKoth,
+        player: Player,
+        now: Long,
+    ) {
+        beginCapture(state, player.uuid, now, player)
+    }
+
+    private fun beginCapture(
+        state: ActiveKoth,
+        player: UUID,
+        now: Long,
+        playerEntity: Player?,
+    ) {
         state.capturer = player
         state.captureStartedAt = now
+        addCaptureGlow(player, playerEntity)
     }
 
     internal fun resetCaptures(player: UUID) {
@@ -278,24 +300,51 @@ object Koth {
     }
 
     internal fun resetCapture(state: ActiveKoth) {
+        val capturer = state.capturer
+        if (capturer != null) removeCaptureGlow(capturer)
         state.capturer = null
         state.captureStartedAt = null
     }
 
+    private fun addCaptureGlow(
+        player: UUID,
+        playerEntity: Player?,
+    ) {
+        val references = captureGlowReferences[player] ?: 0
+        if (references == 0) {
+            val target = playerEntity ?: findPlayer(player) ?: return
+            captureGlowPreviousStates[player] = target.isGlowing
+            captureGlowPlayers[player] = target
+            target.isGlowing = true
+        }
+        captureGlowReferences[player] = references + 1
+    }
+
+    private fun removeCaptureGlow(player: UUID) {
+        val references = captureGlowReferences[player] ?: return
+        if (references > 1) {
+            captureGlowReferences[player] = references - 1
+            return
+        }
+
+        captureGlowPlayers.remove(player)?.isGlowing = captureGlowPreviousStates.remove(player) ?: false
+        captureGlowReferences.remove(player)
+    }
+
     private fun finish(
         name: String,
-        winner: UUID?,
+        winner: Player?,
     ) {
         val state = active.remove(name) ?: return
+        resetCapture(state)
         val onlinePlayers = MinecraftServer.getConnectionManager().onlinePlayers.toList()
         state.bossBars.forEach { (uuid, bar) -> onlinePlayers.firstOrNull { it.uuid == uuid }?.hideBossBar(bar) }
         state.bossBars.clear()
         state.visibleTo.clear()
 
-        val winnerPlayer = findPlayer(winner)
-        if (winnerPlayer != null) {
-            giveRewards(state.definition, winnerPlayer)
-            broadcast(Component.text("KOTH ${state.definition.saved.name} captured by ${winnerPlayer.username}!", NamedTextColor.GREEN))
+        if (winner != null) {
+            giveRewards(state.definition, winner)
+            broadcast(Component.text("KOTH ${state.definition.saved.name} captured by ${winner.username}!", NamedTextColor.GREEN))
         }
     }
 
@@ -303,15 +352,24 @@ object Koth {
         definition: Definition,
         player: Player,
     ) {
-        for (command in definition.saved.rewardCommands) {
-            MinecraftServer
-                .getCommandManager()
-                .executeServerCommand(
-                    command
-                        .removePrefix("/")
-                        .replace("%player%", player.username)
-                        .replace("%koth%", definition.saved.name),
-                )
+        for (savedCommand in definition.saved.rewardCommands) {
+            val command =
+                savedCommand
+                    .trim()
+                    .removePrefix("/")
+                    .trim()
+                    .replace("%player%", player.username)
+                    .replace("%koth%", definition.saved.name)
+            if (command.isBlank()) continue
+
+            val result = runCatching { MinecraftServer.getCommandManager().executeServerCommand(command) }
+            val exception = result.exceptionOrNull()
+            val commandResult = result.getOrNull()
+            if (exception != null || commandResult?.type != net.minestom.server.command.builder.CommandResult.Type.SUCCESS) {
+                val details = exception?.message ?: commandResult?.type ?: "unknown result"
+                System.err.println("KOTH '${definition.saved.name}' reward failed for ${player.username}: '$command' ($details)")
+                player.sendMessage(Component.text("KOTH reward failed: $command", NamedTextColor.RED))
+            }
         }
     }
 
@@ -336,15 +394,21 @@ object Koth {
                     state.bossBars.getOrPut(player.uuid) {
                         BossBar.bossBar(Component.empty(), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS)
                     }
+                val globallyVisible = capturer != null && captureRemaining != null
 
-                if (!nearby) {
+                if (!globallyVisible && !nearby) {
                     if (state.visibleTo.remove(player.uuid)) player.hideBossBar(bar)
                     continue
                 }
 
-                if (state.capturer == player.uuid && captureRemaining != null) {
-                    bar.name(Component.text("KOTH ${state.definition.saved.name} | Capture: ${formatTime(captureRemaining)}"))
-                    bar.progress((captureRemaining.toFloat() / captureDuration).coerceIn(0f, 1f))
+                if (capturer != null && captureRemaining != null) {
+                    val captureMessage =
+                        "KOTH ${state.definition.saved.name} | Capturing: ${capturer.username} | Time left: " +
+                            formatTime(captureRemaining)
+                    bar.name(Component.text(captureMessage))
+                    bar.progress(
+                        (captureRemaining.toFloat() / captureDuration).coerceIn(0f, 1f),
+                    )
                 } else {
                     bar.name(Component.text("KOTH ${state.definition.saved.name} | Time left: ${formatTime(eventRemaining)}"))
                     bar.progress((eventRemaining.toFloat() / eventDuration).coerceIn(0f, 1f))

@@ -15,7 +15,7 @@ object KothListener {
             if (state.capturer == player.uuid) {
                 if (!Koth.isInside(state.definition, player, event.newPosition)) Koth.resetCapture(state)
             } else if (state.capturer == null && Koth.isInside(state.definition, player, event.newPosition)) {
-                Koth.beginCapture(state, player.uuid, now)
+                Koth.beginCapture(state, player, now)
             }
         }
         Koth.updateBossBars(now)
@@ -25,6 +25,7 @@ object KothListener {
         val player = event.player
         Koth.deadPlayers += player.uuid
         Koth.resetCaptures(player.uuid)
+        Koth.updateBossBars(System.currentTimeMillis())
     }
 
     fun onDisconnect(event: PlayerDisconnectEvent) {
@@ -35,6 +36,7 @@ object KothListener {
             state.bossBars.remove(player.uuid)
             state.visibleTo.remove(player.uuid)
         }
+        Koth.updateBossBars(System.currentTimeMillis())
     }
 
     fun onRespawn(event: PlayerRespawnEvent) {

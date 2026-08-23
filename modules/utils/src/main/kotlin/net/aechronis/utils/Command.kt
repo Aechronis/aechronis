@@ -3,6 +3,7 @@ package net.aechronis.utils
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.CommandSender
+import net.minestom.server.command.ServerSender
 import net.minestom.server.command.builder.CommandContext
 import net.minestom.server.command.builder.arguments.Argument
 import net.minestom.server.entity.Player
@@ -66,6 +67,21 @@ open class Command(
         validatedPlayer(sender, permission)?.let { executor(it, context) }
     }, *args)
 
+    /**
+     * Adds a syntax that can be executed by a player or a trusted server sender.
+     * Server senders bypass player permission checks because they are internal callers.
+     */
+    fun addSenderSyntax(
+        executor: (sender: CommandSender, context: CommandContext) -> Unit,
+        vararg args: Argument<*>,
+    ) = super.addSyntax({ sender, context ->
+        if (sender is Player && !hasPermission(sender, permission)) {
+            sender.sendMessage(Component.text(PERMISSION_DENIED_MESSAGE, NamedTextColor.RED))
+            return@addSyntax
+        }
+        executor(sender, context)
+    }, *args)
+
     /** Allows libraries to impose additional execution policy. */
     protected open fun canExecute(player: Player): Boolean = true
 
@@ -80,6 +96,7 @@ open class Command(
         permission: String?,
     ): Player? {
         if (sender !is Player) {
+            if (sender is ServerSender) throw IllegalStateException(PLAYER_ONLY_MESSAGE)
             sender.sendMessage(Component.text(PLAYER_ONLY_MESSAGE, NamedTextColor.RED))
             return null
         }
