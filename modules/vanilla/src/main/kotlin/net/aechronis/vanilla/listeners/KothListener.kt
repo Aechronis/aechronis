@@ -11,14 +11,21 @@ object KothListener {
     fun onMove(event: PlayerMoveEvent) {
         val player = event.player
         val now = System.currentTimeMillis()
+        var captureChanged = false
         for (state in Koth.active.values) {
             if (state.capturer == player.uuid) {
-                if (!Koth.isInside(state.definition, player, event.newPosition)) Koth.resetCapture(state)
+                if (!Koth.isInside(state.definition, player, event.newPosition)) {
+                    Koth.resetCapture(state)
+                    captureChanged = true
+                }
             } else if (state.capturer == null && Koth.isInside(state.definition, player, event.newPosition)) {
                 Koth.beginCapture(state, player, now)
+                captureChanged = true
             }
         }
-        Koth.updateBossBars(now)
+
+        if (captureChanged) Koth.updateBossBars(now)
+        Koth.updateBossBarsFor(player, event.newPosition, now)
     }
 
     fun onDeath(event: PlayerDeathEvent) {

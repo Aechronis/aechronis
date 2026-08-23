@@ -10,7 +10,6 @@ import net.minestom.server.entity.Player
 import java.nio.file.Path
 import java.util.UUID
 
-/** AGPL/server-side bridge; the CraftingStore module itself remains independent. */
 object CraftingStoreIntegration {
     private val economy =
         object : CraftingStoreEconomy {

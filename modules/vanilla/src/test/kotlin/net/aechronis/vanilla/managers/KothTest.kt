@@ -139,6 +139,33 @@ class KothTest : ManagerTest() {
     }
 
     @Test
+    fun `capture boss bars remain limited to nearby players`() {
+        val name = "koth-bossbar-radius-${System.nanoTime()}"
+        val capturer = VanillaTest.createPlayer(Pos(0.5, 40.0, 0.5))
+        val distantPlayer = VanillaTest.createPlayer(Pos(100.5, 40.0, 100.5))
+
+        assertTrue(Koth.add(name, 10, 60, 5.0))
+        try {
+            assertTrue(Koth.setCorner(name, capturer, true))
+            assertTrue(Koth.setCorner(name, capturer, false))
+            assertTrue(Koth.start(name))
+
+            val state = Koth.active[name]!!
+            Koth.beginCapture(state, capturer, System.currentTimeMillis())
+            Koth.updateBossBarsFor(capturer, now = System.currentTimeMillis())
+            Koth.updateBossBarsFor(distantPlayer, now = System.currentTimeMillis())
+
+            assertTrue(capturer.uuid in state.visibleTo)
+            assertFalse(distantPlayer.uuid in state.visibleTo)
+        } finally {
+            if (Koth.isActive(name)) Koth.stop(name)
+            Koth.remove(name)
+            VanillaTest.remove(capturer)
+            VanillaTest.remove(distantPlayer)
+        }
+    }
+
+    @Test
     fun `a matching schedule starts a koth only once per minute`() {
         val name = "koth-scheduled-${System.nanoTime()}"
         val player = VanillaTest.createPlayer(Pos(0.5, 40.0, 0.5))

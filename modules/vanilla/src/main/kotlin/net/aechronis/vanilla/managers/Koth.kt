@@ -373,9 +373,50 @@ object Koth {
         }
     }
 
+    /** Updates all visible KOTH bars once per scheduler tick or after a capture state change. */
     internal fun updateBossBars(now: Long) {
         val players = MinecraftServer.getConnectionManager().onlinePlayers.toList()
         for (state in active.values) {
+            players.forEach { player -> updateBossBar(state, player, player.position, now, updateContent = true) }
+        }
+    }
+
+    /**
+     * Reconciles visibility for one moving player without sending progress packets for every
+     * movement packet. Content is refreshed by [updateBossBars] once per second.
+     */
+    internal fun updateBossBarsFor(
+        player: Player,
+        position: Pos = player.position,
+        now: Long,
+    ) {
+        for (state in active.values) {
+            updateBossBar(state, player, position, now, updateContent = false)
+        }
+    }
+
+    private fun updateBossBar(
+        state: ActiveKoth,
+        player: Player,
+        position: Pos,
+        now: Long,
+        updateContent: Boolean,
+    ) {
+        val nearby =
+            player.instance === state.definition.instance &&
+                position.distanceSquared(state.definition.zone.center) <=
+                state.definition.saved.displayRadiusBlocks * state.definition.saved.displayRadiusBlocks
+        val existingBar = state.bossBars[player.uuid]
+        if (!nearby) {
+            if (state.visibleTo.remove(player.uuid) && existingBar != null) player.hideBossBar(existingBar)
+            return
+        }
+
+        val bar =
+            existingBar ?: BossBar.bossBar(Component.empty(), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS).also {
+                state.bossBars[player.uuid] = it
+            }
+        if (updateContent || player.uuid !in state.visibleTo) {
             val eventRemaining = (state.endsAt - now).coerceAtLeast(0)
             val eventDuration = (state.endsAt - state.startedAt).coerceAtLeast(1)
             val capturer = findPlayer(state.capturer)
@@ -385,38 +426,19 @@ object Koth {
                 }
             val captureDuration = (state.definition.saved.captureSeconds * 1000).coerceAtLeast(1)
 
-            for (player in players) {
-                val nearby =
-                    player.instance === state.definition.instance &&
-                        player.position.distanceSquared(state.definition.zone.center) <=
-                        state.definition.saved.displayRadiusBlocks * state.definition.saved.displayRadiusBlocks
-                val bar =
-                    state.bossBars.getOrPut(player.uuid) {
-                        BossBar.bossBar(Component.empty(), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS)
-                    }
-                val globallyVisible = capturer != null && captureRemaining != null
-
-                if (!globallyVisible && !nearby) {
-                    if (state.visibleTo.remove(player.uuid)) player.hideBossBar(bar)
-                    continue
-                }
-
-                if (capturer != null && captureRemaining != null) {
-                    val captureMessage =
-                        "KOTH ${state.definition.saved.name} | Capturing: ${capturer.username} | Time left: " +
-                            formatTime(captureRemaining)
-                    bar.name(Component.text(captureMessage))
-                    bar.progress(
-                        (captureRemaining.toFloat() / captureDuration).coerceIn(0f, 1f),
-                    )
-                } else {
-                    bar.name(Component.text("KOTH ${state.definition.saved.name} | Time left: ${formatTime(eventRemaining)}"))
-                    bar.progress((eventRemaining.toFloat() / eventDuration).coerceIn(0f, 1f))
-                }
-
-                if (state.visibleTo.add(player.uuid)) player.showBossBar(bar)
+            if (capturer != null && captureRemaining != null) {
+                val captureMessage =
+                    "KOTH ${state.definition.saved.name} | Capturing: ${capturer.username} | Time left: " +
+                        formatTime(captureRemaining)
+                bar.name(Component.text(captureMessage))
+                bar.progress((captureRemaining.toFloat() / captureDuration).coerceIn(0f, 1f))
+            } else {
+                bar.name(Component.text("KOTH ${state.definition.saved.name} | Time left: ${formatTime(eventRemaining)}"))
+                bar.progress((eventRemaining.toFloat() / eventDuration).coerceIn(0f, 1f))
             }
         }
+
+        if (state.visibleTo.add(player.uuid)) player.showBossBar(bar)
     }
 
     internal fun isInside(
