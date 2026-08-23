@@ -10,6 +10,7 @@ import com.sk89q.worldedit.world.block.BlockState
 import com.sk89q.worldedit.world.block.BlockStateHolder
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
+import io.github.openminigameserver.worldedit.platform.MinestomBlockHandlers
 import io.github.openminigameserver.worldedit.platform.MinestomBlockRegistry
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.minestom.server.MinecraftServer
@@ -82,8 +83,9 @@ class MinestomWorldNativeAccess(
                 BlockStateIdAccess.getBlockStateId(state)
             }
         val block = Block.fromStateId(stateId) ?: Block.AIR
-        if (!applyingFullBlock) return block
-        return block.withHandler(fullBlockHandler).withNbt(fullBlockNbt)
+        val handler = MinestomBlockHandlers.resolve(block, if (applyingFullBlock) fullBlockHandler else null)
+        if (!applyingFullBlock) return block.withHandler(handler)
+        return block.withHandler(handler).withNbt(fullBlockNbt)
     }
 
     override fun getBlockState(
@@ -144,7 +146,8 @@ class MinestomWorldNativeAccess(
 
         val world = getWorld()
         val block = world.getBlock(position)
-        world.setBlock(position, block.withHandler(toNativeBlockHandler(tag)).withNbt(toNativeBlockNbt(tag)))
+        val handler = MinestomBlockHandlers.resolve(block, toNativeBlockHandler(tag))
+        world.setBlock(position, block.withHandler(handler).withNbt(toNativeBlockNbt(tag)))
         return true
     }
 
@@ -152,7 +155,7 @@ class MinestomWorldNativeAccess(
         tag
             .findTag("id", LinTagType.stringTag())
             ?.value()
-            ?.let { MinecraftServer.getBlockManager().getHandlerOrDummy(it) }
+            ?.let { MinecraftServer.getBlockManager().getHandler(it) }
 
     private fun toNativeBlockNbt(tag: LinCompoundTag): CompoundBinaryTag? {
         val nbt =
@@ -274,7 +277,10 @@ class MinestomWorldNativeAccess(
     private fun sameState(
         first: Block,
         second: Block,
-    ): Boolean = first.stateId() == second.stateId() && first.nbt() == second.nbt()
+    ): Boolean =
+        first.stateId() == second.stateId() &&
+            first.nbt() == second.nbt() &&
+            first.handler()?.key == second.handler()?.key
 
     private companion object {
         const val MAX_BLOCKS_PER_BATCH = 32_768

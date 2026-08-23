@@ -3,6 +3,7 @@ package io.github.openminigameserver.worldedit.platform.chunkloader
 import com.sk89q.worldedit.extent.Extent
 import com.sk89q.worldedit.internal.block.BlockStateIdAccess
 import com.sk89q.worldedit.math.BlockVector3
+import io.github.openminigameserver.worldedit.platform.MinestomBlockHandlers
 import io.github.openminigameserver.worldedit.platform.MinestomBlockRegistry
 import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.ChunkLoader
@@ -39,7 +40,8 @@ class ExtentChunkLoader(
                     val extentBlock = extent.getBlock(BlockVector3.at(actualX, y, actualZ))
                     val stateId = MinestomBlockRegistry.getInternalBlockStateId(extentBlock)
                     if (stateId.isPresent) {
-                        chunk.setBlock(x, y, z, Block.fromStateId(stateId.asInt))
+                        val nativeBlock = Block.fromStateId(stateId.asInt) ?: continue
+                        chunk.setBlock(x, y, z, nativeBlock.withHandler(MinestomBlockHandlers.defaultFor(nativeBlock)))
                     }
                 }
             }

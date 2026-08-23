@@ -5,6 +5,8 @@ import com.sk89q.worldedit.extent.clipboard.Clipboard
 import com.sk89q.worldedit.function.operation.Operations
 import com.sk89q.worldedit.math.BlockVector3
 import com.sk89q.worldedit.session.ClipboardHolder
+import com.sk89q.worldedit.util.SideEffectSet
+import com.sk89q.worldedit.util.concurrency.LazyReference
 import com.sk89q.worldedit.world.block.BlockTypes
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
@@ -13,6 +15,7 @@ import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomWorld
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomWorldNativeAccess
 import net.kyori.adventure.bossbar.BossBar
+import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
 import net.minestom.server.Auth
@@ -27,11 +30,13 @@ import net.minestom.server.event.player.PlayerChatEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
 import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.block.BlockHandler
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.player.GameProfile
 import net.minestom.server.network.player.PlayerConnection
+import org.enginehub.linbus.tree.LinCompoundTag
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -190,6 +195,72 @@ class MinestomWorldEditTest {
         Operations.complete(world.commit())
         assertEquals(Block.AIR, instance.getBlock(2, 42, 2))
 
+        MinecraftServer.getInstanceManager().unregisterInstance(instance)
+    }
+
+    @Test
+    fun `worldedit attaches the registered block handler when pasting a full block`() {
+        val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        instance.loadChunk(0, 0).join()
+        val world = MinestomWorld(instance)
+        val handler = testHandler("minecraft:oak_door")
+        MinecraftServer.getBlockManager().registerHandler(handler.key) { handler }
+        val position = BlockVector3.at(2, 42, 2)
+
+        world.setBlock(position, BlockTypes.OAK_DOOR!!.defaultState.toBaseBlock(), SideEffectSet.defaults())
+        Operations.complete(world.commit())
+
+        assertEquals(handler, instance.getBlock(position.x(), position.y(), position.z()).handler())
+        MinecraftServer.getInstanceManager().unregisterInstance(instance)
+    }
+
+    @Test
+    fun `full block handler id takes precedence and unknown tile ids fall back to block handler`() {
+        val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        instance.loadChunk(0, 0).join()
+        val world = MinestomWorld(instance)
+        val defaultHandler = testHandler("minecraft:oak_door")
+        val explicitHandler = testHandler("worldedit:test_handler")
+        MinecraftServer.getBlockManager().registerHandler(defaultHandler.key) { defaultHandler }
+        MinecraftServer.getBlockManager().registerHandler(explicitHandler.key) { explicitHandler }
+
+        val explicitPosition = BlockVector3.at(2, 42, 2)
+        val fallbackPosition = BlockVector3.at(3, 42, 2)
+        val state = BlockTypes.OAK_DOOR!!.defaultState
+        world.setBlock(
+            explicitPosition,
+            state.toBaseBlock(
+                LazyReference.computed(
+                    LinCompoundTag
+                        .builder()
+                        .putString("id", explicitHandler.key.asString())
+                        .putString("value", "explicit")
+                        .build(),
+                ),
+            ),
+            SideEffectSet.defaults(),
+        )
+        world.setBlock(
+            fallbackPosition,
+            state.toBaseBlock(
+                LazyReference.computed(
+                    LinCompoundTag
+                        .builder()
+                        .putString("id", "minecraft:door")
+                        .putString("value", "fallback")
+                        .build(),
+                ),
+            ),
+            SideEffectSet.defaults(),
+        )
+        Operations.complete(world.commit())
+
+        val explicitBlock = instance.getBlock(explicitPosition.x(), explicitPosition.y(), explicitPosition.z())
+        assertEquals(explicitHandler, explicitBlock.handler())
+        assertEquals("explicit", explicitBlock.nbt()!!.getString("value"))
+        val fallbackBlock = instance.getBlock(fallbackPosition.x(), fallbackPosition.y(), fallbackPosition.z())
+        assertEquals(defaultHandler, fallbackBlock.handler())
+        assertEquals("fallback", fallbackBlock.nbt()!!.getString("value"))
         MinecraftServer.getInstanceManager().unregisterInstance(instance)
     }
 
@@ -365,6 +436,36 @@ class MinestomWorldEditTest {
     }
 
     @Test
+    fun `handler-only changes are recorded`() {
+        val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        instance.loadChunk(0, 0).join()
+        val nativeAccess = MinestomWorldNativeAccess(WeakReference(instance), false)
+        nativeAccess.actor = MinestomConsole
+        val position = BlockVec(2, 42, 2)
+        val handler = testHandler("worldedit:handler_only")
+
+        withBlockChangeEvents { events ->
+            val block = Block.STONE.withHandler(handler)
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(position), block)
+            nativeAccess.setBlockState(nativeAccess.getChunk(0, 0), Pos(position), block)
+
+            assertEquals(1, events.size)
+            assertEquals(
+                handler.key,
+                events
+                    .single()
+                    .changes
+                    .single()
+                    .newBlock
+                    .handler()!!
+                    .key,
+            )
+        }
+
+        MinecraftServer.getInstanceManager().unregisterInstance(instance)
+    }
+
+    @Test
     fun `block change event defensively copies changes`() {
         val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
         val source =
@@ -387,6 +488,11 @@ class MinestomWorldEditTest {
 
         MinecraftServer.getInstanceManager().unregisterInstance(instance)
     }
+
+    private fun testHandler(key: String): BlockHandler =
+        object : BlockHandler {
+            override fun getKey(): Key = Key.key(key)
+        }
 
     private fun withBlockChangeEvents(block: (MutableList<WorldEditBlockChangesEvent>) -> Unit) {
         val events = mutableListOf<WorldEditBlockChangesEvent>()

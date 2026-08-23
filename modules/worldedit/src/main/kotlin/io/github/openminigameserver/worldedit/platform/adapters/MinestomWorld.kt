@@ -250,7 +250,10 @@ class MinestomWorld(
     override fun getFullBlock(position: BlockVector3): BaseBlock {
         checkLoadedChunk(position)
         val block = getWorld().getBlock(position.x(), position.y(), position.z())
-        val state = BlockStateIdAccess.getBlockStateById(block.stateId())!!
+        val state =
+            MinestomBlockRegistry.getWorldEditBlockState(block)
+                ?: BlockStateIdAccess.getBlockStateById(block.stateId())
+                ?: throw IllegalStateException("No WorldEdit state registered for Minestom state ${block.stateId()} (${block.state()})")
         val nbt = block.nbt()
         val handler = block.handler()
         if (nbt == null && handler == null) return state.toBaseBlock()
