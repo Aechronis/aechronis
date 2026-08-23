@@ -86,7 +86,7 @@ object Weapons {
             add(shapedRecipe(Guns.mp5.toEmptyItemStack(), "GD", "ID"))
             add(shapedRecipe(Guns.vz61.toEmptyItemStack(), "GD", "I "))
             add(shapedRecipe(Guns.mg3.toEmptyItemStack(), "DDD", "DGD", "DI "))
-            add(shapedRecipe(Guns.at4.toEmptyItemStack(), "GBI", "IBG"))
+            add(shapedRecipe(Guns.at4.toItemStack(), "GBI", "IBG"))
 
             // C = copper ingot, R = redstone, O = coal, P = gunpowder
             add(shapedRecipe(Drones.scoutDrone.toItemStack(), "DCD", "ROR", "DCD"))
