@@ -21,7 +21,7 @@ import net.aechronis.combat.listeners.VehicleListener
 import net.aechronis.combat.objects.Grenade
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.tasks.ActionBarManager
-import net.aechronis.combat.tasks.LeafRestoreManager
+import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.tasks.PlayerPositionManager
 import net.aechronis.combat.tasks.ProjectileTickManager
@@ -152,7 +152,7 @@ object Combat {
 
         // initialize storage
         HatCollection.initialize()
-        LeafRestoreManager.initialize()
+        BlockRestoreManager.initialize()
 
         MinecraftServer.getGlobalEventHandler().addChild(lowPriorityEventNode)
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)

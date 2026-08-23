@@ -2,7 +2,7 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
-import net.aechronis.combat.tasks.LeafRestoreManager
+import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
@@ -292,7 +292,7 @@ class Gun(
             trailEndPoint = entityHit.point.asPos()
         } else { // block hit
             Particles.dustParticle(player.instance, blockHit!!.point.asPos())
-            LeafRestoreManager.temporarilyBreak(
+            BlockRestoreManager.temporarilyBreakLeaf(
                 player.instance,
                 blockHit.point.asBlockVec(),
                 blockHit.obj,

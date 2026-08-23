@@ -28,7 +28,8 @@ import net.aechronis.combat.objects.firstProjectileImpact
 import net.aechronis.combat.objects.isBombRelease
 import net.aechronis.combat.objects.selectProjectileImpact
 import net.aechronis.combat.storage.VehiclePersistence
-import net.aechronis.combat.tasks.LeafRestoreManager
+import net.aechronis.combat.tasks.BLOCK_RESTORE_DELAY_MILLIS
+import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.calculateVehicleCameraDistance
 import net.aechronis.combat.utils.particleLinePointCount
@@ -318,7 +319,7 @@ class CombatTest {
         )
 
         // initialize combat with test config
-        LeafRestoreManager.restoreDelayMillis = 1_000L
+        BlockRestoreManager.restoreDelayMillis = 1_000L
         Combat.initialize()
     }
 
@@ -806,6 +807,30 @@ class CombatTest {
     }
 
     @Test
+    fun `temporary combat block changes last ten minutes by default`() {
+        assertEquals(600_000L, BLOCK_RESTORE_DELAY_MILLIS)
+    }
+
+    @Test
+    fun `explosion damage and fire are temporary`() {
+        instance.loadChunk(0, 0).join()
+        val position = BlockVec(10, 61, 10)
+        val original = Block.OAK_LOG.withProperty("axis", "x")
+        instance.setBlock(position, original)
+        instance.setBlock(position.sub(0, 1, 0), Block.STONE)
+
+        Explosion(
+            instance = instance,
+            pos = Pos(position.x(), position.y(), position.z()),
+            radius = 0,
+            fire = 1.0,
+        )
+
+        waitFor { instance.getBlock(position).compare(Block.FIRE) }
+        waitFor { instance.getBlock(position).state() == original.state() }
+    }
+
+    @Test
     fun `leaf blocks are temporarily broken and restored`() {
         instance.loadChunk(0, 0).join()
         val position = BlockVec(8, 61, 8)
@@ -813,7 +838,7 @@ class CombatTest {
         val broken = CompletableFuture<Boolean>()
         instance.scheduleNextTick {
             instance.setBlock(position.blockX, position.blockY, position.blockZ, original)
-            assertTrue(LeafRestoreManager.temporarilyBreak(instance, position, original))
+            assertTrue(BlockRestoreManager.temporarilyBreakLeaf(instance, position, original))
             broken.complete(instance.getBlock(position).isAir)
         }
 
@@ -830,7 +855,7 @@ class CombatTest {
         val changed = CompletableFuture<Boolean>()
         instance.scheduleNextTick {
             instance.setBlock(position.blockX, position.blockY, position.blockZ, original)
-            assertTrue(LeafRestoreManager.temporarilyBreak(instance, position, original))
+            assertTrue(BlockRestoreManager.temporarilyBreakLeaf(instance, position, original))
             instance.setBlock(position.blockX, position.blockY, position.blockZ, Block.STONE)
             changed.complete(instance.getBlock(position).compare(Block.STONE))
         }

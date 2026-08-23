@@ -10,22 +10,23 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
-private const val RESTORE_DELAY_MILLIS = 10_000L
+internal const val BLOCK_RESTORE_DELAY_MILLIS = 10 * 60 * 1_000L
 
-private data class LeafPosition(
+private data class BlockPosition(
     val instanceId: UUID,
     val x: Int,
     val y: Int,
     val z: Int,
 )
 
-private data class PendingLeafRestore(
-    val position: LeafPosition,
-    val blockState: String,
+private data class PendingBlockRestore(
+    val position: BlockPosition,
+    val originalBlock: Block,
+    val temporaryBlock: Block,
 )
 
-object LeafRestoreManager {
-    internal var restoreDelayMillis = RESTORE_DELAY_MILLIS
+object BlockRestoreManager {
+    internal var restoreDelayMillis = BLOCK_RESTORE_DELAY_MILLIS
 
     private val leaves =
         setOf(
@@ -41,11 +42,11 @@ object LeafRestoreManager {
             Block.AZALEA_LEAVES,
             Block.FLOWERING_AZALEA_LEAVES,
         )
-    private val pending = ConcurrentHashMap<LeafPosition, PendingLeafRestore>()
-    private val scheduled = ConcurrentHashMap<LeafPosition, ScheduledFuture<*>>()
+    private val pending = ConcurrentHashMap<BlockPosition, PendingBlockRestore>()
+    private val scheduled = ConcurrentHashMap<BlockPosition, ScheduledFuture<*>>()
     private val executor =
         Executors.newSingleThreadScheduledExecutor { runnable ->
-            Thread(runnable, "combat-leaf-restore").apply { isDaemon = true }
+            Thread(runnable, "combat-block-restore").apply { isDaemon = true }
         }
 
     private var initialized = false
@@ -60,26 +61,36 @@ object LeafRestoreManager {
             .buildShutdownTask { restoreAllImmediately() }
     }
 
-    fun temporarilyBreak(
+    fun temporarilyBreakLeaf(
         instance: Instance,
         position: BlockVec,
         block: Block,
     ): Boolean {
         if (!isLeaf(block)) return false
+        return temporarilyReplace(instance, position, block, Block.AIR)
+    }
 
-        val key = LeafPosition(instance.uuid, position.blockX, position.blockY, position.blockZ)
-        val restore =
-            PendingLeafRestore(
-                position = key,
-                blockState = block.state(),
-            )
+    @Synchronized
+    fun temporarilyReplace(
+        instance: Instance,
+        position: BlockVec,
+        originalBlock: Block,
+        temporaryBlock: Block,
+    ): Boolean {
+        val key = BlockPosition(instance.uuid, position.blockX, position.blockY, position.blockZ)
+        val existing = pending[key]
+        val current = instance.getBlock(position)
+        val original =
+            if (existing != null && sameBlock(current, existing.temporaryBlock)) {
+                existing.originalBlock
+            } else {
+                if (existing != null) finish(key)
+                originalBlock
+            }
+        val restore = PendingBlockRestore(key, original, temporaryBlock)
 
-        synchronized(this) {
-            if (pending.containsKey(key)) return false
-            pending[key] = restore
-        }
-
-        instance.setBlock(position.blockX, position.blockY, position.blockZ, Block.AIR)
+        pending[key] = restore
+        instance.setBlock(position, temporaryBlock)
         schedule(instance, restore, restoreDelayMillis)
         return true
     }
@@ -88,7 +99,7 @@ object LeafRestoreManager {
 
     private fun schedule(
         instance: Instance,
-        restore: PendingLeafRestore,
+        restore: PendingBlockRestore,
         delayMillis: Long,
     ) {
         scheduled[restore.position]?.cancel(false)
@@ -100,19 +111,17 @@ object LeafRestoreManager {
             )
     }
 
+    @Synchronized
     private fun restore(
         instance: Instance,
-        restore: PendingLeafRestore,
+        restore: PendingBlockRestore,
     ) {
-        val target = runCatching { Block.fromState(restore.blockState) }.getOrNull()
-        if (target == null) {
-            finish(restore.position)
-            return
-        }
+        if (pending[restore.position] !== restore) return
 
         val position = restore.position
-        if (instance.getBlock(position.x, position.y, position.z).isAir) {
-            instance.setBlock(position.x, position.y, position.z, target)
+        val current = instance.getBlock(position.x, position.y, position.z)
+        if (sameBlock(current, restore.temporaryBlock)) {
+            instance.setBlock(position.x, position.y, position.z, restore.originalBlock)
         }
         finish(position)
     }
@@ -124,20 +133,23 @@ object LeafRestoreManager {
 
         for (restore in pending.values.toList()) {
             val instance = instanceById[restore.position.instanceId] ?: fallback ?: continue
-            val position = restore.position
-            val target = runCatching { Block.fromState(restore.blockState) }.getOrNull() ?: continue
-            if (instance.getBlock(position.x, position.y, position.z).isAir) {
-                instance.setBlock(position.x, position.y, position.z, target)
-            }
-            finish(position)
+            restore(instance, restore)
         }
 
         executor.shutdownNow()
     }
 
     @Synchronized
-    private fun finish(position: LeafPosition) {
+    private fun finish(position: BlockPosition) {
         pending.remove(position)
         scheduled.remove(position)?.cancel(false)
     }
+
+    private fun sameBlock(
+        first: Block,
+        second: Block,
+    ): Boolean =
+        first.state() == second.state() &&
+            first.nbt() == second.nbt() &&
+            first.handler()?.key == second.handler()?.key
 }

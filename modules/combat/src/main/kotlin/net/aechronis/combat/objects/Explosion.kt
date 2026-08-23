@@ -4,6 +4,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.events.ExplosionBlockChange
 import net.aechronis.combat.events.ExplosionBlockChangeType
 import net.aechronis.combat.events.ExplosionBlockDamageEvent
+import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.withCombatAttribution
 import net.aechronis.combat.utils.withCombatDamageImmunityBypass
@@ -100,12 +101,22 @@ class Explosion private constructor(
                 // First pass: destroy the blocks affected by the explosion. Protected
                 // blocks are excluded from this snapshot and therefore remain intact.
                 blast.affectedBlocks.forEach { block ->
-                    instance.setBlock(block, Block.AIR)
+                    BlockRestoreManager.temporarilyReplace(
+                        instance,
+                        block,
+                        requireNotNull(blast.originalBlocks[block]),
+                        Block.AIR,
+                    )
                 }
 
                 // Second pass: place the fire positions selected during the snapshot pass.
                 blast.firePositions.forEach { block ->
-                    instance.setBlock(block, Block.FIRE)
+                    BlockRestoreManager.temporarilyReplace(
+                        instance,
+                        block,
+                        requireNotNull(blast.originalBlocks[block]),
+                        Block.FIRE,
+                    )
                 }
             }
         }
@@ -169,7 +180,7 @@ class Explosion private constructor(
             }
         }
 
-        return BlastBlocks(positions, affectedBlocks, changes, firePositions)
+        return BlastBlocks(positions, blocks, affectedBlocks, changes, firePositions)
     }
 
     private fun isExplosionProof(block: Block): Boolean =
@@ -271,6 +282,7 @@ class Explosion private constructor(
 
     private data class BlastBlocks(
         val positions: List<Pos>,
+        val originalBlocks: Map<BlockVec, Block>,
         val affectedBlocks: Set<BlockVec>,
         val changes: List<ExplosionBlockChange>,
         val firePositions: List<BlockVec>,
