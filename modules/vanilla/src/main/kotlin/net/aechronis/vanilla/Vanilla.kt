@@ -41,6 +41,7 @@ import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.EnvironmentalDamage
 import net.aechronis.vanilla.managers.Filter
 import net.aechronis.vanilla.managers.Food
+import net.aechronis.vanilla.managers.ItemFrames
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.KillShop
 import net.aechronis.vanilla.managers.Koth
@@ -49,6 +50,8 @@ import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.PlayerData
 import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Saplings
+import net.aechronis.vanilla.managers.Shelves
+import net.aechronis.vanilla.managers.Signs
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.TreeFeller
 import net.minestom.server.MinecraftServer
@@ -111,6 +114,9 @@ object Vanilla {
         println("Loading Vanilla")
         if (config.playerDataEnabled) PlayerData.init(Path.of(config.path, config.playerDataPath))
         if (config.storageEnabled) Storage.init(Path.of(config.path, config.storagePath))
+        if (config.signsEnabled) Signs.init()
+        if (config.shelvesEnabled) Shelves.init()
+        if (config.itemFramesEnabled) ItemFrames.init()
         if (config.whitelistEnabled) WhitelistManager.init(Path.of(config.path, config.whitelistPath))
         if (config.recipesEnabled) Recipes.init()
         if (config.cropsEnabled) Crops.init()
