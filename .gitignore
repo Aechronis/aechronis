@@ -27,3 +27,12 @@ dist/
 /server/worldedit/
 /server/logger/
 /server/logs/
+/spark/
+/vanilla/
+/worldedit/
+/luckperms/
+/logger/
+/gems/
+/guard/
+/combat/
+/nodes/

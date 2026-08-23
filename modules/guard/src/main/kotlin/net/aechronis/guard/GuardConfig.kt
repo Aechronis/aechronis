@@ -6,6 +6,7 @@ import net.aechronis.guard.flags.FlagValue
 import net.minestom.server.entity.Player
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.UUID
 
 data class GuardConfig(
     val dataPath: Path = Paths.get("guard", "zones.json"),
@@ -14,4 +15,5 @@ data class GuardConfig(
     val onDenied: (Player, FlagName) -> Unit = { _, _ -> },
     val adminPermission: String = "guard.admin",
     val bypassPermission: String = "guard.bypass",
+    val loadedZoneInstanceIdMigration: ((UUID) -> UUID)? = null,
 )

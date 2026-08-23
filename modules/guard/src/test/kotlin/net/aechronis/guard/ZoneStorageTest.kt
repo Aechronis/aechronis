@@ -5,6 +5,7 @@ import net.aechronis.guard.flags.FlagName
 import net.aechronis.guard.flags.StringListFlagValue
 import net.aechronis.guard.objects.Zone
 import net.aechronis.guard.objects.ZoneBounds
+import net.aechronis.guard.storage.ZoneRegistry
 import net.aechronis.guard.storage.ZoneStorage
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
@@ -32,6 +33,24 @@ class ZoneStorageTest {
         ZoneStorage().save(path, listOf(zone))
 
         assertEquals(listOf(zone), ZoneStorage().load(path))
+    }
+
+    @Test
+    fun `migrates a persisted zone to the stable world instance`() {
+        val path = Files.createTempDirectory("guard-instance-migration-test").resolve("zones.json")
+        val legacyInstanceId = UUID.randomUUID()
+        val stableInstanceId = UUID.fromString("d5ae5978-ac5d-395a-9872-e2ba4ae1b7c3")
+        val zone = Zone("spawn", legacyInstanceId, ZoneBounds(0, 0, 0, 4, 4, 4))
+        val storage = ZoneStorage()
+
+        storage.save(path, listOf(zone))
+        val migrated = storage.migrateInstanceIds(storage.load(path)) { stableInstanceId }
+        storage.save(path, migrated)
+
+        val registry = ZoneRegistry()
+        registry.replaceAll(storage.load(path))
+        assertEquals("spawn", registry.find(stableInstanceId, 2, 2, 2)?.name)
+        assertEquals(stableInstanceId, storage.load(path).single().instanceId)
     }
 
     @Test

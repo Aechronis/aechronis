@@ -27,8 +27,19 @@ class ZoneStorage {
         if (!Files.exists(path)) return emptyList()
         val root = Files.newBufferedReader(path).use { JsonParser.parseReader(it) }
         val zones = root.asJsonObject.getAsJsonArray("zones") ?: return emptyList()
-        return zones.mapNotNull { element -> runCatching { readZone(element.asJsonObject) }.getOrNull() }
+        return zones.mapIndexedNotNull { index, element ->
+            runCatching { readZone(element.asJsonObject) }
+                .onFailure { error ->
+                    val name = runCatching { element.asJsonObject.get("name")?.asString }.getOrNull() ?: "#${index + 1}"
+                    System.err.println("Guard skipped invalid zone $name in $path: ${error.message ?: error}")
+                }.getOrNull()
+        }
     }
+
+    fun migrateInstanceIds(
+        zones: Collection<Zone>,
+        migration: (UUID) -> UUID,
+    ): List<Zone> = zones.map { zone -> zone.copy(instanceId = migration(zone.instanceId)) }
 
     fun save(
         path: Path,

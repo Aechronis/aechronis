@@ -53,8 +53,20 @@ object Guard {
                     }.toMap(),
             )
 
-        runCatching { registry.replaceAll(storage.load(config.dataPath)) }
-            .onFailure { println("Guard could not load zones from ${config.dataPath}: $it") }
+        runCatching {
+            val loadedZones = storage.load(config.dataPath)
+            val zones =
+                config.loadedZoneInstanceIdMigration?.let { migration ->
+                    storage.migrateInstanceIds(loadedZones, migration)
+                } ?: loadedZones
+            registry.replaceAll(zones)
+
+            val migratedCount = loadedZones.zip(zones).count { (loaded, migrated) -> loaded.instanceId != migrated.instanceId }
+            if (migratedCount > 0) {
+                storage.save(config.dataPath, zones)
+                println("Guard migrated $migratedCount zone instance ID(s) in ${config.dataPath}.")
+            }
+        }.onFailure { println("Guard could not load or migrate zones from ${config.dataPath}: $it") }
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         eventNode.addListener(PlayerBlockPlaceEvent::class.java, BlockPlaceListener::handle)

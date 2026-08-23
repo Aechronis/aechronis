@@ -11,6 +11,7 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.gems.Gems
 import net.aechronis.guard.Guard
+import net.aechronis.guard.GuardConfig
 import net.aechronis.logger.Logger
 import net.aechronis.logger.LoggerConfig
 import net.aechronis.nodes.Nodes
@@ -55,8 +56,12 @@ import java.net.InetSocketAddress
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.UUID
 
 object Server {
+    // This ID scopes persisted data such as Guard zones to the durable world/ instance.
+    val primaryWorldInstanceId: UUID = UUID.fromString("d5ae5978-ac5d-395a-9872-e2ba4ae1b7c3")
+
     private val spawnXTag = Tag.Double("aechronis:spawn_x")
     private val spawnYTag = Tag.Double("aechronis:spawn_y")
     private val spawnZTag = Tag.Double("aechronis:spawn_z")
@@ -155,12 +160,12 @@ fun main(args: Array<String>) {
     val worldPath = Path.of("world")
     Files.createDirectories(worldPath)
     Server.instance =
-        MinecraftServer
-            .getInstanceManager()
-            .createInstanceContainer(
-                Server.fullbrightKey,
-                AnvilLoader(worldPath, DimensionType.OVERWORLD.key()),
-            )
+        InstanceContainer(
+            Server.primaryWorldInstanceId,
+            Server.fullbrightKey,
+            AnvilLoader(worldPath, DimensionType.OVERWORLD.key()),
+        )
+    MinecraftServer.getInstanceManager().registerInstance(Server.instance)
     Server.loadSpawnPoint()
     MinecraftServer.getCommandManager().register(SetSpawnCommand())
 
@@ -254,7 +259,11 @@ fun main(args: Array<String>) {
 
     val worldEdit = MinestomWorldEdit()
     worldEdit.init()
-    Guard.init()
+    Guard.init(
+        GuardConfig(
+            loadedZoneInstanceIdMigration = { Server.primaryWorldInstanceId },
+        ),
+    )
 
     // CraftingStore is last: all commands which a donation may dispatch are now registered.
     CraftingStoreIntegration.initialize()
