@@ -10,8 +10,10 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Point
 import net.minestom.server.entity.Player
+import net.minestom.server.event.player.PlayerChunkLoadEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerEditSignEvent
+import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockFace
@@ -20,7 +22,9 @@ import net.minestom.server.instance.block.rule.BlockPlacementRule
 import net.minestom.server.network.packet.server.play.OpenSignEditorPacket
 import net.minestom.server.tag.Tag
 import org.everbuild.blocksandstuff.common.item.DroppedItemFactory
-import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.sin
 
 object Signs {
     private const val FRONT_TEXT = "front_text"
@@ -48,6 +52,7 @@ object Signs {
             manager.registerBlockPlacementRule(SignPlacementRule(block.defaultState()))
         }
         Vanilla.eventNode.addListener(PlayerEditSignEvent::class.java, ::onEdit)
+        Vanilla.eventNode.addListener(PlayerChunkLoadEvent::class.java, ::onPlayerChunkLoad)
         Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java) { sessions.remove(it.player) }
     }
 
@@ -57,7 +62,7 @@ object Signs {
 
         val current = event.instance.getBlock(event.blockPosition)
         if (!isSign(current) || current.nbtOrEmpty().getBoolean(WAXED, false)) return
-        val text = text(event.lines.map(::componentJson))
+        val text = text(event.lines)
         val nbt =
             current
                 .nbtOrEmpty()
@@ -83,11 +88,44 @@ object Signs {
 
     private fun isSign(block: Block): Boolean = block.key().asString().let { it.endsWith("_sign") || it.endsWith("_hanging_sign") }
 
+    private fun onPlayerChunkLoad(event: PlayerChunkLoadEvent) {
+        val instance = event.player.instance ?: return
+        instance.getChunk(event.chunkX, event.chunkZ)?.let(::restoreChunk)
+    }
+
+    /** Rebind persisted signs only after their chunk is actually being viewed. */
+    private fun restoreChunk(chunk: Chunk) {
+        if (!chunk.isLoaded) return
+        val signs = mutableListOf<Pair<BlockVec, Block>>()
+        chunk.lockReadLock()
+        try {
+            for (x in chunk.chunkX * 16..<chunk.chunkX * 16 + 16) {
+                for (z in chunk.chunkZ * 16..<chunk.chunkZ * 16 + 16) {
+                    for (y in chunk.minSection * 16..<chunk.maxSection * 16) {
+                        val block = chunk.getBlock(x, y, z)
+                        if (isSign(block)) signs += BlockVec(x, y, z) to block
+                    }
+                }
+            }
+        } finally {
+            chunk.unlockReadLock()
+        }
+        val instance = chunk.instance
+        if (!chunk.isLoaded || instance.getChunk(chunk.chunkX, chunk.chunkZ) !== chunk) return
+        signs.forEach { (position, block) ->
+            val handler = handlerFor(block)
+            if (block.nbt() == null || block.handler()?.key != handler.key) {
+                val restored = (if (block.nbt() == null) block.withNbt(defaultNbt()) else block).withHandler(handler)
+                instance.setBlock(position, restored, false)
+            }
+        }
+    }
+
     private fun defaultNbt(): CompoundBinaryTag =
         CompoundBinaryTag
             .builder()
-            .put(FRONT_TEXT, text(List(4) { "{\"text\":\"\"}" }))
-            .put(BACK_TEXT, text(List(4) { "{\"text\":\"\"}" }))
+            .put(FRONT_TEXT, text(List(4) { "" }))
+            .put(BACK_TEXT, text(List(4) { "" }))
             .putBoolean(WAXED, false)
             .build()
 
@@ -105,9 +143,6 @@ object Signs {
             .putBoolean("has_glowing_text", false)
             .build()
     }
-
-    private fun componentJson(line: String): String =
-        if (line.startsWith("{") || line.startsWith("[")) line else "{\"text\":\"${line.replace("\\", "\\\\").replace("\"", "\\\"")}\"}"
 
     private class SignHandler(
         private val type: Block,
@@ -146,7 +181,7 @@ object Signs {
                             (
                                 nbt.getCompound(target) ?: text(
                                     List(4) {
-                                        "{\"text\":\"\"}"
+                                        ""
                                     },
                                 )
                             ).putString("color", material.removePrefix("minecraft:").removeSuffix("_dye"))
@@ -154,7 +189,7 @@ object Signs {
                     }
 
                     material == "minecraft:glow_ink_sac" && !nbt.getBoolean(WAXED, false) -> {
-                        val text = (nbt.getCompound(target) ?: text(List(4) { "{\"text\":\"\"}" })).putBoolean("has_glowing_text", true)
+                        val text = (nbt.getCompound(target) ?: text(List(4) { "" })).putBoolean("has_glowing_text", true)
                         nbt.put(target, text)
                     }
 
@@ -199,13 +234,18 @@ object Signs {
         block: Block,
     ): Boolean {
         val facing = block.getProperty("facing")
-        if (facing != null) {
-            val face = BlockFace.valueOf(facing.uppercase())
-            return player.position.direction().dot(face.toDirection().vec()) < 0
-        }
-        val rotation = block.getProperty("rotation")?.toIntOrNull() ?: 0
-        val angle = Math.toDegrees(atan2(player.position.x - position.x(), position.z() - player.position.z))
-        return ((angle - rotation * 22.5 + 360.0) % 360.0) <= 180.0
+        val (normalX, normalZ) =
+            if (facing != null) {
+                val vector = BlockFace.valueOf(facing.uppercase()).toDirection().vec()
+                vector.x() to vector.z()
+            } else {
+                // Block-state rotation 0 faces south and advances clockwise in 22.5 degree steps.
+                val angle = Math.toRadians((block.getProperty("rotation")?.toIntOrNull() ?: 0) * 22.5)
+                sin(angle) to cos(angle)
+            }
+        val offsetX = player.position.x - (position.x() + 0.5)
+        val offsetZ = player.position.z - (position.z() + 0.5)
+        return offsetX * normalX + offsetZ * normalZ > 0.0
     }
 
     private class SignPlacementRule(
@@ -266,7 +306,7 @@ object Signs {
                     type
                         .withProperty(
                             "rotation",
-                            (((state.playerPosition()?.yaw() ?: 0f) / 22.5f).toInt() + 8 and 15).toString(),
+                            signRotation(state.playerPosition()?.yaw() ?: 0f),
                         ).withProperty("waterlogged", current.isLiquid.toString())
                 }
 
@@ -289,7 +329,7 @@ object Signs {
                 face == BlockFace.BOTTOM -> {
                     val above = state.instance.getBlock(state.placePosition.relative(BlockFace.TOP))
                     type
-                        .withProperty("rotation", (((state.playerPosition()?.yaw() ?: 0f) / 22.5f).toInt() + 8 and 15).toString())
+                        .withProperty("rotation", signRotation(state.playerPosition()?.yaw() ?: 0f))
                         .withProperty("attached", (above.isSolid && !state.isPlayerShifting).toString())
                         .withProperty("waterlogged", current.isLiquid.toString())
                 }
@@ -303,5 +343,7 @@ object Signs {
                     null
                 }
             }
+
+        private fun signRotation(yaw: Float): String = ((floor(yaw / 22.5f + 0.5f).toInt() + 8) and 15).toString()
     }
 }

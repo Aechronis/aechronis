@@ -6,7 +6,10 @@ import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
 import net.minestom.server.MinecraftServer
+import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.event.player.PlayerBlockBreakEvent
+import net.minestom.server.event.player.PlayerChunkLoadEvent
+import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockHandler
 import net.minestom.server.item.ItemStack
@@ -23,6 +26,7 @@ object Shelves {
             .filter { it.key().asString().endsWith("_shelf") }
             .forEach { block -> manager.registerHandler(block.key()) { ShelfHandler(block.defaultState()) } }
         Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java, ::onBreak)
+        Vanilla.eventNode.addListener(PlayerChunkLoadEvent::class.java, ::onPlayerChunkLoad)
     }
 
     private fun onBreak(event: PlayerBlockBreakEvent) {
@@ -34,6 +38,36 @@ object Shelves {
     }
 
     private fun isShelf(block: Block): Boolean = block.key().asString().endsWith("_shelf")
+
+    private fun onPlayerChunkLoad(event: PlayerChunkLoadEvent) {
+        val instance = event.player.instance ?: return
+        instance.getChunk(event.chunkX, event.chunkZ)?.let(::restoreChunk)
+    }
+
+    /** Rebind persisted shelves only after their chunk is actually being viewed. */
+    private fun restoreChunk(chunk: Chunk) {
+        if (!chunk.isLoaded) return
+        val shelves = mutableListOf<Pair<BlockVec, Block>>()
+        chunk.lockReadLock()
+        try {
+            for (x in chunk.chunkX * 16..<chunk.chunkX * 16 + 16) {
+                for (z in chunk.chunkZ * 16..<chunk.chunkZ * 16 + 16) {
+                    for (y in chunk.minSection * 16..<chunk.maxSection * 16) {
+                        val block = chunk.getBlock(x, y, z)
+                        if (isShelf(block)) shelves += BlockVec(x, y, z) to block
+                    }
+                }
+            }
+        } finally {
+            chunk.unlockReadLock()
+        }
+        val instance = chunk.instance
+        if (!chunk.isLoaded || instance.getChunk(chunk.chunkX, chunk.chunkZ) !== chunk) return
+        shelves.forEach { (position, block) ->
+            val handler = MinecraftServer.getBlockManager().getHandler(block.key().asString())
+            if (block.handler()?.key != handler?.key) instance.setBlock(position, block.withHandler(handler), false)
+        }
+    }
 
     private fun items(block: Block): MutableList<ItemStack> {
         val result = MutableList(3) { ItemStack.AIR }

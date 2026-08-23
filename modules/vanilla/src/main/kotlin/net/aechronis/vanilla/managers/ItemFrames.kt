@@ -4,7 +4,6 @@ import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
-import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
@@ -12,8 +11,9 @@ import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.metadata.other.ItemFrameMeta
 import net.minestom.server.event.entity.EntityAttackEvent
-import net.minestom.server.event.instance.InstanceChunkLoadEvent
+import net.minestom.server.event.instance.InstanceChunkUnloadEvent
 import net.minestom.server.event.player.PlayerBlockBreakEvent
+import net.minestom.server.event.player.PlayerChunkLoadEvent
 import net.minestom.server.event.player.PlayerEntityInteractEvent
 import net.minestom.server.event.player.PlayerUseItemOnBlockEvent
 import net.minestom.server.instance.Chunk
@@ -42,8 +42,10 @@ object ItemFrames {
         Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, ::onInteract)
         Vanilla.eventNode.addListener(EntityAttackEvent::class.java, ::onAttack)
         Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java, ::onSupportBreak)
-        Vanilla.eventNode.addListener(InstanceChunkLoadEvent::class.java, ::onChunkLoad)
-        MinecraftServer.getInstanceManager().instances.forEach { instance -> instance.chunks.forEach(::restoreChunk) }
+        // Frames are recreated only when a player receives a chunk. Loading every world chunk at
+        // startup is both unnecessary and races chunk unloading.
+        Vanilla.eventNode.addListener(PlayerChunkLoadEvent::class.java, ::onPlayerChunkLoad)
+        Vanilla.eventNode.addListener(InstanceChunkUnloadEvent::class.java, ::onChunkUnload)
     }
 
     private fun onUseOnBlock(event: PlayerUseItemOnBlockEvent) {
@@ -56,7 +58,7 @@ object ItemFrames {
         if (frames.values.any { it.instance === instance && it.support == support && it.face == event.blockFace }) return
 
         val entity = Entity(if (glowing) EntityType.GLOW_ITEM_FRAME else EntityType.ITEM_FRAME)
-        entity.editEntityMeta(ItemFrameMeta::class.java) { meta -> meta.direction = direction(event.blockFace) }
+        entity.editEntityMeta(ItemFrameMeta::class.java) { meta -> meta.direction = frameDirection(event.blockFace) }
         val position =
             support
                 .add(0.5, 0.5, 0.5)
@@ -110,7 +112,22 @@ object ItemFrames {
             .forEach { (entity, _) -> onAttack(EntityAttackEvent(event.player, entity)) }
     }
 
-    private fun onChunkLoad(event: InstanceChunkLoadEvent) = restoreChunk(event.chunk)
+    private fun onPlayerChunkLoad(event: PlayerChunkLoadEvent) {
+        val instance = event.player.instance ?: return
+        val chunk = instance.getChunk(event.chunkX, event.chunkZ) ?: return
+        restoreChunk(chunk)
+    }
+
+    private fun onChunkUnload(event: InstanceChunkUnloadEvent) {
+        val instance = event.instance
+        val chunkX = event.chunkX
+        val chunkZ = event.chunkZ
+        // Minestom removes non-player entities with their chunk. Forget their old anchors so a
+        // later player chunk load can restore them.
+        frames.entries.removeIf { (_, frame) ->
+            frame.instance === instance && frame.support.chunkX() == chunkX && frame.support.chunkZ() == chunkZ
+        }
+    }
 
     private fun saveAnchor(frame: Frame) {
         val block = frame.instance.getBlock(frame.support)
@@ -140,35 +157,47 @@ object ItemFrames {
     }
 
     private fun restoreChunk(chunk: Chunk) {
+        if (!chunk.isLoaded) return
         val instance = chunk.instance
+        val records = mutableListOf<Pair<BlockVec, CompoundBinaryTag>>()
         val minY = chunk.minSection * 16
         val maxY = chunk.maxSection * 16
-        for (x in chunk.chunkX * 16..<chunk.chunkX * 16 + 16) {
-            for (z in chunk.chunkZ * 16..<chunk.chunkZ * 16 + 16) {
-                for (y in minY..<maxY) {
-                    val support = BlockVec(x, y, z)
-                    val block = instance.getBlock(support)
-                    val records = block.nbtOrEmpty().getList(FRAME_DATA, BinaryTagTypes.COMPOUND)
-                    if (records.isEmpty()) continue
-                    for (entry in records) {
-                        val record = entry as? CompoundBinaryTag ?: continue
-                        val face =
-                            runCatching { BlockFace.valueOf((record.getString("face", "") ?: "").uppercase()) }.getOrNull() ?: continue
-                        if (frames.values.any { it.instance === instance && it.support == support && it.face == face }) continue
-                        val glowing = record.getBoolean("glowing", false)
-                        val entity = Entity(if (glowing) EntityType.GLOW_ITEM_FRAME else EntityType.ITEM_FRAME)
-                        entity.editEntityMeta(ItemFrameMeta::class.java) { meta ->
-                            meta.direction = direction(face)
-                            meta.rotation = Rotation.entries.getOrElse(record.getByte("rotation", 0).toInt()) { Rotation.NONE }
-                            record.getCompound("item")?.let { item ->
-                                meta.item =
-                                    runCatching { ItemStack.fromItemNBT(item) }.getOrDefault(ItemStack.AIR)
-                            }
+
+        // Read from the chunk supplied by the event while it is locked. Instance#getBlock can
+        // consult an already-unloaded chunk while the asynchronous loader is completing.
+        chunk.lockReadLock()
+        try {
+            for (x in chunk.chunkX * 16..<chunk.chunkX * 16 + 16) {
+                for (z in chunk.chunkZ * 16..<chunk.chunkZ * 16 + 16) {
+                    for (y in minY..<maxY) {
+                        val support = BlockVec(x, y, z)
+                        chunk.getBlock(support).nbtOrEmpty().getList(FRAME_DATA, BinaryTagTypes.COMPOUND).forEach { entry ->
+                            (entry as? CompoundBinaryTag)?.let { records += support to it }
                         }
-                        entity.setInstance(instance, support.add(0.5, 0.5, 0.5).add(face.toDirection().vec().mul(0.46875)).asPos())
-                        frames[entity] = Frame(instance, support, face, glowing)
                     }
                 }
+            }
+        } finally {
+            chunk.unlockReadLock()
+        }
+
+        synchronized(frames) {
+            if (!chunk.isLoaded || instance.getChunk(chunk.chunkX, chunk.chunkZ) !== chunk) return
+            for ((support, record) in records) {
+                val face =
+                    runCatching { BlockFace.valueOf((record.getString("face", "") ?: "").uppercase()) }.getOrNull() ?: continue
+                if (frames.values.any { it.instance === instance && it.support == support && it.face == face }) continue
+                val glowing = record.getBoolean("glowing", false)
+                val entity = Entity(if (glowing) EntityType.GLOW_ITEM_FRAME else EntityType.ITEM_FRAME)
+                entity.editEntityMeta(ItemFrameMeta::class.java) { meta ->
+                    meta.direction = frameDirection(face)
+                    meta.rotation = Rotation.entries.getOrElse(record.getByte("rotation", 0).toInt()) { Rotation.NONE }
+                    record.getCompound("item")?.let { item ->
+                        meta.item = runCatching { ItemStack.fromItemNBT(item) }.getOrDefault(ItemStack.AIR)
+                    }
+                }
+                entity.setInstance(instance, support.add(0.5, 0.5, 0.5).add(face.toDirection().vec().mul(0.46875)).asPos())
+                frames[entity] = Frame(instance, support, face, glowing)
             }
         }
     }
@@ -181,13 +210,10 @@ object ItemFrames {
         player.setItemInHand(hand, stack.withAmount(stack.amount() - 1))
     }
 
-    private fun direction(face: BlockFace): Direction =
-        when (face) {
-            BlockFace.TOP -> Direction.UP
-            BlockFace.BOTTOM -> Direction.DOWN
-            BlockFace.NORTH -> Direction.NORTH
-            BlockFace.SOUTH -> Direction.SOUTH
-            BlockFace.EAST -> Direction.EAST
-            BlockFace.WEST -> Direction.WEST
-        }
+    /**
+     * The item-frame spawn direction is the direction towards its attachment block, whereas a
+     * use-on-block face points away from that block. Vanilla's ItemFrame entity therefore uses
+     * the opposite direction for the entity metadata.
+     */
+    private fun frameDirection(face: BlockFace): Direction = face.oppositeFace.toDirection()
 }
