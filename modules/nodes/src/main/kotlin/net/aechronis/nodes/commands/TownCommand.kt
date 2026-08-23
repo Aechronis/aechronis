@@ -16,14 +16,13 @@ import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TownFly
 import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
-import net.minestom.server.potion.Potion
-import net.minestom.server.potion.PotionEffect
 import net.minestom.server.timer.TaskSchedule
 import java.util.Locale
 
@@ -48,7 +47,7 @@ class TownCommand : NodesCommand("t", null, "town") {
             Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
             Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
             Message.print(player, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
-            Message.print(player, "/town fly${ChatColor.WHITE}: Fly inside your town")
+            Message.print(player, "/town fly${ChatColor.WHITE}: Fly inside your town or nation")
             Message.print(player, "/town minimap${ChatColor.WHITE}: Configure the resource map")
             Message.print(player, "/town plot${ChatColor.WHITE}: Protect areas with 3D plots")
         }
@@ -76,7 +75,7 @@ class TownCommand : NodesCommand("t", null, "town") {
                 Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
                 Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
                 Message.print(player, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
-                Message.print(player, "/town fly${ChatColor.WHITE}: Fly inside your town")
+                Message.print(player, "/town fly${ChatColor.WHITE}: Fly inside your town or nation")
                 Message.print(player, "/town minimap${ChatColor.WHITE}: Configure the resource map")
                 Message.print(player, "/town plot${ChatColor.WHITE}: Protect areas with 3D plots")
             }
@@ -129,7 +128,7 @@ class TownHelpCommand : NodesCommand("help") {
             Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
             Message.print(player, "/town trust${ChatColor.WHITE}: Mark player as trusted")
             Message.print(player, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
-            Message.print(player, "/town fly${ChatColor.WHITE}: Fly inside your town")
+            Message.print(player, "/town fly${ChatColor.WHITE}: Fly inside your town or nation")
             Message.print(player, "/town plot${ChatColor.WHITE}: Protect areas with 3D plots")
         }
     }
@@ -1057,15 +1056,13 @@ class TownFlyCommand : NodesCommand("fly", "nodes.fly") {
             }
 
             if (player.isAllowFlying) {
-                player.isAllowFlying = false
-                // give player slow falling to avoid fall damage
-                player.addEffect(Potion(PotionEffect.SLOW_FALLING, 0, 100))
+                TownFly.disable(player)
                 Message.print(player, "Disabled flight")
                 return@addSyntax
             }
 
-            if (Territory.fromPlayer(player)?.town != town) {
-                Message.error(player, "You must be in your town to enable flight")
+            if (!TownFly.isAllowed(town, Territory.fromPlayer(player))) {
+                Message.error(player, "You must be in your town or nation to enable flight")
                 return@addSyntax
             }
 

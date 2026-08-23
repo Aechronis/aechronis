@@ -6,13 +6,12 @@ import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TownFly
 import net.aechronis.nodes.utils.ChatColor
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.event.entity.EntityTeleportEvent
 import net.minestom.server.event.player.PlayerMoveEvent
-import net.minestom.server.potion.Potion
-import net.minestom.server.potion.PotionEffect
 
 object NodesPlayerMoveListener {
     private fun onPlayerMove(event: PlayerMoveEvent) {
@@ -114,12 +113,10 @@ object NodesPlayerMoveListener {
 
         val playerTown = Town.fromPlayer(player)
 
-        // if player leaves their own town while flying, disable flight
-        if (player.isAllowFlying && toTerritory?.town != playerTown) {
-            player.isAllowFlying = false
-            // give player slow falling to avoid fall damage
-            player.addEffect(Potion(PotionEffect.SLOW_FALLING, 0, 100))
-            Message.print(player, "You are no longer in your town, disabling flight")
+        // Town flight is limited to the player's town and nation territory.
+        if (player.isAllowFlying && !TownFly.isAllowed(playerTown, toTerritory)) {
+            TownFly.disable(player)
+            Message.print(player, "You are no longer in your town or nation, disabling flight")
         }
     }
 

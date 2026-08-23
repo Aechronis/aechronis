@@ -212,7 +212,7 @@ class NodesTest {
     }
 
     @Test
-    fun `leaving own town territory disables flight`() {
+    fun `leaving town or nation territory disables flight`() {
         val town = Nodes.towns.values.first()
         val home = Territory.fromId(town.home)!!
         val destination = Nodes.territories.values.first { it.town !== town }
@@ -228,6 +228,68 @@ class NodesTest {
 
             MinecraftServer.getGlobalEventHandler().call(PlayerMoveEvent(player, positionIn(destination), false))
 
+            assertFalse(player.isAllowFlying)
+            assertTrue(player.hasEffect(PotionEffect.SLOW_FALLING))
+        } finally {
+            Nodes.residents.remove(resident.uuid)
+            player.remove()
+        }
+    }
+
+    @Test
+    fun `entering a town in the player's nation preserves flight`() {
+        val town = Nodes.towns.values.first()
+        val home = Territory.fromId(town.home)!!
+        val territory = Nodes.territories.values.first { it.town == null }
+        val suffix = UUID.randomUUID().toString().take(8)
+        val nationTown = Town.create("FlightNationTown$suffix", territory, null).getOrThrow()
+        val nation = Nation.create("FlightNation$suffix", town).getOrThrow()
+        Nation.addTown(nation, nationTown).getOrThrow()
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "nation-flight"))
+        val resident = Resident(player.uuid, player.username)
+        Nodes.residents[resident.uuid] = resident
+        resident.town = town
+
+        try {
+            player.setInstance(instance, positionIn(home)).join()
+            player.gameMode = GameMode.SURVIVAL
+            player.isAllowFlying = true
+
+            MinecraftServer.getGlobalEventHandler().call(PlayerMoveEvent(player, positionIn(territory), false))
+
+            assertTrue(player.isAllowFlying)
+            assertFalse(player.hasEffect(PotionEffect.SLOW_FALLING))
+        } finally {
+            Nodes.residents.remove(resident.uuid)
+            player.remove()
+            Nation.destroy(nation)
+            Town.destroy(nationTown)
+        }
+    }
+
+    @Test
+    fun `entering unclaimed or missing territory disables flight`() {
+        val town = Nodes.towns.values.first()
+        val home = Territory.fromId(town.home)!!
+        val unclaimed = Nodes.territories.values.first { it.town == null }
+        val noTerritory = Pos(1_000_000.0, 60.0, 1_000_000.0)
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "wilderness-fly"))
+        val resident = Resident(player.uuid, player.username)
+        Nodes.residents[resident.uuid] = resident
+        resident.town = town
+
+        try {
+            assertEquals(null, Territory.fromBlock(noTerritory.blockX(), noTerritory.blockZ()))
+            player.setInstance(instance, positionIn(home)).join()
+            player.gameMode = GameMode.SURVIVAL
+
+            player.isAllowFlying = true
+            MinecraftServer.getGlobalEventHandler().call(PlayerMoveEvent(player, positionIn(unclaimed), false))
+            assertFalse(player.isAllowFlying)
+            assertTrue(player.hasEffect(PotionEffect.SLOW_FALLING))
+
+            player.isAllowFlying = true
+            MinecraftServer.getGlobalEventHandler().call(PlayerMoveEvent(player, noTerritory, false))
             assertFalse(player.isAllowFlying)
             assertTrue(player.hasEffect(PotionEffect.SLOW_FALLING))
         } finally {
