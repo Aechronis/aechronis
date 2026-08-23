@@ -23,6 +23,7 @@ import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Shutdown
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
+import net.aechronis.vanilla.commands.Vanish
 import net.aechronis.vanilla.commands.Warp
 import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.CombatInventoryListener
@@ -62,6 +63,7 @@ import java.nio.file.Path
 import net.aechronis.vanilla.managers.Music as MusicManager
 import net.aechronis.vanilla.managers.Shutdown as ShutdownManager
 import net.aechronis.vanilla.managers.TpsBar as TpsBarManager
+import net.aechronis.vanilla.managers.Vanish as VanishManager
 import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
 object Vanilla {
@@ -103,6 +105,7 @@ object Vanilla {
                     List(),
                     TpsBar(),
                     Shutdown(),
+                    Vanish(),
                     Warp(),
                 )
             if (config.musicEnabled) commands += Music()
@@ -137,6 +140,7 @@ object Vanilla {
         if (config.efficiencyEnabled) Efficiency.init()
         if (config.commandsEnabled) {
             CommandsListener.init()
+            VanishManager.init()
             TpsBarManager.init()
         }
         if (config.blockDropsEnabled) PlayerBreakListener.init()
