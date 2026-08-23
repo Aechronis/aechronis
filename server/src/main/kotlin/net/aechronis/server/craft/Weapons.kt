@@ -1,22 +1,17 @@
 package net.aechronis.server.craft
 
 import net.aechronis.combat.objects.ArmorPiece
-import net.aechronis.combat.objects.Hat
-import net.aechronis.combat.storage.HatCollection
 import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
+import net.aechronis.server.constants.Drones
 import net.aechronis.server.constants.Guns
-import net.aechronis.server.constants.Hats
 import net.aechronis.vanilla.objects.Recipe
-import net.aechronis.vanilla.objects.RecipesGrid
 import net.aechronis.vanilla.objects.RecipesIngredient
-import net.aechronis.vanilla.objects.RecipesResult
 import net.aechronis.vanilla.objects.RecipesShapeless
-import net.minestom.server.entity.Player
+import net.aechronis.vanilla.objects.Shaped
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 
-/** Crafting recipes for player weapons, ammunition, uniforms, and the gas-mask cosmetic. */
 object Weapons {
     val list: List<Recipe> =
         buildList {
@@ -45,14 +40,6 @@ object Weapons {
             )
             add(
                 shapeless(
-                    Ammo.rocket.toItemStack().withAmount(4),
-                    Material.COPPER_INGOT to 3,
-                    Material.IRON_BLOCK to 1,
-                    Material.GUNPOWDER to 5,
-                ),
-            )
-            add(
-                shapeless(
                     Ammo.tankShell.toItemStack().withAmount(4),
                     Material.COPPER_INGOT to 4,
                     Material.IRON_BLOCK to 1,
@@ -61,15 +48,6 @@ object Weapons {
             )
 
             // Uniform recipes use dyes to choose their faction's equipment asset.
-            add(
-                hatUnlockRecipe(
-                    Hats.gasMask,
-                    Material.GOLD_INGOT to 1,
-                    Material.DIAMOND to 1,
-                    Material.IRON_INGOT to 3,
-                    Material.BLACK_DYE to 1,
-                ),
-            )
             addAll(uniformRecipes(Armor.usMarineJacket, Armor.usMarineTrousers, Armor.usMarineBoots, Material.YELLOW_DYE))
             addAll(uniformRecipes(Armor.idfJacket, Armor.idfTrousers, Armor.idfBoots, Material.GREEN_DYE))
             addAll(uniformRecipes(Armor.chineseArmyJacket, Armor.chineseArmyTrousers, Armor.chineseArmyBoots, Material.RED_DYE))
@@ -96,17 +74,23 @@ object Weapons {
             addAll(uniformRecipes(Armor.syriaJacket, Armor.syriaTrousers, Armor.syriaBoots, Material.BROWN_DYE))
             addAll(uniformRecipes(Armor.turkeyJacket, Armor.turkeyTrousers, Armor.turkeyBoots, Material.PURPLE_DYE))
 
-            add(shapeless(Guns.m4a1.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 7, Material.IRON_BLOCK to 1))
-            add(shapeless(Guns.ak12.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 4, Material.IRON_BLOCK to 1))
-            add(shapeless(Guns.qbz95.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 5, Material.IRON_BLOCK to 1))
-            add(shapeless(Guns.ak74.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 3, Material.IRON_BLOCK to 1))
-            add(shapeless(Guns.g3.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 2, Material.IRON_BLOCK to 1))
-            add(shapeless(Guns.glock17.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 1, Material.IRON_BLOCK to 1))
-            add(shapeless(Guns.m9.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 1, Material.IRON_BLOCK to 1))
-            add(shapeless(Guns.mp5.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 2, Material.IRON_BLOCK to 1))
-            add(shapeless(Guns.vz61.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 1, Material.IRON_BLOCK to 1))
-            add(shapeless(Guns.mg3.toEmptyItemStack(), Material.GOLD_BLOCK to 1, Material.DIAMOND to 6, Material.IRON_BLOCK to 1))
-            add(shapeless(Guns.at4.toEmptyItemStack(), Material.GOLD_BLOCK to 2, Material.DIAMOND_BLOCK to 1, Material.IRON_BLOCK to 2))
+            // G = gold block, D = diamond, B = diamond block, I = iron block
+            add(shapedRecipe(Guns.m4a1.toEmptyItemStack(), "DDD", "DGD", "DID"))
+            add(shapedRecipe(Guns.ak12.toEmptyItemStack(), "DDD", "DGI"))
+            add(shapedRecipe(Guns.qbz95.toEmptyItemStack(), "DDD", "DGI", "D  "))
+            add(shapedRecipe(Guns.ak74.toEmptyItemStack(), "DGD", " I ", " D "))
+            add(shapedRecipe(Guns.g3.toEmptyItemStack(), "GD", "DI"))
+            add(shapedRecipe(Guns.awp.toEmptyItemStack(), "BBG", "BII", "BG "))
+            add(shapedRecipe(Guns.glock17.toEmptyItemStack(), "GDI"))
+            add(shapedRecipe(Guns.m9.toEmptyItemStack(), "G", "D", "I"))
+            add(shapedRecipe(Guns.mp5.toEmptyItemStack(), "GD", "ID"))
+            add(shapedRecipe(Guns.vz61.toEmptyItemStack(), "GD", "I "))
+            add(shapedRecipe(Guns.mg3.toEmptyItemStack(), "DDD", "DGD", "DI "))
+            add(shapedRecipe(Guns.at4.toEmptyItemStack(), "GBI", "IBG"))
+
+            // C = copper ingot, R = redstone, O = coal, P = gunpowder
+            add(shapedRecipe(Drones.scoutDrone.toItemStack(), "DCD", "ROR", "DCD"))
+            add(shapedRecipe(Drones.kamikazeDrone.toItemStack(), "BIB", "RPR", "BIB"))
         }
 
     private fun uniformRecipes(
@@ -144,10 +128,37 @@ object Weapons {
         vararg materialCounts: Pair<Material, Int>,
     ): RecipesShapeless = RecipesShapeless(ingredients(*materialCounts), output)
 
-    private fun hatUnlockRecipe(
-        hat: Hat,
-        vararg materialCounts: Pair<Material, Int>,
-    ): Recipe = HatUnlockRecipe(hat, ingredients(*materialCounts))
+    private fun shapedRecipe(
+        output: ItemStack,
+        vararg rows: String,
+    ): Shaped {
+        require(rows.isNotEmpty() && rows.size <= 3) { "Shaped recipes must be between one and three rows high" }
+        val width = rows.first().length
+        require(width in 1..3 && rows.all { it.length == width }) {
+            "Shaped recipe rows must have the same width between one and three"
+        }
+
+        val pattern =
+            rows
+                .flatMap { row ->
+                    row.map { symbol ->
+                        when (symbol) {
+                            'G' -> RecipesIngredient.of(Material.GOLD_BLOCK)!!
+                            'D' -> RecipesIngredient.of(Material.DIAMOND)!!
+                            'B' -> RecipesIngredient.of(Material.DIAMOND_BLOCK)!!
+                            'I' -> RecipesIngredient.of(Material.IRON_BLOCK)!!
+                            'C' -> RecipesIngredient.of(Material.COPPER_INGOT)!!
+                            'R' -> RecipesIngredient.of(Material.REDSTONE)!!
+                            'O' -> RecipesIngredient.of(Material.COAL)!!
+                            'P' -> RecipesIngredient.of(Material.GUNPOWDER)!!
+                            ' ' -> null
+                            else -> error("Unknown shaped recipe symbol: $symbol")
+                        }
+                    }
+                }.toTypedArray()
+
+        return Shaped(width, rows.size, pattern, output)
+    }
 
     private fun ingredients(vararg materialCounts: Pair<Material, Int>): List<RecipesIngredient> =
         buildList {
@@ -156,21 +167,4 @@ object Weapons {
                 repeat(count) { add(RecipesIngredient.of(material)!!) }
             }
         }
-
-    private class HatUnlockRecipe(
-        private val hat: Hat,
-        ingredients: List<RecipesIngredient>,
-    ) : Recipe {
-        private val delegate = RecipesShapeless(ingredients, hat.toItemStack())
-
-        override fun match(recipesGrid: RecipesGrid): RecipesResult? = delegate.match(recipesGrid)?.copy(recipe = this)
-
-        override fun canCraft(player: Player): Boolean = !HatCollection.owns(player.uuid, hat)
-
-        override fun grantsItem(): Boolean = false
-
-        override fun onCraft(player: Player) {
-            HatCollection.give(player.uuid, hat)
-        }
-    }
 }
