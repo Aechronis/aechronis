@@ -7,6 +7,7 @@ plugins {
 dependencies {
     api("net.minestom:minestom:2026.07.12-26.2")
     api("com.google.code.gson:gson:2.14.0")
+    implementation("com.cronutils:cron-utils:9.2.1")
     implementation("com.modernmt.text:profanity-filter:1.0.1")
     compileOnly("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     compileOnly("org.everbuild.blocksandstuff:blocksandstuff-common:1.10.2-SNAPSHOT")

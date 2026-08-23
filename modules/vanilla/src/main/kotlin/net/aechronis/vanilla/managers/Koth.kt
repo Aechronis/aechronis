@@ -1,5 +1,9 @@
 package net.aechronis.vanilla.managers
 
+import com.cronutils.model.CronType
+import com.cronutils.model.definition.CronDefinitionBuilder
+import com.cronutils.model.time.ExecutionTime
+import com.cronutils.parser.CronParser
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import net.aechronis.vanilla.listeners.KothListener
@@ -63,6 +67,7 @@ object Koth {
     internal val active = linkedMapOf<String, ActiveKoth>()
     internal val deadPlayers = mutableSetOf<UUID>()
     private val gson = GsonBuilder().setPrettyPrinting().create()
+    private val cronParser = CronParser(CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX))
     private lateinit var file: Path
 
     fun init(path: Path) {
@@ -159,11 +164,10 @@ object Koth {
 
     fun addSchedule(
         name: String,
-        time: String,
+        expression: String,
     ): Boolean {
         val saved = definitions[name] ?: return false
-        val parsed = runCatching { LocalTime.parse(time) }.getOrNull() ?: return false
-        val normalized = parsed.withNano(0).toString()
+        val normalized = normalizeSchedule(expression) ?: return false
         if (normalized in saved.schedules) return false
         saved.schedules += normalized
         save()
@@ -172,11 +176,11 @@ object Koth {
 
     fun removeSchedule(
         name: String,
-        time: String,
+        expression: String,
     ): Boolean {
         val saved = definitions[name] ?: return false
-        val parsed = runCatching { LocalTime.parse(time) }.getOrNull() ?: return false
-        val removed = saved.schedules.remove(parsed.withNano(0).toString())
+        val normalized = normalizeSchedule(expression) ?: return false
+        val removed = saved.schedules.remove(normalized)
         if (removed) save()
         return removed
     }
@@ -252,13 +256,11 @@ object Koth {
     }
 
     private fun startScheduled(dateTime: LocalDateTime) {
+        val minute = dateTime.withSecond(0).withNano(0)
         for ((name, saved) in definitions) {
-            for (time in saved.schedules.mapNotNull { runCatching { LocalTime.parse(it) }.getOrNull() }) {
-                val scheduledAt = LocalDateTime.of(dateTime.toLocalDate(), time.withNano(0))
-                if (dateTime != scheduledAt || scheduledRuns[name] == scheduledAt) continue
-                scheduledRuns[name] = scheduledAt
-                start(name)
-            }
+            if (scheduledRuns[name] == minute || saved.schedules.none { matchesSchedule(it, minute) }) continue
+            scheduledRuns[name] = minute
+            start(name)
         }
     }
 
@@ -382,10 +384,23 @@ object Koth {
                 gson.fromJson<List<SavedKoth>?>(reader, type).orEmpty()
             }
         }.onSuccess { saved ->
+            var migrated = false
             saved.forEach { entry ->
+                val normalizedSchedules = entry.schedules.map(::normalizeSchedule)
+                if (normalizedSchedules.any { it == null }) {
+                    System.err.println("Skipping invalid or duplicate KOTH '${entry.name}' in $file")
+                    return@forEach
+                }
+                val schedules = normalizedSchedules.filterNotNull()
+                if (entry.schedules != schedules) {
+                    entry.schedules.clear()
+                    entry.schedules += schedules
+                    migrated = true
+                }
                 if (valid(entry) && definitions.putIfAbsent(entry.name, entry) == null) return@forEach
                 System.err.println("Skipping invalid or duplicate KOTH '${entry.name}' in $file")
             }
+            if (migrated) save()
         }.onFailure { error ->
             System.err.println("Failed to load KOTHs from $file: ${error.message}")
         }
@@ -407,7 +422,30 @@ object Koth {
             saved.eventSeconds > 0 &&
             saved.displayRadiusBlocks > 0 &&
             saved.rewardCommands.all(String::isNotBlank) &&
-            saved.schedules.all { runCatching { LocalTime.parse(it) }.isSuccess }
+            saved.schedules.all { normalizeSchedule(it) != null }
+
+    /**
+     * Accepts five-field Unix cron expressions and migrates the legacy HH:mm schedule format.
+     */
+    internal fun normalizeSchedule(expression: String): String? {
+        val trimmed = expression.trim()
+        if (trimmed.isBlank()) return null
+        runCatching { LocalTime.parse(trimmed) }.getOrNull()?.let { time ->
+            return "${time.minute} ${time.hour} * * *"
+        }
+        return runCatching {
+            cronParser.parse(trimmed).also { it.validate() }.asString()
+        }.getOrNull()
+    }
+
+    internal fun matchesSchedule(
+        expression: String,
+        minute: LocalDateTime,
+    ): Boolean =
+        runCatching {
+            val cron = cronParser.parse(expression).also { it.validate() }
+            ExecutionTime.forCron(cron).isMatch(minute.atZone(ZoneId.systemDefault()))
+        }.getOrDefault(false)
 
     private fun findPlayer(uuid: UUID?): Player? =
         uuid?.let { target -> MinecraftServer.getConnectionManager().onlinePlayers.firstOrNull { it.uuid == target } }

@@ -14,7 +14,7 @@ class KothCommand : Command("koth", "vanilla.koth") {
     private val radiusArg = ArgumentType.Double("display-radius").min(0.01)
     private val rewardArg = ArgumentType.StringArray("command")
     private val indexArg = ArgumentType.Integer("index").min(0)
-    private val timeArg = ArgumentType.Word("HH:mm")
+    private val scheduleArg = ArgumentType.StringArray("cron-expression")
 
     init {
         setDefaultExecutor { sender: Player, _ -> sendList(sender) }
@@ -95,16 +95,24 @@ class KothCommand : Command("koth", "vanilla.koth") {
         addSyntax("vanilla.koth.admin", { sender: Player, context ->
             val name = context[nameArg]
             sender.message(
-                if (Koth.addSchedule(name, context[timeArg])) "Added schedule for $name." else "Unable to add schedule; use HH:mm.",
+                if (Koth.addSchedule(name, context[scheduleArg].joinToString(" "))) {
+                    "Added schedule for $name."
+                } else {
+                    "Unable to add schedule; use five-field cron (for example, 0 18 * * *)."
+                },
             )
-        }, ArgumentType.Literal("schedule"), ArgumentType.Literal("add"), nameArg, timeArg)
+        }, ArgumentType.Literal("schedule"), ArgumentType.Literal("add"), nameArg, scheduleArg)
 
         addSyntax("vanilla.koth.admin", { sender: Player, context ->
             val name = context[nameArg]
             sender.message(
-                if (Koth.removeSchedule(name, context[timeArg])) "Removed schedule for $name." else "Unknown schedule; use HH:mm.",
+                if (Koth.removeSchedule(name, context[scheduleArg].joinToString(" "))) {
+                    "Removed schedule for $name."
+                } else {
+                    "Unknown schedule; use the saved five-field cron expression."
+                },
             )
-        }, ArgumentType.Literal("schedule"), ArgumentType.Literal("remove"), nameArg, timeArg)
+        }, ArgumentType.Literal("schedule"), ArgumentType.Literal("remove"), nameArg, scheduleArg)
 
         addSyntax("vanilla.koth.admin", { sender: Player, context ->
             val name = context[nameArg]
