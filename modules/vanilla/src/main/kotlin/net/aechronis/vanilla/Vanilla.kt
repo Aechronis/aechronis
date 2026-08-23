@@ -23,6 +23,7 @@ import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Shutdown
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
+import net.aechronis.vanilla.commands.Warp
 import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.CombatInventoryListener
 import net.aechronis.vanilla.listeners.CommandsListener
@@ -54,6 +55,7 @@ import net.aechronis.vanilla.managers.Shelves
 import net.aechronis.vanilla.managers.Signs
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.TreeFeller
+import net.aechronis.vanilla.managers.Warps
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Path
@@ -101,6 +103,7 @@ object Vanilla {
                     List(),
                     TpsBar(),
                     Shutdown(),
+                    Warp(),
                 )
             if (config.musicEnabled) commands += Music()
             if (config.blocksEnabled) commands += Convert()
@@ -144,6 +147,7 @@ object Vanilla {
         if (config.musicEnabled) MusicManager.init()
         if (config.kothEnabled) Koth.init(Path.of(config.path, config.kothsPath))
         if (config.oresEnabled) Ores.init(Path.of(config.path, config.oresPath))
+        Warps.init(Path.of(config.path, config.warpsPath))
 
         // print load time
         val timeEnd = System.currentTimeMillis()
@@ -158,6 +162,7 @@ object Vanilla {
             "checkpoint" to ::saveCheckpoint,
             "ores" to { if (config.oresEnabled) Ores.saveAll() },
             "koth" to { if (config.kothEnabled) Koth.saveAll() },
+            "warps" to Warps::saveAll,
         )
         println("Vanilla: data saved.")
     }

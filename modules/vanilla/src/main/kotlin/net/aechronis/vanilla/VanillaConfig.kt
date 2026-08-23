@@ -49,6 +49,7 @@ data class VanillaConfig(
     val spawnPath: String = "spawn",
     val oresPath: String = "ores.json",
     val kothsPath: String = "koth.json",
+    val warpsPath: String = "warps.json",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),
     // Food
@@ -103,6 +104,8 @@ data class VanillaConfig(
             "Discord" to "https://discord.gg/aechronis",
             "Store" to "https://shop.aechronis.net",
         ),
+    // Warps
+    val warpCooldownSeconds: Long = 20L,
     // Combat
     val combatDurationSeconds: Long = 10L,
     val combatTickSeconds: Long = 1L,
