@@ -162,7 +162,7 @@ internal class CraftingStorePluginAdapter(
 
     private fun registerListeners() {
         eventNode.addListener(PlayerSpawnEvent::class.java) { event ->
-            if (event.isFirstSpawn) store.donationRunner.runPendingDonations(event.player.username)
+            if (event.isFirstSpawn) store.executeQueue()
             if (event.isFirstSpawn && permission(event.player, store.ADMIN_PERMISSION)) {
                 store.information
                     ?.updateInformation
@@ -302,7 +302,8 @@ internal class CraftingStorePluginAdapter(
         }
         scheduled.forEach { it.cancel(false) }
         scheduled.clear()
-        store.shutdown()
+        store.setEnabled(false)
+        store.donationRunner.executor.shutdownNow()
         scheduler.shutdownNow()
     }
 }

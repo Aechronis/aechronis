@@ -51,7 +51,7 @@ dependencies {
     implementation(project(":modules:watchdog"))
     implementation(project(":modules:guard"))
     implementation(project(":modules:gems"))
-    implementation(project(":modules:craftingstore"))
+    implementation(project(":modules:misc"))
     implementation(project(":modules:worldedit"))
 
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")

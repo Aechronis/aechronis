@@ -16,6 +16,18 @@ dependencyResolutionManagement {
         maven("https://repo.smolder.fr/public/")
         maven("https://mvn.everbuild.org/public")
         maven("https://maven.enginehub.org/repo/")
+        maven("https://maven.pkg.github.com/Error11O/MinecraftPlugin") {
+            credentials {
+                username =
+                    providers.gradleProperty("gpr.user")
+                        .orElse(providers.environmentVariable("GITHUB_ACTOR"))
+                        .orNull
+                password =
+                    providers.gradleProperty("gpr.token")
+                        .orElse(providers.environmentVariable("GITHUB_TOKEN"))
+                        .orNull
+            }
+        }
     }
 }
 
@@ -31,7 +43,7 @@ include(
     ":modules:logger",
     ":modules:watchdog",
     ":modules:gems",
-    ":modules:craftingstore",
+    ":modules:misc",
 )
 
 include(":modules:guard")

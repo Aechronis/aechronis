@@ -5,7 +5,7 @@ This repository contains the Aechronis server, its Kotlin modules, guides, and r
 ## Layout
 
 - `server/` assembles the runnable server.
-- `modules/` contains `utils`, `combat`, `nodes`, `vanilla`, `worldedit`, `logger`, `watchdog`, `gems`, and the MIT-licensed `craftingstore` integration.
+- `modules/` contains `utils`, `combat`, `nodes`, `vanilla`, `worldedit`, `logger`, `watchdog`, `gems`, and the MIT-licensed `misc` integration.
 - `resource-pack/` is the server's single resource pack.
 - `guides/` contains the mdBook site.
 

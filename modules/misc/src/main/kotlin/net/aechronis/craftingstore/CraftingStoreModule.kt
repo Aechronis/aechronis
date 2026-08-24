@@ -1,6 +1,5 @@
 package net.aechronis.craftingstore
 
-import net.craftingstore.core.CraftingStore
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.Event
 import net.minestom.server.event.EventNode
@@ -14,12 +13,9 @@ object CraftingStoreModule {
     val eventNode: EventNode<Event>
         get() = requireAdapter().eventNode
 
-    val store: CraftingStore?
-        get() = started.get()?.store
-
     @Synchronized
-    fun initialize(options: CraftingStoreOptions = CraftingStoreOptions()): CraftingStore {
-        started.get()?.let { return it.store }
+    fun initialize(options: CraftingStoreOptions = CraftingStoreOptions()) {
+        if (started.get() != null) return
         val config = ConfigStore(options.dataDirectory)
         config.reload()
         val node = EventNode.all("craftingstore")
@@ -28,7 +24,6 @@ object CraftingStoreModule {
         started.set(adapter)
         try {
             adapter.start()
-            return adapter.store
         } catch (error: Throwable) {
             MinecraftServer.getGlobalEventHandler().removeChild(node)
             started.set(null)
