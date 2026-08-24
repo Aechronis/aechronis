@@ -19,7 +19,6 @@ import java.util.UUID
 object Vanish {
     private const val DOUBLE_SHIFT_WINDOW_MILLIS = 500L
     private val vanished = mutableMapOf<UUID, State>()
-    private val hiddenSpectators = mutableSetOf<UUID>()
 
     private data class State(
         val level: Int,
@@ -61,8 +60,8 @@ object Vanish {
     }
 
     /**
-     * Spectator mode is not automatically invisible in Minestom. Keep its view rule alongside
-     * vanish's rule so players cannot be rendered as a partial/floating player model.
+     * Spectator mode is not automatically invisible in Minestom. Reapply the complete rule on
+     * every state change so a removed vanish rule cannot leave a player hidden indefinitely.
      */
     private fun updateVisibility(
         player: Player,
@@ -70,13 +69,9 @@ object Vanish {
     ) {
         val state = vanished[player.uuid]
         when {
-            gameMode == GameMode.SPECTATOR -> {
-                hiddenSpectators += player.uuid
-                player.updateViewableRule { false }
-            }
+            gameMode == GameMode.SPECTATOR -> player.updateViewableRule { false }
             state != null -> player.updateViewableRule { viewer -> level(viewer) > state.level }
-            hiddenSpectators.remove(player.uuid) -> player.updateViewableRule(null)
-            else -> return
+            else -> player.updateViewableRule(null)
         }
         updatePlayerListVisibility(player, gameMode, state)
     }
@@ -179,7 +174,6 @@ object Vanish {
 
     private fun onDisconnect(event: PlayerDisconnectEvent) {
         vanished.remove(event.player.uuid)
-        hiddenSpectators.remove(event.player.uuid)
     }
 
     fun init() {
