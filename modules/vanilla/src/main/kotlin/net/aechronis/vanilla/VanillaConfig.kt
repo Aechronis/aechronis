@@ -105,7 +105,7 @@ data class VanillaConfig(
             "Store" to "https://shop.aechronis.net",
         ),
     // Warps
-    val warpCooldownSeconds: Long = 20L,
+    val warpCooldownSeconds: Long = 15L,
     // Combat
     val combatDurationSeconds: Long = 10L,
     val combatTickSeconds: Long = 1L,

@@ -33,6 +33,7 @@ import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerActivityListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.listeners.ServerLinksListener
+import net.aechronis.vanilla.listeners.WarpListener
 import net.aechronis.vanilla.managers.Blocks
 import net.aechronis.vanilla.managers.Boats
 import net.aechronis.vanilla.managers.Bundles
@@ -84,6 +85,7 @@ object Vanilla {
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         PlayerActivityListener.init()
         CombatInventoryListener.init()
+        WarpListener.init()
         Filter.init()
 
         if (config.commandsEnabled) {

@@ -88,6 +88,8 @@ object Warps {
         return removed
     }
 
+    fun cancelPending(player: Player): Boolean = pendingWarps.remove(player.uuid) != null
+
     fun teleport(
         player: Player,
         name: String,

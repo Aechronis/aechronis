@@ -26,7 +26,6 @@ import kotlin.math.max
 data class TrainStation(
     val id: Int,
     val position: BlockVec,
-    var tier: Int = 0,
     var banned: Boolean = false,
 )
 
@@ -157,14 +156,6 @@ object Trains {
         return station
     }
 
-    fun setTier(id: Int, tier: Int): Result<TrainStation> = runCatching {
-        require(tier in 0..3) { "Tier must be between 0 and 3" }
-        val station = stations[id] ?: error("Station not found")
-        station.tier = tier
-        save()
-        station
-    }
-
     fun setBanned(id: Int, banned: Boolean): Result<TrainStation> = runCatching {
         val station = stations[id] ?: error("Station not found")
         station.banned = banned
@@ -219,7 +210,7 @@ object Trains {
         val destination = edge.destinationId?.let(stations::get)
         require(destination?.banned != true) { "Destination station is banned" }
         cancel(player)
-        val speed = speed(source.tier)
+        val speed = speed(tierAt(source.position))
         val duration = max(1L, ceil(edge.distance * 1000.0 / speed).toLong())
         val start = player.position.asBlockVec()
         val startedAt = System.currentTimeMillis()
@@ -258,11 +249,19 @@ object Trains {
     fun removeAt(position: BlockVec): TrainStation? = stationsByPosition[position]?.let(::remove)
 
     fun incomeAt(chunkX: Int, chunkZ: Int): Map<Material, Double> = stations.values.asSequence()
-        .filter { it.tier > 0 && Math.floorDiv(it.position.blockX(), 16) == chunkX && Math.floorDiv(it.position.blockZ(), 16) == chunkZ }
+        .filter { Math.floorDiv(it.position.blockX(), 16) == chunkX && Math.floorDiv(it.position.blockZ(), 16) == chunkZ }
         .fold(mutableMapOf()) { income, station ->
-            income[Material.COAL] = (income[Material.COAL] ?: 0.0) + coalIncome(station.tier)
+            val tier = tierAt(station.position)
+            if (tier > 0) income[Material.COAL] = (income[Material.COAL] ?: 0.0) + coalIncome(tier)
             income
         }
+
+    fun tierAt(position: BlockVec): Int = (
+        Building.getAt(
+            Math.floorDiv(position.blockX(), 16),
+            Math.floorDiv(position.blockZ(), 16),
+        ) as? TrainStationBuilding
+        )?.tier ?: 0
 
     fun speed(tier: Int): Double = when (tier) {
         0, 1 -> 25.0
@@ -496,7 +495,8 @@ object Trains {
                     val id = json.get("id")?.asInt ?: return@forEach
                     val position = positionFromJson(json) ?: return@forEach
                     if (id <= 0 || id in stations || position in stationsByPosition) return@forEach
-                    val station = TrainStation(id, position, json.get("tier")?.asInt?.coerceIn(0, 3) ?: 0, json.get("banned")?.asBoolean ?: false)
+                    // Legacy station tiers are deliberately ignored: tiering is now owned by the chunk building.
+                    val station = TrainStation(id, position, json.get("banned")?.asBoolean ?: false)
                     stations[id] = station
                     stationsByPosition[position] = id
                     nextStationId = max(nextStationId, id + 1)
@@ -532,7 +532,6 @@ object Trains {
                             json.addProperty("x", station.position.blockX())
                             json.addProperty("y", station.position.blockY())
                             json.addProperty("z", station.position.blockZ())
-                            json.addProperty("tier", station.tier)
                             json.addProperty("banned", station.banned)
                         },
                     )

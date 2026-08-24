@@ -29,6 +29,7 @@ import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TrainStationBuilding
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.key.Key
@@ -1009,10 +1010,12 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
             Message.print(player, "Usage:")
             Message.print(player, "/nodesadmin building create port <name> <public> [tier]")
             Message.print(player, "/nodesadmin building create farm [tier]")
+            Message.print(player, "/nodesadmin building create train [tier]")
         }
 
         val portLit = ArgumentType.Literal("port")
         val farmLit = ArgumentType.Literal("farm")
+        val trainLit = ArgumentType.Literal("train")
         val nameArg = ArgumentSanitizedString.create("name")
         val publicArg = ArgumentBoolean("public")
         val tierArg = ArgumentType.Integer("tier").between(1, 3)
@@ -1042,6 +1045,18 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
             }
             Message.print(player, "Created farm (tier $context[tierArg])")
         }, farmLit, tierArg)
+
+        addSyntax({ player, resident, context ->
+            TrainStationBuilding.create(
+                Math.floorDiv(player.position.blockX(), 16),
+                Math.floorDiv(player.position.blockZ(), 16),
+                context[tierArg],
+            ).getOrElse { err ->
+                Message.error(player, "Failed to create train station: ${err.message}")
+                return@addSyntax
+            }
+            Message.print(player, "Created train station (tier $context[tierArg])")
+        }, trainLit, tierArg)
     }
 }
 

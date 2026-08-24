@@ -19,6 +19,7 @@ import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TrainStationBuilding
 import net.aechronis.nodes.objects.Waypoint
 import net.aechronis.nodes.objects.WaypointSharing
 import net.aechronis.nodes.utils.Color
@@ -506,6 +507,7 @@ object Deserializer {
             when (type) {
                 "port" -> loadPort(building)
                 "farm" -> loadFarm(building)
+                "train" -> loadTrainStation(building)
                 else -> System.err.println("Cannot create building: unknown type \"$type\"")
             }
         }
@@ -520,6 +522,16 @@ object Deserializer {
         }
         val tier: Int = farm.get("tier")?.asInt ?: 1
         Farm.load(chunkX, chunkZ, tier)
+    }
+
+    private fun loadTrainStation(train: JsonObject) {
+        val chunkX = train.get("chunkX")?.asInt
+        val chunkZ = train.get("chunkZ")?.asInt
+        if (chunkX == null || chunkZ == null) {
+            System.err.println("Cannot create train station: missing chunkX or chunkZ coordinate")
+            return
+        }
+        TrainStationBuilding.load(chunkX, chunkZ, train.get("tier")?.asInt ?: 1)
     }
 
     private fun loadPort(port: JsonObject) {

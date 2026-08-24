@@ -16,6 +16,7 @@ import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.TestTownSide
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TrainStationBuilding
 import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.testTownLockedSide
 import net.aechronis.nodes.tasks.IncomeCalculator
@@ -161,6 +162,26 @@ class NodesTest {
         } finally {
             Trains.remove(station.id)
             trainInstance.unloadChunk(20, 20)
+        }
+    }
+
+    @Test
+    fun `train building tier boosts every station in its chunk`() {
+        val chunkX = 30
+        val chunkZ = 30
+        val position = BlockVec(chunkX * 16, 64, chunkZ * 16)
+        val trainInstance = MinecraftServer.getInstanceManager().createInstanceContainer()
+        trainInstance.setGenerator { unit -> unit.modifier().fillHeight(64, 65, Block.GOLD_BLOCK) }
+        val building = TrainStationBuilding.create(chunkX, chunkZ, tier = 3).getOrThrow()
+        val station = Trains.create(position, trainInstance).getOrThrow()
+
+        try {
+            assertEquals(3, Trains.tierAt(position))
+            assertEquals(100.0, Trains.speed(Trains.tierAt(position)))
+            assertEquals(32.0, Trains.incomeAt(chunkX, chunkZ)[Material.COAL])
+        } finally {
+            Trains.remove(station.id)
+            Building.destroy(building)
         }
     }
 

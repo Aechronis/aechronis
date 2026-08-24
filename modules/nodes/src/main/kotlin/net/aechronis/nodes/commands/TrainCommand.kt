@@ -15,7 +15,7 @@ class TrainCommand : NodesCommand("trains") {
     init {
         setDefaultExecutor { player, _, _ ->
             Message.print(player, "${ChatColor.BOLD}[Nodes] Train Commands:")
-            Message.print(player, "/trains create${ChatColor.WHITE}: Create a tier 0 station on the gold block you are looking at")
+            Message.print(player, "/trains create${ChatColor.WHITE}: Create a station on the gold block you are looking at")
         }
 
         val create = ArgumentType.Literal("create")
@@ -26,7 +26,7 @@ class TrainCommand : NodesCommand("trains") {
                 return@addSyntax
             }
             Trains.create(position, player.instance).onSuccess { station ->
-                Message.print(player, "Created tier 0 station ${station.id}")
+                Message.print(player, "Created station ${station.id}")
             }.onFailure { error ->
                 Message.error(player, error.message ?: "Failed to create station")
             }
@@ -42,7 +42,6 @@ class NodesAdminTrainsCommand : NodesCommand("trains", "nodes.admin") {
             Message.print(player, "/nda trains scanall${ChatColor.WHITE}: Rescan all stations")
             Message.print(player, "/nda trains tp <station-id>${ChatColor.WHITE}: Teleport to a station")
             Message.print(player, "/nda trains ban|unban <station-id>${ChatColor.WHITE}: Change station availability")
-            Message.print(player, "/nda trains settier <station-id> <0-3>${ChatColor.WHITE}: Set station quality tier")
             Message.print(player, "/nda trains list${ChatColor.WHITE}: List stations")
             Message.print(player, "/nda trains remove <station-id>${ChatColor.WHITE}: Remove a station")
         }
@@ -52,11 +51,9 @@ class NodesAdminTrainsCommand : NodesCommand("trains", "nodes.admin") {
         val teleport = ArgumentType.Literal("tp")
         val ban = ArgumentType.Literal("ban")
         val unban = ArgumentType.Literal("unban")
-        val setTier = ArgumentType.Literal("settier")
         val list = ArgumentType.Literal("list")
         val remove = ArgumentType.Literal("remove")
         val station = stationArgument("station-id")
-        val tier = tierArgument("tier")
 
         addSyntax({ player, _, context ->
             Trains.scan(context[station].id, player.instance).onSuccess { count ->
@@ -95,16 +92,6 @@ class NodesAdminTrainsCommand : NodesCommand("trains", "nodes.admin") {
             }
         }, unban, station)
 
-        addSyntax({ player, _, context ->
-            val target = context[station]
-            val value = context[tier]
-            Trains.setTier(target.id, value).onSuccess {
-                Message.print(player, "Station ${target.id} set to tier $value")
-            }.onFailure { error ->
-                Message.error(player, error.message ?: "Failed to set station tier")
-            }
-        }, setTier, station, tier)
-
         addSyntax({ player, _, _ ->
             val stations = Trains.allStations()
             if (stations.isEmpty()) {
@@ -114,7 +101,8 @@ class NodesAdminTrainsCommand : NodesCommand("trains", "nodes.admin") {
             Message.print(player, "${ChatColor.BOLD}Train stations:")
             stations.forEach { station ->
                 val status = if (station.banned) "banned" else "active"
-                Message.print(player, "- ${station.id}: tier ${station.tier}, $status, ${Trains.edgesFrom(station.id).size} connection(s)")
+                val tier = Trains.tierAt(station.position)
+                Message.print(player, "- ${station.id}: chunk tier $tier, $status, ${Trains.edgesFrom(station.id).size} connection(s)")
             }
         }, list)
 
@@ -139,20 +127,5 @@ private fun stationArgument(id: String): Argument<TrainStation> {
     return argument.map { input ->
         input.toIntOrNull()?.let(Trains::station)
             ?: throw ArgumentSyntaxException("Station not found", input, 1)
-    }
-}
-
-private fun tierArgument(id: String): Argument<Int> {
-    val argument = ArgumentType.Word(id)
-    argument.setSuggestionCallback { _, _, suggestion ->
-        val input = suggestion.input.substringAfterLast(" ")
-        (0..3)
-            .map(Int::toString)
-            .filter { it.startsWith(input) }
-            .forEach { suggestion.addEntry(SuggestionEntry(it)) }
-    }
-    return argument.map { input ->
-        input.toIntOrNull()?.takeIf { it in 0..3 }
-            ?: throw ArgumentSyntaxException("Tier must be between 0 and 3", input, 1)
     }
 }

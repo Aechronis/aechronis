@@ -87,7 +87,7 @@ Ports must be built within 2 chunks of the territories edge:
 ---
 
 ## Train station
-Train stations produce small amounts of coal and oil. Rails can be built connecting railways to allow fast travel between them. Requires territory tier 1.
+Train stations produce small amounts of coal and oil. Rails can be built connecting railways to allow fast travel between them. Requires territory tier 1. A station's tier belongs to its chunk: every registered gold-block station in a chunk with a train-station building shares that building's tier.
 
 <img src="buildings/train-station/1.webp" align="right" height="165">
 
