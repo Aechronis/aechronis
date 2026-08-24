@@ -63,13 +63,14 @@ class RecipesTest : ManagerTest() {
         assertEquals(true, recipeBookPacket.replace())
         assertEquals(Recipes.recipes.size, recipeBookPacket.entries().size)
         val expectedRequirementCounts =
-            Recipes.recipes.mapNotNull { recipe ->
-                when (recipe) {
-                    is Shaped -> recipe.pattern.count { it != null }
-                    is RecipesShapeless -> recipe.recipesIngredients.size
-                    else -> null
-                }
-            }.sorted()
+            Recipes.recipes
+                .mapNotNull { recipe ->
+                    when (recipe) {
+                        is Shaped -> recipe.pattern.count { it != null }
+                        is RecipesShapeless -> recipe.recipesIngredients.size
+                        else -> null
+                    }
+                }.sorted()
 
         assertEquals(
             expectedRequirementCounts,
