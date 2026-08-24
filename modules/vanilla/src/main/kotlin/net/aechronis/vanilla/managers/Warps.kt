@@ -8,6 +8,7 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
+import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
@@ -32,10 +33,18 @@ object Warps {
         NOT_FOUND,
         WORLD_UNAVAILABLE,
         ON_COOLDOWN,
+        WARPING,
+        ALREADY_WARPING,
     }
+
+    private data class PendingWarp(
+        val warp: SavedWarp,
+        val instance: Instance,
+    )
 
     private val warps = linkedMapOf<String, SavedWarp>()
     private val lastUse = ConcurrentHashMap<UUID, Long>()
+    private val pendingWarps = ConcurrentHashMap<UUID, PendingWarp>()
     private val gson = GsonBuilder().setPrettyPrinting().create()
     private lateinit var file: Path
 
@@ -82,22 +91,50 @@ object Warps {
     fun teleport(
         player: Player,
         name: String,
+        onComplete: (String) -> Unit = {},
     ): TeleportResult {
         val warp = synchronized(warps) { warps[name.key()] } ?: return TeleportResult.NOT_FOUND
         val instance = instance(warp.world) ?: return TeleportResult.WORLD_UNAVAILABLE
         if (onCooldown(player)) return TeleportResult.ON_COOLDOWN
 
+        val delayMillis = cooldownMillis(player)
+        if (delayMillis == 0L) {
+            performTeleport(player, warp, instance)
+            return TeleportResult.SUCCESS
+        }
+
+        val pending = PendingWarp(warp, instance)
+        if (pendingWarps.putIfAbsent(player.uuid, pending) != null) return TeleportResult.ALREADY_WARPING
+        MinecraftServer
+            .getSchedulerManager()
+            .buildTask {
+                if (pendingWarps.remove(player.uuid, pending)) {
+                    performTeleport(player, pending.warp, pending.instance)
+                    onComplete(pending.warp.name)
+                }
+            }.delay(TaskSchedule.millis(delayMillis))
+            .schedule()
+        return TeleportResult.WARPING
+    }
+
+    private fun performTeleport(
+        player: Player,
+        warp: SavedWarp,
+        instance: Instance,
+    ) {
         val position = Pos(warp.x, warp.y, warp.z, warp.yaw, warp.pitch)
         if (player.instance === instance) player.teleport(position) else player.setInstance(instance, position)
         lastUse[player.uuid] = System.currentTimeMillis()
-        return TeleportResult.SUCCESS
     }
 
     fun remainingCooldownMillis(player: Player): Long {
         if (player.hasPermission(COOLDOWN_BYPASS_PERMISSION)) return 0
         val last = lastUse[player.uuid] ?: return 0
-        return (Vanilla.config.warpCooldownSeconds.coerceAtLeast(0) * 1_000L - (System.currentTimeMillis() - last)).coerceAtLeast(0)
+        return (cooldownMillis(player) - (System.currentTimeMillis() - last)).coerceAtLeast(0)
     }
+
+    private fun cooldownMillis(player: Player): Long =
+        if (player.hasPermission(COOLDOWN_BYPASS_PERMISSION)) 0 else Vanilla.config.warpCooldownSeconds.coerceAtLeast(0) * 1_000L
 
     private fun onCooldown(player: Player): Boolean = remainingCooldownMillis(player) > 0
 
