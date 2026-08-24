@@ -4,6 +4,7 @@ import net.aechronis.combat.commands.AdsCommand
 import net.aechronis.combat.commands.CombatAdminCommand
 import net.aechronis.combat.commands.HatsCommand
 import net.aechronis.combat.listeners.AimingListener
+import net.aechronis.combat.listeners.AmmoInventoryListener
 import net.aechronis.combat.listeners.ArmorProtectionListener
 import net.aechronis.combat.listeners.CooldownResetListener
 import net.aechronis.combat.listeners.DroneListener
@@ -161,6 +162,7 @@ object Combat {
 
         // register listeners
         AimingListener.init()
+        AmmoInventoryListener.init()
         ReloadListener.init()
         FireListener.init()
         GrenadeListener.init()

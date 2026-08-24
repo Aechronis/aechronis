@@ -1,5 +1,6 @@
 package net.aechronis.combat
 
+import net.aechronis.combat.listeners.AmmoInventoryListener
 import net.aechronis.combat.objects.AIMING_REDUCTION_MULTIPLIER
 import net.aechronis.combat.objects.Ammo
 import net.aechronis.combat.objects.AmmoTypes
@@ -49,14 +50,20 @@ import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.entity.damage.DamageType
+import net.minestom.server.event.inventory.CreativeInventoryActionEvent
+import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.event.player.PlayerSwapItemEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.generator.Generator
+import net.minestom.server.inventory.click.Click
+import net.minestom.server.item.ItemStack
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.player.GameProfile
 import net.minestom.server.network.player.PlayerConnection
 import net.minestom.server.particle.Particle
+import net.minestom.server.utils.inventory.PlayerInventoryUtils
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -379,6 +386,75 @@ class CombatTest {
         val grenade = Grenade(name = "test-grenade", itemName = Component.empty())
 
         assertEquals(1, grenade.toItemStack().maxStackSize())
+    }
+
+    @Test
+    fun `ammo cannot be placed in equipment slots`() {
+        val ammo = (Item.getFromName("test-ammo") as Ammo).toItemStack()
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "ammo-inventory"))
+        val restrictedSlots =
+            (PlayerInventoryUtils.HELMET_SLOT..PlayerInventoryUtils.BOOTS_SLOT) + PlayerInventoryUtils.OFFHAND_SLOT
+
+        for (slot in restrictedSlots) {
+            player.inventory.cursorItem = ammo
+            val event = InventoryPreClickEvent(player.inventory, player, Click.Left(slot))
+            AmmoInventoryListener.onInventoryClick(event)
+            assertTrue(event.isCancelled, "ammo should not be placeable in slot $slot")
+        }
+
+        player.inventory.cursorItem = ammo
+        val dragEvent =
+            InventoryPreClickEvent(
+                player.inventory,
+                player,
+                Click.LeftDrag(listOf(PlayerInventoryUtils.HELMET_SLOT)),
+            )
+        AmmoInventoryListener.onInventoryClick(dragEvent)
+        assertTrue(dragEvent.isCancelled)
+
+        player.inventory.setItemStack(0, ammo)
+        val hotbarSwapEvent =
+            InventoryPreClickEvent(
+                player.inventory,
+                player,
+                Click.HotbarSwap(0, PlayerInventoryUtils.CHESTPLATE_SLOT),
+            )
+        AmmoInventoryListener.onInventoryClick(hotbarSwapEvent)
+        assertTrue(hotbarSwapEvent.isCancelled)
+
+        val offhandSwapEvent = InventoryPreClickEvent(player.inventory, player, Click.OffhandSwap(0))
+        AmmoInventoryListener.onInventoryClick(offhandSwapEvent)
+        assertTrue(offhandSwapEvent.isCancelled)
+
+        player.inventory.setItemStack(PlayerInventoryUtils.OFFHAND_SLOT, ammo)
+        val armorOffhandSwapEvent =
+            InventoryPreClickEvent(
+                player.inventory,
+                player,
+                Click.OffhandSwap(PlayerInventoryUtils.CHESTPLATE_SLOT),
+            )
+        AmmoInventoryListener.onInventoryClick(armorOffhandSwapEvent)
+        assertTrue(armorOffhandSwapEvent.isCancelled)
+
+        val creativeEvent = CreativeInventoryActionEvent(player, PlayerInventoryUtils.OFFHAND_SLOT, ammo)
+        AmmoInventoryListener.onCreativeInventoryAction(creativeEvent)
+        assertTrue(creativeEvent.isCancelled)
+
+        val handSwapEvent = PlayerSwapItemEvent(player, ammo, ItemStack.AIR)
+        AmmoInventoryListener.onPlayerSwapItem(handSwapEvent)
+        assertTrue(handSwapEvent.isCancelled)
+    }
+
+    @Test
+    fun `armor remains placeable in armor slots`() {
+        val chestplate = (Item.getFromName("test-chestplate") as ArmorPiece).toItemStack()
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "armor-inventory"))
+        player.inventory.cursorItem = chestplate
+
+        val event = InventoryPreClickEvent(player.inventory, player, Click.Left(PlayerInventoryUtils.CHESTPLATE_SLOT))
+        AmmoInventoryListener.onInventoryClick(event)
+
+        assertFalse(event.isCancelled)
     }
 
     @Test
