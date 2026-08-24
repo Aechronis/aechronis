@@ -10,6 +10,7 @@ import net.minestom.server.entity.EntityPose
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.metadata.avatar.MannequinMeta
+import net.minestom.server.event.entity.EntityAttackEvent
 import net.minestom.server.event.entity.EntityDamageEvent
 import net.minestom.server.event.inventory.InventoryItemChangeEvent
 import net.minestom.server.event.player.PlayerDeathEvent
@@ -33,7 +34,19 @@ object MannequinListener {
         val target = event.target as? EntityCreature ?: return
         if (target.entityType != EntityType.MANNEQUIN) return
         val inv = Mannequin.inventories[target] ?: return
-        event.player.openInventory(inv)
+        if (event.player.isSneaking) {
+            Mannequin.claim(target, event.player)
+        } else {
+            event.player.openInventory(inv)
+        }
+    }
+
+    fun onAttack(event: EntityAttackEvent) {
+        val player = event.entity as? net.minestom.server.entity.Player ?: return
+        if (!player.isSneaking) return
+        val target = event.target as? EntityCreature ?: return
+        if (target.entityType != EntityType.MANNEQUIN) return
+        Mannequin.claim(target, player)
     }
 
     fun onInventoryChange(event: InventoryItemChangeEvent) {
@@ -84,6 +97,7 @@ object MannequinListener {
     fun init() {
         Vanilla.eventNode.addListener(PlayerDeathEvent::class.java, MannequinListener::onDeath)
         Vanilla.eventNode.addListener(EntityDamageEvent::class.java, MannequinListener::onEntityDamage)
+        Vanilla.eventNode.addListener(EntityAttackEvent::class.java, MannequinListener::onAttack)
         Vanilla.eventNode.addListener(InventoryItemChangeEvent::class.java, MannequinListener::onInventoryChange)
         Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, MannequinListener::onInteract)
     }
