@@ -4,6 +4,7 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
+import java.util.concurrent.ConcurrentHashMap
 
 internal data class HistoricalHitbox(
     val minimum: Vec,
@@ -17,7 +18,8 @@ internal data class HitboxSnapshot(
 
 private data class PlayerHistory(
     val instance: Instance,
-    val snapshots: ArrayDeque<HitboxSnapshot> = ArrayDeque(),
+    // A history is replaced as a whole so readers can interpolate without racing a writer.
+    val snapshots: List<HitboxSnapshot>,
 )
 
 object LagCompensation {
@@ -30,8 +32,8 @@ object LagCompensation {
     private val packetQueueEstimateMillis = doubleProperty("packetQueueEstimateMillis", 25.0, 0.0, 100.0)
     private val maxRewindMillis = doubleProperty("maxRewindMillis", 200.0, 0.0, 500.0)
 
-    private val playerHistories = HashMap<Player, PlayerHistory>()
-    private val smoothedLatencies = HashMap<Player, Double>()
+    private val playerHistories = ConcurrentHashMap<Player, PlayerHistory>()
+    private val smoothedLatencies = ConcurrentHashMap<Player, Double>()
 
     fun recordPlayer(
         player: Player,
@@ -41,11 +43,6 @@ object LagCompensation {
         if (player.isDead) return resetHistory(player)
 
         val instance = player.instance ?: return resetHistory(player)
-        val history =
-            playerHistories[player]
-                ?.takeIf { it.instance === instance }
-                ?: PlayerHistory(instance).also { playerHistories[player] = it }
-
         val position = player.position
         val boundingBox = player.boundingBox
         val minimum = boundingBox.relativeStart().add(position)
@@ -59,17 +56,21 @@ object LagCompensation {
                 ),
             )
 
-        if (history.snapshots.lastOrNull()?.capturedAtNanos == capturedAtNanos) {
-            history.snapshots.removeLast()
-        }
-        history.snapshots.addLast(snapshot)
+        playerHistories.compute(player) { _, previous ->
+            val existingSnapshots = previous?.takeIf { it.instance === instance }?.snapshots.orEmpty()
+            val updatedSnapshots =
+                buildList(existingSnapshots.size + 1) {
+                    addAll(existingSnapshots)
+                    if (lastOrNull()?.capturedAtNanos == capturedAtNanos) removeAt(lastIndex)
+                    add(snapshot)
+                }
+            val cutoff = capturedAtNanos - HISTORY_MILLIS * NANOS_PER_MILLI
+            val firstRetained = updatedSnapshots.indexOfFirst { it.capturedAtNanos >= cutoff }
+            val retainedSnapshots =
+                (if (firstRetained == -1) emptyList() else updatedSnapshots.subList(firstRetained, updatedSnapshots.size))
+                    .takeLast(MAX_HISTORY_SNAPSHOTS)
 
-        val cutoff = capturedAtNanos - HISTORY_MILLIS * NANOS_PER_MILLI
-        while ((history.snapshots.firstOrNull()?.capturedAtNanos ?: Long.MAX_VALUE) < cutoff) {
-            history.snapshots.removeFirst()
-        }
-        while (history.snapshots.size > MAX_HISTORY_SNAPSHOTS) {
-            history.snapshots.removeFirst()
+            PlayerHistory(instance, retainedSnapshots)
         }
     }
 

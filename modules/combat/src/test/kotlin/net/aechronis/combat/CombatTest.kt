@@ -31,8 +31,12 @@ import net.aechronis.combat.objects.selectProjectileImpact
 import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.combat.tasks.BLOCK_RESTORE_DELAY_MILLIS
 import net.aechronis.combat.tasks.BlockRestoreManager
+import net.aechronis.combat.utils.HistoricalHitbox
+import net.aechronis.combat.utils.HitboxSnapshot
+import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.calculateVehicleCameraDistance
+import net.aechronis.combat.utils.interpolateHitbox
 import net.aechronis.combat.utils.particleLinePointCount
 import net.aechronis.combat.utils.withCombatDamageImmunityBypass
 import net.aechronis.utils.createTestServer
@@ -75,6 +79,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -857,6 +863,64 @@ class CombatTest {
             assertNotNull(firstProjectileImpact(ray, instance))
             assertNull(firstProjectileImpact(ray, instance, setOf(target)))
         } finally {
+            target.remove()
+        }
+    }
+
+    @Test
+    fun `lag compensation interpolates between historical hitboxes`() {
+        val snapshots =
+            listOf(
+                HitboxSnapshot(100L, HistoricalHitbox(Vec(0.0, 0.0, 0.0), Vec(1.0, 1.0, 1.0))),
+                HitboxSnapshot(200L, HistoricalHitbox(Vec(10.0, 10.0, 10.0), Vec(11.0, 11.0, 11.0))),
+            )
+
+        val interpolated = assertNotNull(interpolateHitbox(snapshots, 150L))
+
+        assertEquals(5.0, interpolated.minimum.x(), 0.0001)
+        assertEquals(5.0, interpolated.minimum.y(), 0.0001)
+        assertEquals(6.0, interpolated.maximum.x(), 0.0001)
+        assertNull(interpolateHitbox(snapshots, 99L))
+        assertEquals(10.0, assertNotNull(interpolateHitbox(snapshots, 250L)).minimum.x(), 0.0001)
+    }
+
+    @Test
+    fun `lag compensation reads histories while they are recorded concurrently`() {
+        val shooter = Player(TestConnection(), GameProfile(UUID.randomUUID(), "lag-shooter"))
+        val target = Player(TestConnection(), GameProfile(UUID.randomUUID(), "lag-target"))
+        shooter.setInstance(instance, Pos(220.0, 61.0, 220.0)).join()
+        target.setInstance(instance, Pos(225.0, 61.0, 220.0)).join()
+        val timestamp = System.nanoTime()
+        val executor = Executors.newFixedThreadPool(2)
+        val start = CountDownLatch(1)
+
+        try {
+            LagCompensation.recordPlayer(target, timestamp - 1L)
+            val writer =
+                executor.submit {
+                    start.await()
+                    repeat(20_000) { offset ->
+                        LagCompensation.recordPlayer(target, timestamp + offset)
+                    }
+                }
+            val reader =
+                executor.submit {
+                    start.await()
+                    val ray = Ray(Pos(220.0, 62.0, 220.0), Vec(20.0, 0.0, 0.0))
+                    repeat(20_000) {
+                        LagCompensation.firstEntityHit(ray, shooter, instance, Long.MAX_VALUE)
+                    }
+                }
+
+            start.countDown()
+            writer.get(10, TimeUnit.SECONDS)
+            reader.get(10, TimeUnit.SECONDS)
+        } finally {
+            executor.shutdownNow()
+            executor.awaitTermination(10, TimeUnit.SECONDS)
+            LagCompensation.removePlayer(shooter)
+            LagCompensation.removePlayer(target)
+            shooter.remove()
             target.remove()
         }
     }
