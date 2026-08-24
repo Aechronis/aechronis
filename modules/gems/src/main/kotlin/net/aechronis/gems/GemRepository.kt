@@ -37,6 +37,9 @@ class GemRepository(
                     )
                     """.trimIndent(),
                 )
+                statement.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_gem_transactions_player_created ON gem_transactions(player_uuid, created_at DESC)",
+                )
             }
         }
     }
@@ -122,6 +125,37 @@ class GemRepository(
                     }
                 }
         }
+
+    /** Returns the newest transactions for a player. */
+    fun transactions(
+        uuid: UUID,
+        limit: Int = 20,
+    ): List<GemTransaction> {
+        require(limit in 1..100) { "Transaction limit must be between 1 and 100" }
+        return DriverManager.getConnection(url).use { connection ->
+            connection
+                .prepareStatement(
+                    "SELECT transaction_id, product, amount, created_at FROM gem_transactions WHERE player_uuid = ? ORDER BY created_at DESC, transaction_id DESC LIMIT ?",
+                ).use { statement ->
+                    statement.setString(1, uuid.toString())
+                    statement.setInt(2, limit)
+                    statement.executeQuery().use { rows ->
+                        buildList {
+                            while (rows.next()) {
+                                add(
+                                    GemTransaction(
+                                        UUID.fromString(rows.getString("transaction_id")),
+                                        rows.getString("product"),
+                                        rows.getLong("amount"),
+                                        rows.getLong("created_at"),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
+        }
+    }
 
     /** Credits a CraftingStore refund exactly once for the supplied reference. */
     fun refund(
@@ -267,4 +301,11 @@ data class GemPlayer(
     val uuid: UUID,
     val name: String,
     val balance: Long,
+)
+
+data class GemTransaction(
+    val id: UUID,
+    val product: String,
+    val amount: Long,
+    val createdAt: Long,
 )

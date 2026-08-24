@@ -13,6 +13,7 @@ dependencies {
     compileOnly("org.everbuild.blocksandstuff:blocksandstuff-common:1.10.2-SNAPSHOT")
     compileOnly(project(":modules:utils"))
 
+    testImplementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     testImplementation("com.google.code.gson:gson:2.14.0")
     testImplementation(project(":modules:utils"))
     testImplementation("org.jetbrains.kotlin:kotlin-test")

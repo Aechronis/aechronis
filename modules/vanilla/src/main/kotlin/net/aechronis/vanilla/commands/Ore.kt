@@ -17,5 +17,12 @@ class Ore : Command("ore", "vanilla.ore") {
                 player.sendMessage(Component.text("Look at an ore and provide a positive time in seconds.", NamedTextColor.RED))
             }
         }, timeArg)
+        addSyntax({ player: Player, _ ->
+            if (Ores.remove(player)) {
+                player.sendMessage(Component.text("Removed regenerating ore.", NamedTextColor.GREEN))
+            } else {
+                player.sendMessage(Component.text("Look at a configured ore to remove it.", NamedTextColor.RED))
+            }
+        }, ArgumentType.Literal("remove"))
     }
 }

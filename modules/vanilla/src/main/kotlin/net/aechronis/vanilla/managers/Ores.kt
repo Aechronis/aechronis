@@ -2,12 +2,14 @@ package net.aechronis.vanilla.managers
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import net.aechronis.utils.OreSounds
 import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.entity.Player
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerChunkLoadEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
@@ -52,6 +54,8 @@ object Ores {
 
     val ores = ConcurrentHashMap<OreLocation, Ore>()
 
+    // This must run before Guard (-1000) and Nodes' protection node (-999) so configured ores are mineable everywhere.
+    private val eventNode = EventNode.all("vanilla-ores").setPriority(-1001)
     private val cooldowns = ConcurrentHashMap<Cooldown, Long>()
     private val gson = Gson()
     private lateinit var file: Path
@@ -61,7 +65,8 @@ object Ores {
         Files.createDirectories(path.parent)
         load()
 
-        Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java, Ores::onBreak)
+        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
+        eventNode.addListener(PlayerBlockBreakEvent::class.java, Ores::onBreak)
         Vanilla.eventNode.addListener(PlayerChunkLoadEvent::class.java, Ores::onChunkLoad)
         Vanilla.eventNode.addListener(PlayerSpawnEvent::class.java, Ores::onSpawn)
 
@@ -93,6 +98,27 @@ object Ores {
                 NamedTextColor.GREEN,
             ),
         )
+        return true
+    }
+
+    fun remove(player: Player): Boolean {
+        val target = targetOre(player) ?: return false
+        val instance = player.instance ?: return false
+        val location = location(instance, target)
+        if (ores.remove(location) == null) return false
+
+        val affectedPlayers =
+            cooldowns.keys
+                .filter { it.ore == location }
+                .mapTo(hashSetOf()) { it.player }
+        cooldowns.keys.removeIf { it.ore == location }
+        val block = instance.getBlock(target)
+        MinecraftServer
+            .getConnectionManager()
+            .onlinePlayers
+            .filter { it.uuid in affectedPlayers && it.instance?.getDimensionName() == location.world }
+            .forEach { sendBlock(it, location, block) }
+        save()
         return true
     }
 
@@ -141,9 +167,14 @@ object Ores {
                 config.blocksConfig.blockDrops[material] ?: listOf(ItemStack.of(material))
             }
         val dropPos = event.blockPosition.add(0.5, 0.5, 0.5).asPos()
+        var dropped = false
         for (stack in drops) {
-            if (!stack.isAir && stack.amount() > 0) Items.spawn(instance, dropPos, stack)
+            if (!stack.isAir && stack.amount() > 0) {
+                Items.spawn(instance, dropPos, stack)
+                dropped = true
+            }
         }
+        if (dropped) player.playSound(OreSounds.DING)
 
         val damagedTool = heldItem.damage(1)
         if (damagedTool != heldItem) player.itemInMainHand = damagedTool

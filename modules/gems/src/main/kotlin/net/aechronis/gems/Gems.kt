@@ -28,6 +28,9 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -42,6 +45,7 @@ private val PASTE_CONFIRM_ACTION = Key.key("gems", "paste_confirm")
 private val BOOST_SELECT_ACTION = Key.key("gems", "boost_select")
 private val BOOST_CONFIRM_ACTION = Key.key("gems", "boost_confirm")
 private val CANCEL_ACTION = Key.key("gems", "cancel")
+private val transactionTimeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
 
 object Gems {
     /** Minimal transaction bridge for integrations such as CraftingStore. */
@@ -581,6 +585,9 @@ private class GemCommand(
         val balanceAction =
             net.minestom.server.command.builder.arguments.ArgumentType
                 .Literal("balance")
+        val transactionsAction =
+            net.minestom.server.command.builder.arguments.ArgumentType
+                .Literal("transactions")
         val player =
             net.minestom.server.command.builder.arguments.ArgumentType
                 .Word("player")
@@ -599,7 +606,7 @@ private class GemCommand(
         setDefaultExecutor { sender, _ ->
             sender.sendMessage(
                 Component.text(
-                    "Usage: /gem balance <player> | /gem <give|take> <player> <amount>",
+                    "Usage: /gem balance <player> | /gem transactions <player> | /gem <give|take> <player> <amount>",
                     NamedTextColor.LIGHT_PURPLE,
                 ),
             )
@@ -612,6 +619,28 @@ private class GemCommand(
             }
             sender.sendMessage(Component.text("${target.name}'s gem balance: ${target.balance}", NamedTextColor.GREEN))
         }, balanceAction, player)
+        addSyntax("gems.admin", { sender, context ->
+            val target = repository.findPlayer(context[player])
+            if (target == null) {
+                sender.sendMessage(Component.text("No gem account exists for '${context[player]}'.", NamedTextColor.RED))
+                return@addSyntax
+            }
+            val transactions = repository.transactions(target.uuid)
+            if (transactions.isEmpty()) {
+                sender.sendMessage(Component.text("${target.name} has no gem transactions.", NamedTextColor.YELLOW))
+                return@addSyntax
+            }
+            sender.sendMessage(Component.text("Latest gem transactions for ${target.name}:", NamedTextColor.GOLD))
+            transactions.forEach { transaction ->
+                val timestamp = transactionTimeFormat.format(Instant.ofEpochMilli(transaction.createdAt))
+                sender.sendMessage(
+                    Component.text(
+                        "$timestamp | ${transaction.product} | ${transaction.amount} gems | ${transaction.id}",
+                        NamedTextColor.GRAY,
+                    ),
+                )
+            }
+        }, transactionsAction, player)
         addSyntax("gems.admin", { sender, context ->
             val target = repository.findPlayer(context[player])
             if (target == null) {

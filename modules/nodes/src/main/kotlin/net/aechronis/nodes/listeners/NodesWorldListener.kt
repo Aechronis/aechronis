@@ -39,6 +39,7 @@ import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.Attack
 import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.utils.OreSounds
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.BlockVec
@@ -643,10 +644,13 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
             }
             // else, drop items normally
             else {
+                var dropped = false
                 for (itemStack in itemDrops) {
                     val itemEntity = ItemEntity(itemStack)
                     itemEntity.setInstance(MinecraftServer.getInstanceManager().instances.first(), block)
+                    dropped = true
                 }
+                if (dropped) player.playSound(OreSounds.DING)
             }
         }
     }
