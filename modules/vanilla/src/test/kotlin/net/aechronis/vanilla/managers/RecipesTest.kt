@@ -5,6 +5,8 @@ import net.aechronis.vanilla.objects.Recipe
 import net.aechronis.vanilla.objects.RecipeBookRecipe
 import net.aechronis.vanilla.objects.RecipesGrid
 import net.aechronis.vanilla.objects.RecipesResult
+import net.aechronis.vanilla.objects.RecipesShapeless
+import net.aechronis.vanilla.objects.Shaped
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.network.packet.server.SendablePacket
@@ -60,8 +62,17 @@ class RecipesTest : ManagerTest() {
         val recipeBookPacket = connection.packets.filterIsInstance<RecipeBookAddPacket>().single()
         assertEquals(true, recipeBookPacket.replace())
         assertEquals(Recipes.recipes.size, recipeBookPacket.entries().size)
+        val expectedRequirementCounts =
+            Recipes.recipes.mapNotNull { recipe ->
+                when (recipe) {
+                    is Shaped -> recipe.pattern.count { it != null }
+                    is RecipesShapeless -> recipe.recipesIngredients.size
+                    else -> null
+                }
+            }.sorted()
+
         assertEquals(
-            listOf(1, 4),
+            expectedRequirementCounts,
             recipeBookPacket.entries().mapNotNull { it.craftingRequirements()?.size }.sorted(),
         )
     }
