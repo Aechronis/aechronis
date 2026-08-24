@@ -18,6 +18,7 @@ import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Message
 import net.aechronis.vanilla.commands.Music
 import net.aechronis.vanilla.commands.Ore
+import net.aechronis.vanilla.commands.Recpies
 import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Shutdown
@@ -111,6 +112,7 @@ object Vanilla {
             if (config.musicEnabled) commands += Music()
             if (config.blocksEnabled) commands += Convert()
             if (config.recipesEnabled) commands += Craft()
+            if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
             if (config.shopEnabled) commands += Shop()
             if (config.whitelistEnabled) commands += Whitelist()
             if (config.kothEnabled) commands += KothCommand()

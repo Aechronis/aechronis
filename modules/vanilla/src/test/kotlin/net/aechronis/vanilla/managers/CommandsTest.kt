@@ -104,6 +104,7 @@ class CommandsTest : ManagerTest() {
     fun `ender chest command and inventory choices are registered`() {
         assertNotNull(MinecraftServer.getCommandManager().getCommand("ec"))
         assertNotNull(MinecraftServer.getCommandManager().getCommand("koth"))
+        assertNotNull(MinecraftServer.getCommandManager().getCommand("recpies"))
         val invsee = assertNotNull(MinecraftServer.getCommandManager().getCommand("invsee"))
         assertTrue(invsee.syntaxes.any { syntax -> syntax.arguments.any { it.id == "inventory" && it.isOptional } })
 

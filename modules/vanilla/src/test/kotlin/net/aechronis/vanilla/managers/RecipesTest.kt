@@ -4,11 +4,14 @@ import net.aechronis.vanilla.ManagerTest
 import net.aechronis.vanilla.objects.Recipe
 import net.aechronis.vanilla.objects.RecipeBookRecipe
 import net.aechronis.vanilla.objects.RecipesGrid
+import net.aechronis.vanilla.objects.RecipesIngredient
 import net.aechronis.vanilla.objects.RecipesResult
 import net.aechronis.vanilla.objects.RecipesShapeless
 import net.aechronis.vanilla.objects.Shaped
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
+import net.minestom.server.item.ItemStack
+import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.packet.server.play.RecipeBookAddPacket
 import net.minestom.server.network.player.GameProfile
@@ -40,6 +43,27 @@ class RecipesTest : ManagerTest() {
         assertEquals(Recipes.recipes.size, displays.size)
         assertEquals(1, displays.count { it is RecipeDisplay.CraftingShaped })
         assertEquals(1, displays.count { it is RecipeDisplay.CraftingShapeless })
+    }
+
+    @Test
+    fun `recipe browser lists every craft and valid converter cycle`() {
+        val entries =
+            Recipes.recipeBrowserEntries(
+                listOf(
+                    RecipesShapeless(
+                        listOf(checkNotNull(RecipesIngredient.of(Material.OAK_LOG))),
+                        ItemStack.of(Material.OAK_PLANKS, 4),
+                    ),
+                ),
+                listOf(
+                    listOf(Material.STONE, Material.COBBLESTONE),
+                    listOf(Material.DIRT),
+                ),
+            )
+
+        assertEquals(2, entries.size)
+        assertEquals(Material.OAK_PLANKS, entries[0].material())
+        assertEquals(Material.STONE, entries[1].material())
     }
 
     @Test

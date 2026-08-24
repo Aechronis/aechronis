@@ -42,6 +42,7 @@ object LuckPermsPermissions {
             "vanilla.clear",
             "vanilla.convert",
             "vanilla.craft",
+            "vanilla.recpies",
             "vanilla.ec",
             "vanilla.fly",
             "vanilla.gamemode",

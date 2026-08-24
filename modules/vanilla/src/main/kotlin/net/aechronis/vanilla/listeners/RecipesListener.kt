@@ -56,9 +56,6 @@ object RecipesListener {
         val display = MinecraftServer.getRecipeManager().getRecipeDisplay(packet.recipeDisplayId(), event.player) ?: return
         val recipe = Recipes.recipeForDisplay(display) ?: return
 
-        // Do not let Minestom replace a real placement with its default ghost-recipe response.
-        event.isCancelled = true
-
         val player = event.player
         val inventory =
             if (packet.windowId().toInt() == 0) {
@@ -67,10 +64,15 @@ object RecipesListener {
                 player.openInventory?.takeIf { it.windowId == packet.windowId() } ?: return
             }
         val workspace = workspaces[inventory] ?: return
-        workspace.fillFromRecipeBook(player, recipe, packet.makeAll())
+
+        // A successful fill must replace Minestom's placement handling. If the ingredients are
+        // unavailable, leave the packet alone so the normal handler shows its red ghost inputs.
+        if (workspace.fillFromRecipeBook(player, recipe, packet.makeAll())) event.isCancelled = true
     }
 
     fun onInvClick(event: InventoryPreClickEvent) {
+        if (Recipes.handleRecipeBrowserClick(event)) return
+
         val click = event.click
         val slot = event.slot
         val player = event.player
@@ -206,6 +208,8 @@ object RecipesListener {
     }
 
     fun onInvClose(event: InventoryCloseEvent) {
+        Recipes.closeRecipeBrowser(event.inventory)
+
         val closedInv = event.inventory
         if (closedInv !is Inventory) return
         if (closedInv.inventoryType != InventoryType.CRAFTING) return
