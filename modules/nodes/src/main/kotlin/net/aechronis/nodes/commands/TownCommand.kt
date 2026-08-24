@@ -20,6 +20,7 @@ import net.aechronis.nodes.objects.TownFly
 import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.nodes.war.Warzone
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
@@ -594,8 +595,8 @@ class TownLeaveCommand : NodesCommand("leave") {
                 return@addSyntax
             }
 
-            // do not allow during war?
-            if (!Nodes.config.canLeaveTownDuringWar && FlagWar.enabled) {
+            // Warzones are independent weekday activities, so they must not apply the global-war membership lock.
+            if (!Nodes.config.canLeaveTownDuringWar && FlagWar.enabled && !Warzone.hasActiveZones()) {
                 Message.error(player, "Cannot leave your town during war")
                 return@addSyntax
             }

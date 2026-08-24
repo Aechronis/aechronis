@@ -30,6 +30,10 @@ subprojects {
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
         systemProperty("keepRunning", System.getProperty("keepRunning", "false"))
+        systemProperty(
+            "aechronis.dangerously-enable-all-permissions",
+            System.getProperty("aechronis.dangerously-enable-all-permissions", "false"),
+        )
     }
 
     pluginManager.withPlugin("maven-publish") {

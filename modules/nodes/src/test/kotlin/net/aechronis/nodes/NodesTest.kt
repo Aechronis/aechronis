@@ -629,6 +629,7 @@ class NodesTest {
         try {
             Warzone.register(listOf(territory))
             assertTrue(Warzone.isActive(territory))
+            assertTrue(Warzone.hasActiveZones())
             Warzone.onChunkCaptured(territory, firstNation, now)
             Warzone.onChunkCaptured(territory, secondNation, now + 5_000L)
 
@@ -670,6 +671,7 @@ class NodesTest {
             Town.capture(winner.capital, territories[0])
             assertEquals(winnerTown, territories[0].occupier)
             assertFalse(Warzone.isActive(territories[0]))
+            assertFalse(Warzone.hasActiveZones())
 
             val incomeTerritory = Nodes.towns.values
                 .flatMap { town -> town.territories.mapNotNull(Territory::fromId) }

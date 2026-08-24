@@ -43,6 +43,11 @@ object Warzone {
         states[territory.id]?.stopped == false
     }
 
+    /** Warzones are weekday activities, not global wars. */
+    fun hasActiveZones(): Boolean = synchronized(this) {
+        states.values.any { !it.stopped }
+    }
+
     fun multiplierFor(territory: Territory): Double = if (isActive(territory)) Nodes.config.warzoneRateMultiplier else 1.0
 
     fun register(territories: Collection<Territory>) = synchronized(this) {
