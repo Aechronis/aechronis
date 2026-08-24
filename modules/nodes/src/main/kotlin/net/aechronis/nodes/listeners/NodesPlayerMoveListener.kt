@@ -8,6 +8,7 @@ import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.TownFly
 import net.aechronis.nodes.utils.ChatColor
+import net.aechronis.nodes.war.Warzone
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.event.entity.EntityTeleportEvent
@@ -86,6 +87,7 @@ object NodesPlayerMoveListener {
     private fun onPlayerMoveChunk(player: Player, resident: Resident, fromCoord: Coord, toCoord: Coord) {
         val fromTerritory = Territory.fromCoord(fromCoord)
         val toTerritory = Territory.fromCoord(toCoord)
+        Warzone.onPlayerTerritoryChanged(player, toTerritory)
 
         if (fromTerritory != null && toTerritory != null) {
             val toTown = toTerritory.town

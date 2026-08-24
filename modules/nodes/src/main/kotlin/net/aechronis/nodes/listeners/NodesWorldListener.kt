@@ -39,6 +39,7 @@ import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.Attack
 import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.nodes.war.Warzone
 import net.aechronis.utils.OreSounds
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
@@ -181,7 +182,8 @@ object NodesWorldListener {
         // enables them only inside the specifically selected AI town.
         val selectedColonizationTown = Colonization.selectedTown(player)
         val flagTerritoryChunk = TerritoryChunk.fromBlock(blockPos.blockX, blockPos.blockZ)
-        if (FlagWar.enabled || selectedColonizationTown != null || flagTerritoryChunk?.attacker !== null) {
+        val isWarzone = flagTerritoryChunk?.territory?.let(Warzone::isActive) == true
+        if (FlagWar.enabled || selectedColonizationTown != null || isWarzone || flagTerritoryChunk?.attacker !== null) {
             if (flagTerritoryChunk !== null) {
                 // disable block placement in flag no build distance
                 if (flagTerritoryChunk.attacker !== null) {
@@ -207,7 +209,8 @@ object NodesWorldListener {
                         if (town !== null) {
                             val townAttacked = flagTerritoryChunk.territory.town
                             val isColonization = Colonization.isAuthorized(player.uuid, town, townAttacked)
-                            if (!isColonization && !FlagWar.enabled) {
+                            val isWarzoneAttack = isWarzone && !isColonization
+                            if (!isColonization && !isWarzoneAttack && !FlagWar.enabled) {
                                 val error = when {
                                     townAttacked === selectedColonizationTown && town.nation == null ->
                                         "[Colonization] You must be in a nation to colonize"
@@ -225,12 +228,16 @@ object NodesWorldListener {
                                 return
                             }
 
-                            val result = if (isColonization) {
-                                FlagWar.beginColonizationAttack(player.uuid, town, flagTerritoryChunk, blockPos)
-                            } else {
-                                FlagWar.beginAttack(player.uuid, town, flagTerritoryChunk, blockPos)
+                            val result = when {
+                                isColonization -> FlagWar.beginColonizationAttack(player.uuid, town, flagTerritoryChunk, blockPos)
+                                isWarzoneAttack -> FlagWar.beginWarzoneAttack(player.uuid, town, flagTerritoryChunk, blockPos)
+                                else -> FlagWar.beginAttack(player.uuid, town, flagTerritoryChunk, blockPos)
                             }
-                            val context = if (isColonization) "[Colonization]" else "[War]"
+                            val context = when {
+                                isColonization -> "[Colonization]"
+                                isWarzoneAttack -> "[Warzone]"
+                                else -> "[War]"
+                            }
                             if (result.isSuccess) {
                                 // get town being attacked
                                 val attacked = townAttacked!!
@@ -240,6 +247,8 @@ object NodesWorldListener {
                                     Message.broadcast("${ChatColor.DARK_RED}$context ${event.player.username} is liberating ${attacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
                                 } else if (isColonization) {
                                     Message.broadcast("${ChatColor.DARK_RED}$context ${event.player.username} started colonizing ${attacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
+                                } else if (isWarzoneAttack) {
+                                    Message.broadcast("${ChatColor.DARK_RED}$context ${event.player.username} is capturing warzone ${attacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
                                 } else { // attacking enemy
                                     Message.broadcast("${ChatColor.DARK_RED}$context ${event.player.username} is attacking ${attacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
                                 }
@@ -267,7 +276,11 @@ object NodesWorldListener {
 
                                     ErrorNotEnemy -> Message.error(
                                         player,
-                                        if (isColonization) "$context Chunk does not belong to the selected AI town" else "$context Chunk does not belong to an enemy",
+                                        when {
+                                            isColonization -> "$context Chunk does not belong to the selected AI town"
+                                            isWarzoneAttack -> "$context You must be in a nation to capture this warzone"
+                                            else -> "$context Chunk does not belong to an enemy"
+                                        },
                                     )
 
                                     ErrorAnnexDisabled -> Message.error(player, "$context Territory annexing is disabled")
@@ -358,7 +371,7 @@ object NodesWorldListener {
             val canColonizeHere = resident.town?.let { residentTown ->
                 Colonization.isAuthorized(player.uuid, residentTown, town)
             } == true
-            if ((FlagWar.enabled || canColonizeHere) && Nodes.config.flagBlocks.contains(block)) {
+            if ((FlagWar.enabled || canColonizeHere || territory?.let(Warzone::isActive) == true) && Nodes.config.flagBlocks.contains(block)) {
                 return
             }
         }
@@ -632,10 +645,10 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
             (Nodes.config.allowOreInNationTowns && territoryNation !== null && territoryNation === playerNation) ||
             (Nodes.config.allowOreInCaptured && territory.occupier === playerTown)
         ) {
-            val miningMultiplier = MiningBoostManager.miningMultiplier()
+            val miningMultiplier = MiningBoostManager.miningMultiplier() * Warzone.multiplierFor(territory)
             val itemDrops = territory.ores.sample(blockY).map { itemStack ->
                 itemStack.withAmount { amount ->
-                    (amount.toLong() * miningMultiplier.toLong()).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                    (amount.toDouble() * miningMultiplier).toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 }
             }
 

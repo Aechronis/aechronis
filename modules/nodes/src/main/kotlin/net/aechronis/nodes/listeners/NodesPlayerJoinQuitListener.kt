@@ -17,6 +17,7 @@ import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.nodes.war.Warzone
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerDeathEvent
@@ -37,6 +38,7 @@ object NodesPlayerJoinQuitListener {
         Nametag.onPlayerJoin(player)
         MiningBoostManager.onPlayerJoin(player)
         resident.createMinimap(player)
+        Warzone.onPlayerTerritoryChanged(player, net.aechronis.nodes.objects.Territory.fromPlayer(player))
         MinecraftServer.getSchedulerManager().scheduleNextTick {
             if (player.isOnline) TestTownSelection.showJoinDialog(player, resident)
         }
@@ -83,6 +85,7 @@ object NodesPlayerJoinQuitListener {
         val resident = Resident.fromPlayer(player)
         Nametag.onPlayerQuit(player)
         MiningBoostManager.onPlayerQuit(player)
+        Warzone.onPlayerQuit(player)
         if (resident != null) {
             resident.destroyMinimap()
             resident.clearDeathWaypoint()

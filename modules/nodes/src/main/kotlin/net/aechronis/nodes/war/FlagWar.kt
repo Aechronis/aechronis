@@ -541,6 +541,8 @@ object FlagWar {
 
     internal fun beginColonizationAttack(attacker: UUID, attackingTown: Town, chunk: TerritoryChunk, flagBase: BlockVec): Result<Attack> = beginAttack(attacker, attackingTown, chunk, flagBase, AttackMode.COLONIZATION)
 
+    internal fun beginWarzoneAttack(attacker: UUID, attackingTown: Town, chunk: TerritoryChunk, flagBase: BlockVec): Result<Attack> = beginAttack(attacker, attackingTown, chunk, flagBase, AttackMode.WARZONE)
+
     private fun beginAttack(
         attacker: UUID,
         attackingTown: Town,
@@ -565,6 +567,8 @@ object FlagWar {
             if (!Colonization.isAuthorized(attacker, attackingTown, territoryTown)) {
                 return Result.failure(ErrorNotEnemy)
             }
+        } else if (mode == AttackMode.WARZONE) {
+            if (!Warzone.isActive(territory) || attackingTown.nation == null) return Result.failure(ErrorNotEnemy)
         } else {
             // check if town blacklisted
             if (Nodes.config.warUseBlacklist && Nodes.config.warBlacklist.contains(territoryTown.uuid)) {
@@ -585,10 +589,10 @@ object FlagWar {
         }
 
         // check chunk not already captured by town or allies
-        val alreadyCaptured = if (mode == AttackMode.COLONIZATION) {
-            chunkAlreadyColonizedBy(chunk, territory, attackingTown)
-        } else {
-            chunkAlreadyCaptured(chunk, territory, attackingTown)
+        val alreadyCaptured = when (mode) {
+            AttackMode.COLONIZATION -> chunkAlreadyColonizedBy(chunk, territory, attackingTown)
+            AttackMode.WARZONE -> chunk.occupier?.nation === attackingTown.nation
+            AttackMode.WAR -> chunkAlreadyCaptured(chunk, territory, attackingTown)
         }
         if (alreadyCaptured) {
             return Result.failure(ErrorAlreadyCaptured)
@@ -598,7 +602,7 @@ object FlagWar {
         // 1. belongs to enemy
         // 2. town chunk occupied by enemy
         // 3. allied chunk occupied by enemy
-        if (mode == AttackMode.COLONIZATION || chunkIsEnemy(chunk, territory, attackingTown)) {
+        if (mode == AttackMode.COLONIZATION || mode == AttackMode.WARZONE || chunkIsEnemy(chunk, territory, attackingTown)) {
             if (mode == AttackMode.WAR) {
                 if (!canAnnexTerritories && chunk.coord == territory.core) {
                     return Result.failure(ErrorAnnexDisabled)
@@ -673,7 +677,11 @@ object FlagWar {
 
         val flagBlock = flagBase.add(0, 1, 0)
         val flagTorch = flagBase.add(0, 2, 0)
-        val action = if (mode == AttackMode.COLONIZATION) "Colonizing" else "Attacking"
+        val action = when (mode) {
+            AttackMode.COLONIZATION -> "Colonizing"
+            AttackMode.WARZONE -> "Capturing warzone"
+            AttackMode.WAR -> "Attacking"
+        }
         val progressBar = BossBar.bossBar(Component.text("$action ${territory.town!!.name} at ($flagBaseX, $flagBaseY, $flagBaseZ)"), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS)
 
         // calculate max attack time based on chunk and other modifiers
@@ -1095,6 +1103,13 @@ object FlagWar {
         }
     }
 
+    internal fun cancelWarzoneAttacks(territory: Territory) {
+        chunkToAttacker.values
+            .filter { it.mode == AttackMode.WARZONE && it.targetTerritory === territory }
+            .toList()
+            .forEach(::cancelAttack)
+    }
+
     private fun cancelAttackOnce(attack: Attack) {
         // remove status from territory chunk
         val chunk = TerritoryChunk.fromCoord(attack.coord)
@@ -1164,6 +1179,20 @@ object FlagWar {
 
         if (attack.mode == AttackMode.WAR && chunk.coord == chunk.territory.core && !canAnnexTerritories) {
             chunk.attacker = null
+            requestMinimapRefresh()
+            return
+        }
+
+        if (attack.mode == AttackMode.WARZONE) {
+            chunk.attacker = null
+            chunk.occupier = attack.town
+            occupiedChunks.add(chunk.coord)
+            colonizedChunks.remove(chunk.coord)
+            attack.town.nation?.let { nation -> Warzone.onChunkCaptured(chunk.territory, nation) }
+            Message.broadcast(
+                "${ChatColor.DARK_RED}[Warzone] ${Resident.fromUuid(attack.attacker)?.name ?: attack.town.name} captured chunk " +
+                    "(${chunk.coord.x}, ${chunk.coord.z}) for ${attack.town.nation?.name}!",
+            )
             requestMinimapRefresh()
             return
         }

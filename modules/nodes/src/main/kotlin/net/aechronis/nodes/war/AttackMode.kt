@@ -4,4 +4,5 @@ package net.aechronis.nodes.war
 enum class AttackMode {
     WAR,
     COLONIZATION,
+    WARZONE,
 }

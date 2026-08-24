@@ -4,6 +4,7 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.Trains
+import net.aechronis.nodes.war.Warzone
 import net.minestom.server.item.Material
 
 object IncomeCalculator {
@@ -43,6 +44,8 @@ object IncomeCalculator {
                 add(income, material, amount)
             }
         }
+        val multiplier = Warzone.multiplierFor(territory)
+        if (multiplier != 1.0) income.replaceAll { _, amount -> amount * multiplier }
         return income
     }
 

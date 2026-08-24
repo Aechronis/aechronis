@@ -25,6 +25,7 @@ import net.aechronis.nodes.commands.TownChatCommand
 import net.aechronis.nodes.commands.TownCommand
 import net.aechronis.nodes.commands.TrainCommand
 import net.aechronis.nodes.commands.UnallyCommand
+import net.aechronis.nodes.commands.WarzoneCommand
 import net.aechronis.nodes.commands.WaypointCommand
 import net.aechronis.nodes.listeners.NodesChatListener
 import net.aechronis.nodes.listeners.NodesChestProtectionDestroyListener
@@ -66,6 +67,7 @@ import net.aechronis.nodes.tasks.TaskSaveBuildings
 import net.aechronis.nodes.tasks.TaskSaveWorld
 import net.aechronis.nodes.utils.loadLongFromFile
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.nodes.war.Warzone
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
@@ -169,6 +171,7 @@ object Nodes {
         MinecraftServer.getCommandManager().register(WaypointCommand())
         MinecraftServer.getCommandManager().register(TrainCommand())
         MinecraftServer.getCommandManager().register(ColonizeCommand())
+        MinecraftServer.getCommandManager().register(WarzoneCommand())
         lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: System.currentTimeMillis()
         reloadManagers()
         MiningBoostManager.start()
@@ -192,6 +195,7 @@ object Nodes {
             val resident = Resident.fromPlayer(player)!!
             Resident.setOnline(resident, player)
             MiningBoostManager.onPlayerJoin(player)
+            Warzone.onPlayerTerritoryChanged(player, Territory.fromPlayer(player))
             if (resident.minimap == null) resident.createMinimap(player)
         }
     }
@@ -202,6 +206,7 @@ object Nodes {
         residents.values.forEach { it.destroyMinimap() }
         towns.values.forEach { town -> if (town.income.pushToStorage(true)) town.needsUpdate() }
         FlagWar.cleanup()
+        Warzone.cleanup()
         Colonization.cleanup()
         saveWorld(checkIfNeedsSave = false, async = false)
     }
@@ -338,6 +343,7 @@ object Nodes {
 
     internal fun loadWorld(): Boolean {
         FlagWar.resetForReload()
+        Warzone.resetForReload()
         Colonization.cleanup()
         residents.values.forEach { it.destroyMinimap() }
         MiningBoostManager.reset()
@@ -368,6 +374,7 @@ object Nodes {
             towns.values.forEach { it.getSaveState() }
             nations.values.forEach { it.getSaveState() }
             FlagWar.load()
+            Warzone.load()
             if (!Files.exists(config.pathBuildings)) {
                 System.err.println("No buildings found: ${config.pathBuildings}")
                 return true
@@ -381,6 +388,7 @@ object Nodes {
                 val resident = Resident.fromPlayer(player)!!
                 Resident.setOnline(resident, player)
                 MiningBoostManager.onPlayerJoin(player)
+                Warzone.onPlayerTerritoryChanged(player, Territory.fromPlayer(player))
                 resident.createMinimap(player)
             }
             Nametag.rebuildAllViewers()

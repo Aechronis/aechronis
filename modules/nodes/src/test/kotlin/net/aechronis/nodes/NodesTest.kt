@@ -17,6 +17,7 @@ import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.testTownLockedSide
 import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.nodes.war.Warzone
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
@@ -611,6 +612,84 @@ class NodesTest {
         assertEquals(TestTownSide.BLUE, testTownLockedSide(redPopulation = 2, bluePopulation = 5, difference = 3))
         assertEquals(null, testTownLockedSide(redPopulation = 4, bluePopulation = 2, difference = 3))
         assertEquals(TestTownSide.RED, testTownLockedSide(redPopulation = 2, bluePopulation = 0, difference = 0))
+    }
+
+    @Test
+    fun `warzones track handoffs rank scores and survive reload`() {
+        val territory = Nodes.territories.values.first()
+        val towns = Nodes.territories.values.filter { it.town == null }.take(2)
+        assertEquals(2, towns.size, "Test world needs two unclaimed territories")
+        val suffix = UUID.randomUUID().toString().take(8)
+        val firstTown = Town.create("WarzoneFirst$suffix", towns[0], null).getOrThrow()
+        val secondTown = Town.create("WarzoneSecond$suffix", towns[1], null).getOrThrow()
+        val firstNation = Nation.create("WarzoneNationFirst$suffix", firstTown).getOrThrow()
+        val secondNation = Nation.create("WarzoneNationSecond$suffix", secondTown).getOrThrow()
+        val now = System.currentTimeMillis()
+
+        try {
+            Warzone.register(listOf(territory))
+            assertTrue(Warzone.isActive(territory))
+            Warzone.onChunkCaptured(territory, firstNation, now)
+            Warzone.onChunkCaptured(territory, secondNation, now + 5_000L)
+
+            var ranking = Warzone.ranking(territory, now + 8_000L)
+            assertEquals(firstNation, ranking[0].nation)
+            assertEquals(5_000L, ranking[0].millis)
+            assertEquals(secondNation, ranking[1].nation)
+            assertEquals(3_000L, ranking[1].millis)
+
+            Warzone.resetForReload()
+            Warzone.load()
+            ranking = Warzone.ranking(territory, now + 8_000L)
+            assertEquals(listOf(firstNation, secondNation), ranking.map { it.nation })
+            assertEquals(listOf(5_000L, 3_000L), ranking.map { it.millis })
+        } finally {
+            Warzone.resetForReload()
+            Files.deleteIfExists(Nodes.config.pathWarzone)
+            Nation.destroy(firstNation)
+            Nation.destroy(secondNation)
+            Town.destroy(firstTown)
+            Town.destroy(secondTown)
+        }
+    }
+
+    @Test
+    fun `stopping a warzone awards its winner's capital and applies boosted rates`() {
+        val territories = Nodes.territories.values.filter { it.town == null }.take(3)
+        assertEquals(3, territories.size, "Test world needs three unclaimed territories")
+        val suffix = UUID.randomUUID().toString().take(8)
+        val owner = Town.create("WarzoneOwner$suffix", territories[0], null).getOrThrow()
+        val winnerTown = Town.create("WarzoneWinner$suffix", territories[1], null).getOrThrow()
+        val winnerNation = Nation.create("WarzoneWinnerNation$suffix", winnerTown).getOrThrow()
+        val now = System.currentTimeMillis()
+
+        try {
+            Warzone.register(listOf(territories[0]))
+            Warzone.onChunkCaptured(territories[0], winnerNation, now)
+            val winner = Warzone.stop(territories[0], now + 1_000L).getOrThrow()
+            Town.capture(winner.capital, territories[0])
+            assertEquals(winnerTown, territories[0].occupier)
+            assertFalse(Warzone.isActive(territories[0]))
+
+            val incomeTerritory = Nodes.towns.values
+                .flatMap { town -> town.territories.mapNotNull(Territory::fromId) }
+                .firstOrNull { it.income.isNotEmpty() && it.occupier == null }
+                ?: return
+            val incomeOwner = incomeTerritory.town!!
+            val before = IncomeCalculator.calculate()[incomeOwner].orEmpty()
+            Warzone.register(listOf(incomeTerritory))
+            assertEquals(2.0, Warzone.multiplierFor(incomeTerritory))
+            val after = IncomeCalculator.calculate()[incomeOwner].orEmpty()
+            incomeTerritory.income.forEach { (material, amount) ->
+                assertTrue((after[material] ?: 0.0) >= (before[material] ?: 0.0) + amount - 1.0e-9)
+            }
+        } finally {
+            Warzone.resetForReload()
+            Files.deleteIfExists(Nodes.config.pathWarzone)
+            Nation.destroy(winnerNation)
+            Town.destroy(owner)
+            Town.destroy(winnerTown)
+        }
     }
 
     @Test

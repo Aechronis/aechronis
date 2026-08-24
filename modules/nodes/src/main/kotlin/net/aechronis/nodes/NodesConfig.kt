@@ -188,6 +188,15 @@ data class NodesConfig(
     // multiplier for warping home when occupied
     val occupiedHomeTeleportMultiplier: Int = 12,
 
+    // ===================================
+    // warzone configs
+    // ===================================
+    // resource multiplier while a territory is an active warzone
+    val warzoneRateMultiplier: Double = 2.0,
+
+    // Optional per-nation score cap. A cap never ends a warzone; an admin must stop it.
+    val warzoneScoreCapMillis: Long? = null,
+
     // List of town UUIDs to allow building in occupied territory.
     // War whitelist often used to create AI towns that can be attacked
     // by anyone. People want to build in occupied territory from these
@@ -211,6 +220,7 @@ data class NodesConfig(
     val pathWorld: Path get() = Paths.get(path, "world.json").normalize()
     val pathTowns: Path get() = Paths.get(path, "towns.json").normalize()
     val pathWar: Path get() = Paths.get(path, "war.json").normalize()
+    val pathWarzone: Path get() = Paths.get(path, "warzone.json").normalize()
     val pathBuildings: Path get() = Paths.get(path, "buildings.json").normalize()
     val pathTrains: Path get() = Paths.get(path, "trains.json").normalize()
     val pathLastBackupTime: Path get() = Paths.get(path, "lastBackupTime.txt").normalize()
