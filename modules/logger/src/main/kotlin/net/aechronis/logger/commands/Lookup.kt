@@ -18,7 +18,7 @@ const val LOOKUP_USAGE =
     "Usage: /logger lookup u:<user> t:<time> r:<radius> a:<action> i:<include> e:<exclude>" +
         " c:<source> o:<origin>  |  s:<feature-source> u:<user> t:<time> r:<radius> a:<action> o:<origin>"
 
-class LoggerLookupCommand : Command("lookup", "logger", "l") {
+class LoggerLookupCommand : Command("lookup", "logger.lookup", "l") {
     init {
         setDefaultExecutor { sender, _ -> sender.sendMessage(Component.text(LOOKUP_USAGE, NamedTextColor.GOLD)) }
         val params =

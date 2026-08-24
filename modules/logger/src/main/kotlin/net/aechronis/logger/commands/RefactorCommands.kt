@@ -55,7 +55,7 @@ open class LoggerMutationCommand(
                 sender.sendMessage(Component.text("Unknown flag: ${unknownFlags.first()}", NamedTextColor.RED))
                 return@addSyntax
             }
-            if ("#force" in flags && !sender.hasPermission("logger.rollback.force")) {
+            if ("#force" in flags && !sender.hasPermission("$permission.force")) {
                 sender.sendMessage(Component.text("You don't have permission to force operations", NamedTextColor.RED))
                 return@addSyntax
             }
@@ -161,7 +161,7 @@ open class LoggerMutationCommand(
         sender: Player,
         token: String,
     ) {
-        if (!sender.hasPermission("logger.rollback.confirm")) {
+        if (!sender.hasPermission("$permission.confirm")) {
             sender.sendMessage(Component.text("You don't have permission to confirm operations", NamedTextColor.RED))
             return
         }

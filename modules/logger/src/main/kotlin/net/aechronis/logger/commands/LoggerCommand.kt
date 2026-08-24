@@ -4,7 +4,7 @@ import net.aechronis.utils.Command
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 
-class LoggerCommand : Command("logger", "logger", "lo") {
+class LoggerCommand : Command("logger", null, "lo") {
     init {
         setDefaultExecutor { sender, _ ->
             sender.sendMessage(

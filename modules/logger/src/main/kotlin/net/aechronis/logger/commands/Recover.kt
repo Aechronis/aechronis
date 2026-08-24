@@ -8,7 +8,7 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class Recover : Command("recover", "logger.rollback.recover") {
+class Recover : Command("recover", "logger.recover") {
     init {
         setDefaultExecutor { sender, _ ->
             sender.sendMessage(

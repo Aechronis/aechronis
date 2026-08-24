@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 val playerInspectMode = ConcurrentHashMap<UUID, Boolean>()
 
-class LoggerInspectCommand : Command("inspect", "logger", "i") {
+class LoggerInspectCommand : Command("inspect", "logger.inspect", "i") {
     init {
         addSyntax({ sender: Player, _ ->
             val enabled = playerInspectMode.compute(sender.uuid) { _, current -> current != true } == true
