@@ -60,6 +60,10 @@ class RecipesTest : ManagerTest() {
         val recipeBookPacket = connection.packets.filterIsInstance<RecipeBookAddPacket>().single()
         assertEquals(true, recipeBookPacket.replace())
         assertEquals(Recipes.recipes.size, recipeBookPacket.entries().size)
+        assertEquals(
+            listOf(1, 4),
+            recipeBookPacket.entries().mapNotNull { it.craftingRequirements()?.size }.sorted(),
+        )
     }
 
     private fun recipeBookRecipes(): List<RecipeBookRecipe> =

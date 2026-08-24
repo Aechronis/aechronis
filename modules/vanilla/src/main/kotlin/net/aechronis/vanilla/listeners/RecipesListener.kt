@@ -1,22 +1,26 @@
 package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
+import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Recipes.recipes
 import net.aechronis.vanilla.managers.Recipes.workspaces
 import net.aechronis.vanilla.objects.RecipesWorkspace
 import net.aechronis.vanilla.objects.consumeStationInteraction
 import net.kyori.adventure.text.Component
+import net.minestom.server.MinecraftServer
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryItemChangeEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
+import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.inventory.click.Click
 import net.minestom.server.item.Material
+import net.minestom.server.network.packet.client.play.ClientPlaceRecipePacket
 import net.minestom.server.utils.inventory.PlayerInventoryUtils
 
 object RecipesListener {
@@ -45,6 +49,25 @@ object RecipesListener {
             )
         workspaces[player.inventory] = recipesWorkspace
         recipesWorkspace.refresh()
+    }
+
+    fun onRecipeBookPlace(event: PlayerPacketEvent) {
+        val packet = event.packet as? ClientPlaceRecipePacket ?: return
+        val display = MinecraftServer.getRecipeManager().getRecipeDisplay(packet.recipeDisplayId(), event.player) ?: return
+        val recipe = Recipes.recipeForDisplay(display) ?: return
+
+        // Do not let Minestom replace a real placement with its default ghost-recipe response.
+        event.isCancelled = true
+
+        val player = event.player
+        val inventory =
+            if (packet.windowId().toInt() == 0) {
+                player.inventory
+            } else {
+                player.openInventory?.takeIf { it.windowId == packet.windowId() } ?: return
+            }
+        val workspace = workspaces[inventory] ?: return
+        workspace.fillFromRecipeBook(player, recipe, packet.makeAll())
     }
 
     fun onInvClick(event: InventoryPreClickEvent) {
@@ -195,6 +218,7 @@ object RecipesListener {
         if (initialized) return
         initialized = true
 
+        Vanilla.eventNode.addListener(PlayerPacketEvent::class.java, RecipesListener::onRecipeBookPlace)
         Vanilla.eventNode.addListener(InventoryPreClickEvent::class.java, RecipesListener::onInvClick)
         Vanilla.eventNode.addListener(PlayerBlockInteractEvent::class.java, RecipesListener::onInteract)
         Vanilla.eventNode.addListener(InventoryItemChangeEvent::class.java, RecipesListener::onInvChange)
