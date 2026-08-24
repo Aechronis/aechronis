@@ -17,6 +17,7 @@ import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.TownFly
+import net.aechronis.nodes.tasks.IncomeBreakdown
 import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
@@ -813,20 +814,28 @@ class TownIncomeInfoCommand : NodesCommand("info") {
                 return@addSyntax
             }
 
-            val rates = IncomeCalculator.calculate()[town].orEmpty().filterValues { it > 0.0 }
+            val breakdown = IncomeCalculator.calculateBreakdown()[town] ?: IncomeBreakdown.EMPTY
+            val rates = breakdown.total.filterValues { it > 0.0 }
+            val buildingRates = breakdown.buildings.filterValues { it > 0.0 }
             Message.print(player, "${ChatColor.BOLD}Income rates for ${town.name}:")
-            Message.print(player, "Per income tick (every hour):")
-            if (rates.isEmpty()) {
-                Message.print(player, "- None")
-            } else {
-                rates.entries
-                    .sortedBy { (material, _) -> material.name() }
-                    .forEach { (material, amount) ->
-                        Message.print(player, "- ${material.name()}${ChatColor.WHITE}: ${formatIncome(amount)}")
-                    }
-            }
+            Message.print(player, "Total per income tick (every hour):")
+            printRates(player, rates)
+            Message.print(player, "Building income per income tick:")
+            printRates(player, buildingRates)
             Message.print(player, "Fractional amounts are averages; income is randomly rounded when collected.")
         })
+    }
+
+    private fun printRates(player: net.minestom.server.entity.Player, rates: Map<net.minestom.server.item.Material, Double>) {
+        if (rates.isEmpty()) {
+            Message.print(player, "- None")
+            return
+        }
+        rates.entries
+            .sortedBy { (material, _) -> material.name() }
+            .forEach { (material, amount) ->
+                Message.print(player, "- ${material.name()}${ChatColor.WHITE}: ${formatIncome(amount)}")
+            }
     }
 
     private fun formatIncome(amount: Double): String = String.format(Locale.ROOT, "%.2f", amount)

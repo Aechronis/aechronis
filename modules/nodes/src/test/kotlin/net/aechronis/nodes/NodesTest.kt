@@ -5,9 +5,12 @@ import net.aechronis.nodes.commands.arguments.matchingResidents
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.listeners.NodesBlockPlacementCooldownListener
+import net.aechronis.nodes.objects.Building
+import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.MinimapPosition
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Plot
+import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryId
@@ -208,6 +211,80 @@ class NodesTest {
             assertTrue((rates[material] ?: 0.0) >= amount - 1.0e-9)
         }
         assertEquals(storedBefore, town.income.snapshot())
+    }
+
+    @Test
+    fun `buildings are collected as town income and included in the breakdown`() {
+        val town = Town.fromName("London")!!
+        val territory = Territory.fromId(town.home)!!
+        val port = Nodes.buildings.filterIsInstance<Port>().single { it.name == "London" }
+        val before = IncomeCalculator.calculateBreakdown().getValue(town)
+        val farmChunk = territory.chunks.first { Building.getAt(it.x, it.z) == null }
+        val farm = Farm.create(farmChunk.x, farmChunk.z, tier = 1).getOrThrow()
+        val storageBefore = town.income.snapshot()
+
+        try {
+            val after = IncomeCalculator.calculateBreakdown().getValue(town)
+            port.income().forEach { (material, amount) ->
+                assertEquals(amount, before.buildings[material])
+            }
+            farm.income().forEach { (material, amount) ->
+                assertEquals((before.buildings[material] ?: 0.0) + amount, after.buildings[material])
+                assertEquals(
+                    (before.total[material] ?: 0.0) + amount,
+                    after.total[material],
+                )
+            }
+
+            Nodes.runIncome()
+            farm.income().forEach { (material, amount) ->
+                val collected = (town.income.snapshot()[material] ?: 0) - (storageBefore[material] ?: 0)
+                assertTrue(collected >= amount.toInt(), "Expected at least $amount $material from the farm, got $collected")
+            }
+        } finally {
+            Building.destroy(farm)
+            town.income.storage.clear()
+            town.income.storage.putAll(storageBefore)
+        }
+    }
+
+    @Test
+    fun `building income is taxed while its territory is occupied`() {
+        val owner = Town.fromName("London")!!
+        val occupier = Town.fromName("Brighton")!!
+        val territory = Territory.fromId(owner.home)!!
+        val ownerBefore = IncomeCalculator.calculateBreakdown().getValue(owner).buildings
+        val occupierBefore = IncomeCalculator.calculateBreakdown().getValue(occupier).buildings
+        val taxRate = Nodes.config.taxIncomeRate.coerceIn(0.0, 1.0)
+        assertTrue(ownerBefore.isNotEmpty())
+
+        territory.occupier = occupier
+        occupier.captured.add(territory.id)
+        try {
+            val ownerAfter = IncomeCalculator.calculateBreakdown().getValue(owner).buildings
+            val occupierAfter = IncomeCalculator.calculateBreakdown().getValue(occupier).buildings
+            ownerBefore.forEach { (material, amount) ->
+                assertEquals(amount * (1.0 - taxRate), ownerAfter[material])
+                assertEquals((occupierBefore[material] ?: 0.0) + amount * taxRate, occupierAfter[material])
+            }
+        } finally {
+            occupier.captured.remove(territory.id)
+            territory.occupier = null
+        }
+    }
+
+    @Test
+    fun `unclaimed building does not add town income`() {
+        val territory = Nodes.territories.values.first { it.town == null }
+        val chunk = territory.chunks.first { Building.getAt(it.x, it.z) == null }
+        val before = IncomeCalculator.calculateBreakdown()
+        val farm = Farm.create(chunk.x, chunk.z, tier = 1).getOrThrow()
+
+        try {
+            assertEquals(before, IncomeCalculator.calculateBreakdown())
+        } finally {
+            Building.destroy(farm)
+        }
     }
 
     @Test

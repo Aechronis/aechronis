@@ -24,8 +24,8 @@ Farms produce food.
 <img src="buildings/farm/1.webp" align="right" height="165">
 
 ### Tier 1
-* 64 Wheat
-* 64 Carrots
+* 1 Wheat
+* 1 Beef
   <br>
   <br>
   <br>
@@ -33,19 +33,18 @@ Farms produce food.
 <img src="buildings/farm/2.webp" align="right" height="165">
 
 ### Tier 2
-* 64 Wheat
-* 64 Carrots
-* 64 Beef
-* 64 Pork
+* 2 Wheat
+* 2 Beef
+* 1 Carrot
   <br>
 
 <img src="buildings/farm/3.webp" align="right" height="165">
 
 ### Tier 3
-* 128 Wheat
-* 128 Carrots
-* 128 Beef
-* 128 Pork
+* 3 Wheat
+* 3 Beef
+* 2 Carrots
+* 1 Potato
   <br>
 
 ---
@@ -60,7 +59,7 @@ Ports must be built within 2 chunks of the territories edge:
 
 ### Tier 1
 * 2500 block range
-* 16 fish
+* 1 Cod
 <br>
 <br>
 <br>
@@ -69,7 +68,8 @@ Ports must be built within 2 chunks of the territories edge:
 
 ### Tier 2
 * 5000 block range
-* 32 fish
+* 2 Cod
+* 1 Salmon
 <br>
 <br>
 <br>
@@ -78,7 +78,9 @@ Ports must be built within 2 chunks of the territories edge:
 
 ### Tier 3
 * 10000 block range
-* 64 fish
+* 3 Cod
+* 2 Salmon
+* 1 Tropical Fish
 <br>
 <br>
 <br>

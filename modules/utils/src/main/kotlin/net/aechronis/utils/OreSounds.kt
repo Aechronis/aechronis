@@ -6,7 +6,7 @@ import net.kyori.adventure.sound.Sound
 object OreSounds {
     val DING: Sound =
         Sound.sound(
-            Key.key("minecraft:block.note_block.bell"),
+            Key.key("minecraft:entity.experience_orb.pickup"),
             Sound.Source.PLAYER,
             0.7f,
             1.5f,
