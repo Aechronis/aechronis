@@ -326,6 +326,10 @@ object NodesWorldListener {
             return
         }
 
+        if (resident?.hasTownPermissionBypass() == true) {
+            return
+        }
+
         // interacting in a town
         if (resident !== null) {
             if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) {

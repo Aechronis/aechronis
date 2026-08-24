@@ -24,14 +24,17 @@ import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
+import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.SendablePacket
@@ -452,6 +455,45 @@ class NodesTest {
         assertNotNull(town)
         for (permission in enumValues<TownPermissions>()) {
             assertEquals(setOf(PermissionsGroup.OUTSIDER), town.permissions[permission])
+        }
+    }
+
+    @Test
+    fun `nodes bypass allows building despite town permission denial`() {
+        val territory = Nodes.territories.values.first { it.town == null }
+        val town = Town.create("BypassTown${UUID.randomUUID().toString().take(8)}", territory, null).getOrThrow()
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "bypass-test"))
+        val resident = Resident(player.uuid, player.username)
+        val position = BlockVec(territory.core.x * 16, 64, territory.core.z * 16)
+        val permissionFlag = "aechronis.dangerously-enable-all-permissions"
+        val previousPermissionFlag = System.getProperty(permissionFlag)
+        town.permissions[TownPermissions.BUILD].clear()
+        Nodes.residents[resident.uuid] = resident
+
+        try {
+            System.setProperty(permissionFlag, "true")
+            val event = PlayerBlockPlaceEvent(
+                player,
+                instance,
+                Block.STONE,
+                BlockFace.TOP,
+                position,
+                position,
+                PlayerHand.MAIN,
+            )
+
+            MinecraftServer.getGlobalEventHandler().call(event)
+
+            assertFalse(event.isCancelled)
+        } finally {
+            if (previousPermissionFlag == null) {
+                System.clearProperty(permissionFlag)
+            } else {
+                System.setProperty(permissionFlag, previousPermissionFlag)
+            }
+            Nodes.residents.remove(resident.uuid)
+            player.remove()
+            Town.destroy(town)
         }
     }
 
