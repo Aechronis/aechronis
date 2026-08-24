@@ -41,9 +41,11 @@ import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.utils.OreSounds
+import net.aechronis.vanilla.managers.StorageAccess
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.BlockVec
+import net.minestom.server.coordinate.Point
 import net.minestom.server.entity.ItemEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerBlockBreakEvent
@@ -214,8 +216,10 @@ object NodesWorldListener {
                                 val error = when {
                                     townAttacked === selectedColonizationTown && town.nation == null ->
                                         "[Colonization] You must be in a nation to colonize"
+
                                     townAttacked === selectedColonizationTown && !canStartColonization(resident, town) ->
                                         "[Colonization] You must be a town officer or town leader in your nation to colonize"
+
                                     else ->
                                         "[Colonization] Place the flag inside ${selectedColonizationTown?.name ?: "the selected AI town"}"
                                 }
@@ -371,7 +375,7 @@ object NodesWorldListener {
             val canColonizeHere = resident.town?.let { residentTown ->
                 Colonization.isAuthorized(player.uuid, residentTown, town)
             } == true
-            if ((FlagWar.enabled || canColonizeHere || territory?.let(Warzone::isActive) == true) && Nodes.config.flagBlocks.contains(block)) {
+            if ((FlagWar.enabled || canColonizeHere || Warzone.isActive(territory)) && Nodes.config.flagBlocks.contains(block)) {
                 return
             }
         }
@@ -466,6 +470,36 @@ object NodesWorldListener {
 
         event.isCancelled = true
         Message.error(event.player, "You cannot interact here!")
+    }
+
+    fun hasStorageAccess(player: Player, position: Point, access: StorageAccess): Boolean {
+        val blockPosition = BlockVec(position.blockX(), position.blockY(), position.blockZ())
+        val territory = Territory.fromBlock(blockPosition.blockX, blockPosition.blockZ)
+        val town = territory?.town
+
+        if (access == StorageAccess.INTERACT && territory == null) return true
+        if (town == null) return access == StorageAccess.INTERACT || hasWildernessPermissions(territory)
+
+        val resident = Resident.fromPlayer(player) ?: return false
+        if (resident.hasTownPermissionBypass()) return true
+
+        val territoryChunk = TerritoryChunk.fromBlock(blockPosition.blockX, blockPosition.blockZ)
+        if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) return true
+
+        val permission = if (access == StorageAccess.INTERACT) TownPermissions.CHESTS else TownPermissions.DESTROY
+        val plotPermission = Plot.at(town, blockPosition.blockX, blockPosition.blockY, blockPosition.blockZ)
+            ?.let { getPlotPermission(permission, it, resident, town) }
+        val allowed = when (plotPermission) {
+            true -> true
+
+            false -> false
+
+            null -> hasTownPermissions(permission, town, resident) ||
+                (territory.occupier?.let { occupier -> hasOccupierPermissions(permission, town, occupier, resident) } == true)
+        }
+        if (!allowed) return false
+
+        return !town.protectedBlocks.contains(blockPosition) || resident.hasTownProtectedChestPermissions(town)
     }
 
     fun init() {

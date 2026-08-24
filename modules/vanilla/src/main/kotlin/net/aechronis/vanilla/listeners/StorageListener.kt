@@ -3,6 +3,7 @@ package net.aechronis.vanilla.listeners
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.Storage
+import net.aechronis.vanilla.managers.StorageAccess
 import net.aechronis.vanilla.objects.StorageContents
 import net.aechronis.vanilla.objects.consumeStationInteraction
 import net.minestom.server.event.inventory.InventoryCloseEvent
@@ -23,6 +24,10 @@ object StorageListener {
         val player = event.player
         val instance = player.instance ?: return
         val pos = event.blockPosition
+        if (!Storage.hasAccess(player, pos, StorageAccess.BREAK)) {
+            event.isCancelled = true
+            return
+        }
         val key = Storage.keyFor(instance, pos)
         val contents = Storage.loadOrCreate(key)
 
@@ -52,7 +57,12 @@ object StorageListener {
     }
 
     fun onInteract(event: PlayerBlockInteractEvent) {
+        if (event.isCancelled) return
         if (!event.block.compare(Block.BARREL)) return
+        if (!Storage.hasAccess(event.player, event.blockPosition, StorageAccess.INTERACT)) {
+            event.isCancelled = true
+            return
+        }
         if (!event.consumeStationInteraction()) return
 
         val key = Storage.keyFor(event.instance, event.blockPosition)

@@ -79,13 +79,13 @@ object NodesChestProtectionListener {
 object NodesChestProtectionDestroyListener {
     private fun onBlockBreak(event: PlayerBlockBreakEvent) {
         val town: Town? = Territory.fromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)?.town
-        val resident = Resident.fromPlayer(event.player)!!
 
         if (event.isCancelled || town == null || !town.protectedBlocks.contains(event.blockPosition)) {
             return
         }
 
-        if (resident.hasTownPermissionBypass() || resident.hasTownProtectedChestPermissions(town)) {
+        val resident = Resident.fromPlayer(event.player)
+        if (resident != null && (resident.hasTownPermissionBypass() || resident.hasTownProtectedChestPermissions(town))) {
             Town.protectChest(town, event.blockPosition, false)
             return
         }
@@ -95,6 +95,8 @@ object NodesChestProtectionDestroyListener {
     }
 
     fun init() {
-        Nodes.lowPriorityEventNode.addListener(PlayerBlockBreakEvent::class.java, this::onBlockBreak)
+        // Run after general Nodes permissions but before Vanilla storage handles
+        // barrel destruction and converts the event into a manual block break.
+        Nodes.postPermissionEventNode.addListener(PlayerBlockBreakEvent::class.java, this::onBlockBreak)
     }
 }

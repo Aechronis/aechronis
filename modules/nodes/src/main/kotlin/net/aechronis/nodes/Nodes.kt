@@ -35,6 +35,7 @@ import net.aechronis.nodes.listeners.NodesPlayerDamageListener
 import net.aechronis.nodes.listeners.NodesPlayerJoinQuitListener
 import net.aechronis.nodes.listeners.NodesPlayerMoveListener
 import net.aechronis.nodes.listeners.NodesPlotSelectionListener
+import net.aechronis.nodes.listeners.NodesVanillaStorageBridge
 import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.listeners.TrainsListener
 import net.aechronis.nodes.objects.Building
@@ -87,6 +88,7 @@ object Nodes {
     val lowPriorityEventNode = EventNode.all("nodes-low-priority").setPriority(999)
     val eventNode = EventNode.all("nodes")
     val highPriorityEventNode = EventNode.all("nodes-high-priority").setPriority(-999)
+    val postPermissionEventNode = EventNode.all("nodes-post-permission").setPriority(-998)
 
     internal val resourceNodes: HashMap<String, ResourceNode> = hashMapOf()
     internal val territoryChunks: ConcurrentHashMap<Coord, TerritoryChunk> = ConcurrentHashMap()
@@ -138,17 +140,19 @@ object Nodes {
         MinecraftServer.getGlobalEventHandler().addChild(lowPriorityEventNode)
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         MinecraftServer.getGlobalEventHandler().addChild(highPriorityEventNode)
+        MinecraftServer.getGlobalEventHandler().addChild(postPermissionEventNode)
         MinimapPassengerTracker.init()
         RelationshipHitbox.init()
         NodesChatListener.init()
         NodesChestProtectionListener.init()
-        NodesChestProtectionDestroyListener.init()
         NodesIncomeInventoryListener.init()
         NodesPlayerDamageListener.init()
         NodesPlayerJoinQuitListener.init()
         NodesPlayerMoveListener.init()
         NodesPlotSelectionListener.init()
         NodesWorldListener.init()
+        NodesChestProtectionDestroyListener.init()
+        NodesVanillaStorageBridge.init()
         ColonizationMenu.init()
         TrainsListener.init()
         WaypointMenu.init()

@@ -11,8 +11,10 @@ import net.kyori.adventure.nbt.BinaryTagIO
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.player.PlayerBlockBreakEvent
+import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockFace
@@ -108,6 +110,49 @@ class StorageTest : ManagerTest() {
         assertFalse(Files.exists(file.resolveSibling("${file.fileName}.migrated")))
         Storage.remove(key)
         VanillaTest.instance.setBlock(pos, Block.AIR)
+    }
+
+    @Test
+    fun `storage access checker blocks barrel use and destruction before storage is loaded`() {
+        val pos = BlockVec(72, 40, 30)
+        val key = Storage.keyFor(VanillaTest.instance, pos)
+        val breaker =
+            VanillaTest.createPlayer(
+                net.minestom.server.coordinate
+                    .Pos(72.5, 40.0, 30.5),
+            )
+        VanillaTest.instance.setBlock(pos, Block.BARREL)
+        Storage.setAccessChecker { _, _, _ -> false }
+
+        try {
+            val interact =
+                PlayerBlockInteractEvent(
+                    breaker,
+                    PlayerHand.MAIN,
+                    VanillaTest.instance,
+                    Block.BARREL,
+                    pos,
+                    Pos.ZERO,
+                    BlockFace.TOP,
+                )
+            StorageListener.onInteract(interact)
+
+            assertTrue(interact.isCancelled)
+            assertNull(breaker.openInventory)
+            assertFalse(Storage.barrels.containsKey(key))
+
+            val breakEvent = PlayerBlockBreakEvent(breaker, VanillaTest.instance, Block.BARREL, Block.AIR, pos, BlockFace.TOP)
+            StorageListener.onBreak(breakEvent)
+
+            assertTrue(breakEvent.isCancelled)
+            assertTrue(VanillaTest.instance.getBlock(pos).compare(Block.BARREL))
+            assertFalse(Storage.barrels.containsKey(key))
+        } finally {
+            Storage.setAccessChecker(null)
+            VanillaTest.remove(breaker)
+            VanillaTest.instance.setBlock(pos, Block.AIR)
+            Storage.remove(key)
+        }
     }
 
     @Test
