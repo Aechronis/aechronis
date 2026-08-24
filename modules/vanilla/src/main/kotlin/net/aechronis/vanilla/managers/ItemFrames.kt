@@ -23,12 +23,16 @@ import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.tag.Tag
-import net.minestom.server.utils.Direction
 import net.minestom.server.utils.Rotation
 import java.util.concurrent.ConcurrentHashMap
 
 object ItemFrames {
     private const val FRAME_DATA = "aechronis:item_frames"
+
+    // Vanilla places the frame in the adjacent block, 0.46875 blocks back from its centre.
+    // Measured from the support block's centre, that is 1 - 0.46875 blocks towards its clicked face.
+    private const val FRAME_OFFSET_FROM_SUPPORT = 0.53125
+
     private val frameAnchorsTag: Tag<BinaryTag> = Tag.NBT("aechronis:item_frame_anchors")
     private val frameAnchorsIndexedTag = Tag.Boolean("aechronis:item_frame_anchors_indexed")
 
@@ -69,17 +73,8 @@ object ItemFrames {
         val key = FrameKey(instance, support, event.blockFace)
         if (framesByAnchor.containsKey(key)) return
 
-        val entity = Entity(if (glowing) EntityType.GLOW_ITEM_FRAME else EntityType.ITEM_FRAME)
-        entity.editEntityMeta(ItemFrameMeta::class.java) { meta -> meta.direction = frameDirection(event.blockFace) }
-        val position =
-            support
-                .add(0.5, 0.5, 0.5)
-                .add(
-                    event.blockFace
-                        .toDirection()
-                        .vec()
-                        .mul(0.46875),
-                ).asPos()
+        val entity = createFrameEntity(glowing, event.blockFace)
+        val position = framePosition(support, event.blockFace)
         val frame = Frame(instance, support, event.blockFace, glowing)
         if (framesByAnchor.putIfAbsent(key, entity) != null) return
         entity.setInstance(instance, position)
@@ -89,14 +84,15 @@ object ItemFrames {
     }
 
     private fun onInteract(event: PlayerEntityInteractEvent) {
-        if (event.hand != PlayerHand.MAIN) return
         val frame = frames[event.target] ?: return
         val entity = event.target
         val meta = entity.entityMeta as? ItemFrameMeta ?: return
-        val held = event.player.itemInMainHand
+        val held = event.player.getItemInHand(event.hand)
         if (meta.item.isAir && !held.isAir) {
             meta.item = held.withAmount(1)
-            if (event.player.gameMode != GameMode.CREATIVE) event.player.itemInMainHand = held.withAmount(held.amount() - 1)
+            if (event.player.gameMode != GameMode.CREATIVE) {
+                event.player.setItemInHand(event.hand, held.withAmount(held.amount() - 1))
+            }
         } else if (!meta.item.isAir) {
             meta.rotation = meta.rotation.rotateClockwise()
         }
@@ -274,16 +270,15 @@ object ItemFrames {
                 val key = FrameKey(instance, support, face)
                 if (framesByAnchor.containsKey(key)) continue
                 val glowing = record.getBoolean("glowing", false)
-                val entity = Entity(if (glowing) EntityType.GLOW_ITEM_FRAME else EntityType.ITEM_FRAME)
+                val entity = createFrameEntity(glowing, face)
                 if (framesByAnchor.putIfAbsent(key, entity) != null) continue
                 entity.editEntityMeta(ItemFrameMeta::class.java) { meta ->
-                    meta.direction = frameDirection(face)
                     meta.rotation = Rotation.entries.getOrElse(record.getByte("rotation", 0).toInt()) { Rotation.NONE }
                     record.getCompound("item")?.let { item ->
                         meta.item = runCatching { ItemStack.fromItemNBT(item) }.getOrDefault(ItemStack.AIR)
                     }
                 }
-                entity.setInstance(instance, support.add(0.5, 0.5, 0.5).add(face.toDirection().vec().mul(0.46875)).asPos())
+                entity.setInstance(instance, framePosition(support, face))
                 frames[entity] = Frame(instance, support, face, glowing)
             }
         }
@@ -297,10 +292,19 @@ object ItemFrames {
         player.setItemInHand(hand, stack.withAmount(stack.amount() - 1))
     }
 
-    /**
-     * The item-frame spawn direction is the direction towards its attachment block, whereas a
-     * use-on-block face points away from that block. Vanilla's ItemFrame entity therefore uses
-     * the opposite direction for the entity metadata.
-     */
-    private fun frameDirection(face: BlockFace): Direction = face.oppositeFace.toDirection()
+    private fun createFrameEntity(
+        glowing: Boolean,
+        face: BlockFace,
+    ): Entity =
+        Entity(if (glowing) EntityType.GLOW_ITEM_FRAME else EntityType.ITEM_FRAME).also { entity ->
+            // AbstractDecorationEntity is static and has no gravity in vanilla.
+            entity.setHasPhysics(false)
+            entity.setNoGravity(true)
+            entity.editEntityMeta(ItemFrameMeta::class.java) { meta -> meta.direction = face.toDirection() }
+        }
+
+    private fun framePosition(
+        support: BlockVec,
+        face: BlockFace,
+    ) = support.add(0.5, 0.5, 0.5).add(face.toDirection().vec().mul(FRAME_OFFSET_FROM_SUPPORT)).asPos()
 }

@@ -44,7 +44,14 @@ class ItemFramesTest : ManagerTest() {
 
         val frame = VanillaTest.instance.entities.firstOrNull { it.entityType == EntityType.ITEM_FRAME }
         assertNotNull(frame)
-        assertEquals(Direction.SOUTH, (frame.entityMeta as ItemFrameMeta).direction)
+        // Vanilla ItemFrameItem places into the adjacent block and uses the clicked face as
+        // the hanging-entity direction. Its centre is 1/32 block clear of the support face.
+        assertEquals(Direction.NORTH, (frame.entityMeta as ItemFrameMeta).direction)
+        assertEquals(30.5, frame.position.x())
+        assertEquals(64.5, frame.position.y())
+        assertEquals(29.96875, frame.position.z())
+        assertFalse(frame.hasPhysics())
+        assertTrue(frame.hasNoGravity())
         assertEquals(ItemStack.AIR, player.itemInMainHand)
         assertTrue(
             VanillaTest.instance
@@ -54,11 +61,11 @@ class ItemFramesTest : ManagerTest() {
         )
 
         val displayed = ItemStack.of(Material.DIAMOND)
-        player.itemInMainHand = displayed
-        EventDispatcher.call(PlayerEntityInteractEvent(player, frame, PlayerHand.MAIN, Vec.ZERO))
+        player.itemInOffHand = displayed
+        EventDispatcher.call(PlayerEntityInteractEvent(player, frame, PlayerHand.OFF, Vec.ZERO))
         val meta = frame.entityMeta as ItemFrameMeta
         assertEquals(displayed, meta.item)
-        assertEquals(ItemStack.AIR, player.itemInMainHand)
+        assertEquals(ItemStack.AIR, player.itemInOffHand)
 
         EventDispatcher.call(EntityAttackEvent(player, frame))
         assertTrue(frame.isRemoved)
