@@ -5,6 +5,7 @@ import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.Drones
 import net.aechronis.server.constants.Guns
+import net.aechronis.server.constants.Melees
 import net.aechronis.vanilla.objects.Recipe
 import net.aechronis.vanilla.objects.RecipesIngredient
 import net.aechronis.vanilla.objects.RecipesShapeless
@@ -74,13 +75,14 @@ object Weapons {
             addAll(uniformRecipes(Armor.syriaJacket, Armor.syriaTrousers, Armor.syriaBoots, Material.BROWN_DYE))
             addAll(uniformRecipes(Armor.turkeyJacket, Armor.turkeyTrousers, Armor.turkeyBoots, Material.PURPLE_DYE))
 
-            // G = gold block, D = diamond, B = diamond block, I = iron block
+            // G = gold block, D = diamond, B = diamond block, I = iron block, i = iron ingot
+            add(shapedRecipe(Melees.baton.toItemStack(), " i ", " ii", " i "))
             add(shapedRecipe(Guns.m4a1.toEmptyItemStack(), "DDD", "DGD", "DID"))
             add(shapedRecipe(Guns.ak12.toEmptyItemStack(), "DDD", "DGI"))
             add(shapedRecipe(Guns.qbz95.toEmptyItemStack(), "DDD", "DGI", "D  "))
             add(shapedRecipe(Guns.ak74.toEmptyItemStack(), "DGD", " I ", " D "))
             add(shapedRecipe(Guns.g3.toEmptyItemStack(), "GD", "DI"))
-            add(shapedRecipe(Guns.awp.toEmptyItemStack(), "BBG", "BII", "BG "))
+            add(shapedRecipe(Guns.awp.toEmptyItemStack(), "BBG", "BII", "BGB"))
             add(shapedRecipe(Guns.glock17.toEmptyItemStack(), "GDI"))
             add(shapedRecipe(Guns.m9.toEmptyItemStack(), "G", "D", "I"))
             add(shapedRecipe(Guns.mp5.toEmptyItemStack(), "GD", "ID"))
@@ -147,6 +149,7 @@ object Weapons {
                             'D' -> RecipesIngredient.of(Material.DIAMOND)!!
                             'B' -> RecipesIngredient.of(Material.DIAMOND_BLOCK)!!
                             'I' -> RecipesIngredient.of(Material.IRON_BLOCK)!!
+                            'i' -> RecipesIngredient.of(Material.IRON_INGOT)!!
                             'C' -> RecipesIngredient.of(Material.COPPER_INGOT)!!
                             'R' -> RecipesIngredient.of(Material.REDSTONE)!!
                             'O' -> RecipesIngredient.of(Material.COAL)!!

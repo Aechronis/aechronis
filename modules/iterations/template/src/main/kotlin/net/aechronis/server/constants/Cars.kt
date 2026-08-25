@@ -39,8 +39,8 @@ object Cars {
                 ),
             placeTime = 2000,
             scale = 3.0,
-            maxSpeed = 1.25f,
-            turnSpeed = 10f,
+            maxSpeed = 0.8f,
+            turnSpeed = 2.0f,
             maxClimbHeight = 1.5f,
             seatOffsets =
                 listOf(
