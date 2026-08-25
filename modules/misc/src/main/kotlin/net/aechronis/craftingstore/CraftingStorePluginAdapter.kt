@@ -180,14 +180,16 @@ internal class CraftingStorePluginAdapter(
     }
 
     private inner class AdminCommand : Command("craftingstore") {
-        private val action = ArgumentType.Word("action").from("reload", "key", "debug")
-        private val key = ArgumentType.Word("key")
+        // Argument identifiers must be unique within a syntax. The literal's identifier is
+        // "key", so the API-key value uses a distinct identifier to avoid Minestom failing
+        // while it builds the parsed-arguments map.
+        private val apiKey = ArgumentType.Word("api-key")
         private val value = ArgumentType.Word("value").from("true", "false")
 
         init {
             setDefaultExecutor { sender, _ -> help(sender) }
             addSyntax({ sender, _ -> reload(sender) }, ArgumentType.Literal("reload"))
-            addSyntax({ sender, context -> setKey(sender, context[key]) }, ArgumentType.Literal("key"), key)
+            addSyntax({ sender, context -> setKey(sender, context[apiKey]) }, ArgumentType.Literal("key"), apiKey)
             addSyntax({ sender, _ -> debug(sender, null) }, ArgumentType.Literal("debug"))
             addSyntax({ sender, context -> debug(sender, context[value].toBoolean()) }, ArgumentType.Literal("debug"), value)
         }
