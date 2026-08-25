@@ -6,6 +6,7 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryId
+import net.aechronis.nodes.objects.Town
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -60,11 +61,13 @@ object Warzone {
         refreshBossBarsLocked()
     }
 
-    fun onChunkCaptured(
+    /** Begin or hand off scoring after a town occupies the entire territory. */
+    fun onTerritoryOccupied(
         territory: Territory,
-        nation: Nation,
+        town: Town,
         nowMillis: Long = System.currentTimeMillis(),
     ) = synchronized(this) {
+        val nation = town.nation ?: return@synchronized
         val state = states[territory.id] ?: return@synchronized
         if (state.stopped) return@synchronized
         accrueLocked(state, nowMillis)
@@ -249,7 +252,7 @@ object Warzone {
             .sortedWith(compareByDescending<Pair<Nation, Long>> { it.second }.thenBy { it.first.name })
             .firstOrNull()
         val title = if (leader == null) {
-            "Warzone: no nation has captured a chunk"
+            "Warzone: no nation occupies the territory"
         } else {
             "Warzone: ${leader.first.name} — ${formatTime(leader.second)}"
         }

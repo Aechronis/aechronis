@@ -143,6 +143,7 @@ class NodesTest {
         val config = NodesConfig(
             path = tmpDir.toString(),
             defaultTownPermissions = enumValues<TownPermissions>().associateWith { setOf(PermissionsGroup.OUTSIDER) },
+            chunkAttackTime = 10,
         )
 
         // initialize nodes with test config
@@ -713,10 +714,10 @@ class NodesTest {
     }
 
     @Test
-    fun `warzones track handoffs rank scores and survive reload`() {
-        val territory = Nodes.territories.values.first()
+    fun `warzones score territory captures track handoffs and survive reload`() {
         val towns = Nodes.territories.values.filter { it.town == null }.take(2)
         assertEquals(2, towns.size, "Test world needs two unclaimed territories")
+        val territory = Nodes.territories.values.first { it !== towns[0] && it !== towns[1] }
         val suffix = UUID.randomUUID().toString().take(8)
         val firstTown = Town.create("WarzoneFirst$suffix", towns[0], null).getOrThrow()
         val secondTown = Town.create("WarzoneSecond$suffix", towns[1], null).getOrThrow()
@@ -728,8 +729,14 @@ class NodesTest {
             Warzone.register(listOf(territory))
             assertTrue(Warzone.isActive(territory))
             assertTrue(Warzone.hasActiveZones())
-            Warzone.onChunkCaptured(territory, firstNation, now)
-            Warzone.onChunkCaptured(territory, secondNation, now + 5_000L)
+
+            Town.capture(firstTown, territory)
+            assertEquals(firstTown, territory.occupier)
+            Warzone.onTerritoryOccupied(territory, firstTown, now)
+
+            Town.capture(secondTown, territory)
+            assertEquals(secondTown, territory.occupier)
+            Warzone.onTerritoryOccupied(territory, secondTown, now + 5_000L)
 
             var ranking = Warzone.ranking(territory, now + 8_000L)
             assertEquals(firstNation, ranking[0].nation)
@@ -764,9 +771,10 @@ class NodesTest {
 
         try {
             Warzone.register(listOf(territories[0]))
-            Warzone.onChunkCaptured(territories[0], winnerNation, now)
+            Town.capture(winnerTown, territories[0])
+            Warzone.onTerritoryOccupied(territories[0], winnerTown, now)
             val winner = Warzone.stop(territories[0], now + 1_000L).getOrThrow()
-            Town.capture(winner.capital, territories[0])
+            assertEquals(winnerNation, winner)
             assertEquals(winnerTown, territories[0].occupier)
             assertFalse(Warzone.isActive(territories[0]))
             assertFalse(Warzone.hasActiveZones())

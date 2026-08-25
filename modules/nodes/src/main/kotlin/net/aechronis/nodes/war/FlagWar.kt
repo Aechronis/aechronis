@@ -583,16 +583,17 @@ object FlagWar {
             }
         }
 
-        // check chunk not currently under attack
+        // A warzone uses normal chunk-by-chunk war progress. The core chunk
+        // is the only chunk that can capture the whole territory.
         if (chunk.attacker !== null) {
             return Result.failure(ErrorAlreadyUnderAttack)
         }
 
-        // check chunk not already captured by town or allies
         val alreadyCaptured = when (mode) {
             AttackMode.COLONIZATION -> chunkAlreadyColonizedBy(chunk, territory, attackingTown)
-            AttackMode.WARZONE -> chunk.occupier?.nation === attackingTown.nation
-            AttackMode.WAR -> chunkAlreadyCaptured(chunk, territory, attackingTown)
+            AttackMode.WARZONE,
+            AttackMode.WAR,
+            -> chunkAlreadyCaptured(chunk, territory, attackingTown)
         }
         if (alreadyCaptured) {
             return Result.failure(ErrorAlreadyCaptured)
@@ -602,6 +603,9 @@ object FlagWar {
         // 1. belongs to enemy
         // 2. town chunk occupied by enemy
         // 3. allied chunk occupied by enemy
+        // Warzones are scheduled events rather than declared wars: any town
+        // in a nation may contest them. Their capture mechanics below are
+        // still the same chunk-by-chunk rules as normal war.
         if (mode == AttackMode.COLONIZATION || mode == AttackMode.WARZONE || chunkIsEnemy(chunk, territory, attackingTown)) {
             if (mode == AttackMode.WAR) {
                 if (!canAnnexTerritories && chunk.coord == territory.core) {
@@ -1153,7 +1157,11 @@ object FlagWar {
     }
 
     private fun finishAttackOnce(attack: Attack) {
-        val messageContext = if (attack.mode == AttackMode.COLONIZATION) "[Colonization]" else "[War]"
+        val messageContext = when (attack.mode) {
+            AttackMode.COLONIZATION -> "[Colonization]"
+            AttackMode.WARZONE -> "[Warzone]"
+            AttackMode.WAR -> "[War]"
+        }
 
         // remove progress bar from player
         attack.progressBar.removeViewer(Audiences.all())
@@ -1179,20 +1187,6 @@ object FlagWar {
 
         if (attack.mode == AttackMode.WAR && chunk.coord == chunk.territory.core && !canAnnexTerritories) {
             chunk.attacker = null
-            requestMinimapRefresh()
-            return
-        }
-
-        if (attack.mode == AttackMode.WARZONE) {
-            chunk.attacker = null
-            chunk.occupier = attack.town
-            occupiedChunks.add(chunk.coord)
-            colonizedChunks.remove(chunk.coord)
-            attack.town.nation?.let { nation -> Warzone.onChunkCaptured(chunk.territory, nation) }
-            Message.broadcast(
-                "${ChatColor.DARK_RED}[Warzone] ${Resident.fromUuid(attack.attacker)?.name ?: attack.town.name} captured chunk " +
-                    "(${chunk.coord.x}, ${chunk.coord.z}) for ${attack.town.nation?.name}!",
-            )
             requestMinimapRefresh()
             return
         }
@@ -1255,6 +1249,11 @@ object FlagWar {
                             attackerTown,
                             colonized = attack.mode == AttackMode.COLONIZATION,
                         )
+                        // Warzone scoring starts only when normal war mechanics
+                        // complete a core-chunk capture of this territory.
+                        if (attack.mode == AttackMode.WARZONE) {
+                            Warzone.onTerritoryOccupied(territory, attackerTown)
+                        }
                         val action = if (attack.mode == AttackMode.COLONIZATION) "colonized" else "captured"
                         Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} $action territory (id=${territory.id}) from ${territoryTown?.name}!")
                         if (territoryTown != null && shouldAnnexTown(territoryTown, territory)) {

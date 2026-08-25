@@ -19,7 +19,7 @@ class WarzoneCommand : NodesCommand("warzone") {
             val ranking = Warzone.ranking(territory)
             Message.print(player, "${ChatColor.BOLD}Warzone rankings for territory ${territory.id}:")
             if (ranking.isEmpty()) {
-                Message.print(player, "- No nation has captured a chunk")
+                Message.print(player, "- No nation occupies this territory yet")
             } else {
                 ranking.forEachIndexed { index, score ->
                     Message.print(player, "${index + 1}. ${score.nation.name}${ChatColor.WHITE}: ${formatTime(score.millis)}")
