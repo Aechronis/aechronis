@@ -97,7 +97,7 @@ class GuardCommand(
     ) {
         runCatching {
             val selection = WorldEditSelection.read(player)
-            Guard.zones().add(Zone(name, selection.instanceId, selection.bounds, priority))
+            Guard.zones().add(Zone(name, selection.bounds, priority))
             Guard.save()
             send(player, "Created zone $name.")
         }.onFailure { send(player, it.message ?: "Could not create zone.", NamedTextColor.RED) }
@@ -158,13 +158,8 @@ class GuardCommand(
     }
 
     private fun here(player: Player) {
-        val instance = player.instance
-        if (instance == null) {
-            send(player, "You are not in an instance.", NamedTextColor.RED)
-            return
-        }
         val position = player.position
-        val zones = Guard.zones().findAll(instance.uuid, position.blockX(), position.blockY(), position.blockZ())
+        val zones = Guard.zones().findAll(position.blockX(), position.blockY(), position.blockZ())
         if (zones.isEmpty()) {
             send(player, "You are not inside any guard zones.")
             return
@@ -187,7 +182,7 @@ class GuardCommand(
             send(player, "Unknown zone: $name", NamedTextColor.RED)
             return
         }
-        send(player, "${zone.name}: ${zone.instanceId}, priority ${zone.priority}, bounds ${zone.bounds}, flags ${zone.flags}")
+        send(player, "${zone.name}: priority ${zone.priority}, bounds ${zone.bounds}, flags ${zone.flags}")
     }
 
     private fun borders(
@@ -199,11 +194,6 @@ class GuardCommand(
             send(player, "Unknown zone: $name", NamedTextColor.RED)
             return
         }
-        if (player.instance?.uuid != zone.instanceId) {
-            send(player, "That zone is in a different instance.", NamedTextColor.RED)
-            return
-        }
-
         val particles = borderParticles(zone).toTypedArray()
         player.sendPackets(*particles)
         send(player, "Showing ${zone.name} borders with orange wax particles.")

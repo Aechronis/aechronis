@@ -25,7 +25,6 @@ import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerMoveEvent
-import net.minestom.server.instance.Instance
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -54,19 +53,8 @@ object Guard {
             )
 
         runCatching {
-            val loadedZones = storage.load(config.dataPath)
-            val zones =
-                config.loadedZoneInstanceIdMigration?.let { migration ->
-                    storage.migrateInstanceIds(loadedZones, migration)
-                } ?: loadedZones
-            registry.replaceAll(zones)
-
-            val migratedCount = loadedZones.zip(zones).count { (loaded, migrated) -> loaded.instanceId != migrated.instanceId }
-            if (migratedCount > 0) {
-                storage.save(config.dataPath, zones)
-                println("Guard migrated $migratedCount zone instance ID(s) in ${config.dataPath}.")
-            }
-        }.onFailure { println("Guard could not load or migrate zones from ${config.dataPath}: $it") }
+            registry.replaceAll(storage.load(config.dataPath))
+        }.onFailure { println("Guard could not load zones from ${config.dataPath}: $it") }
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         eventNode.addListener(PlayerBlockPlaceEvent::class.java, BlockPlaceListener::handle)
@@ -91,18 +79,16 @@ object Guard {
 
     fun check(
         player: Player,
-        instance: Instance?,
         x: Int,
         y: Int,
         z: Int,
         flag: FlagName,
         deny: () -> Unit,
     ) {
-        check(instance, x, y, z, flag, player, deny)
+        check(x, y, z, flag, player, deny)
     }
 
     fun check(
-        instance: Instance?,
         x: Int,
         y: Int,
         z: Int,
@@ -110,8 +96,8 @@ object Guard {
         actor: Player? = null,
         deny: () -> Unit,
     ) {
-        if (instance == null || actor?.let(::isBypassing) == true) return
-        val zone = registry.find(instance.uuid, x, y, z)
+        if (actor?.let(::isBypassing) == true) return
+        val zone = registry.find(x, y, z)
         if (!policy.allows(zone, flag)) {
             deny()
             actor?.let { config.onDenied(it, flag) }
@@ -130,7 +116,7 @@ object Guard {
             }
         for ((x, y, z) in positions) {
             var denied = false
-            check(event.instance, x, y, z, FlagName.EXPLOSION, event.sourcePlayer) { denied = true }
+            check(x, y, z, FlagName.EXPLOSION, event.sourcePlayer) { denied = true }
             if (denied) {
                 event.isCancelled = true
                 return
@@ -141,7 +127,6 @@ object Guard {
     private fun handleVehicleSpawn(event: VehicleSpawnEvent) {
         if (event.isCancelled) return
         check(
-            event.instance,
             event.position.blockX(),
             event.position.blockY(),
             event.position.blockZ(),

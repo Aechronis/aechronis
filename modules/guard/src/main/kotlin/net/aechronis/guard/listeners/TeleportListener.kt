@@ -18,7 +18,6 @@ object TeleportListener {
             val position = event.newPosition
             Guard.check(
                 player,
-                player.instance,
                 position.blockX(),
                 position.blockY(),
                 position.blockZ(),

@@ -18,7 +18,6 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import java.util.UUID
 
 class ZoneStorage {
     private val gson = GsonBuilder().setPrettyPrinting().create()
@@ -35,11 +34,6 @@ class ZoneStorage {
                 }.getOrNull()
         }
     }
-
-    fun migrateInstanceIds(
-        zones: Collection<Zone>,
-        migration: (UUID) -> UUID,
-    ): List<Zone> = zones.map { zone -> zone.copy(instanceId = migration(zone.instanceId)) }
 
     fun save(
         path: Path,
@@ -71,7 +65,6 @@ class ZoneStorage {
             } ?: emptyMap()
         return Zone(
             name = json.get("name").asString,
-            instanceId = UUID.fromString(json.get("instanceId").asString),
             bounds =
                 ZoneBounds(
                     bounds.get("minX").asInt,
@@ -89,7 +82,6 @@ class ZoneStorage {
     private fun writeZone(zone: Zone): JsonObject =
         JsonObject().apply {
             addProperty("name", zone.name)
-            addProperty("instanceId", zone.instanceId.toString())
             addProperty("priority", zone.priority)
             add(
                 "bounds",

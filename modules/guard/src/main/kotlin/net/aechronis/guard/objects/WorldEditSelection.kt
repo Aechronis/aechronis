@@ -20,13 +20,8 @@ object WorldEditSelection {
 
         val min = selector.region.minimumPoint
         val max = selector.region.maximumPoint
-        val instance =
-            (world as? MinestomWorld)?.getWorld()
-                ?: error("The WorldEdit selection is not from a Minestom instance")
+        require(world is MinestomWorld) { "The WorldEdit selection is not from a Minestom instance" }
 
-        return SelectedRegion(
-            instance.uuid,
-            ZoneBounds(min.x(), min.y(), min.z(), max.x(), max.y(), max.z()),
-        )
+        return SelectedRegion(ZoneBounds(min.x(), min.y(), min.z(), max.x(), max.y(), max.z()))
     }
 }

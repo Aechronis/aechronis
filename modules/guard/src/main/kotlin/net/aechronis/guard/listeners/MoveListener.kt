@@ -8,7 +8,7 @@ object MoveListener {
     fun handle(event: PlayerMoveEvent) {
         if (event.isCancelled) return
         val position = event.newPosition
-        Guard.check(event.player, event.player.instance, position.blockX(), position.blockY(), position.blockZ(), FlagName.TELEPORT) {
+        Guard.check(event.player, position.blockX(), position.blockY(), position.blockZ(), FlagName.TELEPORT) {
             event.isCancelled = true
         }
     }

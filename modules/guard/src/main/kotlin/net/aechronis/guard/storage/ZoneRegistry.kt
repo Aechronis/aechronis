@@ -1,7 +1,6 @@
 package net.aechronis.guard.storage
 
 import net.aechronis.guard.objects.Zone
-import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 
 class ZoneRegistry {
@@ -30,23 +29,21 @@ class ZoneRegistry {
     }
 
     fun findAll(
-        instanceId: UUID,
         x: Int,
         y: Int,
         z: Int,
     ): List<Zone> =
         zones
             .asSequence()
-            .filter { it.instanceId == instanceId && it.bounds.contains(x, y, z) }
+            .filter { it.bounds.contains(x, y, z) }
             .sortedWith(compareByDescending<Zone> { it.priority }.thenBy { it.name.lowercase() })
             .toList()
 
     fun find(
-        instanceId: UUID,
         x: Int,
         y: Int,
         z: Int,
-    ): Zone? = findAll(instanceId, x, y, z).firstOrNull()
+    ): Zone? = findAll(x, y, z).firstOrNull()
 
     fun replaceAll(values: Collection<Zone>) {
         zones.clear()

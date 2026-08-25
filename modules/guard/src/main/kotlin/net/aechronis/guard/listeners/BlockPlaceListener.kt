@@ -9,7 +9,6 @@ object BlockPlaceListener {
         if (event.isCancelled) return
         Guard.check(
             event.player,
-            event.instance,
             event.blockPosition.blockX(),
             event.blockPosition.blockY(),
             event.blockPosition.blockZ(),

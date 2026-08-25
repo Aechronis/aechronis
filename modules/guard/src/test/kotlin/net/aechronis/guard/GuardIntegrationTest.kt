@@ -55,7 +55,6 @@ class GuardIntegrationTest {
         zone =
             Zone(
                 "protected",
-                instance.uuid,
                 ZoneBounds(0, 0, 0, 10, 100, 10),
                 flags = FlagName.entries.associateWith { BooleanFlagValue(false) },
             )
@@ -87,7 +86,6 @@ class GuardIntegrationTest {
 
         val selection = WorldEditSelection.read(player)
 
-        assertEquals(instance.uuid, selection.instanceId)
         assertEquals(ZoneBounds(2, 40, 2, 8, 60, 8), selection.bounds)
     }
 

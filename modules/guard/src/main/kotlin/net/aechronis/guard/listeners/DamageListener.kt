@@ -14,7 +14,7 @@ object DamageListener {
         val victim = event.entity as? Player ?: return
         val flag = flagFor(event)
         val position = victim.position
-        Guard.check(victim, victim.instance, position.blockX(), position.blockY(), position.blockZ(), flag) {
+        Guard.check(victim, position.blockX(), position.blockY(), position.blockZ(), flag) {
             event.isCancelled = true
         }
     }
