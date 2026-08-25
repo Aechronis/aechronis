@@ -3,14 +3,14 @@ package net.aechronis.nodes.listeners
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
+import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
 import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
-import net.minestom.server.network.packet.server.play.SetCooldownPacket
 
 object NodesBlockPlacementCooldownListener {
     private const val HOTBAR_SIZE = 9
-    private const val COOLDOWN_TICKS = 2
+    private const val COOLDOWN_TICKS = 4
 
     fun apply(player: Player, blockX: Int, blockZ: Int) {
         val claimOwner = Territory.fromBlock(blockX, blockZ)?.town ?: return
@@ -24,7 +24,7 @@ object NodesBlockPlacementCooldownListener {
 
             val group = item.cooldownGroup()
             if (cooldownGroups.add(group)) {
-                player.sendPacket(SetCooldownPacket(group, COOLDOWN_TICKS))
+                BlockPlacementCooldownListener.apply(player, group, COOLDOWN_TICKS)
             }
         }
     }

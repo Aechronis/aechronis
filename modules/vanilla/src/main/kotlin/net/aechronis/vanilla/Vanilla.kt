@@ -27,6 +27,7 @@ import net.aechronis.vanilla.commands.TpsBar
 import net.aechronis.vanilla.commands.Vanish
 import net.aechronis.vanilla.commands.Warp
 import net.aechronis.vanilla.commands.Whitelist
+import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
 import net.aechronis.vanilla.listeners.CombatInventoryListener
 import net.aechronis.vanilla.listeners.CommandsListener
 import net.aechronis.vanilla.listeners.FallDamageListener
@@ -84,6 +85,7 @@ object Vanilla {
 
         MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         PlayerActivityListener.init()
+        BlockPlacementCooldownListener.init()
         CombatInventoryListener.init()
         WarpListener.init()
         Filter.init()

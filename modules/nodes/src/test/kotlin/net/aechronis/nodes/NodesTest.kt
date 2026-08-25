@@ -22,6 +22,7 @@ import net.aechronis.nodes.objects.testTownLockedSide
 import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
+import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
@@ -148,6 +149,8 @@ class NodesTest {
 
         // initialize nodes with test config
         Nodes.initialize(config)
+
+        Vanilla.init()
     }
 
     @Test
@@ -455,7 +458,7 @@ class NodesTest {
             NodesBlockPlacementCooldownListener.apply(player, position.blockX, position.blockZ)
             val cooldowns = connection.packets.filterIsInstance<SetCooldownPacket>()
             assertEquals(setOf(Material.DIRT.key().asString(), Material.STONE.key().asString()), cooldowns.map { it.cooldownGroup() }.toSet())
-            assertTrue(cooldowns.all { it.cooldownTicks() == 2 })
+            assertTrue(cooldowns.all { it.cooldownTicks() == 4 })
 
             fun assertNoCooldown(town: Town?, blockPosition: BlockVec = position) {
                 connection.packets.clear()
