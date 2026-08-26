@@ -1,6 +1,7 @@
 package net.aechronis.combat
 
 import net.aechronis.combat.listeners.AmmoInventoryListener
+import net.aechronis.combat.listeners.PlayerDeathListener
 import net.aechronis.combat.objects.AIMING_REDUCTION_MULTIPLIER
 import net.aechronis.combat.objects.Ammo
 import net.aechronis.combat.objects.AmmoTypes
@@ -56,6 +57,8 @@ import net.minestom.server.entity.damage.Damage
 import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.event.inventory.CreativeInventoryActionEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.event.player.PlayerDeathEvent
+import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSwapItemEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.InstanceContainer
@@ -1092,6 +1095,255 @@ class CombatTest {
             assertNull(Vehicle.playerSeatEntity[player])
             assertNull(player.vehicle)
         } finally {
+            player.remove()
+        }
+    }
+
+    @Test
+    fun `death grants exactly five seconds of respawn protection`() {
+        val player = testPlayer("respawn-death")
+        val before = System.currentTimeMillis()
+
+        try {
+            PlayerDeathListener.onPlayerDeath(PlayerDeathEvent(player, null, null))
+
+            val expiresAt = assertNotNull(Combat.respawnProtectionExpiresAt[player])
+            assertTrue(expiresAt in before + Combat.RESPAWN_PROTECTION_MS..System.currentTimeMillis() + Combat.RESPAWN_PROTECTION_MS)
+        } finally {
+            removeTestPlayers(player)
+        }
+    }
+
+    @Test
+    fun `respawn protection lasts until but not through its expiry`() {
+        val player = testPlayer("respawn-expiry")
+
+        try {
+            Combat.grantRespawnProtection(player, now = 1_000L)
+
+            assertTrue(Combat.isRespawnProtected(player, now = 1_000L))
+            assertTrue(Combat.isRespawnProtected(player, now = 5_999L))
+            assertFalse(Combat.isRespawnProtected(player, now = 6_000L))
+            assertNull(Combat.respawnProtectionExpiresAt[player])
+        } finally {
+            removeTestPlayers(player)
+        }
+    }
+
+    @Test
+    fun `a later death replaces rather than extends respawn protection`() {
+        val player = testPlayer("respawn-redeath")
+
+        try {
+            Combat.grantRespawnProtection(player, now = 1_000L)
+            Combat.grantRespawnProtection(player, now = 4_000L)
+
+            assertTrue(Combat.isRespawnProtected(player, now = 8_999L))
+            assertFalse(Combat.isRespawnProtected(player, now = 9_000L))
+        } finally {
+            removeTestPlayers(player)
+        }
+    }
+
+    @Test
+    fun `disconnect clears respawn protection`() {
+        val player = testPlayer("respawn-disconnect")
+        Combat.grantRespawnProtection(player)
+
+        try {
+            Combat.eventNode.call(PlayerDisconnectEvent(player))
+            assertNull(Combat.respawnProtectionExpiresAt[player])
+        } finally {
+            removeTestPlayers(player)
+        }
+    }
+
+    @Test
+    fun `respawn protection blocks every incoming combat damage source`() {
+        val protected = testPlayer("protected-victim")
+        val attacker = testPlayer("protected-attacker")
+        Combat.grantRespawnProtection(protected)
+
+        try {
+            val damageSources =
+                listOf(
+                    Damage(DamageType.FALL, null, null, null, 1f),
+                    Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, 1f),
+                    Damage.fromProjectile(attacker, null, 1f),
+                    Damage(DamageType.PLAYER_EXPLOSION, attacker, attacker, null, 1f),
+                    Damage(DamageType.CRAMMING, attacker, attacker, null, 1f),
+                    Damage(DamageType.EXPLOSION, null, null, null, 1f).withCombatDamageImmunityBypass(),
+                )
+
+            damageSources.forEach { damage ->
+                assertFalse(Combat.applyDamageWithoutImmunity(protected, damage))
+                assertEquals(20f, protected.health)
+            }
+        } finally {
+            removeTestPlayers(protected, attacker)
+        }
+    }
+
+    @Test
+    fun `expired respawn protection permits damage normally`() {
+        val player = testPlayer("expired-protection")
+        Combat.grantRespawnProtection(player, now = 0L)
+
+        try {
+            assertTrue(
+                Combat.applyDamageWithoutImmunity(
+                    player,
+                    Damage(DamageType.FALL, null, null, null, 1f),
+                ),
+            )
+            assertEquals(19f, player.health)
+            assertNull(Combat.respawnProtectionExpiresAt[player])
+        } finally {
+            removeTestPlayers(player)
+        }
+    }
+
+    @Test
+    fun `melee damage removes the attackers respawn protection`() {
+        assertSuccessfulPlayerDamageRevokesProtection { attacker ->
+            Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, 1f)
+        }
+    }
+
+    @Test
+    fun `projectile damage removes the attackers respawn protection`() {
+        assertSuccessfulPlayerDamageRevokesProtection { attacker -> Damage.fromProjectile(attacker, null, 1f) }
+    }
+
+    @Test
+    fun `explosion damage removes the attackers respawn protection`() {
+        assertSuccessfulPlayerDamageRevokesProtection { attacker ->
+            Damage(DamageType.PLAYER_EXPLOSION, attacker, attacker, null, 1f)
+        }
+    }
+
+    @Test
+    fun `vehicle impact damage removes the drivers respawn protection`() {
+        assertSuccessfulPlayerDamageRevokesProtection { attacker ->
+            Damage(DamageType.CRAMMING, attacker, attacker, null, 1f)
+        }
+    }
+
+    @Test
+    fun `direct external player damage removes respawn protection`() {
+        val attacker = testPlayer("external-attacker")
+        val victim = testPlayer("external-victim")
+        Combat.grantRespawnProtection(attacker)
+
+        try {
+            assertTrue(victim.damage(Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, 1f)))
+            assertFalse(Combat.isRespawnProtected(attacker))
+        } finally {
+            removeTestPlayers(attacker, victim)
+        }
+    }
+
+    @Test
+    fun `blocked damage does not remove the attackers respawn protection`() {
+        val attacker = testPlayer("blocked-attacker")
+        val victim = testPlayer("blocked-victim")
+        Combat.grantRespawnProtection(attacker)
+        Combat.grantRespawnProtection(victim)
+
+        try {
+            assertFalse(
+                Combat.applyDamageWithoutImmunity(
+                    victim,
+                    Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, 1f),
+                ),
+            )
+            assertTrue(Combat.isRespawnProtected(attacker))
+        } finally {
+            removeTestPlayers(attacker, victim)
+        }
+    }
+
+    @Test
+    fun `zero damage does not remove respawn protection`() {
+        val attacker = testPlayer("zero-damage-attacker")
+        val victim = testPlayer("zero-damage-victim")
+        Combat.grantRespawnProtection(attacker)
+
+        try {
+            Combat.applyDamageWithoutImmunity(
+                victim,
+                Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, 0f),
+            )
+            assertTrue(Combat.isRespawnProtected(attacker))
+        } finally {
+            removeTestPlayers(attacker, victim)
+        }
+    }
+
+    @Test
+    fun `self damage does not remove respawn protection`() {
+        val player = testPlayer("self-damage")
+        Combat.grantRespawnProtection(player)
+
+        try {
+            assertFalse(
+                Combat.applyDamageWithoutImmunity(
+                    player,
+                    Damage(DamageType.PLAYER_EXPLOSION, player, player, null, 1f),
+                ),
+            )
+            assertTrue(Combat.isRespawnProtected(player))
+        } finally {
+            removeTestPlayers(player)
+        }
+    }
+
+    @Test
+    fun `damage to a non-player does not remove respawn protection`() {
+        val attacker = testPlayer("mob-attacker")
+        val target = LivingEntity(EntityType.ZOMBIE)
+        target.health = 20f
+        Combat.grantRespawnProtection(attacker)
+
+        try {
+            assertTrue(
+                Combat.applyDamageWithoutImmunity(
+                    target,
+                    Damage(DamageType.PLAYER_ATTACK, attacker, attacker, null, 1f),
+                ),
+            )
+            assertTrue(Combat.isRespawnProtected(attacker))
+        } finally {
+            Combat.revokeRespawnProtection(attacker)
+            attacker.remove()
+            target.remove()
+        }
+    }
+
+    private fun assertSuccessfulPlayerDamageRevokesProtection(damage: (Player) -> Damage) {
+        val attacker = testPlayer("revoking-attacker")
+        val victim = testPlayer("revoking-victim")
+        Combat.grantRespawnProtection(attacker)
+
+        try {
+            assertTrue(Combat.applyDamageWithoutImmunity(victim, damage(attacker)))
+            assertFalse(Combat.isRespawnProtected(attacker))
+        } finally {
+            removeTestPlayers(attacker, victim)
+        }
+    }
+
+    private fun testPlayer(name: String): Player =
+        Player(TestConnection(), GameProfile(UUID.randomUUID(), name.take(16))).also { player ->
+            player.setInstance(instance, Pos(8.0, 61.0, 8.0)).join()
+            player.gameMode = GameMode.SURVIVAL
+            player.health = 20f
+        }
+
+    private fun removeTestPlayers(vararg players: Player) {
+        players.forEach { player ->
+            Combat.revokeRespawnProtection(player)
+            Combat.entityLastDamageTime.remove(player)
             player.remove()
         }
     }

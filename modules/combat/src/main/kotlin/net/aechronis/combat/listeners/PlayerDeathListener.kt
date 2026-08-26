@@ -26,6 +26,7 @@ object PlayerDeathListener {
         exitVehicles(player)
         KeyPressListener.playerInputEvent.remove(player)
         Combat.entityLastDamageTime.remove(player)
+        Combat.grantRespawnProtection(player)
         LagCompensation.resetHistory(player)
 
         val message = combatDeathMessage(player.name, killer?.let(::attackerName), weapon, damageKind, killer === player)

@@ -39,6 +39,7 @@ object PlayerDisconnectListener {
         Combat.playerLastActionTimes.remove(player)
         Combat.meleeLastAttackTimes.remove(player)
         Combat.entityLastDamageTime.remove(player)
+        Combat.revokeRespawnProtection(player)
         LagCompensation.removePlayer(player)
         ModelManager.clearPlayer(player)
         KeyPressListener.playerInputEvent.remove(player)

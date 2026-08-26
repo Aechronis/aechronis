@@ -18,6 +18,7 @@ import net.aechronis.combat.listeners.MeleeListener
 import net.aechronis.combat.listeners.PlayerDeathListener
 import net.aechronis.combat.listeners.PlayerDisconnectListener
 import net.aechronis.combat.listeners.ReloadListener
+import net.aechronis.combat.listeners.RespawnProtectionListener
 import net.aechronis.combat.listeners.VehicleListener
 import net.aechronis.combat.listeners.WeaponLoreListener
 import net.aechronis.combat.objects.Grenade
@@ -83,7 +84,32 @@ object Combat {
     val entityLastDamageTime = HashMap<LivingEntity, Long>()
     private val activeDamage = HashMap<LivingEntity, Damage>()
 
+    internal val respawnProtectionExpiresAt = HashMap<Player, Long>()
+
     private const val DAMAGE_IMMUNITY_MS = 500L
+    internal const val RESPAWN_PROTECTION_MS = 5_000L
+
+    internal fun grantRespawnProtection(
+        player: Player,
+        now: Long = System.currentTimeMillis(),
+    ) {
+        respawnProtectionExpiresAt[player] = now + RESPAWN_PROTECTION_MS
+    }
+
+    internal fun isRespawnProtected(
+        player: Player,
+        now: Long = System.currentTimeMillis(),
+    ): Boolean {
+        val expiresAt = respawnProtectionExpiresAt[player] ?: return false
+        if (now < expiresAt) return true
+
+        respawnProtectionExpiresAt.remove(player)
+        return false
+    }
+
+    internal fun revokeRespawnProtection(player: Player) {
+        respawnProtectionExpiresAt.remove(player)
+    }
 
     fun canDamage(
         entity: LivingEntity,
@@ -132,7 +158,10 @@ object Combat {
                     activeDamage[entity] = previousActiveDamage
                 }
             }
-        if (damaged) return true
+        if (damaged) {
+            revokeRespawnProtectionAfterSuccessfulPlayerDamage(entity, damage)
+            return true
+        }
 
         if (useDamageImmunity) {
             if (previousDamageTime == null) {
@@ -142,6 +171,16 @@ object Combat {
             }
         }
         return false
+    }
+
+    internal fun revokeRespawnProtectionAfterSuccessfulPlayerDamage(
+        victim: LivingEntity,
+        damage: Damage,
+    ) {
+        if (damage.amount <= 0f) return
+        val attacker = damage.attacker as? Player ?: return
+        if (victim !is Player || victim === attacker) return
+        revokeRespawnProtection(attacker)
     }
 
     internal fun activeDamage(entity: LivingEntity): Damage? = activeDamage[entity]
@@ -171,6 +210,7 @@ object Combat {
         PlayerDisconnectListener.init()
         CooldownResetListener.init()
         ArmorProtectionListener.init()
+        RespawnProtectionListener.init()
         MannequinDamageListener.init()
         VehicleListener.init()
         DroneListener.init()
