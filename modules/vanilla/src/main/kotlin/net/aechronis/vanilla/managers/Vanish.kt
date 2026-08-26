@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.utils.VisibilityRules
 import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.text.Component
@@ -11,13 +12,11 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerGameModeChangeEvent
 import net.minestom.server.event.player.PlayerInputEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
-import net.minestom.server.network.packet.server.play.PlayerInfoRemovePacket
-import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
-import java.util.EnumSet
 import java.util.UUID
 
 object Vanish {
     private const val DOUBLE_SHIFT_WINDOW_MILLIS = 500L
+    private const val VISIBILITY_RULE_OWNER = "vanilla:vanish"
     private val vanished = mutableMapOf<UUID, State>()
 
     private data class State(
@@ -33,9 +32,15 @@ object Vanish {
     fun toggle(player: Player) {
         if (isVanished(player)) {
             unvanish(player)
-        } else {
-            vanish(player, level(player))
+            return
         }
+
+        val level = level(player)
+        if (level == 0) {
+            player.sendMessage(Component.text("You don't have permission to vanish.", NamedTextColor.RED))
+            return
+        }
+        vanish(player, level)
     }
 
     private fun vanish(
@@ -59,77 +64,24 @@ object Vanish {
         refreshVisibility()
     }
 
-    /**
-     * Spectator mode is not automatically invisible in Minestom. Reapply the complete rule on
-     * every state change so a removed vanish rule cannot leave a player hidden indefinitely.
-     */
     private fun updateVisibility(
         player: Player,
         gameMode: GameMode = player.gameMode,
     ) {
         val state = vanished[player.uuid]
         when {
-            gameMode == GameMode.SPECTATOR -> player.updateViewableRule { false }
-            state != null -> player.updateViewableRule { viewer -> level(viewer) > state.level }
-            else -> player.updateViewableRule(null)
+            gameMode == GameMode.SPECTATOR -> VisibilityRules.set(player, VISIBILITY_RULE_OWNER) { false }
+            state != null -> VisibilityRules.set(player, VISIBILITY_RULE_OWNER) { viewer -> level(viewer) > state.level }
+            else -> VisibilityRules.remove(player, VISIBILITY_RULE_OWNER)
         }
-        updatePlayerListVisibility(player, gameMode, state)
-    }
-
-    private fun updatePlayerListVisibility(
-        player: Player,
-        gameMode: GameMode,
-        state: State?,
-    ) {
-        val addPacket = playerInfoPacket(player, gameMode)
-        val removePacket = PlayerInfoRemovePacket(player.uuid)
-        MinecraftServer.getConnectionManager().onlinePlayers.forEach { viewer ->
-            if (viewer == player) return@forEach
-            viewer.sendPacket(if (canView(player, viewer, gameMode, state)) addPacket else removePacket)
-        }
-    }
-
-    private fun canView(
-        player: Player,
-        viewer: Player,
-        gameMode: GameMode = player.gameMode,
-        state: State? = vanished[player.uuid],
-    ): Boolean = gameMode != GameMode.SPECTATOR && (state == null || level(viewer) > state.level)
-
-    private fun playerInfoPacket(
-        player: Player,
-        gameMode: GameMode,
-    ): PlayerInfoUpdatePacket {
-        val properties =
-            player.skin?.let { skin ->
-                listOf(PlayerInfoUpdatePacket.Property("textures", skin.textures, skin.signature))
-            } ?: emptyList()
-        val entry =
-            PlayerInfoUpdatePacket.Entry(
-                player.uuid,
-                player.username,
-                properties,
-                player.isListed,
-                player.latency,
-                gameMode,
-                player.displayName,
-                null,
-                player.listOrder,
-                player.settings.displayedSkinParts.toInt() and 0x40 != 0,
-            )
-        return PlayerInfoUpdatePacket(EnumSet.allOf(PlayerInfoUpdatePacket.Action::class.java), entry)
     }
 
     private fun refreshVisibility() {
-        vanished.toMap().forEach { (uuid, _) ->
-            val player =
-                MinecraftServer
-                    .getConnectionManager()
-                    .onlinePlayers
-                    .firstOrNull { it.uuid == uuid }
-                    ?: return@forEach
-            updateVisibility(player)
-        }
+        MinecraftServer
+            .getConnectionManager()
+            .onlinePlayers
+            .filter { isVanished(it) || it.gameMode == GameMode.SPECTATOR }
+            .forEach(::updateVisibility)
     }
 
     private fun onInput(event: PlayerInputEvent) {
@@ -157,23 +109,24 @@ object Vanish {
     }
 
     private fun onGameModeChange(event: PlayerGameModeChangeEvent) {
-        // This event fires before Minestom applies the new mode, so use the requested value.
+        // This event fires before Minestom applies the new mode. Apply the requested state now,
+        // then reconcile next tick in case another listener cancelled or rewrote the event.
         updateVisibility(event.player, event.newGameMode)
+        event.player.scheduleNextTick {
+            if (event.player.isOnline) updateVisibility(event.player)
+        }
     }
 
     private fun onSpawn(event: PlayerSpawnEvent) {
-        val viewer = event.player
-        updateVisibility(viewer)
-        MinecraftServer.getConnectionManager().onlinePlayers.forEach { player ->
-            if (player != viewer && !canView(player, viewer)) {
-                viewer.sendPacket(PlayerInfoRemovePacket(player.uuid))
-            }
-        }
+        updateVisibility(event.player)
+        // Joining clients initially receive every profile from Minestom. Reapply managed rules to
+        // remove profiles they cannot view and add authorized profiles before their entity spawns.
         refreshVisibility()
     }
 
     private fun onDisconnect(event: PlayerDisconnectEvent) {
         vanished.remove(event.player.uuid)
+        VisibilityRules.clear(event.player)
     }
 
     fun init() {

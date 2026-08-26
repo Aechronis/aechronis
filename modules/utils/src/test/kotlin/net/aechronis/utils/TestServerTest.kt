@@ -11,6 +11,8 @@ import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.generator.Generator
 import net.minestom.server.network.packet.server.SendablePacket
+import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
+import net.minestom.server.network.packet.server.play.SpawnEntityPacket
 import net.minestom.server.network.player.GameProfile
 import net.minestom.server.network.player.PlayerConnection
 import org.junit.jupiter.api.AfterAll
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.TestInstance
 import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -64,6 +67,39 @@ class TestServerTest {
     }
 
     @Test
+    fun `restoring visibility adds player info before the entity spawn`() {
+        val viewerConnection = TestConnection()
+        val targetConnection = TestConnection()
+        val viewer = Player(viewerConnection, GameProfile(UUID.randomUUID(), "viewer"))
+        val target = Player(targetConnection, GameProfile(UUID.randomUUID(), "target"))
+        viewer.setInstance(instance, Pos(0.5, 40.0, 0.5)).join()
+        target.setInstance(instance, Pos(2.5, 40.0, 0.5)).join()
+
+        try {
+            VisibilityRules.applyForViewers(target, { false }, listOf(viewer))
+            viewerConnection.packets.clear()
+
+            VisibilityRules.applyForViewers(target, null, listOf(viewer))
+
+            val profileAdd =
+                viewerConnection.packets.indexOfFirst { packet ->
+                    packet is PlayerInfoUpdatePacket &&
+                        PlayerInfoUpdatePacket.Action.ADD_PLAYER in packet.actions &&
+                        packet.entries.any { it.uuid == target.uuid }
+                }
+            val spawn =
+                viewerConnection.packets.indexOfFirst { packet ->
+                    packet is SpawnEntityPacket && packet.entityId == target.entityId
+                }
+            assertTrue(profileAdd >= 0)
+            assertTrue(spawn > profileAdd)
+        } finally {
+            target.remove()
+            viewer.remove()
+        }
+    }
+
+    @Test
     fun `configures joining players and tps bar`() {
         val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "TestPlayer"))
         val configurationEvent = AsyncPlayerConfigurationEvent(player, true)
@@ -82,7 +118,11 @@ class TestServerTest {
     }
 
     private class TestConnection : PlayerConnection() {
-        override fun sendPacket(packet: SendablePacket) = Unit
+        val packets = CopyOnWriteArrayList<SendablePacket>()
+
+        override fun sendPacket(packet: SendablePacket) {
+            packets += packet
+        }
 
         override fun getRemoteAddress(): SocketAddress = InetSocketAddress(0)
     }

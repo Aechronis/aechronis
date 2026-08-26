@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.utils.VisibilityRules
 import net.aechronis.vanilla.ManagerTest
 import net.aechronis.vanilla.VanillaTest
 import net.minestom.server.coordinate.Pos
@@ -38,6 +39,18 @@ class VanishTest : ManagerTest() {
     }
 
     @Test
+    fun `players without vanish permission cannot be vanished`() {
+        val target = VanillaTest.createPlayer(Pos(12.5, 40.0, 0.5))
+
+        try {
+            Vanish.toggle(target)
+            assertFalse(Vanish.isVanished(target))
+        } finally {
+            VanillaTest.remove(target)
+        }
+    }
+
+    @Test
     fun `spectators are hidden until they leave spectator mode`() {
         val viewer = VanillaTest.createPlayer(Pos(4.5, 40.0, 0.5))
         val target = VanillaTest.createPlayer(Pos(6.5, 40.0, 0.5))
@@ -51,6 +64,38 @@ class VanishTest : ManagerTest() {
             target.gameMode = GameMode.SURVIVAL
             assertTrue(viewer in target.viewers)
         } finally {
+            VanillaTest.remove(target)
+            VanillaTest.remove(viewer)
+        }
+    }
+
+    @Test
+    fun `unvanishing preserves other visibility restrictions`() {
+        val permissionFlag = "aechronis.dangerously-enable-all-permissions"
+        val previousPermissionFlag = System.getProperty(permissionFlag)
+        System.setProperty(permissionFlag, "true")
+        val viewer = VanillaTest.createPlayer(Pos(16.5, 40.0, 0.5))
+        val target = VanillaTest.createPlayer(Pos(18.5, 40.0, 0.5))
+        val externalRule = "test:external"
+
+        try {
+            VisibilityRules.set(target, externalRule) { false }
+            assertFalse(viewer in target.viewers)
+
+            Vanish.toggle(target)
+            VisibilityRules.remove(target, externalRule)
+            assertFalse(viewer in target.viewers)
+
+            Vanish.toggle(target)
+            assertTrue(viewer in target.viewers)
+        } finally {
+            VisibilityRules.remove(target, externalRule)
+            if (Vanish.isVanished(target)) Vanish.toggle(target)
+            if (previousPermissionFlag == null) {
+                System.clearProperty(permissionFlag)
+            } else {
+                System.setProperty(permissionFlag, previousPermissionFlag)
+            }
             VanillaTest.remove(target)
             VanillaTest.remove(viewer)
         }

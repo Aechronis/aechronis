@@ -6,6 +6,7 @@ import net.aechronis.combat.events.VehicleSpawnEvent
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
+import net.aechronis.utils.VisibilityRules
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
@@ -376,11 +377,11 @@ open class Vehicle(
     private fun hideOccupant(player: Player) {
         if (!invisibleWhileRiding) return
         hiddenOccupants.add(player)
-        player.updateViewableRule { false }
+        VisibilityRules.set(player, VISIBILITY_RULE_OWNER) { false }
     }
 
     private fun revealOccupant(player: Player) {
-        if (hiddenOccupants.remove(player)) player.updateViewableRule { true }
+        if (hiddenOccupants.remove(player)) VisibilityRules.remove(player, VISIBILITY_RULE_OWNER)
     }
 
     // get world position for a seat
@@ -558,6 +559,8 @@ open class Vehicle(
     }
 
     companion object {
+        private const val VISIBILITY_RULE_OWNER = "combat:vehicle-occupant"
+
         fun isVehicleOccupant(player: Player): Boolean = activeOccupant(player) != null
 
         // true while the player rides a vehicle that protects its occupants from damage
@@ -701,7 +704,7 @@ open class Vehicle(
                     entityPassengers[entity]?.remove(player)
                     if (entityPassengers[entity].isNullOrEmpty()) entityPassengers.remove(entity)
                 }
-                if (hiddenOccupants.remove(player)) player.updateViewableRule { true }
+                if (hiddenOccupants.remove(player)) VisibilityRules.remove(player, VISIBILITY_RULE_OWNER)
             } finally {
                 forcedExitPlayers.remove(player)
             }
