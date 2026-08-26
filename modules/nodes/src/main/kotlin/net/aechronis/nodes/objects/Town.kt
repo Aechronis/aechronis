@@ -11,6 +11,7 @@ import net.aechronis.nodes.colonization.AiTownConfig
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.constants.ErrorPlayerHasTown
 import net.aechronis.nodes.constants.ErrorTerritoryIsTownHome
+import net.aechronis.nodes.constants.ErrorTerritoryIsWarzone
 import net.aechronis.nodes.constants.ErrorTerritoryNotInTown
 import net.aechronis.nodes.constants.ErrorTerritoryOwned
 import net.aechronis.nodes.constants.ErrorTownExists
@@ -24,6 +25,7 @@ import net.aechronis.nodes.utils.createEnumArrayMap
 import net.aechronis.nodes.utils.stringArrayFromSet
 import net.aechronis.nodes.utils.stringMapFromMap
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.nodes.war.Warzone
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.CommandSender
 import net.minestom.server.coordinate.BlockVec
@@ -199,6 +201,9 @@ class Town(
         }
 
         fun destroy(town: Town) {
+            require(!Warzone.ownsRegisteredZone(town)) {
+                "Cannot destroy ${town.name}: warzone territories must remain inside a town"
+            }
             val nation = town.nation
             val indexedPlayers = town.playersOnline.associateBy { it.uuid }
             if (nation != null) {
@@ -234,6 +239,7 @@ class Town(
         fun unclaim(town: Town, territory: Territory): Result<Territory> {
             if (!town.territories.contains(territory.id)) return Result.failure(ErrorTerritoryNotInTown)
             if (town.home == territory.id) return Result.failure(ErrorTerritoryIsTownHome)
+            if (Warzone.isRegistered(territory)) return Result.failure(ErrorTerritoryIsWarzone)
             release(territory)
             town.territories.remove(territory.id)
             territory.town = null

@@ -44,8 +44,15 @@ class NodesAdminWarzoneCommand : NodesCommand("warzone", "nodes.admin") {
         val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
         addSyntax({ player, _, context ->
             val territories = context[territoriesArg]
-            Warzone.register(territories)
-            Message.print(player, "Enabled warzones for territories: ${territories.joinToString(", ") { it.id.toString() }}")
+            val claimed = territories.filter { it.town != null }
+            val unclaimed = territories - claimed.toSet()
+            Warzone.register(claimed)
+            if (claimed.isNotEmpty()) {
+                Message.print(player, "Enabled warzones for territories: ${claimed.joinToString(", ") { it.id.toString() }}")
+            }
+            if (unclaimed.isNotEmpty()) {
+                Message.error(player, "Warzone territories must belong to a town: ${unclaimed.joinToString(", ") { it.id.toString() }}")
+            }
         }, territoriesArg)
 
         addSubcommand(NodesAdminWarzoneStopCommand())

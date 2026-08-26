@@ -123,6 +123,16 @@ object NodesWorldListener {
 
         // interacting in a town
         if (resident !== null) {
+            // A completed warzone occupation is controlled by the capturing
+            // town, not by the original owner or its plots.
+            val warzoneOccupier = territoryChunk?.let { warzoneOccupier(territory, it) }
+            if (warzoneOccupier != null) {
+                if (hasTownPermissions(TownPermissions.DESTROY, warzoneOccupier, resident)) return
+                event.isCancelled = true
+                Message.error(player, "You cannot destroy here!")
+                return
+            }
+
             if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) {
                 return
             }
@@ -347,6 +357,16 @@ object NodesWorldListener {
 
         // interacting in a town
         if (resident !== null) {
+            // Warzone occupations use the capturing town's ordinary
+            // permissions, rather than the owner town's permissions.
+            val warzoneOccupier = territoryChunk?.let { warzoneOccupier(territory, it) }
+            if (warzoneOccupier != null) {
+                if (hasTownPermissions(TownPermissions.BUILD, warzoneOccupier, resident)) return
+                event.isCancelled = true
+                Message.error(player, "You cannot build here!")
+                return
+            }
+
             if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) {
                 return
             }
@@ -423,6 +443,23 @@ object NodesWorldListener {
                 return
             }
 
+            val warzoneOccupier = territoryChunk?.let { warzoneOccupier(territory, it) }
+            if (warzoneOccupier != null) {
+                val permission = if (PROTECTED_BLOCKS.any { event.block.compare(it) }) TownPermissions.CHESTS else TownPermissions.INTERACT
+                if (!hasTownPermissions(permission, warzoneOccupier, resident)) {
+                    event.isCancelled = true
+                    Message.error(event.player, if (permission == TownPermissions.CHESTS) "You cannot use chests here!" else "You cannot interact here!")
+                    return
+                }
+                if (permission == TownPermissions.CHESTS && warzoneOccupier.protectedBlocks.contains(event.blockPosition) &&
+                    !resident.hasTownProtectedChestPermissions(warzoneOccupier)
+                ) {
+                    event.isCancelled = true
+                    Message.error(event.player, "This chest is for trusted residents only")
+                }
+                return
+            }
+
             if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) {
                 return
             }
@@ -483,7 +520,15 @@ object NodesWorldListener {
         if (resident.hasTownPermissionBypass()) return true
 
         val territoryChunk = TerritoryChunk.fromBlock(blockPosition.blockX, blockPosition.blockZ)
-        if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) return true
+        if (territoryChunk != null) {
+            val warzoneOccupier = warzoneOccupier(territory, territoryChunk)
+            if (warzoneOccupier != null) {
+                val permission = if (access == StorageAccess.INTERACT) TownPermissions.CHESTS else TownPermissions.DESTROY
+                return hasTownPermissions(permission, warzoneOccupier, resident) &&
+                    (!warzoneOccupier.protectedBlocks.contains(blockPosition) || resident.hasTownProtectedChestPermissions(warzoneOccupier))
+            }
+            if (hasWarPermissions(resident, territory, territoryChunk)) return true
+        }
 
         val permission = if (access == StorageAccess.INTERACT) TownPermissions.CHESTS else TownPermissions.DESTROY
         val plotPermission = Plot.at(town, blockPosition.blockX, blockPosition.blockY, blockPosition.blockZ)
@@ -590,6 +635,15 @@ private fun hasOccupierPermissions(perms: TownPermissions, town: Town, occupier:
     false
 }
 
+/**
+ * Warzones run outside global FlagWar, so their settled occupations must not
+ * depend on FlagWar.enabled or the optional occupied-town control list.
+ * Chunk occupation takes precedence until a core capture occupies the whole
+ * territory.
+ */
+private fun warzoneOccupier(territory: Territory, territoryChunk: TerritoryChunk): Town? =
+    if (Warzone.isActive(territory)) territoryChunk.occupier ?: territory.occupier else null
+
 // bypass permissions and allow all interaction in
 // captured chunks/territories during wartime
 private fun hasWarPermissions(resident: Resident, territory: Territory, territoryChunk: TerritoryChunk): Boolean {
@@ -671,12 +725,13 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
 
         val playerTown = Town.fromPlayer(player)
         val playerNation = playerTown?.nation
+        val warzoneOccupier = TerritoryChunk.fromBlock(blockX, blockZ)?.let { warzoneOccupier(territory, it) }
 
         // conditions allowed for mining ore
         if ((Nodes.config.allowOreInWilderness && territoryTown === null) ||
             (territoryTown !== null && territoryTown === playerTown) ||
             (Nodes.config.allowOreInNationTowns && territoryNation !== null && territoryNation === playerNation) ||
-            (Nodes.config.allowOreInCaptured && territory.occupier === playerTown)
+            (Nodes.config.allowOreInCaptured && (territory.occupier === playerTown || warzoneOccupier === playerTown))
         ) {
             val miningMultiplier = MiningBoostManager.miningMultiplier() * Warzone.multiplierFor(territory)
             val itemDrops = territory.ores.sample(blockY).map { itemStack ->

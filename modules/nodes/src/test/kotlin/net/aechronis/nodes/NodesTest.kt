@@ -5,6 +5,7 @@ import net.aechronis.nodes.commands.arguments.matchingResidents
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.listeners.NodesBlockPlacementCooldownListener
+import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.MinimapPosition
@@ -13,6 +14,7 @@ import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
+import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.TestTownSide
 import net.aechronis.nodes.objects.Town
@@ -23,6 +25,7 @@ import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.vanilla.Vanilla
+import net.aechronis.vanilla.managers.StorageAccess
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
@@ -33,6 +36,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
+import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerMoveEvent
@@ -720,7 +724,7 @@ class NodesTest {
     fun `warzones score territory captures track handoffs and survive reload`() {
         val towns = Nodes.territories.values.filter { it.town == null }.take(2)
         assertEquals(2, towns.size, "Test world needs two unclaimed territories")
-        val territory = Nodes.territories.values.first { it !== towns[0] && it !== towns[1] }
+        val territory = Nodes.territories.values.first { it.town != null }
         val suffix = UUID.randomUUID().toString().take(8)
         val firstTown = Town.create("WarzoneFirst$suffix", towns[0], null).getOrThrow()
         val secondTown = Town.create("WarzoneSecond$suffix", towns[1], null).getOrThrow()
@@ -759,6 +763,93 @@ class NodesTest {
             Nation.destroy(secondNation)
             Town.destroy(firstTown)
             Town.destroy(secondTown)
+        }
+    }
+
+    @Test
+    fun `warzones require a town and can never trigger annexation`() {
+        val unclaimed = Nodes.territories.values.first { it.town == null }
+        val town = Nodes.towns.values.first()
+        val home = Territory.fromId(town.home)!!
+
+        try {
+            Warzone.register(listOf(unclaimed))
+            assertFalse(Warzone.isRegistered(unclaimed))
+
+            assertTrue(FlagWar.shouldAnnexTown(town, home))
+            Warzone.register(listOf(home))
+            assertTrue(Warzone.isRegistered(home))
+            assertFalse(FlagWar.shouldAnnexTown(town, home))
+        } finally {
+            Warzone.resetForReload()
+            Files.deleteIfExists(Nodes.config.pathWarzone)
+        }
+    }
+
+    @Test
+    fun `warzone occupier permissions apply to chunks and captured home territory`() {
+        val home = Nodes.territories.values.first { it.town == null && it.chunks.any { coord -> coord != it.core } }
+        val attackerHome = Nodes.territories.values.first { it.town == null && it !== home }
+        val suffix = UUID.randomUUID().toString().take(8)
+        val owner = Town.create("WarzoneOwner$suffix", home, null).getOrThrow()
+        val occupier = Town.create("WarzoneOccupier$suffix", attackerHome, null).getOrThrow()
+        val occupierNation = Nation.create("WarzoneNation$suffix", occupier).getOrThrow()
+        val ownerPlayer = Player(TestConnection(), GameProfile(UUID.randomUUID(), "wzo-$suffix"))
+        val occupierPlayer = Player(TestConnection(), GameProfile(UUID.randomUUID(), "wzp-$suffix"))
+        val ownerResident = Resident(ownerPlayer.uuid, ownerPlayer.username)
+        val occupierResident = Resident(occupierPlayer.uuid, occupierPlayer.username)
+        Nodes.residents[ownerResident.uuid] = ownerResident
+        Nodes.residents[occupierResident.uuid] = occupierResident
+        assertTrue(Town.addResident(owner, ownerResident, bypassTestTownSelection = true))
+        assertTrue(Town.addResident(occupier, occupierResident, bypassTestTownSelection = true))
+        listOf(owner, occupier).forEach { town ->
+            listOf(TownPermissions.BUILD, TownPermissions.DESTROY, TownPermissions.INTERACT, TownPermissions.CHESTS).forEach { permission ->
+                town.permissions[permission].clear()
+                town.permissions[permission].add(PermissionsGroup.TOWN)
+            }
+        }
+        val partialChunk = TerritoryChunk.fromCoord(home.chunks.first { it != home.core })!!
+        val partialPosition = BlockVec(partialChunk.coord.x * 16 + 1, 64, partialChunk.coord.z * 16 + 1)
+        val homePosition = BlockVec(home.core.x * 16 + 1, 64, home.core.z * 16 + 1)
+
+        fun place(player: Player, position: BlockVec): PlayerBlockPlaceEvent {
+            val event = PlayerBlockPlaceEvent(player, instance, Block.STONE, BlockFace.TOP, position, position, PlayerHand.MAIN)
+            MinecraftServer.getGlobalEventHandler().call(event)
+            return event
+        }
+
+        try {
+            Warzone.register(listOf(home))
+            partialChunk.occupier = occupier
+
+            assertTrue(place(ownerPlayer, partialPosition).isCancelled)
+            assertFalse(place(occupierPlayer, partialPosition).isCancelled)
+            assertFalse(NodesWorldListener.hasStorageAccess(ownerPlayer, Pos(partialPosition.x(), partialPosition.y(), partialPosition.z()), StorageAccess.BREAK))
+            assertTrue(NodesWorldListener.hasStorageAccess(occupierPlayer, Pos(partialPosition.x(), partialPosition.y(), partialPosition.z()), StorageAccess.BREAK))
+
+            partialChunk.occupier = null
+            Town.capture(occupier, home)
+            val now = System.currentTimeMillis()
+            Warzone.onTerritoryOccupied(home, occupier, now)
+
+            assertFalse(FlagWar.shouldAnnexTown(owner, home))
+            assertEquals(owner, home.town)
+            assertTrue(Nodes.towns.containsValue(owner))
+            assertEquals(occupierNation, Warzone.ranking(home, now + 1L).single().nation)
+            assertTrue(place(ownerPlayer, homePosition).isCancelled)
+            assertFalse(place(occupierPlayer, homePosition).isCancelled)
+            assertFalse(NodesWorldListener.hasStorageAccess(ownerPlayer, Pos(homePosition.x(), homePosition.y(), homePosition.z()), StorageAccess.BREAK))
+            assertTrue(NodesWorldListener.hasStorageAccess(occupierPlayer, Pos(homePosition.x(), homePosition.y(), homePosition.z()), StorageAccess.BREAK))
+        } finally {
+            Warzone.resetForReload()
+            Files.deleteIfExists(Nodes.config.pathWarzone)
+            ownerPlayer.remove()
+            occupierPlayer.remove()
+            Nodes.residents.remove(ownerResident.uuid)
+            Nodes.residents.remove(occupierResident.uuid)
+            Nation.destroy(occupierNation)
+            Town.destroy(owner)
+            Town.destroy(occupier)
         }
     }
 

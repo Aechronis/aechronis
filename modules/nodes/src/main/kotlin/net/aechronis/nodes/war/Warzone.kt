@@ -44,6 +44,19 @@ object Warzone {
         states[territory.id]?.stopped == false
     }
 
+    /**
+     * A registered warzone remains protected from permanent annexation after
+     * scoring has been stopped. This is deliberately distinct from [isActive].
+     */
+    fun isRegistered(territory: Territory): Boolean = synchronized(this) {
+        states.containsKey(territory.id)
+    }
+
+    /** A town with a registered warzone cannot be removed into wilderness. */
+    fun ownsRegisteredZone(town: Town): Boolean = synchronized(this) {
+        states.keys.any { territoryId -> Territory.fromId(territoryId)?.town === town }
+    }
+
     /** Warzones are weekday activities, not global wars. */
     fun hasActiveZones(): Boolean = synchronized(this) {
         states.values.any { !it.stopped }
@@ -51,8 +64,14 @@ object Warzone {
 
     fun multiplierFor(territory: Territory): Double = if (isActive(territory)) Nodes.config.warzoneRateMultiplier else 1.0
 
+    /**
+     * Only claimed territory can host a warzone. A warzone capture needs an
+     * owning town to occupy; wilderness territories are therefore ignored.
+     */
     fun register(territories: Collection<Territory>) = synchronized(this) {
-        territories.forEach { territory ->
+        val claimed = territories.filter { it.town != null }
+        if (claimed.isEmpty()) return@synchronized
+        claimed.forEach { territory ->
             val existing = states[territory.id]
             if (existing == null || existing.stopped) states[territory.id] = State(territory.id)
         }
@@ -148,7 +167,10 @@ object Warzone {
                     zone.get("scores")?.takeIf { it.isJsonObject }?.asJsonObject?.entrySet()?.forEach { (nationId, score) ->
                         state.scores[UUID.fromString(nationId)] = score.asLong.coerceAtLeast(0L)
                     }
-                    if (Territory.fromId(state.territoryId) != null) states[state.territoryId] = state
+                    // Do not activate malformed legacy entries for wilderness.
+                    // The source file is left alone; registering a warzone now
+                    // always requires a territory to belong to a town.
+                    if (Territory.fromId(state.territoryId)?.town != null) states[state.territoryId] = state
                 }.onFailure { error ->
                     System.err.println("[Nodes] Ignoring invalid warzone $idText: ${error.message}")
                 }

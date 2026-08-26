@@ -32,6 +32,7 @@ import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.TrainStationBuilding
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.nodes.war.Warzone
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.minestom.server.MinecraftServer
@@ -248,8 +249,13 @@ class NodesAdminTownDeleteCommand : NodesCommand("delete", "nodes.admin") {
         val townArg = ArgumentTown.create("town-name")
 
         addSyntax({ player, resident, context ->
-            Town.destroy(context[townArg])
-            Message.print(player, "Town \"${context[townArg].name}\" has been deleted")
+            val town = context[townArg]
+            if (Warzone.ownsRegisteredZone(town)) {
+                Message.error(player, "Cannot delete ${town.name}: warzone territories must remain inside a town")
+                return@addSyntax
+            }
+            Town.destroy(town)
+            Message.print(player, "Town \"${town.name}\" has been deleted")
         }, townArg)
     }
 }
@@ -385,12 +391,17 @@ class NodesAdminTownRemoveTerritoryCommand : NodesCommand("removeterritory", "no
         val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
 
         addSyntax({ player, resident, context ->
-            // remove territories
-            for (terr in context[territoriesArg]) {
+            val territories = context[territoriesArg]
+            val warzones = territories.filter(Warzone::isRegistered)
+            if (warzones.isNotEmpty()) {
+                Message.error(player, "Warzone territories must remain inside a town: ${warzones.joinToString(", ") { it.id.toString() }}")
+                return@addSyntax
+            }
+            for (terr in territories) {
                 Town.unclaim(context[townArg], terr)
             }
 
-            Message.print(player, "Removed ${context[territoriesArg].size} territories from town \"${context[townArg].name}\"")
+            Message.print(player, "Removed ${territories.size} territories from town \"${context[townArg].name}\"")
         }, townArg, territoriesArg)
     }
 }

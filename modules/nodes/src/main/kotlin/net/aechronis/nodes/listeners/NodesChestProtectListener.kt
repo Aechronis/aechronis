@@ -16,8 +16,10 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.PROTECTED_BLOCKS
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
+import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.utils.ChatColor
+import net.aechronis.nodes.war.Warzone
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
@@ -37,7 +39,9 @@ object NodesChestProtectionListener {
             val town: Town = resident.town!!
             val territory: Territory? =
                 Territory.fromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)
-            val territoryTown: Town? = territory?.town
+            val territoryTown: Town? = territory?.let {
+                controllingTown(it, event.blockPosition.blockX, event.blockPosition.blockZ)
+            }
 
             if (town !== territoryTown) {
                 Message.error(player, "This is not your town (stopping, use /t protect to start protecting again)")
@@ -73,12 +77,15 @@ object NodesChestProtectionListener {
     }
 }
 
-/**
- * Listen to block destruction, unprotect chests if occurs
- */
+private fun controllingTown(territory: Territory, blockX: Int, blockZ: Int): Town? {
+    if (!Warzone.isActive(territory)) return territory.town
+    return TerritoryChunk.fromBlock(blockX, blockZ)?.occupier ?: territory.occupier ?: territory.town
+}
+
 object NodesChestProtectionDestroyListener {
     private fun onBlockBreak(event: PlayerBlockBreakEvent) {
-        val town: Town? = Territory.fromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)?.town
+        val town: Town? = Territory.fromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)
+            ?.let { territory -> controllingTown(territory, event.blockPosition.blockX, event.blockPosition.blockZ) }
 
         if (event.isCancelled || town == null || !town.protectedBlocks.contains(event.blockPosition)) {
             return

@@ -837,6 +837,10 @@ object FlagWar {
         capturedTerritory: Territory,
     ): Boolean {
         if (capturedTerritory.town !== defeatedTown) return false
+        // A town containing any registered warzone must remain a town: annexing
+        // it through another territory would otherwise permanently consume its
+        // warzone land.
+        if (Warzone.ownsRegisteredZone(defeatedTown)) return false
         if (capturedTerritory.id == defeatedTown.home) return true
 
         val totalTerritories = defeatedTown.territories.size
@@ -1256,7 +1260,10 @@ object FlagWar {
                         }
                         val action = if (attack.mode == AttackMode.COLONIZATION) "colonized" else "captured"
                         Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} $action territory (id=${territory.id}) from ${territoryTown?.name}!")
-                        if (territoryTown != null && shouldAnnexTown(territoryTown, territory)) {
+                        // Warzones are always occupied, never permanently annexed.
+                        // This includes a warzone that is a town's home territory
+                        // and a stopped warzone later captured during normal war.
+                        if (territoryTown != null && !Warzone.isRegistered(territory) && shouldAnnexTown(territoryTown, territory)) {
                             val defeatedTownName = territoryTown.name
                             Town.annex(attackerTown, territoryTown)
                             Message.broadcast(
