@@ -22,9 +22,20 @@ import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
+import net.kyori.adventure.key.Key
+import net.kyori.adventure.nbt.CompoundBinaryTag
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
+import net.minestom.server.dialog.Dialog
+import net.minestom.server.dialog.DialogAction
+import net.minestom.server.dialog.DialogActionButton
+import net.minestom.server.dialog.DialogAfterAction
+import net.minestom.server.dialog.DialogBody
+import net.minestom.server.dialog.DialogMetadata
 import net.minestom.server.entity.Player
+import net.minestom.server.event.player.PlayerCustomClickEvent
 import net.minestom.server.timer.TaskSchedule
 import java.util.Locale
 
@@ -236,8 +247,8 @@ class TownApplyCommand : NodesCommand("apply", null, "join") {
                 return@addSyntax
             }
 
-            if (resident.town != null) {
-                Message.error(player, "You are already a member of a town")
+            Town.joinRestriction(context[townArg], resident)?.let { restriction ->
+                Message.error(player, restriction)
                 return@addSyntax
             }
 
@@ -321,6 +332,10 @@ class TownInviteCommand : NodesCommand("invite") {
             val inviteeTown = context[playerArg].town
             if (inviteeTown != null) {
                 Message.error(player, "This player is already a member of a town")
+                return@addSyntax
+            }
+            Town.joinRestriction(town, context[playerArg])?.let { restriction ->
+                Message.error(player, restriction)
                 return@addSyntax
             }
 
@@ -581,30 +596,76 @@ class TownDenyCommand : NodesCommand("deny", null, "reject") {
 
 class TownLeaveCommand : NodesCommand("leave") {
     init {
-        setDefaultExecutor { player, resident, context ->
+        setDefaultExecutor { player, _, _ ->
             Message.print(player, "Usage: /town leave")
         }
 
-        addSyntax({ player, resident, town, context ->
+        addSyntax({ player, resident, town, _ ->
+            if (!canLeave(player, resident, town)) return@addSyntax
+            player.showDialog(leaveConfirmationDialog(town))
+        })
+
+        Nodes.eventNode.addListener(PlayerCustomClickEvent::class.java, ::onLeaveConfirmation)
+    }
+
+    companion object {
+        private val confirmLeaveAction = Key.key("nodes", "confirm_town_leave")
+        private val cancelLeaveAction = Key.key("nodes", "cancel_town_leave")
+
+        fun canLeave(player: Player, resident: Resident, town: Town): Boolean {
             if (TestTownSelection.isEnabled()) {
                 Message.error(player, "You cannot leave during test town selection; use /town join <town> to switch sides")
-                return@addSyntax
+                return false
             }
-
             if (town.leader == resident) {
                 Message.error(player, "You must transfer leadership before leaving the town")
-                return@addSyntax
+                return false
             }
-
             // Warzones are independent weekday activities, so they must not apply the global-war membership lock.
             if (!Nodes.config.canLeaveTownDuringWar && FlagWar.enabled && !Warzone.hasActiveZones()) {
                 Message.error(player, "Cannot leave your town during war")
-                return@addSyntax
+                return false
             }
+            return true
+        }
 
-            Message.print(player, "You have left ${town.name}")
+        private fun onLeaveConfirmation(event: PlayerCustomClickEvent) {
+            if (event.key != confirmLeaveAction) return
+            val player = event.player
+            val resident = Resident.fromPlayer(player) ?: return
+            val town = resident.town ?: return
+            if (!canLeave(player, resident, town)) return
+            resident.lockTownJoining()
             Town.removeResident(town, resident)
-        })
+            Message.print(player, "You have left ${town.name}")
+        }
+
+        private fun leaveConfirmationDialog(town: Town): Dialog.Confirmation {
+            val metadata = DialogMetadata(
+                Component.text("Leave ${town.name}?", NamedTextColor.RED),
+                null,
+                true,
+                false,
+                DialogAfterAction.CLOSE,
+                listOf(DialogBody.PlainMessage(Component.text("You will be temporarily unable to join another town.", NamedTextColor.GRAY), 300)),
+                emptyList(),
+            )
+            return Dialog.Confirmation(
+                metadata,
+                DialogActionButton(
+                    Component.text("Leave town", NamedTextColor.RED),
+                    Component.text("Confirm that you want to leave ${town.name}", NamedTextColor.GRAY),
+                    150,
+                    DialogAction.Custom(confirmLeaveAction, CompoundBinaryTag.empty()),
+                ),
+                DialogActionButton(
+                    Component.text("Cancel", NamedTextColor.GRAY),
+                    null,
+                    150,
+                    DialogAction.Custom(cancelLeaveAction, CompoundBinaryTag.empty()),
+                ),
+            )
+        }
     }
 }
 

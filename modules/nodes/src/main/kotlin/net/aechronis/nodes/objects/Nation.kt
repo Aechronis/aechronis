@@ -82,10 +82,18 @@ class Nation(
             return Result.success(nation)
         }
 
-        fun load(uuid: UUID, name: String, capitalName: String, color: Color?, towns: ArrayList<String>): Nation {
+        fun load(
+            uuid: UUID,
+            name: String,
+            capitalName: String,
+            color: Color?,
+            towns: ArrayList<String>,
+            rallyCap: Int? = null,
+        ): Nation {
             val capital = Town.fromName(capitalName) ?: throw net.aechronis.nodes.constants.ErrorTownDoesNotExist
             val nation = Nation(uuid, name, capital)
             if (color != null) nation.color = color
+            nation.rallyCap = rallyCap?.takeIf { it > 0 }
             for (townName in towns) {
                 val town = Town.fromName(townName) ?: continue
                 nation.towns.add(town)
@@ -173,6 +181,13 @@ class Nation(
             nation.allies.forEach { it.needsUpdate() }
             Nodes.needsSave = true
             return true
+        }
+
+        fun setRallyCap(nation: Nation, rallyCap: Int) {
+            require(rallyCap > 0) { "Rally cap must be at least 1" }
+            nation.rallyCap = rallyCap
+            nation.needsUpdate()
+            Nodes.needsSave = true
         }
 
         fun setCapital(nation: Nation, town: Town) {
@@ -288,6 +303,10 @@ class Nation(
     val allies: HashSet<Nation> = hashSetOf()
     val enemies: HashSet<Nation> = hashSetOf()
 
+    // Maximum residents allowed across all towns. Null means unlimited.
+    var rallyCap: Int? = null
+        private set
+
     // color for displaying on map
     // assign random color by default
     var color: Color = Color(
@@ -353,6 +372,7 @@ class Nation(
         val towns = n.towns.map { x -> x.name }
         val allies = n.allies.map { x -> x.name }
         val enemies = n.enemies.map { x -> x.name }
+        val rallyCap = n.rallyCap
 
         override var jsonString: String? = null
 
@@ -360,12 +380,14 @@ class Nation(
             val towns = this.towns.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
             val allies = this.allies.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
             val enemies = this.enemies.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
+            val rallyCap = this.rallyCap?.let { "\"rallyCap\":$it," } ?: ""
 
             val jsonString = (
                 "{" +
                     "\"uuid\":${JsonPrimitive(this.uuid.toString())}," +
                     "\"capital\":${JsonPrimitive(capital)}," +
                     "\"color\":[${this.color.r},${this.color.g},${this.color.b}]," +
+                    rallyCap +
                     "\"towns\":$towns," +
                     "\"allies\":$allies," +
                     "\"enemies\":$enemies" +

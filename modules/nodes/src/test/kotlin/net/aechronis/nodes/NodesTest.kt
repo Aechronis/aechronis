@@ -804,6 +804,51 @@ class NodesTest {
     }
 
     @Test
+    fun `nation rally cap prevents further residents from joining`() {
+        val territories = Nodes.territories.values.filter { it.town == null }.take(2)
+        assertEquals(2, territories.size)
+        val suffix = UUID.randomUUID().toString().take(8)
+        val firstTown = Town.create("RallyFirst$suffix", territories[0], null).getOrThrow()
+        val secondTown = Town.create("RallySecond$suffix", territories[1], null).getOrThrow()
+        val nation = Nation.create("RallyNation$suffix", firstTown).getOrThrow()
+        Nation.addTown(nation, secondTown).getOrThrow()
+        val firstResident = Resident(UUID.randomUUID(), "rally-first-$suffix")
+        val secondResident = Resident(UUID.randomUUID(), "rally-second-$suffix")
+        Nodes.residents[firstResident.uuid] = firstResident
+        Nodes.residents[secondResident.uuid] = secondResident
+
+        try {
+            Nation.setRallyCap(nation, 1)
+            assertTrue(Town.addResident(firstTown, firstResident))
+            assertFalse(Town.addResident(secondTown, secondResident))
+            assertEquals("${nation.name} has reached its rally cap of 1 residents", Town.joinRestriction(secondTown, secondResident))
+        } finally {
+            Nodes.residents.remove(firstResident.uuid)
+            Nodes.residents.remove(secondResident.uuid)
+            Nation.destroy(nation)
+            Town.destroy(firstTown)
+            Town.destroy(secondTown)
+        }
+    }
+
+    @Test
+    fun `voluntary leave cooldown prevents joining towns`() {
+        val territory = Nodes.territories.values.first { it.town == null }
+        val town = Town.create("CooldownTown${UUID.randomUUID().toString().take(8)}", territory, null).getOrThrow()
+        val resident = Resident(UUID.randomUUID(), "leave-cooldown")
+        Nodes.residents[resident.uuid] = resident
+
+        try {
+            resident.lockTownJoining(60_000)
+            assertFalse(Town.addResident(town, resident))
+            assertTrue(Town.joinRestriction(town, resident)?.contains("cannot join another town") == true)
+        } finally {
+            Nodes.residents.remove(resident.uuid)
+            Town.destroy(town)
+        }
+    }
+
+    @Test
     fun `can enable war`() {
         FlagWar.enable(canAnnexTerritories = true, canOnlyAttackBorders = false, destructionEnabled = true)
         assertTrue(Nodes.war.enabled, "War should be enabled")

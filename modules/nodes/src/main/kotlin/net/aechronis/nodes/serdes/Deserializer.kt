@@ -88,6 +88,9 @@ object Deserializer {
                     ?.let(MinimapPosition::fromId)
                     ?: MinimapPosition.DEFAULT
                 val minimapShiftEnabled = resident.get("minimapShift")?.asBoolean ?: true
+                val townJoinLockedUntil = resident.get("townJoinLockedUntil")?.takeUnless { it.isJsonNull }?.let { value ->
+                    runCatching { value.asLong }.getOrNull()
+                }
 
                 val waypointVisibility = resident.get("waypointVisibility")?.takeIf { it.isJsonObject }?.asJsonObject?.let { visibility ->
                     buildMap {
@@ -122,6 +125,7 @@ object Deserializer {
                     minimapEnabled,
                     minimapPosition,
                     minimapShiftEnabled,
+                    townJoinLockedUntil,
                 )
             }
         }
@@ -393,6 +397,10 @@ object Deserializer {
                     null
                 }
 
+                val rallyCap = nation.get("rallyCap")?.takeUnless { it.isJsonNull }?.let { value ->
+                    runCatching { value.asInt.takeIf { it > 0 } }.getOrNull()
+                }
+
                 // parse towns
                 val towns: ArrayList<String> = arrayListOf()
                 val townsArray = nation.get("towns")?.asJsonArray
@@ -433,6 +441,7 @@ object Deserializer {
                     capitalName,
                     color,
                     towns,
+                    rallyCap,
                 )
 
                 nations.add(nationObject)

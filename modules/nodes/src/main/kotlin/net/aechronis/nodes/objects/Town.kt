@@ -345,7 +345,7 @@ class Town(
             setLeader(source, null)
             transferred.forEach { resident ->
                 removeResident(source, resident)
-                check(addResident(destination, resident, bypassTestTownSelection = true)) {
+                check(addResident(destination, resident, bypassTestTownSelection = true, bypassJoinRestrictions = true)) {
                     "Could not move resident ${resident.name} from ${source.name} to ${destination.name}"
                 }
             }
@@ -426,9 +426,29 @@ class Town(
             resident.inviteThread = null
         }
 
-        fun addResident(town: Town, resident: Resident, bypassTestTownSelection: Boolean = false): Boolean {
+        fun joinRestriction(town: Town, resident: Resident): String? {
+            if (resident.town != null || Nodes.towns.values.any { it.residents.contains(resident) }) {
+                return "You are already a member of a town"
+            }
+            val cooldown = resident.townJoinCooldownRemainingMillis()
+            if (cooldown > 0) return "You cannot join another town for ${formatDuration(cooldown)} after leaving a town"
+            val nation = town.nation
+            val rallyCap = nation?.rallyCap
+            if (rallyCap != null && nation.residents.size >= rallyCap) {
+                return "${nation.name} has reached its rally cap of $rallyCap residents"
+            }
+            return null
+        }
+
+        fun addResident(
+            town: Town,
+            resident: Resident,
+            bypassTestTownSelection: Boolean = false,
+            bypassJoinRestrictions: Boolean = false,
+        ): Boolean {
             if (Nodes.config.testTownSelectionEnabled && !bypassTestTownSelection) return false
             if (resident.town != null || Nodes.towns.values.any { it.residents.contains(resident) }) return false
+            if (!bypassJoinRestrictions && joinRestriction(town, resident) != null) return false
 
             town.residents.add(resident)
             resident.town = town
@@ -574,6 +594,18 @@ class Town(
             Nodes.needsSave = true
         }
 
+        private fun formatDuration(milliseconds: Long): String {
+            val totalMinutes = (milliseconds + 59_999) / 60_000
+            val days = totalMinutes / (24 * 60)
+            val hours = (totalMinutes % (24 * 60)) / 60
+            val minutes = totalMinutes % 60
+            return buildList {
+                if (days > 0) add("${days}d")
+                if (hours > 0) add("${hours}h")
+                if (minutes > 0 && days == 0L) add("${minutes}m")
+            }.joinToString(" ")
+        }
+
         private fun applyDefaultPermissions(town: Town) {
             enumValues<TownPermissions>().forEach {
                 town.permissions[it].clear()
@@ -715,6 +747,9 @@ class Town(
         Message.print(sender, "- Home${ChatColor.WHITE}: Territory (id = ${this.home})")
         Message.print(sender, "- Territories${ChatColor.WHITE}: ${this.territories.size}")
         Message.print(sender, "- Nation${ChatColor.WHITE}: $nation")
+        this.nation?.rallyCap?.let { rallyCap ->
+            Message.print(sender, "- Nation rally cap${ChatColor.WHITE}: $rallyCap")
+        }
         Message.print(sender, "- Allies${ChatColor.WHITE}: $allies")
         Message.print(sender, "- Enemies${ChatColor.WHITE}: $enemies")
         Message.print(sender, "- Leader${ChatColor.WHITE}: $leader")

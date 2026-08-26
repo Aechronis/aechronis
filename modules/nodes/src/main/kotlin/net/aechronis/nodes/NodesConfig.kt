@@ -84,6 +84,9 @@ data class NodesConfig(
     // town spawn timer
     val townSpawnTime: Long = 10000,
 
+    // Time a player must wait after voluntarily leaving a town before joining another.
+    val townLeaveJoinCooldown: Long = 86_400_000, // 1 day
+
     // respawn point for players without a town
     var defaultRespawnPoint: Pos = Pos(0.0, 64.0, 0.0),
 

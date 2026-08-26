@@ -736,6 +736,7 @@ class NodesAdminNationCommand : NodesCommand("nation", "nodes.admin") {
             Message.print(player, "/nodesadmin nation addenemy${ChatColor.WHITE}: Add enemy to nation")
             Message.print(player, "/nodesadmin nation removeenemy${ChatColor.WHITE}: Remove enemy from a nation")
             Message.print(player, "/nodesadmin nation capital${ChatColor.WHITE}: Set nation's capital town")
+            Message.print(player, "/nda nation rallycap <number>${ChatColor.WHITE}: Set your nation's maximum residents")
             Message.print(player, "/nodesadmin nation color${ChatColor.WHITE}: Set the color of a nation")
             Message.print(player, "Run a command with no args to see usage.")
         }
@@ -750,6 +751,7 @@ class NodesAdminNationCommand : NodesCommand("nation", "nodes.admin") {
         addSubcommand(NodesAdminNationAddEnemyCommand())
         addSubcommand(NodesAdminNationRemoveEnemyCommand())
         addSubcommand(NodesAdminNationCapitalCommand())
+        addSubcommand(NodesAdminNationRallyCapCommand())
         addSubcommand(NodesAdminNationColorCommand())
     }
 }
@@ -968,6 +970,26 @@ class NodesAdminNationRemoveEnemyCommand : NodesCommand("removeenemy", "nodes.ad
 
             Message.print(player, "Removed ${context[nationBArg].name} as enemy of ${context[nationAArg].name}")
         }, nationAArg, nationBArg)
+    }
+}
+
+class NodesAdminNationRallyCapCommand : NodesCommand("rallycap", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, _, _ ->
+            Message.print(player, "Usage: /nda nation rallycap <number>")
+        }
+
+        val capArg = ArgumentType.Integer("number")
+
+        addSyntax({ player, _, _, nation, context ->
+            val rallyCap = context[capArg]
+            if (rallyCap < 1) {
+                Message.error(player, "Rally cap must be at least 1")
+                return@addSyntax
+            }
+            Nation.setRallyCap(nation, rallyCap)
+            Message.print(player, "Set ${nation.name}'s rally cap to $rallyCap residents")
+        }, capArg)
     }
 }
 
