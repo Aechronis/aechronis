@@ -452,6 +452,28 @@ class CombatTest {
     }
 
     @Test
+    fun `reload ammo ignores crafting equipment and offhand slots`() {
+        val ammo = Item.getFromName("test-ammo") as Ammo
+        val ammoStack = ammo.toItemStack()
+        val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "reload-ammo"))
+
+        for (slot in PlayerInventoryUtils.CRAFT_RESULT..PlayerInventoryUtils.OFFHAND_SLOT) {
+            player.inventory.setItemStack(slot, ammoStack)
+        }
+        assertEquals(0, ammo[player])
+
+        player.inventory.setItemStack(0, ammoStack.withAmount(3))
+        assertEquals(3, ammo[player])
+
+        ammo[player] = 2
+
+        assertEquals(2, player.inventory.getItemStack(0).amount())
+        for (slot in PlayerInventoryUtils.CRAFT_RESULT..PlayerInventoryUtils.OFFHAND_SLOT) {
+            assertEquals(1, player.inventory.getItemStack(slot).amount(), "ammo in slot $slot should not be consumed")
+        }
+    }
+
+    @Test
     fun `armor remains placeable in armor slots`() {
         val chestplate = (Item.getFromName("test-chestplate") as ArmorPiece).toItemStack()
         val player = Player(TestConnection(), GameProfile(UUID.randomUUID(), "armor-inventory"))
