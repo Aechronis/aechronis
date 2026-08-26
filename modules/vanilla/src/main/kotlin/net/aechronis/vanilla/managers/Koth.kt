@@ -56,6 +56,7 @@ object Koth {
         val definition: Definition,
         val startedAt: Long,
         val endsAt: Long,
+        var nextAnnouncementAt: Long = startedAt + ANNOUNCEMENT_INTERVAL_MS,
         var capturer: UUID? = null,
         var captureStartedAt: Long? = null,
         val bossBars: MutableMap<UUID, BossBar> = mutableMapOf(),
@@ -72,6 +73,8 @@ object Koth {
     private val gson = GsonBuilder().setPrettyPrinting().create()
     private val cronParser = CronParser(CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX))
     private lateinit var file: Path
+
+    private const val ANNOUNCEMENT_INTERVAL_MS = 10 * 60 * 1000L
 
     fun init(path: Path) {
         val timeStart = System.currentTimeMillis()
@@ -232,6 +235,8 @@ object Koth {
                 continue
             }
 
+            announceIfDue(state, now)
+
             if (state.capturer == null) {
                 val player =
                     MinecraftServer
@@ -257,6 +262,16 @@ object Koth {
     private fun scheduledTick() {
         val now = ZonedDateTime.now(ZoneId.systemDefault())
         tickAt(System.currentTimeMillis(), now.toLocalDateTime().withNano(0))
+    }
+
+    private fun announceIfDue(
+        state: ActiveKoth,
+        now: Long,
+    ) {
+        if (now < state.nextAnnouncementAt) return
+        state.nextAnnouncementAt = now + ANNOUNCEMENT_INTERVAL_MS
+        val remaining = formatTime((state.endsAt - now).coerceAtLeast(0))
+        broadcast(Component.text("KOTH ${state.definition.saved.name} is still active! $remaining remaining.", NamedTextColor.GOLD))
     }
 
     private fun startScheduled(dateTime: LocalDateTime) {
