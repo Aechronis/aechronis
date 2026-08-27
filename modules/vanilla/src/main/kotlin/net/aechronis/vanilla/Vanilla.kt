@@ -6,6 +6,7 @@ import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.Convert
 import net.aechronis.vanilla.commands.Craft
 import net.aechronis.vanilla.commands.EnderChest
+import net.aechronis.vanilla.commands.FactoryCommand
 import net.aechronis.vanilla.commands.Fly
 import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
@@ -45,6 +46,7 @@ import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Efficiency
 import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.EnvironmentalDamage
+import net.aechronis.vanilla.managers.Factories
 import net.aechronis.vanilla.managers.Filter
 import net.aechronis.vanilla.managers.Food
 import net.aechronis.vanilla.managers.ItemFrames
@@ -124,6 +126,7 @@ object Vanilla {
             if (config.whitelistEnabled) commands += Whitelist()
             if (config.kothEnabled) commands += KothCommand()
             if (config.oresEnabled) commands += Ore()
+            if (config.factoriesEnabled) commands += FactoryCommand()
             MinecraftServer.getCommandManager().register(*commands.toTypedArray())
         }
         println("Loading Vanilla")
@@ -160,6 +163,7 @@ object Vanilla {
         if (config.musicEnabled) MusicManager.init()
         if (config.kothEnabled) Koth.init(Path.of(config.path, config.kothsPath))
         if (config.oresEnabled) Ores.init(Path.of(config.path, config.oresPath))
+        if (config.factoriesEnabled) Factories.init(Path.of(config.path, config.factoriesPath))
         VoteLinks.init(Path.of(config.path, config.votePath))
         Warps.init(Path.of(config.path, config.warpsPath))
 
@@ -175,6 +179,7 @@ object Vanilla {
         runSaveStages(
             "checkpoint" to ::saveCheckpoint,
             "ores" to { if (config.oresEnabled) Ores.saveAll() },
+            "factories" to { if (config.factoriesEnabled) Factories.saveAll() },
             "koth" to { if (config.kothEnabled) Koth.saveAll() },
             "warps" to Warps::saveAll,
         )

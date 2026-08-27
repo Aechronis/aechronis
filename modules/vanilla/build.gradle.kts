@@ -12,10 +12,12 @@ dependencies {
     compileOnly("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     compileOnly("org.everbuild.blocksandstuff:blocksandstuff-common:1.10.2-SNAPSHOT")
     compileOnly(project(":modules:utils"))
+    compileOnly(project(":modules:combat"))
 
     testImplementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     testImplementation("com.google.code.gson:gson:2.14.0")
     testImplementation(project(":modules:utils"))
+    testImplementation(project(":modules:combat"))
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
     testImplementation("org.junit.platform:junit-platform-launcher:6.1.2")
