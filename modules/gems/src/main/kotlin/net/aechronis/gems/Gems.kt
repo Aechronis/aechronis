@@ -603,7 +603,7 @@ private class GemCommand(
                 )
             }
         }
-        setDefaultExecutor { sender, _ ->
+        setSenderDefaultExecutor { sender, _ ->
             sender.sendMessage(
                 Component.text(
                     "Usage: /gem balance <player> | /gem transactions <player> | /gem <give|take> <player> <amount>",
@@ -611,24 +611,24 @@ private class GemCommand(
                 ),
             )
         }
-        addSyntax("gems.admin", { sender, context ->
+        addSenderSyntax("gems.admin", { sender, context ->
             val target = repository.findPlayer(context[player])
             if (target == null) {
                 sender.sendMessage(Component.text("No gem account exists for '${context[player]}'.", NamedTextColor.RED))
-                return@addSyntax
+                return@addSenderSyntax
             }
             sender.sendMessage(Component.text("${target.name}'s gem balance: ${target.balance}", NamedTextColor.GREEN))
         }, balanceAction, player)
-        addSyntax("gems.admin", { sender, context ->
+        addSenderSyntax("gems.admin", { sender, context ->
             val target = repository.findPlayer(context[player])
             if (target == null) {
                 sender.sendMessage(Component.text("No gem account exists for '${context[player]}'.", NamedTextColor.RED))
-                return@addSyntax
+                return@addSenderSyntax
             }
             val transactions = repository.transactions(target.uuid)
             if (transactions.isEmpty()) {
                 sender.sendMessage(Component.text("${target.name} has no gem transactions.", NamedTextColor.YELLOW))
-                return@addSyntax
+                return@addSenderSyntax
             }
             sender.sendMessage(Component.text("Latest gem transactions for ${target.name}:", NamedTextColor.GOLD))
             transactions.forEach { transaction ->
@@ -641,17 +641,17 @@ private class GemCommand(
                 )
             }
         }, transactionsAction, player)
-        addSyntax("gems.admin", { sender, context ->
+        addSenderSyntax("gems.admin", { sender, context ->
             val target = repository.findPlayer(context[player])
             if (target == null) {
                 sender.sendMessage(Component.text("No gem account exists for '${context[player]}'.", NamedTextColor.RED))
-                return@addSyntax
+                return@addSenderSyntax
             }
             val delta = if (context[action] == "give") context[amount] else -context[amount]
             val balance = repository.adjust(target.uuid, delta)
             if (balance == null) {
                 sender.sendMessage(Component.text("${target.name} does not have enough gems.", NamedTextColor.RED))
-                return@addSyntax
+                return@addSenderSyntax
             }
             sender.sendMessage(
                 Component.text(

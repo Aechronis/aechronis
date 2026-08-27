@@ -69,6 +69,17 @@ class CommandTest {
     }
 
     @Test
+    fun `sender default executor runs for console`() {
+        val command = TestCommand(allowedPermissions = setOf("example.use"))
+        var executed = false
+        command.setSenderDefaultExecutor { _, _ -> executed = true }
+
+        requireNotNull(command.defaultExecutor).apply(ConsoleSender(), CommandContext("example"))
+
+        assertTrue(executed)
+    }
+
+    @Test
     fun `null permission does not restrict execution`() {
         val command = TestCommand(permission = null)
         var executed = false

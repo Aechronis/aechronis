@@ -259,20 +259,18 @@ fun main(args: Array<String>) {
 
     val worldEdit = MinestomWorldEdit()
     worldEdit.init()
-    Guard.init(
-        GuardConfig(
-            loadedZoneInstanceIdMigration = { Server.primaryWorldInstanceId },
-        ),
-    )
+    Guard.init(GuardConfig())
 
-    // CraftingStore is last: all commands which a donation may dispatch are now registered.
+    // External inits.
     CraftingStoreIntegration.initialize()
+    VotifierIntegration.initialize()
 
     ServerShutdown.configure(
         saveState = {
             VehiclePersistence.saveForShutdown()
             Vanilla.saveBeforeShutdown()
             CraftingStoreIntegration.shutdown()
+            VotifierIntegration.shutdown()
         },
         stopServer = MinecraftServer::stopCleanly,
         saveWorld = { WorldSaver.saveWorld().join() },

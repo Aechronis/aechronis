@@ -7,41 +7,41 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.command.builder.suggestion.SuggestionEntry
 import net.minestom.server.entity.Player
 
-/** Common player-name argument handling, including the vanilla-module '*' target. */
 object PlayerTargets {
     fun argument(name: String = "player") =
         ArgumentType.Word(name).setSuggestionCallback { _, _, suggestion ->
-            val prefix = typedToken(suggestion.getInput())
-            val playerNames = MinecraftServer.getConnectionManager().onlinePlayers.map(Player::getUsername)
-
-            suggestions(prefix, playerNames).forEach { suggestion.addEntry(SuggestionEntry(it)) }
+            addOnlinePlayerSuggestions(suggestion.getInput()) { entry -> suggestion.addEntry(SuggestionEntry(entry)) }
         }
 
-    internal fun typedToken(input: String): String = input.substringAfterLast(" ")
+    fun arguments(name: String = "players") =
+        ArgumentType.StringArray(name).setSuggestionCallback { _, _, suggestion ->
+            addOnlinePlayerSuggestions(suggestion.getInput()) { entry -> suggestion.addEntry(SuggestionEntry(entry)) }
+        }
+
+    internal fun typedToken(input: String): String = input.substringAfterLast(" ").trimEnd('\u0000')
 
     internal fun suggestions(
         prefix: String,
         playerNames: Collection<String>,
     ): kotlin.collections.List<String> =
-        buildList {
-            if ("*".startsWith(prefix, ignoreCase = true)) add("*")
-            addAll(
-                playerNames
-                    .asSequence()
-                    .distinct()
-                    .sortedWith(String.CASE_INSENSITIVE_ORDER)
-                    .filter { it.startsWith(prefix, ignoreCase = true) }
-                    .toList(),
-            )
-        }
+        playerNames
+            .asSequence()
+            .distinct()
+            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+            .filter { it.startsWith(prefix, ignoreCase = true) }
+            .toList()
 
     internal fun resolve(
         target: String,
         players: Collection<Player>,
-    ): kotlin.collections.List<Player>? {
-        if (target == "*") return players.toList()
+    ): kotlin.collections.List<Player>? = players.firstOrNull { it.username.equals(target, ignoreCase = true) }?.let(::listOf)
 
-        return players.firstOrNull { it.username.equals(target, ignoreCase = true) }?.let(::listOf)
+    private fun addOnlinePlayerSuggestions(
+        input: String,
+        addSuggestion: (String) -> Unit,
+    ) {
+        val playerNames = MinecraftServer.getConnectionManager().onlinePlayers.map(Player::getUsername)
+        suggestions(typedToken(input), playerNames).forEach(addSuggestion)
     }
 
     fun resolve(

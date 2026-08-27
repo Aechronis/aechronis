@@ -49,6 +49,7 @@ data class VanillaConfig(
     val spawnPath: String = "spawn",
     val oresPath: String = "ores.json",
     val kothsPath: String = "koth.json",
+    val votePath: String = "vote.txt",
     val warpsPath: String = "warps.json",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),

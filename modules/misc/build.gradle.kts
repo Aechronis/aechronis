@@ -11,6 +11,8 @@ dependencies {
     implementation("net.craftingstore:core:2.11.2-SNAPSHOT") {
         isChanging = true
     }
+    implementation("com.github.NuVotifier.NuVotifier:nuvotifier-api:2.7.1")
+    implementation("com.github.NuVotifier.NuVotifier:nuvotifier-common:2.7.1")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")

@@ -47,6 +47,7 @@ class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
             Message.print(player, "/nodesadmin war${ChatColor.WHITE}: Enable/disable war")
             Message.print(player, "/nodesadmin town${ChatColor.WHITE}: Manage towns (see \"/nodesadmin town help\")")
             Message.print(player, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
+            Message.print(player, "/nodesadmin resident${ChatColor.WHITE}: Manage resident cooldowns")
             Message.print(player, "/nodesadmin building${ChatColor.WHITE}: Manage buildings (see \"/nodesadmin building help\")")
             Message.print(player, "/nda trains${ChatColor.WHITE}: Manage train stations")
             Message.print(player, "/nda teleport${ChatColor.WHITE}: Teleport to a territory's core chunk")
@@ -61,6 +62,7 @@ class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
         addSubcommand(NodesAdminWarCommand())
         addSubcommand(NodesAdminTownCommand())
         addSubcommand(NodesAdminNationCommand())
+        addSubcommand(NodesAdminResidentCommand())
         addSubcommand(NodesAdminBuildingCommand())
         addSubcommand(NodesAdminTrainsCommand())
         addSubcommand(NodesAdminTeleportCommand())
@@ -80,6 +82,7 @@ class NodesAdminHelpCommand : NodesCommand("help", "nodes.admin") {
             Message.print(player, "/nodesadmin war${ChatColor.WHITE}: Enable/disable war")
             Message.print(player, "/nodesadmin town${ChatColor.WHITE}: Manage towns (see \"/nodesadmin town help\")")
             Message.print(player, "/nodesadmin nation${ChatColor.WHITE}: Manage nations (see \"/nodesadmin nation help\")")
+            Message.print(player, "/nodesadmin resident${ChatColor.WHITE}: Manage resident cooldowns")
             Message.print(player, "/nodesadmin building${ChatColor.WHITE}: Manage buildings (see \"/nodesadmin building help\")")
             Message.print(player, "/nda trains${ChatColor.WHITE}: Manage train stations")
             Message.print(player, "/nda teleport <territory-id>${ChatColor.WHITE}: Teleport to a territory's core chunk")
@@ -89,6 +92,7 @@ class NodesAdminHelpCommand : NodesCommand("help", "nodes.admin") {
             Message.print(player, "/nodesadmin runincome${ChatColor.WHITE}: Runs income for all towns")
             Message.print(player, "/nodesadmin miningboost${ChatColor.WHITE}: Configure global mining boosts")
             Message.print(player, "/nodesadmin debug${ChatColor.WHITE}: World object debugger")
+            Message.print(player, "/nodesadmin resident removecooldown <player-names>${ChatColor.WHITE}: Clear town-join cooldowns")
         }
     }
 }
@@ -333,7 +337,7 @@ class NodesAdminTownAddPlayerCommand : NodesCommand("addplayer", "nodes.admin") 
 
         addSyntax({ player, resident, context ->
             for (resident in context[playersArg]) {
-                if (Town.addResident(context[townArg], resident, bypassTestTownSelection = true)) {
+                if (Town.addResident(context[townArg], resident, bypassTestTownSelection = true, bypassJoinRestrictions = true)) {
                     Message.print(player, "Added \"${resident.name}\" to town \"${context[townArg].name}\"")
                 } else {
                     Message.error(player, "${resident.name} is already a member of a town")
@@ -730,6 +734,33 @@ class NodesAdminTownAiClearCommand : NodesCommand("clear", "nodes.admin") {
             Message.print(player, "Cleared AI control and defender configuration for ${town.name}")
             Message.print(player, "Active colonization against ${town.name} will end")
         }, townArg)
+    }
+}
+
+class NodesAdminResidentCommand : NodesCommand("resident", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, _, _ ->
+            Message.print(player, "Usage: /nda resident removecooldown <player-names>")
+        }
+
+        addSubcommand(NodesAdminResidentRemoveCooldownCommand())
+    }
+}
+
+class NodesAdminResidentRemoveCooldownCommand : NodesCommand("removecooldown", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, _, _ ->
+            Message.print(player, "Usage: /nda resident removecooldown <player-names>")
+        }
+
+        val playersArg = ArgumentResidentArray.create("player-names")
+
+        addSyntax({ player, _, context ->
+            context[playersArg].forEach { resident ->
+                resident.clearTownJoinCooldown()
+                Message.print(player, "Removed town-join cooldown for \"${resident.name}\"")
+            }
+        }, playersArg)
     }
 }
 

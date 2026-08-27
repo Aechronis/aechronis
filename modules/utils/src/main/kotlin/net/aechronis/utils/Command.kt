@@ -10,11 +10,12 @@ import net.minestom.server.entity.Player
 import net.minestom.server.command.builder.Command as MinestomCommand
 
 /**
- * A player-only Minestom command with centralized permission handling.
+ * A Minestom command with centralized permission handling.
  *
- * [permission] applies to every executor unless an executor-specific permission
- * is supplied. Libraries can override [canExecute] for additional policy while
- * retaining the common sender and permission checks.
+ * The player executor helpers require a [Player]. Sender executor helpers also
+ * allow the console and server senders, which are trusted and bypass player
+ * permission checks. [permission] applies to every player executor unless an
+ * executor-specific permission is supplied.
  */
 open class Command(
     name: String,
@@ -67,19 +68,31 @@ open class Command(
         validatedPlayer(sender, permission)?.let { executor(it, context) }
     }, *args)
 
-    /**
-     * Adds a syntax that can be executed by a player or a trusted server sender.
-     * Server senders bypass player permission checks because they are internal callers.
-     */
+    /** Adds a default executor that can be run by players, console, or server senders. */
+    fun setSenderDefaultExecutor(executor: (sender: CommandSender, context: CommandContext) -> Unit) =
+        setSenderDefaultExecutor(permission, executor)
+
+    /** Adds a sender-capable default executor with an executor-specific [permission]. */
+    fun setSenderDefaultExecutor(
+        permission: String?,
+        executor: (sender: CommandSender, context: CommandContext) -> Unit,
+    ) = super.setDefaultExecutor { sender, context ->
+        if (validatedSender(sender, permission)) executor(sender, context)
+    }
+
+    /** Adds a syntax that can be executed by players, console, or server senders. */
     fun addSenderSyntax(
         executor: (sender: CommandSender, context: CommandContext) -> Unit,
         vararg args: Argument<*>,
+    ) = addSenderSyntax(permission, executor, *args)
+
+    /** Adds a sender-capable syntax with an executor-specific [permission]. */
+    fun addSenderSyntax(
+        permission: String?,
+        executor: (sender: CommandSender, context: CommandContext) -> Unit,
+        vararg args: Argument<*>,
     ) = super.addSyntax({ sender, context ->
-        if (sender is Player && !hasPermission(sender, permission)) {
-            sender.sendMessage(Component.text(PERMISSION_DENIED_MESSAGE, NamedTextColor.RED))
-            return@addSyntax
-        }
-        executor(sender, context)
+        if (validatedSender(sender, permission)) executor(sender, context)
     }, *args)
 
     /** Allows libraries to impose additional execution policy. */
@@ -90,6 +103,18 @@ open class Command(
         player: Player,
         permission: String?,
     ): Boolean = player.hasPermission(permission)
+
+    private fun validatedSender(
+        sender: CommandSender,
+        permission: String?,
+    ): Boolean {
+        if (sender !is Player) return true
+        if (!hasPermission(sender, permission)) {
+            sender.sendMessage(Component.text(PERMISSION_DENIED_MESSAGE, NamedTextColor.RED))
+            return false
+        }
+        return canExecute(sender)
+    }
 
     private fun validatedPlayer(
         sender: CommandSender,

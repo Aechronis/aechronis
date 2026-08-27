@@ -451,7 +451,8 @@ object NodesWorldListener {
                     Message.error(event.player, if (permission == TownPermissions.CHESTS) "You cannot use chests here!" else "You cannot interact here!")
                     return
                 }
-                if (permission == TownPermissions.CHESTS && warzoneOccupier.protectedBlocks.contains(event.blockPosition) &&
+                if (permission == TownPermissions.CHESTS &&
+                    warzoneOccupier.protectedBlocks.contains(event.blockPosition) &&
                     !resident.hasTownProtectedChestPermissions(warzoneOccupier)
                 ) {
                     event.isCancelled = true
@@ -641,8 +642,7 @@ private fun hasOccupierPermissions(perms: TownPermissions, town: Town, occupier:
  * Chunk occupation takes precedence until a core capture occupies the whole
  * territory.
  */
-private fun warzoneOccupier(territory: Territory, territoryChunk: TerritoryChunk): Town? =
-    if (Warzone.isActive(territory)) territoryChunk.occupier ?: territory.occupier else null
+private fun warzoneOccupier(territory: Territory, territoryChunk: TerritoryChunk): Town? = if (Warzone.isActive(territory)) territoryChunk.occupier ?: territory.occupier else null
 
 // bypass permissions and allow all interaction in
 // captured chunks/territories during wartime

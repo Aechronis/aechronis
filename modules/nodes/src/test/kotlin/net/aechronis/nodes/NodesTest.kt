@@ -1,7 +1,6 @@
 package net.aechronis.nodes
 
 import net.aechronis.nodes.commands.TownFlyCommand
-import net.aechronis.nodes.commands.arguments.matchingResidents
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.listeners.NodesBlockPlacementCooldownListener
@@ -36,7 +35,6 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
-import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerMoveEvent
@@ -698,21 +696,6 @@ class NodesTest {
     }
 
     @Test
-    fun `resident suggestions are case insensitive and sorted`() {
-        val alpha = Resident(UUID.randomUUID(), "SuggestionAlpha")
-        val beta = Resident(UUID.randomUUID(), "suggestionBeta")
-        Nodes.residents[alpha.uuid] = alpha
-        Nodes.residents[beta.uuid] = beta
-
-        try {
-            assertEquals(listOf("SuggestionAlpha", "suggestionBeta"), matchingResidents("SuGgEsTiOn").map { it.name })
-        } finally {
-            Nodes.residents.remove(alpha.uuid)
-            Nodes.residents.remove(beta.uuid)
-        }
-    }
-
-    @Test
     fun `test town balance locks only the overpopulated side`() {
         assertEquals(TestTownSide.RED, testTownLockedSide(redPopulation = 5, bluePopulation = 2, difference = 3))
         assertEquals(TestTownSide.BLUE, testTownLockedSide(redPopulation = 2, bluePopulation = 5, difference = 3))
@@ -933,6 +916,15 @@ class NodesTest {
             resident.lockTownJoining(60_000)
             assertFalse(Town.addResident(town, resident))
             assertTrue(Town.joinRestriction(town, resident)?.contains("cannot join another town") == true)
+
+            assertTrue(Town.addResident(town, resident, bypassJoinRestrictions = true))
+            assertEquals(town, resident.town)
+            Town.removeResident(town, resident)
+
+            resident.lockTownJoining(60_000)
+            resident.clearTownJoinCooldown()
+            assertEquals(0, resident.townJoinCooldownRemainingMillis())
+            assertTrue(Town.addResident(town, resident))
         } finally {
             Nodes.residents.remove(resident.uuid)
             Town.destroy(town)

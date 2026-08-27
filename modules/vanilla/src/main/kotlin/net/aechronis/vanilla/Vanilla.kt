@@ -25,6 +25,7 @@ import net.aechronis.vanilla.commands.Shutdown
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
 import net.aechronis.vanilla.commands.Vanish
+import net.aechronis.vanilla.commands.Vote
 import net.aechronis.vanilla.commands.Warp
 import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
@@ -59,6 +60,7 @@ import net.aechronis.vanilla.managers.Shelves
 import net.aechronis.vanilla.managers.Signs
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.TreeFeller
+import net.aechronis.vanilla.managers.VoteLinks
 import net.aechronis.vanilla.managers.Warps
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
@@ -111,6 +113,7 @@ object Vanilla {
                     TpsBar(),
                     Shutdown(),
                     Vanish(),
+                    Vote(),
                     Warp(),
                 )
             if (config.musicEnabled) commands += Music()
@@ -157,6 +160,7 @@ object Vanilla {
         if (config.musicEnabled) MusicManager.init()
         if (config.kothEnabled) Koth.init(Path.of(config.path, config.kothsPath))
         if (config.oresEnabled) Ores.init(Path.of(config.path, config.oresPath))
+        VoteLinks.init(Path.of(config.path, config.votePath))
         Warps.init(Path.of(config.path, config.warpsPath))
 
         // print load time

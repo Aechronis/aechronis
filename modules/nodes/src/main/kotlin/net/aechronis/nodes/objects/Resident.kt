@@ -236,6 +236,12 @@ class Resident(val uuid: UUID, val name: String) {
         return townJoinLockedUntil
     }
 
+    fun clearTownJoinCooldown() {
+        townJoinLockedUntil = null
+        needsUpdate()
+        Nodes.needsSave = true
+    }
+
     fun townJoinCooldownRemainingMillis(now: Long = System.currentTimeMillis()): Long {
         val lockedUntil = townJoinLockedUntil ?: return 0
         if (lockedUntil > now) return lockedUntil - now

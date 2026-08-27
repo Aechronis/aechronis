@@ -1,28 +1,18 @@
 package net.aechronis.nodes.commands.arguments
 
 import net.aechronis.nodes.objects.Resident
+import net.aechronis.vanilla.commands.PlayerTargets
 import net.minestom.server.command.builder.arguments.Argument
-import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.command.builder.exception.ArgumentSyntaxException
-import net.minestom.server.command.builder.suggestion.SuggestionEntry
 
 object ArgumentResidentArray {
     /**
      * Creates an argument that accepts multiple residents and returns a list of Resident objects.
      */
-    fun create(id: String): Argument<List<Resident>> {
-        val stringArray = ArgumentType.StringArray(id)
-        stringArray.setSuggestionCallback { _, _, suggestion ->
-            val input = suggestion.input.substringAfterLast(" ")
-            matchingResidents(input).forEach { resident ->
-                suggestion.addEntry(SuggestionEntry(resident.name))
-            }
-        }
-        return stringArray.map { inputs ->
-            inputs.map { input ->
-                Resident.fromName(input)
-                    ?: throw ArgumentSyntaxException("Resident not found", input, 1)
-            }
+    fun create(id: String): Argument<List<Resident>> = PlayerTargets.arguments(id).map { inputs ->
+        inputs.map { input ->
+            Resident.fromName(input)
+                ?: throw ArgumentSyntaxException("Resident not found", input, 1)
         }
     }
 }

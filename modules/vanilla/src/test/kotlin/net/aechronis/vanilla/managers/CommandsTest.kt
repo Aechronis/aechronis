@@ -9,6 +9,7 @@ import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
+import net.minestom.server.command.builder.CommandResult
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
@@ -75,29 +76,41 @@ class CommandsTest : ManagerTest() {
     }
 
     @Test
-    fun `player target suggestions prioritize wildcard and filter names`() {
+    fun `player target suggestions filter online names`() {
         val names = listOf("AcuZulu", "AcuAlice", "AcuBob")
 
         assertEquals(
-            listOf("*", "AcuAlice", "AcuBob", "AcuZulu"),
+            listOf("AcuAlice", "AcuBob", "AcuZulu"),
             PlayerTargets.suggestions("", names),
         )
         assertEquals("AcuZ", PlayerTargets.typedToken("give AcuZ"))
+        assertEquals("", PlayerTargets.typedToken("give \u0000"))
         assertEquals(listOf("AcuZulu"), PlayerTargets.suggestions(PlayerTargets.typedToken("give AcuZ"), names))
-        assertEquals(listOf("*"), PlayerTargets.suggestions("*", names))
+        assertEquals(emptyList(), PlayerTargets.suggestions("*", names))
     }
 
     @Test
-    fun `wildcard player target resolves every supplied player`() {
+    fun `player target resolver accepts only named players`() {
         val sender = VanillaTest.createPlayer(Pos(78.5, 40.0, 30.5))
         val target = VanillaTest.createPlayer(Pos(80.5, 40.0, 30.5))
 
         try {
-            assertEquals(listOf(sender, target), PlayerTargets.resolve("*", listOf(sender, target)))
+            assertEquals(listOf(sender), PlayerTargets.resolve(sender.username, listOf(sender, target)))
+            assertEquals(null, PlayerTargets.resolve("*", listOf(sender, target)))
         } finally {
             VanillaTest.remove(sender)
             VanillaTest.remove(target)
         }
+    }
+
+    @Test
+    fun `console can execute give syntax`() {
+        val result =
+            MinecraftServer
+                .getCommandManager()
+                .execute(MinecraftServer.getCommandManager().consoleSender, "give test minecraft:diamond 3")
+
+        assertEquals(CommandResult.Type.SUCCESS, result.type)
     }
 
     @Test

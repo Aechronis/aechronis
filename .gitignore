@@ -15,8 +15,11 @@ node_modules/
 dist/
 
 # Server runtime data
+/modules/nodes
 /craftingstore/
 /server/craftingstore/
+/votifier/
+/server/votifier/
 /server/axiom/
 /server/combat/
 /server/luckperms/
