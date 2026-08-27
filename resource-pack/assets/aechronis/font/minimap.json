@@ -23,6 +23,13 @@
     },
     {
       "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/oil_rig.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
       "file": "aechronis:font/minimap/icons/waypoint_private.png",
       "height": 9,
       "ascent": 8,

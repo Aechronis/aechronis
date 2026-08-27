@@ -15,6 +15,7 @@ import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.MinimapPosition
 import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Nation
+import net.aechronis.nodes.objects.OilRig
 import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Resident
@@ -516,6 +517,7 @@ object Deserializer {
             when (type) {
                 "port" -> loadPort(building)
                 "farm" -> loadFarm(building)
+                "oil_rig" -> loadOilRig(building)
                 "train" -> loadTrainStation(building)
                 else -> System.err.println("Cannot create building: unknown type \"$type\"")
             }
@@ -531,6 +533,16 @@ object Deserializer {
         }
         val tier: Int = farm.get("tier")?.asInt ?: 1
         Farm.load(chunkX, chunkZ, tier)
+    }
+
+    private fun loadOilRig(oilRig: JsonObject) {
+        val chunkX = oilRig.get("chunkX")?.asInt
+        val chunkZ = oilRig.get("chunkZ")?.asInt
+        if (chunkX == null || chunkZ == null) {
+            System.err.println("Cannot create oil rig: missing chunkX or chunkZ coordinate")
+            return
+        }
+        OilRig.load(chunkX, chunkZ, oilRig.get("tier")?.asInt ?: 1)
     }
 
     private fun loadTrainStation(train: JsonObject) {

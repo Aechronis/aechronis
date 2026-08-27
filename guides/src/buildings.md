@@ -118,7 +118,7 @@ Train stations produce small amounts of coal and oil. Rails can be built connect
 ---
 
 ## Oil rig
-Oil rigs produce oil. Requires territory tier 2.
+Oil rigs produce oil (Dragon's Breath in-game). Requires territory tier 2.
 
 <img src="buildings/oil-rig/1.webp" align="right" height="165">
 

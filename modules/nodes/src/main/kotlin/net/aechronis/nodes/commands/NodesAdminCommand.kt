@@ -26,6 +26,7 @@ import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.NodesCommand
+import net.aechronis.nodes.objects.OilRig
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
@@ -1093,11 +1094,13 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
             Message.print(player, "Usage:")
             Message.print(player, "/nodesadmin building create port <name> <public> [tier]")
             Message.print(player, "/nodesadmin building create farm [tier]")
+            Message.print(player, "/nodesadmin building create oilrig [tier]")
             Message.print(player, "/nodesadmin building create train [tier]")
         }
 
         val portLit = ArgumentType.Literal("port")
         val farmLit = ArgumentType.Literal("farm")
+        val oilRigLit = ArgumentType.Literal("oilrig")
         val trainLit = ArgumentType.Literal("train")
         val nameArg = ArgumentSanitizedString.create("name")
         val publicArg = ArgumentBoolean("public")
@@ -1128,6 +1131,18 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
             }
             Message.print(player, "Created farm (tier $context[tierArg])")
         }, farmLit, tierArg)
+
+        addSyntax({ player, resident, context ->
+            OilRig.create(
+                Math.floorDiv(player.position.blockX(), 16),
+                Math.floorDiv(player.position.blockZ(), 16),
+                context[tierArg],
+            ).getOrElse { err ->
+                Message.error(player, "Failed to create oil rig: ${err.message}")
+                return@addSyntax
+            }
+            Message.print(player, "Created oil rig (tier $context[tierArg])")
+        }, oilRigLit, tierArg)
 
         addSyntax({ player, resident, context ->
             TrainStationBuilding.create(

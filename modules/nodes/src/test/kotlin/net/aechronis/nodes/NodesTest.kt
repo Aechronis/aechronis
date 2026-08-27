@@ -12,6 +12,7 @@ import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.MinimapPosition
 import net.aechronis.nodes.objects.Nation
+import net.aechronis.nodes.objects.OilRig
 import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Resident
@@ -353,6 +354,33 @@ class NodesTest {
             }
         } finally {
             Building.destroy(farm)
+            town.income.storage.clear()
+            town.income.storage.putAll(storageBefore)
+        }
+    }
+
+    @Test
+    fun `oil rigs produce dragon breath as town income`() {
+        val town = Town.fromName("London")!!
+        val territory = Territory.fromId(town.home)!!
+        val rigChunk = territory.chunks.first { Building.getAt(it.x, it.z) == null }
+        val storageBefore = town.income.snapshot()
+        val oilRig = OilRig.create(rigChunk.x, rigChunk.z, tier = 1).getOrThrow()
+
+        try {
+            assertEquals(mapOf(Material.DRAGON_BREATH to 32.0), oilRig.income())
+            oilRig.setTier(2)
+            assertEquals(mapOf(Material.DRAGON_BREATH to 64.0), oilRig.income())
+            oilRig.setTier(3)
+            assertEquals(mapOf(Material.DRAGON_BREATH to 128.0), oilRig.income())
+            assertEquals(0xE00D, oilRig.minimapIconCodepoint)
+            assertEquals("{\"type\":\"oil_rig\",\"chunkX\":${rigChunk.x},\"chunkZ\":${rigChunk.z},\"tier\":3}", oilRig.getSaveState().toJsonString())
+
+            Nodes.runIncome()
+            val collected = (town.income.snapshot()[Material.DRAGON_BREATH] ?: 0) - (storageBefore[Material.DRAGON_BREATH] ?: 0)
+            assertEquals(128, collected)
+        } finally {
+            Building.destroy(oilRig)
             town.income.storage.clear()
             town.income.storage.putAll(storageBefore)
         }
