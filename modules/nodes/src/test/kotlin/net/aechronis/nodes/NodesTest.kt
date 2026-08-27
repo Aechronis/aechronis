@@ -1,6 +1,7 @@
 package net.aechronis.nodes
 
 import net.aechronis.nodes.commands.TownFlyCommand
+import net.aechronis.nodes.commands.TownLeaveCommand
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.listeners.NodesBlockPlacementCooldownListener
@@ -928,6 +929,25 @@ class NodesTest {
         } finally {
             Nodes.residents.remove(resident.uuid)
             Town.destroy(town)
+        }
+    }
+
+    @Test
+    fun `town leave penalty toggle controls cooldown application`() {
+        val resident = Resident(UUID.randomUUID(), "leave-penalty")
+        val previous = Nodes.config.townLeavePenaltyEnabled
+
+        try {
+            Nodes.config.townLeavePenaltyEnabled = true
+            TownLeaveCommand.applyLeavePenalty(resident)
+            assertTrue(resident.townJoinCooldownRemainingMillis() > 0)
+
+            resident.clearTownJoinCooldown()
+            Nodes.config.townLeavePenaltyEnabled = false
+            TownLeaveCommand.applyLeavePenalty(resident)
+            assertEquals(0, resident.townJoinCooldownRemainingMillis())
+        } finally {
+            Nodes.config.townLeavePenaltyEnabled = previous
         }
     }
 

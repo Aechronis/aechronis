@@ -635,19 +635,28 @@ class TownLeaveCommand : NodesCommand("leave") {
             val resident = Resident.fromPlayer(player) ?: return
             val town = resident.town ?: return
             if (!canLeave(player, resident, town)) return
-            resident.lockTownJoining()
+            applyLeavePenalty(resident)
             Town.removeResident(town, resident)
             Message.print(player, "You have left ${town.name}")
         }
 
+        internal fun applyLeavePenalty(resident: Resident) {
+            if (Nodes.config.townLeavePenaltyEnabled) resident.lockTownJoining()
+        }
+
         private fun leaveConfirmationDialog(town: Town): Dialog.Confirmation {
+            val leaveMessage = if (Nodes.config.townLeavePenaltyEnabled) {
+                "You will be temporarily unable to join another town."
+            } else {
+                "You will be able to join another town immediately."
+            }
             val metadata = DialogMetadata(
                 Component.text("Leave ${town.name}?", NamedTextColor.RED),
                 null,
                 true,
                 false,
                 DialogAfterAction.CLOSE,
-                listOf(DialogBody.PlainMessage(Component.text("You will be temporarily unable to join another town.", NamedTextColor.GRAY), 300)),
+                listOf(DialogBody.PlainMessage(Component.text(leaveMessage, NamedTextColor.GRAY), 300)),
                 emptyList(),
             )
             return Dialog.Confirmation(

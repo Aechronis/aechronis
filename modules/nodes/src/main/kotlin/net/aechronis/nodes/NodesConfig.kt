@@ -87,6 +87,9 @@ data class NodesConfig(
     // Time a player must wait after voluntarily leaving a town before joining another.
     val townLeaveJoinCooldown: Long = 86_400_000, // 1 day
 
+    // Whether voluntarily leaving a town applies the town-join cooldown.
+    var townLeavePenaltyEnabled: Boolean = true,
+
     // respawn point for players without a town
     var defaultRespawnPoint: Pos = Pos(0.0, 64.0, 0.0),
 

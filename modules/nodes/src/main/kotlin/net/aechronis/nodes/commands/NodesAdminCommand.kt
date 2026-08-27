@@ -93,6 +93,7 @@ class NodesAdminHelpCommand : NodesCommand("help", "nodes.admin") {
             Message.print(player, "/nodesadmin miningboost${ChatColor.WHITE}: Configure global mining boosts")
             Message.print(player, "/nodesadmin debug${ChatColor.WHITE}: World object debugger")
             Message.print(player, "/nodesadmin resident removecooldown <player-names>${ChatColor.WHITE}: Clear town-join cooldowns")
+            Message.print(player, "/nda resident leavepenalty <allow|deny>${ChatColor.WHITE}: Toggle the global town-leave cooldown")
         }
     }
 }
@@ -741,9 +742,11 @@ class NodesAdminResidentCommand : NodesCommand("resident", "nodes.admin") {
     init {
         setDefaultExecutor { player, _, _ ->
             Message.print(player, "Usage: /nda resident removecooldown <player-names>")
+            Message.print(player, "Usage: /nda resident leavepenalty <allow|deny>")
         }
 
         addSubcommand(NodesAdminResidentRemoveCooldownCommand())
+        addSubcommand(NodesAdminResidentLeavePenaltyCommand())
     }
 }
 
@@ -761,6 +764,22 @@ class NodesAdminResidentRemoveCooldownCommand : NodesCommand("removecooldown", "
                 Message.print(player, "Removed town-join cooldown for \"${resident.name}\"")
             }
         }, playersArg)
+    }
+}
+
+class NodesAdminResidentLeavePenaltyCommand : NodesCommand("leavepenalty", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, _, _ ->
+            Message.print(player, "Usage: /nda resident leavepenalty <allow|deny>")
+        }
+
+        val flagArg = ArgumentType.Word("flag").from("allow", "deny")
+        addSyntax({ player, _, context ->
+            val enabled = context[flagArg] == "allow"
+            Nodes.config.townLeavePenaltyEnabled = enabled
+            val state = if (enabled) "enabled" else "disabled"
+            Message.print(player, "Town leave penalty $state for future voluntary leaves")
+        }, flagArg)
     }
 }
 
