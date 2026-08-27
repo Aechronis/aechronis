@@ -76,7 +76,7 @@ object Weapons {
             addAll(uniformRecipes(Armor.turkeyJacket, Armor.turkeyTrousers, Armor.turkeyBoots, Material.PURPLE_DYE))
 
             // G = gold block, D = diamond, B = diamond block, I = iron block, i = iron ingot
-            add(shapedRecipe(Melees.baton.toItemStack(), " i ", " ii", " i "))
+            add(shapedRecipe(Melees.baton.toItemStack(), " i ", " i ", " i "))
             add(shapedRecipe(Guns.m4a1.toEmptyItemStack(), "DDD", "DGD", "DID"))
             add(shapedRecipe(Guns.ak12.toEmptyItemStack(), "DDD", "DGI"))
             add(shapedRecipe(Guns.qbz95.toEmptyItemStack(), "DDD", "DGI", "D  "))
