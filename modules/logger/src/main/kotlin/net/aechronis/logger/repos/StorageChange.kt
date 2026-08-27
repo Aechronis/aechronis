@@ -5,6 +5,7 @@ import net.aechronis.logger.objects.StorageChange
 import net.aechronis.logger.objects.StorageChangeAction
 import net.aechronis.logger.objects.VanillaStorage
 import net.aechronis.logger.params.LookupParams
+import net.aechronis.logger.utils.AsyncWriteGate
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
 import net.aechronis.logger.utils.bindAll
@@ -30,6 +31,7 @@ class StorageChange(
     private val selectColumns =
         "id, ts, player_uuid, player_name, storage_id, action, item_data, amount, slot, source, origin, rolled_back"
     private val pendingWrites = ConcurrentHashMap.newKeySet<CompletableFuture<Void>>()
+    private val writeGate = AsyncWriteGate(executor, "storage change repository")
 
     private val insertSql =
         """
@@ -39,7 +41,7 @@ class StorageChange(
         """.trimIndent()
 
     fun insertAsync(change: StorageChange): CompletableFuture<Void> {
-        val future = CompletableFuture.runAsync({ insert(change) }, executor)
+        val future = writeGate.submit { insert(change) }
         pendingWrites += future
         future.whenComplete { _, _ -> pendingWrites -= future }
         return future
@@ -50,7 +52,7 @@ class StorageChange(
     fun insertAllAsync(changes: List<StorageChange>): CompletableFuture<Void> {
         if (changes.isEmpty()) return CompletableFuture.completedFuture(null)
         val future =
-            CompletableFuture.runAsync({
+            writeGate.submit {
                 database.dataSource.connection.use { connection ->
                     connection.autoCommit = false
                     try {
@@ -67,7 +69,7 @@ class StorageChange(
                         throw exception
                     }
                 }
-            }, executor)
+            }
         pendingWrites += future
         future.whenComplete { _, _ -> pendingWrites -= future }
         return future
@@ -359,6 +361,6 @@ class StorageChange(
         )
 
     override fun close() {
-        executor.close()
+        writeGate.close()
     }
 }

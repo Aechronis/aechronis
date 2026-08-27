@@ -4,6 +4,7 @@ import net.aechronis.logger.db.Database
 import net.aechronis.logger.objects.InventoryChange
 import net.aechronis.logger.objects.InventoryChangeAction
 import net.aechronis.logger.params.LookupParams
+import net.aechronis.logger.utils.AsyncWriteGate
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.bindAll
 import net.aechronis.logger.utils.placeholders
@@ -23,10 +24,11 @@ class InventoryChange(
     private val columns =
         "id, ts, player_uuid, player_name, slot, action, item_old, item_new, source, origin, rolled_back"
     private val pendingWrites = ConcurrentHashMap.newKeySet<CompletableFuture<Void>>()
+    private val writeGate = AsyncWriteGate(executor, "inventory change repository")
 
     fun insertAsync(change: InventoryChange): CompletableFuture<Void> {
         val future =
-            CompletableFuture.runAsync({
+            writeGate.submit {
                 database.dataSource.connection.use { connection ->
                     connection
                         .prepareStatement(
@@ -48,7 +50,7 @@ class InventoryChange(
                             statement.executeUpdate()
                         }
                 }
-            }, executor)
+            }
         pendingWrites += future
         future.whenComplete { _, _ -> pendingWrites -= future }
         return future
@@ -147,6 +149,6 @@ class InventoryChange(
         )
 
     override fun close() {
-        executor.close()
+        writeGate.close()
     }
 }

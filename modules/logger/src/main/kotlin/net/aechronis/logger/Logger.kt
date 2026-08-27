@@ -44,7 +44,14 @@ object Logger {
     lateinit var config: LoggerConfig
 
     private lateinit var database: Database
+
+    @Volatile
     private var initialized = false
+
+    @Volatile
+    private var hasInitialized = false
+
+    val isAcceptingLogs: Boolean get() = initialized
 
     val eventNode = EventNode.all("logger").setPriority(-50)
 
@@ -99,14 +106,7 @@ object Logger {
         MinecraftServer.getCommandManager().register(LoggerCommand())
 
         initialized = true
-
-        Runtime.getRuntime().addShutdownHook(
-            Thread({
-                runCatching { close() }.onFailure { exception ->
-                    println("[Logger] failed to close cleanly: $exception")
-                }
-            }, "logger-shutdown-save"),
-        )
+        hasInitialized = true
 
         // print load time
         val timeEnd = System.currentTimeMillis()
@@ -115,7 +115,12 @@ object Logger {
     }
 
     fun log(entry: FeatureLogEntry): CompletableFuture<Void> {
-        check(initialized) { "Logger.log() was called before Logger.init(config)" }
+        if (!initialized) {
+            check(hasInitialized) { "Logger.log() was called before Logger.init(config)" }
+            // Events can still be unwinding while the server is shutting down. They must not
+            // submit work to repositories whose executors are being closed.
+            return CompletableFuture.completedFuture(null)
+        }
 
         FeatureSourceRegistry.record(entry.source, entry.action)
 
@@ -129,6 +134,12 @@ object Logger {
     fun close() {
         if (!initialized) return
         initialized = false
+
+        // The normal server shutdown order has already dispatched player disconnect events. Remove
+        // every logger event node before closing executors as a final guard against late dispatch.
+        runCatching { MinecraftServer.getGlobalEventHandler().removeChild(eventNode) }
+        BlockListener.close()
+        LootListener.close()
 
         var failure: Exception? = null
         val resources =

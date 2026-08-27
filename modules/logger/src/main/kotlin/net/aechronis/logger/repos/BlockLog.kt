@@ -4,6 +4,7 @@ import net.aechronis.logger.db.Database
 import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
 import net.aechronis.logger.params.LookupParams
+import net.aechronis.logger.utils.AsyncWriteGate
 import net.aechronis.logger.utils.bindAll
 import net.aechronis.logger.utils.placeholders
 import net.aechronis.logger.utils.setNullableBytes
@@ -26,6 +27,7 @@ class BlockLog(
         "id, ts, player_uuid, player_name, x, y, z, block_old, block_new, action, " +
             "instance_uuid, block_old_state, block_new_state, block_old_nbt, block_new_nbt, source, origin, rolled_back"
     private val pendingWrites = ConcurrentHashMap.newKeySet<CompletableFuture<Void>>()
+    private val writeGate = AsyncWriteGate(executor, "block log repository")
 
     private val insertSql =
         """
@@ -45,14 +47,14 @@ class BlockLog(
         """.trimIndent()
 
     fun insertAsync(entry: BlockLogEntry): CompletableFuture<Void> {
-        val future = CompletableFuture.runAsync({ insert(entry) }, executor)
+        val future = writeGate.submit { insert(entry) }
         return trackWrite(future)
     }
 
     fun insertAllAsync(entries: List<BlockLogEntry>): CompletableFuture<Void> {
         if (entries.isEmpty()) return CompletableFuture.completedFuture(null)
         val future =
-            CompletableFuture.runAsync({
+            writeGate.submit {
                 database.dataSource.connection.use { connection ->
                     connection.autoCommit = false
                     try {
@@ -69,7 +71,7 @@ class BlockLog(
                         throw exception
                     }
                 }
-            }, executor)
+            }
         return trackWrite(future)
     }
 
@@ -315,6 +317,6 @@ class BlockLog(
         )
 
     override fun close() {
-        executor.close()
+        writeGate.close()
     }
 }

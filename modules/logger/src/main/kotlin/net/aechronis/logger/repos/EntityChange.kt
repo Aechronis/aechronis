@@ -4,6 +4,7 @@ import net.aechronis.logger.db.Database
 import net.aechronis.logger.objects.EntityChange
 import net.aechronis.logger.objects.EntityChangeAction
 import net.aechronis.logger.params.LookupParams
+import net.aechronis.logger.utils.AsyncWriteGate
 import net.aechronis.logger.utils.placeholders
 import net.aechronis.logger.utils.setNullableBytes
 import net.aechronis.logger.utils.setNullableString
@@ -25,10 +26,11 @@ class EntityChange(
         "id, ts, player_uuid, player_name, entity_uuid, entity_type, action, instance_uuid, x, y, z, yaw, pitch, " +
             "velocity_x, velocity_y, velocity_z, tag_data, source, origin, rolled_back"
     private val pendingWrites = ConcurrentHashMap.newKeySet<CompletableFuture<Void>>()
+    private val writeGate = AsyncWriteGate(executor, "entity change repository")
 
     fun insertAsync(change: EntityChange): CompletableFuture<Void> {
         val future =
-            CompletableFuture.runAsync({
+            writeGate.submit {
                 database.dataSource.connection.use { connection ->
                     connection
                         .prepareStatement(
@@ -60,7 +62,7 @@ class EntityChange(
                             statement.executeUpdate()
                         }
                 }
-            }, executor)
+            }
         pendingWrites += future
         future.whenComplete { _, _ -> pendingWrites -= future }
         return future
@@ -167,6 +169,6 @@ class EntityChange(
         )
 
     override fun close() {
-        executor.close()
+        writeGate.close()
     }
 }

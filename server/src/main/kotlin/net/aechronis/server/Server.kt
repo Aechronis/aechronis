@@ -274,6 +274,7 @@ fun main(args: Array<String>) {
         },
         stopServer = MinecraftServer::stopCleanly,
         saveWorld = { WorldSaver.saveWorld().join() },
+        closeLogger = Logger::close,
     )
 
     PlayerJoinListener.init(resourcePackServer)
@@ -281,6 +282,7 @@ fun main(args: Array<String>) {
     try {
         server.start("0.0.0.0", port)
     } catch (exception: Exception) {
+        runCatching { Logger.close() }
         resourcePackServer.close()
         throw exception
     }

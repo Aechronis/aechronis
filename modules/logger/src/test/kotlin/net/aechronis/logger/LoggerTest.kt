@@ -64,7 +64,10 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
@@ -894,6 +897,17 @@ class LoggerTest {
                 }
             }
         }
+    }
+
+    @Test
+    @Order(14)
+    fun `closed snapshot repository fails without executor rejection`() {
+        if (System.getProperty("keepRunning") == "true") return
+
+        val future = Logger.inventorySnapshot.logoutAsync(UUID.randomUUID(), "shutdown-test", emptyList())
+        assertTrue(future.isCompletedExceptionally)
+        val failure = assertFailsWith<java.util.concurrent.ExecutionException> { future.get() }
+        assertIs<IllegalStateException>(failure.cause)
     }
 
     private fun blockEntry(

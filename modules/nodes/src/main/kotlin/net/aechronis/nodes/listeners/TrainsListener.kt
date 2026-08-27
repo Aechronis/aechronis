@@ -1,14 +1,15 @@
 package net.aechronis.nodes.listeners
 
+import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Trains
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.entity.EntityTeleportEvent
 import net.minestom.server.event.instance.InstanceBlockUpdateEvent
+import net.minestom.server.event.instance.InstanceSectionInvalidateEvent
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
-import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.instance.block.Block
@@ -39,27 +40,23 @@ object TrainsListener {
     }
 
     private fun onBlockBreak(event: PlayerBlockBreakEvent) {
-        if (event.isCancelled) return
-        if (event.block == Block.GOLD_BLOCK) {
-            Trains.removeAt(event.blockPosition)?.let { station ->
-                Message.print(event.player, "Station ${station.id} removed")
-            }
-        }
-        if (isRail(event.block) || event.block == Block.GOLD_BLOCK) {
-            Trains.requestRescan(event.instance, event.blockPosition)
-        }
-    }
-
-    private fun onBlockPlace(event: PlayerBlockPlaceEvent) {
-        if (event.isCancelled) return
-        if (isRail(event.block) || event.block == Block.GOLD_BLOCK) {
-            Trains.requestRescan(event.instance, event.blockPosition)
+        if (event.isCancelled || event.block != Block.GOLD_BLOCK) return
+        Trains.removeAt(event.blockPosition, event.instance)?.let { station ->
+            Message.print(event.player, "Station ${station.id} removed")
         }
     }
 
     private fun onBlockUpdate(event: InstanceBlockUpdateEvent) {
-        if (Trains.affectsTopology(event.blockPosition, event.block)) {
-            Trains.requestRescan(event.instance, event.blockPosition)
+        Trains.onBlockChanged(event.instance, event.blockPosition, newBlock = event.block)
+    }
+
+    private fun onSectionInvalidate(event: InstanceSectionInvalidateEvent) {
+        Trains.requestSectionRescan(event.instance, event.sectionX(), event.sectionY(), event.sectionZ())
+    }
+
+    private fun onWorldEdit(event: WorldEditBlockChangesEvent) {
+        event.changes.forEach { change ->
+            Trains.onBlockChanged(event.instance, change.position, change.oldBlock, change.newBlock)
         }
     }
 
@@ -74,7 +71,8 @@ object TrainsListener {
         Nodes.eventNode.addListener(EntityTeleportEvent::class.java, this::onTeleport)
         Nodes.eventNode.addListener(PlayerDisconnectEvent::class.java, this::onDisconnect)
         Nodes.lowPriorityEventNode.addListener(PlayerBlockBreakEvent::class.java, this::onBlockBreak)
-        Nodes.lowPriorityEventNode.addListener(PlayerBlockPlaceEvent::class.java, this::onBlockPlace)
         Nodes.eventNode.addListener(InstanceBlockUpdateEvent::class.java, this::onBlockUpdate)
+        Nodes.eventNode.addListener(InstanceSectionInvalidateEvent::class.java, this::onSectionInvalidate)
+        Nodes.eventNode.addListener(WorldEditBlockChangesEvent::class.java, this::onWorldEdit)
     }
 }

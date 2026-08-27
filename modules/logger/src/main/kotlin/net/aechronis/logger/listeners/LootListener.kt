@@ -16,8 +16,11 @@ import java.util.UUID
 import java.util.concurrent.CompletableFuture
 
 object LootListener {
+    private var postEventNode: EventNode<*>? = null
+
     fun init() {
         val postNode = EventNode.all("logger-loot-post").setPriority(100)
+        postEventNode = postNode
         MinecraftServer.getGlobalEventHandler().addChild(postNode)
         postNode.addListener(
             EventListener
@@ -35,6 +38,13 @@ object LootListener {
                     recordDrop(event)
                 }.build(),
         )
+    }
+
+    fun close() {
+        postEventNode?.let { node ->
+            runCatching { MinecraftServer.getGlobalEventHandler().removeChild(node) }
+        }
+        postEventNode = null
     }
 
     internal fun recordPickup(event: PickupItemEvent): CompletableFuture<Void>? {

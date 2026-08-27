@@ -3,6 +3,7 @@ package net.aechronis.logger.repos
 import net.aechronis.logger.db.Database
 import net.aechronis.logger.objects.FeatureLogEntry
 import net.aechronis.logger.params.FeatureLookupParams
+import net.aechronis.logger.utils.AsyncWriteGate
 import net.aechronis.logger.utils.DataCodec
 import net.aechronis.logger.utils.bindAll
 import net.aechronis.logger.utils.getNullableInt
@@ -20,6 +21,7 @@ class FeatureLog(
     private val executor: ExecutorService = Executors.newVirtualThreadPerTaskExecutor(),
 ) : AutoCloseable {
     private val table = database.featureTableName
+    private val writeGate = AsyncWriteGate(executor, "feature log repository")
 
     private val insertSql =
         """
@@ -28,7 +30,7 @@ class FeatureLog(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
 
-    fun insertAsync(entry: FeatureLogEntry): CompletableFuture<Void> = CompletableFuture.runAsync({ insert(entry) }, executor)
+    fun insertAsync(entry: FeatureLogEntry): CompletableFuture<Void> = writeGate.submit { insert(entry) }
 
     private fun insert(entry: FeatureLogEntry) {
         database.dataSource.connection.use { conn ->
@@ -147,6 +149,6 @@ class FeatureLog(
         )
 
     override fun close() {
-        executor.close()
+        writeGate.close()
     }
 }

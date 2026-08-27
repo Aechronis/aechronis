@@ -10,14 +10,15 @@ internal class ShutdownCoordinator(
     private val started = AtomicBoolean()
 
     @Volatile
-    private var stages = Stages({}, {}, {})
+    private var stages = Stages({}, {}, {}, {})
 
     fun configure(
         saveState: () -> Unit,
         stopServer: () -> Unit,
         saveWorld: () -> Unit,
+        closeLogger: () -> Unit,
     ) {
-        stages = Stages(saveState, stopServer, saveWorld)
+        stages = Stages(saveState, stopServer, saveWorld, closeLogger)
     }
 
     fun shutdown() {
@@ -27,6 +28,7 @@ internal class ShutdownCoordinator(
         runStage("save live state", configured.saveState)
         runStage("stop the game server", configured.stopServer)
         runStage("save the final world state", configured.saveWorld)
+        runStage("flush and close logger", configured.closeLogger)
         runStage("close external services", closeExternalServices)
     }
 
@@ -45,6 +47,7 @@ internal class ShutdownCoordinator(
         val saveState: () -> Unit,
         val stopServer: () -> Unit,
         val saveWorld: () -> Unit,
+        val closeLogger: () -> Unit,
     )
 }
 
@@ -65,8 +68,9 @@ object ServerShutdown {
         saveState: () -> Unit,
         stopServer: () -> Unit,
         saveWorld: () -> Unit,
+        closeLogger: () -> Unit,
     ) {
-        coordinator.configure(saveState, stopServer, saveWorld)
+        coordinator.configure(saveState, stopServer, saveWorld, closeLogger)
     }
 
     fun shutdown() {

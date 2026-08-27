@@ -10,11 +10,13 @@ dependencies {
     compileOnly(project(":modules:combat"))
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:vanilla"))
+    compileOnly(project(":modules:worldedit"))
 
     testImplementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     testImplementation(project(":modules:combat"))
     testImplementation(project(":modules:utils"))
     testImplementation(project(":modules:vanilla"))
+    testImplementation(project(":modules:worldedit"))
     testImplementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")

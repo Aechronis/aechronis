@@ -18,6 +18,7 @@ import net.minestom.server.event.trait.PlayerEvent
 
 object BlockListener {
     private val inspectEventNode = EventNode.all("logger-inspect").setPriority(Int.MIN_VALUE)
+    private var postEventNode: EventNode<*>? = null
 
     private fun <E> inspect(event: E)
         where E : BlockEvent, E : CancellableEvent, E : PlayerEvent {
@@ -131,6 +132,7 @@ object BlockListener {
         MinecraftServer.getGlobalEventHandler().addChild(inspectEventNode)
 
         val postNode = EventNode.all("logger-block-post").setPriority(Int.MAX_VALUE)
+        postEventNode = postNode
         MinecraftServer.getGlobalEventHandler().addChild(postNode)
         postNode.addListener(
             EventListener
@@ -141,5 +143,12 @@ object BlockListener {
         )
         postNode.addListener(PlayerBlockPlaceEvent::class.java, ::onPlace)
         postNode.addListener(PlayerBlockInteractEvent::class.java, ::onInteract)
+    }
+
+    fun close() {
+        val global = MinecraftServer.getGlobalEventHandler()
+        runCatching { global.removeChild(inspectEventNode) }
+        postEventNode?.let { node -> runCatching { global.removeChild(node) } }
+        postEventNode = null
     }
 }

@@ -37,6 +37,11 @@ data class RailEdge(
     val distance: Int,
 )
 
+internal data class TrainTopologyMetrics(
+    val fullScans: Long,
+    val incrementalRebuilds: Long,
+)
+
 object Trains {
     private data class Journey(val start: BlockVec, val task: Task)
     private data class StationAttachment(val stationId: Int, val start: BlockVec)
@@ -44,6 +49,11 @@ object Trains {
         val id: Int,
         val rails: Set<BlockVec>,
         val edges: List<RailEdge>,
+    )
+    private data class RailSection(val x: Int, val y: Int, val z: Int)
+    private data class DirtyTopology(
+        val positions: MutableSet<BlockVec> = hashSetOf(),
+        val sections: MutableSet<RailSection> = hashSetOf(),
     )
 
     private val stations = linkedMapOf<Int, TrainStation>()
@@ -75,84 +85,110 @@ object Trains {
     )
     private var nextStationId = 1
     private var nextComponentId = 1
-    private var scanTask: Task? = null
     private var pendingRescan: Task? = null
     private var pendingSave: Task? = null
-    private var pendingInstance: Instance? = null
-    private val dirtyPositions = hashSetOf<BlockVec>()
+    private var fullScanCount = 0L
+    private var incrementalRebuildCount = 0L
+    private val topologyQueueLock = Any()
+    private val dirtyTopologyByInstance = linkedMapOf<Instance, DirtyTopology>()
     private lateinit var path: Path
 
     fun initialize(path: Path) {
         this.path = path
+        fullScanCount = 0
+        incrementalRebuildCount = 0
         load()
+        // A full scan is required only to establish the initial in-memory index.
+        // Runtime mutations are reconciled from block-change events below.
         scanAll(activeInstance())
-        // Block updates use requestRescan and are applied next tick. This is only
-        // a reconciliation pass for changes which did not emit a block event.
-        scanTask = MinecraftServer.getSchedulerManager().buildTask { scanAll(activeInstance()) }
-            .delay(TaskSchedule.tick(40)).repeat(TaskSchedule.tick(40)).schedule()
     }
 
     fun cleanup() {
-        scanTask?.cancel()
-        pendingRescan?.cancel()
+        synchronized(topologyQueueLock) {
+            pendingRescan?.cancel()
+            pendingRescan = null
+            dirtyTopologyByInstance.clear()
+        }
         pendingSave?.cancel()
-        scanTask = null
-        pendingRescan = null
         pendingSave = null
-        pendingInstance = null
-        dirtyPositions.clear()
         journeys.values.forEach { it.task.cancel() }
         journeys.clear()
         save()
     }
 
     /** Coalesce same-tick world edits and rebuild only their old/new rail components. */
-    fun requestRescan(instance: Instance?, position: BlockVec? = null) {
+    fun requestRescan(instance: Instance?, position: BlockVec) {
         if (instance == null) return
-        pendingInstance = instance
-        position?.let(dirtyPositions::add)
+        synchronized(topologyQueueLock) {
+            dirtyTopologyByInstance.getOrPut(instance, ::DirtyTopology).positions += position
+            scheduleDirtyRebuildLocked()
+        }
+    }
+
+    fun requestSectionRescan(instance: Instance?, sectionX: Int, sectionY: Int, sectionZ: Int) {
+        if (instance == null) return
+        synchronized(topologyQueueLock) {
+            dirtyTopologyByInstance.getOrPut(instance, ::DirtyTopology).sections += RailSection(sectionX, sectionY, sectionZ)
+            scheduleDirtyRebuildLocked()
+        }
+    }
+
+    fun onBlockChanged(instance: Instance?, position: BlockVec, oldBlock: Block? = null, newBlock: Block) {
+        if (instance == null) return
+        if (oldBlock != null) {
+            if (isTopologyBlock(oldBlock) || isTopologyBlock(newBlock)) requestRescan(instance, position)
+        } else if (affectsTopology(position, newBlock)) {
+            requestRescan(instance, position)
+        }
+    }
+
+    /** Must be called while holding topologyQueueLock. */
+    private fun scheduleDirtyRebuildLocked() {
         if (pendingRescan != null) return
         pendingRescan = MinecraftServer.getSchedulerManager().buildTask {
-            pendingRescan = null
-            val target = pendingInstance
-            pendingInstance = null
-            if (target != null) {
-                if (dirtyPositions.isEmpty()) scanAll(target) else rebuildDirtyComponents(target)
+            val pending = synchronized(topologyQueueLock) {
+                pendingRescan = null
+                dirtyTopologyByInstance.mapValues { (_, dirty) ->
+                    DirtyTopology(dirty.positions.toMutableSet(), dirty.sections.toMutableSet())
+                }.also { dirtyTopologyByInstance.clear() }
+            }
+            pending.forEach { (instance, dirty) ->
+                rebuildDirtyComponents(instance, dirty.positions, dirty.sections)
             }
         }.delay(TaskSchedule.tick(1)).schedule()
     }
 
     fun allStations(): List<TrainStation> = stations.values.toList()
     fun station(id: Int): TrainStation? = stations[id]
+    internal fun topologyMetrics(): TrainTopologyMetrics = TrainTopologyMetrics(fullScanCount, incrementalRebuildCount)
 
     /** True for a rail/station mutation or removal adjacent to indexed track. */
-    fun affectsTopology(position: BlockVec, block: Block): Boolean = isRail(block) ||
-        block == Block.GOLD_BLOCK ||
+    fun affectsTopology(position: BlockVec, block: Block): Boolean = isTopologyBlock(block) ||
         nearbyRailPositions(position).any { it in componentByRail } ||
         stationsByPosition.containsKey(position)
+
+    private fun isTopologyBlock(block: Block): Boolean = isRail(block) || block == Block.GOLD_BLOCK
 
     fun create(position: BlockVec, instance: Instance): Result<TrainStation> = runCatching {
         require(blockAt(instance, position) == Block.GOLD_BLOCK) { "Stations must be created on a gold block" }
         require(position !in stationsByPosition) { "A station already exists at this gold block" }
-        TrainStation(nextStationId++, position).also {
-            stations[it.id] = it
-            stationsByPosition[position] = it.id
-            rebuildAttachmentIndex(instance)
-            // The new station may terminate a previously open route, so build the
-            // reachable components once rather than scanning every station route.
-            scanAll(instance)
+        TrainStation(nextStationId++, position).also { station ->
+            stations[station.id] = station
+            stationsByPosition[position] = station.id
+            addStationAttachments(station, instance)
+            // A new station can terminate routes only in components touching one
+            // of its attachment rails; unrelated components remain indexed.
+            rebuildDirtyComponents(instance, stationStarts(position).toSet(), persist = false)
             save()
         }
     }
 
-    fun remove(id: Int): TrainStation? {
-        val station = stations.remove(id) ?: return null
-        stationsByPosition.remove(station.position)
-        rebuildAttachmentIndex(activeInstance())
-        // Include every former attachment; component membership before removal
-        // lets the next-tick rebuild repair both sides of a split route.
-        stationStarts(station.position).forEach { requestRescan(activeInstance(), it) }
-        save()
+    fun remove(id: Int): TrainStation? = remove(id, activeInstance())
+
+    private fun remove(id: Int, instance: Instance?): TrainStation? {
+        val station = unregisterStation(id) ?: return null
+        instance?.let { target -> stationStarts(station.position).forEach { requestRescan(target, it) } }
+        scheduleSave()
         return station
     }
 
@@ -166,14 +202,12 @@ object Trains {
     fun scan(id: Int, instance: Instance): Result<Int> = runCatching {
         val station = stations[id] ?: error("Station not found")
         if (blockAt(instance, station.position) != Block.GOLD_BLOCK) {
-            remove(id)
+            remove(id, instance)
             return@runCatching 0
         }
-        rebuildAttachmentIndex(instance)
         val starts = stationStarts(station.position)
-        val affected = starts.mapNotNull(componentByRail::get).toSet()
-        affected.forEach(::removeComponent)
-        buildComponents(instance, starts)
+        refreshAttachments(instance, starts)
+        rebuildDirtyComponents(instance, starts.toSet(), persist = false)
         save()
         edgesByStation[station.id]?.size ?: 0
     }
@@ -185,6 +219,7 @@ object Trains {
      */
     fun scanAll(instance: Instance?): Int {
         if (instance == null) return 0
+        fullScanCount++
         var changed = false
         val oldEdges = edges.toSet()
         stations.values.toList().forEach { station ->
@@ -246,7 +281,9 @@ object Trains {
         return true
     }
 
-    fun removeAt(position: BlockVec): TrainStation? = stationsByPosition[position]?.let(::remove)
+    fun removeAt(position: BlockVec): TrainStation? = removeAt(position, activeInstance())
+
+    fun removeAt(position: BlockVec, instance: Instance?): TrainStation? = stationsByPosition[position]?.let { remove(it, instance) }
 
     fun incomeAt(chunkX: Int, chunkZ: Int): Map<Material, Double> = stations.values.asSequence()
         .filter { Math.floorDiv(it.position.blockX(), 16) == chunkX && Math.floorDiv(it.position.blockZ(), 16) == chunkZ }
@@ -275,9 +312,29 @@ object Trains {
         else -> 0.0
     }
 
-    private fun rebuildDirtyComponents(instance: Instance) {
-        val dirty = dirtyPositions.toSet()
-        dirtyPositions.clear()
+    private fun rebuildDirtyComponents(
+        instance: Instance,
+        dirtyPositions: Set<BlockVec>,
+        dirtySections: Set<RailSection> = emptySet(),
+        persist: Boolean = true,
+    ) {
+        val dirty = dirtyPositions.toMutableSet()
+        if (dirtySections.isNotEmpty()) {
+            componentByRail.keys.filterTo(dirty) { position -> dirtySections.any { it.contains(position, halo = 1) } }
+            attachmentCandidatesByRail.keys.filterTo(dirty) { position -> dirtySections.any { it.contains(position, halo = 1) } }
+        }
+
+        val invalidStations = stations.values.filter { station ->
+            (station.position in dirty || dirtySections.any { it.contains(station.position) }) &&
+                blockAt(instance, station.position) != Block.GOLD_BLOCK
+        }
+        invalidStations.forEach { station ->
+            unregisterStation(station.id)
+            dirty += stationStarts(station.position)
+        }
+        if (dirty.isEmpty()) return
+        incrementalRebuildCount++
+
         val oldComponentIds = hashSetOf<Int>()
         val seeds = hashSetOf<BlockVec>()
         val dirtyArea = dirty.flatMapTo(hashSetOf(), ::nearbyRailPositions)
@@ -291,7 +348,16 @@ object Trains {
         oldComponentIds.forEach { id -> components[id]?.rails?.let(seeds::addAll) }
         oldComponentIds.forEach(::removeComponent)
         buildComponents(instance, seeds)
-        scheduleSave()
+        if (persist) scheduleSave()
+    }
+
+    private fun RailSection.contains(position: BlockVec, halo: Int = 0): Boolean {
+        val minX = x * 16 - halo
+        val minY = y * 16 - halo
+        val minZ = z * 16 - halo
+        return position.blockX() in minX..(minX + 15 + halo * 2) &&
+            position.blockY() in minY..(minY + 15 + halo * 2) &&
+            position.blockZ() in minZ..(minZ + 15 + halo * 2)
     }
 
     private fun buildComponents(instance: Instance, seeds: Iterable<BlockVec>) {
@@ -354,12 +420,33 @@ object Trains {
     private fun rebuildAttachmentIndex(instance: Instance?) {
         attachmentCandidatesByRail.clear()
         attachmentsByRail.clear()
-        stations.values.forEach { station ->
-            stationStarts(station.position).forEach { start ->
-                attachmentCandidatesByRail.getOrPut(start, ::mutableListOf) += StationAttachment(station.id, start)
+        stations.values.forEach { station -> addStationAttachmentCandidates(station) }
+        if (instance != null) refreshAttachments(instance, attachmentCandidatesByRail.keys)
+    }
+
+    private fun addStationAttachments(station: TrainStation, instance: Instance) {
+        val starts = addStationAttachmentCandidates(station)
+        refreshAttachments(instance, starts)
+    }
+
+    private fun addStationAttachmentCandidates(station: TrainStation): List<BlockVec> = stationStarts(station.position).onEach { start ->
+        attachmentCandidatesByRail.getOrPut(start, ::mutableListOf) += StationAttachment(station.id, start)
+    }
+
+    private fun unregisterStation(id: Int): TrainStation? {
+        val station = stations.remove(id) ?: return null
+        stationsByPosition.remove(station.position)
+        stationStarts(station.position).forEach { start ->
+            attachmentCandidatesByRail[start]?.let { candidates ->
+                candidates.removeAll { it.stationId == id }
+                if (candidates.isEmpty()) attachmentCandidatesByRail.remove(start)
+            }
+            attachmentsByRail[start]?.let { attachments ->
+                attachments.removeAll { it.stationId == id }
+                if (attachments.isEmpty()) attachmentsByRail.remove(start)
             }
         }
-        if (instance != null) refreshAttachments(instance, attachmentCandidatesByRail.keys)
+        return station
     }
 
     /** Update only station starts touched by a world edit; this is O(A), not O(S). */

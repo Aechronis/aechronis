@@ -1,5 +1,7 @@
 package net.aechronis.nodes
 
+import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
+import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
 import net.aechronis.nodes.commands.TownFlyCommand
 import net.aechronis.nodes.commands.TownLeaveCommand
 import net.aechronis.nodes.constants.PermissionsGroup
@@ -35,6 +37,7 @@ import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.EventNode
+import net.minestom.server.event.instance.InstanceSectionInvalidateEvent
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
@@ -169,6 +172,85 @@ class NodesTest {
         } finally {
             Trains.remove(station.id)
             trainInstance.unloadChunk(20, 20)
+        }
+    }
+
+    @Test
+    fun `train topology follows block updates without a full rescan`() {
+        val metricsBefore = Trains.topologyMetrics()
+        val firstPosition = BlockVec(640, 64, 640)
+        val secondPosition = BlockVec(646, 64, 640)
+        val rails = (641..645).map { x -> BlockVec(x, 64, 640) }
+        instance.setBlock(firstPosition, Block.GOLD_BLOCK)
+        instance.setBlock(secondPosition, Block.GOLD_BLOCK)
+        rails.forEach { position -> instance.setBlock(position, Block.RAIL.withProperty("shape", "east_west"), false) }
+        val first = Trains.create(firstPosition, instance).getOrThrow()
+        val second = Trains.create(secondPosition, instance).getOrThrow()
+
+        fun connected(): Boolean = Trains.edgesFrom(first.id).any { edge ->
+            edge.stationId == first.id && edge.destinationId == second.id
+        }
+
+        fun awaitTopology(expected: Boolean) {
+            val deadline = System.currentTimeMillis() + 2_000
+            while (connected() != expected && System.currentTimeMillis() < deadline) Thread.sleep(10)
+            assertEquals(expected, connected())
+        }
+
+        try {
+            assertTrue(connected())
+
+            instance.setBlock(rails[2], Block.AIR)
+            awaitTopology(false)
+
+            val rail = Block.RAIL.withProperty("shape", "east_west")
+            instance.setBlock(rails[2], rail, false)
+            awaitTopology(true)
+
+            val middle = rails[2]
+            val chunk = instance.getChunkAt(middle)!!
+            chunk.lockWriteLock()
+            try {
+                chunk.setBlock(middle.blockX(), middle.blockY(), middle.blockZ(), Block.AIR)
+            } finally {
+                chunk.unlockWriteLock()
+            }
+            MinecraftServer.getGlobalEventHandler().call(
+                WorldEditBlockChangesEvent(
+                    UUID.randomUUID(),
+                    "test",
+                    instance,
+                    listOf(WorldEditBlockChange(middle, rail, Block.AIR)),
+                ),
+            )
+            awaitTopology(false)
+
+            chunk.lockWriteLock()
+            try {
+                chunk.setBlock(middle.blockX(), middle.blockY(), middle.blockZ(), rail)
+            } finally {
+                chunk.unlockWriteLock()
+            }
+            MinecraftServer.getGlobalEventHandler().call(
+                InstanceSectionInvalidateEvent(instance, middle.blockX() shr 4, middle.blockY() shr 4, middle.blockZ() shr 4),
+            )
+            awaitTopology(true)
+
+            instance.setBlock(secondPosition, Block.AIR)
+            val deadline = System.currentTimeMillis() + 2_000
+            while (Trains.station(second.id) != null && System.currentTimeMillis() < deadline) Thread.sleep(10)
+            assertEquals(null, Trains.station(second.id))
+            awaitTopology(false)
+
+            val metricsAfter = Trains.topologyMetrics()
+            assertEquals(metricsBefore.fullScans, metricsAfter.fullScans)
+            assertTrue(metricsAfter.incrementalRebuilds > metricsBefore.incrementalRebuilds)
+        } finally {
+            Trains.remove(first.id)
+            Trains.remove(second.id)
+            rails.forEach { position -> instance.setBlock(position, Block.AIR, false) }
+            instance.setBlock(firstPosition, Block.AIR)
+            instance.setBlock(secondPosition, Block.AIR)
         }
     }
 

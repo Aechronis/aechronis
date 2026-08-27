@@ -21,6 +21,10 @@ object InventorySnapshotListener {
         player: Player,
         action: InventorySnapshotAction,
     ) {
+        // A disconnect may be delivered by a network thread while shutdown is unwinding.
+        // The coordinated shutdown captures normal disconnects before this becomes false.
+        if (!Logger.isAcceptingLogs) return
+
         val items = snapshotItems(player.inventory)
         val result =
             when (action) {
