@@ -31,6 +31,18 @@ object WarDeserializer {
             FlagWar.enable(canAnnexTerritories, canOnlyAttackBorders, destructionEnabled)
         }
 
+        val jsonSkirmishTargets = jsonObj.get("skirmishTargets")?.asJsonObject
+        jsonSkirmishTargets?.entrySet()?.forEach { (nationIdText, territoryIdJson) ->
+            runCatching {
+                FlagWar.loadSkirmishTarget(
+                    UUID.fromString(nationIdText),
+                    TerritoryId(territoryIdJson.asInt),
+                )
+            }.onFailure { error ->
+                System.err.println("[Nodes] Ignoring invalid skirmish target $nationIdText: ${error.message}")
+            }
+        }
+
         // ===============================
         // Occupied chunks
         // ===============================

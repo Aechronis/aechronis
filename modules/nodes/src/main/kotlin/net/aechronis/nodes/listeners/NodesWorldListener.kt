@@ -21,6 +21,9 @@ import net.aechronis.nodes.constants.ErrorFlagTooHigh
 import net.aechronis.nodes.constants.ErrorNoTerritory
 import net.aechronis.nodes.constants.ErrorNotBorderTerritory
 import net.aechronis.nodes.constants.ErrorNotEnemy
+import net.aechronis.nodes.constants.ErrorSkirmishNationRequired
+import net.aechronis.nodes.constants.ErrorSkirmishTargetLocked
+import net.aechronis.nodes.constants.ErrorSkirmishTargetSelectionRole
 import net.aechronis.nodes.constants.ErrorSkyBlocked
 import net.aechronis.nodes.constants.ErrorTooManyAttacks
 import net.aechronis.nodes.constants.ErrorTownBlacklisted
@@ -301,6 +304,24 @@ object NodesWorldListener {
                                         player,
                                         "$context You can only attack border territories",
                                     )
+
+                                    ErrorSkirmishNationRequired -> Message.error(
+                                        player,
+                                        "$context You must be in a nation to attack during a border skirmish",
+                                    )
+
+                                    ErrorSkirmishTargetSelectionRole -> Message.error(
+                                        player,
+                                        "$context A town leader or officer must place the first flag to select your nation's target",
+                                    )
+
+                                    ErrorSkirmishTargetLocked -> {
+                                        val selected = FlagWar.skirmishTarget(town)
+                                        Message.error(
+                                            player,
+                                            "$context Your nation can only attack ${selected?.name ?: "its selected territory"} during this skirmish",
+                                        )
+                                    }
 
                                     ErrorChunkNotEdge -> Message.error(
                                         player,

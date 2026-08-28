@@ -58,7 +58,7 @@ object WarSerializer {
         }
     }
 
-    private fun createJsonSnapshot(): String {
+    internal fun createJsonSnapshot(): String {
         val occupiedByTown = linkedMapOf<String, MutableList<Int>>()
         FlagWar.occupiedChunks.forEach { coord ->
             val chunk = TerritoryChunk.fromCoord(coord) ?: return@forEach
@@ -84,6 +84,11 @@ object WarSerializer {
         val attacks = FlagWar.chunkToAttacker.values
             .filter { it.mode == AttackMode.WAR }
             .map { it.toJson().toString() }
+        val skirmishTargets = FlagWar.skirmishTargetsByNation.entries
+            .sortedBy { (nationId, _) -> nationId.toString() }
+            .joinToString(",") { (nationId, territoryId) ->
+                "${JsonPrimitive(nationId.toString())}:${territoryId.toInt()}"
+            }
 
         return buildString {
             append("{\"war\":${FlagWar.enabled},")
@@ -98,6 +103,7 @@ object WarSerializer {
             )
             append("},\"colonized\":$colonized,")
             append("\"territoryOccupations\":{$territoryOccupations},")
+            append("\"skirmishTargets\":{$skirmishTargets},")
             append("\"attacks\":[${attacks.joinToString(",")}]}")
         }
     }
