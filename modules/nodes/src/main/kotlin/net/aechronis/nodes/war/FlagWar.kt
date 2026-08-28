@@ -564,6 +564,10 @@ object FlagWar {
 
     internal fun beginWarzoneAttack(attacker: UUID, attackingTown: Town, chunk: TerritoryChunk, flagBase: BlockVec): Result<Attack> = beginAttack(attacker, attackingTown, chunk, flagBase, AttackMode.WARZONE)
 
+    internal fun canCaptureTerritoryCore(): Boolean = canAnnexTerritories || canOnlyAttackBorders
+
+    internal fun canAnnexDefeatedTown(mode: AttackMode): Boolean = mode != AttackMode.WAR || canAnnexTerritories
+
     private fun beginAttack(
         attacker: UUID,
         attackingTown: Town,
@@ -634,7 +638,7 @@ object FlagWar {
         // 3. allied chunk occupied by enemy
         if (mode == AttackMode.COLONIZATION || mode == AttackMode.WARZONE || chunkIsAttackable(chunk, territory, attackingTown)) {
             if (mode == AttackMode.WAR) {
-                if (!canAnnexTerritories && chunk.coord == territory.core) {
+                if (!canCaptureTerritoryCore() && chunk.coord == territory.core) {
                     return Result.failure(ErrorAnnexDisabled)
                 }
 
@@ -829,7 +833,7 @@ object FlagWar {
         val attackingTown = resident.town ?: return
         val chunk = TerritoryChunk.fromCoord(coord) ?: return
         if (chunk.attacker !== null || chunk.territory.town === null) return
-        if (!canAnnexTerritories && chunk.coord == chunk.territory.core) return
+        if (!canCaptureTerritoryCore() && chunk.coord == chunk.territory.core) return
 
         val attack = createAttack(attacker, attackingTown, chunk, flagBase, mode = AttackMode.WAR)
         attack.restoreCompletionTime(completionTime)
@@ -1292,7 +1296,7 @@ object FlagWar {
             return
         }
 
-        if (attack.mode == AttackMode.WAR && chunk.coord == chunk.territory.core && !canAnnexTerritories) {
+        if (attack.mode == AttackMode.WAR && chunk.coord == chunk.territory.core && !canCaptureTerritoryCore()) {
             chunk.attacker = null
             requestMinimapRefresh()
             return
@@ -1366,7 +1370,12 @@ object FlagWar {
                         // Warzones are always occupied, never permanently annexed.
                         // This includes a warzone that is a town's home territory
                         // and a stopped warzone later captured during normal war.
-                        if (territoryTown != null && !Warzone.isRegistered(territory) && shouldAnnexTown(territoryTown, territory)) {
+                        if (
+                            territoryTown != null &&
+                            canAnnexDefeatedTown(attack.mode) &&
+                            !Warzone.isRegistered(territory) &&
+                            shouldAnnexTown(territoryTown, territory)
+                        ) {
                             val defeatedTownName = territoryTown.name
                             Town.annex(attackerTown, territoryTown)
                             Message.broadcast(
