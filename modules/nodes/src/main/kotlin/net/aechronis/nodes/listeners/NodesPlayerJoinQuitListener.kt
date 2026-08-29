@@ -19,14 +19,79 @@ import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.server.modules.ModuleScheduler
+import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
+import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerLoadedEvent
 import net.minestom.server.event.player.PlayerRespawnEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
+import java.util.UUID
+
+internal object RallyCapAdmission {
+    private data class Reservation(
+        val nationId: UUID,
+        val createdAt: Long,
+    )
+
+    private const val RESERVATION_TIMEOUT_MILLIS = 120_000L
+    private val reservations: MutableMap<UUID, Reservation> = hashMapOf()
+
+    fun reserve(playerId: UUID): String? = synchronized(reservations) {
+        reservations.remove(playerId)
+        removeExpiredReservations()
+        checkCap(playerId)?.also { return@synchronized it }
+
+        val nation = Resident.fromUuid(playerId)?.nation ?: return@synchronized null
+        if (FlagWar.enabled && nation.rallyCap != null) {
+            reservations[playerId] = Reservation(nation.uuid, System.currentTimeMillis())
+        }
+        null
+    }
+
+    fun consume(playerId: UUID): String? = synchronized(reservations) {
+        reservations.remove(playerId)
+        removeExpiredReservations()
+        checkCap(playerId)
+    }
+
+    fun release(playerId: UUID) {
+        synchronized(reservations) {
+            reservations.remove(playerId)
+        }
+    }
+
+    fun reset() {
+        synchronized(reservations) {
+            reservations.clear()
+        }
+    }
+
+    private fun checkCap(playerId: UUID): String? {
+        if (!FlagWar.enabled) return null
+        val nation = Resident.fromUuid(playerId)?.nation ?: return null
+        val rallyCap = nation.rallyCap ?: return null
+        val onlinePlayerIds = nation.playersOnline.mapTo(hashSetOf()) { player -> player.uuid }
+        if (playerId in onlinePlayerIds) return null
+        val reservedSlots = reservations.values.count { reservation -> reservation.nationId == nation.uuid }
+        if (onlinePlayerIds.size + reservedSlots < rallyCap) return null
+        return "${nation.name} has reached its war rally cap of $rallyCap online players"
+    }
+
+    private fun removeExpiredReservations() {
+        val expiry = System.currentTimeMillis() - RESERVATION_TIMEOUT_MILLIS
+        reservations.entries.removeIf { (_, reservation) -> reservation.createdAt < expiry }
+    }
+}
 
 object NodesPlayerJoinQuitListener {
+    fun onPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
+        RallyCapAdmission.reserve(event.player.uuid)?.let { reason ->
+            event.player.kick(Component.text(reason))
+        }
+    }
+
     fun onPlayerJoin(event: PlayerLoadedEvent) {
         // create resident wrapper for player
         // createResident checks if resident already exists
@@ -34,6 +99,10 @@ object NodesPlayerJoinQuitListener {
         Resident.create(player)
 
         val resident: Resident = Resident.fromPlayer(player)!!
+        RallyCapAdmission.consume(player.uuid)?.let { reason ->
+            player.kick(Component.text(reason))
+            return
+        }
         Resident.setOnline(resident, player)
         Nametag.onPlayerJoin(player)
         MiningBoostManager.onPlayerJoin(player)
@@ -82,6 +151,7 @@ object NodesPlayerJoinQuitListener {
 
     fun onPlayerQuit(event: PlayerDisconnectEvent) {
         val player: Player = event.player
+        RallyCapAdmission.release(player.uuid)
         val resident = Resident.fromPlayer(player)
         Nametag.onPlayerQuit(player)
         MiningBoostManager.onPlayerQuit(player)
@@ -112,6 +182,8 @@ object NodesPlayerJoinQuitListener {
     }
 
     fun init() {
+        RallyCapAdmission.reset()
+        Nodes.eventNode.addListener(AsyncPlayerConfigurationEvent::class.java, this::onPlayerConfiguration)
         Nodes.eventNode.addListener(PlayerLoadedEvent::class.java, this::onPlayerJoin)
         Nodes.eventNode.addListener(PlayerSpawnEvent::class.java, this::onPlayerSpawn)
         Nodes.eventNode.addListener(PlayerRespawnEvent::class.java, this::onPlayerRespawn)

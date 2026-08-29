@@ -130,8 +130,8 @@ class PortWarpCommand : NodesCommand("warp") {
             }
 
             val vehicle = player.vehicle
-            if (vehicle == null || !vehicle.entityType.toString().contains("_boat")) {
-                Message.error(player, "You must be in a boat or a ship vehicle to warp to ports")
+            if (vehicle != null && !vehicle.entityType.toString().contains("_boat")) {
+                Message.error(player, "You must dismount before warping to a port")
                 return@addSyntax
             }
 

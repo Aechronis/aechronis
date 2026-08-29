@@ -25,6 +25,7 @@ class PortWarpTask(
     private var time = timeWarp
 
     private var task: Task? = null
+    private val initialVehicle = player.vehicle
 
     private var portPos = Pos(
         (destination.chunkX * 16 + 8).toDouble(),
@@ -35,7 +36,7 @@ class PortWarpTask(
     fun start(): Task {
         val runnable = object : Runnable {
             override fun run() {
-                if (player.position.blockX() != initialPos.blockX() || player.position.blockY() != initialPos.blockY() || player.position.blockZ() != initialPos.blockZ() || player.vehicle == null) {
+                if (player.position.blockX() != initialPos.blockX() || player.position.blockY() != initialPos.blockY() || player.position.blockZ() != initialPos.blockZ() || player.vehicle !== initialVehicle) {
                     Message.announcement(player, "${ChatColor.RED}Moved! Stopped warping...")
                     task?.cancel()
                     Nodes.playerWarpTasks.remove(player)
@@ -48,10 +49,15 @@ class PortWarpTask(
                     task?.cancel()
                     Nodes.playerWarpTasks.remove(player)
 
-                    val vehicle = player.vehicle!!
-                    val passengers = vehicle.passengers.toList()
+                    val vehicle = initialVehicle
+                    if (vehicle == null) {
+                        player.teleport(portPos)
+                        Message.announcement(player, "${ChatColor.GREEN}Warped to ${destination.name}")
+                        return
+                    }
 
                     // must remove players from boat before teleporting
+                    val passengers = vehicle.passengers.toList()
                     passengers.forEach { passenger ->
                         vehicle.removePassenger(passenger)
                     }

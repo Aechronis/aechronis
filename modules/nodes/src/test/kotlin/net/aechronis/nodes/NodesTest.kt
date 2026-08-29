@@ -1,5 +1,6 @@
 package net.aechronis.nodes
 
+import com.google.gson.JsonParser
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
 import net.aechronis.nodes.colonization.AutomaticChunkLeaseManager
@@ -11,6 +12,7 @@ import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.listeners.NodesBlockPlacementCooldownListener
 import net.aechronis.nodes.listeners.NodesWorldListener
+import net.aechronis.nodes.listeners.RallyCapAdmission
 import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Farm
@@ -31,7 +33,9 @@ import net.aechronis.nodes.objects.testTownLockedSide
 import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.nodes.war.TownDefeatOutcome
 import net.aechronis.nodes.war.Warzone
+import net.aechronis.nodes.war.serdes.WarSerializer
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.StorageAccess
 import net.kyori.adventure.bossbar.BossBar
@@ -82,6 +86,7 @@ import kotlin.math.min
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -987,6 +992,77 @@ class NodesTest {
     }
 
     @Test
+    fun `town lives default by capital and allow only one defeat per war`() {
+        val territories = Nodes.territories.values.filter { it.town == null }.take(3)
+        assertEquals(3, territories.size)
+        val suffix = UUID.randomUUID().toString().take(8)
+        val capital = Town.create("LivesCapital$suffix", territories[0], null).getOrThrow()
+        val member = Town.create("LivesMember$suffix", territories[1], null).getOrThrow()
+        val attacker = Town.create("LivesAttacker$suffix", territories[2], null).getOrThrow()
+        val nation = Nation.create("LivesNation$suffix", capital).getOrThrow()
+        Nation.addTown(nation, member).getOrThrow()
+        val previousEnabled = FlagWar.enabled
+        val previousCanAnnex = FlagWar.canAnnexTerritories
+        val previousDefeated = HashSet(FlagWar.townsDefeatedThisWar)
+
+        try {
+            assertEquals(2, capital.lives)
+            assertEquals(1, member.lives)
+            assertEquals(1, attacker.lives)
+
+            FlagWar.enabled = true
+            FlagWar.canAnnexTerritories = true
+            FlagWar.townsDefeatedThisWar.clear()
+            assertEquals(TownDefeatOutcome.LOST_LIFE, FlagWar.resolveTownDefeat(attacker, capital, AttackMode.WAR))
+            assertEquals(1, capital.lives)
+            assertEquals(
+                TownDefeatOutcome.ALREADY_DEFEATED_THIS_WAR,
+                FlagWar.resolveTownDefeat(attacker, capital, AttackMode.WAR),
+            )
+            assertTrue(Nodes.towns.containsValue(capital))
+
+            val persistedTown = JsonParser.parseString(capital.getSaveState().createJsonString()).asJsonObject
+            assertEquals(1, persistedTown.get("lives").asInt)
+            assertTrue(persistedTown.get("capitalLifeGranted").asBoolean)
+            val persistedWar = JsonParser.parseString(WarSerializer.createJsonSnapshot()).asJsonObject
+            assertEquals(
+                1,
+                persistedWar.getAsJsonObject("townLives")[capital.uuid.toString()].asJsonObject.get("lives").asInt,
+            )
+            assertTrue(
+                persistedWar.getAsJsonArray("defeatedTowns").any { townId -> townId.asString == capital.uuid.toString() },
+            )
+
+            assertEquals(TownDefeatOutcome.ANNEXED, FlagWar.resolveTownDefeat(attacker, member, AttackMode.WAR))
+            assertFalse(Nodes.towns.containsValue(member))
+
+            // Border skirmishes retain their existing no-annex rule even at the final life.
+            FlagWar.townsDefeatedThisWar.clear()
+            FlagWar.canAnnexTerritories = false
+            assertEquals(
+                TownDefeatOutcome.FINAL_LIFE_PROTECTED,
+                FlagWar.resolveTownDefeat(attacker, capital, AttackMode.WAR),
+            )
+            assertTrue(Nodes.towns.containsValue(capital))
+            assertEquals(1, capital.lives)
+
+            FlagWar.townsDefeatedThisWar.clear()
+            FlagWar.canAnnexTerritories = true
+            assertEquals(TownDefeatOutcome.ANNEXED, FlagWar.resolveTownDefeat(attacker, capital, AttackMode.WAR))
+            assertFalse(Nodes.towns.containsValue(capital))
+        } finally {
+            FlagWar.enabled = previousEnabled
+            FlagWar.canAnnexTerritories = previousCanAnnex
+            FlagWar.townsDefeatedThisWar.clear()
+            FlagWar.townsDefeatedThisWar.addAll(previousDefeated)
+            if (Nodes.nations.containsValue(nation)) Nation.destroy(nation)
+            if (Nodes.towns.containsValue(capital)) Town.destroy(capital)
+            if (Nodes.towns.containsValue(member)) Town.destroy(member)
+            if (Nodes.towns.containsValue(attacker)) Town.destroy(attacker)
+        }
+    }
+
+    @Test
     fun `warzone occupier permissions apply to chunks and captured home territory`() {
         val home = Nodes.territories.values.first { it.town == null && it.chunks.any { coord -> coord != it.core } }
         val attackerHome = Nodes.territories.values.first { it.town == null && it !== home }
@@ -1095,7 +1171,7 @@ class NodesTest {
     }
 
     @Test
-    fun `nation rally cap prevents further residents from joining`() {
+    fun `nation rally cap limits logins only while war is enabled`() {
         val territories = Nodes.territories.values.filter { it.town == null }.take(2)
         assertEquals(2, territories.size)
         val suffix = UUID.randomUUID().toString().take(8)
@@ -1111,8 +1187,26 @@ class NodesTest {
         try {
             Nation.setRallyCap(nation, 1)
             assertTrue(Town.addResident(firstTown, firstResident))
-            assertFalse(Town.addResident(secondTown, secondResident))
-            assertEquals("${nation.name} has reached its rally cap of 1 residents", Town.joinRestriction(secondTown, secondResident))
+            assertTrue(Town.addResident(secondTown, secondResident))
+
+            val previousWarEnabled = FlagWar.enabled
+            try {
+                FlagWar.enabled = false
+                assertNull(RallyCapAdmission.reserve(firstResident.uuid))
+                assertNull(RallyCapAdmission.reserve(secondResident.uuid))
+
+                FlagWar.enabled = true
+                assertNull(RallyCapAdmission.reserve(firstResident.uuid))
+                assertEquals(
+                    "${nation.name} has reached its war rally cap of 1 online players",
+                    RallyCapAdmission.reserve(secondResident.uuid),
+                )
+                RallyCapAdmission.release(firstResident.uuid)
+                assertNull(RallyCapAdmission.reserve(secondResident.uuid))
+            } finally {
+                RallyCapAdmission.reset()
+                FlagWar.enabled = previousWarEnabled
+            }
         } finally {
             Nodes.residents.remove(firstResident.uuid)
             Nodes.residents.remove(secondResident.uuid)

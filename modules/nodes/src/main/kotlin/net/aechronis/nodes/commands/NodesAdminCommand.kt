@@ -798,7 +798,7 @@ class NodesAdminNationCommand : NodesCommand("nation", "nodes.admin") {
             Message.print(player, "/nodesadmin nation addenemy${ChatColor.WHITE}: Add enemy to nation")
             Message.print(player, "/nodesadmin nation removeenemy${ChatColor.WHITE}: Remove enemy from a nation")
             Message.print(player, "/nodesadmin nation capital${ChatColor.WHITE}: Set nation's capital town")
-            Message.print(player, "/nda nation rallycap <number>${ChatColor.WHITE}: Set your nation's maximum residents")
+            Message.print(player, "/nda nation rallycap <number>${ChatColor.WHITE}: Set your nation's war login cap")
             Message.print(player, "/nodesadmin nation color${ChatColor.WHITE}: Set the color of a nation")
             Message.print(player, "Run a command with no args to see usage.")
         }
@@ -1050,7 +1050,7 @@ class NodesAdminNationRallyCapCommand : NodesCommand("rallycap", "nodes.admin") 
                 return@addSyntax
             }
             Nation.setRallyCap(nation, rallyCap)
-            Message.print(player, "Set ${nation.name}'s rally cap to $rallyCap residents")
+            Message.print(player, "Set ${nation.name}'s war rally cap to $rallyCap online players")
         }, capArg)
     }
 }

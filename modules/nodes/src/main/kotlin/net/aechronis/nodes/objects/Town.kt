@@ -133,6 +133,9 @@ class Town(
             protectedBlocks: HashSet<BlockVec>,
             plots: ArrayList<Plot.PlotSaveState> = arrayListOf(),
             aiConfig: AiTownConfig = AiTownConfig(),
+            lives: Int? = null,
+            capitalLifeGranted: Boolean = false,
+            lifeRevision: Long = 0L,
         ): Town? {
             val leaderResident = leader?.let { Resident.fromUuid(it) }
             val home = Territory.fromId(TerritoryId(homeId))
@@ -195,9 +198,45 @@ class Town(
                 if (plot.name.isNotBlank() && !town.plots.containsKey(plot.name) && Plot.isValid(town, plot)) town.plots[plot.name] = plot
             }
             town.aiConfig = aiConfig
+            town.lives = lives?.coerceAtLeast(1) ?: 1
+            town.capitalLifeGranted = capitalLifeGranted
+            town.lifeRevision = lifeRevision.coerceAtLeast(0L)
             Nodes.towns[name] = town
             town.needsUpdate()
             return town
+        }
+
+        internal fun initializeCapitalLives(town: Town) {
+            if (town.capitalLifeGranted) return
+            if (town.lives < 2) town.lives = 2
+            town.capitalLifeGranted = true
+            town.lifeRevision++
+            town.needsUpdate()
+            Nodes.needsSave = true
+        }
+
+        internal fun loseLife(town: Town): Int {
+            require(town.lives > 1) { "A town at its final life must be annexed instead of losing another life" }
+            town.lives--
+            town.lifeRevision++
+            town.needsUpdate()
+            Nodes.needsSave = true
+            return town.lives
+        }
+
+        internal fun restoreLives(
+            town: Town,
+            lives: Int,
+            capitalLifeGranted: Boolean,
+            revision: Long,
+        ) {
+            if (revision <= town.lifeRevision) return
+            val restoredLives = lives.coerceAtLeast(1)
+            town.lives = restoredLives
+            town.capitalLifeGranted = capitalLifeGranted
+            town.lifeRevision = revision
+            town.needsUpdate()
+            Nodes.needsSave = true
         }
 
         fun destroy(town: Town) {
@@ -438,11 +477,6 @@ class Town(
             }
             val cooldown = resident.townJoinCooldownRemainingMillis()
             if (cooldown > 0) return "You cannot join another town for ${formatDuration(cooldown)} after leaving a town"
-            val nation = town.nation
-            val rallyCap = nation?.rallyCap
-            if (rallyCap != null && nation.residents.size >= rallyCap) {
-                return "${nation.name} has reached its rally cap of $rallyCap residents"
-            }
             return null
         }
 
@@ -644,6 +678,15 @@ class Town(
     // nation for town
     var nation: Nation? = null
 
+    // Remaining war defeats before the town is annexed. A living town always has at least one.
+    var lives: Int = 1
+        private set
+
+    internal var capitalLifeGranted: Boolean = false
+        private set
+    internal var lifeRevision: Long = 0L
+        private set
+
     // players currently online in town
     // must be Set to satisfy bukkit interface in Chat.kt
     val playersOnline: MutableSet<Player> = mutableSetOf()
@@ -752,9 +795,10 @@ class Town(
         Message.print(sender, "${ChatColor.BOLD}Town ${this.name}:")
         Message.print(sender, "- Home${ChatColor.WHITE}: Territory (id = ${this.home})")
         Message.print(sender, "- Territories${ChatColor.WHITE}: ${this.territories.size}")
+        Message.print(sender, "- Lives${ChatColor.WHITE}: ${this.lives}")
         Message.print(sender, "- Nation${ChatColor.WHITE}: $nation")
         this.nation?.rallyCap?.let { rallyCap ->
-            Message.print(sender, "- Nation rally cap${ChatColor.WHITE}: $rallyCap")
+            Message.print(sender, "- War rally cap${ChatColor.WHITE}: $rallyCap online players")
         }
         Message.print(sender, "- Allies${ChatColor.WHITE}: $allies")
         Message.print(sender, "- Enemies${ChatColor.WHITE}: $enemies")
@@ -789,6 +833,9 @@ class Town(
         val territories = t.territories.toList()
         val annexed = t.annexed.toList()
         val captured = t.captured.toList()
+        val lives = t.lives
+        val capitalLifeGranted = t.capitalLifeGranted
+        val lifeRevision = t.lifeRevision
         val income = t.income.snapshot()
         val protectedBlocks: HashSet<BlockVec> = HashSet(t.protectedBlocks)
         val plots: List<Plot.PlotSaveState> = t.plots.values.map { it.getSaveState() }
@@ -828,6 +875,9 @@ class Town(
                     "\"territories\":$territories," +
                     "\"annexed\":$annexed," +
                     "\"captured\":$captured," +
+                    "\"lives\":$lives," +
+                    "\"capitalLifeGranted\":$capitalLifeGranted," +
+                    "\"lifeRevision\":$lifeRevision," +
                     "\"income\":$income," +
                     ai +
                     "\"protect\":${blocksToJsonString(this.protectedBlocks)}," +

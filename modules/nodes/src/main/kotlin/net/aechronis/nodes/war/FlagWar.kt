@@ -85,6 +85,13 @@ internal data class SkirmishTargetSelection(
     val territoryId: TerritoryId,
 )
 
+internal enum class TownDefeatOutcome {
+    ALREADY_DEFEATED_THIS_WAR,
+    LOST_LIFE,
+    ANNEXED,
+    FINAL_LIFE_PROTECTED,
+}
+
 object FlagWar {
 
     // ============================================
@@ -130,6 +137,9 @@ object FlagWar {
 
     // One target territory per nation for the current border skirmish.
     internal val skirmishTargetsByNation: MutableMap<UUID, TerritoryId> = hashMapOf()
+
+    // A town can consume at most one life during one enabled war period.
+    internal val townsDefeatedThisWar: MutableSet<UUID> = hashSetOf()
 
     internal var territoryOccupationJournalDirty: Boolean = false
 
@@ -219,6 +229,7 @@ object FlagWar {
         colonizedChunks.clear()
         territoryOccupations.clear()
         skirmishTargetsByNation.clear()
+        townsDefeatedThisWar.clear()
         territoryOccupationJournalDirty = false
 
         if (Files.exists(Nodes.config.pathWar)) {
@@ -431,6 +442,7 @@ object FlagWar {
         colonizedChunks.clear()
         territoryOccupations.clear()
         skirmishTargetsByNation.clear()
+        townsDefeatedThisWar.clear()
         territoryOccupationJournalDirty = false
         enabled = false
         canAnnexTerritories = false
@@ -491,6 +503,7 @@ object FlagWar {
         colonizedChunks.clear()
         territoryOccupations.clear()
         skirmishTargetsByNation.clear()
+        townsDefeatedThisWar.clear()
         territoryOccupationJournalDirty = false
     }
 
@@ -499,6 +512,7 @@ object FlagWar {
      */
     internal fun enable(canAnnexTerritories: Boolean, canOnlyAttackBorders: Boolean, destructionEnabled: Boolean) {
         skirmishTargetsByNation.clear()
+        townsDefeatedThisWar.clear()
         enabled = true
         FlagWar.canAnnexTerritories = canAnnexTerritories
         FlagWar.canOnlyAttackBorders = canOnlyAttackBorders
@@ -517,6 +531,7 @@ object FlagWar {
         canOnlyAttackBorders = false
         destructionEnabled = false
         skirmishTargetsByNation.clear()
+        townsDefeatedThisWar.clear()
         needsSave = true
 
         // kill save task
@@ -574,6 +589,40 @@ object FlagWar {
     internal fun canCaptureTerritoryCore(): Boolean = canAnnexTerritories || canOnlyAttackBorders
 
     internal fun canAnnexDefeatedTown(mode: AttackMode): Boolean = mode != AttackMode.WAR || canAnnexTerritories
+
+    internal fun resolveTownDefeat(
+        attackerTown: Town,
+        defeatedTown: Town,
+        mode: AttackMode,
+    ): TownDefeatOutcome {
+        if (mode != AttackMode.WAR) {
+            Town.annex(attackerTown, defeatedTown)
+            WarSerializer.save(false)
+            return TownDefeatOutcome.ANNEXED
+        }
+
+        if (!townsDefeatedThisWar.add(defeatedTown.uuid)) {
+            return TownDefeatOutcome.ALREADY_DEFEATED_THIS_WAR
+        }
+
+        val outcome = when {
+            defeatedTown.lives > 1 -> {
+                Town.loseLife(defeatedTown)
+                TownDefeatOutcome.LOST_LIFE
+            }
+            canAnnexDefeatedTown(mode) -> {
+                Town.annex(attackerTown, defeatedTown)
+                TownDefeatOutcome.ANNEXED
+            }
+            else -> TownDefeatOutcome.FINAL_LIFE_PROTECTED
+        }
+        needsSave = true
+        // Persist the life and per-war defeat marker together. towns.json will
+        // catch up through the normal world save queue; war.json is the journal
+        // used to recover either value after an abrupt stop.
+        WarSerializer.save(false)
+        return outcome
+    }
 
     private fun beginAttack(
         attacker: UUID,
@@ -996,6 +1045,10 @@ object FlagWar {
         skirmishTargetsByNation[nationId] = territoryId
     }
 
+    internal fun loadDefeatedTown(townId: UUID) {
+        if (enabled && Town.fromUuid(townId) != null) townsDefeatedThisWar.add(townId)
+    }
+
     // Check that a chunk belongs to an opponent and can be attacked:
     // 1. belongs to an opposing town
     // 2. town chunk occupied by an opponent
@@ -1377,18 +1430,23 @@ object FlagWar {
                         // Warzones are always occupied, never permanently annexed.
                         // This includes a warzone that is a town's home territory
                         // and a stopped warzone later captured during normal war.
-                        if (
-                            territoryTown != null &&
-                            canAnnexDefeatedTown(attack.mode) &&
-                            !Warzone.isRegistered(territory) &&
-                            shouldAnnexTown(territoryTown, territory)
-                        ) {
+                        if (territoryTown != null && !Warzone.isRegistered(territory) && shouldAnnexTown(territoryTown, territory)) {
                             val defeatedTownName = territoryTown.name
-                            Town.annex(attackerTown, territoryTown)
-                            Message.broadcast(
-                                "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} annexed $defeatedTownName; " +
-                                    "${attacker?.name ?: attackerTown.name} made the decisive capture!",
-                            )
+                            when (resolveTownDefeat(attackerTown, territoryTown, attack.mode)) {
+                                TownDefeatOutcome.ALREADY_DEFEATED_THIS_WAR -> Unit
+                                TownDefeatOutcome.LOST_LIFE -> Message.broadcast(
+                                    "${ChatColor.DARK_RED}[Conquest] $defeatedTownName lost a life and has " +
+                                        "${territoryTown.lives} remaining; it cannot lose another life this war!",
+                                )
+                                TownDefeatOutcome.ANNEXED -> Message.broadcast(
+                                    "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} annexed $defeatedTownName; " +
+                                        "${attacker?.name ?: attackerTown.name} made the decisive capture!",
+                                )
+                                TownDefeatOutcome.FINAL_LIFE_PROTECTED -> Message.broadcast(
+                                    "${ChatColor.DARK_RED}[Conquest] $defeatedTownName was defeated but cannot be annexed " +
+                                        "during this war mode; it remains on its final life.",
+                                )
+                            }
                         }
                     }
                 }

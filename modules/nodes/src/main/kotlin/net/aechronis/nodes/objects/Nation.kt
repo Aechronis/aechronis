@@ -70,6 +70,7 @@ class Nation(
             if (fromName(name) != null) return Result.failure(ErrorNationExists)
 
             val nation = Nation(UUID.randomUUID(), name, town)
+            Town.initializeCapitalLives(town)
             Nodes.nations[name] = nation
             nation.towns.add(town)
             town.nation = nation
@@ -92,6 +93,7 @@ class Nation(
         ): Nation {
             val capital = Town.fromName(capitalName) ?: throw net.aechronis.nodes.constants.ErrorTownDoesNotExist
             val nation = Nation(uuid, name, capital)
+            Town.initializeCapitalLives(capital)
             if (color != null) nation.color = color
             nation.rallyCap = rallyCap?.takeIf { it > 0 }
             for (townName in towns) {
@@ -151,6 +153,7 @@ class Nation(
                 destroy(nation)
             } else if (town === nation.capital) {
                 nation.capital = nation.towns.first()
+                Town.initializeCapitalLives(nation.capital)
                 nation.capital.residents.forEach { it.player()?.let { player -> Message.print(player, "Your town is now the capital of ${nation.name}") } }
             }
             town.needsUpdate()
@@ -193,6 +196,7 @@ class Nation(
         fun setCapital(nation: Nation, town: Town) {
             if (town.nation !== nation || nation.capital === town) return
             nation.capital = town
+            Town.initializeCapitalLives(town)
             nation.needsUpdate()
             Nodes.needsSave = true
         }
@@ -303,7 +307,7 @@ class Nation(
     val allies: HashSet<Nation> = hashSetOf()
     val enemies: HashSet<Nation> = hashSetOf()
 
-    // Maximum residents allowed across all towns. Null means unlimited.
+    // Maximum nation members allowed online while war is enabled. Null means unlimited.
     var rallyCap: Int? = null
         private set
 
@@ -356,6 +360,9 @@ class Nation(
         Message.print(sender, "- Leader${ChatColor.WHITE}: $leader")
         Message.print(sender, "- Towns[${this.towns.size}]${ChatColor.WHITE}: $towns")
         Message.print(sender, "- Residents${ChatColor.WHITE}: $residents")
+        this.rallyCap?.let { rallyCap ->
+            Message.print(sender, "- War rally cap${ChatColor.WHITE}: $rallyCap online players")
+        }
         Message.print(sender, "- Allies${ChatColor.WHITE}: $allies")
         Message.print(sender, "- Enemies${ChatColor.WHITE}: $enemies")
     }

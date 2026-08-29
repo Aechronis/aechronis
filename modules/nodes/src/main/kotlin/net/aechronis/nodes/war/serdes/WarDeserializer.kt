@@ -8,6 +8,7 @@ package net.aechronis.nodes.war.serdes
 import com.google.gson.JsonParser
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.TerritoryId
+import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.war.FlagWar
 import java.io.FileReader
 import java.nio.file.Path
@@ -40,6 +41,32 @@ object WarDeserializer {
                 )
             }.onFailure { error ->
                 System.err.println("[Nodes] Ignoring invalid skirmish target $nationIdText: ${error.message}")
+            }
+        }
+
+        val jsonTownLives = jsonObj.get("townLives")?.asJsonObject
+        jsonTownLives?.entrySet()?.forEach { (townIdText, livesJson) ->
+            runCatching {
+                val townId = UUID.fromString(townIdText)
+                val town = Town.fromUuid(townId) ?: error("unknown town")
+                val lifeState = livesJson.asJsonObject
+                Town.restoreLives(
+                    town,
+                    lifeState.get("lives").asInt,
+                    lifeState.get("capitalGranted")?.asBoolean ?: false,
+                    lifeState.get("revision").asLong,
+                )
+            }.onFailure { error ->
+                System.err.println("[Nodes] Ignoring invalid town lives $townIdText: ${error.message}")
+            }
+        }
+
+        if (warStatus) {
+            jsonObj.get("defeatedTowns")?.asJsonArray?.forEach { townIdJson ->
+                runCatching { FlagWar.loadDefeatedTown(UUID.fromString(townIdJson.asString)) }
+                    .onFailure { error ->
+                        System.err.println("[Nodes] Ignoring invalid defeated town $townIdJson: ${error.message}")
+                    }
             }
         }
 

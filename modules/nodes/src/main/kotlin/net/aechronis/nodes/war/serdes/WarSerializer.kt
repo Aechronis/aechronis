@@ -16,6 +16,8 @@
  *     "12": {"owner":"town-uuid","colonized":false}
  *   },
  *   "skirmishTargets": {"nation-uuid":12},
+ *   "defeatedTowns": ["town-uuid"],
+ *   "townLives": {"town-uuid":{"lives":1,"capitalGranted":true,"revision":2}},
  *   "attacks": [            // ongoing war, colony, and warzone flags
  *     {"id":"resident-uuid","c":[0,1],"b":[0,64,16],"m":"WAR","t":123},
  *     {attackJsonObject1},
@@ -36,6 +38,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
@@ -185,6 +188,15 @@ object WarSerializer {
             .joinToString(",") { (nationId, territoryId) ->
                 "${JsonPrimitive(nationId.toString())}:${territoryId.toInt()}"
             }
+        val defeatedTowns = FlagWar.townsDefeatedThisWar
+            .sortedBy(UUID::toString)
+            .joinToString(",") { townId -> JsonPrimitive(townId.toString()).toString() }
+        val townLives = Nodes.towns.values
+            .sortedBy { town -> town.uuid.toString() }
+            .joinToString(",") { town ->
+                "${JsonPrimitive(town.uuid.toString())}:{\"lives\":${town.lives}," +
+                    "\"capitalGranted\":${town.capitalLifeGranted},\"revision\":${town.lifeRevision}}"
+            }
 
         return buildString {
             append("{\"war\":${FlagWar.enabled},")
@@ -200,6 +212,8 @@ object WarSerializer {
             append("},\"colonized\":$colonized,")
             append("\"territoryOccupations\":{$territoryOccupations},")
             append("\"skirmishTargets\":{$skirmishTargets},")
+            append("\"defeatedTowns\":[$defeatedTowns],")
+            append("\"townLives\":{$townLives},")
             append("\"attacks\":[${attacks.joinToString(",")}]}")
         }
     }

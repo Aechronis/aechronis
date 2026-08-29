@@ -178,6 +178,12 @@ object Deserializer {
                     null
                 }
 
+                val lives = town.get("lives")?.let { value ->
+                    runCatching { value.asInt.takeIf { it > 0 } }.getOrNull()
+                }
+                val capitalLifeGranted = town.get("capitalLifeGranted")?.asBoolean ?: false
+                val lifeRevision = town.get("lifeRevision")?.asLong?.coerceAtLeast(0L) ?: 0L
+
                 // parse residents
                 val residentsUUID: ArrayList<UUID> = ArrayList()
                 val residentsArray = town.get("residents")?.asJsonArray
@@ -364,6 +370,9 @@ object Deserializer {
                     protectedBlocks,
                     plots,
                     aiConfig,
+                    lives,
+                    capitalLifeGranted,
+                    lifeRevision,
                 )
 
                 if (townObject !== null) {
