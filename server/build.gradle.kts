@@ -77,7 +77,7 @@ dependencies {
     implementation("org.everbuild.blocksandstuff:blocksandstuff-fluids:1.10.2-SNAPSHOT")
     implementation("com.google.code.gson:gson:2.14.0")
     implementation("com.google.guava:guava:33.6.0-jre")
-    implementation("it.unimi.dsi:fastutil:8.5.18")
+    implementation("it.unimi.dsi:fastutil:8.5.19")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
