@@ -18,7 +18,11 @@ import net.minestom.server.item.Material
 import net.minestom.server.tag.Tag
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 object Factories {
     private const val FACTORY_ITEM_TAG_KEY = "aechronis:factory"
@@ -49,6 +53,18 @@ object Factories {
         val name: String,
         val tier: Int,
         val startedAt: Long? = null,
+    )
+
+    private data class LoadableFactory(
+        val saved: SavedFactory,
+        val factory: Factory,
+        val instance: Instance,
+    )
+
+    private data class FactoryChunk(
+        val instance: Instance,
+        val x: Int,
+        val z: Int,
     )
 
     private val definitions = linkedMapOf<String, Factory>()
@@ -270,22 +286,49 @@ object Factories {
                 emptyList()
             }
 
-        saved.forEach { entry ->
-            val factory = definitions[entry.name] ?: return@forEach
-            if (entry.tier !in 1..factory.maxTier) return@forEach
-            val instance = MinecraftServer.getInstanceManager().instances.firstOrNull { it.getDimensionName() == entry.world }
-            if (instance == null) {
-                System.err.println("Factory at ${entry.x}, ${entry.y}, ${entry.z} has an unavailable world: ${entry.world}")
-                return@forEach
-            }
-            // getBlock may only be called after this chunk has been loaded. Loading saved factories runs during startup.
-            runCatching { instance.loadChunk(entry.x shr 4, entry.z shr 4).join() }
-                .onFailure { error ->
-                    System.err.println("Failed to load factory chunk at ${entry.x}, ${entry.z}: ${error.message}")
-                    return@forEach
+        val instances = MinecraftServer.getInstanceManager().instances.associateBy { it.getDimensionName() }
+        val loadable =
+            saved.mapNotNull { entry ->
+                val factory = definitions[entry.name] ?: return@mapNotNull null
+                if (entry.tier !in 1..factory.maxTier) return@mapNotNull null
+                val instance = instances[entry.world]
+                if (instance == null) {
+                    System.err.println("Factory at ${entry.x}, ${entry.y}, ${entry.z} has an unavailable world: ${entry.world}")
+                    return@mapNotNull null
                 }
+                LoadableFactory(entry, factory, instance)
+            }
+
+        val chunks =
+            loadable
+                .map { entry -> FactoryChunk(entry.instance, entry.saved.x shr 4, entry.saved.z shr 4) }
+                .distinct()
+        val chunkLoads = chunks.map { chunk -> chunk.instance.loadChunk(chunk.x, chunk.z) }
+        awaitChunkLoads(chunkLoads)
+
+        loadable.forEach { (entry, factory, instance) ->
             if (!instance.getBlock(entry.x, entry.y, entry.z).compare(factoryBlock)) return@forEach
             placed[Location(entry.world, entry.x, entry.y, entry.z)] = PlacedFactory(entry.name, entry.tier, entry.startedAt)
+        }
+    }
+
+    internal fun awaitChunkLoads(
+        loads: Collection<CompletableFuture<*>>,
+        timeout: Long = FACTORY_CHUNK_LOAD_TIMEOUT_SECONDS,
+        unit: TimeUnit = TimeUnit.SECONDS,
+    ) {
+        try {
+            CompletableFuture.allOf(*loads.toTypedArray()).get(timeout, unit)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while loading saved factory chunks", error)
+        } catch (error: TimeoutException) {
+            throw IllegalStateException(
+                "Saved factory chunks did not load within $timeout ${unit.name.lowercase()}",
+                error,
+            )
+        } catch (error: ExecutionException) {
+            throw error.cause ?: error
         }
     }
 
@@ -294,8 +337,9 @@ object Factories {
             placed.map { (location, state) ->
                 SavedFactory(location.world, location.x, location.y, location.z, state.name, state.tier, state.startedAt)
             }
-        Files.newBufferedWriter(file).use { writer -> gson.toJson(saved, writer) }
+        AtomicFiles.write(file) { writer -> gson.toJson(saved, writer) }
     }
 
     private const val MAX_REACH = 6
+    private const val FACTORY_CHUNK_LOAD_TIMEOUT_SECONDS = 60L
 }

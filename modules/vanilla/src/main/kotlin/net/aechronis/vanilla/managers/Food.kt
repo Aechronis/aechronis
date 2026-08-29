@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.FoodListener
 import net.aechronis.vanilla.objects.FoodItem
@@ -26,8 +27,7 @@ object Food {
             foodItems[item.material] = item
         }
         FoodListener.init()
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask(::tick)
             .repeat(TaskSchedule.seconds(config.foodConfig.foodTickSeconds))
             .schedule()

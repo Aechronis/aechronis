@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.MusicListener
 import net.aechronis.vanilla.objects.MusicDisc
@@ -53,7 +54,7 @@ object Music {
                     disc.length,
                     0,
                 )
-            val registryKey = registry.register(key, song)
+            val registryKey = registry.getKey(key) ?: registry.register(key, song)
             keysByDisc[disc] = registryKey
             discsByKey[key] = disc
         }
@@ -94,8 +95,7 @@ object Music {
         val soundInstance = Sound.sound(sound, Sound.Source.RECORD, 4f, 1f)
         instance.playSound(soundInstance, position.add(0.5, 0.5, 0.5))
 
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask {
                 val current = instance.getBlock(position)
                 if (current.getTag(PLAYING_TAG) != true) return@buildTask

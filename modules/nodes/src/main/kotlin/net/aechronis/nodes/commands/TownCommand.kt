@@ -22,6 +22,7 @@ import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
@@ -285,7 +286,7 @@ class TownApplyCommand : NodesCommand("apply", null, "join") {
 
             context[townArg].applications.put(
                 resident,
-                MinecraftServer.getSchedulerManager()
+                ModuleScheduler
                     .buildTask {
                         if (resident.town == null) {
                             player.sendMessage("No one in ${context[townArg].name} responded to your application!")
@@ -344,7 +345,7 @@ class TownInviteCommand : NodesCommand("invite") {
                 Message.print(invitee, "You have been invited to become a member of ${town.name}.\nType \"/t accept\" to join the town or \"/t reject\" to refuse the offer.")
                 context[playerArg].invitingTown = town
                 context[playerArg].invitingPlayer = player
-                context[playerArg].inviteThread = MinecraftServer.getSchedulerManager()
+                context[playerArg].inviteThread = ModuleScheduler
                     .buildTask {
                         if (context[playerArg].invitingPlayer == player) {
                             Message.print(player, "${invitee.username} didn't respond to your town invitation!")
@@ -746,7 +747,7 @@ class TownSpawn : NodesCommand("spawn") {
                 teleportTime *= Nodes.config.occupiedHomeTeleportMultiplier
             }
 
-            resident.teleportThread = MinecraftServer.getSchedulerManager().buildTask {
+            resident.teleportThread = ModuleScheduler.buildTask {
                 player.teleport(town.spawnpoint)
                 resident.teleportThread = null
             }

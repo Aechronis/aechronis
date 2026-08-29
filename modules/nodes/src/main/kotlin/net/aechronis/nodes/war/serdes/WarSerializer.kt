@@ -11,8 +11,13 @@
  *        4, 5,
  *        6, 7 ]
  *   },
- *   "atttacks": [           // ongoing attacks
- *     {attackJsonObject0},
+ *   "colonized": [0, 1],   // occupied colony chunks
+ *   "territoryOccupations": {
+ *     "12": {"owner":"town-uuid","colonized":false}
+ *   },
+ *   "skirmishTargets": {"nation-uuid":12},
+ *   "attacks": [            // ongoing war, colony, and warzone flags
+ *     {"id":"resident-uuid","c":[0,1],"b":[0,64,16],"m":"WAR","t":123},
  *     {attackJsonObject1},
  *     ...
  *   ]
@@ -24,7 +29,6 @@ package net.aechronis.nodes.war.serdes
 import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.TerritoryChunk
-import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
 import java.nio.charset.StandardCharsets
 import java.nio.file.AtomicMoveNotSupportedException
@@ -33,30 +37,123 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 object WarSerializer {
     private var pendingWrite: CompletableFuture<Void> = CompletableFuture.completedFuture(null)
+    private var acceptingAsyncWrites = true
 
     // snapshot mutable war state before dispatching any asynchronous file write
-    @Synchronized
     fun save(async: Boolean): CompletableFuture<Void> {
-        val json = createJsonSnapshot()
         if (async) {
-            pendingWrite = pendingWrite.handle { _, _ -> null }.thenRunAsync {
-                writeSnapshot(Nodes.config.pathWar, json)
+            val write = synchronized(this) {
+                if (!acceptingAsyncWrites) {
+                    return CompletableFuture.failedFuture(
+                        IllegalStateException("The war-state writer is preparing for shutdown"),
+                    )
+                }
+                val json = createJsonSnapshot()
+                pendingWrite.handle { _, _ -> null }.thenRunAsync {
+                    writeSnapshot(Nodes.config.pathWar, json)
+                }.also { pendingWrite = it }
             }
-            pendingWrite.exceptionally { error ->
+            write.exceptionally { error ->
                 System.err.println("Failed to save war state: ${error.message}")
                 null
             }
-            return pendingWrite
-        } else {
-            pendingWrite.handle { _, _ -> null }.join()
+            return write
+        }
+
+        val (reservation, json) = reserveSynchronousWrite()
+        return try {
             writeSnapshot(Nodes.config.pathWar, json)
-            pendingWrite = CompletableFuture.completedFuture(null)
-            return pendingWrite
+            reservation.complete(null)
+            reservation
+        } catch (error: Throwable) {
+            reservation.completeExceptionally(error)
+            throw error
         }
     }
+
+    @Throws(InterruptedException::class, ExecutionException::class, TimeoutException::class)
+    internal fun awaitIdle(
+        timeout: Long,
+        unit: TimeUnit,
+    ) {
+        val deadline = System.nanoTime() + unit.toNanos(timeout)
+        while (true) {
+            val observed = synchronized(this) { pendingWrite }
+            val remaining = deadline - System.nanoTime()
+            if (remaining <= 0L) throw TimeoutException("Timed out waiting for the war-state writer")
+            observed.get(remaining, TimeUnit.NANOSECONDS)
+            if (synchronized(this) { pendingWrite === observed }) return
+        }
+    }
+
+    internal fun resume() = synchronized(this) {
+        acceptingAsyncWrites = true
+    }
+
+    @Throws(InterruptedException::class, ExecutionException::class, TimeoutException::class)
+    internal fun prepareForShutdown(
+        timeout: Long,
+        unit: TimeUnit,
+    ) {
+        synchronized(this) { acceptingAsyncWrites = false }
+        awaitQuiescence(timeout, unit)
+    }
+
+    private fun awaitQuiescence(
+        timeout: Long,
+        unit: TimeUnit,
+    ) {
+        val deadline = System.nanoTime() + unit.toNanos(timeout)
+        while (true) {
+            val observed = synchronized(this) { pendingWrite }
+            val remaining = deadline - System.nanoTime()
+            if (remaining <= 0L) throw TimeoutException("Timed out waiting for the war-state writer")
+            observed.handle { _, _ -> null }.get(remaining, TimeUnit.NANOSECONDS)
+            if (synchronized(this) { pendingWrite === observed }) return
+        }
+    }
+
+    private fun reserveSynchronousWrite(): SynchronousWrite {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(WRITE_TIMEOUT_SECONDS)
+        try {
+            while (true) {
+                val observed = synchronized(this) { pendingWrite }
+                val remaining = deadline - System.nanoTime()
+                if (remaining <= 0L) throw TimeoutException("Timed out waiting for an earlier war-state write")
+                observed.handle { _, _ -> null }.get(remaining, TimeUnit.NANOSECONDS)
+
+                synchronized(this) {
+                    if (pendingWrite === observed) {
+                        val json = createJsonSnapshot()
+                        val reservation = CompletableFuture<Void>()
+                        pendingWrite = reservation
+                        return SynchronousWrite(reservation, json)
+                    }
+                }
+            }
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while waiting to save war state", error)
+        } catch (error: TimeoutException) {
+            throw IllegalStateException(
+                "An earlier war-state write did not finish within $WRITE_TIMEOUT_SECONDS seconds",
+                error,
+            )
+        } catch (error: ExecutionException) {
+            throw error.cause ?: error
+        }
+    }
+
+    private data class SynchronousWrite(
+        val reservation: CompletableFuture<Void>,
+        val json: String,
+    )
 
     internal fun createJsonSnapshot(): String {
         val occupiedByTown = linkedMapOf<String, MutableList<Int>>()
@@ -82,7 +179,6 @@ object WarSerializer {
                 "${JsonPrimitive(territoryId.toInt().toString())}:{\"owner\":$owner,\"colonized\":${occupation.colonized}}"
             }
         val attacks = FlagWar.chunkToAttacker.values
-            .filter { it.mode == AttackMode.WAR }
             .map { it.toJson().toString() }
         val skirmishTargets = FlagWar.skirmishTargetsByNation.entries
             .sortedBy { (nationId, _) -> nationId.toString() }
@@ -138,4 +234,6 @@ object WarSerializer {
             Files.deleteIfExists(temporary)
         }
     }
+
+    private const val WRITE_TIMEOUT_SECONDS = 60L
 }

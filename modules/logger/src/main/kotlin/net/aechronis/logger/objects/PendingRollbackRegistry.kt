@@ -67,6 +67,12 @@ object PendingRollbackRegistry {
         pending.remove(token)
     }
 
+    @Synchronized
+    fun clear() {
+        pending.clear()
+        tokenByPlayer.clear()
+    }
+
     private fun sweep() {
         val cutoff = System.currentTimeMillis() - TTL_MILLIS
         pending.entries.removeIf { (token, value) ->

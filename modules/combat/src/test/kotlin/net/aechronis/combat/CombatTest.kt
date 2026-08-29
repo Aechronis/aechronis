@@ -40,7 +40,7 @@ import net.aechronis.combat.utils.calculateVehicleCameraDistance
 import net.aechronis.combat.utils.interpolateHitbox
 import net.aechronis.combat.utils.particleLinePointCount
 import net.aechronis.combat.utils.withCombatDamageImmunityBypass
-import net.aechronis.utils.createTestServer
+import net.aechronis.server.modules.ModuleContext
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -107,7 +107,7 @@ class CombatTest {
     @BeforeAll
     fun setup() {
         instance =
-            createTestServer(
+            CombatTestServer.createInstance(
                 generator = shipGen,
                 gameMode = GameMode.CREATIVE,
             )
@@ -383,6 +383,12 @@ class CombatTest {
             assertTrue(saved.contains("\"health\": 490.0"))
             assertTrue(saved.contains("\"ammo\": 3"))
             assertFalse(saved.contains("\"type\": \"drone\""))
+
+            Files.delete(savePath)
+            Files.createDirectory(savePath)
+            Files.writeString(savePath.resolve("prevent-replacement"), "test")
+            val writeFailure = assertFailsWith<IllegalStateException> { VehiclePersistence.save() }
+            assertTrue(writeFailure.message.orEmpty().contains("Failed to save vehicles"))
         } finally {
             restoredPlane?.let { entity -> Vehicle.entityVehicle[entity]?.destroy(entity) }
             tank.destroy(tankEntity)
@@ -1010,6 +1016,30 @@ class CombatTest {
         assertTrue(broken.get(3, TimeUnit.SECONDS))
 
         waitFor { instance.getBlock(position).compare(original) }
+    }
+
+    @Test
+    fun `module preparation restores temporary blocks before persistence`() {
+        instance.loadChunk(0, 0).join()
+        val position = BlockVec(10, 61, 8)
+        val original = Block.OAK_LEAVES.withProperty("persistent", "true")
+        val broken = CompletableFuture<Boolean>()
+        val previousDelay = BlockRestoreManager.restoreDelayMillis
+        BlockRestoreManager.restoreDelayMillis = 60_000L
+
+        try {
+            instance.scheduleNextTick {
+                instance.setBlock(position.blockX, position.blockY, position.blockZ, original)
+                assertTrue(BlockRestoreManager.temporarilyBreakLeaf(instance, position, original))
+                broken.complete(instance.getBlock(position).isAir)
+            }
+            assertTrue(broken.get(3, TimeUnit.SECONDS))
+            CombatModule().prepareForShutdown(ModuleContext())
+            assertTrue(instance.getBlock(position).compare(original))
+        } finally {
+            BlockRestoreManager.restoreDelayMillis = previousDelay
+            BlockRestoreManager.initialize()
+        }
     }
 
     @Test

@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.GameMode
@@ -23,8 +24,7 @@ object EnvironmentalDamage {
 
     fun init() {
         val timeStart = System.currentTimeMillis()
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask(::tick)
             .repeat(TaskSchedule.tick(1))
             .schedule()

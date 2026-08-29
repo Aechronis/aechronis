@@ -30,14 +30,17 @@ jobs:
           distribution: temurin
           java-version: 25
           cache: gradle
-      - name: Check JVM projects and build server
+      - name: Check and build JVM project JARs
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./gradlew check :server:shadowJar --no-daemon
-      - name: Upload server JAR
+        run: ./gradlew build serverDistributionZip --no-daemon
+      - name: Upload runnable server layout
         uses: actions/upload-artifact@v7
         with:
           name: aechronis-server
-          path: server/build/libs/aechronis-all.jar
+          path: |
+            build/distributions/aechronis/
+            build/distributions/aechronis-server.zip
+          include-hidden-files: true
           if-no-files-found: error

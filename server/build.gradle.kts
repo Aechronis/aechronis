@@ -1,4 +1,5 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.gradle.api.file.DuplicatesStrategy
 
 plugins {
     kotlin("jvm")
@@ -18,13 +19,32 @@ tasks.withType<Jar>().configureEach {
     }
 }
 
-val luckPermsBundle = configurations.create("luckPermsBundle")
+tasks.named<Jar>("jar") {
+    archiveClassifier.set("plain")
+    destinationDirectory.set(layout.buildDirectory.dir("plain-libs"))
+}
+
+val luckPermsBundle = configurations.dependencyScope("luckPermsBundle")
+val luckPermsBundleClasspath =
+    configurations.resolvable("luckPermsBundleClasspath") {
+        extendsFrom(luckPermsBundle.get())
+    }
+val luckPermsBundleTrees =
+    providers.provider {
+        luckPermsBundleClasspath.get().files.map(::zipTree)
+    }
 
 tasks.named<ShadowJar>("shadowJar") {
+    archiveClassifier.set("")
+    eachFile {
+        if (path.endsWith(".kotlin_module")) {
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        }
+    }
     dependencies {
         exclude(dependency("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT"))
     }
-    from(luckPermsBundle.files.map(::zipTree)) {
+    from(luckPermsBundleTrees) {
         exclude("net/kyori/adventure/**")
     }
 
@@ -43,16 +63,7 @@ tasks.named<ShadowJar>("shadowJar") {
 
 dependencies {
     implementation("net.minestom:minestom:2026.07.12-26.2")
-    implementation(project(":modules:utils"))
-    implementation(project(":modules:nodes"))
-    implementation(project(":modules:combat"))
-    implementation(project(":modules:vanilla"))
-    implementation(project(":modules:logger"))
-    implementation(project(":modules:watchdog"))
-    implementation(project(":modules:guard"))
-    implementation(project(":modules:gems"))
     implementation(project(":modules:misc"))
-    implementation(project(":modules:worldedit"))
 
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     add("luckPermsBundle", "com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
@@ -64,4 +75,11 @@ dependencies {
     implementation("io.github.4drian3d:signedvelocity-minestom:1.4.1")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-fluids:1.10.2-SNAPSHOT")
+    implementation("com.google.code.gson:gson:2.14.0")
+    implementation("com.google.guava:guava:33.6.0-jre")
+    implementation("it.unimi.dsi:fastutil:8.5.18")
+    testImplementation("org.jetbrains.kotlin:kotlin-test")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.18")
 }

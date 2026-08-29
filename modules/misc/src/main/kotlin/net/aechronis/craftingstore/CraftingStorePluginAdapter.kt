@@ -17,16 +17,20 @@ import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.timer.TaskSchedule
+import java.lang.reflect.Field
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
 import java.util.logging.Level
 import java.util.logging.Logger
 
@@ -42,6 +46,13 @@ internal class CraftingStorePluginAdapter(
         }
     private val scheduled = Collections.synchronizedSet(mutableSetOf<ScheduledFuture<*>>())
     private val stopped = AtomicBoolean()
+    private val lifecycleLock = ReentrantLock()
+    private var command: Command? = null
+    private var lifecycleQuiesced = false
+    private var storeDisabled = false
+    private var donationExecutorStopped = false
+    private var storeExecutor: ExecutorService? = null
+    private var schedulerStopped = false
     val placeholders = CraftingStorePlaceholders()
     private val pluginConfiguration =
         object : PluginConfiguration {
@@ -65,12 +76,19 @@ internal class CraftingStorePluginAdapter(
     lateinit var store: CraftingStore
         private set
 
-    fun start() {
+    fun prepareEventListeners() {
+        check(!stopped.get()) { "CraftingStore is shut down" }
+        check(!::store.isInitialized) { "CraftingStore event listeners are already prepared" }
         logger.setDebugging(config.current().debug)
         store = CraftingStore(this)
+        storeExecutor = craftingStoreExecutor(store)
         registerListeners()
+    }
+
+    fun start() {
+        check(!stopped.get()) { "CraftingStore is shut down" }
+        check(::store.isInitialized) { "CraftingStore event listeners have not been prepared" }
         registerCommands()
-        MinecraftServer.getSchedulerManager().buildShutdownTask(::shutdown)
     }
 
     override fun executeDonation(donation: Donation): Boolean {
@@ -101,6 +119,15 @@ internal class CraftingStorePluginAdapter(
             }
         return try {
             result.get(15, TimeUnit.SECONDS)
+        } catch (exception: TimeoutException) {
+            if (!expirePending(result, exception)) return runCatching(result::join).getOrDefault(false)
+            logger.error("Donation command ${donation.commandId} timed out before tick dispatch")
+            false
+        } catch (exception: InterruptedException) {
+            Thread.currentThread().interrupt()
+            if (!expirePending(result, exception)) return runCatching(result::join).getOrDefault(false)
+            logger.error("Donation command ${donation.commandId} was interrupted before tick dispatch")
+            false
         } catch (exception: Exception) {
             logger.error("Donation command ${donation.commandId} timed out or failed: ${exception.message}")
             false
@@ -176,7 +203,8 @@ internal class CraftingStorePluginAdapter(
     private fun registerCommands() {
         val manager = MinecraftServer.getCommandManager()
         check(!manager.commandExists("craftingstore")) { "Cannot register /craftingstore: command already exists" }
-        manager.register(AdminCommand())
+        command = AdminCommand()
+        manager.register(command!!)
     }
 
     private inner class AdminCommand : Command("craftingstore") {
@@ -285,10 +313,20 @@ internal class CraftingStorePluginAdapter(
         }
         try {
             MinecraftServer.getSchedulerManager().submitTask {
-                try {
-                    future.complete(block())
-                } catch (error: Throwable) {
-                    future.completeExceptionally(error)
+                synchronized(future) {
+                    if (!future.isDone) {
+                        try {
+                            lifecycleLock.lock()
+                            try {
+                                check(!stopped.get()) { "CraftingStore is shut down" }
+                                future.complete(block())
+                            } finally {
+                                lifecycleLock.unlock()
+                            }
+                        } catch (error: Throwable) {
+                            future.completeExceptionally(error)
+                        }
+                    }
                 }
                 TaskSchedule.stop()
             }
@@ -298,17 +336,120 @@ internal class CraftingStorePluginAdapter(
         return future
     }
 
+    @Synchronized
     fun shutdown() {
-        if (!stopped.compareAndSet(false, true)) {
-            return
+        stopped.set(true)
+        var failure: Throwable? = null
+
+        fun cleanup(action: () -> Unit) {
+            runCatching(action).onFailure { error ->
+                failure?.addSuppressed(error) ?: run { failure = error }
+            }
         }
-        scheduled.forEach { it.cancel(false) }
-        scheduled.clear()
-        store.setEnabled(false)
-        store.donationRunner.executor.shutdownNow()
-        scheduler.shutdownNow()
+
+        command?.let { registered ->
+            cleanup {
+                MinecraftServer.getCommandManager().unregister(registered)
+                command = null
+            }
+        }
+        if (!lifecycleQuiesced) {
+            cleanup {
+                awaitLifecycleQuiescence()
+                lifecycleQuiesced = true
+            }
+        }
+        if (scheduled.isNotEmpty()) {
+            cleanup {
+                synchronized(scheduled) {
+                    scheduled.forEach { it.cancel(false) }
+                    scheduled.clear()
+                }
+            }
+        }
+        if (this::store.isInitialized) {
+            if (!storeDisabled) {
+                cleanup {
+                    store.setEnabled(false)
+                    storeDisabled = true
+                }
+            }
+            if (!donationExecutorStopped) {
+                cleanup {
+                    stopExecutor(store.donationRunner.executor, "CraftingStore donation executor")
+                    donationExecutorStopped = true
+                }
+            }
+        }
+        storeExecutor?.let { executor ->
+            cleanup {
+                stopExecutor(executor, "CraftingStore API executor")
+                storeExecutor = null
+            }
+        }
+        if (!schedulerStopped) {
+            cleanup {
+                stopExecutor(scheduler, "CraftingStore scheduler")
+                schedulerStopped = true
+            }
+        }
+        failure?.let { throw it }
+    }
+
+    private fun awaitLifecycleQuiescence() {
+        try {
+            check(lifecycleLock.tryLock(LIFECYCLE_QUIESCENCE_SECONDS, TimeUnit.SECONDS)) {
+                "CraftingStore lifecycle work did not quiesce"
+            }
+            lifecycleLock.unlock()
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while quiescing CraftingStore lifecycle work", error)
+        }
+    }
+
+    private fun stopExecutor(
+        executor: ExecutorService,
+        description: String,
+    ) {
+        executor.shutdownNow()
+        try {
+            check(executor.awaitTermination(EXECUTOR_SHUTDOWN_SECONDS, TimeUnit.SECONDS)) {
+                "$description did not terminate after interruption"
+            }
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while stopping $description", error)
+        }
+    }
+
+    private companion object {
+        const val EXECUTOR_SHUTDOWN_SECONDS = 5L
+        const val LIFECYCLE_QUIESCENCE_SECONDS = 5L
+
+        // CraftingStore exposes its donation executor but not the separate executor used by
+        // reload/API work. Keep an explicit handle so a runtime module unload cannot leak it.
+        val STORE_EXECUTOR_FIELD: Field =
+            CraftingStore::class.java.getDeclaredField("executor").apply {
+                check(ExecutorService::class.java.isAssignableFrom(type)) {
+                    "CraftingStore executor field has an incompatible type: ${type.name}"
+                }
+                check(trySetAccessible()) { "CraftingStore executor field is inaccessible" }
+            }
+
+        fun craftingStoreExecutor(store: CraftingStore): ExecutorService =
+            STORE_EXECUTOR_FIELD.get(store) as? ExecutorService
+                ?: error("CraftingStore executor is not initialized")
     }
 }
+
+private fun expirePending(
+    future: CompletableFuture<*>,
+    error: Throwable,
+): Boolean =
+    synchronized(future) {
+        !future.isDone && future.completeExceptionally(error)
+    }
 
 private class StoreLogger(
     private val target: Logger,

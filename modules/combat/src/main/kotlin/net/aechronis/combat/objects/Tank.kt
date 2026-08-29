@@ -254,16 +254,20 @@ class Tank(
         lastFireTime[body] = now
     }
 
-    override fun destroy(
-        entity: Entity,
-        attacker: Player?,
-        weapon: Component?,
-    ) {
+    override fun cleanupRuntime(entity: Entity) {
         entityTurret.remove(entity)?.remove()
         entityBarrel.remove(entity)?.remove()
         yaw.remove(entity)
         pitch.remove(entity)
         lastFireTime.remove(entity)
+    }
+
+    override fun destroy(
+        entity: Entity,
+        attacker: Player?,
+        weapon: Component?,
+    ) {
+        cleanupRuntime(entity)
         super.destroy(entity, attacker, weapon)
     }
 
@@ -292,5 +296,15 @@ class Tank(
         val pitch = hashMapOf<Entity, Float>()
 
         val lastFireTime = hashMapOf<Entity, Long>()
+
+        internal fun shutdownRuntimeState() {
+            entityTurret.values.toSet().forEach(Entity::remove)
+            entityBarrel.values.toSet().forEach(Entity::remove)
+            entityTurret.clear()
+            entityBarrel.clear()
+            yaw.clear()
+            pitch.clear()
+            lastFireTime.clear()
+        }
     }
 }

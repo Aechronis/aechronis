@@ -2,6 +2,7 @@ package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.DiplomaticRelationship
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.key.Key
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.EntityType
@@ -55,6 +56,24 @@ internal object RelationshipHitbox {
     fun stop() {
         active = false
         pendingRepairs.clear()
+        MinecraftServer.getConnectionManager().onlinePlayers.forEach { viewer ->
+            viewer.instance?.players?.forEach { target ->
+                if (viewer !== target && target.isViewer(viewer)) {
+                    viewer.sendPacket(
+                        EntityAttributesPacket(
+                            target.entityId,
+                            listOf(
+                                EntityAttributesPacket.Property(
+                                    Attribute.SCALE,
+                                    target.getAttributeValue(Attribute.SCALE),
+                                    emptyList(),
+                                ),
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
     }
 
     fun refreshViewer(viewer: Player) {
@@ -143,7 +162,7 @@ internal object RelationshipHitbox {
         val repair = Repair(viewerId, entityId)
         if (!pendingRepairs.add(repair)) return
 
-        MinecraftServer.getSchedulerManager().scheduleNextTick {
+        ModuleScheduler.scheduleNextTick {
             pendingRepairs.remove(repair)
             if (!active) return@scheduleNextTick
             val viewer = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(viewerId) ?: return@scheduleNextTick

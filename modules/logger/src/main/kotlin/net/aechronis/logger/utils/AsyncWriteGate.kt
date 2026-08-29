@@ -26,9 +26,8 @@ class AsyncWriteGate(
     override fun close() {
         lifecycleLock.writeLock().lock()
         try {
-            if (closed) return
             closed = true
-            executor.close()
+            shutdownExecutor(executor, description)
         } finally {
             lifecycleLock.writeLock().unlock()
         }

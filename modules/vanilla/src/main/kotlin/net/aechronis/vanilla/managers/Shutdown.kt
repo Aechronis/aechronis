@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
@@ -26,8 +27,7 @@ object Shutdown {
         if (!scheduledShutdown.compareAndSet(0, deadline)) return false
 
         broadcast(Component.text("Server shutting down in ${formatTime(seconds)}.", NamedTextColor.YELLOW))
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask {
                 val remaining = secondsUntil(deadline)
                 if (remaining <= 0) {

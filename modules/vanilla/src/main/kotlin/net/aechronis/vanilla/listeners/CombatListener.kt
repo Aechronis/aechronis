@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.listeners
 
+import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Combat
 import net.minestom.server.entity.Player
@@ -31,8 +32,8 @@ object CombatListener {
 
     fun init() {
         val combatEventNode = EventNode.all("vanilla-combat").setPriority(1000)
-        Vanilla.eventNode.addChild(combatEventNode)
         combatEventNode.addListener(EntityDamageEvent::class.java, CombatListener::onDamage)
+        ModuleEvents.addChild(Vanilla.eventNode, combatEventNode)
 
         Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, CombatListener::onDisconnect)
     }

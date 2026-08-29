@@ -1,6 +1,7 @@
 package net.aechronis.logger.objects
 
 import net.aechronis.logger.utils.ItemCodec
+import net.aechronis.logger.utils.shutdownExecutor
 import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.anvil.AnvilLoader
@@ -156,7 +157,7 @@ class OriginalChunkService(
             first.handler()?.key == second.handler()?.key
 
     override fun close() {
-        executor.close()
+        shutdownExecutor(executor, "original chunk service")
     }
 
     private companion object {

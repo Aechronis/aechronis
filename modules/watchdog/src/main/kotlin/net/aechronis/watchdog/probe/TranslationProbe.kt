@@ -78,6 +78,17 @@ internal class TranslationProbe(
         }
     }
 
+    fun endAll(notify: Boolean) {
+        var failure: Throwable? = null
+        sessions.keys.toList().forEach { player ->
+            runCatching { end(player, notify) }.onFailure { error ->
+                failure?.addSuppressed(error) ?: run { failure = error }
+            }
+        }
+        sessions.clear()
+        failure?.let { throw it }
+    }
+
     private fun sendKey(
         player: Player,
         session: Probe,

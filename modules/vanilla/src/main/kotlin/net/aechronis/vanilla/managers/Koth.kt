@@ -6,6 +6,7 @@ import com.cronutils.model.time.ExecutionTime
 import com.cronutils.parser.CronParser
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.listeners.KothListener
 import net.aechronis.vanilla.objects.KothZone
 import net.kyori.adventure.bossbar.BossBar
@@ -18,6 +19,10 @@ import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.timer.TaskSchedule
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDateTime
@@ -63,6 +68,15 @@ object Koth {
         val visibleTo: MutableSet<UUID> = mutableSetOf(),
     )
 
+    private data class TransientKothState(
+        val name: String,
+        val startedAt: Long,
+        val endsAt: Long,
+        val nextAnnouncementAt: Long,
+        val capturer: UUID?,
+        val captureStartedAt: Long?,
+    )
+
     private val definitions = linkedMapOf<String, SavedKoth>()
     private val scheduledRuns = mutableMapOf<String, LocalDateTime>()
     internal val active = linkedMapOf<String, ActiveKoth>()
@@ -75,6 +89,8 @@ object Koth {
     private lateinit var file: Path
 
     private const val ANNOUNCEMENT_INTERVAL_MS = 10 * 60 * 1000L
+    private const val TRANSIENT_STATE_VERSION = 1
+    private const val MAX_TRANSIENT_ENTRIES = 4096
 
     fun init(path: Path) {
         val timeStart = System.currentTimeMillis()
@@ -82,8 +98,7 @@ object Koth {
         Files.createDirectories(path.parent)
         load()
         KothListener.init()
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask(::scheduledTick)
             .repeat(TaskSchedule.seconds(1))
             .schedule()
@@ -91,6 +106,95 @@ object Koth {
     }
 
     fun saveAll() = save()
+
+    /** Captures active events using only classloader-neutral primitive data. */
+    internal fun captureTransientState(): ByteArray {
+        val entries = active.entries.toList()
+        require(entries.size <= MAX_TRANSIENT_ENTRIES) { "Too many active KOTH sessions: ${entries.size}" }
+        return ByteArrayOutputStream().use { bytes ->
+            DataOutputStream(bytes).use { output ->
+                output.writeInt(TRANSIENT_STATE_VERSION)
+                output.writeInt(entries.size)
+                entries.forEach { (name, state) ->
+                    val record =
+                        TransientKothState(
+                            name = name,
+                            startedAt = state.startedAt,
+                            endsAt = state.endsAt,
+                            nextAnnouncementAt = state.nextAnnouncementAt,
+                            capturer = state.capturer,
+                            captureStartedAt = state.captureStartedAt,
+                        )
+                    validateTransientState(record)
+
+                    output.writeUTF(record.name)
+                    output.writeLong(record.startedAt)
+                    output.writeLong(record.endsAt)
+                    output.writeLong(record.nextAnnouncementAt)
+                    output.writeBoolean(record.capturer != null)
+                    if (record.capturer != null) {
+                        output.writeLong(record.capturer.mostSignificantBits)
+                        output.writeLong(record.capturer.leastSignificantBits)
+                        output.writeLong(checkNotNull(record.captureStartedAt))
+                    }
+                }
+            }
+            bytes.toByteArray()
+        }
+    }
+
+    /**
+     * Restores unexpired events against the current definitions. Absolute timestamps make module
+     * reload time count toward both the event deadline and an in-progress capture.
+     */
+    internal fun restoreTransientState(
+        payload: ByteArray?,
+        now: Long = System.currentTimeMillis(),
+        onlinePlayers: Collection<Player> = MinecraftServer.getConnectionManager().onlinePlayers,
+    ) {
+        if (payload == null) return
+        try {
+            val records = decodeTransientState(payload)
+            val playersById = onlinePlayers.associateBy { it.uuid }
+            val restored = linkedMapOf<String, ActiveKoth>()
+            records.forEach { record ->
+                if (record.endsAt <= now) return@forEach
+                val definition = resolve(record.name) ?: return@forEach
+                restored[record.name] =
+                    ActiveKoth(
+                        definition = definition,
+                        startedAt = record.startedAt,
+                        endsAt = record.endsAt,
+                        nextAnnouncementAt = record.nextAnnouncementAt,
+                        capturer = record.capturer,
+                        captureStartedAt = record.captureStartedAt,
+                    )
+            }
+
+            active.keys.toList().forEach { finish(it, null) }
+            active.putAll(restored)
+            restored.values.forEach { state ->
+                state.capturer?.let { capturer -> addCaptureGlow(capturer, playersById[capturer]) }
+            }
+            updateBossBars(now)
+        } catch (error: Throwable) {
+            System.err.println("Failed to restore KOTH state: ${error.message}")
+            throw error
+        }
+    }
+
+    fun shutdown() {
+        active.keys.toList().forEach { finish(it, null) }
+        captureGlowPlayers.toMap().forEach { (uuid, player) ->
+            player.isGlowing = captureGlowPreviousStates[uuid] ?: false
+        }
+        captureGlowReferences.clear()
+        captureGlowPreviousStates.clear()
+        captureGlowPlayers.clear()
+        deadPlayers.clear()
+        scheduledRuns.clear()
+        definitions.clear()
+    }
 
     fun configuredNames(): Set<String> = definitions.keys
 
@@ -509,11 +613,66 @@ object Koth {
 
     private fun save() {
         if (!::file.isInitialized) return
-        runCatching {
-            Files.createDirectories(file.parent)
-            Files.newBufferedWriter(file).use { writer -> gson.toJson(definitions.values.toList(), writer) }
-        }.onFailure { error ->
-            System.err.println("Failed to save KOTHs to $file: ${error.message}")
+        AtomicFiles.write(file) { writer -> gson.toJson(definitions.values.toList(), writer) }
+    }
+
+    private fun decodeTransientState(payload: ByteArray): List<TransientKothState> =
+        DataInputStream(ByteArrayInputStream(payload)).use { input ->
+            require(input.readInt() == TRANSIENT_STATE_VERSION) { "Unsupported KOTH state version" }
+            val size = input.readInt()
+            require(size in 0..MAX_TRANSIENT_ENTRIES) { "Invalid KOTH state size: $size" }
+            val names = hashSetOf<String>()
+            val records =
+                List(size) {
+                    val name = input.readUTF()
+                    val startedAt = input.readLong()
+                    val endsAt = input.readLong()
+                    val nextAnnouncementAt = input.readLong()
+                    val hasCapturer =
+                        when (val marker = input.readUnsignedByte()) {
+                            0 -> false
+                            1 -> true
+                            else -> throw IllegalArgumentException("Invalid KOTH capturer marker: $marker")
+                        }
+                    val capturer =
+                        if (hasCapturer) {
+                            UUID(input.readLong(), input.readLong())
+                        } else {
+                            null
+                        }
+                    val captureStartedAt = if (hasCapturer) input.readLong() else null
+
+                    val record =
+                        TransientKothState(
+                            name = name,
+                            startedAt = startedAt,
+                            endsAt = endsAt,
+                            nextAnnouncementAt = nextAnnouncementAt,
+                            capturer = capturer,
+                            captureStartedAt = captureStartedAt,
+                        )
+                    validateTransientState(record)
+                    require(names.add(name)) { "KOTH state contains duplicate session '$name'" }
+                    record
+                }
+            require(input.read() == -1) { "KOTH state contains trailing data" }
+            records
+        }
+
+    private fun validateTransientState(state: TransientKothState) {
+        require(state.name.isNotBlank()) { "KOTH state contains a blank name" }
+        require(state.startedAt >= 0) { "KOTH '${state.name}' has an invalid start time" }
+        require(state.endsAt > state.startedAt) { "KOTH '${state.name}' has an invalid deadline" }
+        require(state.nextAnnouncementAt >= state.startedAt) {
+            "KOTH '${state.name}' has an invalid announcement deadline"
+        }
+        require((state.capturer == null) == (state.captureStartedAt == null)) {
+            "KOTH '${state.name}' has inconsistent capture state"
+        }
+        state.captureStartedAt?.let { captureStartedAt ->
+            require(captureStartedAt >= state.startedAt) {
+                "KOTH '${state.name}' has an invalid capture start time"
+            }
         }
     }
 

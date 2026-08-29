@@ -2,6 +2,7 @@ package net.aechronis.vanilla.managers
 
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
 import net.minestom.server.MinecraftServer
@@ -56,6 +57,12 @@ object Warps {
 
     fun saveAll() = save()
 
+    fun shutdown() {
+        pendingWarps.clear()
+        lastUse.clear()
+        synchronized(warps) { warps.clear() }
+    }
+
     fun names(): List<String> = synchronized(warps) { warps.values.map(SavedWarp::name).sorted() }
 
     fun set(
@@ -107,8 +114,7 @@ object Warps {
 
         val pending = PendingWarp(warp, instance)
         if (pendingWarps.putIfAbsent(player.uuid, pending) != null) return TeleportResult.ALREADY_WARPING
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask {
                 if (pendingWarps.remove(player.uuid, pending)) {
                     performTeleport(player, pending.warp, pending.instance)
@@ -166,12 +172,7 @@ object Warps {
     private fun save() {
         if (!::file.isInitialized) return
         val saved = synchronized(warps) { warps.values.toList() }
-        runCatching {
-            Files.createDirectories(file.parent)
-            Files.newBufferedWriter(file).use { writer -> gson.toJson(saved, writer) }
-        }.onFailure { error ->
-            System.err.println("Failed to save warps: ${error.message}")
-        }
+        AtomicFiles.write(file) { writer -> gson.toJson(saved, writer) }
     }
 
     private fun valid(warp: SavedWarp): Boolean =

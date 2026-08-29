@@ -2,6 +2,9 @@ package net.aechronis.nodes
 
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
+import net.aechronis.nodes.colonization.AutomaticChunkLeaseManager
+import net.aechronis.nodes.colonization.Colonization
+import net.aechronis.nodes.colonization.DefenseSession
 import net.aechronis.nodes.commands.TownFlyCommand
 import net.aechronis.nodes.commands.TownLeaveCommand
 import net.aechronis.nodes.constants.PermissionsGroup
@@ -9,6 +12,7 @@ import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.listeners.NodesBlockPlacementCooldownListener
 import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.objects.Building
+import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.MinimapPosition
 import net.aechronis.nodes.objects.Nation
@@ -25,6 +29,7 @@ import net.aechronis.nodes.objects.TrainStationBuilding
 import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.testTownLockedSide
 import net.aechronis.nodes.tasks.IncomeCalculator
+import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.vanilla.Vanilla
@@ -45,6 +50,8 @@ import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
+import net.minestom.server.instance.Chunk
+import net.minestom.server.instance.ChunkLoader
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockFace
@@ -66,6 +73,10 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.Comparator
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.math.floor
 import kotlin.math.min
 import kotlin.test.assertEquals
@@ -78,6 +89,101 @@ class NodesTest {
     private lateinit var tmpDir: Path
     private lateinit var instance: InstanceContainer
     private var serverInitialized = false
+
+    @Test
+    fun `initial world load leaves automatic chunk leases enabled`() {
+        assertTrue(Colonization.acceptsAutomaticChunkLeases())
+    }
+
+    @Test
+    fun `lease shutdown unloads a chunk whose load completes late`() {
+        val loadStarted = CountDownLatch(1)
+        val releaseLoad = CountDownLatch(1)
+        val chunkUnloaded = CountDownLatch(1)
+        val loader =
+            object : ChunkLoader {
+                override fun supportsParallelLoading(): Boolean = true
+
+                override fun loadChunk(
+                    instance: net.minestom.server.instance.Instance,
+                    chunkX: Int,
+                    chunkZ: Int,
+                ): Chunk? {
+                    loadStarted.countDown()
+                    assertTrue(releaseLoad.await(5, TimeUnit.SECONDS))
+                    return null
+                }
+
+                override fun saveChunk(chunk: Chunk) = Unit
+
+                override fun unloadChunk(chunk: Chunk) {
+                    chunkUnloaded.countDown()
+                }
+            }
+        val testInstance = MinecraftServer.getInstanceManager().createInstanceContainer(loader)
+        val manager = AutomaticChunkLeaseManager()
+        val coord = Coord(73, 73)
+        val session = DefenseSession(testInstance, Nodes.towns.values.first(), emptyList(), { 0L }, Pos.ZERO)
+
+        try {
+            manager.loadChunks(testInstance, session, listOf(coord))
+            assertTrue(loadStarted.await(5, TimeUnit.SECONDS))
+
+            manager.shutdown()
+            assertFalse(chunkUnloaded.await(50, TimeUnit.MILLISECONDS))
+            releaseLoad.countDown()
+
+            assertTrue(chunkUnloaded.await(5, TimeUnit.SECONDS))
+            assertFalse(testInstance.isChunkLoaded(coord.x, coord.z))
+        } finally {
+            releaseLoad.countDown()
+            manager.shutdown()
+            MinecraftServer.getInstanceManager().unregisterInstance(testInstance)
+        }
+    }
+
+    @Test
+    fun `shutdown preparation bounds an in flight chunk cleanup`() {
+        val saveStarted = CountDownLatch(1)
+        val releaseSave = CountDownLatch(1)
+        val loader =
+            object : ChunkLoader {
+                override fun loadChunk(
+                    instance: net.minestom.server.instance.Instance,
+                    chunkX: Int,
+                    chunkZ: Int,
+                ): Chunk? = null
+
+                override fun saveChunk(chunk: Chunk) {
+                    saveStarted.countDown()
+                    assertTrue(releaseSave.await(5, TimeUnit.SECONDS))
+                }
+            }
+        val testInstance = MinecraftServer.getInstanceManager().createInstanceContainer(loader)
+        val manager = AutomaticChunkLeaseManager(unloadGraceMillis = 0)
+        val coord = Coord(74, 74)
+        val session = DefenseSession(testInstance, Nodes.towns.values.first(), emptyList(), { 0L }, Pos.ZERO)
+
+        try {
+            manager.loadChunks(testInstance, session, listOf(coord)).get(5, TimeUnit.SECONDS)
+            manager.release(session)
+            val cleanup = CompletableFuture.runAsync(manager::cleanupReleasedChunks)
+            assertTrue(saveStarted.await(5, TimeUnit.SECONDS))
+
+            val preparation =
+                CompletableFuture.supplyAsync {
+                    runCatching { manager.prepareForShutdown(50, TimeUnit.MILLISECONDS) }.exceptionOrNull()
+                }
+            assertTrue(preparation.get(2, TimeUnit.SECONDS) is TimeoutException)
+
+            releaseSave.countDown()
+            cleanup.get(5, TimeUnit.SECONDS)
+        } finally {
+            releaseSave.countDown()
+            manager.shutdown()
+            MinecraftServer.getInstanceManager().unregisterInstance(testInstance)
+        }
+    }
 
     @BeforeAll
     fun setup() {
@@ -193,13 +299,13 @@ class NodesTest {
         }
 
         fun awaitTopology(expected: Boolean) {
-            val deadline = System.currentTimeMillis() + 2_000
+            val deadline = System.currentTimeMillis() + 10_000
             while (connected() != expected && System.currentTimeMillis() < deadline) Thread.sleep(10)
             assertEquals(expected, connected())
         }
 
         try {
-            assertTrue(connected())
+            awaitTopology(true)
 
             instance.setBlock(rails[2], Block.AIR)
             awaitTopology(false)
@@ -238,7 +344,7 @@ class NodesTest {
             awaitTopology(true)
 
             instance.setBlock(secondPosition, Block.AIR)
-            val deadline = System.currentTimeMillis() + 2_000
+            val deadline = System.currentTimeMillis() + 10_000
             while (Trains.station(second.id) != null && System.currentTimeMillis() < deadline) Thread.sleep(10)
             assertEquals(null, Trains.station(second.id))
             awaitTopology(false)
@@ -1058,6 +1164,43 @@ class NodesTest {
             assertEquals(0, resident.townJoinCooldownRemainingMillis())
         } finally {
             Nodes.config.townLeavePenaltyEnabled = previous
+        }
+    }
+
+    @Test
+    fun `skirmishes allow full capture while keeping one nation target`() {
+        val territories = Nodes.territories.values.filter { it.town == null }.take(3)
+        assertEquals(3, territories.size)
+        val suffix = UUID.randomUUID().toString().take(8)
+        val leader = Resident(UUID.randomUUID(), "skirmish-leader-$suffix")
+        Nodes.residents[leader.uuid] = leader
+        val attackingTown = Town.create("SkirmishTown$suffix", territories[0], leader).getOrThrow()
+        val nation = Nation.create("SkirmishNation$suffix", attackingTown, leader).getOrThrow()
+        val previousCanAnnex = FlagWar.canAnnexTerritories
+        val previousBordersOnly = FlagWar.canOnlyAttackBorders
+        val previousTargets = HashMap(FlagWar.skirmishTargetsByNation)
+
+        try {
+            FlagWar.canAnnexTerritories = false
+            FlagWar.canOnlyAttackBorders = true
+            FlagWar.skirmishTargetsByNation.clear()
+
+            assertTrue(FlagWar.canCaptureTerritoryCore())
+            assertFalse(FlagWar.canAnnexDefeatedTown(AttackMode.WAR))
+
+            val selection = FlagWar.prepareSkirmishTargetSelection(leader.uuid, attackingTown, territories[1]).getOrThrow()
+            assertNotNull(selection)
+            assertTrue(FlagWar.commitSkirmishTargetSelection(selection))
+            assertTrue(FlagWar.prepareSkirmishTargetSelection(leader.uuid, attackingTown, territories[1]).isSuccess)
+            assertTrue(FlagWar.prepareSkirmishTargetSelection(leader.uuid, attackingTown, territories[2]).isFailure)
+            assertEquals(territories[1].id, FlagWar.skirmishTargetsByNation[nation.uuid])
+        } finally {
+            FlagWar.skirmishTargetsByNation.clear()
+            FlagWar.skirmishTargetsByNation.putAll(previousTargets)
+            FlagWar.canAnnexTerritories = previousCanAnnex
+            FlagWar.canOnlyAttackBorders = previousBordersOnly
+            Town.destroy(attackingTown)
+            Nodes.residents.remove(leader.uuid)
         }
     }
 

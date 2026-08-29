@@ -16,7 +16,7 @@ import net.aechronis.nodes.objects.Nation.NationSaveState
 import net.aechronis.nodes.objects.Resident.ResidentSaveState
 import net.aechronis.nodes.objects.Town.TownSaveState
 import net.aechronis.nodes.serdes.Serializer
-import net.minestom.server.MinecraftServer
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Files
@@ -111,7 +111,7 @@ object SaveManager {
             )
         }
 
-        this.task = MinecraftServer.getSchedulerManager()
+        this.task = ModuleScheduler
             .buildTask(runnable)
             .delay(TaskSchedule.millis(period))
             .repeat(TaskSchedule.millis(period))

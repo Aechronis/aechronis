@@ -4,6 +4,7 @@ import net.aechronis.logger.Logger
 import net.aechronis.logger.objects.FeatureLogEntry
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
+import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventListener
@@ -19,9 +20,8 @@ object LootListener {
     private var postEventNode: EventNode<*>? = null
 
     fun init() {
+        close()
         val postNode = EventNode.all("logger-loot-post").setPriority(100)
-        postEventNode = postNode
-        MinecraftServer.getGlobalEventHandler().addChild(postNode)
         postNode.addListener(
             EventListener
                 .builder(PickupItemEvent::class.java)
@@ -38,13 +38,15 @@ object LootListener {
                     recordDrop(event)
                 }.build(),
         )
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), postNode)
+        postEventNode = postNode
     }
 
     fun close() {
         postEventNode?.let { node ->
-            runCatching { MinecraftServer.getGlobalEventHandler().removeChild(node) }
+            MinecraftServer.getGlobalEventHandler().removeChild(node)
+            postEventNode = null
         }
-        postEventNode = null
     }
 
     internal fun recordPickup(event: PickupItemEvent): CompletableFuture<Void>? {

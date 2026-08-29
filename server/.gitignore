@@ -2,4 +2,4 @@ build
 .gradle
 .idea
 .kotlin
-craftingstore/
+/craftingstore/

@@ -67,8 +67,11 @@ import net.aechronis.nodes.tasks.TaskSaveBackup
 import net.aechronis.nodes.tasks.TaskSaveBuildings
 import net.aechronis.nodes.tasks.TaskSaveWorld
 import net.aechronis.nodes.utils.loadLongFromFile
+import net.aechronis.nodes.war.Alliance
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
+import net.aechronis.nodes.war.serdes.WarSerializer
+import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
@@ -80,8 +83,13 @@ import java.nio.file.StandardCopyOption
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.measureNanoTime
+import net.minestom.server.command.builder.Command as MinestomCommand
 
 /** Global lifecycle, persistence, registries, and cross-domain engine coordination. */
 object Nodes {
@@ -102,6 +110,10 @@ object Nodes {
     var chunkToBuilding: HashMap<List<Int>, Building> = hashMapOf()
     internal var lastBackupTime: Long = 0
     val war = FlagWar
+    private val initialized = AtomicBoolean()
+    private var initializationComplete = false
+    private val completedCleanupStages = mutableSetOf<CleanupStage>()
+    private var commands: List<MinestomCommand> = emptyList()
 
     internal val occupationPersistenceLock = Any()
     private val saveQueue = SerialSaveQueue()
@@ -119,28 +131,22 @@ object Nodes {
     lateinit var config: NodesConfig
 
     fun initialize(config: NodesConfig = NodesConfig()) {
+        check(initialized.compareAndSet(false, true)) { "Nodes is already initialized" }
+        initializationComplete = false
+        completedCleanupStages.clear()
         val timeStart = System.currentTimeMillis()
         this.config = config
+        WarSerializer.resume()
         FlagWar.initialize(config.flagBlocks)
         println("Loading world from: $config.path")
-        try {
-            if (loadWorld()) {
-                println("- Resource Nodes: ${ResourceNode.count()}")
-                println("- Territories: ${Territory.count()}")
-                println("- Residents: ${Resident.count()}")
-                println("- Towns: ${Town.count()}")
-                println("- Nations: ${Nation.count()}")
-            } else {
-                println("Error loading world: Invalid world file at ${config.path}/${config.pathWorld}")
-            }
-        } catch (err: Exception) {
-            err.printStackTrace()
-            println("Error loading world: $err")
+        check(loadWorld()) {
+            "Invalid world file at ${config.path}/${config.pathWorld}; refusing to start Nodes with partial state"
         }
-        MinecraftServer.getGlobalEventHandler().addChild(lowPriorityEventNode)
-        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
-        MinecraftServer.getGlobalEventHandler().addChild(highPriorityEventNode)
-        MinecraftServer.getGlobalEventHandler().addChild(postPermissionEventNode)
+        println("- Resource Nodes: ${ResourceNode.count()}")
+        println("- Territories: ${Territory.count()}")
+        println("- Residents: ${Resident.count()}")
+        println("- Towns: ${Town.count()}")
+        println("- Nations: ${Nation.count()}")
         MinimapPassengerTracker.init()
         RelationshipHitbox.init()
         NodesChatListener.init()
@@ -158,28 +164,37 @@ object Nodes {
         WaypointMenu.init()
         TestTownSelection.init()
         Trains.initialize(config.pathTrains)
-        MinecraftServer.getSchedulerManager().buildShutdownTask { cleanup() }
-        MinecraftServer.getCommandManager().register(TownCommand())
-        MinecraftServer.getCommandManager().register(NationCommand())
-        MinecraftServer.getCommandManager().register(NodesAdminCommand())
-        MinecraftServer.getCommandManager().register(AllyCommand())
-        MinecraftServer.getCommandManager().register(UnallyCommand())
-        MinecraftServer.getCommandManager().register(GlobalChatCommand())
-        MinecraftServer.getCommandManager().register(TownChatCommand())
-        MinecraftServer.getCommandManager().register(NationChatCommand())
-        MinecraftServer.getCommandManager().register(AllyChatCommand())
-        MinecraftServer.getCommandManager().register(PlayerCommand())
-        MinecraftServer.getCommandManager().register(TerritoryCommand())
-        MinecraftServer.getCommandManager().register(RatesCommand())
-        MinecraftServer.getCommandManager().register(PortCommand())
-        MinecraftServer.getCommandManager().register(WaypointCommand())
-        MinecraftServer.getCommandManager().register(TrainCommand())
-        MinecraftServer.getCommandManager().register(ColonizeCommand())
-        MinecraftServer.getCommandManager().register(WarzoneCommand())
+        commands =
+            listOf(
+                TownCommand(),
+                NationCommand(),
+                NodesAdminCommand(),
+                AllyCommand(),
+                UnallyCommand(),
+                GlobalChatCommand(),
+                TownChatCommand(),
+                NationChatCommand(),
+                AllyChatCommand(),
+                PlayerCommand(),
+                TerritoryCommand(),
+                RatesCommand(),
+                PortCommand(),
+                WaypointCommand(),
+                TrainCommand(),
+                ColonizeCommand(),
+                WarzoneCommand(),
+            )
+        val globalEventHandler = MinecraftServer.getGlobalEventHandler()
+        ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)
+        ModuleEvents.addChild(globalEventHandler, eventNode)
+        ModuleEvents.addChild(globalEventHandler, highPriorityEventNode)
+        ModuleEvents.addChild(globalEventHandler, postPermissionEventNode)
+        commands.forEach(MinecraftServer.getCommandManager()::register)
         lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: System.currentTimeMillis()
         reloadManagers()
         MiningBoostManager.start()
         initializeOnlinePlayers()
+        initializationComplete = true
         println("Enabled in ${System.currentTimeMillis() - timeStart}ms")
         println("now this is epic")
     }
@@ -193,6 +208,23 @@ object Nodes {
         Nametag.start()
     }
 
+    internal fun prepareForShutdown() {
+        SaveManager.stop()
+        try {
+            Colonization.prepareForShutdown(SHUTDOWN_DRAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while waiting for Nodes background work to finish", error)
+        } catch (error: TimeoutException) {
+            throw IllegalStateException(
+                "Nodes background work did not finish within $SHUTDOWN_DRAIN_TIMEOUT_SECONDS seconds",
+                error,
+            )
+        }
+        awaitSaveQueueQuiescence()
+        awaitWarWrites()
+    }
+
     internal fun initializeOnlinePlayers() {
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
             Resident.create(player)
@@ -204,15 +236,91 @@ object Nodes {
         }
     }
 
+    @Synchronized
     internal fun cleanup() {
-        MiningBoostManager.stop()
-        Trains.cleanup()
-        residents.values.forEach { it.destroyMinimap() }
-        towns.values.forEach { town -> if (town.income.pushToStorage(true)) town.needsUpdate() }
-        FlagWar.cleanup()
-        Warzone.cleanup()
-        Colonization.cleanup()
-        saveWorld(checkIfNeedsSave = false, async = false)
+        if (!initialized.get()) return
+        val persistState = initializationComplete
+
+        val globalEventHandler = MinecraftServer.getGlobalEventHandler()
+        cleanupStage(CleanupStage.EVENTS) {
+            listOf(lowPriorityEventNode, eventNode, highPriorityEventNode, postPermissionEventNode).forEach { node ->
+                globalEventHandler.removeChild(node)
+            }
+        }
+        val commandManager = MinecraftServer.getCommandManager()
+        cleanupStage(CleanupStage.COMMANDS) {
+            commands.forEach { command -> commandManager.unregister(command) }
+            commands = emptyList()
+        }
+
+        cleanupStage(CleanupStage.SAVE_MANAGER, SaveManager::stop)
+        cleanupStage(CleanupStage.INCOME_MANAGER, IncomeManager::stop)
+        cleanupStage(CleanupStage.NAMETAG, Nametag::stop)
+        cleanupStage(CleanupStage.MINING_BOOST, MiningBoostManager::stop)
+        cleanupStage(CleanupStage.COLONIZATION_MENUS, ColonizationMenu::closeAll)
+        cleanupStage(CleanupStage.WAYPOINT_MENUS, WaypointMenu::closeAll)
+        cleanupStage(CleanupStage.WARP_TASKS) {
+            playerWarpTasks.values.forEach(Task::cancel)
+            playerWarpTasks.clear()
+        }
+        cleanupStage(CleanupStage.RESIDENTS) {
+            residents.values.forEach { resident ->
+                resident.destroyMinimap()
+                resident.clearPlotSelection()
+                resident.teleportThread?.cancel()
+                resident.teleportThread = null
+                resident.inviteThread?.cancel()
+                resident.inviteThread = null
+            }
+        }
+        cleanupStage(CleanupStage.TOWNS) {
+            towns.values.forEach { town ->
+                town.applications.values.forEach(Task::cancel)
+                town.applications.clear()
+                if (persistState && town.income.pushToStorage(true)) town.needsUpdate()
+            }
+        }
+        cleanupStage(CleanupStage.ALLIANCE, Alliance::cleanup)
+        cleanupStage(CleanupStage.TRAINS) { Trains.cleanup(persistState) }
+        cleanupStage(CleanupStage.FLAG_WAR) { FlagWar.cleanup(persistState) }
+        cleanupStage(CleanupStage.WARZONE) { Warzone.cleanup(persistState) }
+        cleanupStage(CleanupStage.COLONIZATION, Colonization::cleanup)
+        // A generation whose initialize call failed may contain cleared or partially loaded maps.
+        // Tear it down, but never let that candidate overwrite the last valid snapshot used by rollback.
+        cleanupStage(CleanupStage.FINAL_SAVE) {
+            if (persistState) saveWorld(checkIfNeedsSave = false, async = false)
+        }
+        initializationComplete = false
+        initialized.set(false)
+    }
+
+    private inline fun cleanupStage(
+        stage: CleanupStage,
+        action: () -> Unit,
+    ) {
+        if (stage in completedCleanupStages) return
+        action()
+        completedCleanupStages += stage
+    }
+
+    private enum class CleanupStage {
+        EVENTS,
+        COMMANDS,
+        SAVE_MANAGER,
+        INCOME_MANAGER,
+        NAMETAG,
+        MINING_BOOST,
+        COLONIZATION_MENUS,
+        WAYPOINT_MENUS,
+        WARP_TASKS,
+        RESIDENTS,
+        TOWNS,
+        ALLIANCE,
+        TRAINS,
+        FLAG_WAR,
+        WARZONE,
+        COLONIZATION,
+        FINAL_SAVE,
     }
 
     internal fun loadResources(json: JsonObject) {
@@ -348,10 +456,11 @@ object Nodes {
     internal fun loadWorld(): Boolean {
         FlagWar.resetForReload()
         Warzone.resetForReload()
-        Colonization.cleanup()
+        Colonization.resetForReload()
         residents.values.forEach { it.destroyMinimap() }
         MiningBoostManager.reset()
 
+        var loaded = false
         try {
             resourceNodes.clear()
             territoryChunks.clear()
@@ -371,6 +480,7 @@ object Nodes {
             if (territoriesJson != null) loadTerritories(territoriesJson)
             if (!Files.exists(config.pathTowns)) {
                 System.err.println("No towns found: ${config.pathTowns}")
+                loaded = true
                 return true
             }
             Deserializer.townsFromJson(config.pathTowns)
@@ -381,21 +491,25 @@ object Nodes {
             Warzone.load()
             if (!Files.exists(config.pathBuildings)) {
                 System.err.println("No buildings found: ${config.pathBuildings}")
+                loaded = true
                 return true
             }
             Deserializer.buildingsFromJson(config.pathBuildings)
             buildings.forEach { it.getSaveState() }
+            loaded = true
             return true
         } finally {
-            for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
-                Resident.create(player)
-                val resident = Resident.fromPlayer(player)!!
-                Resident.setOnline(resident, player)
-                MiningBoostManager.onPlayerJoin(player)
-                Warzone.onPlayerTerritoryChanged(player, Territory.fromPlayer(player))
-                resident.createMinimap(player)
+            if (loaded) {
+                for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
+                    Resident.create(player)
+                    val resident = Resident.fromPlayer(player)!!
+                    Resident.setOnline(resident, player)
+                    MiningBoostManager.onPlayerJoin(player)
+                    Warzone.onPlayerTerritoryChanged(player, Territory.fromPlayer(player))
+                    resident.createMinimap(player)
+                }
+                Nametag.rebuildAllViewers()
             }
-            Nametag.rebuildAllViewers()
         }
     }
 
@@ -415,7 +529,7 @@ object Nodes {
                     val backup = !backupPending && current > lastBackupTime + config.backupPeriod
                     if (!saveState && !backup) {
                         val pending = saveQueue.current()
-                        if (!async) pending.join()
+                        if (!async) awaitSaveQueue("waiting for the current Nodes save")
                         return pending
                     }
 
@@ -453,13 +567,59 @@ object Nodes {
                 System.err.println("[Nodes] Failed to prepare world save: ${error.message}")
                 error.printStackTrace()
                 val failure = CompletableFuture.failedFuture<Void>(error)
-                if (!async) failure.join()
+                if (!async) throw error
                 return failure
             }
 
         val future = enqueueSave(request)
-        if (!async) future.join()
+        if (!async) awaitSaveQueue("completing a synchronous Nodes save")
         return future
+    }
+
+    private fun awaitSaveQueue(operation: String) {
+        try {
+            saveQueue.awaitIdle(SHUTDOWN_DRAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while $operation", error)
+        } catch (error: TimeoutException) {
+            throw IllegalStateException(
+                "$operation did not finish within $SHUTDOWN_DRAIN_TIMEOUT_SECONDS seconds",
+                error,
+            )
+        } catch (error: ExecutionException) {
+            throw error.cause ?: error
+        }
+    }
+
+    private fun awaitSaveQueueQuiescence() {
+        try {
+            saveQueue.awaitQuiescence(SHUTDOWN_DRAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while waiting for Nodes saves to quiesce", error)
+        } catch (error: TimeoutException) {
+            throw IllegalStateException(
+                "Nodes saves did not quiesce within $SHUTDOWN_DRAIN_TIMEOUT_SECONDS seconds",
+                error,
+            )
+        }
+    }
+
+    private fun awaitWarWrites() {
+        try {
+            WarSerializer.prepareForShutdown(SHUTDOWN_DRAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while waiting for the war-state writer", error)
+        } catch (error: TimeoutException) {
+            throw IllegalStateException(
+                "The war-state writer did not finish within $SHUTDOWN_DRAIN_TIMEOUT_SECONDS seconds",
+                error,
+            )
+        } catch (error: ExecutionException) {
+            throw error.cause ?: error
+        }
     }
 
     private fun enqueueSave(request: SaveRequest): CompletableFuture<Void> {
@@ -501,6 +661,8 @@ object Nodes {
         val revision: Long? = null,
         val backupTimestamp: Long? = null,
     )
+
+    private const val SHUTDOWN_DRAIN_TIMEOUT_SECONDS = 60L
 
     internal fun saveWorldPreprocess() {
         towns.values.forEach { town -> if (town.income.pushToStorage(false)) town.needsUpdate() }

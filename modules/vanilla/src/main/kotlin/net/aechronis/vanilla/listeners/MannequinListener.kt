@@ -1,9 +1,9 @@
 package net.aechronis.vanilla.listeners
 
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.EntityTags
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Mannequin
-import net.minestom.server.MinecraftServer
 import net.minestom.server.collision.BoundingBox
 import net.minestom.server.entity.EntityCreature
 import net.minestom.server.entity.EntityPose
@@ -86,8 +86,7 @@ object MannequinListener {
                     .withY(2.0)
         }
 
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask {
                 Mannequin.despawn(loot)
             }.delay(TaskSchedule.seconds(Vanilla.config.mannequinDespawnTime.toLong()))

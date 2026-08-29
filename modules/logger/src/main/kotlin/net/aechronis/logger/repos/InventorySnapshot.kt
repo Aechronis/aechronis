@@ -5,6 +5,7 @@ import net.aechronis.logger.objects.InventorySnapshot
 import net.aechronis.logger.objects.InventorySnapshotAction
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
+import net.aechronis.logger.utils.shutdownExecutor
 import net.minestom.server.item.ItemStack
 import java.sql.ResultSet
 import java.util.UUID
@@ -197,9 +198,8 @@ class InventorySnapshot(
     override fun close() {
         lifecycleLock.writeLock().lock()
         try {
-            if (closed) return
             closed = true
-            executor.close()
+            shutdownExecutor(executor, "inventory snapshot repository")
         } finally {
             lifecycleLock.writeLock().unlock()
         }

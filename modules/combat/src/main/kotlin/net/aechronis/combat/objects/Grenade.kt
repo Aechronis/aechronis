@@ -2,8 +2,8 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
-import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
@@ -54,8 +54,7 @@ class Grenade(
         Combat.armedGrenades[player] = this
         Combat.grenadeFuseDeadlines[player] = deadline
         Combat.grenadeFuseTasks[player] =
-            MinecraftServer
-                .getSchedulerManager()
+            ModuleScheduler
                 .buildTask {
                     if (Combat.armedGrenades[player] === this) detonateInHand(player)
                 }.delay(TaskSchedule.millis(fuseTimeMillis))

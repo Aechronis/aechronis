@@ -5,7 +5,7 @@
 package net.aechronis.nodes.tasks
 
 import net.aechronis.nodes.Nodes
-import net.minestom.server.MinecraftServer
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.time.Duration
@@ -30,7 +30,7 @@ object IncomeManager {
 
     // schedule at the next hour
     private fun scheduleNext() {
-        this.task = MinecraftServer.getSchedulerManager()
+        this.task = ModuleScheduler
             .buildTask {
                 Nodes.runIncome()
                 scheduleNext()

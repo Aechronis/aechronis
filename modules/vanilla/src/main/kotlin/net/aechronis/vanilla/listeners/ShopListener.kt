@@ -26,14 +26,15 @@ object ShopListener {
         val shopItem = items[slot]
         val now = System.currentTimeMillis()
         val cooldowns = KillShop.playerCooldowns.getOrPut(player.uuid) { ConcurrentHashMap() }
-        val lastPurchase = cooldowns[slot]
+        val expiry = cooldowns[slot]
         val cooldownMs = shopItem.cooldownTicks * 50L
 
-        if (lastPurchase != null && (now - lastPurchase) < cooldownMs) {
-            val remainingSecs = "%.1f".format((cooldownMs - (now - lastPurchase)) / 1000.0)
+        if (expiry != null && expiry > now) {
+            val remainingSecs = "%.1f".format((expiry - now) / 1000.0)
             player.sendMessage(Component.text("This item is on cooldown for ${remainingSecs}s", NamedTextColor.RED))
             return
         }
+        if (expiry != null) cooldowns.remove(slot, expiry)
 
         val points = player.getTag(KillShop.POINTS_TAG) ?: 0
         if (points < shopItem.cost) {
@@ -47,7 +48,7 @@ object ShopListener {
         }
 
         player.setTag(KillShop.POINTS_TAG, points - shopItem.cost)
-        cooldowns[slot] = now
+        cooldowns[slot] = now + cooldownMs
     }
 
     fun onClose(event: InventoryCloseEvent) {

@@ -6,6 +6,8 @@ import net.aechronis.combat.events.VehicleSpawnEvent
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
+import net.aechronis.combat.utils.VehicleCameraDistance
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.VisibilityRules
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.ShadowColor
@@ -96,8 +98,7 @@ open class Vehicle(
         var time = placeTime
 
         Combat.placeTasks[player] =
-            MinecraftServer
-                .getSchedulerManager()
+            ModuleScheduler
                 .buildTask {
                     time -= 100
                     val progress: Double = 1.0 - (time.toDouble() / placeTime.toDouble())
@@ -538,7 +539,18 @@ open class Vehicle(
         entity: Entity,
         attacker: Player? = null,
         weapon: Component? = null,
-    ) {
+    ) = removeRuntimeEntity(entity)
+
+    /** Removes a live vehicle for module teardown without invoking destruction effects. */
+    internal fun unload(entity: Entity) {
+        prepareForShutdown(entity)
+        cleanupRuntime(entity)
+        removeRuntimeEntity(entity)
+    }
+
+    protected open fun cleanupRuntime(entity: Entity) = Unit
+
+    protected fun removeRuntimeEntity(entity: Entity) {
         // Eject all passengers
         entityPassengers.remove(entity)?.forEach { onPassengerExit(it) }
 
@@ -560,6 +572,77 @@ open class Vehicle(
 
     companion object {
         private const val VISIBILITY_RULE_OWNER = "combat:vehicle-occupant"
+
+        /** Ejects riders and removes every vehicle entity without triggering explosions. */
+        @Synchronized
+        internal fun shutdown() {
+            val failures = ArrayList<Throwable>()
+
+            for ((entity, vehicle) in entityVehicle.toList()) {
+                try {
+                    vehicle.unload(entity)
+                } catch (exception: Throwable) {
+                    failures.add(exception)
+                }
+            }
+
+            val occupants =
+                buildSet {
+                    addAll(playerVehicle.keys)
+                    addAll(playerVehicleEntity.keys)
+                    addAll(playerSeatEntity.keys)
+                    addAll(passengerVehicle.keys)
+                    addAll(passengerVehicleEntity.keys)
+                    addAll(passengerSeatEntity.keys)
+                    entityPassengers.values.forEach(::addAll)
+                }
+            for (player in occupants) {
+                try {
+                    forceExit(player)
+                } catch (exception: Throwable) {
+                    failures.add(exception)
+                }
+            }
+
+            listOf<() -> Unit>(
+                Drone::shutdownRuntimeState,
+                Plane::shutdownRuntimeState,
+                Tank::shutdownRuntimeState,
+                Car::shutdownRuntimeState,
+                VehicleCameraDistance::shutdown,
+            ).forEach { cleanup ->
+                try {
+                    cleanup()
+                } catch (exception: Throwable) {
+                    failures.add(exception)
+                }
+            }
+
+            playerSeatEntity.values.toSet().forEach(Entity::remove)
+            passengerSeatEntity.values.toSet().forEach(Entity::remove)
+            entityVehicle.keys.toSet().forEach(Entity::remove)
+            hiddenOccupants.toList().forEach { player -> VisibilityRules.remove(player, VISIBILITY_RULE_OWNER) }
+
+            playerVehicle.clear()
+            playerVehicleEntity.clear()
+            entityVehicle.clear()
+            entityHealth.clear()
+            entityAmmo.clear()
+            emptyAmmoFeedbackAt.clear()
+            hiddenOccupants.clear()
+            forcedExitPlayers.clear()
+            playerSeatEntity.clear()
+            entityPassengers.clear()
+            passengerVehicle.clear()
+            passengerVehicleEntity.clear()
+            passengerSeatEntity.clear()
+
+            if (failures.isNotEmpty()) {
+                throw IllegalStateException("Vehicle shutdown completed with ${failures.size} cleanup failure(s)").apply {
+                    failures.forEach(::addSuppressed)
+                }
+            }
+        }
 
         fun isVehicleOccupant(player: Player): Boolean = activeOccupant(player) != null
 

@@ -14,6 +14,7 @@ import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.Attack
 import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.EntityTags
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -39,6 +40,8 @@ import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.hypot
@@ -59,6 +62,7 @@ private const val RANDOM_GUARD_COLUMNS_PER_DEFENDER = 8
 private const val MIN_LOCAL_SPAWN_RADIUS = 8
 private const val MAX_LOCAL_SPAWN_RADIUS = 20
 private const val LOCAL_SPAWN_VERTICAL_SEARCH = 12
+private const val CHUNK_LOAD_DRAIN_TIMEOUT_SECONDS = 60L
 internal const val MAX_DEFENDER_RESPAWN_DELAY_MILLIS = 60_000L
 private const val AI_DEFENDER_SKIN_TEXTURES =
     "ewogICJ0aW1lc3RhbXAiIDogMTc4NjQ3ODMyNzM5NiwKICAicHJvZmlsZUlkIiA6ICJjMmFlZGUzN2M3MDQ0ZWFmOWJkYWYy" +
@@ -89,7 +93,7 @@ object Colonization {
 
     private val selections = ConcurrentHashMap<UUID, Selection>()
     private val defenseSessions = HashMap<UUID, DefenseSession>()
-    private val chunkLeaseManager = AutomaticChunkLeaseManager()
+    private var chunkLeaseManager = AutomaticChunkLeaseManager()
     private var defenseDirectorTask: Task? = null
     private var pathStartsRemaining: Int = 0
     private var pathPreparationsRemaining: Int = 0
@@ -291,8 +295,8 @@ object Colonization {
             spawnCenter = campaignSpawnCenter(targetTown),
         )
         defenseSessions[targetTown.uuid] = session
-        ensureDefenseDirector(instance)
-        instance.scheduleNextTick {
+        ensureDefenseDirector()
+        ModuleScheduler.scheduleNextTick {
             if (isDefenseSessionActive(session)) prepareDueDefenderSpawns(session, System.currentTimeMillis())
         }
         return Result.success(Unit)
@@ -311,9 +315,9 @@ object Colonization {
         )
     }
 
-    private fun ensureDefenseDirector(instance: Instance) {
+    private fun ensureDefenseDirector() {
         if (defenseDirectorTask != null) return
-        defenseDirectorTask = instance.scheduler()
+        defenseDirectorTask = ModuleScheduler
             .buildTask(::tickDefenseSessions)
             .delay(TaskSchedule.tick(DEFENDER_TICK_INTERVAL))
             .repeat(TaskSchedule.tick(DEFENDER_TICK_INTERVAL))
@@ -357,7 +361,38 @@ object Colonization {
         chunkLeaseManager.release(session)
     }
 
+    internal fun resetForReload() {
+        try {
+            chunkLeaseManager.prepareForShutdown(CHUNK_LOAD_DRAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while waiting for automatic chunk loads before world reload", error)
+        } catch (error: TimeoutException) {
+            throw IllegalStateException(
+                "Automatic chunk loads did not finish within $CHUNK_LOAD_DRAIN_TIMEOUT_SECONDS seconds before world reload",
+                error,
+            )
+        }
+        cleanupState()
+        chunkLeaseManager.shutdown()
+        chunkLeaseManager = AutomaticChunkLeaseManager()
+    }
+
+    internal fun prepareForShutdown(
+        timeout: Long,
+        unit: TimeUnit,
+    ) {
+        defenseDirectorTask?.cancel()
+        defenseDirectorTask = null
+        chunkLeaseManager.prepareForShutdown(timeout, unit)
+    }
+
     internal fun cleanup() {
+        cleanupState()
+        chunkLeaseManager.shutdown()
+    }
+
+    private fun cleanupState() {
         selections.clear()
         defenseSessions.values.toList().forEach(::endDefenseSession)
         defenseDirectorTask?.cancel()
@@ -366,6 +401,8 @@ object Colonization {
         pathPreparationsRemaining = 0
         directorSessionOffset = 0
     }
+
+    internal fun acceptsAutomaticChunkLeases(): Boolean = chunkLeaseManager.isOpen()
 
     private fun activeDefenders(session: DefenseSession): List<AiDefender> = session.slots
         .mapNotNull(AiDefenderSlot::defender)
@@ -854,7 +891,7 @@ object Colonization {
         }
         session.spawnPreparationChunks.addAll(candidateChunks)
         chunkLeaseManager.loadChunks(instance, session, candidateChunks).whenComplete { _, loadError ->
-            instance.scheduleNextTick {
+            ModuleScheduler.scheduleNextTick {
                 if (!isDefenseSessionActive(session)) return@scheduleNextTick
                 session.spawnPreparationInFlight = false
                 session.spawnPreparationChunks.clear()
@@ -1092,7 +1129,7 @@ object Colonization {
     ) {
         val spawnChunk = Coord(spawn.chunkX(), spawn.chunkZ())
         chunkLeaseManager.loadChunks(instance, session, listOf(spawnChunk)).whenComplete { _, loadError ->
-            instance.scheduleNextTick {
+            ModuleScheduler.scheduleNextTick {
                 if (loadError != null) {
                     failDefenderSpawn(session, slot, generation, defender, "failed to load campaign spawn chunk: ${loadError.message}")
                     return@scheduleNextTick
@@ -1116,7 +1153,7 @@ object Colonization {
                     return@scheduleNextTick
                 }
                 spawnFuture.whenComplete { _, spawnError ->
-                    instance.scheduleNextTick {
+                    ModuleScheduler.scheduleNextTick {
                         if (spawnError != null) {
                             failDefenderSpawn(session, slot, generation, defender, "campaign spawn failed: ${spawnError.message}")
                         } else if (isCurrentDefenderLife(session, slot, generation, defender)) {
@@ -1220,7 +1257,7 @@ object Colonization {
         val generation = defender.navigation.beginPathPreparation(goal, routeChunks, now)
 
         chunkLeaseManager.loadChunks(session.instance, session, routeChunks).whenComplete { _, loadError ->
-            session.instance.scheduleNextTick {
+            ModuleScheduler.scheduleNextTick {
                 if (!isDefenseSessionActive(session)) return@scheduleNextTick
                 if (activeDefenders(session).none { it === defender } || !defender.navigation.isCurrentGeneration(generation)) {
                     return@scheduleNextTick

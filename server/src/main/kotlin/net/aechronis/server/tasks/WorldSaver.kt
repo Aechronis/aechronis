@@ -1,13 +1,16 @@
 package net.aechronis.server.tasks
 
-import net.aechronis.nodes.Nodes
 import net.aechronis.server.Server
-import net.aechronis.vanilla.Vanilla
 import net.minestom.server.MinecraftServer
 import net.minestom.server.instance.Chunk
+import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
+/** Owns durable world checkpoints independently of any reloadable module generation. */
 object WorldSaver {
     private const val SAVE_INTERVAL_MINUTES = 5L
     private const val CHUNK_SAVE_BATCH_SIZE = 8
@@ -15,27 +18,34 @@ object WorldSaver {
     private val checkpointLock = Any()
     private val worldSaveQueue = SerialFutureQueue()
     private var activeCheckpoint = CompletableFuture.completedFuture<Void>(null)
+    private var periodicTask: Task? = null
+    private var stopping = false
 
-    fun start() {
-        MinecraftServer
-            .getSchedulerManager()
-            .buildTask {
-                runCatching(::startCheckpoint).onFailure { error ->
-                    System.err.println("Failed to save server checkpoint: ${error.message}")
-                    error.printStackTrace()
-                }
-            }.repeat(TaskSchedule.minutes(SAVE_INTERVAL_MINUTES))
-            .schedule()
+    fun start(saveModules: () -> CompletableFuture<Void>) {
+        synchronized(checkpointLock) {
+            check(periodicTask == null) { "WorldSaver is already started" }
+            stopping = false
+            periodicTask =
+                MinecraftServer
+                    .getSchedulerManager()
+                    .buildTask { startCheckpoint(saveModules) }
+                    .repeat(TaskSchedule.minutes(SAVE_INTERVAL_MINUTES))
+                    .schedule()
+        }
     }
 
-    private fun startCheckpoint() {
+    private fun startCheckpoint(saveModules: () -> CompletableFuture<Void>) {
         val checkpoint =
             synchronized(checkpointLock) {
+                if (stopping) return
                 if (!activeCheckpoint.isDone) {
                     println("[WorldSave] Previous checkpoint is still running; skipping this interval.")
                     return
                 }
-                saveCheckpoint().also { activeCheckpoint = it }
+                saveCheckpointAsync(
+                    saveModules = saveModules,
+                    saveChunks = ::saveWorld,
+                ).also { activeCheckpoint = it }
             }
 
         checkpoint.whenComplete { _, error ->
@@ -46,17 +56,36 @@ object WorldSaver {
         }
     }
 
-    // snapshot preparation runs on the tick thread; bulk persistence completes in the background
-    internal fun saveCheckpoint(): CompletableFuture<Void> =
-        saveCheckpointAsync(
-            prepare = Vanilla::saveCheckpoint,
-            saveState = { Nodes.saveWorld(checkIfNeedsSave = true, async = true) },
-            saveChunks = ::saveWorld,
-        )
+    /** Waits only when module code may still be executing as part of an active checkpoint. */
+    fun awaitCheckpoint() {
+        val checkpoint = synchronized(checkpointLock) { activeCheckpoint }
+        await(checkpoint, "active server checkpoint")
+    }
 
     fun saveWorld(): CompletableFuture<Void> {
         val chunks = Server.instance.chunks.toList()
         return worldSaveQueue.submit { saveChunks(chunks) }
+    }
+
+    fun saveWorldAndWait() {
+        await(saveWorld(), "core world save")
+    }
+
+    fun shutdown() {
+        val task =
+            synchronized(checkpointLock) {
+                stopping = true
+                periodicTask.also { periodicTask = null }
+            }
+
+        var failure: Throwable? = null
+        task?.let { scheduled ->
+            runCatching(scheduled::cancel).onFailure { error -> failure = error }
+        }
+        runCatching(::awaitCheckpoint).onFailure { error ->
+            failure?.addSuppressed(error) ?: run { failure = error }
+        }
+        failure?.let { throw it }
     }
 
     private fun saveChunks(chunks: List<Chunk>): CompletableFuture<Void> {
@@ -83,24 +112,30 @@ object WorldSaver {
             }
         }
     }
+
+    private fun await(
+        future: CompletableFuture<Void>,
+        description: String,
+    ) {
+        try {
+            future.get(SAVE_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while waiting for $description", error)
+        } catch (error: TimeoutException) {
+            throw IllegalStateException("$description did not finish within $SAVE_WAIT_TIMEOUT_SECONDS seconds", error)
+        } catch (error: ExecutionException) {
+            throw error.cause ?: error
+        }
+    }
+
+    private const val SAVE_WAIT_TIMEOUT_SECONDS = 300L
 }
 
 internal fun saveCheckpointAsync(
-    prepare: () -> Unit,
-    saveState: () -> CompletableFuture<Void>,
+    saveModules: () -> CompletableFuture<Void>,
     saveChunks: () -> CompletableFuture<Void>,
-): CompletableFuture<Void> {
-    val preparation =
-        try {
-            prepare()
-            CompletableFuture.completedFuture<Void>(null)
-        } catch (error: Throwable) {
-            CompletableFuture.failedFuture(error)
-        }
-    val stateSave = invokeSave(saveState)
-    val chunkSave = invokeSave(saveChunks)
-    return CompletableFuture.allOf(preparation, stateSave, chunkSave)
-}
+): CompletableFuture<Void> = invokeSave(saveModules).thenCompose { invokeSave(saveChunks) }
 
 private fun invokeSave(save: () -> CompletableFuture<Void>): CompletableFuture<Void> =
     try {

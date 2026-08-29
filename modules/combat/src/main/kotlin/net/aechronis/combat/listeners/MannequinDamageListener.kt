@@ -47,4 +47,8 @@ object MannequinDamageListener {
     fun init() {
         Combat.highPriorityEventNode.addListener(EntityDamageEvent::class.java, MannequinDamageListener::onEntityDamage)
     }
+
+    fun shutdown() {
+        forwarding.clear()
+    }
 }

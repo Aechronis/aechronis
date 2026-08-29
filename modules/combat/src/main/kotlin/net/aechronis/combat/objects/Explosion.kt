@@ -25,7 +25,6 @@ import net.minestom.server.instance.block.Block
 import net.minestom.server.network.packet.server.play.ParticlePacket
 import net.minestom.server.particle.Particle
 import net.minestom.server.registry.RegistryKey
-import java.util.concurrent.CompletableFuture
 import kotlin.random.Random
 
 private const val SMOKE_SAMPLE_INTERVAL = 8
@@ -53,8 +52,8 @@ class Explosion private constructor(
     ) : this(instance, pos, radius, fire, damage, source, weapon, ammoType, false)
 
     init {
-        // Take the snapshot before block destruction starts. Damage must not depend on
-        // the asynchronous block pass winning a race with the entity update.
+        // Take the snapshot before block destruction starts so damage and terrain changes use
+        // one consistent view of the blast.
         val blast = collectBlastBlocks()
         val event =
             ExplosionBlockDamageEvent(
@@ -70,54 +69,52 @@ class Explosion private constructor(
             if (event.isCancelled) return@explosion
             if (damage > 0f) applyDamage(blast.affectedBlocks)
 
-            CompletableFuture.runAsync {
-                var smokeSampleIndex = 0
+            var smokeSampleIndex = 0
 
-                // Emit smoke at every eighth blast position.
-                blast.positions.forEach { p ->
-                    if (smokeSampleIndex++ % SMOKE_SAMPLE_INTERVAL == 0) {
-                        instance.sendGroupedPacket(
-                            ParticlePacket(
-                                Particle.CAMPFIRE_SIGNAL_SMOKE,
-                                p,
-                                Pos(1.0, 1.0, 1.0),
-                                0.05F,
-                                1,
-                            ),
-                        )
+            // Emit smoke at every eighth blast position.
+            blast.positions.forEach { p ->
+                if (smokeSampleIndex++ % SMOKE_SAMPLE_INTERVAL == 0) {
+                    instance.sendGroupedPacket(
+                        ParticlePacket(
+                            Particle.CAMPFIRE_SIGNAL_SMOKE,
+                            p,
+                            Pos(1.0, 1.0, 1.0),
+                            0.05F,
+                            1,
+                        ),
+                    )
 
-                        instance.sendGroupedPacket(
-                            ParticlePacket(
-                                Particle.CAMPFIRE_COSY_SMOKE,
-                                p,
-                                Pos(1.0, 1.0, 1.0),
-                                0.1F,
-                                1,
-                            ),
-                        )
-                    }
-                }
-
-                // First pass: destroy the blocks affected by the explosion. Protected
-                // blocks are excluded from this snapshot and therefore remain intact.
-                blast.affectedBlocks.forEach { block ->
-                    BlockRestoreManager.temporarilyReplace(
-                        instance,
-                        block,
-                        requireNotNull(blast.originalBlocks[block]),
-                        Block.AIR,
+                    instance.sendGroupedPacket(
+                        ParticlePacket(
+                            Particle.CAMPFIRE_COSY_SMOKE,
+                            p,
+                            Pos(1.0, 1.0, 1.0),
+                            0.1F,
+                            1,
+                        ),
                     )
                 }
+            }
 
-                // Second pass: place the fire positions selected during the snapshot pass.
-                blast.firePositions.forEach { block ->
-                    BlockRestoreManager.temporarilyReplace(
-                        instance,
-                        block,
-                        requireNotNull(blast.originalBlocks[block]),
-                        Block.FIRE,
-                    )
-                }
+            // First pass: destroy the blocks affected by the explosion. Protected
+            // blocks are excluded from this snapshot and therefore remain intact.
+            blast.affectedBlocks.forEach { block ->
+                BlockRestoreManager.temporarilyReplace(
+                    instance,
+                    block,
+                    requireNotNull(blast.originalBlocks[block]),
+                    Block.AIR,
+                )
+            }
+
+            // Second pass: place the fire positions selected during the snapshot pass.
+            blast.firePositions.forEach { block ->
+                BlockRestoreManager.temporarilyReplace(
+                    instance,
+                    block,
+                    requireNotNull(blast.originalBlocks[block]),
+                    Block.FIRE,
+                )
             }
         }
     }

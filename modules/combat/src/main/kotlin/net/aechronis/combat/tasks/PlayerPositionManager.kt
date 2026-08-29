@@ -1,13 +1,13 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.MinecraftServer
 import net.minestom.server.timer.TaskSchedule
 
 object PlayerPositionManager {
     fun start() {
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask {
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
                     // get or create deque for player

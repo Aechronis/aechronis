@@ -5,6 +5,8 @@ import net.aechronis.logger.params.LookupParams
 import net.aechronis.logger.utils.EntityStateCodec
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
+import net.aechronis.logger.utils.shutdownExecutor
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.CoordConversion
@@ -19,12 +21,15 @@ import net.minestom.server.inventory.PlayerInventory
 import net.minestom.server.network.packet.server.play.BlockEntityDataPacket
 import net.minestom.server.network.packet.server.play.MultiBlockChangePacket
 import net.minestom.server.utils.block.BlockUtils
+import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class RollbackActor(
@@ -150,13 +155,22 @@ private class StorageWorldChangeFailure(
 
 class RollbackService(
     private val executor: ExecutorService = Executors.newVirtualThreadPerTaskExecutor(),
+    private val closeDrainTimeout: Duration = Duration.ofSeconds(5),
 ) : AutoCloseable {
     private val activeInstances = ConcurrentHashMap.newKeySet<UUID>()
     private val activeResults = ConcurrentHashMap.newKeySet<CompletableFuture<*>>()
     private val operationIds = ConcurrentHashMap<CompletableFuture<*>, Long>()
+    private val recoveryRequiredOperationIds = ConcurrentHashMap.newKeySet<Long>()
     private val externalOperationActive = AtomicBoolean()
     private val closing = AtomicBoolean()
     private val lifecycleLock = Any()
+    private val inFlightStages = linkedSetOf<CompletableFuture<Void>>()
+
+    init {
+        require(!closeDrainTimeout.isNegative && !closeDrainTimeout.isZero) {
+            "Rollback close drain timeout must be positive"
+        }
+    }
 
     fun computePlanAsync(
         kind: RollbackOperationKind,
@@ -417,6 +431,7 @@ class RollbackService(
         result: CompletableFuture<RollbackExecutionResult>,
         timing: ChunkRestoreTiming?,
     ) {
+        if (closing.get() || result.isDone) return
         if (!activeInstances.add(plan.instanceUuid)) {
             result.completeExceptionally(IllegalStateException("another rollback is already running in this instance"))
             return
@@ -434,14 +449,12 @@ class RollbackService(
             return
         }
 
-        Logger.rollback
-            .hasRecoveryRequiredAsync(plan.instanceUuid, includeGlobalState = usesExternalState)
-            .whenComplete { recoveryRequired, recoveryFailure ->
+        observeStage(
+            isAbandoned = result::isDone,
+            start = { Logger.rollback.hasRecoveryRequiredAsync(plan.instanceUuid, includeGlobalState = usesExternalState) },
+            onComplete = { recoveryRequired, recoveryFailure ->
                 when {
-                    recoveryFailure != null -> {
-                        result.completeExceptionally(recoveryFailure)
-                    }
-
+                    recoveryFailure != null -> result.completeExceptionally(recoveryFailure)
                     recoveryRequired == true -> {
                         result.completeExceptionally(
                             IllegalStateException("recovery acknowledgement is required before further operations"),
@@ -449,19 +462,26 @@ class RollbackService(
                     }
 
                     else -> {
-                        loadChunks(instance, plan.blockChanges).whenComplete { _, loadFailure ->
-                            if (loadFailure != null) {
-                                result.completeExceptionally(loadFailure)
-                            } else {
-                                timing?.chunksLoaded()
-                                instance.scheduleNextTick {
-                                    prepareAndPersist(actor, instance, plan, result, timing)
+                        observeStage(
+                            isAbandoned = result::isDone,
+                            start = { loadChunks(instance, plan.blockChanges) },
+                            onComplete = { _, loadFailure ->
+                                if (loadFailure != null) {
+                                    result.completeExceptionally(loadFailure)
+                                } else {
+                                    timing?.chunksLoaded()
+                                    ModuleScheduler.scheduleNextTick {
+                                        prepareAndPersist(actor, instance, plan, result, timing)
+                                    }
                                 }
-                            }
-                        }
+                            },
+                            onFailure = result::completeExceptionally,
+                        )
                     }
                 }
-            }
+            },
+            onFailure = result::completeExceptionally,
+        )
     }
 
     fun undoAsync(actor: RollbackActor): CompletableFuture<RollbackExecutionResult> = replayLatest(actor, undo = true)
@@ -675,7 +695,7 @@ class RollbackService(
         timing: ChunkRestoreTiming?,
         preparedChunkRestore: PreparedWorldChanges? = null,
     ) {
-        if (result.isDone) return
+        if (closing.get() || result.isDone) return
         if (
             plan.kind == RollbackOperationKind.CHUNK_RESTORE &&
             plan.storageChanges.isEmpty() &&
@@ -683,15 +703,18 @@ class RollbackService(
             plan.entityChanges.isEmpty() &&
             preparedChunkRestore == null
         ) {
-            CompletableFuture
-                .supplyAsync({ prepareChunkRestoreChanges(plan) }, executor)
-                .whenComplete { prepared, failure ->
+            observeStage(
+                isAbandoned = result::isDone,
+                start = { CompletableFuture.supplyAsync({ prepareChunkRestoreChanges(plan) }, executor) },
+                onComplete = { prepared, failure ->
                     if (failure != null) {
                         result.completeExceptionally(failure)
                     } else {
-                        prepareAndPersist(actor, instance, plan, result, timing, prepared)
+                        prepareAndPersist(actor, instance, plan, result, timing, requireNotNull(prepared))
                     }
-                }
+                },
+                onFailure = result::completeExceptionally,
+            )
             return
         }
         val simulatedInventory = mutableMapOf<Pair<UUID, Int>, net.minestom.server.item.ItemStack>()
@@ -781,39 +804,46 @@ class RollbackService(
                 skippedChangeCount = skipped,
             )
 
-        Logger.rollback.insertOperationAsync(operation, changes).whenComplete { operationId, persistFailure ->
-            if (persistFailure != null) {
-                result.completeExceptionally(persistFailure)
-                return@whenComplete
-            }
-            operationIds[result] = operationId
-            timing?.persisted()
-            if (result.isDone) {
-                Logger.rollback.updateStatusAsync(operationId, RollbackStatus.FAILED)
-                return@whenComplete
-            }
-            Logger.rollback
-                .startOperationAsync(
-                    operationId,
-                    RollbackStatus.PREPARED,
-                    RollbackStatus.APPLYING,
-                    changes,
-                    expectedRolledBack = plan.kind == RollbackOperationKind.RESTORE,
-                ).whenComplete { _, transitionFailure ->
-                    if (transitionFailure != null) {
-                        completeFailureAfterStatus(operationId, RollbackStatus.FAILED, transitionFailure, result)
-                        return@whenComplete
-                    }
-                    if (result.isDone) {
-                        Logger.rollback.updateStatusAsync(operationId, RollbackStatus.RECOVERY_REQUIRED)
-                        return@whenComplete
-                    }
-                    timing?.applying()
-                    instance.scheduleNextTick {
-                        applyBatches(instance, operationId, plan, changes, skipped, result, timing)
-                    }
+        observeStage(
+            isAbandoned = result::isDone,
+            start = { Logger.rollback.insertOperationAsync(operation, changes) },
+            onAbandoned = { operationId, persistFailure ->
+                if (persistFailure == null && operationId != null) recoveryRequiredOperationIds += operationId
+            },
+            onComplete = { operationIdValue, persistFailure ->
+                if (persistFailure != null) {
+                    result.completeExceptionally(persistFailure)
+                } else {
+                    val operationId = requireNotNull(operationIdValue)
+                    operationIds[result] = operationId
+                    timing?.persisted()
+                    observeStage(
+                        isAbandoned = result::isDone,
+                        start = {
+                            Logger.rollback.startOperationAsync(
+                                operationId,
+                                RollbackStatus.PREPARED,
+                                RollbackStatus.APPLYING,
+                                changes,
+                                expectedRolledBack = plan.kind == RollbackOperationKind.RESTORE,
+                            )
+                        },
+                        onComplete = { _, transitionFailure ->
+                            if (transitionFailure != null) {
+                                completeFailureAfterStatus(operationId, RollbackStatus.FAILED, transitionFailure, result)
+                            } else {
+                                timing?.applying()
+                                ModuleScheduler.scheduleNextTick {
+                                    applyBatches(instance, operationId, plan, changes, skipped, result, timing)
+                                }
+                            }
+                        },
+                        onFailure = result::completeExceptionally,
+                    )
                 }
-        }
+            },
+            onFailure = result::completeExceptionally,
+        )
     }
 
     private fun applyWorldChanges(
@@ -850,7 +880,11 @@ class RollbackService(
         lateinit var advance: () -> Unit
 
         fun scheduleBlockBatch() {
-            instance.scheduleNextTick {
+            ModuleScheduler.scheduleNextTick {
+                if (closing.get() || result.isDone) {
+                    result.completeExceptionally(IllegalStateException("rollback service is closing"))
+                    return@scheduleNextTick
+                }
                 try {
                     var visited = 0
                     while (
@@ -933,7 +967,7 @@ class RollbackService(
                                 result.completeExceptionally(StorageWorldChangeFailure(failure))
                             } else {
                                 index++
-                                instance.scheduleNextTick { advance() }
+                                ModuleScheduler.scheduleNextTick { advance() }
                             }
                         }
                     }
@@ -958,8 +992,8 @@ class RollbackService(
         applied: MutableList<RollbackChange>,
     ): CompletableFuture<Int> {
         val result = CompletableFuture<Int>()
-        CompletableFuture
-            .supplyAsync({
+        trackedStage(start = {
+            CompletableFuture.supplyAsync({
                 changes.map { change ->
                     val expectedState = if (reverse) change.afterBlockState else change.beforeBlockState
                     val expectedNbt = if (reverse) change.afterBlockNbt else change.beforeBlockNbt
@@ -974,6 +1008,7 @@ class RollbackService(
                     )
                 }
             }, executor)
+        })
             .whenComplete { mutations, preparationFailure ->
                 if (preparationFailure != null) {
                     result.completeExceptionally(preparationFailure)
@@ -1093,7 +1128,7 @@ class RollbackService(
                 }
 
                 scheduleNextBatch = {
-                    instance.scheduleNextTick {
+                    ModuleScheduler.scheduleNextTick {
                         if (result.isDone) return@scheduleNextTick
                         if (closing.get()) {
                             result.completeExceptionally(IllegalStateException("rollback service is closing"))
@@ -1162,6 +1197,7 @@ class RollbackService(
         result: CompletableFuture<RollbackExecutionResult>,
         timing: ChunkRestoreTiming?,
     ) {
+        if (closing.get() || result.isDone) return
         val worldChanges =
             changes.filter {
                 it.changeKind == RollbackChangeKind.BLOCK || it.changeKind == RollbackChangeKind.STORAGE
@@ -1244,10 +1280,10 @@ class RollbackService(
                     val applied = appliedWorld + appliedInventory + appliedEntities
                     val rolledBack = plan.kind == RollbackOperationKind.ROLLBACK
                     timing?.applied()
-                    Logger.rollback
-                        .completeOperationAsync(operationId, applied, rolledBack, skipped)
-                        .whenComplete { _, failure ->
-                            if (result.isDone) return@whenComplete
+                    observeStage(
+                        isAbandoned = result::isDone,
+                        start = { Logger.rollback.completeOperationAsync(operationId, applied, rolledBack, skipped) },
+                        onComplete = { _, failure ->
                             if (failure == null) {
                                 timing?.completed(operationId, applied.size, skipped)
                                 result.complete(RollbackExecutionResult(plan.kind, operationId, applied.size, skipped))
@@ -1262,7 +1298,9 @@ class RollbackService(
                                     )
                                 finishApplyFailure(operationId, failure, compensation, result, forceRecovery = true)
                             }
-                        }
+                        },
+                        onFailure = result::completeExceptionally,
+                    )
                 }
             }
         }
@@ -1275,18 +1313,22 @@ class RollbackService(
         val result =
             trackedResult<RollbackExecutionResult>()
                 ?: return CompletableFuture.failedFuture(IllegalStateException("rollback service is closing"))
-        Logger.rollback.findLatestOperationAsync(actor.uuid).whenComplete { operation, lookupFailure ->
-            if (lookupFailure != null) {
-                result.completeExceptionally(lookupFailure)
-                return@whenComplete
-            }
-            val requiredStatus = if (undo) RollbackStatus.APPLIED else RollbackStatus.UNDONE
-            if (operation == null || operation.status != requiredStatus || operation.kind == RollbackOperationKind.LEGACY) {
-                result.completeExceptionally(IllegalStateException(if (undo) "nothing to undo" else "nothing to redo"))
-                return@whenComplete
-            }
-            beginReplay(operation, requiredStatus, undo, result)
-        }
+        observeStage(
+            isAbandoned = result::isDone,
+            start = { Logger.rollback.findLatestOperationAsync(actor.uuid) },
+            onComplete = { operation, lookupFailure ->
+                val requiredStatus = if (undo) RollbackStatus.APPLIED else RollbackStatus.UNDONE
+                when {
+                    lookupFailure != null -> result.completeExceptionally(lookupFailure)
+                    operation == null || operation.status != requiredStatus || operation.kind == RollbackOperationKind.LEGACY -> {
+                        result.completeExceptionally(IllegalStateException(if (undo) "nothing to undo" else "nothing to redo"))
+                    }
+
+                    else -> beginReplay(operation, requiredStatus, undo, result)
+                }
+            },
+            onFailure = result::completeExceptionally,
+        )
         return result
     }
 
@@ -1296,6 +1338,7 @@ class RollbackService(
         undo: Boolean,
         result: CompletableFuture<RollbackExecutionResult>,
     ) {
+        if (closing.get() || result.isDone) return
         if (!activeInstances.add(operation.instanceUuid)) {
             result.completeExceptionally(IllegalStateException("another rollback is already running in this instance"))
             return
@@ -1306,70 +1349,106 @@ class RollbackService(
             result.completeExceptionally(IllegalStateException("instance no longer exists"))
             return
         }
-        Logger.rollback.findChangesAsync(operation.id, appliedOnly = true).whenComplete { stored, changesFailure ->
-            if (changesFailure != null) {
-                activeInstances.remove(operation.instanceUuid)
-                result.completeExceptionally(changesFailure)
-                return@whenComplete
-            }
-            val usesExternalState =
-                stored.any { it.changeKind == RollbackChangeKind.STORAGE || it.changeKind == RollbackChangeKind.INVENTORY }
-            if (usesExternalState && !externalOperationActive.compareAndSet(false, true)) {
-                activeInstances.remove(operation.instanceUuid)
-                result.completeExceptionally(IllegalStateException("another storage or inventory operation is already running"))
-                return@whenComplete
-            }
-            operationIds[result] = operation.id
-            trackOperation(result, operation.instanceUuid, usesExternalState)
-            val ordered = if (undo) stored.asReversed() else stored
-            Logger.rollback
-                .hasRecoveryRequiredAsync(operation.instanceUuid, includeGlobalState = usesExternalState)
-                .whenComplete { recoveryRequired, recoveryFailure ->
-                    when {
-                        recoveryFailure != null -> {
-                            result.completeExceptionally(recoveryFailure)
-                        }
-
-                        recoveryRequired == true -> {
-                            result.completeExceptionally(
-                                IllegalStateException("recovery acknowledgement is required before further operations"),
-                            )
-                        }
-
-                        else -> {
-                            loadChunksFromChanges(instance, ordered).whenComplete { _, loadFailure ->
-                                if (loadFailure != null) {
-                                    result.completeExceptionally(loadFailure)
-                                    return@whenComplete
-                                }
-                                val transition = if (undo) RollbackStatus.UNDOING else RollbackStatus.REDOING
-                                val targetRolledBack =
-                                    if (undo) {
-                                        operation.kind == RollbackOperationKind.RESTORE
-                                    } else {
-                                        operation.kind == RollbackOperationKind.ROLLBACK
-                                    }
-                                Logger.rollback
-                                    .startOperationAsync(
-                                        operation.id,
-                                        requiredStatus,
-                                        transition,
-                                        ordered,
-                                        expectedRolledBack = !targetRolledBack,
-                                    ).whenComplete { _, transitionFailure ->
-                                        if (transitionFailure != null) {
-                                            result.completeExceptionally(transitionFailure)
-                                            return@whenComplete
-                                        }
-                                        instance.scheduleNextTick {
-                                            replayBatches(instance, operation, ordered, undo, result)
-                                        }
-                                    }
-                            }
-                        }
+        observeStage(
+            isAbandoned = result::isDone,
+            start = { Logger.rollback.findChangesAsync(operation.id, appliedOnly = true) },
+            onComplete = { storedValue, changesFailure ->
+                if (changesFailure != null) {
+                    activeInstances.remove(operation.instanceUuid)
+                    result.completeExceptionally(changesFailure)
+                } else {
+                    val stored = requireNotNull(storedValue)
+                    val usesExternalState =
+                        stored.any { it.changeKind == RollbackChangeKind.STORAGE || it.changeKind == RollbackChangeKind.INVENTORY }
+                    if (usesExternalState && !externalOperationActive.compareAndSet(false, true)) {
+                        activeInstances.remove(operation.instanceUuid)
+                        result.completeExceptionally(IllegalStateException("another storage or inventory operation is already running"))
+                    } else {
+                        operationIds[result] = operation.id
+                        trackOperation(result, operation.instanceUuid, usesExternalState)
+                        val ordered = if (undo) stored.asReversed() else stored
+                        continueReplay(operation, requiredStatus, undo, instance, ordered, result, usesExternalState)
                     }
                 }
-        }
+            },
+            onFailure = result::completeExceptionally,
+        )
+    }
+
+    private fun continueReplay(
+        operation: RollbackOperation,
+        requiredStatus: RollbackStatus,
+        undo: Boolean,
+        instance: Instance,
+        ordered: List<RollbackChange>,
+        result: CompletableFuture<RollbackExecutionResult>,
+        usesExternalState: Boolean,
+    ) {
+        observeStage(
+            isAbandoned = result::isDone,
+            start = { Logger.rollback.hasRecoveryRequiredAsync(operation.instanceUuid, includeGlobalState = usesExternalState) },
+            onComplete = { recoveryRequired, recoveryFailure ->
+                when {
+                    recoveryFailure != null -> result.completeExceptionally(recoveryFailure)
+                    recoveryRequired == true -> {
+                        result.completeExceptionally(
+                            IllegalStateException("recovery acknowledgement is required before further operations"),
+                        )
+                    }
+
+                    else -> {
+                        observeStage(
+                            isAbandoned = result::isDone,
+                            start = { loadChunksFromChanges(instance, ordered) },
+                            onComplete = { _, loadFailure ->
+                                if (loadFailure != null) {
+                                    result.completeExceptionally(loadFailure)
+                                } else {
+                                    startReplayTransition(operation, requiredStatus, undo, instance, ordered, result)
+                                }
+                            },
+                            onFailure = result::completeExceptionally,
+                        )
+                    }
+                }
+            },
+            onFailure = result::completeExceptionally,
+        )
+    }
+
+    private fun startReplayTransition(
+        operation: RollbackOperation,
+        requiredStatus: RollbackStatus,
+        undo: Boolean,
+        instance: Instance,
+        ordered: List<RollbackChange>,
+        result: CompletableFuture<RollbackExecutionResult>,
+    ) {
+        val transition = if (undo) RollbackStatus.UNDOING else RollbackStatus.REDOING
+        val targetRolledBack =
+            if (undo) operation.kind == RollbackOperationKind.RESTORE else operation.kind == RollbackOperationKind.ROLLBACK
+        observeStage(
+            isAbandoned = result::isDone,
+            start = {
+                Logger.rollback.startOperationAsync(
+                    operation.id,
+                    requiredStatus,
+                    transition,
+                    ordered,
+                    expectedRolledBack = !targetRolledBack,
+                )
+            },
+            onComplete = { _, transitionFailure ->
+                if (transitionFailure != null) {
+                    result.completeExceptionally(transitionFailure)
+                } else {
+                    ModuleScheduler.scheduleNextTick {
+                        if (!closing.get() && !result.isDone) replayBatches(instance, operation, ordered, undo, result)
+                    }
+                }
+            },
+            onFailure = result::completeExceptionally,
+        )
     }
 
     private fun replayBatches(
@@ -1379,6 +1458,7 @@ class RollbackService(
         undo: Boolean,
         result: CompletableFuture<RollbackExecutionResult>,
     ) {
+        if (closing.get() || result.isDone) return
         val worldChanges =
             changes.filter {
                 it.changeKind == RollbackChangeKind.BLOCK || it.changeKind == RollbackChangeKind.STORAGE
@@ -1475,10 +1555,10 @@ class RollbackService(
                         } else {
                             operation.kind == RollbackOperationKind.ROLLBACK
                         }
-                    Logger.rollback
-                        .completeReplayAsync(operation, transition, targetStatus, targetRolledBack)
-                        .whenComplete { _, failure ->
-                            if (result.isDone) return@whenComplete
+                    observeStage(
+                        isAbandoned = result::isDone,
+                        start = { Logger.rollback.completeReplayAsync(operation, transition, targetStatus, targetRolledBack) },
+                        onComplete = { _, failure ->
                             if (failure == null) {
                                 result.complete(
                                     RollbackExecutionResult(
@@ -1499,7 +1579,9 @@ class RollbackService(
                                     )
                                 finishReplayFailure(operation.id, undo, failure, compensation, result, forceRecovery = true)
                             }
-                        }
+                        },
+                        onFailure = result::completeExceptionally,
+                    )
                 }
             }
         }
@@ -1571,6 +1653,7 @@ class RollbackService(
         forceRecovery: Boolean = false,
     ) {
         compensation.whenComplete { _, compensationFailure ->
+            if (closing.get() || result.isDone) return@whenComplete
             if (compensationFailure != null) failure.addSuppressed(compensationFailure)
             val status =
                 if (forceRecovery || compensationFailure != null) RollbackStatus.RECOVERY_REQUIRED else RollbackStatus.FAILED
@@ -1587,6 +1670,7 @@ class RollbackService(
         forceRecovery: Boolean = false,
     ) {
         compensation.whenComplete { _, compensationFailure ->
+            if (closing.get() || result.isDone) return@whenComplete
             if (compensationFailure != null) failure.addSuppressed(compensationFailure)
             val status =
                 if (forceRecovery || compensationFailure != null) {
@@ -1606,10 +1690,16 @@ class RollbackService(
         failure: Throwable,
         result: CompletableFuture<RollbackExecutionResult>,
     ) {
-        Logger.rollback.updateStatusAsync(operationId, status).whenComplete { _, statusFailure ->
-            if (statusFailure != null) failure.addSuppressed(statusFailure)
-            result.completeExceptionally(failure)
-        }
+        if (closing.get() || result.isDone) return
+        observeStage(
+            isAbandoned = result::isDone,
+            start = { Logger.rollback.updateStatusAsync(operationId, status) },
+            onComplete = { _, statusFailure ->
+                if (statusFailure != null) failure.addSuppressed(statusFailure)
+                result.completeExceptionally(failure)
+            },
+            onFailure = result::completeExceptionally,
+        )
     }
 
     private fun applyStorage(
@@ -1649,18 +1739,21 @@ class RollbackService(
                                 IllegalStateException("no rollback adapter for storage source '$source'"),
                             )
                     val effectiveAction = if (reverse) action.inverse() else action
-                    adapter
-                        .apply(
-                            storageId,
-                            change.storageSlot,
-                            ItemCodec.decodeItem(itemData),
-                            amount,
-                            effectiveAction,
-                        ).thenApply { success ->
-                            check(success) { "storage '$storageId' rejected $effectiveAction" }
-                            applied += change
-                            null
-                        }
+                    trackedStage(
+                        start = {
+                            adapter.apply(
+                                storageId,
+                                change.storageSlot,
+                                ItemCodec.decodeItem(itemData),
+                                amount,
+                                effectiveAction,
+                            )
+                        },
+                    ).thenApply { success ->
+                        check(success) { "storage '$storageId' rejected $effectiveAction" }
+                        applied += change
+                        null
+                    }
                 }
         }
         return chain
@@ -1697,7 +1790,11 @@ class RollbackService(
                         MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(playerUuid)
                             ?: return@thenCompose CompletableFuture.failedFuture(IllegalStateException("player $playerUuid must be online"))
                     val future = CompletableFuture<Void>()
-                    player.scheduleNextTick {
+                    ModuleScheduler.scheduleNextTick {
+                        if (closing.get()) {
+                            future.completeExceptionally(IllegalStateException("rollback service is closing"))
+                            return@scheduleNextTick
+                        }
                         try {
                             val simulated = mutableMapOf<Int, net.minestom.server.item.ItemStack>()
                             for (write in playerWrites) {
@@ -1772,17 +1869,13 @@ class RollbackService(
                         change.entityVelocity?.let(entity::setVelocity)
                         EntityStateCodec.restore(entity, state)
                         RollbackMutationGuard.beginEntity(entityUuid)
-                        entity
-                            .setInstance(instance, position)
-                            .whenComplete {
-                                _,
-                                _,
-                                ->
-                                RollbackMutationGuard.endEntity(entityUuid)
-                            }.thenApply {
-                                applied += change
-                                null
-                            }
+                        trackedStage(
+                            start = { entity.setInstance(instance, position) },
+                            onSettled = { _, _ -> RollbackMutationGuard.endEntity(entityUuid) },
+                        ).thenApply {
+                            applied += change
+                            null
+                        }
                     }
                 }
         }
@@ -1839,6 +1932,102 @@ class RollbackService(
         }
     }
 
+    /**
+     * Observes a future owned by Minestom, a repository, or an external storage adapter. The
+     * drain token is admitted atomically with lifecycle close, but the source callback is attached
+     * after releasing [lifecycleLock] so an already-completed future cannot invoke module code
+     * while the lifecycle monitor is held.
+     */
+    private fun <T> observeStage(
+        isAbandoned: () -> Boolean,
+        start: () -> CompletableFuture<T>,
+        onAbandoned: (T?, Throwable?) -> Unit = { _, _ -> },
+        onComplete: (T?, Throwable?) -> Unit,
+        onFailure: (Throwable) -> Unit,
+    ) {
+        val drained = CompletableFuture<Void>()
+        var source: CompletableFuture<T>? = null
+        var startFailure: Throwable? = null
+        val accepted =
+            synchronized(lifecycleLock) {
+                if (closing.get() || isAbandoned()) {
+                    false
+                } else {
+                    inFlightStages += drained
+                    try {
+                        source = start()
+                    } catch (error: Throwable) {
+                        startFailure = error
+                    }
+                    true
+                }
+            }
+
+        if (!accepted) {
+            onFailure(IllegalStateException("rollback service is closing"))
+            return
+        }
+
+        fun finishStage(action: () -> Unit) {
+            var callbackFailure: Throwable? = null
+            try {
+                action()
+            } catch (error: Throwable) {
+                callbackFailure = error
+                runCatching { onFailure(error) }.onFailure(error::addSuppressed)
+            } finally {
+                synchronized(lifecycleLock) { inFlightStages -= drained }
+                callbackFailure?.let(drained::completeExceptionally) ?: drained.complete(null)
+            }
+        }
+
+        startFailure?.let { error ->
+            finishStage { onFailure(error) }
+            return
+        }
+
+        requireNotNull(source).whenComplete { value, failure ->
+            finishStage {
+                if (closing.get() || isAbandoned()) {
+                    onAbandoned(value, failure)
+                } else {
+                    onComplete(value, failure)
+                }
+            }
+        }
+    }
+
+    /**
+     * Future-shaped adapter for leaf stages used inside ordered CompletableFuture chains. The
+     * tracked token is released only after completing this proxy, so all existing non-async
+     * dependants run before lifecycle close can finish.
+     */
+    private fun <T> trackedStage(
+        start: () -> CompletableFuture<T>,
+        onSettled: (T?, Throwable?) -> Unit = { _, _ -> },
+    ): CompletableFuture<T> {
+        val result = CompletableFuture<T>()
+        observeStage(
+            isAbandoned = result::isDone,
+            start = start,
+            onAbandoned = { value, failure ->
+                onSettled(value, failure)
+                result.completeExceptionally(IllegalStateException("rollback service is closing"))
+            },
+            onComplete = { value, failure ->
+                onSettled(value, failure)
+                if (failure != null) {
+                    result.completeExceptionally(failure)
+                } else {
+                    @Suppress("UNCHECKED_CAST")
+                    result.complete(value as T)
+                }
+            },
+            onFailure = result::completeExceptionally,
+        )
+        return result
+    }
+
     private fun <T> trackedResult(): CompletableFuture<T>? =
         synchronized(lifecycleLock) {
             if (closing.get()) return@synchronized null
@@ -1852,33 +2041,75 @@ class RollbackService(
         }
 
     override fun close() {
-        synchronized(lifecycleLock) { closing.set(true) }
-        val active = activeResults.toTypedArray()
-        var recoveryFailure: Exception? = null
-        if (active.isNotEmpty()) {
-            runCatching {
-                CompletableFuture
-                    .allOf(*active)
-                    .handle { _, _ -> null }
-                    .get(5, TimeUnit.SECONDS)
+        val active: Array<CompletableFuture<*>>
+        val stages: Array<CompletableFuture<Void>>
+        synchronized(lifecycleLock) {
+            closing.set(true)
+            active = activeResults.toTypedArray()
+            recoveryRequiredOperationIds += active.mapNotNull(operationIds::get)
+            stages = inFlightStages.toTypedArray()
+        }
+
+        // Generation teardown has already cancelled ModuleScheduler work. Complete public results
+        // now so a cancelled producer cannot keep this service pending forever; externally-owned
+        // source callbacks remain protected by the independent stage drain below.
+        active.filterNot { it.isDone }.forEach { result ->
+            result.completeExceptionally(IllegalStateException("rollback interrupted by shutdown"))
+        }
+
+        try {
+            CompletableFuture
+                .allOf(*stages)
+                .handle { _, _ -> null }
+                .get(closeDrainTimeout.toNanos(), TimeUnit.NANOSECONDS)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while waiting for rollback callbacks to quiesce", error)
+        } catch (error: TimeoutException) {
+            // Do not stop executors or report success. The generation remains loaded and a later
+            // close retry can finish after the externally-owned source future settles.
+            throw IllegalStateException("Rollback callbacks did not quiesce within $closeDrainTimeout", error)
+        } catch (error: ExecutionException) {
+            throw error.cause ?: error
+        }
+
+        var failure: Throwable? = null
+        var interrupted = false
+
+        fun recordFailure(error: Throwable) {
+            failure?.addSuppressed(error) ?: run { failure = error }
+        }
+
+        val recoveryMarks =
+            recoveryRequiredOperationIds.associateWith { operationId ->
+                val mark =
+                    try {
+                        Logger.rollback.markRecoveryRequiredAsync(operationId)
+                    } catch (error: Throwable) {
+                        CompletableFuture.failedFuture<Boolean>(error)
+                    }
+                mark
             }
-            val remaining = active.filterNot { it.isDone }
-            val interruptedIds = remaining.mapNotNull(operationIds::get).distinct()
-            for (operationId in interruptedIds) {
-                try {
-                    Logger.rollback
-                        .markRecoveryRequiredAsync(operationId)
-                        .get(5, TimeUnit.SECONDS)
-                } catch (exception: Exception) {
-                    if (recoveryFailure == null) recoveryFailure = exception else recoveryFailure.addSuppressed(exception)
+        if (recoveryMarks.isNotEmpty()) {
+            try {
+                CompletableFuture.allOf(*recoveryMarks.values.toTypedArray()).get(5, TimeUnit.SECONDS)
+                recoveryMarks.forEach { (operationId, mark) ->
+                    mark.join()
+                    recoveryRequiredOperationIds.remove(operationId)
                 }
-            }
-            remaining.forEach {
-                it.completeExceptionally(IllegalStateException("rollback interrupted by shutdown"))
+            } catch (error: InterruptedException) {
+                interrupted = true
+                recordFailure(IllegalStateException("Interrupted while recording rollback recovery state", error))
+            } catch (error: TimeoutException) {
+                recordFailure(IllegalStateException("Rollback recovery state was not recorded within 5 seconds", error))
+            } catch (error: ExecutionException) {
+                recordFailure(error.cause ?: error)
             }
         }
-        executor.close()
-        recoveryFailure?.let { throw it }
+
+        runCatching { shutdownExecutor(executor, "rollback service") }.onFailure(::recordFailure)
+        if (interrupted) Thread.currentThread().interrupt()
+        failure?.let { throw it }
     }
 }
 

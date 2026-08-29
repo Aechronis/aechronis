@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleBlocks
 import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.BinaryTagTypes
@@ -16,12 +17,11 @@ object Shelves {
     private const val ITEMS = "Items"
 
     fun init() {
-        val manager = MinecraftServer.getBlockManager()
         Block
             .staticRegistry()
             .values()
             .filter { it.key().asString().endsWith("_shelf") }
-            .forEach { block -> manager.registerHandler(block.key()) { ShelfHandler(block.defaultState()) } }
+            .forEach { block -> ModuleBlocks.registerHandler(block.key()) { ShelfHandler(block.defaultState()) } }
         Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java, ::onBreak)
     }
 

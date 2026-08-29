@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleBlocks
 import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.BinaryTagTypes
@@ -60,14 +61,17 @@ object Signs {
         get() = Block.staticRegistry().values().filter(::isSign)
 
     fun init() {
-        val manager = MinecraftServer.getBlockManager()
         for (block in blocks) {
-            manager.registerHandler(block.key()) { SignHandler(block.defaultState()) }
-            manager.registerBlockPlacementRule(SignPlacementRule(block.defaultState()))
+            ModuleBlocks.registerHandler(block.key()) { SignHandler(block.defaultState()) }
+            ModuleBlocks.registerPlacementRule(SignPlacementRule(block.defaultState()))
         }
         Vanilla.eventNode.addListener(PlayerBlockPlaceEvent::class.java, ::validatePlacement)
         Vanilla.eventNode.addListener(PlayerEditSignEvent::class.java, ::onEdit)
         Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java) { sessions.remove(it.player) }
+    }
+
+    fun shutdown() {
+        sessions.clear()
     }
 
     /**
@@ -180,7 +184,7 @@ object Signs {
             val playerPlacement = placement as? BlockHandler.PlayerPlacement ?: return
             val block = placement.instance.getBlock(placement.blockPosition)
             if (block.nbt() == null) {
-                placement.instance.setBlock(placement.blockPosition, block.withNbt(defaultNbt()).withHandler(this), false)
+                placement.instance.setBlock(placement.blockPosition, block.withNbt(defaultNbt()).withHandler(handlerFor(block)), false)
             }
             if (!playerPlacement.player.isSneaking) {
                 openEditor(
@@ -217,7 +221,11 @@ object Signs {
                     else -> null
                 }
             if (changed != null) {
-                interaction.instance.setBlock(interaction.blockPosition, interaction.block.withNbt(changed).withHandler(this), false)
+                interaction.instance.setBlock(
+                    interaction.blockPosition,
+                    interaction.block.withNbt(changed).withHandler(handlerFor(interaction.block)),
+                    false,
+                )
                 if (material != "minecraft:air" && !material.endsWith("_axe") && interaction.player.gameMode != GameMode.CREATIVE) {
                     interaction.player.setItemInHand(interaction.hand, held.withAmount(held.amount() - 1))
                 }

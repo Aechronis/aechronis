@@ -42,6 +42,14 @@ object HasteEffectManager {
         if (applied.remove(player) != null) player.removeEffect(PotionEffect.HASTE)
     }
 
+    @Synchronized
+    fun shutdown() {
+        val players = applied.keys.toList()
+        requests.clear()
+        applied.clear()
+        players.forEach { it.removeEffect(PotionEffect.HASTE) }
+    }
+
     private fun applyStrongest(player: Player) {
         val strongest =
             requests[player]

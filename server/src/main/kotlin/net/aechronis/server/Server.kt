@@ -1,40 +1,21 @@
 package net.aechronis.server
 
 import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
-import io.github.openminigameserver.worldedit.MinestomWorldEdit
 import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfigAdapter
 import me.lucko.luckperms.minestom.CommandRegistry
 import me.lucko.luckperms.minestom.LuckPermsMinestom
 import me.lucko.spark.minestom.SparkMinestom
-import net.aechronis.combat.Combat
-import net.aechronis.combat.objects.Item
-import net.aechronis.combat.storage.VehiclePersistence
-import net.aechronis.gems.Gems
-import net.aechronis.guard.Guard
-import net.aechronis.guard.GuardConfig
-import net.aechronis.logger.Logger
-import net.aechronis.logger.LoggerConfig
-import net.aechronis.nodes.Nodes
-import net.aechronis.nodes.NodesConfig
 import net.aechronis.server.commands.SetSpawnCommand
-import net.aechronis.server.constants.Ammo
-import net.aechronis.server.constants.Armor
-import net.aechronis.server.constants.Boats
-import net.aechronis.server.constants.Cars
-import net.aechronis.server.constants.Drones
-import net.aechronis.server.constants.Grenades
-import net.aechronis.server.constants.Guns
-import net.aechronis.server.constants.Hats
-import net.aechronis.server.constants.Planes
-import net.aechronis.server.constants.Tanks
-import net.aechronis.server.listeners.PlayerJoinListener
+import net.aechronis.server.events.SpawnPointChangedEvent
+import net.aechronis.server.listeners.ResourcePackListener
+import net.aechronis.server.modules.MODULE_MANAGEMENT_PERMISSION
+import net.aechronis.server.modules.ModuleCommand
+import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.modules.ModuleManager
+import net.aechronis.server.modules.PlayerAdmissionGate
 import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.resourcepack.ResourcePackServer
-import net.aechronis.server.tasks.TabManager
 import net.aechronis.server.tasks.WorldSaver
-import net.aechronis.utils.hasPermission
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.watchdog.Watchdog
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.color.Color
@@ -98,6 +79,7 @@ object Server {
         tags.setTag(spawnYawTag, position.yaw)
         tags.setTag(spawnPitchTag, position.pitch)
         instance.saveInstance()
+        eventNode.call(SpawnPointChangedEvent(position))
     }
 }
 
@@ -124,21 +106,40 @@ fun main(args: Array<String>) {
         )
     ServerShutdown.install(resourcePackServer)
 
-    val allPermsPlayers =
-        System
-            .getProperty("aechronis.allperms")
-            ?.split(",")
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?.toSet()
-            ?: emptySet()
+    try {
+        startMinecraftServer(port, velocitySecret, resourcePackServer)
+    } catch (exception: Throwable) {
+        ServerShutdown.shutdown()
+        throw exception
+    }
+}
 
+private fun startMinecraftServer(
+    port: Int,
+    velocitySecret: String?,
+    resourcePackServer: ResourcePackServer,
+) {
     val server =
         if (velocitySecret == null) {
             MinecraftServer.init(Auth.Online())
         } else {
             MinecraftServer.init(Auth.Velocity(velocitySecret))
         }
+
+    // Discovery and core registration happen after Minestom initialization. Install a minimal
+    // cleanup plan immediately so failures in either phase cannot leave Minestom or the already
+    // bound resource-pack server running.
+    ServerShutdown.configure(
+        beginShutdown = {},
+        stopWorldSaver = {},
+        closeCraftingStore = {},
+        closeVotifier = {},
+        prepareModules = {},
+        saveModuleState = {},
+        stopServer = MinecraftServer::stopCleanly,
+        saveCoreWorld = {},
+        closeModules = {},
+    )
 
     // register fullbright dimension
     val fullbright =
@@ -167,63 +168,43 @@ fun main(args: Array<String>) {
         )
     MinecraftServer.getInstanceManager().registerInstance(Server.instance)
     Server.loadSpawnPoint()
-    MinecraftServer.getCommandManager().register(SetSpawnCommand())
 
-    // tasks
-    TabManager.start()
-    WorldSaver.start()
+    val moduleDirectory = Path.of(System.getProperty("aechronis.modules.directory", "modules"))
+    val moduleManager = ModuleManager.discover(moduleDirectory)
+    val moduleContext =
+        ModuleContext(
+            saveCoreWorld = WorldSaver::saveWorldAndWait,
+        )
 
-    Item.registerItems(
-        // Ammo
-        Ammo.ammo762x39mm,
-        Ammo.tankShell,
-        // Guns
-        Guns.ak47,
-        // Grenades
-        Grenades.frag,
-        // Armor
-        Armor.jacket,
-        Armor.trousers,
-        Armor.boots,
-        // Hats
-        Hats.gasMask,
-        // Vehicles - Planes
-        Planes.fighter,
-        Planes.bomber,
-        // Vehicles - Cars
-        Cars.truck,
-        // Vehicles - Tanks
-        Tanks.m1a1Abrams,
-        // Vehicles - Drones
-        Drones.scoutDrone,
-        Drones.kamikazeDrone,
-        // Vehicles - Boats
-        Boats.ussButler,
+    ServerShutdown.configure(
+        beginShutdown = moduleManager::beginShutdown,
+        stopWorldSaver = WorldSaver::shutdown,
+        closeCraftingStore = CraftingStoreIntegration::shutdown,
+        closeVotifier = VotifierIntegration::shutdown,
+        prepareModules = { moduleManager.prepareForShutdown(moduleContext) },
+        saveModuleState = { moduleManager.saveState(moduleContext) },
+        stopServer = MinecraftServer::stopCleanly,
+        saveCoreWorld = WorldSaver::saveWorldAndWait,
+        closeModules = moduleManager::close,
     )
 
-    val vehiclePath = Path.of("combat", "vehicles.json")
-    val legacyVehiclePath = worldPath.resolve("vehicles.json")
-    if (!Files.exists(vehiclePath) && Files.exists(legacyVehiclePath)) {
-        try {
-            Files.createDirectories(vehiclePath.parent)
-            Files.move(legacyVehiclePath, vehiclePath)
-            println("[Combat] Moved vehicle save from $legacyVehiclePath to $vehiclePath")
-        } catch (exception: Exception) {
-            System.err.println("[Combat] Failed to move vehicle save to $vehiclePath: ${exception.message}")
-        }
-    }
-    VehiclePersistence.initialize(vehiclePath, Server.instance)
+    // This core-owned gate spans the gaps where one complete module generation is being replaced
+    // by another. It must be installed before the module baseline is captured during initialize.
+    PlayerAdmissionGate(moduleManager::isAcceptingPlayers).install(Server.eventNode)
 
-    // initialize luckperms
+    // Core registrations must exist before the module manager captures its baseline.
     LuckPermsMinestom
         .builder(Path.of("luckperms"))
-        .permissionSuggestions(LuckPermsPermissions.all)
+        .permissionSuggestions(LuckPermsPermissions.all + MODULE_MANAGEMENT_PERMISSION)
         .commandRegistry(CommandRegistry.minestom())
         .configurationAdapter { plugin ->
             EnvironmentVariableConfigAdapter(plugin)
         }.enable()
 
-    // initialize spark
+    MinecraftServer.getCommandManager().register(ModuleCommand(moduleManager))
+    MinecraftServer.getCommandManager().register(SetSpawnCommand())
+    ResourcePackListener.initialize(resourcePackServer)
+
     SparkMinestom
         .builder(Path.of("spark"))
         .commands(true)
@@ -238,52 +219,13 @@ fun main(args: Array<String>) {
 
     SignedVelocity.initialize()
 
-    // blocks and stuff
     BlockPlacementRuleRegistrations.registerDefault()
     BlockBehaviorRuleRegistrations.register(*VanillaBlockBehaviour.ALL.toTypedArray())
     PlacedHandlerRegistration.registerDefault()
     BlockPickup.enable()
 
-    Watchdog.initialize()
+    moduleManager.initialize(moduleContext)
+    WorldSaver.start { moduleManager.saveCheckpoint(moduleContext) }
 
-    Combat.initialize()
-
-    Vanilla.init(shutdownAction = ServerShutdown::shutdown)
-
-    val nodesConfig = NodesConfig(defaultRespawnPoint = Server.spawnPoint)
-    Nodes.initialize(nodesConfig)
-
-    val logger = LoggerConfig(limit = 999999999)
-    Logger.init(logger)
-    Gems.initialize()
-
-    val worldEdit = MinestomWorldEdit()
-    worldEdit.init()
-    Guard.init(GuardConfig())
-
-    // External inits.
-    CraftingStoreIntegration.initialize()
-    VotifierIntegration.initialize()
-
-    ServerShutdown.configure(
-        saveState = {
-            VehiclePersistence.saveForShutdown()
-            Vanilla.saveBeforeShutdown()
-            CraftingStoreIntegration.shutdown()
-            VotifierIntegration.shutdown()
-        },
-        stopServer = MinecraftServer::stopCleanly,
-        saveWorld = { WorldSaver.saveWorld().join() },
-        closeLogger = Logger::close,
-    )
-
-    PlayerJoinListener.init(resourcePackServer)
-
-    try {
-        server.start("0.0.0.0", port)
-    } catch (exception: Exception) {
-        runCatching { Logger.close() }
-        resourcePackServer.close()
-        throw exception
-    }
+    server.start("0.0.0.0", port)
 }

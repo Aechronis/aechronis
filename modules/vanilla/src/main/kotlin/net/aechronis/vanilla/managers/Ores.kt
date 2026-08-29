@@ -2,6 +2,8 @@ package net.aechronis.vanilla.managers
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import net.aechronis.server.modules.ModuleEvents
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.OreSounds
 import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.text.Component
@@ -18,6 +20,10 @@ import net.minestom.server.instance.block.Block
 import net.minestom.server.item.ItemStack
 import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.timer.TaskSchedule
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
@@ -47,7 +53,7 @@ object Ores {
         val timeSeconds: Long,
     )
 
-    private data class Cooldown(
+    internal data class Cooldown(
         val player: UUID,
         val ore: OreLocation,
     )
@@ -56,22 +62,22 @@ object Ores {
 
     // This must run before Guard (-1000) and Nodes' protection node (-999) so configured ores are mineable everywhere.
     private val eventNode = EventNode.all("vanilla-ores").setPriority(-1001)
-    private val cooldowns = ConcurrentHashMap<Cooldown, Long>()
+    internal val cooldowns = ConcurrentHashMap<Cooldown, Long>()
     private val gson = Gson()
     private lateinit var file: Path
 
     fun init(path: Path) {
         file = path
         Files.createDirectories(path.parent)
+        cooldowns.clear()
         load()
 
-        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         eventNode.addListener(PlayerBlockBreakEvent::class.java, Ores::onBreak)
         Vanilla.eventNode.addListener(PlayerChunkLoadEvent::class.java, Ores::onChunkLoad)
         Vanilla.eventNode.addListener(PlayerSpawnEvent::class.java, Ores::onSpawn)
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
 
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask(::regenerationTick)
             .repeat(TaskSchedule.seconds(1))
             .schedule()
@@ -80,6 +86,64 @@ object Ores {
     }
 
     fun saveAll() = save()
+
+    internal fun captureTransientState(): ByteArray {
+        val entries = cooldowns.entries.toList()
+        return ByteArrayOutputStream().use { bytes ->
+            DataOutputStream(bytes).use { output ->
+                output.writeInt(TRANSIENT_STATE_VERSION)
+                output.writeInt(entries.size)
+                entries.forEach { (cooldown, expiresAt) ->
+                    output.writeLong(cooldown.player.mostSignificantBits)
+                    output.writeLong(cooldown.player.leastSignificantBits)
+                    output.writeUTF(cooldown.ore.world)
+                    output.writeInt(cooldown.ore.x)
+                    output.writeInt(cooldown.ore.y)
+                    output.writeInt(cooldown.ore.z)
+                    output.writeLong(expiresAt)
+                }
+            }
+            bytes.toByteArray()
+        }
+    }
+
+    internal fun restoreTransientState(
+        payload: ByteArray?,
+        now: Long = System.currentTimeMillis(),
+        onlinePlayers: Collection<Player> = MinecraftServer.getConnectionManager().onlinePlayers,
+    ) {
+        if (payload == null) return
+        try {
+            val records = decodeTransientState(payload)
+            val playersById = onlinePlayers.associateBy { it.uuid }
+            cooldowns.clear()
+            records.forEach { (cooldown, expiresAt) ->
+                val valid = expiresAt > now && ores.containsKey(cooldown.ore)
+                if (valid) cooldowns[cooldown] = expiresAt
+
+                val player = playersById[cooldown.player] ?: return@forEach
+                val instance = player.instance?.takeIf { it.getDimensionName() == cooldown.ore.world } ?: return@forEach
+                if (valid) {
+                    sendBlock(player, cooldown.ore, Block.BEDROCK)
+                } else {
+                    sendBlock(player, cooldown.ore, instance.getBlock(cooldown.ore.x, cooldown.ore.y, cooldown.ore.z))
+                }
+            }
+        } catch (error: Throwable) {
+            System.err.println("Failed to restore ore cooldown state: ${error.message}")
+            throw error
+        }
+    }
+
+    fun shutdown(onlinePlayers: Collection<Player> = MinecraftServer.getConnectionManager().onlinePlayers) {
+        val playersById = onlinePlayers.associateBy { it.uuid }
+        cooldowns.keys.forEach { cooldown ->
+            val player = playersById[cooldown.player] ?: return@forEach
+            val instance = player.instance?.takeIf { it.getDimensionName() == cooldown.ore.world } ?: return@forEach
+            sendBlock(player, cooldown.ore, instance.getBlock(cooldown.ore.x, cooldown.ore.y, cooldown.ore.z))
+        }
+        cooldowns.clear()
+    }
 
     fun configure(
         player: Player,
@@ -233,6 +297,18 @@ object Ores {
         }
     }
 
+    private fun decodeTransientState(payload: ByteArray): List<Pair<Cooldown, Long>> =
+        DataInputStream(ByteArrayInputStream(payload)).use { input ->
+            require(input.readInt() == TRANSIENT_STATE_VERSION) { "Unsupported ore cooldown state version" }
+            val size = input.readInt()
+            require(size in 0..MAX_TRANSIENT_ENTRIES) { "Invalid ore cooldown state size: $size" }
+            List(size) {
+                val player = UUID(input.readLong(), input.readLong())
+                val ore = OreLocation(input.readUTF(), input.readInt(), input.readInt(), input.readInt())
+                Cooldown(player, ore) to input.readLong()
+            }
+        }
+
     private fun sendBlock(
         player: Player,
         location: OreLocation,
@@ -358,7 +434,7 @@ object Ores {
     }
 
     private fun save() {
-        Files.newBufferedWriter(file).use { writer ->
+        AtomicFiles.write(file) { writer ->
             val saved =
                 ores.map { (location, ore) ->
                     SavedOre(location.world, location.x, location.y, location.z, ore.timeSeconds)
@@ -368,4 +444,6 @@ object Ores {
     }
 
     private const val MAX_REACH = 6.0
+    private const val TRANSIENT_STATE_VERSION = 1
+    private const val MAX_TRANSIENT_ENTRIES = 1_000_000
 }

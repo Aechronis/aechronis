@@ -194,4 +194,16 @@ object Commands {
     fun allowEnderChest(player: Player) {
         closingEnderChests.remove(player.uuid)
     }
+
+    fun shutdown() {
+        viewing.keys.toList().forEach { inventory -> inventory.viewers.toList().forEach { it.closeInventory() } }
+        enderChests.values.forEach { inventory -> inventory.viewers.toList().forEach { it.closeInventory() } }
+        synchronized(viewingLock) { viewing.clear() }
+        synchronizingInventories.clear()
+        enderChests.clear()
+        closingEnderChests.clear()
+        lastLocation.clear()
+        playerLastSender.clear()
+        ignored.clear()
+    }
 }

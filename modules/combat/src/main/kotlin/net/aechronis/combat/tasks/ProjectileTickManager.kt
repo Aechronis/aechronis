@@ -1,13 +1,12 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.objects.Projectile
-import net.minestom.server.MinecraftServer
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.timer.TaskSchedule
 
 object ProjectileTickManager {
     fun start() {
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask {
                 // remove projectiles while iterating
                 val iterator = Projectile.activeProjectiles.iterator()

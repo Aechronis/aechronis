@@ -14,6 +14,7 @@ import net.aechronis.guard.listeners.TeleportListener
 import net.aechronis.guard.objects.ZonePolicy
 import net.aechronis.guard.storage.ZoneRegistry
 import net.aechronis.guard.storage.ZoneStorage
+import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.utils.hasPermission
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
@@ -30,7 +31,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 object Guard {
-    val eventNode: EventNode<Event> = EventNode.all("guard").setPriority(-1000)
+    lateinit var eventNode: EventNode<Event>
+        private set
 
     private val initialized = AtomicBoolean()
     private val storage = ZoneStorage()
@@ -39,37 +41,42 @@ object Guard {
     private lateinit var registry: ZoneRegistry
     private val bypassOverrides = ConcurrentHashMap<UUID, Boolean>()
     private val saveLock = Any()
+    private var command: GuardCommand? = null
 
+    @Synchronized
     fun init(config: GuardConfig = GuardConfig()) {
         check(initialized.compareAndSet(false, true)) { "Guard is already initialized" }
-        this.config = config
-        registry = ZoneRegistry()
-        policy =
-            ZonePolicy(
-                config.defaultFlags
-                    .mapNotNull { (name, value) ->
-                        (value as? BooleanFlagValue)?.let { name to it }
-                    }.toMap(),
-            )
+        try {
+            this.config = config
+            eventNode = EventNode.all("guard").setPriority(-1000)
+            registry = ZoneRegistry()
+            policy =
+                ZonePolicy(
+                    config.defaultFlags
+                        .mapNotNull { (name, value) ->
+                            (value as? BooleanFlagValue)?.let { name to it }
+                        }.toMap(),
+                )
 
-        runCatching {
-            registry.replaceAll(storage.load(config.dataPath))
-        }.onFailure { println("Guard could not load zones from ${config.dataPath}: $it") }
+            runCatching {
+                registry.replaceAll(storage.load(config.dataPath))
+            }.onFailure { println("Guard could not load zones from ${config.dataPath}: $it") }
 
-        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
-        eventNode.addListener(PlayerBlockPlaceEvent::class.java, BlockPlaceListener::handle)
-        eventNode.addListener(PlayerBlockBreakEvent::class.java, BlockBreakListener::handle)
-        eventNode.addListener(PlayerBlockInteractEvent::class.java, BlockInteractListener::handle)
-        eventNode.addListener(PlayerMoveEvent::class.java, MoveListener::handle)
-        eventNode.addListener(EntityTeleportEvent::class.java, TeleportListener::handle)
-        eventNode.addListener(EntityDamageEvent::class.java, DamageListener::handle)
-        eventNode.addListener(ExplosionBlockDamageEvent::class.java, ::handleExplosion)
-        eventNode.addListener(VehicleSpawnEvent::class.java, ::handleVehicleSpawn)
-        MinecraftServer
-            .getCommandManager()
-            .register(GuardCommand(config.adminPermission, config.bypassPermission))
-
-        MinecraftServer.getSchedulerManager().buildShutdownTask(::save)
+            eventNode.addListener(PlayerBlockPlaceEvent::class.java, BlockPlaceListener::handle)
+            eventNode.addListener(PlayerBlockBreakEvent::class.java, BlockBreakListener::handle)
+            eventNode.addListener(PlayerBlockInteractEvent::class.java, BlockInteractListener::handle)
+            eventNode.addListener(PlayerMoveEvent::class.java, MoveListener::handle)
+            eventNode.addListener(EntityTeleportEvent::class.java, TeleportListener::handle)
+            eventNode.addListener(EntityDamageEvent::class.java, DamageListener::handle)
+            eventNode.addListener(ExplosionBlockDamageEvent::class.java, ::handleExplosion)
+            eventNode.addListener(VehicleSpawnEvent::class.java, ::handleVehicleSpawn)
+            ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
+            command = GuardCommand(config.adminPermission, config.bypassPermission)
+            MinecraftServer.getCommandManager().register(command!!)
+        } catch (error: Throwable) {
+            shutdown()
+            throw error
+        }
     }
 
     fun zones(): ZoneRegistry {
@@ -150,8 +157,25 @@ object Guard {
     fun save() {
         if (!initialized.get()) return
         synchronized(saveLock) {
-            runCatching { storage.save(config.dataPath, registry.all()) }
-                .onFailure { println("Guard could not save zones to ${config.dataPath}: $it") }
+            storage.save(config.dataPath, registry.all())
         }
+    }
+
+    @Synchronized
+    fun shutdown() {
+        if (!initialized.get()) return
+
+        if (this::eventNode.isInitialized) {
+            MinecraftServer.getGlobalEventHandler().removeChild(eventNode)
+        }
+        command?.let { registered ->
+            MinecraftServer.getCommandManager().unregister(registered)
+            command = null
+        }
+        save()
+        bypassOverrides.clear()
+        TeleportListener.reset()
+        if (this::registry.isInitialized) registry.replaceAll(emptyList())
+        initialized.set(false)
     }
 }

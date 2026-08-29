@@ -82,4 +82,20 @@ object Mannequin {
     fun init() {
         MannequinListener.init()
     }
+
+    /** Preserves corpse loot as normal world drops before the module classloader is released. */
+    fun shutdown() {
+        inventories.toList().forEach { (corpse, inventory) ->
+            inventory.viewers.toList().forEach { it.closeInventory() }
+            val instance = corpse.instance
+            if (instance != null) {
+                inventory.itemStacks.filterNot(ItemStack::isAir).forEach { stack ->
+                    Items.spawn(instance, corpse.position, stack)
+                }
+            }
+            corpse.remove()
+        }
+        inventories.clear()
+        corpses.clear()
+    }
 }

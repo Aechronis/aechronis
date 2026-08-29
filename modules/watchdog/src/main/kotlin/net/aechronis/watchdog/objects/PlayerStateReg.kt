@@ -13,4 +13,9 @@ internal object PlayerStateReg {
     fun remove(player: Player) {
         states.remove(player.uuid)
     }
+
+    fun clear() {
+        states.clear()
+        currentTick = 0L
+    }
 }

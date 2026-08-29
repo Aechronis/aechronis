@@ -13,6 +13,7 @@ import net.minestom.server.item.Material
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 
@@ -50,5 +51,28 @@ class KillShopTest : ManagerTest() {
         KillShop.openInventories.remove(inventory)
         player.closeInventory()
         VanillaTest.remove(player)
+    }
+
+    @Test
+    fun `shop cooldown deadlines survive a module state handoff`() {
+        val uuid = java.util.UUID.randomUUID()
+        KillShop.playerCooldowns.getOrPut(uuid) { ConcurrentHashMap() }[2] = 5_000L
+
+        try {
+            val payload = KillShop.captureTransientState(now = 1_000L)
+            KillShop.playerCooldowns.clear()
+            KillShop.restoreTransientState(payload, now = 2_000L)
+
+            assertEquals(5_000L, KillShop.playerCooldowns[uuid]?.get(2))
+        } finally {
+            KillShop.playerCooldowns.clear()
+        }
+    }
+
+    @Test
+    fun `corrupt shop cooldown handoff fails closed`() {
+        assertFailsWith<IllegalArgumentException> {
+            KillShop.restoreTransientState(byteArrayOf(0, 0, 0, 99))
+        }
     }
 }

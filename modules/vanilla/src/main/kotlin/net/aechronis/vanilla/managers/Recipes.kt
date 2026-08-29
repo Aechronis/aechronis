@@ -182,10 +182,29 @@ object Recipes {
             recipeManager.addRecipe(recipeBookRecipe)
         }
 
-        MinecraftServer.getConnectionManager().onlinePlayers.forEach { it.refreshRecipes() }
+        val onlinePlayers = MinecraftServer.getConnectionManager().onlinePlayers
+        RecipesListener.attachOnlinePlayers(onlinePlayers)
+        onlinePlayers.forEach { it.refreshRecipes() }
 
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
         println("├─ Recpies enabled in ${timeLoad}ms")
+    }
+
+    fun shutdown() {
+        workspaces.values.toSet().forEach { workspace ->
+            val player =
+                MinecraftServer.getConnectionManager().onlinePlayers.firstOrNull { it.inventory === workspace.inventory }
+                    ?: workspace.inventory.viewers.firstOrNull()
+            if (player != null) workspace.returnGridItems(player)
+        }
+        recipeBrowsers.keys.forEach { inventory -> inventory.viewers.toList().forEach { it.closeInventory() } }
+        val recipeManager = MinecraftServer.getRecipeManager()
+        recipeBookRecipes.forEach(recipeManager::removeRecipe)
+        workspaces.clear()
+        recipeBrowsers.clear()
+        recipesByDisplay.clear()
+        recipeBookRecipes.clear()
+        recipes.clear()
     }
 }

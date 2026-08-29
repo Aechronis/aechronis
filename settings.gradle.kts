@@ -44,6 +44,6 @@ include(
     ":modules:watchdog",
     ":modules:gems",
     ":modules:misc",
+    ":modules:guard",
+    ":modules:iterations:template",
 )
-
-include(":modules:guard")

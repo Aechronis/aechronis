@@ -15,7 +15,8 @@ node_modules/
 dist/
 
 # Server runtime data
-/modules/nodes
+/run/
+/logs/
 /craftingstore/
 /server/craftingstore/
 /votifier/
@@ -39,3 +40,8 @@ dist/
 /guard/
 /combat/
 /nodes/
+/modules/nodes/vanilla/
+
+# Generated Python bytecode
+__pycache__/
+*.py[cod]

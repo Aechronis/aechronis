@@ -41,4 +41,9 @@ internal object VehicleCameraDistance {
         val original = originalDistance.remove(player) ?: return
         player.getAttribute(Attribute.CAMERA_DISTANCE).baseValue = original
     }
+
+    fun shutdown() {
+        originalDistance.keys.toList().forEach(::restore)
+        originalDistance.clear()
+    }
 }

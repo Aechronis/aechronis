@@ -1,6 +1,8 @@
 package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.Nodes
+import net.aechronis.server.modules.ModuleAsync
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
@@ -18,7 +20,6 @@ import net.minestom.server.network.packet.server.play.SpawnEntityPacket
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.util.UUID
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -88,7 +89,7 @@ internal object MinimapPassengerTracker {
         if (augmentPassengerIds(packet.vehicleEntityId, packet.passengersId, entry.vehicleEntityId, entry.virtualPassengerIds) == null) return
 
         event.isCancelled = true
-        MinecraftServer.getSchedulerManager().scheduleNextTick {
+        ModuleScheduler.scheduleNextTick {
             val player = event.player
             if (!player.isOnline) return@scheduleNextTick
             val actualPassengerIds = player.passengers.map { it.entityId }
@@ -137,7 +138,7 @@ class Minimap(
     init {
         spawnEntities()
         renderCurrent(force = true)
-        task = MinecraftServer.getSchedulerManager()
+        task = ModuleScheduler
             .buildTask {
                 if (destroyed) return@buildTask
                 if (!player.isOnline) {
@@ -178,22 +179,24 @@ class Minimap(
         lastRasterZ = rasterZ
         lastInstanceId = instance.uuid
 
-        CompletableFuture
-            .supplyAsync {
-                val markers = MinimapMarkerRenderer.render(viewerSnapshot, centerX, centerZ, renderScale)
-                PreparedMinimapRender(markers, markers.hashCode())
-            }
-            .whenComplete { prepared, throwable ->
-                MinecraftServer.getSchedulerManager().scheduleNextTick {
-                    if (throwable != null) {
+        ModuleAsync.runAsync {
+            val result =
+                runCatching {
+                    val markers = MinimapMarkerRenderer.render(viewerSnapshot, centerX, centerZ, renderScale)
+                    PreparedMinimapRender(markers, markers.hashCode())
+                }
+
+            ModuleScheduler.scheduleNextTick {
+                val prepared =
+                    result.getOrElse { throwable ->
                         MinecraftServer.getExceptionManager().handleException(throwable)
                         if (!destroyed && requestGeneration == renderGeneration) invalidateRasterPosition()
                         return@scheduleNextTick
                     }
-                    if (destroyed || !player.isOnline || requestGeneration != renderGeneration) return@scheduleNextTick
-                    applyRender(prepared)
-                }
+                if (destroyed || !player.isOnline || requestGeneration != renderGeneration) return@scheduleNextTick
+                applyRender(prepared)
             }
+        }
     }
 
     fun renderCurrent(force: Boolean = false) {

@@ -72,7 +72,7 @@ class Attack(
         noBuildYMin = flagY + Nodes.config.flagNoBuildYOffset
 
         progressBar.progress(progress.toFloat() / attackTime.toFloat())
-        jsonStringBase = generateFixedJsonBase(attacker, coord, flagBase)
+        jsonStringBase = generateFixedJsonBase(attacker, coord, flagBase, mode)
         jsonString = StringBuilder(jsonStringBase.length + 20)
     }
 
@@ -101,11 +101,17 @@ class Attack(
     }
 }
 
-private fun generateFixedJsonBase(attacker: UUID, coord: Coord, block: BlockVec): StringBuilder = StringBuilder().apply {
+private fun generateFixedJsonBase(
+    attacker: UUID,
+    coord: Coord,
+    block: BlockVec,
+    mode: AttackMode,
+): StringBuilder = StringBuilder().apply {
     append("{")
     append("\"id\":\"$attacker\",")
     append("\"c\":[${coord.x},${coord.z}],")
     append("\"b\":[${block.blockX},${block.blockY},${block.blockZ}],")
+    append("\"m\":\"${mode.name}\",")
 }
 
 class AttackTextDisplay(

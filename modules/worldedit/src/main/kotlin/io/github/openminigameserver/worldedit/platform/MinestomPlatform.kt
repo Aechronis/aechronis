@@ -20,6 +20,7 @@ import io.github.openminigameserver.worldedit.platform.actors.MinestomPlayer
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomWorld
 import io.github.openminigameserver.worldedit.platform.misc.WorldEditCommand
+import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.PlayerHand
@@ -56,7 +57,7 @@ class MinestomPlatform(
                 installGameHooks()
                 gameHooksRegistered = true
             }
-            handler.addChild(gameHooksNode)
+            ModuleEvents.addChild(handler, gameHooksNode)
         } else {
             handler.removeChild(gameHooksNode)
         }
@@ -76,9 +77,25 @@ class MinestomPlatform(
     override fun matchWorld(world: World): World = world
 
     override fun registerCommands(commandManager: CommandManager) {
-        commandManager.allCommands.forEach {
-            MinecraftServer.getCommandManager().register(WorldEditCommand(it))
+        unregisterCommands()
+        commandManager.allCommands.forEach { command ->
+            val minestomCommand = WorldEditCommand(command)
+            MinecraftServer.getCommandManager().register(minestomCommand)
+            registeredCommands += minestomCommand
         }
+    }
+
+    fun shutdown() {
+        setGameHooksEnabled(false)
+        unregisterCommands()
+        playerMap.clear()
+        lastHandledLeftClicks.clear()
+    }
+
+    private fun unregisterCommands() {
+        val commandManager = MinecraftServer.getCommandManager()
+        registeredCommands.forEach(commandManager::unregister)
+        registeredCommands.clear()
     }
 
     private fun installGameHooks() {
@@ -194,6 +211,7 @@ class MinestomPlatform(
     }
 
     private val playerMap = ConcurrentHashMap<UUID, MinestomPlayer>()
+    private val registeredCommands = mutableListOf<WorldEditCommand>()
 
     fun getPlayer(commandSender: net.minestom.server.entity.Player) =
         playerMap.getOrPut(commandSender.uuid, { MinestomPlayer(this, commandSender) })

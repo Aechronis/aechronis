@@ -4,7 +4,7 @@ import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.utils.ChatColor
-import net.minestom.server.MinecraftServer
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.timer.Task
@@ -62,7 +62,7 @@ class PortWarpTask(
                         passenger.teleport(portPos)
                     }
 
-                    MinecraftServer.getSchedulerManager().scheduleNextTick {
+                    ModuleScheduler.scheduleNextTick {
                         passengers.forEach { passenger ->
                             vehicle.addPassenger(passenger)
                         }
@@ -76,7 +76,7 @@ class PortWarpTask(
             }
         }
 
-        this.task = MinecraftServer.getSchedulerManager()
+        this.task = ModuleScheduler
             .buildTask { runnable.run() }
             .delay(TaskSchedule.millis(100))
             .repeat(TaskSchedule.millis(100))

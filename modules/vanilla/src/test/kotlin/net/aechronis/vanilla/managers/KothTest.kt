@@ -11,11 +11,68 @@ import java.nio.file.Files
 import java.time.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class KothTest : ManagerTest() {
+    @Test
+    fun `malformed active session snapshot fails restoration`() {
+        assertFailsWith<Exception> { Koth.restoreTransientState(byteArrayOf(1)) }
+    }
+
+    @Test
+    fun `active session deadlines and capture progress survive a generation handoff`() {
+        val name = "koth-handoff-${System.nanoTime()}"
+        val player = VanillaTest.createPlayer(Pos(0.5, 40.0, 0.5))
+        val startedAt = System.currentTimeMillis() - 10_000L
+        val endsAt = startedAt + 600_000L
+        val nextAnnouncementAt = startedAt + 500_000L
+        val captureStartedAt = startedAt + 5_000L
+
+        assertTrue(Koth.add(name, 60, 600, 100.0))
+        try {
+            assertTrue(Koth.setCorner(name, player, true))
+            assertTrue(Koth.setCorner(name, player, false))
+            assertTrue(Koth.start(name))
+            val definition = Koth.active.getValue(name).definition
+            assertTrue(Koth.stop(name))
+
+            val original =
+                Koth.ActiveKoth(
+                    definition = definition,
+                    startedAt = startedAt,
+                    endsAt = endsAt,
+                    nextAnnouncementAt = nextAnnouncementAt,
+                )
+            Koth.active[name] = original
+            Koth.beginCapture(original, player, captureStartedAt)
+
+            val snapshot = Koth.captureTransientState()
+            assertTrue(Koth.stop(name))
+            assertFalse(player.isGlowing)
+
+            Koth.restoreTransientState(snapshot, now = captureStartedAt + 30_000L, onlinePlayers = listOf(player))
+
+            val restored = Koth.active.getValue(name)
+            assertEquals(startedAt, restored.startedAt)
+            assertEquals(endsAt, restored.endsAt)
+            assertEquals(nextAnnouncementAt, restored.nextAnnouncementAt)
+            assertEquals(player.uuid, restored.capturer)
+            assertEquals(captureStartedAt, restored.captureStartedAt)
+            assertTrue(player.isGlowing)
+
+            assertTrue(Koth.stop(name))
+            Koth.restoreTransientState(snapshot, now = endsAt)
+            assertFalse(Koth.isActive(name), "an event that expired during reload must not restart")
+        } finally {
+            if (Koth.isActive(name)) Koth.stop(name)
+            Koth.remove(name)
+            VanillaTest.remove(player)
+        }
+    }
+
     @Test
     fun `zone normalizes both corners and includes all configured blocks`() {
         val zone = KothZone(BlockVec(10, 20, 30), BlockVec(8, 18, 28))

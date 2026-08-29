@@ -1,6 +1,8 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.ManagerTest
+import net.aechronis.vanilla.VanillaTest
+import net.aechronis.vanilla.listeners.RecipesListener
 import net.aechronis.vanilla.objects.Recipe
 import net.aechronis.vanilla.objects.RecipeBookRecipe
 import net.aechronis.vanilla.objects.RecipesGrid
@@ -9,6 +11,7 @@ import net.aechronis.vanilla.objects.RecipesResult
 import net.aechronis.vanilla.objects.RecipesShapeless
 import net.aechronis.vanilla.objects.Shaped
 import net.minestom.server.MinecraftServer
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
@@ -22,8 +25,24 @@ import java.net.SocketAddress
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 class RecipesTest : ManagerTest() {
+    @Test
+    fun `generation handoff rebuilds online player crafting workspace`() {
+        val player = VanillaTest.createPlayer(Pos(90.5, 40.0, 8.5))
+
+        try {
+            Recipes.workspaces.remove(player.inventory)
+            RecipesListener.attachOnlinePlayers(listOf(player))
+
+            assertNotNull(Recipes.workspaces[player.inventory])
+        } finally {
+            Recipes.workspaces.remove(player.inventory)
+            VanillaTest.remove(player)
+        }
+    }
+
     @Test
     fun `initialization does not duplicate configured recipes`() {
         val initial = Recipes.recipes.toList()

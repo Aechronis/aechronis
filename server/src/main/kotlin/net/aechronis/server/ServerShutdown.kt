@@ -10,44 +10,78 @@ internal class ShutdownCoordinator(
     private val started = AtomicBoolean()
 
     @Volatile
-    private var stages = Stages({}, {}, {}, {})
+    private var stages = Stages({}, {}, {}, {}, {}, {}, {}, {}, {})
 
     fun configure(
-        saveState: () -> Unit,
+        beginShutdown: () -> Unit,
+        stopWorldSaver: () -> Unit,
+        closeCraftingStore: () -> Unit,
+        closeVotifier: () -> Unit,
+        prepareModules: () -> Unit,
+        saveModuleState: () -> Unit,
         stopServer: () -> Unit,
-        saveWorld: () -> Unit,
-        closeLogger: () -> Unit,
+        saveCoreWorld: () -> Unit,
+        closeModules: () -> Unit,
     ) {
-        stages = Stages(saveState, stopServer, saveWorld, closeLogger)
+        stages =
+            Stages(
+                beginShutdown,
+                stopWorldSaver,
+                closeCraftingStore,
+                closeVotifier,
+                prepareModules,
+                saveModuleState,
+                stopServer,
+                saveCoreWorld,
+                closeModules,
+            )
     }
 
     fun shutdown() {
         if (!started.compareAndSet(false, true)) return
 
         val configured = stages
-        runStage("save live state", configured.saveState)
-        runStage("stop the game server", configured.stopServer)
-        runStage("save the final world state", configured.saveWorld)
-        runStage("flush and close logger", configured.closeLogger)
+        runStage("begin module shutdown", configured.beginShutdown)
+        runStage("stop the world saver", configured.stopWorldSaver)
+        runStage("close CraftingStore", configured.closeCraftingStore)
+        runStage("close Votifier", configured.closeVotifier)
+        val prepared = runStage("quiesce module work", configured.prepareModules)
+        if (prepared) {
+            runStage("save live module state", configured.saveModuleState)
+            runStage("stop the game server", configured.stopServer)
+            runStage("save the final core world state", configured.saveCoreWorld)
+            runStage("stop modules", configured.closeModules)
+        } else {
+            // Persisting while a module can still mutate the world would create an internally
+            // inconsistent checkpoint. Fail closed, but continue stopping every live service.
+            runStage("stop the game server", configured.stopServer)
+            runStage("stop modules", configured.closeModules)
+        }
         runStage("close external services", closeExternalServices)
     }
 
     private fun runStage(
         description: String,
         action: () -> Unit,
-    ) {
+    ): Boolean =
         try {
             action()
+            true
         } catch (error: Throwable) {
             reportFailure(description, error)
+            false
         }
-    }
 
     private data class Stages(
-        val saveState: () -> Unit,
+        val beginShutdown: () -> Unit,
+        val stopWorldSaver: () -> Unit,
+        val closeCraftingStore: () -> Unit,
+        val closeVotifier: () -> Unit,
+        val prepareModules: () -> Unit,
+        val saveModuleState: () -> Unit,
         val stopServer: () -> Unit,
-        val saveWorld: () -> Unit,
-        val closeLogger: () -> Unit,
+        val saveCoreWorld: () -> Unit,
+        val closeModules: () -> Unit,
     )
 }
 
@@ -65,12 +99,27 @@ object ServerShutdown {
     }
 
     fun configure(
-        saveState: () -> Unit,
+        beginShutdown: () -> Unit,
+        stopWorldSaver: () -> Unit,
+        closeCraftingStore: () -> Unit,
+        closeVotifier: () -> Unit,
+        prepareModules: () -> Unit,
+        saveModuleState: () -> Unit,
         stopServer: () -> Unit,
-        saveWorld: () -> Unit,
-        closeLogger: () -> Unit,
+        saveCoreWorld: () -> Unit,
+        closeModules: () -> Unit,
     ) {
-        coordinator.configure(saveState, stopServer, saveWorld, closeLogger)
+        coordinator.configure(
+            beginShutdown,
+            stopWorldSaver,
+            closeCraftingStore,
+            closeVotifier,
+            prepareModules,
+            saveModuleState,
+            stopServer,
+            saveCoreWorld,
+            closeModules,
+        )
     }
 
     fun shutdown() {

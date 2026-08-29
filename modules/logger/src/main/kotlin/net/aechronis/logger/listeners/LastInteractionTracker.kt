@@ -25,4 +25,6 @@ object LastInteractionTracker {
     }
 
     fun get(uuid: UUID): Interaction? = lastInteracted[uuid]
+
+    fun clear() = lastInteracted.clear()
 }

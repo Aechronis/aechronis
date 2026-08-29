@@ -15,4 +15,6 @@ object FeatureSourceRegistry {
     fun sources(): List<String> = seen.keys.sorted()
 
     fun actionsFor(source: String): List<String> = seen[source]?.sorted() ?: emptyList()
+
+    fun clear() = seen.clear()
 }

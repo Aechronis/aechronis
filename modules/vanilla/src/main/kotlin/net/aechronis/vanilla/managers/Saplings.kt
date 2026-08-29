@@ -1,5 +1,7 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleBlocks
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.SaplingsListener
 import net.aechronis.vanilla.objects.BlockKey
@@ -14,6 +16,10 @@ import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockTags
 import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.timer.TaskSchedule
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.iterator
 import kotlin.math.abs
@@ -27,14 +33,58 @@ object Saplings {
         registerPlacementRules()
         SaplingsListener.init()
 
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask(::growthTick)
             .repeat(TaskSchedule.seconds(Vanilla.config.saplingGrowthCheckSeconds))
             .schedule()
 
         val timeEnd = System.currentTimeMillis()
         println("├─ Saplings enabled in ${timeEnd - timeStart}ms")
+    }
+
+    internal fun captureTransientState(): ByteArray {
+        val entries = saplings.entries.toList()
+        return ByteArrayOutputStream().use { bytes ->
+            DataOutputStream(bytes).use { output ->
+                output.writeInt(TRANSIENT_STATE_VERSION)
+                output.writeInt(entries.size)
+                entries.forEach { (key, planted) ->
+                    output.writeUTF(key.instance.getDimensionName())
+                    output.writeInt(key.pos.blockX())
+                    output.writeInt(key.pos.blockY())
+                    output.writeInt(key.pos.blockZ())
+                    output.writeUTF(planted.type.saplingBlock.name())
+                    output.writeLong(planted.plantedAt)
+                    output.writeInt(planted.boneMeal)
+                }
+            }
+            bytes.toByteArray()
+        }
+    }
+
+    internal fun restoreTransientState(payload: ByteArray?) {
+        if (payload == null) return
+        try {
+            val records = decodeTransientState(payload)
+            val instances = MinecraftServer.getInstanceManager().instances.associateBy { it.getDimensionName() }
+            val restored = HashMap<BlockKey, SaplingsPlanted>()
+            records.forEach { record ->
+                val instance = instances[record.world] ?: return@forEach
+                val type = SaplingType.ALL.firstOrNull { it.saplingBlock.name() == record.saplingBlock } ?: return@forEach
+                val key = BlockKey(instance, Vec(record.x.toDouble(), record.y.toDouble(), record.z.toDouble()))
+                if (!instance.getBlock(key.pos).compare(type.saplingBlock)) return@forEach
+                restored[key] = SaplingsPlanted(type, record.plantedAt, record.boneMeal)
+            }
+            saplings.clear()
+            saplings.putAll(restored)
+        } catch (error: Throwable) {
+            System.err.println("Failed to restore sapling growth state: ${error.message}")
+            throw error
+        }
+    }
+
+    fun shutdown() {
+        saplings.clear()
     }
 
     internal fun registerPlacementRules() {
@@ -45,9 +95,39 @@ object Saplings {
             val block = requireNotNull(registry.get(key))
             val existing = blockManager.getBlockPlacementRule(block)
             if (existing is SaplingPlacementRule) continue
-            blockManager.registerBlockPlacementRule(SaplingPlacementRule(block, existing))
+            ModuleBlocks.registerPlacementRule(block) { originalFallback ->
+                SaplingPlacementRule(block, originalFallback)
+            }
         }
     }
+
+    private fun decodeTransientState(payload: ByteArray): List<SaplingState> =
+        DataInputStream(ByteArrayInputStream(payload)).use { input ->
+            require(input.readInt() == TRANSIENT_STATE_VERSION) { "Unsupported sapling growth state version" }
+            val size = input.readInt()
+            require(size in 0..MAX_TRANSIENT_ENTRIES) { "Invalid sapling growth state size: $size" }
+            List(size) {
+                SaplingState(
+                    world = input.readUTF(),
+                    x = input.readInt(),
+                    y = input.readInt(),
+                    z = input.readInt(),
+                    saplingBlock = input.readUTF(),
+                    plantedAt = input.readLong(),
+                    boneMeal = input.readInt(),
+                )
+            }
+        }
+
+    private data class SaplingState(
+        val world: String,
+        val x: Int,
+        val y: Int,
+        val z: Int,
+        val saplingBlock: String,
+        val plantedAt: Long,
+        val boneMeal: Int,
+    )
 
     private fun growthTick() {
         val now = System.currentTimeMillis()
@@ -259,4 +339,7 @@ object Saplings {
             chunk.sendPacketToViewers(BlockChangePacket(BlockVec(x, y, z), block.stateId()))
         }
     }
+
+    private const val TRANSIENT_STATE_VERSION = 1
+    private const val MAX_TRANSIENT_ENTRIES = 1_000_000
 }

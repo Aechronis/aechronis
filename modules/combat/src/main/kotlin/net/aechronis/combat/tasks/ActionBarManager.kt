@@ -8,6 +8,7 @@ import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
@@ -19,8 +20,7 @@ import kotlin.math.abs
 object ActionBarManager {
     // run scheduler updating action bar
     fun start() {
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask {
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
                     updateActionBar(player)

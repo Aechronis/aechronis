@@ -50,4 +50,10 @@ object TpsBar {
     }
 
     internal fun isEnabled(player: Player): Boolean = bars.containsKey(player.uuid)
+
+    fun shutdown() {
+        val players = MinecraftServer.getConnectionManager().onlinePlayers.associateBy { it.uuid }
+        bars.forEach { (uuid, bar) -> players[uuid]?.hideBossBar(bar) }
+        bars.clear()
+    }
 }

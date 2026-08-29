@@ -7,6 +7,7 @@ import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.Town
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -186,8 +187,8 @@ object Warzone {
         states.clear()
     }
 
-    fun cleanup() = synchronized(this) {
-        saveLocked()
+    fun cleanup(persistState: Boolean = true) = synchronized(this) {
+        if (persistState) saveLocked()
         clearRuntimeLocked()
     }
 
@@ -203,7 +204,7 @@ object Warzone {
 
     private fun ensureTickerLocked() {
         if (ticker != null || states.values.none { !it.stopped }) return
-        ticker = MinecraftServer.getSchedulerManager()
+        ticker = ModuleScheduler
             .buildTask {
                 synchronized(this) {
                     refreshBossBarsLocked()

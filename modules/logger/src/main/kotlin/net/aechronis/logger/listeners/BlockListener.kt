@@ -6,6 +6,7 @@ import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
 import net.aechronis.logger.objects.show
 import net.aechronis.logger.utils.ItemCodec
+import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventListener
 import net.minestom.server.event.EventNode
@@ -17,7 +18,7 @@ import net.minestom.server.event.trait.CancellableEvent
 import net.minestom.server.event.trait.PlayerEvent
 
 object BlockListener {
-    private val inspectEventNode = EventNode.all("logger-inspect").setPriority(Int.MIN_VALUE)
+    private var inspectEventNode: EventNode<*>? = null
     private var postEventNode: EventNode<*>? = null
 
     private fun <E> inspect(event: E)
@@ -126,14 +127,15 @@ object BlockListener {
     }
 
     fun init() {
-        inspectEventNode.addListener(PlayerBlockBreakEvent::class.java) { inspect(it) }
-        inspectEventNode.addListener(PlayerBlockPlaceEvent::class.java) { inspect(it) }
-        inspectEventNode.addListener(PlayerBlockInteractEvent::class.java) { inspect(it) }
-        MinecraftServer.getGlobalEventHandler().addChild(inspectEventNode)
+        close()
+        val inspectNode = EventNode.all("logger-inspect").setPriority(Int.MIN_VALUE)
+        inspectNode.addListener(PlayerBlockBreakEvent::class.java) { inspect(it) }
+        inspectNode.addListener(PlayerBlockPlaceEvent::class.java) { inspect(it) }
+        inspectNode.addListener(PlayerBlockInteractEvent::class.java) { inspect(it) }
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), inspectNode)
+        inspectEventNode = inspectNode
 
         val postNode = EventNode.all("logger-block-post").setPriority(Int.MAX_VALUE)
-        postEventNode = postNode
-        MinecraftServer.getGlobalEventHandler().addChild(postNode)
         postNode.addListener(
             EventListener
                 .builder(PlayerBlockBreakEvent::class.java)
@@ -143,12 +145,19 @@ object BlockListener {
         )
         postNode.addListener(PlayerBlockPlaceEvent::class.java, ::onPlace)
         postNode.addListener(PlayerBlockInteractEvent::class.java, ::onInteract)
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), postNode)
+        postEventNode = postNode
     }
 
     fun close() {
         val global = MinecraftServer.getGlobalEventHandler()
-        runCatching { global.removeChild(inspectEventNode) }
-        postEventNode?.let { node -> runCatching { global.removeChild(node) } }
-        postEventNode = null
+        inspectEventNode?.let { node ->
+            global.removeChild(node)
+            inspectEventNode = null
+        }
+        postEventNode?.let { node ->
+            global.removeChild(node)
+            postEventNode = null
+        }
     }
 }

@@ -16,7 +16,7 @@ import net.aechronis.nodes.constants.ErrorAllyRequestEnemies
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.NationPair
 import net.aechronis.nodes.utils.ChatColor
-import net.minestom.server.MinecraftServer
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 
@@ -67,7 +67,7 @@ object Alliance {
             requests.put(nations, nation1)
 
             // create timeout thread
-            val timeoutThread = MinecraftServer.getSchedulerManager()
+            val timeoutThread = ModuleScheduler
                 .buildTask { cancelRequest(nations) }
                 .delay(TaskSchedule.tick(ALLY_REQUEST_TIMEOUT))
                 .schedule()
@@ -124,5 +124,11 @@ object Alliance {
                 }
             }
         }
+    }
+
+    fun cleanup() {
+        requestTimers.values.forEach(Task::cancel)
+        requestTimers.clear()
+        requests.clear()
     }
 }

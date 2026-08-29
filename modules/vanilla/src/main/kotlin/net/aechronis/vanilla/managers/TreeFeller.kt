@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.TreeFellerListener
 import net.minestom.server.MinecraftServer
@@ -232,7 +233,7 @@ object TreeFeller {
         val interval = Vanilla.config.treeFellerTickInterval.coerceAtLeast(1)
 
         var index = 0
-        MinecraftServer.getSchedulerManager().submitTask {
+        ModuleScheduler.submitTask {
             var done = 0
             while (done < perTick && index < ordered.size) {
                 val (pos, leaf) = ordered[index++]

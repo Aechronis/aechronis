@@ -1,5 +1,6 @@
 package net.aechronis.vanilla
 
+import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.vanilla.commands.Back
 import net.aechronis.vanilla.commands.Broadcast
 import net.aechronis.vanilla.commands.Clear
@@ -41,6 +42,7 @@ import net.aechronis.vanilla.managers.Blocks
 import net.aechronis.vanilla.managers.Boats
 import net.aechronis.vanilla.managers.Bundles
 import net.aechronis.vanilla.managers.Combat
+import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.Crates
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Efficiency
@@ -87,7 +89,6 @@ object Vanilla {
         // measure load time
         val timeStart = System.currentTimeMillis()
 
-        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         PlayerActivityListener.init()
         BlockPlacementCooldownListener.init()
         CombatInventoryListener.init()
@@ -130,7 +131,8 @@ object Vanilla {
             MinecraftServer.getCommandManager().register(*commands.toTypedArray())
         }
         println("Loading Vanilla")
-        if (config.playerDataEnabled) PlayerData.init(Path.of(config.path, config.playerDataPath))
+        val playerDataEventNode =
+            if (config.playerDataEnabled) PlayerData.init(Path.of(config.path, config.playerDataPath)) else null
         if (config.storageEnabled) Storage.init(Path.of(config.path, config.storagePath))
         if (config.signsEnabled) Signs.init()
         if (config.shelvesEnabled) Shelves.init()
@@ -166,6 +168,9 @@ object Vanilla {
         if (config.factoriesEnabled) Factories.init(Path.of(config.path, config.factoriesPath))
         VoteLinks.init(Path.of(config.path, config.votePath))
         Warps.init(Path.of(config.path, config.warpsPath))
+        val globalEventHandler = MinecraftServer.getGlobalEventHandler()
+        ModuleEvents.addChild(globalEventHandler, eventNode)
+        playerDataEventNode?.let { node -> ModuleEvents.addChild(globalEventHandler, node) }
 
         // print load time
         val timeEnd = System.currentTimeMillis()
@@ -184,6 +189,28 @@ object Vanilla {
             "warps" to Warps::saveAll,
         )
         println("Vanilla: data saved.")
+    }
+
+    fun shutdown() {
+        runSaveStages(
+            "crate rolls" to Crates::shutdown,
+            "corpse loot" to Mannequin::shutdown,
+            "item frames" to ItemFrames::shutdown,
+            "koth state" to Koth::shutdown,
+            "combat bars" to Combat::shutdown,
+            "tps bars" to TpsBarManager::shutdown,
+            "vanish state" to VanishManager::shutdown,
+            "efficiency attributes" to Efficiency::shutdown,
+            "ore cooldowns" to { if (config.oresEnabled) Ores.shutdown() },
+            "crop growth" to { if (config.cropsEnabled) Crops.shutdown() },
+            "sapling growth" to { if (config.saplingsEnabled) Saplings.shutdown() },
+            "recipes" to Recipes::shutdown,
+            "storage" to Storage::shutdown,
+            "sign editors" to Signs::shutdown,
+            "pending warps" to Warps::shutdown,
+            "shop inventories" to KillShop::shutdown,
+            "command inventories" to Commands::shutdown,
+        )
     }
 
     // flushes player and container state immediately before the containing world is saved

@@ -2,6 +2,7 @@ package net.aechronis.logger.objects
 
 import net.aechronis.logger.Logger
 import net.aechronis.logger.utils.LogMetadata
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.objects.BlockKey
 import net.aechronis.vanilla.serdes.StorageDeserializer
@@ -31,7 +32,7 @@ object VanillaStorage {
                     ?: return@addListener
             val context = StorageActor(event.player, generation.incrementAndGet())
             actors[inventory] = context
-            event.player.scheduleNextTick { actors.remove(inventory, context) }
+            ModuleScheduler.scheduleNextTick { actors.remove(inventory, context) }
         }
         Logger.eventNode.addListener(InventoryItemChangeEvent::class.java) { event ->
             val inventory = event.inventory as? Inventory ?: return@addListener
@@ -48,6 +49,11 @@ object VanillaStorage {
         StorageRollbackAdapters.register(LogMetadata.VANILLA) { storageId, slot, item, amount, action ->
             apply(storageId, slot, item, amount, action)
         }
+    }
+
+    fun close() {
+        StorageRollbackAdapters.unregister(LogMetadata.VANILLA)
+        actors.clear()
     }
 
     fun applyBlockTransition(
@@ -191,7 +197,7 @@ object VanillaStorage {
             MinecraftServer.getInstanceManager().getInstance(location.first)
                 ?: return CompletableFuture.completedFuture(false)
         val result = CompletableFuture<Boolean>()
-        instance.scheduleNextTick {
+        ModuleScheduler.scheduleNextTick {
             try {
                 val position =
                     Vec(

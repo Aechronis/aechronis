@@ -22,7 +22,11 @@ import net.aechronis.combat.listeners.RespawnProtectionListener
 import net.aechronis.combat.listeners.VehicleListener
 import net.aechronis.combat.listeners.WeaponLoreListener
 import net.aechronis.combat.objects.Grenade
+import net.aechronis.combat.objects.Hitbox
+import net.aechronis.combat.objects.Item
+import net.aechronis.combat.objects.Projectile
 import net.aechronis.combat.storage.HatCollection
+import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.combat.tasks.ActionBarManager
 import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.combat.tasks.ModelManager
@@ -30,8 +34,10 @@ import net.aechronis.combat.tasks.PlayerPositionManager
 import net.aechronis.combat.tasks.ProjectileTickManager
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.bypassesCombatDamageImmunity
 import net.aechronis.combat.utils.combatDamageKind
+import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.LivingEntity
@@ -42,6 +48,8 @@ import net.minestom.server.timer.Task
 import java.util.UUID
 
 object Combat {
+    private var initialized = false
+
     var config: CombatConfig = CombatConfig()
         private set
 
@@ -185,55 +193,130 @@ object Combat {
 
     internal fun activeDamage(entity: LivingEntity): Damage? = activeDamage[entity]
 
+    @Synchronized
     fun initialize(config: CombatConfig = CombatConfig()) {
+        if (initialized) return
+        initialized = true
         this.config = config
 
-        // measure load time
-        val timeStart = System.currentTimeMillis()
+        try {
+            // measure load time
+            val timeStart = System.currentTimeMillis()
 
-        // initialize storage
-        HatCollection.initialize()
-        BlockRestoreManager.initialize()
+            // initialize storage
+            HatCollection.initialize()
+            BlockRestoreManager.initialize()
 
-        MinecraftServer.getGlobalEventHandler().addChild(lowPriorityEventNode)
-        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
-        MinecraftServer.getGlobalEventHandler().addChild(highPriorityEventNode)
+            // register listeners
+            AimingListener.init()
+            AmmoInventoryListener.init()
+            ReloadListener.init()
+            FireListener.init()
+            GrenadeListener.init()
+            MeleeListener.init()
+            PlayerDeathListener.init()
+            PlayerDisconnectListener.init()
+            CooldownResetListener.init()
+            ArmorProtectionListener.init()
+            RespawnProtectionListener.init()
+            MannequinDamageListener.init()
+            VehicleListener.init()
+            DroneListener.init()
+            KeyPressListener.init()
+            HatListener.init()
+            LagCompensationListener.init()
+            WeaponLoreListener.init()
 
-        // register listeners
-        AimingListener.init()
-        AmmoInventoryListener.init()
-        ReloadListener.init()
-        FireListener.init()
-        GrenadeListener.init()
-        MeleeListener.init()
-        PlayerDeathListener.init()
-        PlayerDisconnectListener.init()
-        CooldownResetListener.init()
-        ArmorProtectionListener.init()
-        RespawnProtectionListener.init()
-        MannequinDamageListener.init()
-        VehicleListener.init()
-        DroneListener.init()
-        KeyPressListener.init()
-        HatListener.init()
-        LagCompensationListener.init()
-        WeaponLoreListener.init()
+            val globalEventHandler = MinecraftServer.getGlobalEventHandler()
+            ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)
+            ModuleEvents.addChild(globalEventHandler, eventNode)
+            ModuleEvents.addChild(globalEventHandler, highPriorityEventNode)
 
-        // register commands
-        MinecraftServer.getCommandManager().register(CombatAdminCommand())
-        MinecraftServer.getCommandManager().register(AdsCommand())
-        MinecraftServer.getCommandManager().register(HatsCommand())
+            // register commands
+            MinecraftServer.getCommandManager().register(CombatAdminCommand())
+            MinecraftServer.getCommandManager().register(AdsCommand())
+            MinecraftServer.getCommandManager().register(HatsCommand())
 
-        // run background schedulers/tasks
-        ModelManager.start()
-        PlayerPositionManager.start()
-        ActionBarManager.start()
-        VehicleTickManager.start()
-        ProjectileTickManager.start()
+            // run background schedulers/tasks
+            ModelManager.start()
+            PlayerPositionManager.start()
+            ActionBarManager.start()
+            VehicleTickManager.start()
+            ProjectileTickManager.start()
 
-        // print load time
-        val timeEnd = System.currentTimeMillis()
-        val timeLoad = timeEnd - timeStart
-        println("Enabled in ${timeLoad}ms")
+            // print load time
+            val timeEnd = System.currentTimeMillis()
+            val timeLoad = timeEnd - timeStart
+            println("Enabled in ${timeLoad}ms")
+        } catch (exception: Throwable) {
+            try {
+                shutdown()
+            } catch (shutdownException: Throwable) {
+                exception.addSuppressed(shutdownException)
+            }
+            throw exception
+        }
+    }
+
+    /** Releases every piece of combat-owned runtime state without causing gameplay effects. */
+    @Synchronized
+    fun shutdown() {
+        initialized = false
+        val failures = ArrayList<Throwable>()
+
+        cleanup(failures, "task cancellation") {
+            cancelAndClear(aimingResetTasks)
+            cancelAndClear(reloadTasks)
+            cancelAndClear(placeTasks)
+            cancelAndClear(grenadeFuseTasks)
+            armedGrenades.clear()
+            grenadeFuseDeadlines.clear()
+        }
+        cleanup(failures, "projectile removal") { Projectile.shutdown() }
+        cleanup(failures, "vehicle removal") { VehiclePersistence.shutdown() }
+        cleanup(failures, "player model restoration") { ModelManager.shutdown() }
+        cleanup(failures, "temporary block restoration") { BlockRestoreManager.shutdown() }
+        cleanup(failures, "hat storage") { HatCollection.shutdown() }
+        cleanup(failures, "vehicle tick state") { VehicleTickManager.shutdown() }
+        cleanup(failures, "lag compensation") { LagCompensation.clear() }
+
+        playerAiming.clear()
+        adsAnimationDisabledPlayers.clear()
+        playerPreviousPositions.clear()
+        playerSpeeds.clear()
+        playerLastActionTimes.clear()
+        meleeLastAttackTimes.clear()
+        entityLastDamageTime.clear()
+        activeDamage.clear()
+        respawnProtectionExpiresAt.clear()
+        KeyPressListener.playerInputEvent.clear()
+        MannequinDamageListener.shutdown()
+        Hitbox.viewingHitboxes.clear()
+        Item.registeredItems.clear()
+        config = CombatConfig()
+
+        if (failures.isNotEmpty()) {
+            throw IllegalStateException("Combat shutdown completed with ${failures.size} cleanup failure(s)").apply {
+                failures.forEach(::addSuppressed)
+            }
+        }
+    }
+
+    private fun cancelAndClear(tasks: MutableMap<*, Task>) {
+        val activeTasks = tasks.values.toSet()
+        tasks.clear()
+        activeTasks.forEach(Task::cancel)
+    }
+
+    private inline fun cleanup(
+        failures: MutableList<Throwable>,
+        name: String,
+        action: () -> Unit,
+    ) {
+        try {
+            action()
+        } catch (exception: Throwable) {
+            failures.add(IllegalStateException("Failed to clean up $name", exception))
+        }
     }
 }

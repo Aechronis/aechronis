@@ -40,17 +40,21 @@ class WorldEditCommand(
             return
         }
 
-        WorldEditExecutor.executor.submit {
-            try {
-                CommandEvent(
-                    MinestomAdapter.asActor(sender),
-                    "/$command",
-                ).also {
-                    WorldEdit.getInstance().eventBus.post(it)
+        val accepted =
+            WorldEditExecutor.submit {
+                try {
+                    CommandEvent(
+                        MinestomAdapter.asActor(sender),
+                        "/$command",
+                    ).also {
+                        WorldEdit.getInstance().eventBus.post(it)
+                    }
+                } catch (e: Exception) {
+                    println("Unexpected error while handling a WorldEdit command $e")
                 }
-            } catch (e: Exception) {
-                println("Unexpected error while handling a WorldEdit command $e")
             }
+        if (!accepted) {
+            sender.sendMessage(Component.text("WorldEdit is shutting down; try again after the module reload.", NamedTextColor.RED))
         }
     }
 }

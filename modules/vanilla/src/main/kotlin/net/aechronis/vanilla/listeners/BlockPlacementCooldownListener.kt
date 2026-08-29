@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.listeners
 
+import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.Player
@@ -55,8 +56,8 @@ object BlockPlacementCooldownListener {
     private fun ItemStack.cooldownGroup(): String = get(DataComponents.USE_COOLDOWN)?.cooldownGroup() ?: material().key().asString()
 
     fun init() {
-        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
         eventNode.addListener(PlayerBlockPlaceEvent::class.java, ::onPlace)
         eventNode.addListener(PlayerDisconnectEvent::class.java, ::onDisconnect)
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
     }
 }

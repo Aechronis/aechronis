@@ -4,10 +4,10 @@ import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.setRoll
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
-import net.minestom.server.MinecraftServer
 import net.minestom.server.collision.BoundingBox
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -252,16 +252,20 @@ class Drone(
         return entity
     }
 
-    override fun destroy(
-        entity: Entity,
-        attacker: Player?,
-        weapon: Component?,
-    ) {
+    override fun cleanupRuntime(entity: Entity) {
         // these aren't tracked by the base Vehicle, so clean them up ourselves
         entitySpider.remove(entity)?.remove()
         entityPayload.remove(entity)?.remove()
         entityBattery.remove(entity)
         entityHealth.remove(entity)
+    }
+
+    override fun destroy(
+        entity: Entity,
+        attacker: Player?,
+        weapon: Component?,
+    ) {
+        cleanupRuntime(entity)
         super.destroy(entity, attacker, weapon)
     }
 
@@ -656,8 +660,7 @@ class Drone(
         }
 
         playerCrashStaticTasks[player] =
-            MinecraftServer
-                .getSchedulerManager()
+            ModuleScheduler
                 .buildTask { finishCrashStatic(player, camera) }
                 .delay(TaskSchedule.seconds(CRASH_STATIC_SECONDS))
                 .schedule()
@@ -720,6 +723,76 @@ class Drone(
             val camera = playerCrashStaticCameras.remove(player) ?: return
             if (resetCamera && player.isOnline) player.stopSpectating()
             camera.remove()
+        }
+
+        internal fun shutdownRuntimeState() {
+            val players =
+                buildSet {
+                    addAll(playerOperatorMannequin.keys)
+                    addAll(playerOriginalPos.keys)
+                    addAll(playerOriginalBoundingBox.keys)
+                    addAll(playerThrottle.keys)
+                    addAll(playerBuzzTick.keys)
+                    addAll(playerYaw.keys)
+                    addAll(playerPitch.keys)
+                    addAll(playerInverted.keys)
+                    addAll(playerPendingSwitch.keys)
+                    addAll(playerBoundary.keys)
+                    addAll(playerLockYaw.keys)
+                    addAll(playerLockPitch.keys)
+                    addAll(playerViewmodel.keys)
+                    addAll(playerPayloadViewmodel.keys)
+                    addAll(playerCrashStaticCameras.keys)
+                    addAll(playerCrashStaticTasks.keys)
+                }
+
+            playerCrashStaticTasks.values.toSet().forEach { task -> runCatching { task.cancel() } }
+            playerCrashStaticCameras.values.toSet().forEach(Entity::remove)
+            playerViewmodel.values.toSet().forEach(Entity::remove)
+            playerPayloadViewmodel.values.toSet().forEach(Entity::remove)
+            entitySpider.values.toSet().forEach(Entity::remove)
+            entityPayload.values.toSet().forEach(Entity::remove)
+            playerOperatorMannequin.values.toSet().forEach(Entity::remove)
+            mannequinPilot.keys.toSet().forEach(Entity::remove)
+
+            for (player in players) {
+                playerOriginalBoundingBox[player]?.let { original ->
+                    runCatching { player.boundingBox = original }
+                }
+                if (player.isOnline) {
+                    runCatching { player.stopSpectating() }
+                    runCatching {
+                        for (slot in PILOT_HOTBAR_SLOTS) {
+                            player.sendPacket(SetPlayerInventorySlotPacket(slot, player.inventory.getItemStack(slot)))
+                        }
+                    }
+                    player.instance?.let { instance ->
+                        runCatching { player.sendPacket(SetTimePacket(10000, instance.createTimePacket().clocks)) }
+                    }
+                }
+            }
+
+            entitySpider.clear()
+            entityBattery.clear()
+            entityHealth.clear()
+            entityPayload.clear()
+            playerOperatorMannequin.clear()
+            mannequinPilot.clear()
+            playerOriginalPos.clear()
+            playerOriginalBoundingBox.clear()
+            playerThrottle.clear()
+            playerBuzzTick.clear()
+            playerYaw.clear()
+            playerPitch.clear()
+            playerInverted.clear()
+            playerPendingSwitch.clear()
+            playerBoundary.clear()
+            playerLockYaw.clear()
+            playerLockPitch.clear()
+            playerViewmodel.clear()
+            playerPayloadViewmodel.clear()
+            playerCrashStaticCameras.clear()
+            playerCrashStaticTasks.clear()
         }
 
         private fun finishCrashStatic(

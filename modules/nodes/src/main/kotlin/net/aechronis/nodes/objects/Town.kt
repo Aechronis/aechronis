@@ -26,7 +26,7 @@ import net.aechronis.nodes.utils.stringArrayFromSet
 import net.aechronis.nodes.utils.stringMapFromMap
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
-import net.minestom.server.MinecraftServer
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.command.CommandSender
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
@@ -575,7 +575,7 @@ class Town(
             val offset = Vec(0.1, 0.1, 0.1)
             var runs = 0
             var task: Task? = null
-            task = MinecraftServer.getSchedulerManager().buildTask {
+            task = ModuleScheduler.buildTask {
                 for (block in town.protectedBlocks) {
                     val locations = listOf(
                         Pos(block.x() + 0.1, block.y() + 0.5, block.z() + 0.1),

@@ -5,6 +5,7 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Town
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
@@ -113,6 +114,15 @@ object ColonizationMenu {
 
     fun close(player: Player) {
         sessions.remove(player.uuid)
+    }
+
+    fun closeAll() {
+        sessions.toMap().forEach { (uuid, session) ->
+            MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uuid)?.let { player ->
+                if (player.openInventory === session.inventory) player.closeInventory()
+            }
+        }
+        sessions.clear()
     }
 
     private fun openTowns(
@@ -244,7 +254,7 @@ object ColonizationMenu {
         player: Player,
         action: () -> Unit,
     ) {
-        MinecraftServer.getSchedulerManager().scheduleNextTick {
+        ModuleScheduler.scheduleNextTick {
             if (player.isOnline) action()
         }
     }

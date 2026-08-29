@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleBlocks
 import net.aechronis.vanilla.listeners.StorageListener
 import net.aechronis.vanilla.objects.BlockKey
 import net.aechronis.vanilla.objects.StorageContents
@@ -55,10 +56,7 @@ object Storage {
     fun init(legacyRoot: Path) {
         val timeStart = System.currentTimeMillis()
         this.legacyRoot = legacyRoot
-        val blockManager = MinecraftServer.getBlockManager()
-        if (blockManager.getHandler(barrelKey.asString()) == null) {
-            blockManager.registerHandler(barrelKey) { defaultBarrelHandler }
-        }
+        ModuleBlocks.registerHandlerIfAbsent(barrelKey) { defaultBarrelHandler }
         StorageListener.init()
 
         val timeEnd = System.currentTimeMillis()
@@ -155,6 +153,14 @@ object Storage {
         if (contents != null) {
             inventoryToKey.remove(contents.inventory)
         }
+    }
+
+    fun shutdown() {
+        accessChecker = null
+        inventoryToKey.keys.forEach { inventory -> inventory.viewers.toList().forEach { it.closeInventory() } }
+        inventoryToKey.clear()
+        barrels.clear()
+        legacyRoot = null
     }
 
     private fun withItems(

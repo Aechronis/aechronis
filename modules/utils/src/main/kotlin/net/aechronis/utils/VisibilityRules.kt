@@ -43,7 +43,21 @@ object VisibilityRules {
     }
 
     fun clear(player: Player) {
-        synchronized(rules) { rules.remove(player.uuid) }
+        val removed = synchronized(rules) { rules.remove(player.uuid) != null }
+        if (removed) apply(player, null)
+    }
+
+    /** Removes every module-owned predicate and restores normal visibility for online players. */
+    fun clearAll() {
+        val affected =
+            synchronized(rules) {
+                rules.keys.toSet().also { rules.clear() }
+            }
+        MinecraftServer
+            .getConnectionManager()
+            .onlinePlayers
+            .filter { it.uuid in affected }
+            .forEach { apply(it, null) }
     }
 
     private fun combinedRule(uuid: UUID): ((Player) -> Boolean)? {

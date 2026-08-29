@@ -1,11 +1,15 @@
 package net.aechronis.server
 
+import net.luckperms.api.LuckPermsProvider
+import net.minestom.server.entity.Player
+
 object LuckPermsPermissions {
     val all: Set<String>
         get() = server + modules + dependencies
 
     private val server =
         setOf(
+            "craftingstore.admin",
             "server.setspawn",
         )
 
@@ -232,4 +236,18 @@ object LuckPermsPermissions {
             "worldedit.watchdog",
             "worldedit.world",
         )
+}
+
+internal fun Player.hasPermission(permission: String): Boolean {
+    if (System.getProperty("aechronis.dangerously-enable-all-permissions").toBoolean()) return true
+    return runCatching {
+        LuckPermsProvider
+            .get()
+            .userManager
+            .getUser(uuid)
+            ?.cachedData
+            ?.permissionData
+            ?.checkPermission(permission)
+            ?.asBoolean() == true
+    }.getOrDefault(false)
 }

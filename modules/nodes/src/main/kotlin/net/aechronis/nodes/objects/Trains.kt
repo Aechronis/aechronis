@@ -5,6 +5,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import net.aechronis.nodes.Message
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
@@ -19,7 +20,13 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.math.ceil
 import kotlin.math.max
 
@@ -42,6 +49,59 @@ internal data class TrainTopologyMetrics(
     val incrementalRebuilds: Long,
 )
 
+/** Shares one deadline across every distinct chunk requested by the initial topology scan. */
+internal class BoundedChunkLoadBatch<K>(
+    timeout: Duration,
+    private val nanoTime: () -> Long = System::nanoTime,
+) {
+    private val timeoutDescription = timeout
+    private val deadlineNanos: Long
+    private val loads = mutableMapOf<K, CompletableFuture<*>>()
+
+    init {
+        require(!timeout.isNegative && !timeout.isZero) { "Chunk-load timeout must be positive" }
+        deadlineNanos = nanoTime() + timeout.toNanos()
+    }
+
+    fun checkDeadline(description: String) {
+        if (deadlineNanos - nanoTime() <= 0L) throw timeoutFailure(description)
+    }
+
+    fun await(
+        key: K,
+        description: String,
+        start: () -> CompletableFuture<*>,
+    ) {
+        checkDeadline(description)
+        val future = loads.getOrPut(key, start)
+        val remainingNanos = deadlineNanos - nanoTime()
+        if (remainingNanos <= 0L) throw timeoutFailure(description)
+        try {
+            future.get(remainingNanos, TimeUnit.NANOSECONDS)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IllegalStateException("Interrupted while $description", error)
+        } catch (error: TimeoutException) {
+            throw timeoutFailure(description, error)
+        } catch (error: ExecutionException) {
+            throw unwrapCompletionFailure(error)
+        }
+    }
+
+    private fun timeoutFailure(
+        description: String,
+        cause: TimeoutException = TimeoutException("Deadline expired"),
+    ) = IllegalStateException("$description did not finish within $timeoutDescription", cause)
+
+    private fun unwrapCompletionFailure(error: Throwable): Throwable {
+        var failure = error
+        while ((failure is ExecutionException || failure is CompletionException) && failure.cause != null) {
+            failure = checkNotNull(failure.cause)
+        }
+        return failure
+    }
+}
+
 object Trains {
     private data class Journey(val start: BlockVec, val task: Task)
     private data class StationAttachment(val stationId: Int, val start: BlockVec)
@@ -55,6 +115,7 @@ object Trains {
         val positions: MutableSet<BlockVec> = hashSetOf(),
         val sections: MutableSet<RailSection> = hashSetOf(),
     )
+    private data class ChunkCoordinate(val x: Int, val z: Int)
 
     private val stations = linkedMapOf<Int, TrainStation>()
     private val stationsByPosition = hashMapOf<BlockVec, Int>()
@@ -92,6 +153,7 @@ object Trains {
     private val topologyQueueLock = Any()
     private val dirtyTopologyByInstance = linkedMapOf<Instance, DirtyTopology>()
     private lateinit var path: Path
+    private var initializationChunkLoads: BoundedChunkLoadBatch<ChunkCoordinate>? = null
 
     fun initialize(path: Path) {
         this.path = path
@@ -100,10 +162,16 @@ object Trains {
         load()
         // A full scan is required only to establish the initial in-memory index.
         // Runtime mutations are reconciled from block-change events below.
-        scanAll(activeInstance())
+        val instance = activeInstance()
+        initializationChunkLoads = BoundedChunkLoadBatch(INITIAL_TOPOLOGY_SCAN_TIMEOUT)
+        try {
+            scanAll(instance)
+        } finally {
+            initializationChunkLoads = null
+        }
     }
 
-    fun cleanup() {
+    fun cleanup(persistState: Boolean = true) {
         synchronized(topologyQueueLock) {
             pendingRescan?.cancel()
             pendingRescan = null
@@ -113,7 +181,7 @@ object Trains {
         pendingSave = null
         journeys.values.forEach { it.task.cancel() }
         journeys.clear()
-        save()
+        if (persistState && ::path.isInitialized) save()
     }
 
     /** Coalesce same-tick world edits and rebuild only their old/new rail components. */
@@ -145,7 +213,7 @@ object Trains {
     /** Must be called while holding topologyQueueLock. */
     private fun scheduleDirtyRebuildLocked() {
         if (pendingRescan != null) return
-        pendingRescan = MinecraftServer.getSchedulerManager().buildTask {
+        pendingRescan = ModuleScheduler.buildTask {
             val pending = synchronized(topologyQueueLock) {
                 pendingRescan = null
                 dirtyTopologyByInstance.mapValues { (_, dirty) ->
@@ -250,7 +318,7 @@ object Trains {
         val start = player.position.asBlockVec()
         val startedAt = System.currentTimeMillis()
         lateinit var task: Task
-        task = MinecraftServer.getSchedulerManager().buildTask {
+        task = ModuleScheduler.buildTask {
             val elapsed = System.currentTimeMillis() - startedAt
             if (!player.isOnline || elapsed >= duration) {
                 journeys.remove(player.uuid)
@@ -529,7 +597,20 @@ object Trains {
     private fun blockAt(instance: Instance, position: BlockVec): Block {
         val chunkX = Math.floorDiv(position.blockX(), 16)
         val chunkZ = Math.floorDiv(position.blockZ(), 16)
-        if (!instance.isChunkLoaded(chunkX, chunkZ)) instance.loadChunk(chunkX, chunkZ).join()
+        val initialLoads = initializationChunkLoads
+        initialLoads?.checkDeadline("initial train topology scan")
+        if (!instance.isChunkLoaded(chunkX, chunkZ)) {
+            if (initialLoads == null) {
+                instance.loadChunk(chunkX, chunkZ).join()
+            } else {
+                initialLoads.await(
+                    ChunkCoordinate(chunkX, chunkZ),
+                    "loading train topology chunk ($chunkX, $chunkZ)",
+                ) {
+                    instance.loadChunk(chunkX, chunkZ)
+                }
+            }
+        }
         return instance.getBlock(position)
     }
 
@@ -600,7 +681,7 @@ object Trains {
     /** Topology edits may arrive in bursts; persist their final coalesced state once. */
     private fun scheduleSave() {
         if (pendingSave != null) return
-        pendingSave = MinecraftServer.getSchedulerManager().buildTask {
+        pendingSave = ModuleScheduler.buildTask {
             pendingSave = null
             save()
         }.delay(TaskSchedule.tick(20)).schedule()
@@ -673,4 +754,6 @@ object Trains {
         val complete = (progress.coerceIn(0.0, 1.0) * 10).toInt()
         return "[${"|".repeat(complete)}${".".repeat(10 - complete)}]"
     }
+
+    private val INITIAL_TOPOLOGY_SCAN_TIMEOUT: Duration = Duration.ofSeconds(60)
 }

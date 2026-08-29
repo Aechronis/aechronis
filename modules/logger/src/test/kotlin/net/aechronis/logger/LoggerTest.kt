@@ -3,6 +3,7 @@ package net.aechronis.logger
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChange
 import io.github.openminigameserver.worldedit.event.WorldEditBlockChangesEvent
 import net.aechronis.combat.objects.Explosion
+import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.logger.listeners.LootListener
 import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
@@ -11,6 +12,7 @@ import net.aechronis.logger.objects.RollbackActor
 import net.aechronis.logger.objects.RollbackDomain
 import net.aechronis.logger.objects.RollbackOperationKind
 import net.aechronis.logger.objects.RollbackSelection
+import net.aechronis.logger.objects.RollbackService
 import net.aechronis.logger.objects.RollbackStatus
 import net.aechronis.logger.objects.StorageChange
 import net.aechronis.logger.objects.StorageChangeAction
@@ -58,10 +60,13 @@ import java.net.SocketAddress
 import java.nio.file.Files
 import java.nio.file.Path
 import java.sql.DriverManager
+import java.time.Duration
 import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -79,6 +84,7 @@ class LoggerTest {
         Files.deleteIfExists(Path.of("$databasePath.mv.db"))
         createTestServer()
 
+        BlockRestoreManager.initialize()
         Logger.init(LoggerConfig(databasePath = databasePath.toString()))
     }
 
@@ -870,6 +876,81 @@ class LoggerTest {
 
     @Test
     @Order(13)
+    fun `rollback close waits for external callbacks and remains retryable`() {
+        val source = "lifecycle-storage-${UUID.randomUUID()}"
+        val playerName = "lifecycle-player-${UUID.randomUUID()}"
+        val storageId = "lifecycle-store-${UUID.randomUUID()}"
+        val actor = RollbackActor(UUID.randomUUID(), "lifecycle-operator")
+        val item = ItemStack.of(Material.DIAMOND)
+        val entered = CountDownLatch(1)
+        val calls = AtomicInteger()
+        val blocked = CompletableFuture<Boolean>()
+        val service = RollbackService(closeDrainTimeout = Duration.ofMillis(100))
+
+        StorageRollbackAdapters.register(source) { _, _, _, _, _ -> CompletableFuture.completedFuture(true) }
+        try {
+            Logger.storageChange
+                .depositAsync(
+                    storageId = storageId,
+                    item = item,
+                    amount = 1,
+                    playerName = playerName,
+                    source = source,
+                ).get(5, TimeUnit.SECONDS)
+            Logger.storageChange
+                .depositAsync(
+                    storageId = "$storageId-second",
+                    item = item,
+                    amount = 1,
+                    playerName = playerName,
+                    source = source,
+                ).get(5, TimeUnit.SECONDS)
+            val instance = MinecraftServer.getInstanceManager().instances.first()
+            val target = System.currentTimeMillis() - 10_000
+            val plan =
+                service
+                    .computePlanAsync(
+                        RollbackOperationKind.ROLLBACK,
+                        LookupParams(users = listOf(playerName), since = target, global = true),
+                        target,
+                        instance.uuid,
+                        Pos.ZERO,
+                        safeMode = true,
+                        selection = RollbackSelection(setOf(RollbackDomain.STORAGE)),
+                    ).get(5, TimeUnit.SECONDS)
+            assertEquals(2, plan.storageChanges.size)
+            val applied = service.applyAsync(actor, plan).get(5, TimeUnit.SECONDS)
+
+            StorageRollbackAdapters.register(source) { _, _, _, _, _ ->
+                calls.incrementAndGet()
+                entered.countDown()
+                blocked
+            }
+            val replay = service.undoAsync(actor)
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+
+            assertFailsWith<IllegalStateException> { service.close() }
+            blocked.complete(true)
+            assertFailsWith<java.util.concurrent.ExecutionException> { replay.get(5, TimeUnit.SECONDS) }
+
+            service.close()
+            assertEquals(1, calls.get())
+            assertEquals(
+                RollbackStatus.RECOVERY_REQUIRED,
+                Logger.rollback
+                    .findOperationAsync(applied.operationId)
+                    .get(5, TimeUnit.SECONDS)
+                    ?.status,
+            )
+        } finally {
+            blocked.complete(true)
+            runCatching(service::close)
+            StorageRollbackAdapters.unregister(source)
+        }
+    }
+
+    @Test
+    @Order(14)
     fun `close persists pending log entries`() {
         repeat(100) { index ->
             Logger.log(
@@ -900,7 +981,7 @@ class LoggerTest {
     }
 
     @Test
-    @Order(14)
+    @Order(15)
     fun `closed snapshot repository fails without executor rejection`() {
         if (System.getProperty("keepRunning") == "true") return
 
@@ -959,6 +1040,7 @@ class LoggerTest {
         if (System.getProperty("keepRunning") == "true") {
             Thread.currentThread().join()
         }
+        BlockRestoreManager.shutdown()
         Logger.close()
     }
 }

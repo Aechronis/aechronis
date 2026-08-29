@@ -94,6 +94,12 @@ object Nametag {
 
     fun stop() {
         started = false
+        initializedOnlineViewers().forEach { (viewer, state) ->
+            state.relationships.keys.forEach { townId ->
+                viewer.sendPacket(TeamsPacket(teamName(townId), TeamsPacket.RemoveTeamAction()))
+            }
+        }
+        viewers.clear()
         RelationshipHitbox.stop()
     }
 

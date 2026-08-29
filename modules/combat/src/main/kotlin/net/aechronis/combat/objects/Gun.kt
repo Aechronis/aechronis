@@ -9,6 +9,7 @@ import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Particles
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.withCombatAttribution
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -17,7 +18,6 @@ import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.title.Title
-import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -156,8 +156,7 @@ class Gun(
         var time = reloadTime
 
         Combat.reloadTasks[player] =
-            MinecraftServer
-                .getSchedulerManager()
+            ModuleScheduler
                 .buildTask {
                     time -= 100
                     val progress: Double = 1.0 - (time.toDouble() / reloadTime.toDouble())

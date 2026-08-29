@@ -17,23 +17,32 @@ import net.minestom.server.item.Material
 
 class MinestomWorldEdit {
     private val platform = MinestomPlatform(this)
+    private var active = false
 
     lateinit var config: WorldEditConfiguration
 
+    @Synchronized
     fun init(config: WorldEditConfig = WorldEditConfig()) {
-        config.dataFolder.mkdirs()
-        MinestomAdapter.platform = platform
-        this.config = WorldEditConfiguration(config).apply { load() }
+        check(!active) { "WorldEdit is already initialized" }
+        active = true
+        try {
+            config.dataFolder.mkdirs()
+            MinestomAdapter.platform = platform
+            this.config = WorldEditConfiguration(config).apply { load() }
 
-        platform.registerWorldEditEventHandlers()
-        WorldEdit.getInstance().platformManager.register(platform)
-        WorldEdit.getInstance().eventBus.post(PlatformsRegisteredEvent())
+            platform.registerWorldEditEventHandlers()
+            WorldEdit.getInstance().platformManager.register(platform)
+            WorldEdit.getInstance().eventBus.post(PlatformsRegisteredEvent())
 
-        registerBlocks()
-        registerItems()
+            registerBlocks()
+            registerItems()
 
-        WorldEdit.getInstance().eventBus.post(PlatformReadyEvent(platform))
-        println("Finished loading WorldEdit")
+            WorldEdit.getInstance().eventBus.post(PlatformReadyEvent(platform))
+            println("Finished loading WorldEdit")
+        } catch (error: Throwable) {
+            runCatching(::shutdown).exceptionOrNull()?.let(error::addSuppressed)
+            throw error
+        }
     }
 
     private fun registerItems() {
@@ -71,11 +80,32 @@ class MinestomWorldEdit {
         }
     }
 
-    fun shutdown() {
-        val worldEdit = WorldEdit.getInstance()
-        platform.unregisterWorldEditEventHandlers()
-        worldEdit.sessionManager.unload()
-        worldEdit.platformManager.unregister(platform)
+    @Synchronized
+    fun prepareForShutdown() {
+        if (!active) return
         WorldEditExecutor.shutdown()
+    }
+
+    @Synchronized
+    fun shutdown() {
+        if (!active) return
+        // Fail before removing any platform/session state if a queued operation cannot be stopped.
+        WorldEditExecutor.shutdown()
+        active = false
+
+        val worldEdit = WorldEdit.getInstance()
+        var failure: Throwable? = null
+
+        fun cleanup(action: () -> Unit) {
+            runCatching(action).onFailure { error ->
+                failure?.addSuppressed(error) ?: run { failure = error }
+            }
+        }
+
+        cleanup(platform::shutdown)
+        cleanup(platform::unregisterWorldEditEventHandlers)
+        cleanup(worldEdit.sessionManager::unload)
+        cleanup { worldEdit.platformManager.unregister(platform) }
+        failure?.let { throw it }
     }
 }

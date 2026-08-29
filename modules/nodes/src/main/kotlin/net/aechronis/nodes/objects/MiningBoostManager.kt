@@ -3,6 +3,7 @@ package net.aechronis.nodes.objects
 import com.google.gson.JsonObject
 import net.aechronis.combat.tasks.HasteEffectManager
 import net.aechronis.nodes.Nodes
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -40,7 +41,7 @@ object MiningBoostManager {
             BossBar.Color.GREEN,
             BossBar.Overlay.PROGRESS,
         )
-        task = MinecraftServer.getSchedulerManager()
+        task = ModuleScheduler
             .buildTask { update(System.currentTimeMillis()) }
             .delay(TaskSchedule.tick(1))
             .repeat(TaskSchedule.tick(20))

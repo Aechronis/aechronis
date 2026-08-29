@@ -71,6 +71,12 @@ internal class VehicleCollisionIndex {
         candidateQueries.remove(player)
     }
 
+    fun clear() {
+        buckets.clear()
+        candidateQueries.clear()
+        query = 0L
+    }
+
     private fun overlapsY(
         player: Player,
         bounds: Bounds,

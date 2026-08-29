@@ -19,18 +19,18 @@ jobs:
           distribution: temurin
           java-version: 25
           cache: gradle
-      - name: Check JVM projects and build server
+      - name: Check and build JVM project JARs
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./gradlew check :server:shadowJar --no-daemon
+        run: ./gradlew build serverDistributionZip --no-daemon
       - name: Create server release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            server/build/libs/aechronis-all.jar \
+            build/distributions/aechronis-server.zip \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
-            --notes "Server build $GITHUB_SHA"
+            --notes "Server build $GITHUB_SHA. Deploy the complete aechronis-server.zip layout."

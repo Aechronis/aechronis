@@ -12,6 +12,7 @@ import net.aechronis.logger.utils.getNullableInt
 import net.aechronis.logger.utils.setNullableBytes
 import net.aechronis.logger.utils.setNullableInt
 import net.aechronis.logger.utils.setNullableString
+import net.aechronis.logger.utils.shutdownExecutor
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import java.sql.Connection
@@ -581,7 +582,7 @@ class Rollback(
         }
 
     override fun close() {
-        executor.close()
+        shutdownExecutor(executor, "rollback repository")
     }
 
     private companion object {

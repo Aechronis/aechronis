@@ -58,4 +58,10 @@ object Efficiency {
         Vanilla.eventNode.addListener(PlayerTickEvent::class.java, ::onTick)
         println("├─ Efficiency enabled in ${System.currentTimeMillis() - timeStart}ms")
     }
+
+    fun shutdown() {
+        net.minestom.server.MinecraftServer.getConnectionManager().onlinePlayers.forEach { player ->
+            player.getAttribute(Attribute.MINING_EFFICIENCY).removeModifier(MODIFIER_ID)
+        }
+    }
 }

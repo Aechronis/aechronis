@@ -37,7 +37,6 @@ object PlayerDataDeserializer {
         deserializePosition(player, position)
 
         deserializeInventory(player.inventory, data.getList("Inventory"))
-        deserializeInventory(Commands.getEnderChest(player), data.getList("EnderChest"))
         val cursorItem = data.getCompound("CursorItem")
         if (cursorItem.keySet().isNotEmpty()) {
             runCatching { ItemStack.fromItemNBT(cursorItem) }
@@ -46,14 +45,23 @@ object PlayerDataDeserializer {
                 ?.let { player.inventory.cursorItem = it }
         }
 
-        val ignoredList = data.getList("Ignored", BinaryTagTypes.STRING)
-        if (ignoredList.size() > 0) {
-            val set = mutableSetOf<UUID>()
-            for (tag in ignoredList) {
-                set.add(UUID.fromString((tag as StringBinaryTag).value()))
-            }
-            Commands.setIgnored(player, set)
+        deserializeModuleState(player, data)
+    }
+
+    /** Restores data owned by this module without changing the live Minestom player state. */
+    fun deserializeModuleState(
+        player: Player,
+        data: CompoundBinaryTag,
+    ) {
+        deserializeInventory(Commands.getEnderChest(player), data.getList("EnderChest"))
+
+        val ignored = mutableSetOf<UUID>()
+        for (tag in data.getList("Ignored", BinaryTagTypes.STRING)) {
+            runCatching { UUID.fromString((tag as StringBinaryTag).value()) }
+                .getOrNull()
+                ?.let(ignored::add)
         }
+        Commands.setIgnored(player, ignored)
     }
 
     private fun deserializePosition(

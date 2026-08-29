@@ -6,6 +6,7 @@ import net.aechronis.vanilla.VanillaTest
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -128,6 +129,77 @@ class VanishTest : ManagerTest() {
             }
             VanillaTest.remove(target)
             VanillaTest.remove(viewer)
+        }
+    }
+
+    @Test
+    fun `vanish state survives a module state handoff`() {
+        val permissionFlag = "aechronis.dangerously-enable-all-permissions"
+        val previousPermissionFlag = System.getProperty(permissionFlag)
+        System.setProperty(permissionFlag, "true")
+        val viewer = VanillaTest.createPlayer(Pos(20.5, 40.0, 0.5))
+        val target = VanillaTest.createPlayer(Pos(22.5, 40.0, 0.5))
+
+        try {
+            Vanish.toggle(target)
+            val payload = Vanish.captureTransientState()
+            Vanish.toggle(target)
+
+            Vanish.restoreTransientState(payload, listOf(viewer, target))
+
+            assertTrue(Vanish.isVanished(target))
+            assertFalse(viewer in target.viewers)
+        } finally {
+            if (Vanish.isVanished(target)) Vanish.toggle(target)
+            if (previousPermissionFlag == null) {
+                System.clearProperty(permissionFlag)
+            } else {
+                System.setProperty(permissionFlag, previousPermissionFlag)
+            }
+            VanillaTest.remove(target)
+            VanillaTest.remove(viewer)
+        }
+    }
+
+    @Test
+    fun `corrupt vanish handoff fails closed`() {
+        assertFailsWith<IllegalArgumentException> {
+            Vanish.restoreTransientState(byteArrayOf(0, 0, 0, 99), emptyList())
+        }
+    }
+
+    @Test
+    fun `vanish handoff preserves the game mode behind spectator toggle`() {
+        val permissionFlag = "aechronis.dangerously-enable-all-permissions"
+        val previousPermissionFlag = System.getProperty(permissionFlag)
+        System.setProperty(permissionFlag, "true")
+        val target = VanillaTest.createPlayer(Pos(24.5, 40.0, 0.5))
+
+        try {
+            Vanish.toggle(target)
+            target.refreshInput(false, false, false, false, false, true, false)
+            target.refreshInput(false, false, false, false, false, false, false)
+            target.refreshInput(false, false, false, false, false, true, false)
+            assertTrue(target.gameMode == GameMode.SPECTATOR)
+
+            val payload = Vanish.captureTransientState()
+            Vanish.toggle(target)
+            assertTrue(target.gameMode == GameMode.SURVIVAL)
+
+            Vanish.restoreTransientState(payload, listOf(target))
+            assertTrue(Vanish.isVanished(target))
+            assertTrue(target.gameMode == GameMode.SPECTATOR)
+
+            Vanish.toggle(target)
+            assertTrue(target.gameMode == GameMode.SURVIVAL)
+        } finally {
+            if (Vanish.isVanished(target)) Vanish.toggle(target)
+            if (previousPermissionFlag == null) {
+                System.clearProperty(permissionFlag)
+            } else {
+                System.setProperty(permissionFlag, previousPermissionFlag)
+            }
+            VanillaTest.remove(target)
         }
     }
 }

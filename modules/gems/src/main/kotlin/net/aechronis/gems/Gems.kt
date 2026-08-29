@@ -1,6 +1,7 @@
 package net.aechronis.gems
 
 import net.aechronis.nodes.objects.MiningBoostManager
+import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.objects.StorageContents
@@ -21,7 +22,6 @@ import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
-import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerCustomClickEvent
 import net.minestom.server.instance.block.Block
 import net.minestom.server.inventory.Inventory
@@ -63,22 +63,73 @@ object Gems {
 
     fun craftingStoreBalance(uuid: UUID): Long? = repository.findPlayerByUuid(uuid)?.balance
 
+    fun rememberPlayer(player: Player) = repository.rememberPlayer(player.uuid, player.username)
+
+    fun grantVoteReward(
+        player: Player,
+        amount: Long,
+        deliver: () -> Boolean,
+    ): Boolean {
+        require(amount > 0L) { "Vote reward must be positive" }
+        repository.rememberPlayer(player.uuid, player.username)
+        if (repository.adjust(player.uuid, amount) == null) return false
+
+        var delivered = false
+        try {
+            delivered = deliver()
+            return delivered
+        } finally {
+            if (!delivered) {
+                check(repository.adjust(player.uuid, -amount) != null) {
+                    "Could not roll back an undelivered vote reward for ${player.username}"
+                }
+            }
+        }
+    }
+
     private val initialized = AtomicBoolean()
     private val sessions = ConcurrentHashMap<UUID, ShopSession>()
     private val repository = GemRepository()
-    val eventNode = EventNode.all("gems")
+    lateinit var eventNode: EventNode<net.minestom.server.event.Event>
+        private set
+    private var commands: List<Command> = emptyList()
 
+    @Synchronized
     fun initialize() {
         if (!initialized.compareAndSet(false, true)) return
-        MinecraftServer.getGlobalEventHandler().addChild(eventNode)
-        eventNode.addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
-            repository.rememberPlayer(event.player.uuid, event.player.username)
+        try {
+            eventNode = EventNode.all("gems")
+            eventNode.addListener(InventoryPreClickEvent::class.java, ::onInventoryClick)
+            eventNode.addListener(InventoryCloseEvent::class.java, ::onInventoryClose)
+            eventNode.addListener(PlayerCustomClickEvent::class.java, ::onCustomClick)
+            ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
+            commands = listOf(GemCommand(repository), GemShopCommand())
+            commands.forEach(MinecraftServer.getCommandManager()::register)
+        } catch (error: Throwable) {
+            shutdown()
+            throw error
         }
-        eventNode.addListener(InventoryPreClickEvent::class.java, ::onInventoryClick)
-        eventNode.addListener(InventoryCloseEvent::class.java, ::onInventoryClose)
-        eventNode.addListener(PlayerCustomClickEvent::class.java, ::onCustomClick)
-        MinecraftServer.getCommandManager().register(GemCommand(repository))
-        MinecraftServer.getCommandManager().register(GemShopCommand())
+    }
+
+    @Synchronized
+    fun shutdown() {
+        if (!initialized.get()) return
+
+        if (this::eventNode.isInitialized) {
+            MinecraftServer.getGlobalEventHandler().removeChild(eventNode)
+        }
+        val commandManager = MinecraftServer.getCommandManager()
+        commands.forEach { command -> commandManager.unregister(command) }
+        commands = emptyList()
+        val activeSessions = sessions.toMap()
+        activeSessions.forEach { (uuid, session) ->
+            MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uuid)?.let { player ->
+                if (session.inventory != null && player.openInventory === session.inventory) player.closeInventory()
+                player.closeDialog()
+            }
+        }
+        sessions.clear()
+        initialized.set(false)
     }
 
     fun openShop(player: Player) {

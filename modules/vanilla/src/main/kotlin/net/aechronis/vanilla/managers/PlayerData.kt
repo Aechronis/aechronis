@@ -6,6 +6,7 @@ import net.kyori.adventure.nbt.BinaryTagIO
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
+import net.minestom.server.event.Event
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
@@ -22,7 +23,7 @@ object PlayerData {
     private val pendingDisconnectSaves = ConcurrentHashMap<UUID, CompoundBinaryTag>()
     private lateinit var dataPath: Path
 
-    fun init(path: Path) {
+    fun init(path: Path): EventNode<Event> {
         val timeStart = System.currentTimeMillis()
         Files.createDirectories(path)
         dataPath = path
@@ -39,10 +40,11 @@ object PlayerData {
             saveAndUntrackPlayer(event.player, path)
         }
 
-        MinecraftServer.getGlobalEventHandler().addChild(node)
+        adoptOnlinePlayers(MinecraftServer.getConnectionManager().onlinePlayers, path)
         val timeEnd = System.currentTimeMillis()
         val timeLoad = timeEnd - timeStart
         println("├─ Playerdata enabled in ${timeLoad}ms")
+        return node
     }
 
     fun saveAll() {
@@ -75,6 +77,38 @@ object PlayerData {
     }
 
     fun hasSavedData(player: Player): Boolean = ::dataPath.isInitialized && Files.exists(dataPath.resolve("${player.uuid}.dat"))
+
+    /**
+     * Adopts players that survived a module-generation replacement. Their live Minestom state is
+     * authoritative, so only module-owned state is restored from the old generation's checkpoint.
+     * A failed restore aborts generation startup rather than allowing a later save to overwrite
+     * valid ender-chest or ignore-list data with empty state.
+     */
+    internal fun adoptOnlinePlayers(
+        players: Collection<Player>,
+        path: Path,
+    ) {
+        players.forEach { player ->
+            Commands.allowEnderChest(player)
+            restoreModuleState(player, path)
+            tracked.add(player)
+        }
+    }
+
+    internal fun isTracked(player: Player): Boolean = player in tracked
+
+    private fun restoreModuleState(
+        player: Player,
+        path: Path,
+    ) {
+        val playerPath = path.resolve("${player.uuid}.dat")
+        if (!Files.exists(playerPath)) return
+
+        Files.newInputStream(playerPath).use { input ->
+            val named = BinaryTagIO.reader().readNamed(input, BinaryTagIO.Compression.GZIP)
+            PlayerDataDeserializer.deserializeModuleState(player, named.value)
+        }
+    }
 
     internal fun loadAndTrackPlayer(
         player: Player,

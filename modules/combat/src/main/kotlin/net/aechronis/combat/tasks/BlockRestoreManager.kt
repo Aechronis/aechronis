@@ -1,14 +1,14 @@
 package net.aechronis.combat.tasks
 
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.timer.Task
+import net.minestom.server.timer.TaskSchedule
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.TimeUnit
 
 internal const val BLOCK_RESTORE_DELAY_MILLIS = 10 * 60 * 1_000L
 
@@ -43,22 +43,25 @@ object BlockRestoreManager {
             Block.FLOWERING_AZALEA_LEAVES,
         )
     private val pending = ConcurrentHashMap<BlockPosition, PendingBlockRestore>()
-    private val scheduled = ConcurrentHashMap<BlockPosition, ScheduledFuture<*>>()
-    private val executor =
-        Executors.newSingleThreadScheduledExecutor { runnable ->
-            Thread(runnable, "combat-block-restore").apply { isDaemon = true }
-        }
-
+    private val scheduled = ConcurrentHashMap<BlockPosition, Task>()
     private var initialized = false
 
     @Synchronized
     fun initialize() {
         if (initialized) return
         initialized = true
+    }
 
-        MinecraftServer
-            .getSchedulerManager()
-            .buildShutdownTask { restoreAllImmediately() }
+    @Synchronized
+    fun shutdown() {
+        if (!initialized) return
+        scheduled.values.forEach(Task::cancel)
+        scheduled.clear()
+        // Successful restores remove themselves from pending. On failure, retain the remaining
+        // entries and initialized state so coordinated teardown can retry without losing evidence.
+        restoreAllImmediately()
+        pending.clear()
+        initialized = false
     }
 
     fun temporarilyBreakLeaf(
@@ -77,6 +80,7 @@ object BlockRestoreManager {
         originalBlock: Block,
         temporaryBlock: Block,
     ): Boolean {
+        check(initialized) { "BlockRestoreManager is not initialized" }
         val key = BlockPosition(instance.uuid, position.blockX, position.blockY, position.blockZ)
         val existing = pending[key]
         val current = instance.getBlock(position)
@@ -102,13 +106,12 @@ object BlockRestoreManager {
         restore: PendingBlockRestore,
         delayMillis: Long,
     ) {
-        scheduled[restore.position]?.cancel(false)
+        scheduled[restore.position]?.cancel()
         scheduled[restore.position] =
-            executor.schedule(
-                { instance.scheduleNextTick { restore(instance, restore) } },
-                delayMillis,
-                TimeUnit.MILLISECONDS,
-            )
+            ModuleScheduler
+                .buildTask { restore(instance, restore) }
+                .delay(TaskSchedule.millis(delayMillis))
+                .schedule()
     }
 
     @Synchronized
@@ -130,19 +133,21 @@ object BlockRestoreManager {
         val instances = MinecraftServer.getInstanceManager().instances.toList()
         val instanceById = instances.associateBy { it.uuid }
         val fallback = instances.singleOrNull()
+        var failure: Throwable? = null
 
         for (restore in pending.values.toList()) {
             val instance = instanceById[restore.position.instanceId] ?: fallback ?: continue
-            restore(instance, restore)
+            runCatching { restore(instance, restore) }.onFailure { error ->
+                if (failure == null) failure = error else failure.addSuppressed(error)
+            }
         }
-
-        executor.shutdownNow()
+        failure?.let { throw it }
     }
 
     @Synchronized
     private fun finish(position: BlockPosition) {
         pending.remove(position)
-        scheduled.remove(position)?.cancel(false)
+        scheduled.remove(position)?.cancel()
     }
 
     private fun sameBlock(

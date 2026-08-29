@@ -29,6 +29,8 @@ internal class StaffAlert(
         enabled.remove(player.uuid)
     }
 
+    fun clear() = enabled.clear()
+
     fun notify(flag: Flag) {
         val target = MinecraftServer.getConnectionManager().onlinePlayers.firstOrNull { it.uuid == flag.playerId }
         val targetName = target?.username ?: flag.playerId.toString()

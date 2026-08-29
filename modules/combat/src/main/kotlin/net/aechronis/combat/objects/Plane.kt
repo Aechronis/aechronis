@@ -189,6 +189,12 @@ class Plane(
         super.prepareForShutdown(entity)
     }
 
+    override fun cleanupRuntime(entity: Entity) {
+        lastBombFireTime.remove(entity)
+        entityDives.remove(entity)
+        destroyingEntities.remove(entity)
+    }
+
     override fun destroy(
         entity: Entity,
         attacker: Player?,
@@ -197,8 +203,7 @@ class Plane(
         val instance = entity.instance
         val position = entity.position
 
-        lastBombFireTime.remove(entity)
-        entityDives.remove(entity)
+        cleanupRuntime(entity)
         destroyingEntities.add(entity)
         try {
             super.destroy(entity, attacker, weapon)
@@ -536,6 +541,17 @@ class Plane(
         var lastBombFireTime = hashMapOf<Entity, Long>()
         private val entityDives = HashMap<Entity, DiveState>()
         private val destroyingEntities = HashSet<Entity>()
+
+        internal fun shutdownRuntimeState() {
+            playerRoll.clear()
+            playerState.clear()
+            takeoffCounter.clear()
+            playerThrottle.clear()
+            playerBombFireHeld.clear()
+            lastBombFireTime.clear()
+            entityDives.clear()
+            destroyingEntities.clear()
+        }
 
         private const val DIVE_COLLISION_SAMPLE_SPACING = 0.25
         private const val MAX_DIVE_COLLISION_SAMPLES = 128

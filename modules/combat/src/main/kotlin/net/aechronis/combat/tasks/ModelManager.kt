@@ -5,6 +5,8 @@ import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.server.modules.ModuleScheduler
+import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -64,8 +66,7 @@ object ModelManager {
 
     // run scheduler for changing item models, animations etc.
     fun start() {
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask {
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
                     updateModel(player)
@@ -94,8 +95,7 @@ object ModelManager {
                 if (!instance.isChunkLoaded(pos)) continue
                 if (instance.getBlock(pos).isAir) {
                     player.sendPacket(BlockChangePacket(pos, Block.GLOW_LICHEN))
-                    MinecraftServer
-                        .getSchedulerManager()
+                    ModuleScheduler
                         .buildTask { player.sendPacket(BlockChangePacket(pos, Block.AIR)) }
                         .delay(TaskSchedule.tick(1))
                         .schedule()
@@ -147,6 +147,54 @@ object ModelManager {
         player.getAttribute(Attribute.ATTACK_SPEED).removeModifier(attackSpeedModifier)
         player.getAttribute(Attribute.BLOCK_BREAK_SPEED).removeModifier(blockBreakSpeedModifier)
         HasteEffectManager.clear(player, HIT_ANIMATION_HASTE_SOURCE)
+    }
+
+    /** Restores all client-only models and server-side modifiers owned by combat. */
+    fun shutdown() {
+        val players =
+            buildSet {
+                addAll(hitAnimationDisabledPlayers)
+                runCatching { MinecraftServer.getConnectionManager().onlinePlayers }
+                    .getOrNull()
+                    ?.let(::addAll)
+            }
+        val failures = ArrayList<Throwable>()
+
+        for (player in players) {
+            try {
+                (Item.getFromItemStack(player.itemInMainHand) as? Gun)?.let { gun ->
+                    player.itemInMainHand = player.itemInMainHand.withItemModel(gun.itemModel)
+                }
+                restoreSniperScope(player)
+                clearPlayer(player)
+
+                val instance = player.instance
+                if (player.isOnline && instance != null) {
+                    for (offset in fakeBlockOffsets) {
+                        val position = player.position.add(offset)
+                        if (instance.isChunkLoaded(position)) {
+                            player.sendPacket(BlockChangePacket(position, instance.getBlock(position)))
+                        }
+                    }
+                    player.sendPacket(SetTimePacket(10000, instance.createTimePacket().clocks))
+                    player.sendActionBar(Component.empty())
+                }
+            } catch (exception: Throwable) {
+                failures.add(exception)
+            }
+        }
+
+        hitAnimationDisabledPlayers.clear()
+        try {
+            HasteEffectManager.shutdown()
+        } catch (exception: Throwable) {
+            failures.add(exception)
+        }
+        if (failures.isNotEmpty()) {
+            throw IllegalStateException("Failed to restore ${failures.size} combat player model(s)").apply {
+                failures.forEach(::addSuppressed)
+            }
+        }
     }
 
     internal fun setHitAnimationDisabled(

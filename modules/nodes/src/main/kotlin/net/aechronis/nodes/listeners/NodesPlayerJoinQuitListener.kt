@@ -18,7 +18,7 @@ import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
-import net.minestom.server.MinecraftServer
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
@@ -39,7 +39,7 @@ object NodesPlayerJoinQuitListener {
         MiningBoostManager.onPlayerJoin(player)
         resident.createMinimap(player)
         Warzone.onPlayerTerritoryChanged(player, net.aechronis.nodes.objects.Territory.fromPlayer(player))
-        MinecraftServer.getSchedulerManager().scheduleNextTick {
+        ModuleScheduler.scheduleNextTick {
             if (player.isOnline) TestTownSelection.showJoinDialog(player, resident)
         }
 
@@ -63,7 +63,7 @@ object NodesPlayerJoinQuitListener {
         val respawnPoint = Resident.fromPlayer(player)?.town?.spawnpoint ?: Nodes.config.defaultRespawnPoint
         event.respawnPosition = respawnPoint
         player.respawnPoint = respawnPoint
-        MinecraftServer.getSchedulerManager().scheduleNextTick {
+        ModuleScheduler.scheduleNextTick {
             if (player.isOnline) Resident.fromPlayer(player)?.minimap?.respawn()
         }
     }

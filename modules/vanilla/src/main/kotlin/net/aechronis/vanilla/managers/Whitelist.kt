@@ -3,7 +3,6 @@ package net.aechronis.vanilla.managers
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import net.aechronis.utils.hasPermission
-import net.aechronis.vanilla.listeners.WhitelistListener
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import java.nio.file.Files
@@ -38,7 +37,6 @@ object Whitelist {
         Files.createDirectories(path.parent)
 
         load()
-        WhitelistListener.init()
     }
 
     fun isWhitelistedName(name: String): Boolean = entries.containsKey(name.lowercase())

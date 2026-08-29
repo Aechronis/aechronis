@@ -164,6 +164,11 @@ class Projectile private constructor(
         entity.remove()
     }
 
+    private fun discard() {
+        isActive = false
+        entity.remove()
+    }
+
     private fun detonate(pos: Pos) {
         if (bypassDamageImmunity) {
             Explosion.bypassingDamageImmunity(
@@ -194,6 +199,12 @@ class Projectile private constructor(
 
     companion object {
         val activeProjectiles: MutableList<Projectile> = mutableListOf()
+
+        /** Removes projectile displays during module teardown without detonating them. */
+        internal fun shutdown() {
+            activeProjectiles.toList().forEach(Projectile::discard)
+            activeProjectiles.clear()
+        }
 
         internal fun bypassingDamageImmunity(
             instance: Instance,

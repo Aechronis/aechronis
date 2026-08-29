@@ -14,6 +14,7 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.chat.ChatMode
 import net.aechronis.nodes.serdes.SaveState
 import net.aechronis.nodes.utils.ChatColor
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.hasPermission
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.CommandSender
@@ -114,7 +115,7 @@ class Resident(val uuid: UUID, val name: String) {
             resident.isProtectingChests = false
             resident.clearPlotSelection()
             var task: Task? = null
-            task = MinecraftServer.getSchedulerManager()
+            task = ModuleScheduler
                 .buildTask {
                     if (resident.plotParticleTask !== task) {
                         task?.cancel()

@@ -8,35 +8,84 @@ import java.util.concurrent.atomic.AtomicReference
 /** Native CraftingStore integration. The GUI is intentionally optional; donation
  * queue polling and server-command execution work without a menu implementation. */
 object CraftingStoreModule {
-    private val started = AtomicReference<CraftingStorePluginAdapter?>()
+    private val started = AtomicReference<RunningCraftingStore?>()
 
     val eventNode: EventNode<Event>
-        get() = requireAdapter().eventNode
+        get() = requireRunning().adapter.eventNode
 
     @Synchronized
-    fun initialize(options: CraftingStoreOptions = CraftingStoreOptions()) {
-        if (started.get() != null) return
+    fun initialize(
+        options: CraftingStoreOptions = CraftingStoreOptions(),
+        attachEventNode: (EventNode<Event>) -> Unit = { node ->
+            MinecraftServer.getGlobalEventHandler().addChild(node)
+        },
+    ) {
+        started.get()?.let { running ->
+            check(!running.cleanupStarted) { "CraftingStoreModule cleanup is incomplete" }
+            check(running.fullyStarted) { "CraftingStoreModule initialization is incomplete" }
+            return
+        }
         val config = ConfigStore(options.dataDirectory)
         config.reload()
         val node = EventNode.all("craftingstore")
         val adapter = CraftingStorePluginAdapter(options, config, node)
-        MinecraftServer.getGlobalEventHandler().addChild(node)
-        started.set(adapter)
+        val running = RunningCraftingStore(adapter)
+        started.set(running)
         try {
+            adapter.prepareEventListeners()
+            running.eventNodeCleanupPending = true
+            attachEventNode(node)
             adapter.start()
+            running.fullyStarted = true
         } catch (error: Throwable) {
-            MinecraftServer.getGlobalEventHandler().removeChild(node)
-            started.set(null)
+            runCatching(::shutdown).exceptionOrNull()?.let(error::addSuppressed)
             throw error
         }
     }
 
+    @Synchronized
     fun shutdown() {
-        val adapter = started.getAndSet(null) ?: return
-        adapter.shutdown()
+        val running = started.get() ?: return
+        running.cleanupStarted = true
+        var failure: Throwable? = null
+
+        fun cleanup(action: () -> Unit) {
+            runCatching(action).onFailure { error ->
+                failure?.addSuppressed(error) ?: run { failure = error }
+            }
+        }
+
+        if (!running.adapterStopped) {
+            cleanup {
+                running.adapter.shutdown()
+                running.adapterStopped = true
+            }
+        }
+        if (running.eventNodeCleanupPending) {
+            cleanup {
+                MinecraftServer.getGlobalEventHandler().removeChild(running.adapter.eventNode)
+                running.eventNodeCleanupPending = false
+            }
+        }
+        if (!running.eventNodeCleanupPending && running.adapterStopped) started.compareAndSet(running, null)
+        failure?.let { throw it }
     }
 
-    fun placeholders(): CraftingStorePlaceholders = requireAdapter().placeholders
+    fun placeholders(): CraftingStorePlaceholders = requireRunning().adapter.placeholders
 
-    private fun requireAdapter() = started.get() ?: error("CraftingStoreModule is not initialized")
+    private fun requireRunning(): RunningCraftingStore {
+        val running = started.get() ?: error("CraftingStoreModule is not initialized")
+        check(running.fullyStarted && !running.cleanupStarted) { "CraftingStoreModule is not running" }
+        return running
+    }
+}
+
+private class RunningCraftingStore(
+    val adapter: CraftingStorePluginAdapter,
+) {
+    @Volatile var fullyStarted = false
+
+    @Volatile var cleanupStarted = false
+    var eventNodeCleanupPending = false
+    var adapterStopped = false
 }

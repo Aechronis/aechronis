@@ -1,10 +1,12 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.nbt.BinaryTag
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
+import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
@@ -61,6 +63,17 @@ object ItemFrames {
         // on the next instance tick; never scan while a player is being sent a chunk.
         Vanilla.eventNode.addListener(InstanceChunkLoadEvent::class.java, ::onChunkLoad)
         Vanilla.eventNode.addListener(InstanceChunkUnloadEvent::class.java, ::onChunkUnload)
+        MinecraftServer.getInstanceManager().instances.forEach { instance ->
+            instance.chunks.filter(Chunk::isLoaded).forEach { chunk ->
+                restoreAnchors(chunk, indexedAnchors(chunk))
+            }
+        }
+    }
+
+    fun shutdown() {
+        frames.keys.toList().forEach(Entity::remove)
+        frames.clear()
+        framesByAnchor.clear()
     }
 
     private fun onUseOnBlock(event: PlayerUseItemOnBlockEvent) {
@@ -125,7 +138,8 @@ object ItemFrames {
     private fun onChunkLoad(event: InstanceChunkLoadEvent) {
         val chunk = event.chunk
         val (indexed, anchors) = anchorsForLoad(chunk)
-        event.instance.scheduleNextTick { instance ->
+        val instance = event.instance
+        ModuleScheduler.scheduleNextTick {
             if (!chunk.isLoaded || instance.getChunk(chunk.chunkX, chunk.chunkZ) !== chunk) return@scheduleNextTick
             if (!indexed) writeAnchors(chunk, anchors)
             restoreAnchors(chunk, anchors)

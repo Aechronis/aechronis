@@ -4,17 +4,81 @@ This repository contains the Aechronis server, its Kotlin modules, guides, and r
 
 ## Layout
 
-- `server/` assembles the runnable server.
-- `modules/` contains `utils`, `combat`, `nodes`, `vanilla`, `worldedit`, `logger`, `watchdog`, `gems`, and the MIT-licensed `misc` integration.
-- `resource-pack/` is the server's single resource pack.
+- `server/` contains the bootstrap, permanent integrations and services, and runtime JAR module loader.
+- `modules/` contains the independently loaded gameplay module projects. `modules/iterations/template` is the default gameplay composition for items, recipes, and other non-iteration-specific gameplay. `modules/misc` is the build-time integration library embedded into the permanent server JAR.
+- `resource-pack/` is the Aechronis pack embedded and served by the core server. The template module additionally requests its external Ashen base pack.
 - `guides/` contains the mdBook site.
 
 ## Build
 
 The JVM projects share one Gradle build:
 
-Run all JVM checks with `./gradlew check`. Build the deployable server with
-`./gradlew :server:shadowJar`; the output is `server/build/libs/aechronis-all.jar`.
+Run `./gradlew build` to check every JVM project and build each of its JARs.
+Run `./gradlew serverDistributionZip` to assemble the complete runnable layout
+under `build/distributions/aechronis/` and its archive at
+`build/distributions/aechronis-server.zip`. The layout keeps the core at
+`aechronis.jar` and every gameplay JAR directly under `modules/`; deploy both.
+
+Runtime modules are built independently. For example,
+`./gradlew :modules:combat:build` produces the combat module JAR in
+`modules/combat/build/libs`, while the template module uses
+`./gradlew :modules:iterations:template:build` and
+`modules/iterations/template/build/libs`. These JARs can be copied directly to
+the server's module directory.
+
+Dependencies used only by a runtime module belong on its `moduleApi` or
+`moduleImplementation` configuration and are shaded into that module's
+deployable JAR. Dependencies supplied by the core server or another module stay
+on `compileOnly` and are not duplicated.
+
+Every runtime module JAR provides `net.aechronis.server.modules.AechronisModule` through
+Java's service-provider mechanism. The server rejects invalid or duplicate IDs
+and dependency cycles before enabling a module. A module whose dependency is
+missing or disabled remains discovered but disabled, with the reason visible in
+`/modules info`.
+
+## Runtime module management
+
+Server operators with the `server.modules.manage` permission can inspect and
+change the runtime module set without restarting the Minecraft server:
+
+- `/modules list` lists discovered modules and their current state.
+- `/modules info <id>` shows a module's dependencies and dependants.
+- `/modules load <id>` (or `enable`) enables a module and its dependencies.
+- `/modules unload <id>` (or `disable`) disables a module when nothing enabled
+  depends on it. Add `cascade` to also disable its enabled dependants.
+- `/modules restart <id>` restarts the module runtime with the selected module.
+- `/modules reload` (or `rescan`) scans the module directory and applies added,
+  removed, or replaced JARs.
+
+All module JARs belong to one classloader generation. A successful runtime
+change therefore restarts the enabled module graph in dependency order, even
+when the command names one module. The operation is validated before the live
+generation is stopped, and an invalid candidate leaves the running generation
+unchanged. If a validated candidate fails while starting, the manager rebuilds
+the previous generation from its staged JAR copies. Explicit enable/disable
+choices survive server restarts in `modules/.disabled-modules`.
+
+Official distributions include `modules/.required-modules`. Startup and reload
+fail closed if one of those module JARs is absent. A listed module may be
+inactive only after an operator explicitly disables it. Custom deployments can
+provide their own manifest or omit it when intentionally running a different
+non-empty module set. An empty module directory is rejected so a legacy
+core-JAR-only deployment cannot silently start without gameplay.
+
+Do not overwrite a live JAR in place. Copy the replacement beside it using a
+non-`.jar` suffix, then atomically rename it on the same filesystem before
+running `/modules rescan`:
+
+```sh
+cp template-new.jar modules/template.jar.part
+mv modules/template.jar.part modules/template.jar
+```
+
+To remove a module, unload it (using `cascade` when required), move its JAR out
+of the module directory, and run `/modules rescan`. The `template` module
+depends on the complete default gameplay graph, so unloading one of its
+dependencies also requires unloading `template`.
 
 The shadow JAR embeds the resource pack. On startup, it extracts that pack into
 `resource-pack/` beside the JAR before initializing Minestom and starting the resource-pack server.

@@ -2,6 +2,7 @@ package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
@@ -250,6 +251,18 @@ object WaypointMenu {
         sessions.remove(player.uuid)
     }
 
+    fun closeAll() {
+        sessions.toMap().forEach { (uuid, session) ->
+            MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uuid)?.let { player ->
+                when (session) {
+                    is BrowseWaypointSession -> if (player.openInventory === session.inventory) player.closeInventory()
+                    is CreateWaypointSession -> player.closeDialog()
+                }
+            }
+        }
+        sessions.clear()
+    }
+
     internal fun closeBrowse(player: Player, resident: Resident) {
         val session = sessions[player.uuid] as? BrowseWaypointSession ?: return
         if (session.resident !== resident || !sessions.remove(player.uuid, session)) return
@@ -350,7 +363,7 @@ object WaypointMenu {
             PERSONAL_CATEGORY_SLOT -> openBrowseNextTick(player, session.resident, WaypointSharing.PRIVATE)
             TOWN_CATEGORY_SLOT -> openBrowseNextTick(player, session.resident, WaypointSharing.TOWN)
             NATION_CATEGORY_SLOT -> openBrowseNextTick(player, session.resident, WaypointSharing.NATION)
-            CREATE_WAYPOINT_SLOT -> MinecraftServer.getSchedulerManager().scheduleNextTick {
+            CREATE_WAYPOINT_SLOT -> ModuleScheduler.scheduleNextTick {
                 if (player.isOnline) openCreate(player, session.resident)
             }
             ALLY_CATEGORY_SLOT -> openBrowseNextTick(player, session.resident, WaypointSharing.ALLY)
@@ -388,7 +401,7 @@ object WaypointMenu {
         category: WaypointSharing,
         page: Int = 0,
     ) {
-        MinecraftServer.getSchedulerManager().scheduleNextTick {
+        ModuleScheduler.scheduleNextTick {
             if (player.isOnline) openBrowse(player, resident, page, category)
         }
     }

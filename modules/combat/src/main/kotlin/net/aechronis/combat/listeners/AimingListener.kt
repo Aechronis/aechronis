@@ -3,7 +3,7 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
-import net.minestom.server.MinecraftServer
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.event.player.PlayerInputEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.timer.TaskSchedule
@@ -20,8 +20,7 @@ object AimingListener {
 
         // event is triggered every 4 ticks, schedule task in 6 ticks and cancel it if event is triggered again
         Combat.aimingResetTasks[player] =
-            MinecraftServer
-                .getSchedulerManager()
+            ModuleScheduler
                 .buildTask {
                     Combat.playerAiming[player] = false
                 }.delay(TaskSchedule.tick(6))

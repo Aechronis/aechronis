@@ -25,4 +25,6 @@ object RollbackSafety {
     fun clear(playerUuid: UUID) {
         overrides.remove(playerUuid)
     }
+
+    fun clear() = overrides.clear()
 }

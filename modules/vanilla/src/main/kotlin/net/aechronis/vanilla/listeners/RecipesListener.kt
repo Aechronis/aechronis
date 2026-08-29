@@ -8,6 +8,7 @@ import net.aechronis.vanilla.objects.RecipesWorkspace
 import net.aechronis.vanilla.objects.consumeStationInteraction
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
+import net.minestom.server.entity.Player
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryItemChangeEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
@@ -32,7 +33,14 @@ object RecipesListener {
 
     fun onPlayerSpawn(event: PlayerSpawnEvent) {
         if (!event.isFirstSpawn) return
-        val player = event.player
+        attachPlayerWorkspace(event.player)
+    }
+
+    internal fun attachOnlinePlayers(players: Collection<Player>) {
+        players.forEach(::attachPlayerWorkspace)
+    }
+
+    private fun attachPlayerWorkspace(player: Player) {
         val recipesWorkspace =
             RecipesWorkspace(
                 player.inventory,

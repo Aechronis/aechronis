@@ -1,10 +1,13 @@
 package net.aechronis.server.tasks
 
 import net.aechronis.server.Server
+import net.aechronis.server.modules.ModuleEvents
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
-import net.minestom.server.MinecraftServer
 import net.minestom.server.adventure.audience.Audiences
+import net.minestom.server.event.Event
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.server.ServerTickMonitorEvent
 import net.minestom.server.monitoring.TickMonitor
 import net.minestom.server.timer.TaskSchedule
@@ -32,13 +35,16 @@ object TabManager {
             .append(Component.text("Iteration name goes here", NamedTextColor.GRAY))
             .appendNewline()
             .append(Component.text("                                      ")) // force tab width
+    private var eventNode: EventNode<Event>? = null
 
     fun start() {
+        check(eventNode == null) { "TabManager is already started" }
         val lastTick = AtomicReference<TickMonitor>()
         val ticksInPastSecond = AtomicInteger()
         val recentTicks = ArrayDeque<Long>()
 
-        Server.eventNode.addListener(ServerTickMonitorEvent::class.java) { event ->
+        val node = EventNode.all("template-tab")
+        node.addListener(ServerTickMonitorEvent::class.java) { event ->
             lastTick.set(event.tickMonitor)
 
             val now = System.nanoTime()
@@ -49,9 +55,10 @@ object TabManager {
             }
             ticksInPastSecond.set(recentTicks.size)
         }
+        ModuleEvents.addChild(Server.eventNode, node)
+        eventNode = node
 
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask {
                 val tickTime = lastTick.get()?.tickTime ?: 0.0
                 val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / BYTES_PER_MEBIBYTE
@@ -60,6 +67,12 @@ object TabManager {
                 Audiences.players().sendPlayerListHeaderAndFooter(header, footer)
             }.repeat(TaskSchedule.tick(UPDATE_INTERVAL_TICKS))
             .schedule()
+    }
+
+    fun shutdown() {
+        eventNode?.let(Server.eventNode::removeChild)
+        eventNode = null
+        Audiences.players().sendPlayerListHeaderAndFooter(Component.empty(), Component.empty())
     }
 
     private fun createFooter(

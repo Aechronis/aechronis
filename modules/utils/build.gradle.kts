@@ -1,13 +1,12 @@
 plugins {
-    `java-library`
     kotlin("jvm")
     id("org.jlleitschuh.gradle.ktlint")
-    `maven-publish`
 }
 
 dependencies {
+    compileOnly(project(":server"))
     compileOnly("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
-    api("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly("net.minestom:minestom:2026.07.12-26.2")
 
     testImplementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     testImplementation("org.jetbrains.kotlin:kotlin-test")

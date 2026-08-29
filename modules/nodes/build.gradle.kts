@@ -1,22 +1,18 @@
 plugins {
     kotlin("jvm")
     id("org.jlleitschuh.gradle.ktlint")
-    `maven-publish`
 }
 
 dependencies {
-    api("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly(project(":server"))
+    compileOnly("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly("com.google.code.gson:gson:2.14.0")
     compileOnly("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     compileOnly(project(":modules:combat"))
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:vanilla"))
     compileOnly(project(":modules:worldedit"))
 
-    testImplementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
-    testImplementation(project(":modules:combat"))
-    testImplementation(project(":modules:utils"))
-    testImplementation(project(":modules:vanilla"))
-    testImplementation(project(":modules:worldedit"))
     testImplementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")

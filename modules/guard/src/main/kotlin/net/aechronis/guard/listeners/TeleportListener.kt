@@ -2,7 +2,7 @@ package net.aechronis.guard.listeners
 
 import net.aechronis.guard.Guard
 import net.aechronis.guard.flags.FlagName
-import net.minestom.server.MinecraftServer
+import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.entity.Player
 import net.minestom.server.event.entity.EntityTeleportEvent
 import net.minestom.server.timer.TaskSchedule
@@ -24,12 +24,13 @@ object TeleportListener {
                 FlagName.TELEPORT,
             ) {
                 allowedCorrections.add(player.uuid)
-                MinecraftServer
-                    .getSchedulerManager()
+                ModuleScheduler
                     .buildTask { player.teleport(player.position) }
                     .delay(TaskSchedule.tick(1))
                     .schedule()
             }
         }
     }
+
+    fun reset() = allowedCorrections.clear()
 }

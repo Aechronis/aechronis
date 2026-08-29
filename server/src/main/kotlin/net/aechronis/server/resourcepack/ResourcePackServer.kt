@@ -10,10 +10,11 @@ import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.security.MessageDigest
+import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -30,7 +31,9 @@ class ResourcePackServer private constructor(
         get() = archive.hash
 
     private val path = "/resource-pack/${archive.hash}.zip"
-    private val closed = AtomicBoolean()
+    private var serverStopped = false
+    private var archiveClosed = false
+    private var closed = false
 
     fun resourcePackInfo(serverAddress: String?): ResourcePackInfo =
         ResourcePackInfo
@@ -52,11 +55,32 @@ class ResourcePackServer private constructor(
         return URI("http", null, host, port, path, null, null)
     }
 
+    @Synchronized
     override fun close() {
-        if (!closed.compareAndSet(false, true)) return
-        server.stop(0)
-        executor.close()
-        archive.close()
+        if (closed) return
+        var failure: Throwable? = null
+
+        fun cleanup(action: () -> Unit) {
+            runCatching(action).onFailure { error ->
+                failure?.addSuppressed(error) ?: run { failure = error }
+            }
+        }
+
+        if (!serverStopped) {
+            cleanup {
+                server.stop(0)
+                serverStopped = true
+            }
+        }
+        cleanup { shutdownResourcePackExecutor(executor) }
+        if (!archiveClosed) {
+            cleanup {
+                archive.close()
+                archiveClosed = true
+            }
+        }
+        failure?.let { throw it }
+        closed = true
     }
 
     private fun handle(exchange: HttpExchange) {
@@ -113,13 +137,38 @@ class ResourcePackServer private constructor(
                 server.createContext("/resource-pack/", result::handle)
                 server.start()
                 result
-            } catch (exception: Exception) {
-                server?.stop(0)
-                executor?.close()
-                archive.close()
-                throw exception
+            } catch (error: Throwable) {
+                runCatching { server?.stop(0) }.exceptionOrNull()?.let(error::addSuppressed)
+                try {
+                    executor?.let(::shutdownResourcePackExecutor)
+                } catch (cleanupError: Throwable) {
+                    error.addSuppressed(cleanupError)
+                } finally {
+                    runCatching(archive::close).exceptionOrNull()?.let(error::addSuppressed)
+                }
+                throw error
             }
         }
+    }
+}
+
+internal fun shutdownResourcePackExecutor(
+    executor: ExecutorService,
+    gracefulTimeout: Duration = Duration.ofSeconds(5),
+    forcedTimeout: Duration = Duration.ofSeconds(2),
+) {
+    require(!gracefulTimeout.isNegative && !forcedTimeout.isNegative) { "Executor shutdown timeouts cannot be negative" }
+    executor.shutdown()
+    try {
+        if (executor.awaitTermination(gracefulTimeout.toMillis(), TimeUnit.MILLISECONDS)) return
+        val abandoned = executor.shutdownNow().size
+        check(executor.awaitTermination(forcedTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+            "Resource-pack HTTP executor did not terminate after interruption ($abandoned queued task(s) abandoned)"
+        }
+    } catch (error: InterruptedException) {
+        executor.shutdownNow()
+        Thread.currentThread().interrupt()
+        throw IllegalStateException("Interrupted while stopping the resource-pack HTTP executor", error)
     }
 }
 
@@ -160,7 +209,8 @@ internal data class ResourcePackArchive(
                             .forEach { file ->
                                 val entryName = root.relativize(file).joinToString("/") { it.toString() }
                                 val entry = ZipEntry(entryName)
-                                entry.time = Files.getLastModifiedTime(file, LinkOption.NOFOLLOW_LINKS).toMillis()
+                                // Content-identical packs must keep the same hash across extraction and restarts.
+                                entry.time = 0L
                                 output.putNextEntry(entry)
                                 Files.copy(file, output)
                                 output.closeEntry()

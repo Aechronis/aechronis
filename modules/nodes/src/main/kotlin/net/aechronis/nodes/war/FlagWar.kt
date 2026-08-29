@@ -51,6 +51,7 @@ import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.serdes.WarDeserializer
 import net.aechronis.nodes.war.serdes.WarSerializer
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
@@ -148,8 +149,10 @@ object FlagWar {
     // Core captures can cancel many flags; refresh all minimaps once afterward.
     private var minimapRefreshDeferrals: Int = 0
     private var minimapRefreshPending: Boolean = false
+    private var cleanupSnapshotHandled: Boolean = false
 
     fun initialize(flagBlocks: Set<Block>) {
+        cleanupSnapshotHandled = false
         this.flagBlocks.clear()
         FlagWar.flagBlocks.addAll(flagBlocks)
         skyBeaconSize = Nodes.config.flagBeaconSize.coerceIn(2, 16)
@@ -437,7 +440,7 @@ object FlagWar {
     }
 
     // cleanup when server is shutdown
-    internal fun cleanup() {
+    internal fun cleanup(persistState: Boolean = true) {
         // stop scheduled work
         saveTask?.cancel()
         saveTask = null
@@ -449,16 +452,20 @@ object FlagWar {
             attack.progressBar.removeViewer(Audiences.all())
         }
 
-        synchronized(Nodes.occupationPersistenceLock) {
-            WarSerializer.save(false)
-            territoryOccupationJournalDirty = false
+        if (persistState && !cleanupSnapshotHandled) {
+            synchronized(Nodes.occupationPersistenceLock) {
+                WarSerializer.save(false)
+                territoryOccupationJournalDirty = false
+            }
         }
+        cleanupSnapshotHandled = true
 
         // disable war
         enabled = false
 
         // iterate chunks and stop current attacks
-        for ((coord, attack) in chunkToAttacker) {
+        for (attack in chunkToAttacker.values.toList()) {
+            val coord = attack.coord
             val chunk = TerritoryChunk.fromCoord(coord)
             if (chunk !== null) {
                 chunk.attacker = null
@@ -1511,7 +1518,7 @@ object FlagWar {
 
     private fun startAttackTask() {
         if (attackTask != null) return
-        attackTask = MinecraftServer.getSchedulerManager()
+        attackTask = ModuleScheduler
             .buildTask {
                 // A snapshot allows completion/cancellation to remove entries
                 // without changing the collection currently being iterated.
@@ -1534,7 +1541,7 @@ object FlagWar {
             saveTask = null
         }
         if (saveTask != null) return
-        saveTask = MinecraftServer.getSchedulerManager()
+        saveTask = ModuleScheduler
             .buildTask(SaveLoop)
             .delay(TaskSchedule.tick(saveTaskPeriod))
             .repeat(TaskSchedule.tick(saveTaskPeriod))

@@ -1,9 +1,11 @@
 package net.aechronis.logger.objects
 
 import net.aechronis.logger.Logger
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.hasPermission
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
@@ -76,6 +78,15 @@ object SnapshotViewer {
         }
     }
 
+    fun close() {
+        sessions.toMap().forEach { (uuid, session) ->
+            MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uuid)?.let { player ->
+                if (player.openInventory === session.inventory) player.closeInventory()
+            }
+        }
+        sessions.clear()
+    }
+
     fun openList(
         viewer: Player,
         targetName: String,
@@ -86,7 +97,7 @@ object SnapshotViewer {
         Logger.inventorySnapshot
             .findByPlayerNameAsync(targetName, SNAPSHOTS_PER_PAGE + 1, page * SNAPSHOTS_PER_PAGE)
             .whenComplete { rows, failure ->
-                viewer.scheduleNextTick {
+                ModuleScheduler.scheduleNextTick {
                     if (!viewer.isOnline) return@scheduleNextTick
                     if (failure != null) {
                         viewer.sendMessage(Component.text("[Logger] failed to load snapshots", NamedTextColor.RED))
@@ -210,7 +221,7 @@ object SnapshotViewer {
         }
         if (!session.busy.compareAndSet(false, true)) return
         Logger.inventorySnapshot.findByIdAsync(session.snapshotId).whenComplete { snapshot, lookupFailure ->
-            viewer.scheduleNextTick {
+            ModuleScheduler.scheduleNextTick {
                 if (!viewer.isOnline) return@scheduleNextTick
                 if (lookupFailure != null || snapshot == null) {
                     session.busy.set(false)

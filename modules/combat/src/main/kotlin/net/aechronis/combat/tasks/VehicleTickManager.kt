@@ -6,6 +6,7 @@ import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.withCombatAttribution
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.watchdog.Watchdog
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
@@ -39,8 +40,7 @@ object VehicleTickManager {
     val playerLookingAtEntity = HashMap<Player, Entity>()
 
     fun start() {
-        MinecraftServer
-            .getSchedulerManager()
+        ModuleScheduler
             .buildTask {
                 Vehicle.reconcileOccupants()
 
@@ -285,6 +285,14 @@ object VehicleTickManager {
     fun removePlayer(player: Player) {
         lastImpacts.keys.removeIf { it.player === player }
         collisionIndex.removePlayer(player)
+    }
+
+    fun shutdown() {
+        previousVehiclePositions.clear()
+        lastImpacts.clear()
+        playerLookingAtVehicle.clear()
+        playerLookingAtEntity.clear()
+        collisionIndex.clear()
     }
 
     private fun handlePlayerCollisions(

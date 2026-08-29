@@ -118,6 +118,11 @@ object LagCompensation {
         smoothedLatencies.remove(player)
     }
 
+    fun clear() {
+        playerHistories.clear()
+        smoothedLatencies.clear()
+    }
+
     private fun updateLatency(player: Player) {
         val sample = player.latency.coerceAtLeast(0).toDouble()
         smoothedLatencies.compute(player) { _, previous ->

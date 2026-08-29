@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.CratesListener
 import net.aechronis.vanilla.objects.Crate
@@ -7,7 +8,6 @@ import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
-import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
@@ -102,7 +102,7 @@ object Crates {
             return false
         }
 
-        MinecraftServer.getSchedulerManager().submitTask {
+        ModuleScheduler.submitTask {
             val current = activeRolls[player.uuid]
             if (current !== roll) return@submitTask TaskSchedule.stop()
 
@@ -153,8 +153,7 @@ object Crates {
         if (showResult) {
             roll.inventory.setItemStack(13, roll.winner)
             roll.player.playSound(winSound())
-            MinecraftServer
-                .getSchedulerManager()
+            ModuleScheduler
                 .buildTask {
                     inventoryOwners.remove(roll.inventory)
                     if (roll.player.openInventory === roll.inventory) roll.player.closeInventory()
@@ -199,4 +198,15 @@ object Crates {
             0.8f,
             1.0f,
         )
+
+    fun shutdown() {
+        activeRolls.values.toList().forEach { roll ->
+            if (roll.player.openInventory === roll.inventory) roll.player.closeInventory()
+            finishRoll(roll, showResult = false)
+        }
+        inventoryOwners.keys.forEach { inventory -> inventory.viewers.toList().forEach { it.closeInventory() } }
+        activeRolls.clear()
+        inventoryOwners.clear()
+        definitions.clear()
+    }
 }

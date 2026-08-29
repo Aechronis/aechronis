@@ -165,5 +165,9 @@ open class Car(
 
     companion object {
         val playerSpeed = hashMapOf<Player, Float>()
+
+        internal fun shutdownRuntimeState() {
+            playerSpeed.clear()
+        }
     }
 }
