@@ -11,7 +11,7 @@ class NodesModule : AechronisModule {
     override val dependencies = setOf("utils", "combat", "vanilla", "worldedit")
 
     override fun initialize(context: ModuleContext) {
-        Nodes.initialize(NodesConfig(defaultRespawnPoint = context.spawnPoint))
+        Nodes.initialize(takeConfiguration(context))
         context.addListener(SpawnPointChangedEvent::class.java) { event ->
             Nodes.config.defaultRespawnPoint = event.spawnPoint
         }
@@ -30,4 +30,15 @@ class NodesModule : AechronisModule {
     }
 
     override fun shutdown(context: ModuleContext) = Nodes.cleanup()
+
+    companion object {
+        private var configured: NodesConfig? = null
+
+        fun configure(config: NodesConfig) {
+            check(configured == null) { "Nodes was configured by more than one active composition module" }
+            configured = config
+        }
+
+        private fun takeConfiguration(context: ModuleContext): NodesConfig = configured.also { configured = null } ?: NodesConfig(defaultRespawnPoint = context.spawnPoint)
+    }
 }

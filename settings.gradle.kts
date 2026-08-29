@@ -46,4 +46,5 @@ include(
     ":modules:misc",
     ":modules:guard",
     ":modules:iterations:template",
+    ":modules:iterations:a-new-millenium",
 )

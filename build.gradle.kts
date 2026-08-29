@@ -105,7 +105,7 @@ val runtimeModuleProjects =
         ":modules:logger",
         ":modules:guard",
         ":modules:gems",
-        ":modules:iterations:template",
+        ":modules:iterations:a-new-millenium",
     )
 
 val assembleServerDistribution =

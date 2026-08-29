@@ -231,7 +231,7 @@ class CombatTest {
             Car(
                 name = "test-car",
                 itemName = Component.text("Test Car", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-                model = "aechronis:humvee",
+                model = "aechronis:truck",
                 hitbox = testCarHitbox,
                 health = testHealth(100F),
                 scale = 3.0,

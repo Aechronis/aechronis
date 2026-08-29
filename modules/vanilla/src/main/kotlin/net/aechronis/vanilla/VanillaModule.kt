@@ -18,7 +18,7 @@ class VanillaModule : AechronisModule {
     override val dependencies = setOf("utils", "combat")
 
     override fun initialize(context: ModuleContext) {
-        Vanilla.init(shutdownAction = context::shutdownServer)
+        Vanilla.init(c = takeConfiguration(), shutdownAction = context::shutdownServer)
         if (Vanilla.config.cropsEnabled) Crops.restoreTransientState(context.peekTransientState(CROPS_STATE_KEY))
         if (Vanilla.config.saplingsEnabled) Saplings.restoreTransientState(context.peekTransientState(SAPLINGS_STATE_KEY))
         if (Vanilla.config.oresEnabled) Ores.restoreTransientState(context.peekTransientState(ORE_COOLDOWNS_STATE_KEY))
@@ -66,7 +66,16 @@ class VanillaModule : AechronisModule {
         }
     }
 
-    private companion object {
+    companion object {
+        private var configured: VanillaConfig? = null
+
+        fun configure(config: VanillaConfig) {
+            check(configured == null) { "Vanilla was configured by more than one active composition module" }
+            configured = config
+        }
+
+        private fun takeConfiguration(): VanillaConfig = configured.also { configured = null } ?: VanillaConfig()
+
         const val CROPS_STATE_KEY = "vanilla:crops:v1"
         const val SAPLINGS_STATE_KEY = "vanilla:saplings:v1"
         const val ORE_COOLDOWNS_STATE_KEY = "vanilla:ore-cooldowns:v1"

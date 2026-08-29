@@ -551,6 +551,13 @@ class ModuleManager private constructor(
 
             disabledReasons = reasons
             val enabled = available.filterNot { it.module.id in reasons }
+            val enabledIds = enabled.mapTo(hashSetOf()) { it.module.id }
+            enabled.forEach { available ->
+                val conflict = available.module.conflicts.firstOrNull { it in enabledIds }
+                require(conflict == null) {
+                    "Module '${available.module.id}' conflicts with enabled module '$conflict'"
+                }
+            }
             val sorted = sort(enabled.map { it.module })
             val records = enabled.associateBy { it.module.id }
             active = sorted.map { records.getValue(it.id) }
@@ -563,6 +570,11 @@ class ModuleManager private constructor(
             registrations = RuntimeRegistrations.capture(classLoader)
             ModuleRuntime.activate(resourceScope)
             started = true
+            active.asReversed().forEach { available ->
+                withContextClassLoader(classLoader) {
+                    available.module.configure(context)
+                }
+            }
             active.forEach { available ->
                 initialized += available
                 withContextClassLoader(classLoader) {
@@ -920,6 +932,11 @@ class ModuleManager private constructor(
             module.dependencies.forEach { dependency ->
                 require(dependency.matches(MODULE_ID)) {
                     "Module '${module.id}' has invalid dependency id '$dependency'"
+                }
+            }
+            module.conflicts.forEach { conflict ->
+                require(conflict.matches(MODULE_ID)) {
+                    "Module '${module.id}' has invalid conflict id '$conflict'"
                 }
             }
         }

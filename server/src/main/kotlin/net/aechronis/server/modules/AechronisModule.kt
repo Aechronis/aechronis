@@ -13,6 +13,15 @@ interface AechronisModule {
     val externalResourcePacks: List<ResourcePackInfo>
         get() = emptyList()
 
+    val conflicts: Set<String>
+        get() = emptySet()
+
+    /**
+     * Supplies generation-scoped configuration before any module is initialized. This runs in
+     * reverse dependency order so composition modules can configure their dependencies.
+     */
+    fun configure(context: ModuleContext) = Unit
+
     fun initialize(context: ModuleContext) = Unit
 
     /**

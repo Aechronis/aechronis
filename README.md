@@ -5,7 +5,8 @@ This repository contains the Aechronis server, its Kotlin modules, guides, and r
 ## Layout
 
 - `server/` contains the bootstrap, permanent integrations and services, and runtime JAR module loader.
-- `modules/` contains the independently loaded gameplay module projects. `modules/iterations/template` is the default gameplay composition for items, recipes, and other non-iteration-specific gameplay. Any runtime module can keep a matching pack in its own `resource-pack/` directory. `modules/misc` is the build-time integration library embedded into the permanent server JAR.
+- `modules/` contains the independently loaded gameplay module projects. `modules/iterations/a-new-millenium` is the current gameplay composition; `modules/iterations/template` remains the baseline for future iterations. Any runtime module can keep a matching pack in its own `resource-pack/` directory. `modules/misc` is the build-time integration library embedded into the permanent server JAR.
+- `modules/nodes/resource-pack/` owns minimap and relationship-hitbox assets, `modules/combat/resource-pack/` owns combat's hidden glow-lichen and cloud assets, and each iteration module owns its remaining client assets. The active iteration additionally requests its external Ashen base pack.
 - `guides/` contains the mdBook site.
 
 ## Build
@@ -20,9 +21,9 @@ under `build/distributions/aechronis/` and its archive at
 
 Runtime modules are built independently. For example,
 `./gradlew :modules:combat:build` produces the combat module JAR in
-`modules/combat/build/libs`, while the template module uses
-`./gradlew :modules:iterations:template:build` and
-`modules/iterations/template/build/libs`. These JARs can be copied directly to
+`modules/combat/build/libs`, while the current iteration module uses
+`./gradlew :modules:iterations:a-new-millenium:build` and
+`modules/iterations/a-new-millenium/build/libs`. These JARs can be copied directly to
 the server's module directory. A runtime module with a `resource-pack/pack.mcmeta`
 also contains that pack, so its gameplay and client assets are deployed together.
 The module manager discovers these packs automatically; modules do not need a
@@ -68,19 +69,23 @@ provide their own manifest or omit it when intentionally running a different
 non-empty module set. An empty module directory is rejected so a legacy
 core-JAR-only deployment cannot silently start without gameplay.
 
+Iteration composition modules are alternatives, not add-ons. Remove an old
+`template.jar` when deploying `a-new-millenium.jar`; the module graph rejects a
+generation containing both to prevent duplicate item and listener registration.
+
 Do not overwrite a live JAR in place. Copy the replacement beside it using a
 non-`.jar` suffix, then atomically rename it on the same filesystem before
 running `/modules rescan`:
 
 ```sh
-cp template-new.jar modules/template.jar.part
-mv modules/template.jar.part modules/template.jar
+cp a-new-millenium-new.jar modules/a-new-millenium.jar.part
+mv modules/a-new-millenium.jar.part modules/a-new-millenium.jar
 ```
 
 To remove a module, unload it (using `cascade` when required), move its JAR out
-of the module directory, and run `/modules rescan`. The `template` module
+of the module directory, and run `/modules rescan`. The `a-new-millenium` module
 depends on the complete default gameplay graph, so unloading one of its
-dependencies also requires unloading `template`.
+dependencies also requires unloading `a-new-millenium`.
 
 Each runtime module shadow JAR embeds a pack when that module has a `resource-pack/`
 directory. When the module loads, the core extracts and serves the pack from
