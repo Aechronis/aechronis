@@ -5,8 +5,8 @@ This repository contains the Aechronis server, its Kotlin modules, guides, and r
 ## Layout
 
 - `server/` contains the bootstrap, permanent integrations and services, and runtime JAR module loader.
-- `modules/` contains the independently loaded gameplay module projects. `modules/iterations/template` is the default gameplay composition for items, recipes, and other non-iteration-specific gameplay. `modules/misc` is the build-time integration library embedded into the permanent server JAR.
-- `resource-pack/` is the Aechronis pack embedded and served by the core server. The template module additionally requests its external Ashen base pack.
+- `modules/` contains the independently loaded gameplay module projects. `modules/iterations/a-new-millenium` is the current gameplay composition; `modules/iterations/template` remains the baseline for future iterations. `modules/misc` is the build-time integration library embedded into the permanent server JAR.
+- `resource-pack/` is the Aechronis pack embedded and served by the core server. The active iteration module additionally requests its external Ashen base pack.
 - `guides/` contains the mdBook site.
 
 ## Build
@@ -21,9 +21,9 @@ under `build/distributions/aechronis/` and its archive at
 
 Runtime modules are built independently. For example,
 `./gradlew :modules:combat:build` produces the combat module JAR in
-`modules/combat/build/libs`, while the template module uses
-`./gradlew :modules:iterations:template:build` and
-`modules/iterations/template/build/libs`. These JARs can be copied directly to
+`modules/combat/build/libs`, while the current iteration module uses
+`./gradlew :modules:iterations:a-new-millenium:build` and
+`modules/iterations/a-new-millenium/build/libs`. These JARs can be copied directly to
 the server's module directory.
 
 Dependencies used only by a runtime module belong on its `moduleApi` or
@@ -66,19 +66,23 @@ provide their own manifest or omit it when intentionally running a different
 non-empty module set. An empty module directory is rejected so a legacy
 core-JAR-only deployment cannot silently start without gameplay.
 
+Iteration composition modules are alternatives, not add-ons. Remove an old
+`template.jar` when deploying `a-new-millenium.jar`; the module graph rejects a
+generation containing both to prevent duplicate item and listener registration.
+
 Do not overwrite a live JAR in place. Copy the replacement beside it using a
 non-`.jar` suffix, then atomically rename it on the same filesystem before
 running `/modules rescan`:
 
 ```sh
-cp template-new.jar modules/template.jar.part
-mv modules/template.jar.part modules/template.jar
+cp a-new-millenium-new.jar modules/a-new-millenium.jar.part
+mv modules/a-new-millenium.jar.part modules/a-new-millenium.jar
 ```
 
 To remove a module, unload it (using `cascade` when required), move its JAR out
-of the module directory, and run `/modules rescan`. The `template` module
+of the module directory, and run `/modules rescan`. The `a-new-millenium` module
 depends on the complete default gameplay graph, so unloading one of its
-dependencies also requires unloading `template`.
+dependencies also requires unloading `a-new-millenium`.
 
 The shadow JAR embeds the resource pack. On startup, it extracts that pack into
 `resource-pack/` beside the JAR before initializing Minestom and starting the resource-pack server.

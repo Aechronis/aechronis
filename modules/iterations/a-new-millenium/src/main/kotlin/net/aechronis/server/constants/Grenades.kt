@@ -7,18 +7,18 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 
 object Grenades {
-    val frag =
+    val rgo =
         Grenade(
-            name = "grenade",
-            itemName = Component.text("Frag Grenade", NamedTextColor.DARK_GREEN).decoration(TextDecoration.ITALIC, false),
-            itemModel = "aechronis:grenade",
-            projectileModel = "aechronis:grenade",
+            name = "rgo-grenade",
+            itemName = Component.text("RGO Grenade", NamedTextColor.DARK_GREEN).decoration(TextDecoration.ITALIC, false),
+            itemModel = "aechronis:rgo-grenade",
+            projectileModel = "aechronis:rgo-grenade",
             fuseTimeMillis = 5_000L,
             throwSpeed = 1.0,
             gravity = 0.05,
-            explosionRadius = 4,
+            explosionRadius = 2,
             explosionFire = 0.0,
-            explosionDamage = 30F,
+            explosionDamage = 35F,
             ammoType = AmmoTypes.EXPLOSIVE,
         )
 }

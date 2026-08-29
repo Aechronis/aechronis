@@ -8,7 +8,7 @@ import net.minestom.server.event.Event
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 
-/** Always serves the embedded Aechronis pack, independently of the template module. */
+/** Always serves the embedded Aechronis pack, independently of an iteration module. */
 object ResourcePackListener {
     private val eventNode: EventNode<Event> = EventNode.all("aechronis-resource-pack").setPriority(Int.MAX_VALUE)
     private var initialized = false
@@ -17,7 +17,7 @@ object ResourcePackListener {
         check(!initialized) { "Resource-pack listener is already initialized" }
         initialized = true
         eventNode.addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
-            // The permanent server must remain joinable even when the template module is absent.
+            // The permanent server must remain joinable even when an iteration module is absent.
             event.spawningInstance = Server.instance
             event.player.sendResourcePacks(
                 ResourcePackRequest

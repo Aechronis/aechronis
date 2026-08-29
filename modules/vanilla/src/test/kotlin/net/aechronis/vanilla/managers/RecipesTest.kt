@@ -60,7 +60,7 @@ class RecipesTest : ManagerTest() {
         val displays = recipeBookRecipes().flatMap(RecipeBookRecipe::createRecipeDisplays)
 
         assertEquals(Recipes.recipes.size, displays.size)
-        assertEquals(3, displays.count { it is RecipeDisplay.CraftingShaped })
+        assertEquals(1, displays.count { it is RecipeDisplay.CraftingShaped })
         assertEquals(1, displays.count { it is RecipeDisplay.CraftingShapeless })
     }
 

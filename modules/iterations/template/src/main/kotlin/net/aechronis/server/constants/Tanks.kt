@@ -9,6 +9,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.particle.Particle
 
 object Tanks {
     private val m1a1AbramsHitbox =
@@ -28,59 +29,20 @@ object Tanks {
             model = "aechronis:m1a1-abrams",
             hitbox = m1a1AbramsHitbox,
             scale = 3.0,
-            maxSpeed = 0.4f,
             ammo = Ammo.tankShell,
-            maxAmmo = 3,
-            projectileExplosionDamage = 300f,
-            projectileExplosionRadius = 5,
+            maxAmmo = 10,
             health =
                 Health(
-                    1500f,
+                    1000F,
                     mapOf(
-                        AmmoTypes.NORMAL to 0f,
-                        AmmoTypes.EXPLOSIVE to 50f,
-                        AmmoTypes.BOMB to 500f,
-                        AmmoTypes.MISSILE to 750f,
+                        AmmoTypes.NORMAL to 1f,
+                        AmmoTypes.MISSILE to 1f,
+                        AmmoTypes.BOMB to 1f,
+                        AmmoTypes.EXPLOSIVE to 1f,
                     ),
                 ),
-            projectileModel = "aechronis:shell",
-        )
-
-    // Starter configuration for the T-90 body/turret/barrel models.
-    val t90 =
-        Tank(
-            name = "t-90",
-            itemName = Component.text("T-90", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            model = "aechronis:t-90",
-            hitbox =
-                Hitbox(
-                    listOf(
-                        // Body model bounds after applying its display scale (6.0).
-                        HitboxPart(
-                            offset = Vec(0.0, -1.9, -0.25),
-                            size = Vec(2.1, 0.9, 4.5),
-                        ),
-                    ),
-                ),
-            scale = 6.0,
-            maxSpeed = 0.6f,
-            ammo = Ammo.tankShell,
-            maxAmmo = 2,
-            health =
-                Health(
-                    1200f,
-                    mapOf(
-                        AmmoTypes.NORMAL to 0f,
-                        AmmoTypes.EXPLOSIVE to 50f,
-                        AmmoTypes.BOMB to 500f,
-                        AmmoTypes.MISSILE to 750f,
-                    ),
-                ),
-            projectileModel = "aechronis:shell",
-            projectileName = Component.text("T-90 cannon"),
-            projectileExplosionDamage = 200f,
-            projectileExplosionRadius = 4,
-            fireCooldown = 5000,
-            barrelTipOffset = Vec(0.0, 0.0, 5.0),
+            projectileTrailParticle = Particle.ELECTRIC_SPARK,
+            projectileMaxRange = 128.0,
+            seatOffsets = listOf(Vec(0.0, 1.0, 0.0)),
         )
 }

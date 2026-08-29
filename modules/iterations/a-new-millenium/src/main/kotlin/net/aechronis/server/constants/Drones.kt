@@ -13,12 +13,8 @@ object Drones {
         Hitbox(
             listOf(
                 HitboxPart(
-                    offset = Vec(0.0, 0.0, -2.0),
-                    size = Vec(1.0, 1.0, 8.0),
-                ),
-                HitboxPart(
-                    offset = Vec(0.0, -0.5, 0.0),
-                    size = Vec(8.0, 0.5, 2.0),
+                    offset = Vec(0.0, 0.0, 0.0),
+                    size = Vec(1.5, 1.5, 1.5),
                 ),
             ),
         )
@@ -34,8 +30,10 @@ object Drones {
             maxSpeed = 3F,
             turnSpeed = 5F,
             pitchSpeed = 5F,
-            maxRange = 500,
-            batteryLifeTicks = 2000,
+            maxRange = 3000,
+            batteryLifeTicks = 10000,
+            explosionDamage = 0F,
+            explosionRadius = 0,
             buzzSound = Sound.sound(Key.key("aechronis:drone.buzz"), Sound.Source.PLAYER, 1f, 1f),
             buzzPeriodTicks = 5,
         )
@@ -51,14 +49,14 @@ object Drones {
             maxSpeed = 2F,
             turnSpeed = 5F,
             pitchSpeed = 5F,
-            maxRange = 300,
-            batteryLifeTicks = 1000,
+            maxRange = 1500,
+            batteryLifeTicks = 3000,
             projectileModel = "aechronis:rpg-rocket",
             projectileMountOffset = Vec(0.0, 0.5, 0.0),
             projectileScale = 0.5,
             explosionRadius = 3,
             explosionFire = 0.3,
-            explosionDamage = 20F,
+            explosionDamage = 750F,
             buzzSound = Sound.sound(Key.key("aechronis:drone.buzz"), Sound.Source.PLAYER, 1f, 1f),
             buzzPeriodTicks = 5,
         )
