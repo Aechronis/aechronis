@@ -12,7 +12,7 @@ dependencies {
     compileOnly("com.google.code.gson:gson:2.14.0")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")
-    testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testImplementation("org.slf4j:slf4j-simple:2.0.18")
     testImplementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
 }
