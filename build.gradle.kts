@@ -58,6 +58,9 @@ subprojects {
             tasks.named<ShadowJar>("shadowJar") {
                 archiveClassifier.set("")
                 configurations.set(listOf(moduleLibrariesClasspath.get()))
+                from(layout.projectDirectory.dir("resource-pack")) {
+                    into("embedded-resource-pack")
+                }
                 eachFile {
                     duplicatesStrategy =
                         if (

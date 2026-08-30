@@ -55,10 +55,6 @@ tasks.named<ShadowJar>("shadowJar") {
     relocate("org.json", "net.aechronis.craftingstore.libs.json")
     relocate("okhttp3", "net.aechronis.craftingstore.libs.okhttp3")
     relocate("okio", "net.aechronis.craftingstore.libs.okio")
-
-    from(rootProject.file("resource-pack")) {
-        into("embedded-resource-pack")
-    }
 }
 
 dependencies {

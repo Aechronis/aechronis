@@ -55,6 +55,8 @@ void main() {
     encodedLineEndpoint.y = lineVertex == 0 || lineVertex == 3 ? 1.0 : 0.0;
     sourceLineWidth = LineWidth;
 	
+	// ModelManager sends time 11000 while combat interaction is active. Hide
+	// Minecraft's translucent black selection outline around its fake lichen.
 	int tickGameTime = int(GameTime * 24000);
 	if ((tickGameTime / 1000) % 10 == 1) {
 		if (Color == vec4(0, 0, 0, .4)) {

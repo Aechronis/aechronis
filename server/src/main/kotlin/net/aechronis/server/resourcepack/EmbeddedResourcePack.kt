@@ -11,21 +11,39 @@ import java.util.jar.JarFile
 object EmbeddedResourcePack {
     private const val EMBEDDED_ROOT = "embedded-resource-pack/"
 
-    fun install(
+    fun installIfPresent(
+        directory: Path?,
+        owner: Class<*>,
+    ): Path? {
+        val location = codeLocation(owner)
+        if (Files.isDirectory(location, LinkOption.NOFOLLOW_LINKS)) {
+            return findLivePack(location)?.also { println("[ResourcePack] using live pack at $it") }
+        }
+        require(Files.isRegularFile(location, LinkOption.NOFOLLOW_LINKS)) {
+            "Cannot locate the module JAR: $location"
+        }
+        val hasPack = JarFile(location.toFile()).use { it.getJarEntry("${EMBEDDED_ROOT}pack.mcmeta") != null }
+        if (!hasPack) return null
+        val destination = checkNotNull(directory) { "Resource-pack directory is unavailable for ${owner.name}" }
+        return install(destination, location)
+    }
+
+    internal fun install(
         directory: Path,
-        codeLocation: Path = runningLocation(),
-    ) {
+        codeLocation: Path,
+    ): Path {
         val destination = directory.toAbsolutePath().normalize()
         val jar = codeLocation.toAbsolutePath().normalize()
         if (Files.isDirectory(jar, LinkOption.NOFOLLOW_LINKS)) {
-            require(Files.isRegularFile(destination.resolve("pack.mcmeta"), LinkOption.NOFOLLOW_LINKS)) {
-                "Cannot locate the live resource pack for exploded server classes: $destination"
+            val livePack = findLivePack(jar)
+            require(livePack != null) {
+                "Cannot locate a live resource-pack directory above exploded classes: $jar"
             }
-            println("[ResourcePack] using live pack at $destination")
-            return
+            println("[ResourcePack] using live pack at $livePack")
+            return livePack
         }
         require(Files.isRegularFile(jar, LinkOption.NOFOLLOW_LINKS)) {
-            "Cannot locate the running server JAR: $jar"
+            "Cannot locate the module JAR: $jar"
         }
 
         val parent = destination.parent ?: Path.of(".").toAbsolutePath().normalize()
@@ -51,6 +69,7 @@ object EmbeddedResourcePack {
             installed = true
             if (backedUp) deleteRecursively(backup)
             println("[ResourcePack] extracted embedded pack to $destination")
+            return destination
         } catch (exception: Exception) {
             if (installed) deleteIfExists(destination)
             if (backedUp && Files.exists(backup, LinkOption.NOFOLLOW_LINKS)) move(backup, destination)
@@ -62,31 +81,37 @@ object EmbeddedResourcePack {
     }
 
     fun defaultDirectory(
-        codeLocation: Path = runningLocation(),
+        codeLocation: Path = codeLocation(EmbeddedResourcePack::class.java),
         workingDirectory: Path = Path.of("."),
     ): Path {
         val location = codeLocation.toAbsolutePath().normalize()
-        if (Files.isRegularFile(location, LinkOption.NOFOLLOW_LINKS)) return location.parent
-
-        var ancestor: Path? = location
-        while (ancestor != null) {
-            if (Files.isRegularFile(ancestor.resolve("resource-pack/pack.mcmeta"), LinkOption.NOFOLLOW_LINKS)) {
-                return ancestor
-            }
-            ancestor = ancestor.parent
+        return if (Files.isRegularFile(location, LinkOption.NOFOLLOW_LINKS)) {
+            location.parent.resolve("resource-packs")
+        } else {
+            workingDirectory.toAbsolutePath().normalize().resolve("run/resource-packs")
         }
-
-        return workingDirectory.toAbsolutePath().normalize()
     }
 
-    private fun runningLocation(): Path {
+    private fun codeLocation(owner: Class<*>): Path {
         val location =
-            EmbeddedResourcePack::class.java
+            owner
                 .protectionDomain
                 .codeSource
                 .location
                 .toURI()
         return Path.of(location).toAbsolutePath().normalize()
+    }
+
+    private fun findLivePack(codeLocation: Path): Path? {
+        var ancestor: Path? = codeLocation
+        while (ancestor != null) {
+            val candidate = ancestor.resolve("resource-pack")
+            if (Files.isRegularFile(candidate.resolve("pack.mcmeta"), LinkOption.NOFOLLOW_LINKS)) {
+                return candidate
+            }
+            ancestor = ancestor.parent
+        }
+        return null
     }
 
     private fun extract(

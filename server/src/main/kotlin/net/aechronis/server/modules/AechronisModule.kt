@@ -1,5 +1,6 @@
 package net.aechronis.server.modules
 
+import net.kyori.adventure.resource.ResourcePackInfo
 import java.util.concurrent.CompletableFuture
 
 interface AechronisModule {
@@ -7,6 +8,10 @@ interface AechronisModule {
 
     val dependencies: Set<String>
         get() = emptySet()
+
+    /** Remote packs placed before this module's automatically discovered embedded pack. */
+    val externalResourcePacks: List<ResourcePackInfo>
+        get() = emptyList()
 
     fun initialize(context: ModuleContext) = Unit
 

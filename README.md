@@ -1,12 +1,11 @@
 # Aechronis
 
-This repository contains the Aechronis server, its Kotlin modules, guides, and resource pack.
+This repository contains the Aechronis server, its Kotlin modules, guides, and resource packs.
 
 ## Layout
 
 - `server/` contains the bootstrap, permanent integrations and services, and runtime JAR module loader.
-- `modules/` contains the independently loaded gameplay module projects. `modules/iterations/template` is the default gameplay composition for items, recipes, and other non-iteration-specific gameplay. `modules/misc` is the build-time integration library embedded into the permanent server JAR.
-- `resource-pack/` is the Aechronis pack embedded and served by the core server. The template module additionally requests its external Ashen base pack.
+- `modules/` contains the independently loaded gameplay module projects. `modules/iterations/template` is the default gameplay composition for items, recipes, and other non-iteration-specific gameplay. Any runtime module can keep a matching pack in its own `resource-pack/` directory. `modules/misc` is the build-time integration library embedded into the permanent server JAR.
 - `guides/` contains the mdBook site.
 
 ## Build
@@ -24,7 +23,10 @@ Runtime modules are built independently. For example,
 `modules/combat/build/libs`, while the template module uses
 `./gradlew :modules:iterations:template:build` and
 `modules/iterations/template/build/libs`. These JARs can be copied directly to
-the server's module directory.
+the server's module directory. A runtime module with a `resource-pack/pack.mcmeta`
+also contains that pack, so its gameplay and client assets are deployed together.
+The module manager discovers these packs automatically; modules do not need a
+player listener or initialization code to apply them.
 
 Dependencies used only by a runtime module belong on its `moduleApi` or
 `moduleImplementation` configuration and are shaded into that module's
@@ -80,9 +82,11 @@ of the module directory, and run `/modules rescan`. The `template` module
 depends on the complete default gameplay graph, so unloading one of its
 dependencies also requires unloading `template`.
 
-The shadow JAR embeds the resource pack. On startup, it extracts that pack into
-`resource-pack/` beside the JAR before initializing Minestom and starting the resource-pack server.
-Use `-Daechronis.resourcePack.directory=/custom/path` to override the extraction directory.
+Each runtime module shadow JAR embeds a pack when that module has a `resource-pack/`
+directory. When the module loads, the core extracts and serves the pack from
+`resource-packs/<module-id>/` beside the server JAR, then applies the complete
+active module pack stack to players. In an exploded development run it serves
+each module's source directory directly.
 
 Server data paths are relative to the process working directory. Run the JAR from a dedicated
 deployment directory rather than storing live world or module data in this repository.

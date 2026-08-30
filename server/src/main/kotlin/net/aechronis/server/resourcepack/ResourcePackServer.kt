@@ -3,6 +3,9 @@ package net.aechronis.server.resourcepack
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import net.kyori.adventure.resource.ResourcePackInfo
+import net.kyori.adventure.resource.ResourcePackRequest
+import net.kyori.adventure.text.Component
+import net.minestom.server.entity.Player
 import java.net.InetSocketAddress
 import java.net.URI
 import java.nio.charset.StandardCharsets
@@ -21,30 +24,98 @@ import java.util.zip.ZipOutputStream
 class ResourcePackServer private constructor(
     private val server: HttpServer,
     private val executor: ExecutorService,
-    private val archive: ResourcePackArchive,
     private val publicBaseUri: URI?,
 ) : AutoCloseable {
     val port: Int
         get() = server.address.port
 
-    val hash: String
-        get() = archive.hash
-
-    private val path = "/resource-pack/${archive.hash}.zip"
+    private val activePacks = linkedMapOf<String, ModuleResourcePacks>()
     private var serverStopped = false
-    private var archiveClosed = false
     private var closed = false
 
-    fun resourcePackInfo(serverAddress: String?): ResourcePackInfo =
+    @Synchronized
+    fun install(
+        id: String,
+        directory: Path?,
+        externalPacks: List<ResourcePackInfo> = emptyList(),
+    ): ResourcePackRegistration {
+        check(!closed) { "Resource-pack server is closed" }
+        require(id.matches(RESOURCE_PACK_ID_PATTERN)) { "Invalid resource-pack ID: '$id'" }
+        check(id !in activePacks) { "Resource packs for module '$id' are already active" }
+        require(directory != null || externalPacks.isNotEmpty()) { "Module '$id' does not provide any resource packs" }
+
+        val hostedPack =
+            directory?.let {
+                ServedResourcePack(
+                    id = id,
+                    uuid = UUID.nameUUIDFromBytes("aechronis:resource-pack:$id".toByteArray(StandardCharsets.UTF_8)),
+                    archive = ResourcePackArchive.create(it),
+                )
+            }
+        val packs =
+            ModuleResourcePacks(
+                moduleId = id,
+                hostedPack = hostedPack,
+                externalPacks = externalPacks.toList(),
+            )
+        activePacks[id] = packs
+        hostedPack?.let { println("[ResourcePack] serving ${it.id} (${it.archive.hash})") }
+        if (externalPacks.isNotEmpty()) {
+            println("[ResourcePack] registered ${externalPacks.size} external pack(s) for $id")
+        }
+        return ResourcePackRegistration(this, packs)
+    }
+
+    @Synchronized
+    fun resourcePackInfos(serverAddress: String?): List<ResourcePackInfo> {
+        check(!closed) { "Resource-pack server is closed" }
+        return activePacks.values.flatMap { resourcePackInfos(it, serverAddress) }
+    }
+
+    fun sendResourcePacks(player: Player) {
+        sendResourcePacks(player, resourcePackInfos(player.playerConnection.serverAddress))
+    }
+
+    private fun resourcePackInfos(
+        packs: ModuleResourcePacks,
+        serverAddress: String?,
+    ): List<ResourcePackInfo> =
+        buildList {
+            addAll(packs.externalPacks)
+            packs.hostedPack?.let { add(resourcePackInfo(it, serverAddress)) }
+        }
+
+    private fun sendResourcePacks(
+        player: Player,
+        packs: List<ResourcePackInfo>,
+    ) {
+        if (packs.isEmpty()) return
+        player.sendResourcePacks(
+            ResourcePackRequest
+                .resourcePackRequest()
+                .packs(packs)
+                .prompt(Component.text("A resource pack is required to play"))
+                .required(true)
+                .build(),
+        )
+    }
+
+    private fun resourcePackInfo(
+        pack: ServedResourcePack,
+        serverAddress: String?,
+    ): ResourcePackInfo =
         ResourcePackInfo
             .resourcePackInfo()
-            .id(RESOURCE_PACK_ID)
-            .uri(publicUri(serverAddress))
-            .hash(archive.hash)
+            .id(pack.uuid)
+            .uri(publicUri(pack, serverAddress))
+            .hash(pack.archive.hash)
             .build()
 
-    internal fun publicUri(serverAddress: String?): URI {
-        publicBaseUri?.let { return it.resolve("${archive.hash}.zip") }
+    internal fun publicUri(
+        pack: ServedResourcePack,
+        serverAddress: String?,
+    ): URI {
+        publicBaseUri?.let { return it.resolve("${pack.id}/${pack.archive.hash}.zip") }
 
         val host =
             serverAddress
@@ -52,7 +123,17 @@ class ResourcePackServer private constructor(
                 ?.trim()
                 ?.takeIf(String::isNotEmpty)
                 ?: "127.0.0.1"
-        return URI("http", null, host, port, path, null, null)
+        return URI("http", null, host, port, pack.path, null, null)
+    }
+
+    @Synchronized
+    internal fun uninstall(packs: ModuleResourcePacks) {
+        if (activePacks[packs.moduleId] !== packs) return
+        activePacks.remove(packs.moduleId)
+        packs.hostedPack?.let { pack ->
+            pack.retire()
+            println("[ResourcePack] stopped serving ${pack.id}")
+        }
     }
 
     @Synchronized
@@ -73,66 +154,73 @@ class ResourcePackServer private constructor(
             }
         }
         cleanup { shutdownResourcePackExecutor(executor) }
-        if (!archiveClosed) {
-            cleanup {
-                archive.close()
-                archiveClosed = true
-            }
-        }
+        activePacks.values.forEach { packs -> packs.hostedPack?.let { cleanup(it::retire) } }
+        activePacks.clear()
         failure?.let { throw it }
         closed = true
     }
 
     private fun handle(exchange: HttpExchange) {
         exchange.use {
-            if (exchange.requestURI.path != path) {
+            val pack =
+                synchronized(this) {
+                    activePacks.values
+                        .asSequence()
+                        .mapNotNull(ModuleResourcePacks::hostedPack)
+                        .firstOrNull { it.path == exchange.requestURI.path }
+                }
+            if (pack == null || !pack.acquire()) {
                 exchange.sendResponseHeaders(404, -1)
                 return
             }
 
-            val method = exchange.requestMethod
-            if (method != "GET" && method != "HEAD") {
-                exchange.responseHeaders.set("Allow", "GET, HEAD")
-                exchange.sendResponseHeaders(405, -1)
-                return
-            }
+            try {
+                val method = exchange.requestMethod
+                if (method != "GET" && method != "HEAD") {
+                    exchange.responseHeaders.set("Allow", "GET, HEAD")
+                    exchange.sendResponseHeaders(405, -1)
+                    return
+                }
 
-            exchange.responseHeaders.set("Content-Type", "application/zip")
-            exchange.responseHeaders.set("Content-Disposition", "attachment; filename=\"aechronis-resource-pack.zip\"")
-            exchange.responseHeaders.set("Cache-Control", "public, max-age=31536000, immutable")
-            exchange.responseHeaders.set("ETag", "\"${archive.hash}\"")
+                exchange.responseHeaders.set("Content-Type", "application/zip")
+                exchange.responseHeaders.set(
+                    "Content-Disposition",
+                    "attachment; filename=\"aechronis-${pack.id}-resource-pack.zip\"",
+                )
+                exchange.responseHeaders.set("Cache-Control", "public, max-age=31536000, immutable")
+                exchange.responseHeaders.set("ETag", "\"${pack.archive.hash}\"")
 
-            if (method == "HEAD") {
-                exchange.responseHeaders.set("Content-Length", archive.size.toString())
-                exchange.sendResponseHeaders(200, -1)
-                return
-            }
+                if (method == "HEAD") {
+                    exchange.responseHeaders.set("Content-Length", pack.archive.size.toString())
+                    exchange.sendResponseHeaders(200, -1)
+                    return
+                }
 
-            exchange.sendResponseHeaders(200, archive.size)
-            Files.newInputStream(archive.path).use { input ->
-                input.transferTo(exchange.responseBody)
+                exchange.sendResponseHeaders(200, pack.archive.size)
+                Files.newInputStream(pack.archive.path).use { input ->
+                    input.transferTo(exchange.responseBody)
+                }
+            } finally {
+                pack.release()
             }
         }
     }
 
     companion object {
-        private val RESOURCE_PACK_ID =
-            UUID.nameUUIDFromBytes("aechronis:resource-pack".toByteArray(StandardCharsets.UTF_8))
+        private val RESOURCE_PACK_ID_PATTERN = Regex("[a-z0-9][a-z0-9-]{0,63}")
 
         fun start(
-            directory: Path,
             address: InetSocketAddress,
             publicBaseUri: URI? = null,
         ): ResourcePackServer {
             val normalizedPublicBaseUri = publicBaseUri?.normalizePublicBaseUri()
-            val archive = ResourcePackArchive.create(directory)
             var server: HttpServer? = null
             var executor: ExecutorService? = null
 
             return try {
                 server = HttpServer.create(address, 0)
                 executor = Executors.newVirtualThreadPerTaskExecutor()
-                val result = ResourcePackServer(server, executor, archive, normalizedPublicBaseUri)
+                val result = ResourcePackServer(server, executor, normalizedPublicBaseUri)
                 server.executor = executor
                 server.createContext("/resource-pack/", result::handle)
                 server.start()
@@ -143,11 +231,60 @@ class ResourcePackServer private constructor(
                     executor?.let(::shutdownResourcePackExecutor)
                 } catch (cleanupError: Throwable) {
                     error.addSuppressed(cleanupError)
-                } finally {
-                    runCatching(archive::close).exceptionOrNull()?.let(error::addSuppressed)
                 }
                 throw error
             }
+        }
+    }
+}
+
+class ResourcePackRegistration internal constructor(
+    private val server: ResourcePackServer,
+    private val packs: ModuleResourcePacks,
+) : AutoCloseable {
+    override fun close() = server.uninstall(packs)
+}
+
+internal data class ModuleResourcePacks(
+    val moduleId: String,
+    val hostedPack: ServedResourcePack?,
+    val externalPacks: List<ResourcePackInfo>,
+)
+
+internal class ServedResourcePack(
+    val id: String,
+    val uuid: UUID,
+    val archive: ResourcePackArchive,
+) {
+    val path = "/resource-pack/$id/${archive.hash}.zip"
+
+    private var activeRequests = 0
+    private var retired = false
+    private var archiveClosed = false
+
+    @Synchronized
+    fun acquire(): Boolean {
+        if (retired) return false
+        activeRequests += 1
+        return true
+    }
+
+    @Synchronized
+    fun release() {
+        activeRequests -= 1
+        closeArchiveIfIdle()
+    }
+
+    @Synchronized
+    fun retire() {
+        retired = true
+        closeArchiveIfIdle()
+    }
+
+    private fun closeArchiveIfIdle() {
+        if (retired && activeRequests == 0 && !archiveClosed) {
+            archive.close()
+            archiveClosed = true
         }
     }
 }

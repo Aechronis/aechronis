@@ -1,6 +1,13 @@
 package net.aechronis.server.resourcepack
 
+import net.kyori.adventure.resource.ResourcePackInfo
 import org.junit.jupiter.api.io.TempDir
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
@@ -34,6 +41,47 @@ class ResourcePackArchiveTest {
                 assertEquals(first.hash, second.hash)
                 assertContentEquals(Files.readAllBytes(first.path), Files.readAllBytes(second.path))
             }
+        }
+    }
+
+    @Test
+    fun `module packs are served together and removed with their registrations`() {
+        Files.writeString(directory.resolve("pack.mcmeta"), """{"pack":{"pack_format":1,"description":"test"}}""")
+        val server =
+            ResourcePackServer.start(
+                address = InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+            )
+
+        server.use {
+            val externalPack =
+                ResourcePackInfo
+                    .resourcePackInfo()
+                    .uri(URI("https://example.com/base.zip"))
+                    .hash("0123456789abcdef0123456789abcdef01234567")
+                    .build()
+            val first = server.install("template", directory, listOf(externalPack))
+            val firstStack = server.resourcePackInfos(null)
+            assertEquals(externalPack, firstStack.first())
+            val firstInfo = firstStack.last()
+            val response =
+                HttpClient
+                    .newHttpClient()
+                    .send(
+                        HttpRequest.newBuilder(firstInfo.uri()).GET().build(),
+                        HttpResponse.BodyHandlers.ofByteArray(),
+                    )
+            assertEquals(200, response.statusCode())
+            assertTrue(response.body().isNotEmpty())
+
+            val second = server.install("another-module", directory)
+            val bothPacks = server.resourcePackInfos(null)
+            assertEquals(3, bothPacks.size)
+            assertTrue(bothPacks.map { it.uri() }.toSet().size == 3)
+
+            first.close()
+            assertEquals(listOf(bothPacks.last()), server.resourcePackInfos(null))
+            second.close()
+            assertTrue(server.resourcePackInfos(null).isEmpty())
         }
     }
 

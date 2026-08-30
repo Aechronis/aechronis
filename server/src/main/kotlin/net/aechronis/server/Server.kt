@@ -22,6 +22,7 @@ import net.minestom.server.color.Color
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
+import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
 import net.minestom.server.registry.RegistryKey
@@ -90,13 +91,11 @@ fun main(args: Array<String>) {
     val velocitySecret = args.getOrNull(1)
     val resourcePackDirectory =
         System.getProperty("aechronis.resourcePack.directory")?.let(Path::of)
-            ?: EmbeddedResourcePack.defaultDirectory().resolve("resource-pack")
+            ?: EmbeddedResourcePack.defaultDirectory()
 
-    EmbeddedResourcePack.install(resourcePackDirectory)
     val resourcePackPort = System.getProperty("aechronis.resourcePack.port")?.toInt() ?: port + 1
     val resourcePackServer =
         ResourcePackServer.start(
-            directory = resourcePackDirectory,
             address =
                 InetSocketAddress(
                     System.getProperty("aechronis.resourcePack.bindAddress", "0.0.0.0"),
@@ -107,7 +106,7 @@ fun main(args: Array<String>) {
     ServerShutdown.install(resourcePackServer)
 
     try {
-        startMinecraftServer(port, velocitySecret, resourcePackServer)
+        startMinecraftServer(port, velocitySecret, resourcePackDirectory, resourcePackServer)
     } catch (exception: Throwable) {
         ServerShutdown.shutdown()
         throw exception
@@ -117,6 +116,7 @@ fun main(args: Array<String>) {
 private fun startMinecraftServer(
     port: Int,
     velocitySecret: String?,
+    resourcePackDirectory: Path,
     resourcePackServer: ResourcePackServer,
 ) {
     val server =
@@ -156,6 +156,10 @@ private fun startMinecraftServer(
     Server.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
 
     MinecraftServer.getGlobalEventHandler().addChild(Server.eventNode)
+    Server.eventNode.addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
+        // keep the server joinable when an iteration is intentionally disabled
+        event.spawningInstance = Server.instance
+    }
 
     // create instance
     val worldPath = Path.of("world")
@@ -174,6 +178,8 @@ private fun startMinecraftServer(
     val moduleContext =
         ModuleContext(
             saveCoreWorld = WorldSaver::saveWorldAndWait,
+            resourcePackDirectory = resourcePackDirectory,
+            resourcePackServer = resourcePackServer,
         )
 
     ServerShutdown.configure(
@@ -204,7 +210,6 @@ private fun startMinecraftServer(
     MinecraftServer.getCommandManager().register(ModuleCommand(moduleManager))
     MinecraftServer.getCommandManager().register(SetSpawnCommand())
     ResourcePackListener.initialize(resourcePackServer)
-
     SparkMinestom
         .builder(Path.of("spark"))
         .commands(true)

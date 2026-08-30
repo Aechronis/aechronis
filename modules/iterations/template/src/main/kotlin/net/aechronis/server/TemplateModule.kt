@@ -16,11 +16,21 @@ import net.aechronis.server.listeners.PlayerJoinListener
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.tasks.TabManager
+import net.kyori.adventure.resource.ResourcePackInfo
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 
 class TemplateModule : AechronisModule {
     override val id = "template"
+    override val externalResourcePacks =
+        listOf(
+            ResourcePackInfo
+                .resourcePackInfo()
+                .uri(URI("https://cdn.modrinth.com/data/LSmohupN/versions/zewiXtmr/Ashen_16x.zip"))
+                .hash("d312836c38143301b7ba6a1247372b3f467116db")
+                .build(),
+        )
     override val dependencies =
         setOf(
             "utils",
@@ -73,7 +83,6 @@ class TemplateModule : AechronisModule {
         var failure: Throwable? = null
         listOf(
             ::shutdownExternalServices,
-            PlayerJoinListener::shutdown,
             TabManager::shutdown,
             VehiclePersistence::shutdown,
             Item.registeredItems::clear,

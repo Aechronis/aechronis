@@ -1,5 +1,6 @@
 package net.aechronis.server.modules
 
+import net.aechronis.server.resourcepack.ResourcePackRegistration
 import net.minestom.server.MinecraftServer
 import net.minestom.server.network.packet.server.CachedPacket
 import java.net.URLClassLoader
@@ -506,6 +507,7 @@ class ModuleManager private constructor(
             private set
         private var scope: ModuleResourceScope? = null
         private var registrations: RuntimeRegistrations? = null
+        private val resourcePackRegistrations = mutableListOf<ResourcePackRegistration>()
         private val initialized = mutableListOf<AvailableModule>()
         private val prepared = mutableSetOf<AvailableModule>()
         private var inventoriesClosed = false
@@ -564,11 +566,19 @@ class ModuleManager private constructor(
             active.forEach { available ->
                 initialized += available
                 withContextClassLoader(classLoader) {
+                    context.installResourcePacks(
+                        id = available.module.id,
+                        owner = available.module.javaClass,
+                        externalPacks = available.module.externalResourcePacks,
+                    )
+                }?.let(resourcePackRegistrations::add)
+                withContextClassLoader(classLoader) {
                     available.module.initialize(context)
                 }
                 checkNotNull(registrations).instrumentCallbacks(resourceScope)
                 println("[Modules] Loaded ${available.module.id} from ${available.sourceJar}")
             }
+            context.sendResourcePacksToOnlinePlayers()
             startComplete = true
         }
 
@@ -649,7 +659,15 @@ class ModuleManager private constructor(
         }
 
         fun stop(context: ModuleContext): List<String> {
-            if (!started && initialized.isEmpty() && scope == null && registrations == null) return emptyList()
+            if (
+                !started &&
+                initialized.isEmpty() &&
+                scope == null &&
+                registrations == null &&
+                resourcePackRegistrations.isEmpty()
+            ) {
+                return emptyList()
+            }
             // A bounded quiescence failure may be retried during coordinated shutdown after the
             // in-flight callback finishes. A successful retry makes teardown safe again.
             closeSafe = true
@@ -669,6 +687,21 @@ class ModuleManager private constructor(
                     closeSafe = false
                     report("Failed to stop ${available.module.id}", error)
                 }
+            }
+            if (failures.isNotEmpty()) return failures
+            runCatching(context::removeResourcePacksFromOnlinePlayers)
+                .onFailure {
+                    closeSafe = false
+                    failures += "Failed to remove module resource packs: ${failureMessage(it)}"
+                }
+            if (failures.isNotEmpty()) return failures
+            resourcePackRegistrations.asReversed().toList().forEach { registration ->
+                runCatching(registration::close)
+                    .onSuccess { resourcePackRegistrations.remove(registration) }
+                    .onFailure {
+                        closeSafe = false
+                        failures += "Failed to stop a module resource pack: ${failureMessage(it)}"
+                    }
             }
             if (failures.isNotEmpty()) return failures
             registrations?.let { registration ->

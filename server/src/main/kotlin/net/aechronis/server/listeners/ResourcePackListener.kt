@@ -2,13 +2,11 @@ package net.aechronis.server.listeners
 
 import net.aechronis.server.Server
 import net.aechronis.server.resourcepack.ResourcePackServer
-import net.kyori.adventure.resource.ResourcePackRequest
-import net.kyori.adventure.text.Component
 import net.minestom.server.event.Event
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 
-/** Always serves the embedded Aechronis pack, independently of the template module. */
+/** Applies the complete pack stack discovered from the active module generation. */
 object ResourcePackListener {
     private val eventNode: EventNode<Event> = EventNode.all("aechronis-resource-pack").setPriority(Int.MAX_VALUE)
     private var initialized = false
@@ -17,16 +15,7 @@ object ResourcePackListener {
         check(!initialized) { "Resource-pack listener is already initialized" }
         initialized = true
         eventNode.addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
-            // The permanent server must remain joinable even when the template module is absent.
-            event.spawningInstance = Server.instance
-            event.player.sendResourcePacks(
-                ResourcePackRequest
-                    .resourcePackRequest()
-                    .packs(resourcePackServer.resourcePackInfo(event.player.playerConnection.serverAddress))
-                    .prompt(Component.text("A resource pack is required to play"))
-                    .required(true)
-                    .build(),
-            )
+            resourcePackServer.sendResourcePacks(event.player)
         }
         Server.eventNode.addChild(eventNode)
     }
