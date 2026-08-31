@@ -113,8 +113,13 @@ if (isMarker) // Markers
 
     float offset = (1.0 + MAP_CROP_RADIUS) / 128.0;
     // North-locked: the map itself stays fixed and only the player icon rotates to show heading.
+    // That's the inverse of de-rotating the map in heading-up mode (rotAngle), not the same
+    // transform -- rotAngle keeps "forward" pointing up by rotating the world by -yaw, whereas the
+    // icon needs to rotate BY yaw to show facing direction on a map that isn't rotating at all.
     // Heading-up: the map spins around a fixed player icon instead.
-    mat2 markerRotAngle = (markerType == 4) == northLocked ? rotAngle : mat2(1, 0, 0, 1);
+    mat2 markerRotAngle = markerType == 4
+        ? (northLocked ? transpose(rotAngle) : mat2(1, 0, 0, 1))
+        : (northLocked ? mat2(1, 0, 0, 1) : rotAngle);
     vec2 map = markerRotAngle * (((corner - 0.5) / 64 * scaleData) + pos - 0.5) + offset;
     uvCoord = map * 128;
     bool allowPartialVisibility = markerType == 3 || markerType == 5;
