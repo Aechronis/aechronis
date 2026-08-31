@@ -6,13 +6,20 @@ import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.FactoriesListener
 import net.aechronis.vanilla.objects.Factory
+import net.aechronis.vanilla.objects.FactoryRecipe
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.minestom.server.MinecraftServer
+import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.entity.Player
+import net.minestom.server.event.inventory.InventoryCloseEvent
+import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.inventory.Inventory
+import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.tag.Tag
@@ -21,6 +28,7 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
@@ -43,6 +51,7 @@ object Factories {
         val name: String,
         var tier: Int,
         var startedAt: Long? = null,
+        var selectedRecipe: String? = null,
     )
 
     private data class SavedFactory(
@@ -53,6 +62,7 @@ object Factories {
         val name: String,
         val tier: Int,
         val startedAt: Long? = null,
+        val selectedRecipe: String? = null,
     )
 
     private data class LoadableFactory(
@@ -69,6 +79,13 @@ object Factories {
 
     private val definitions = linkedMapOf<String, Factory>()
     private val placed = ConcurrentHashMap<Location, PlacedFactory>()
+    private val openRecipeMenus = ConcurrentHashMap<Inventory, Location>()
+
+    // Persistence snapshots are cheap (in-memory map copy); the actual disk write is not, so it
+    // runs on a dedicated single thread (preserving write order) instead of blocking whichever
+    // interaction thread triggered the save.
+    private val saveExecutor =
+        Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "Factories-Save").apply { isDaemon = true } }
     private lateinit var file: Path
 
     fun init(path: Path) {
@@ -84,7 +101,15 @@ object Factories {
         println("├─ Factories enabled (${placed.size} placed, ${definitions.size} configured)")
     }
 
-    fun saveAll() = save()
+    /** Blocks until every save queued before this call has reached disk, then writes the current state directly. */
+    fun saveAll() {
+        saveExecutor.submit {}.get()
+        writeToDisk(snapshot())
+    }
+
+    fun shutdown() {
+        saveExecutor.shutdown()
+    }
 
     fun itemFor(
         name: String,
@@ -145,7 +170,8 @@ object Factories {
         instance: Instance,
         position: BlockVec,
     ): Boolean {
-        val state = placed[location(instance, position)] ?: return false
+        val location = location(instance, position)
+        val state = placed[location] ?: return false
         val factory = definitions[state.name] ?: return false
         val startedAt = state.startedAt
         val now = System.currentTimeMillis()
@@ -158,32 +184,103 @@ object Factories {
                 return true
             }
 
-            factory.output.getValue(state.tier).forEach { stack ->
+            val recipe = factory.recipes.getValue(state.tier).firstOrNull { it.name == state.selectedRecipe }
+            if (recipe == null) {
+                state.startedAt = null
+                state.selectedRecipe = null
+                save()
+                player.sendMessage(Component.text("This factory's recipe is no longer available.", NamedTextColor.RED))
+                return true
+            }
+
+            recipe.output.forEach { stack ->
                 if (!stack.isAir && !player.inventory.addItemStack(stack)) player.dropItem(stack)
             }
             state.startedAt = null
+            state.selectedRecipe = null
             save()
             player.sendMessage(Component.text("Factory production complete.", NamedTextColor.GREEN))
             return true
         }
 
-        val required = factory.input.getValue(state.tier)
-        val missing = missingItems(player, required)
-        if (missing.isNotEmpty()) {
-            player.sendMessage(Component.text("Factory requires: ${formatItems(missing)}", NamedTextColor.RED))
+        val recipes = factory.recipes.getValue(state.tier)
+        if (recipes.size > 1) {
+            openRecipeMenu(player, location, factory, recipes)
             return true
         }
 
-        consumeItems(player, required)
-        state.startedAt = now
+        startRecipe(player, state, recipes[0])
+        return true
+    }
+
+    private fun startRecipe(
+        player: Player,
+        state: PlacedFactory,
+        recipe: FactoryRecipe,
+    ) {
+        val missing = missingItems(player, recipe.input)
+        if (missing.isNotEmpty()) {
+            player.sendMessage(Component.text("Factory requires: ${formatItems(missing)}", NamedTextColor.RED))
+            return
+        }
+
+        consumeItems(player, recipe.input)
+        state.startedAt = System.currentTimeMillis()
+        state.selectedRecipe = recipe.name
         save()
         player.sendMessage(
-            Component.text(
-                "Factory building started. It will finish in ${Vanilla.config.factoryBuildTimeSeconds / 60} minutes.",
-                NamedTextColor.GREEN,
-            ),
+            Component
+                .text("Factory building started (")
+                .append(recipe.displayName)
+                .append(
+                    Component.text(
+                        "). It will finish in ${Vanilla.config.factoryBuildTimeSeconds / 60} minutes.",
+                    ),
+                ).color(NamedTextColor.GREEN),
         )
+    }
+
+    private fun openRecipeMenu(
+        player: Player,
+        location: Location,
+        factory: Factory,
+        recipes: List<FactoryRecipe>,
+    ) {
+        val inventory = Inventory(InventoryType.CHEST_1_ROW, factory.itemName)
+        recipes.forEachIndexed { index, recipe -> inventory.setItemStack(index, recipeDisplay(recipe)) }
+        openRecipeMenus[inventory] = location
+        player.openInventory(inventory)
+    }
+
+    private fun recipeDisplay(recipe: FactoryRecipe): ItemStack {
+        val display = recipe.output.firstOrNull { !it.isAir } ?: return ItemStack.AIR
+        val lore =
+            listOf(Component.text("Requires:", NamedTextColor.GRAY)) +
+                recipe.input.map { stack -> Component.text("- ${formatItems(listOf(stack))}", NamedTextColor.GRAY) } +
+                listOf(Component.text("Click to build", NamedTextColor.GREEN))
+        return display.withLore(lore)
+    }
+
+    fun onRecipeMenuClick(event: InventoryPreClickEvent): Boolean {
+        val inventory = event.inventory as? Inventory ?: return false
+        val location = openRecipeMenus[inventory] ?: return false
+        event.isCancelled = true
+
+        val state = placed[location] ?: return true
+        val factory = definitions[state.name] ?: return true
+        if (state.startedAt != null) return true
+
+        val recipes = factory.recipes.getValue(state.tier)
+        val recipe = recipes.getOrNull(event.slot) ?: return true
+
+        startRecipe(event.player, state, recipe)
+        event.player.closeInventory()
         return true
+    }
+
+    fun onRecipeMenuClose(event: InventoryCloseEvent) {
+        val inventory = event.inventory as? Inventory ?: return
+        openRecipeMenus.remove(inventory)
     }
 
     fun promote(
@@ -249,23 +346,42 @@ object Factories {
     }
 
     private fun formatItems(items: List<ItemStack>): String =
-        items.joinToString(", ") { stack -> "${stack.amount()} ${stack.material().name().lowercase().replace('_', ' ')}" }
+        items.joinToString(", ") { stack ->
+            val name =
+                stack.get(DataComponents.CUSTOM_NAME)?.let { PlainTextComponentSerializer.plainText().serialize(it) }
+                    ?: stack
+                        .material()
+                        .name()
+                        .lowercase()
+                        .replace('_', ' ')
+            "${stack.amount()} $name"
+        }
 
     private fun validate(factory: Factory): Factory {
         require(factory.name.isNotBlank()) { "Factory name cannot be blank" }
         require(factory.maxTier > 0) { "Factory ${factory.name} must have at least one tier" }
         for (tier in 1..factory.maxTier) {
-            require(factory.input.containsKey(tier)) { "Factory ${factory.name} is missing input for tier $tier" }
-            require(factory.output.containsKey(tier)) { "Factory ${factory.name} is missing output for tier $tier" }
-            require(factory.input.getValue(tier).none { it.isAir || it.amount() <= 0 }) {
-                "Factory ${factory.name} has an invalid input for tier $tier"
+            val recipes = factory.recipes[tier]
+            require(!recipes.isNullOrEmpty()) { "Factory ${factory.name} is missing recipes for tier $tier" }
+            require(recipes.size <= MAX_RECIPES_PER_TIER) {
+                "Factory ${factory.name} tier $tier has ${recipes.size} recipes; the selection menu only holds $MAX_RECIPES_PER_TIER"
             }
-            require(factory.output.getValue(tier).none { it.isAir || it.amount() <= 0 }) {
-                "Factory ${factory.name} has an invalid output for tier $tier"
+            recipes.forEach { recipe ->
+                require(recipe.name.isNotBlank()) { "Factory ${factory.name} tier $tier has a blank recipe name" }
+                require(recipe.input.isNotEmpty()) { "Factory ${factory.name} recipe ${recipe.name} has no input" }
+                require(recipe.output.isNotEmpty()) { "Factory ${factory.name} recipe ${recipe.name} has no output" }
+                require(recipe.input.none { it.isAir || it.amount() <= 0 }) {
+                    "Factory ${factory.name} recipe ${recipe.name} has an invalid input"
+                }
+                require(recipe.output.none { it.isAir || it.amount() <= 0 }) {
+                    "Factory ${factory.name} recipe ${recipe.name} has an invalid output"
+                }
+            }
+            require(recipes.map { it.name }.toSet().size == recipes.size) {
+                "Factory ${factory.name} tier $tier has duplicate recipe names"
             }
         }
-        require(factory.input.keys.all { it in 1..factory.maxTier }) { "Factory ${factory.name} has an invalid input tier" }
-        require(factory.output.keys.all { it in 1..factory.maxTier }) { "Factory ${factory.name} has an invalid output tier" }
+        require(factory.recipes.keys.all { it in 1..factory.maxTier }) { "Factory ${factory.name} has an invalid recipe tier" }
         return factory
     }
 
@@ -308,7 +424,10 @@ object Factories {
 
         loadable.forEach { (entry, factory, instance) ->
             if (!instance.getBlock(entry.x, entry.y, entry.z).compare(factoryBlock)) return@forEach
-            placed[Location(entry.world, entry.x, entry.y, entry.z)] = PlacedFactory(entry.name, entry.tier, entry.startedAt)
+            val recipeValid = factory.recipes.getValue(entry.tier).any { it.name == entry.selectedRecipe }
+            val startedAt = entry.startedAt.takeIf { it != null && recipeValid }
+            val selectedRecipe = entry.selectedRecipe.takeIf { startedAt != null }
+            placed[Location(entry.world, entry.x, entry.y, entry.z)] = PlacedFactory(entry.name, entry.tier, startedAt, selectedRecipe)
         }
     }
 
@@ -332,14 +451,30 @@ object Factories {
         }
     }
 
-    private fun save() {
-        val saved =
-            placed.map { (location, state) ->
-                SavedFactory(location.world, location.x, location.y, location.z, state.name, state.tier, state.startedAt)
-            }
+    private fun snapshot(): List<SavedFactory> =
+        placed.map { (location, state) ->
+            SavedFactory(
+                location.world,
+                location.x,
+                location.y,
+                location.z,
+                state.name,
+                state.tier,
+                state.startedAt,
+                state.selectedRecipe,
+            )
+        }
+
+    private fun writeToDisk(saved: List<SavedFactory>) {
         AtomicFiles.write(file) { writer -> gson.toJson(saved, writer) }
+    }
+
+    private fun save() {
+        val saved = snapshot()
+        saveExecutor.execute { writeToDisk(saved) }
     }
 
     private const val MAX_REACH = 6
     private const val FACTORY_CHUNK_LOAD_TIMEOUT_SECONDS = 60L
+    private const val MAX_RECIPES_PER_TIER = 9 // matches InventoryType.CHEST_1_ROW's slot count
 }

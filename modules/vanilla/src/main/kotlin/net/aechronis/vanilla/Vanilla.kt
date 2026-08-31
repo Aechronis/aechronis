@@ -208,6 +208,7 @@ object Vanilla {
             "storage" to Storage::shutdown,
             "sign editors" to Signs::shutdown,
             "pending warps" to Warps::shutdown,
+            "factories" to { if (config.factoriesEnabled) Factories.shutdown() },
             "shop inventories" to KillShop::shutdown,
             "command inventories" to Commands::shutdown,
         )
