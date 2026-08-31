@@ -44,9 +44,20 @@ class TemplateModule : AechronisModule {
             "gems",
         )
 
+    override fun configure(context: ModuleContext) {
+        registerItems()
+    }
+
     override fun initialize(context: ModuleContext) {
         TabManager.start()
 
+        initializeVehiclePersistence(context)
+        PlayerJoinListener.init(context)
+        CraftingStoreIntegration.initialize()
+        VotifierIntegration.initialize()
+    }
+
+    private fun registerItems() {
         Item.registerItems(
             Ammo.ammo762x39mm,
             Ammo.tankShell,
@@ -64,11 +75,6 @@ class TemplateModule : AechronisModule {
             Drones.kamikazeDrone,
             Boats.ussButler,
         )
-
-        initializeVehiclePersistence(context)
-        PlayerJoinListener.init(context)
-        CraftingStoreIntegration.initialize()
-        VotifierIntegration.initialize()
     }
 
     override fun saveState(context: ModuleContext) {

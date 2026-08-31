@@ -61,6 +61,7 @@ class ANewMilleniumModule : AechronisModule {
         )
 
     override fun configure(context: ModuleContext) {
+        registerItems()
         VanillaModule.configure(
             VanillaConfig(
                 recipesConfig = RecipesConfig(recpies = Blocks.list + Tools.list + Smelting.list + Weapons.list + Vehicles.list),
@@ -94,6 +95,13 @@ class ANewMilleniumModule : AechronisModule {
     override fun initialize(context: ModuleContext) {
         TabManager.start()
 
+        initializeVehiclePersistence(context)
+        PlayerJoinListener.init(context)
+        CraftingStoreIntegration.initialize()
+        VotifierIntegration.initialize()
+    }
+
+    private fun registerItems() {
         Item.registerItems(
             Ammo.ammo762x39mm,
             Ammo.ammo762x39mmExplosive,
@@ -128,11 +136,6 @@ class ANewMilleniumModule : AechronisModule {
             Drones.kamikazeDrone,
             Boats.ussButler,
         )
-
-        initializeVehiclePersistence(context)
-        PlayerJoinListener.init(context)
-        CraftingStoreIntegration.initialize()
-        VotifierIntegration.initialize()
     }
 
     override fun saveState(context: ModuleContext) {
