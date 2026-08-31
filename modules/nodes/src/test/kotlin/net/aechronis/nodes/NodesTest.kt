@@ -84,6 +84,7 @@ import java.util.concurrent.TimeoutException
 import kotlin.math.floor
 import kotlin.math.min
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -1058,6 +1059,26 @@ class NodesTest {
             if (Nodes.towns.containsValue(capital)) Town.destroy(capital)
             if (Nodes.towns.containsValue(member)) Town.destroy(member)
             if (Nodes.towns.containsValue(attacker)) Town.destroy(attacker)
+        }
+    }
+
+    @Test
+    fun `admin can set a towns remaining lives`() {
+        val territory = Nodes.territories.values.first { it.town == null }
+        val town = Town.create("LivesAdmin${UUID.randomUUID().toString().take(8)}", territory, null).getOrThrow()
+        val initialRevision = town.lifeRevision
+
+        try {
+            Town.setLives(town, 3)
+
+            assertEquals(3, town.lives)
+            assertEquals(initialRevision + 1, town.lifeRevision)
+            val persistedTown = JsonParser.parseString(town.getSaveState().createJsonString()).asJsonObject
+            assertEquals(3, persistedTown.get("lives").asInt)
+            assertEquals(initialRevision + 1, persistedTown.get("lifeRevision").asLong)
+            assertFailsWith<IllegalArgumentException> { Town.setLives(town, 0) }
+        } finally {
+            Town.destroy(town)
         }
     }
 

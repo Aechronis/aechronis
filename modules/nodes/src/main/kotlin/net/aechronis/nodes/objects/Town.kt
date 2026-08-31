@@ -224,6 +224,16 @@ class Town(
             return town.lives
         }
 
+        fun setLives(town: Town, lives: Int) {
+            require(lives > 0) { "Town lives must be at least 1" }
+            if (town.lives == lives) return
+            town.lives = lives
+            town.lifeRevision++
+            town.needsUpdate()
+            Nodes.needsSave = true
+            FlagWar.needsSave = true
+        }
+
         internal fun restoreLives(
             town: Town,
             lives: Int,

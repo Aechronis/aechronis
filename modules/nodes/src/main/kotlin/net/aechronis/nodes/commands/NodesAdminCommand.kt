@@ -173,6 +173,7 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
             Message.print(player, "/nodesadmin town delete${ChatColor.WHITE}: Delete existing town")
             Message.print(player, "/nda town merge <townA> <townB>${ChatColor.WHITE}: Move all Town B territories into Town A and delete Town B")
             Message.print(player, "/nda town move <townA> <townB>${ChatColor.WHITE}: Move Town B's residents into Town A")
+            Message.print(player, "/nda town lives <town-name> <number>${ChatColor.WHITE}: Set a town's remaining lives")
             Message.print(player, "/nodesadmin town rename${ChatColor.WHITE}: Rename a town")
             Message.print(player, "/nodesadmin town addplayer${ChatColor.WHITE}: Add players to town")
             Message.print(player, "/nodesadmin town removeplayer${ChatColor.WHITE}: Remove players from town")
@@ -198,6 +199,7 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
         addSubcommand(NodesAdminTownDeleteCommand())
         addSubcommand(NodesAdminTownMergeCommand())
         addSubcommand(NodesAdminTownMoveCommand())
+        addSubcommand(NodesAdminTownLivesCommand())
         addSubcommand(NodesAdminTownRenameCommand())
         addSubcommand(NodesAdminTownAddPlayerCommand())
         addSubcommand(NodesAdminTownRemovePlayerCommand())
@@ -309,6 +311,29 @@ class NodesAdminTownMoveCommand : NodesCommand("move", "nodes.admin") {
             val moved = Town.moveResidents(destination, source)
             Message.print(player, "Moved $moved residents from ${source.name} to ${destination.name} as regular residents")
         }, destinationArg, sourceArg)
+    }
+}
+
+class NodesAdminTownLivesCommand : NodesCommand("lives", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, _, _ ->
+            Message.print(player, "Usage: /nda town lives <town-name> <number>")
+        }
+
+        val townArg = ArgumentTown.create("town-name")
+        val livesArg = ArgumentType.Integer("number")
+
+        addSyntax({ player, _, context ->
+            val lives = context[livesArg]
+            if (lives < 1) {
+                Message.error(player, "Town lives must be at least 1")
+                return@addSyntax
+            }
+
+            val town = context[townArg]
+            Town.setLives(town, lives)
+            Message.print(player, "Set ${town.name}'s remaining lives to $lives")
+        }, townArg, livesArg)
     }
 }
 
