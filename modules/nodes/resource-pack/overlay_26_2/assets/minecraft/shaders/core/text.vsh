@@ -1,6 +1,8 @@
 #version 410
 #define UNREL_ID
 #define MARKER_DEPTH 0.7
+// 26.2 uses reversed depth with GEQUAL testing, so larger clip-space Z values are in front.
+#define MARKER_DEPTH_FRONT_DIRECTION 1.0
 
 #ifdef GL_ARB_shader_draw_parameters
 #extension GL_ARB_shader_draw_parameters : require

@@ -137,12 +137,12 @@ if (isMarker) // Markers
     map = map * MAP_SIZE + mapOffset;
 
     float markerDepth = MARKER_DEPTH;
-    if (markerType == 6) markerDepth += 0.01; // Territory core
-    if (markerType == 5) markerDepth += 0.02; // Attack overlay
-    if (markerType == 2) markerDepth += 0.03; // Building icon
-    if (isWaypoint && !isDeathWaypoint) markerDepth += 0.035; // Permanent waypoint
-    if (isDeathWaypoint) markerDepth += 0.037; // Death waypoint
-    if (markerType == 4) markerDepth += 0.04; // Player marker
+    if (markerType == 6) markerDepth += MARKER_DEPTH_FRONT_DIRECTION * 0.01; // Territory core
+    if (markerType == 5) markerDepth += MARKER_DEPTH_FRONT_DIRECTION * 0.02; // Attack overlay
+    if (markerType == 2) markerDepth += MARKER_DEPTH_FRONT_DIRECTION * 0.03; // Building icon
+    if (isWaypoint && !isDeathWaypoint) markerDepth += MARKER_DEPTH_FRONT_DIRECTION * 0.035; // Permanent waypoint
+    if (isDeathWaypoint) markerDepth += MARKER_DEPTH_FRONT_DIRECTION * 0.037; // Death waypoint
+    if (markerType == 4) markerDepth += MARKER_DEPTH_FRONT_DIRECTION * 0.04; // Player marker
     gl_Position = vec4(vec2(1, -ProjMat[1][1]/ProjMat[0][0]) * map + screenAnchor, markerDepth, 1);
     vertexColor = vec4(1);
 

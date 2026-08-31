@@ -1,6 +1,8 @@
 #version 330
 #define UNREL_ID
 #define MARKER_DEPTH 0.7
+// 1.21.11 uses LEQUAL depth testing, so smaller clip-space Z values are in front.
+#define MARKER_DEPTH_FRONT_DIRECTION -1.0
 
 #ifdef GL_ARB_shader_draw_parameters
 #extension GL_ARB_shader_draw_parameters : require
