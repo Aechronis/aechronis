@@ -5,7 +5,7 @@ plugins {
 
 dependencies {
     compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly("net.minestom:minestom:2026.08.16-26.2")
     compileOnly("com.google.code.gson:gson:2.14.0")
     add("moduleImplementation", "com.cronutils:cron-utils:9.2.1") {
         exclude(group = "org.slf4j", module = "slf4j-api")
