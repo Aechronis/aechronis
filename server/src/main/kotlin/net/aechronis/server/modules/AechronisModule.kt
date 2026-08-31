@@ -9,7 +9,7 @@ interface AechronisModule {
     val dependencies: Set<String>
         get() = emptySet()
 
-    /** Remote packs placed before this module's automatically discovered embedded pack. */
+    /** Remote base packs placed before every module's automatically discovered embedded pack. */
     val externalResourcePacks: List<ResourcePackInfo>
         get() = emptyList()
 

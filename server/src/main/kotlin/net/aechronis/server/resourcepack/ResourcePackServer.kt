@@ -69,21 +69,19 @@ class ResourcePackServer private constructor(
     @Synchronized
     fun resourcePackInfos(serverAddress: String?): List<ResourcePackInfo> {
         check(!closed) { "Resource-pack server is closed" }
-        return activePacks.values.flatMap { resourcePackInfos(it, serverAddress) }
+        return buildList {
+            // External packs are base layers. Keep every one of them below all hosted module
+            // packs so module assets consistently override their external dependencies.
+            activePacks.values.forEach { addAll(it.externalPacks) }
+            activePacks.values.mapNotNull(ModuleResourcePacks::hostedPack).forEach { pack ->
+                add(resourcePackInfo(pack, serverAddress))
+            }
+        }
     }
 
     fun sendResourcePacks(player: Player) {
         sendResourcePacks(player, resourcePackInfos(player.playerConnection.serverAddress))
     }
-
-    private fun resourcePackInfos(
-        packs: ModuleResourcePacks,
-        serverAddress: String?,
-    ): List<ResourcePackInfo> =
-        buildList {
-            addAll(packs.externalPacks)
-            packs.hostedPack?.let { add(resourcePackInfo(it, serverAddress)) }
-        }
 
     private fun sendResourcePacks(
         player: Player,

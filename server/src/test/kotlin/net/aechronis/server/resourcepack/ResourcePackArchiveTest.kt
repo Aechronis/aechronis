@@ -73,13 +73,21 @@ class ResourcePackArchiveTest {
             assertEquals(200, response.statusCode())
             assertTrue(response.body().isNotEmpty())
 
-            val second = server.install("another-module", directory)
+            val secondExternalPack =
+                ResourcePackInfo
+                    .resourcePackInfo()
+                    .uri(URI("https://example.com/another-base.zip"))
+                    .hash("89abcdef0123456789abcdef0123456789abcdef")
+                    .build()
+            val second = server.install("another-module", directory, listOf(secondExternalPack))
             val bothPacks = server.resourcePackInfos(null)
-            assertEquals(3, bothPacks.size)
-            assertTrue(bothPacks.map { it.uri() }.toSet().size == 3)
+            assertEquals(4, bothPacks.size)
+            assertEquals(listOf(externalPack, secondExternalPack), bothPacks.take(2))
+            assertTrue(bothPacks.drop(2).all { it.uri().path.endsWith(".zip") })
+            assertTrue(bothPacks.map { it.uri() }.toSet().size == 4)
 
             first.close()
-            assertEquals(listOf(bothPacks.last()), server.resourcePackInfos(null))
+            assertEquals(listOf(secondExternalPack, bothPacks.last()), server.resourcePackInfos(null))
             second.close()
             assertTrue(server.resourcePackInfos(null).isEmpty())
         }
