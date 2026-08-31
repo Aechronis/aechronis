@@ -8,6 +8,7 @@ import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextColor
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
@@ -50,12 +51,16 @@ internal data class MinimapViewerSnapshot(
 
 /** Builds chunk markers and exact waypoint blocks; the shader positions them every frame. */
 internal object MinimapMarkerRenderer {
+    /** Counts actual scan invocations, for tests to verify throttling avoids redundant scans. */
+    internal val invocationCount = AtomicInteger()
+
     fun render(
         viewer: MinimapViewerSnapshot,
         centerX: Int,
         centerZ: Int,
         scale: Int,
     ): Component {
+        invocationCount.incrementAndGet()
         val markers = Component.text()
 
         fun appendMarker(codepoint: Int, color: EncodedMarkerColor) {

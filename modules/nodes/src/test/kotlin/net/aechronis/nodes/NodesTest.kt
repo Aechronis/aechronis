@@ -14,8 +14,11 @@ import net.aechronis.nodes.listeners.NodesBlockPlacementCooldownListener
 import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.listeners.RallyCapAdmission
 import net.aechronis.nodes.objects.Building
+import net.aechronis.nodes.objects.CHUNK_SIZE
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Farm
+import net.aechronis.nodes.objects.Minimap
+import net.aechronis.nodes.objects.MinimapMarkerRenderer
 import net.aechronis.nodes.objects.MinimapPosition
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.OilRig
@@ -36,6 +39,7 @@ import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.TownDefeatOutcome
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.nodes.war.serdes.WarSerializer
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.StorageAccess
 import net.kyori.adventure.bossbar.BossBar
@@ -62,6 +66,7 @@ import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.SendablePacket
+import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
 import net.minestom.server.network.packet.server.play.SetCooldownPacket
 import net.minestom.server.network.player.GameProfile
 import net.minestom.server.network.player.PlayerConnection
@@ -734,6 +739,71 @@ class NodesTest {
         assertTrue(Nodes.residents.isNotEmpty())
         Nodes.residents.values.forEach { resident ->
             assertEquals(MinimapPosition.TOP_RIGHT, resident.minimapPosition)
+        }
+    }
+
+    @Test
+    fun `rapid chunk crossings coalesce into a single throttled minimap render`() {
+        val territory = Nodes.territories.values.first()
+        val connection = CapturingConnection()
+        val player = Player(connection, GameProfile(UUID.randomUUID(), "minimap-throttle"))
+        val resident = Resident(player.uuid, player.username)
+        Nodes.residents[resident.uuid] = resident
+
+        fun renderCount() = connection.packets.toList().count { it is EntityMetaDataPacket }
+
+        var minimap: Minimap? = null
+        var lastRequestedX = 0
+        var z = 0
+        val scansBefore = MinimapMarkerRenderer.invocationCount.get()
+
+        try {
+            player.setInstance(instance, positionIn(territory)).join()
+
+            // Construct the minimap and fire the whole rapid-crossing burst from a single server
+            // tick, exactly like production movement events would: this keeps the burst on the
+            // same thread as the minimap's own per-tick cooldown task, so the test isn't racing
+            // real wall-clock time against however fast this environment's tick loop happens to run.
+            val burstDone = CompletableFuture<Void>()
+            ModuleScheduler.scheduleNextTick {
+                val created = requireNotNull(resident.createMinimap(player))
+                minimap = created
+                val baseX = player.position.blockX()
+                z = player.position.blockZ()
+                created.render(baseX + CHUNK_SIZE, z)
+                created.render(baseX + CHUNK_SIZE * 2, z)
+                lastRequestedX = baseX + CHUNK_SIZE * 3
+                created.render(lastRequestedX, z)
+                burstDone.complete(null)
+            }
+            burstDone.get(5, TimeUnit.SECONDS)
+
+            // Wait comfortably past the cooldown window so the coalesced trailing render for the
+            // three throttled crossings has definitely fired.
+            Thread.sleep(1_000)
+
+            // The real point of the throttle is avoiding the expensive O(visible-area) scan itself,
+            // not just deduplicating identical packets -- Minimap already discards a stale in-flight
+            // render's *result* if a newer one was requested first, so a packet-count assertion alone
+            // can't tell "throttled" apart from "scanned three times but only the last one was sent".
+            // Counting actual scan invocations is what proves the three rapid crossings coalesced
+            // into at most one extra scan instead of three (plus the one forced by construction).
+            val scansDuringBurst = MinimapMarkerRenderer.invocationCount.get() - scansBefore
+            assertTrue(
+                scansDuringBurst <= 2,
+                "Expected at most one coalesced scan for the three throttled crossings, on top of " +
+                    "the forced construction render, not one scan per crossing (got $scansDuringBurst)",
+            )
+
+            // The trailing render should reflect the LAST requested position: re-requesting it is a no-op.
+            connection.packets.clear()
+            requireNotNull(minimap).render(lastRequestedX, z)
+            Thread.sleep(200)
+            assertEquals(0, renderCount(), "Trailing render should already reflect the latest requested position")
+        } finally {
+            resident.destroyMinimap()
+            Nodes.residents.remove(resident.uuid)
+            player.remove()
         }
     }
 

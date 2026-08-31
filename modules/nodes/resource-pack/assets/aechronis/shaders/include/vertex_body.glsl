@@ -108,7 +108,8 @@ if (isMarker) // Markers
     ));
 
     float offset = (1.0 + MAP_CROP_RADIUS) / 128.0;
-    mat2 markerRotAngle = markerType == 4 ? mat2(1, 0, 0, 1) : rotAngle;
+    // Lock the map itself to true north; only the player icon rotates to show heading.
+    mat2 markerRotAngle = markerType == 4 ? rotAngle : mat2(1, 0, 0, 1);
     vec2 map = markerRotAngle * (((corner - 0.5) / 64 * scaleData) + pos - 0.5) + offset;
     uvCoord = map * 128;
     bool allowPartialVisibility = markerType == 3 || markerType == 5;
