@@ -44,6 +44,7 @@ import net.aechronis.server.modules.ModuleContext
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -63,6 +64,7 @@ import net.minestom.server.event.player.PlayerSwapItemEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.block.rule.BlockPlacementRule
 import net.minestom.server.instance.generator.Generator
 import net.minestom.server.inventory.click.Click
 import net.minestom.server.item.ItemStack
@@ -1060,6 +1062,40 @@ class CombatTest {
     }
 
     @Test
+    fun `a neighbouring placement-rule failure during restore does not fail module shutdown`() {
+        instance.loadChunk(0, 0).join()
+        val position = BlockVec(11, 61, 8)
+        val neighbour = BlockVec(position.blockX + 1, position.blockY, position.blockZ)
+        val original = Block.OAK_LEAVES.withProperty("persistent", "true")
+        val previousDelay = BlockRestoreManager.restoreDelayMillis
+        BlockRestoreManager.restoreDelayMillis = 60_000L
+
+        MinecraftServer.getBlockManager().registerBlockPlacementRule(ThrowingNeighbourPlacementRule)
+
+        try {
+            val broken = CompletableFuture<Boolean>()
+            instance.scheduleNextTick {
+                instance.setBlock(position.blockX, position.blockY, position.blockZ, original)
+                broken.complete(BlockRestoreManager.temporarilyBreakLeaf(instance, position, original))
+            }
+            assertTrue(broken.get(3, TimeUnit.SECONDS))
+
+            // Placed only after the break, so breaking the leaf itself doesn't already trip the
+            // throwing rule; only the later restore's neighbour update should reach it.
+            instance.setBlock(neighbour.blockX, neighbour.blockY, neighbour.blockZ, Block.STRUCTURE_VOID)
+
+            // Restoring the leaf triggers a neighbour update against the STRUCTURE_VOID block,
+            // whose placement rule always throws. That must not stop the leaf from being restored,
+            // nor bubble out of module shutdown the way a real third-party placement-rule bug did.
+            CombatModule().prepareForShutdown(ModuleContext())
+            assertTrue(instance.getBlock(position).compare(original))
+        } finally {
+            BlockRestoreManager.restoreDelayMillis = previousDelay
+            BlockRestoreManager.initialize()
+        }
+    }
+
+    @Test
     fun `dismounted protected occupant immediately loses vehicle protection and is reconciled`() {
         val vehicle = TestBoat()
         val entity = vehicle.spawn(instance, Pos(200.0, 61.0, 200.0))
@@ -1390,6 +1426,14 @@ class CombatTest {
         if (System.getProperty("keepRunning") == "true") {
             Thread.currentThread().join()
         }
+    }
+
+    /** Reproduces a third-party placement rule that fails to parse a neighbour's block state. */
+    private object ThrowingNeighbourPlacementRule : BlockPlacementRule(Block.STRUCTURE_VOID) {
+        override fun blockPlace(placementState: PlacementState): Block = placementState.block
+
+        override fun blockUpdate(updateState: UpdateState): Block =
+            throw IllegalArgumentException("No enum constant net.minestom.server.instance.block.BlockFace.UP")
     }
 
     private class TestConnection : PlayerConnection() {
