@@ -57,8 +57,9 @@ object BlockRestoreManager {
         if (!initialized) return
         scheduled.values.forEach(Task::cancel)
         scheduled.clear()
-        // Successful restores remove themselves from pending. On failure, retain the remaining
-        // entries and initialized state so coordinated teardown can retry without losing evidence.
+        // Restores remove themselves from pending as they complete (see restore()'s handling of
+        // neighbour-update failures). A genuinely unexpected failure here still retains the
+        // remaining entries and initialized state so coordinated teardown can retry.
         restoreAllImmediately()
         pending.clear()
         initialized = false
@@ -124,7 +125,19 @@ object BlockRestoreManager {
         val position = restore.position
         val current = instance.getBlock(position.x, position.y, position.z)
         if (sameBlock(current, restore.temporaryBlock)) {
-            instance.setBlock(position.x, position.y, position.z, restore.originalBlock)
+            // Minestom commits the block to its chunk before running neighbour placement-rule
+            // cascades, so a throw here (e.g. a pre-existing neighbour whose block state a
+            // placement-rule library can't parse) happens after our write already landed. Log it
+            // rather than letting it bubble up: propagating would leave this entry pending
+            // forever and fail module quiescing on every retry, since the corrupt neighbour never
+            // resolves itself.
+            runCatching { instance.setBlock(position.x, position.y, position.z, restore.originalBlock) }
+                .onFailure { error ->
+                    System.err.println(
+                        "[Combat] Block restore neighbour update failed at " +
+                            "${position.instanceId}/${position.x},${position.y},${position.z}: ${error.message}",
+                    )
+                }
         }
         finish(position)
     }
