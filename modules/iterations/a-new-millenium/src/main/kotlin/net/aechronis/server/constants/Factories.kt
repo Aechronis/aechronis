@@ -33,7 +33,7 @@ object Factories {
     // active-factory rework lands.
     val oilRefinery =
         Factory(
-            name = "Oil Refinery",
+            name = "oil-refinery",
             itemName = Component.text("Oil Refinery", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             maxTier = 3,
             recipes =
@@ -72,7 +72,7 @@ object Factories {
     // starter vehicle) at every higher tier of the same factory.
     val landFactory =
         Factory(
-            name = "Land Factory",
+            name = "land-factory",
             itemName = Component.text("Land Factory", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             maxTier = 3,
             recipes =
@@ -94,7 +94,7 @@ object Factories {
 
     val airFactory =
         Factory(
-            name = "Air Factory",
+            name = "air-factory",
             itemName = Component.text("Air Factory", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             maxTier = 3,
             recipes =

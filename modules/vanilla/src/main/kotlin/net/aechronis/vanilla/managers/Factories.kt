@@ -140,7 +140,13 @@ object Factories {
         val location = location(instance, position)
         placed[location] = PlacedFactory(factory.name, tier)
         save()
-        player.sendMessage(Component.text("Placed ${factory.name} factory (tier $tier).", NamedTextColor.GREEN))
+        player.sendMessage(
+            Component
+                .text("Placed ")
+                .append(factory.itemName)
+                .append(Component.text(" factory (tier $tier)."))
+                .color(NamedTextColor.GREEN),
+        )
         return true
     }
 
@@ -296,7 +302,8 @@ object Factories {
 
         state.tier = tier
         save()
-        return "Promoted ${factory.name} factory to tier $tier."
+        val displayName = PlainTextComponentSerializer.plainText().serialize(factory.itemName)
+        return "Promoted $displayName factory to tier $tier."
     }
 
     fun isFactory(
