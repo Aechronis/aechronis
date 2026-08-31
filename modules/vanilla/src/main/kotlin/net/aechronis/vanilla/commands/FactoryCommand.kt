@@ -4,7 +4,9 @@ import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Factories
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.minestom.server.command.builder.arguments.ArgumentType
+import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.Player
 
 class FactoryCommand : Command("factory", "vanilla.factory") {
@@ -24,7 +26,8 @@ class FactoryCommand : Command("factory", "vanilla.factory") {
                 return@addSyntax
             }
             if (!player.inventory.addItemStack(item)) player.dropItem(item)
-            player.sendMessage(Component.text("Received $name factory (tier $tier).", NamedTextColor.GREEN))
+            val displayName = item.get(DataComponents.CUSTOM_NAME)?.let { PlainTextComponentSerializer.plainText().serialize(it) } ?: name
+            player.sendMessage(Component.text("Received $displayName factory (tier $tier).", NamedTextColor.GREEN))
         }, ArgumentType.Literal("give"), nameArg, tierArg)
         addSyntax({ player: Player, context ->
             val result = Factories.promote(player, context[tierArg])

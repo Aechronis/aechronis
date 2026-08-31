@@ -156,7 +156,7 @@ Oil refineries convert oil into useful fuel. Requires territory tier 3.
 <img src="buildings/oil-refinery/1.webp" align="right" height="165">
 
 ### Tier 1
-* 4 oil -> 2 fuel
+* 64 oil -> 32 fuel
 <br>
 <br>
 <br>
@@ -165,7 +165,7 @@ Oil refineries convert oil into useful fuel. Requires territory tier 3.
 <img src="buildings/oil-refinery/2.webp" align="right" height="165">
 
 ### Tier 2
-* 8 oil -> 6 fuel
+* 128 oil -> 96 fuel
 <br>
 <br>
 <br>
@@ -174,7 +174,7 @@ Oil refineries convert oil into useful fuel. Requires territory tier 3.
 <img src="buildings/oil-refinery/3.webp" align="right" height="165">
 
 ### Tier 3
-* 20 oil -> 18 fuel
+* 320 oil -> 288 fuel
 <br>
 <br>
 <br>
@@ -182,12 +182,12 @@ Oil refineries convert oil into useful fuel. Requires territory tier 3.
 
 ---
 ## Land factory
-Land factories convert oil into various land vehicles. Requires territory tier 3.
+Land factories convert fuel into various land vehicles. Requires territory tier 3. If a tier has more than one vehicle available, interacting with the factory opens a menu to pick which one to build.
 
 <img src="buildings/land-factory/1.webp" align="right" height="165">
 
 ### Tier 1
-* 16 oil -> Humvee
+* 256 fuel -> Humvee
 <br>
 <br>
 <br>
@@ -196,33 +196,30 @@ Land factories convert oil into various land vehicles. Requires territory tier 3
 <img src="buildings/land-factory/2.webp" align="right" height="230">
 
 ### Tier 2
-* 16 oil -> Humvee
+* 256 fuel -> Humvee
 
 **or**
-* 32 oil -> T-62
-
-**or**
-* 48 oil -> M60
+* 512 fuel -> T-90
  
 <img src="buildings/land-factory/3.webp" align="right" height="230">
 
 ### Tier 3
-* 8 oil -> Humvee
+* 128 fuel -> Humvee
 
 **or**
-* 32 oil -> T-72B
+* 512 fuel -> T-90
 
 **or**
-* 48 oil -> M1A1 Abrams
+* 768 fuel -> M1A1 Abrams
 
 ---
 ## Air factory
-Air factories convert oil into various air vehicles. Requires territory tier 3.
+Air factories convert fuel into various air vehicles. Requires territory tier 3. If a tier has more than one vehicle available, interacting with the factory opens a menu to pick which one to build.
 
 <img src="buildings/air-factory/1.webp" align="right" height="165">
 
 ### Tier 1
-* 16 oil -> UH-60 Black Hawk
+* 256 fuel -> F-16
   <br>
   <br>
   <br>
@@ -231,23 +228,29 @@ Air factories convert oil into various air vehicles. Requires territory tier 3.
 <img src="buildings/air-factory/2.webp" align="right" height="230">
 
 ### Tier 2
-* 16 oil -> UH-60 Black Hawk
+* 256 fuel -> F-16
 
 **or**
-* 32 oil -> F-117 Nighthawk
+* 512 fuel -> J-20
 
 **or**
-* 48 oil -> Su-34 Fullback
+* 768 fuel -> Su-34
 
 <img src="buildings/air-factory/3.webp" align="right" height="230">
 
 ### Tier 3
-* 8 oil -> UH-60 Black Hawk
+* 128 fuel -> F-16
 
 **or**
-* 32 oil -> F-35 Lightning II
+* 512 fuel -> J-20
 
 **or**
-* 48 oil -> B-2 Spirit
+* 768 fuel -> Su-34
+
+**or**
+* 512 fuel -> Su-57
+
+**or**
+* 768 fuel -> B-2 Spirit
 
 ---

@@ -6,6 +6,8 @@ import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Factories
 import net.aechronis.vanilla.objects.consumeStationInteraction
 import net.minestom.server.entity.PlayerHand
+import net.minestom.server.event.inventory.InventoryCloseEvent
+import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
@@ -40,10 +42,21 @@ object FactoriesListener {
         }
     }
 
+    fun onRecipeMenuClick(event: InventoryPreClickEvent) {
+        if (event.isCancelled) return
+        Factories.onRecipeMenuClick(event)
+    }
+
+    fun onRecipeMenuClose(event: InventoryCloseEvent) {
+        Factories.onRecipeMenuClose(event)
+    }
+
     fun init() {
         Vanilla.eventNode.addListener(PlayerBlockPlaceEvent::class.java, FactoriesListener::onPlace)
         Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java, FactoriesListener::onBreak)
         Vanilla.eventNode.addListener(PlayerBlockInteractEvent::class.java, FactoriesListener::onInteract)
         Vanilla.eventNode.addListener(ExplosionBlockDamageEvent::class.java, FactoriesListener::onExplosion)
+        Vanilla.eventNode.addListener(InventoryPreClickEvent::class.java, FactoriesListener::onRecipeMenuClick)
+        Vanilla.eventNode.addListener(InventoryCloseEvent::class.java, FactoriesListener::onRecipeMenuClose)
     }
 }

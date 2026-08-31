@@ -11,6 +11,7 @@ import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.Boats
 import net.aechronis.server.constants.Cars
 import net.aechronis.server.constants.Drones
+import net.aechronis.server.constants.Factories
 import net.aechronis.server.constants.Grenades
 import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Hats
@@ -66,6 +67,7 @@ class ANewMilleniumModule : AechronisModule {
             VanillaConfig(
                 recipesConfig = RecipesConfig(recpies = Blocks.list + Tools.list + Smelting.list + Weapons.list + Vehicles.list),
                 blocksConfig = BlocksConfig(converterCycles = Blocks.converterCycles),
+                factories = Factories.list,
                 shopEnabled = false,
             ),
         )
