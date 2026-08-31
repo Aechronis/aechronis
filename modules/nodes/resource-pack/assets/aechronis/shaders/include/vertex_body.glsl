@@ -101,15 +101,20 @@ if (isMarker) // Markers
     float yaw = atan(local.z, local.x);
     mat2 rotAngle = mat2_rotate_z(yaw);
 
-    int minimapPosition = int(clamp(
+    // The alpha channel packs both the corner position (low bits) and the per-player
+    // north-lock toggle (next bit) -- see Minimap.kt's minimapOpacity().
+    int minimapOpacityValue = int(clamp(
         round(Color.a * 255.0) - MINIMAP_OPACITY_OFFSET,
         0.0,
-        MINIMAP_POSITION_BUCKETS - 1.0
+        MINIMAP_POSITION_BUCKETS * 2.0 - 1.0
     ));
+    int minimapPosition = minimapOpacityValue & 3;
+    bool northLocked = (minimapOpacityValue & 4) != 0;
 
     float offset = (1.0 + MAP_CROP_RADIUS) / 128.0;
-    // Lock the map itself to true north; only the player icon rotates to show heading.
-    mat2 markerRotAngle = markerType == 4 ? rotAngle : mat2(1, 0, 0, 1);
+    // North-locked: the map itself stays fixed and only the player icon rotates to show heading.
+    // Heading-up: the map spins around a fixed player icon instead.
+    mat2 markerRotAngle = (markerType == 4) == northLocked ? rotAngle : mat2(1, 0, 0, 1);
     vec2 map = markerRotAngle * (((corner - 0.5) / 64 * scaleData) + pos - 0.5) + offset;
     uvCoord = map * 128;
     bool allowPartialVisibility = markerType == 3 || markerType == 5;

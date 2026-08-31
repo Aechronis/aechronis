@@ -1160,12 +1160,19 @@ class TownMinimapCommand : NodesCommand("minimap") {
             Message.print(player, "/town minimap toggle${ChatColor.WHITE}: Toggle the resource map")
             Message.print(player, "/town minimap position <top|bottom> <left|right>${ChatColor.WHITE}: Move the map")
             Message.print(player, "/town minimap shift${ChatColor.WHITE}: Toggle enlarging the map while sneaking")
-            Message.print(player, "Map: ${if (resident.minimapEnabled) "enabled" else "disabled"}, position: ${resident.minimapPosition.id}, shifting: ${if (resident.minimapShiftEnabled) "enabled" else "disabled"}")
+            Message.print(player, "/town minimap northlock${ChatColor.WHITE}: Toggle locking the map to north instead of spinning with your view")
+            Message.print(
+                player,
+                "Map: ${if (resident.minimapEnabled) "enabled" else "disabled"}, position: ${resident.minimapPosition.id}, " +
+                    "shifting: ${if (resident.minimapShiftEnabled) "enabled" else "disabled"}, " +
+                    "north lock: ${if (resident.minimapNorthLocked) "enabled" else "disabled"}",
+            )
         }
 
         addSubcommand(TownMinimapToggleCommand())
         addSubcommand(TownMinimapPositionCommand())
         addSubcommand(TownMinimapShiftCommand())
+        addSubcommand(TownMinimapNorthLockCommand())
     }
 }
 
@@ -1208,6 +1215,18 @@ class TownMinimapShiftCommand : NodesCommand("shift", null, "shifting") {
         setDefaultExecutor { player, resident, _ ->
             val enabled = resident.toggleMinimapShift()
             Message.print(player, "Resource map shifting while sneaking ${if (enabled) "enabled" else "disabled"}")
+        }
+    }
+}
+
+class TownMinimapNorthLockCommand : NodesCommand("northlock", null, "rotation") {
+    init {
+        setDefaultExecutor { player, resident, _ ->
+            val locked = resident.toggleMinimapNorthLock()
+            Message.print(
+                player,
+                if (locked) "Resource map locked to north" else "Resource map now spins with your view",
+            )
         }
     }
 }

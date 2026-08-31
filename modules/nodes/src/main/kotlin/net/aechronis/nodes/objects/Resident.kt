@@ -52,6 +52,7 @@ class Resident(val uuid: UUID, val name: String) {
             minimapEnabled: Boolean = true,
             minimapPosition: MinimapPosition = MinimapPosition.DEFAULT,
             minimapShiftEnabled: Boolean = true,
+            minimapNorthLocked: Boolean = true,
             townJoinLockedUntil: Long? = null,
         ) {
             val resident = Resident(uuid, name)
@@ -59,6 +60,7 @@ class Resident(val uuid: UUID, val name: String) {
             resident.minimapEnabled = minimapEnabled
             resident.minimapPosition = minimapPosition
             resident.minimapShiftEnabled = minimapShiftEnabled
+            resident.minimapNorthLocked = minimapNorthLocked
             resident.townJoinLockedUntil = townJoinLockedUntil?.takeIf { it > System.currentTimeMillis() }
             resident.waypointVisibility.putAll(waypointVisibility)
             waypoints.forEach { waypoint -> resident.loadPermanentWaypoint(waypoint) }
@@ -256,6 +258,7 @@ class Resident(val uuid: UUID, val name: String) {
     var minimapEnabled: Boolean = true
     var minimapPosition: MinimapPosition = MinimapPosition.DEFAULT
     var minimapShiftEnabled: Boolean = true
+    var minimapNorthLocked: Boolean = true
     var minimap: Minimap? = null
         private set
 
@@ -377,6 +380,14 @@ class Resident(val uuid: UUID, val name: String) {
         needsUpdate()
         Nodes.needsSave = true
         return minimapShiftEnabled
+    }
+
+    fun toggleMinimapNorthLock(): Boolean {
+        minimapNorthLocked = !minimapNorthLocked
+        minimap?.updateSettings()
+        needsUpdate()
+        Nodes.needsSave = true
+        return minimapNorthLocked
     }
 
     fun destroyMinimap() {
@@ -514,6 +525,7 @@ class Resident(val uuid: UUID, val name: String) {
         val minimapEnabled = r.minimapEnabled
         val minimapPosition = r.minimapPosition
         val minimapShiftEnabled = r.minimapShiftEnabled
+        val minimapNorthLocked = r.minimapNorthLocked
         val townJoinLockedUntil = r.townJoinLockedUntil
         val waypoints = r.permanentWaypoints
         val waypointVisibility = r.waypointVisibility.toMap()
@@ -543,6 +555,7 @@ class Resident(val uuid: UUID, val name: String) {
                     "\"minimap\":${this.minimapEnabled}," +
                     "\"minimapPosition\":${JsonPrimitive(this.minimapPosition.id)}," +
                     "\"minimapShift\":${this.minimapShiftEnabled}," +
+                    "\"minimapNorthLocked\":${this.minimapNorthLocked}," +
                     "\"townJoinLockedUntil\":${this.townJoinLockedUntil ?: "null"}," +
                     "\"waypoints\":$waypointsJson," +
                     "\"waypointVisibility\":$waypointVisibilityJson" +

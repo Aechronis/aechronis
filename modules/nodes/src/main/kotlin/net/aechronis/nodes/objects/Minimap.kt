@@ -47,7 +47,12 @@ enum class MinimapPosition(val id: String, internal val shaderValue: Int) {
     }
 }
 
-internal fun minimapOpacity(position: MinimapPosition): Byte = (position.shaderValue + MINIMAP_OPACITY_OFFSET).toByte()
+/**
+ * Packs both the corner position and the north-lock flag into the marker entity's text opacity,
+ * the only per-player channel the shader can read (see the alpha-channel decode in
+ * vertex_body.glsl). North-lock occupies the next bit above the position buckets.
+ */
+internal fun minimapOpacity(position: MinimapPosition, northLocked: Boolean): Byte = (position.shaderValue + (if (northLocked) MinimapPosition.entries.size else 0) + MINIMAP_OPACITY_OFFSET).toByte()
 
 internal fun augmentPassengerIds(
     vehicleEntityId: Int,
@@ -323,7 +328,7 @@ class Minimap(
         ),
     )
 
-    private fun minimapOpacity(): Byte = minimapOpacity(resident.minimapPosition)
+    private fun minimapOpacity(): Byte = minimapOpacity(resident.minimapPosition, resident.minimapNorthLocked)
 
     private fun updateHudMetadata() {
         player.sendPacket(

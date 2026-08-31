@@ -2,6 +2,7 @@ package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.MinimapIcons
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.PLAYER_ARROW_ICON_CODEPOINT
 import net.aechronis.nodes.PLAYER_ICON_CODEPOINT
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.war.FlagWar
@@ -31,6 +32,7 @@ internal data class MinimapViewerSnapshot(
     val warEnabled: Boolean,
     val permanentWaypoints: List<Waypoint>,
     val deathWaypoint: Waypoint?,
+    val northLocked: Boolean,
 ) {
     companion object {
         fun capture(resident: Resident): MinimapViewerSnapshot {
@@ -44,6 +46,7 @@ internal data class MinimapViewerSnapshot(
                 FlagWar.enabled,
                 resident.visiblePermanentWaypoints().map(VisibleWaypoint::waypoint),
                 resident.deathWaypoint,
+                resident.minimapNorthLocked,
             )
         }
     }
@@ -130,7 +133,11 @@ internal object MinimapMarkerRenderer {
         viewer.deathWaypoint?.let { waypoint ->
             appendWaypointMarker(MinimapIcons.deathWaypointIconCodepoint(scale), waypoint)
         }
-        appendChunkMarker(PLAYER_ICON_CODEPOINT, 0, 0)
+        // Heading-up mode spins the whole map around a fixed player mark, so a plain dot reads
+        // fine. North-locked mode keeps the map fixed and rotates this marker instead, so it
+        // needs to actually look like a directional arrow for that rotation to mean anything.
+        val playerIconCodepoint = if (viewer.northLocked) PLAYER_ARROW_ICON_CODEPOINT else PLAYER_ICON_CODEPOINT
+        appendChunkMarker(playerIconCodepoint, 0, 0)
         return markers.build()
     }
 
