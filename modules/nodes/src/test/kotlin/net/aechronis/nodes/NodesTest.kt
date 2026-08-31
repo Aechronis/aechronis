@@ -855,7 +855,7 @@ class NodesTest {
     }
 
     @Test
-    fun `admin merge transfers non-home territories without moving residents`() {
+    fun `admin merge transfers every territory and destroys source town`() {
         val territories = Nodes.territories.values.filter { it.town == null }.take(4)
         assertEquals(4, territories.size)
         val destination = Town.create("MergeDestination", territories[0], null).getOrThrow()
@@ -867,17 +867,16 @@ class NodesTest {
         assertTrue(Town.addResident(source, resident, bypassTestTownSelection = true))
 
         try {
-            assertEquals(2, Town.mergeTerritories(destination, source))
+            assertEquals(3, Town.merge(destination, source))
 
-            assertEquals(setOf(source.home), source.territories)
-            assertEquals(source, Territory.fromId(source.home)?.town)
+            assertNull(Town.fromName(source.name))
+            assertTrue(source.territories.isEmpty())
+            assertEquals(destination, Territory.fromId(source.home)?.town)
             assertEquals(destination, Territory.fromId(territories[2].id)?.town)
             assertEquals(destination, Territory.fromId(territories[3].id)?.town)
-            assertEquals(source, resident.town)
-            assertTrue(source.residents.contains(resident))
+            assertNull(resident.town)
         } finally {
             Town.destroy(destination)
-            Town.destroy(source)
             Nodes.residents.remove(resident.uuid)
         }
     }

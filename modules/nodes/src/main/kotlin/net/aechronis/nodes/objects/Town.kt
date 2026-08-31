@@ -347,16 +347,13 @@ class Town(
             Resident.renderMinimaps()
         }
 
-        /**
-         * Moves every non-home territory from [source] to [destination].
-         * The source town, its home territory, and its residents remain intact.
-         */
-        internal fun mergeTerritories(destination: Town, source: Town): Int = synchronized(Nodes.occupationPersistenceLock) {
+        /** Moves every territory from [source] to [destination], then destroys [source]. */
+        internal fun merge(destination: Town, source: Town): Int = synchronized(Nodes.occupationPersistenceLock) {
             require(destination !== source) { "A town cannot merge into itself" }
+            require(Nodes.towns[destination.name] === destination) { "The destination town must still exist" }
+            require(Nodes.towns[source.name] === source) { "The source town must still exist" }
 
             val transferred = source.territories
-                .asSequence()
-                .filter { it != source.home }
                 .mapNotNull(Territory::fromId)
                 .toList()
 
@@ -370,12 +367,10 @@ class Town(
                 territory.town = destination
             }
 
-            if (transferred.isNotEmpty()) {
-                source.needsUpdate()
-                destination.needsUpdate()
-                Nodes.needsSave = true
-                Resident.renderMinimaps()
-            }
+            destroy(source)
+            destination.needsUpdate()
+            Nodes.needsSave = true
+            Resident.renderMinimaps()
             transferred.size
         }
 

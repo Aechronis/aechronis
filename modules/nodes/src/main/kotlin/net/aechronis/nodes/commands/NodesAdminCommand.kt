@@ -171,7 +171,7 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
             Message.print(player, "${ChatColor.BOLD}[Nodes] Admin town management:")
             Message.print(player, "/nodesadmin town create${ChatColor.WHITE}: Create a new town")
             Message.print(player, "/nodesadmin town delete${ChatColor.WHITE}: Delete existing town")
-            Message.print(player, "/nda town merge <townA> <townB>${ChatColor.WHITE}: Move Town B's non-home territories into Town A")
+            Message.print(player, "/nda town merge <townA> <townB>${ChatColor.WHITE}: Move all Town B territories into Town A and delete Town B")
             Message.print(player, "/nda town move <townA> <townB>${ChatColor.WHITE}: Move Town B's residents into Town A")
             Message.print(player, "/nodesadmin town rename${ChatColor.WHITE}: Rename a town")
             Message.print(player, "/nodesadmin town addplayer${ChatColor.WHITE}: Add players to town")
@@ -283,8 +283,8 @@ class NodesAdminTownMergeCommand : NodesCommand("merge", "nodes.admin") {
                 return@addSyntax
             }
 
-            val moved = Town.mergeTerritories(destination, source)
-            Message.print(player, "Moved $moved non-home territories from ${source.name} to ${destination.name}; ${source.name} retains its home territory")
+            val moved = Town.merge(destination, source)
+            Message.print(player, "Merged all $moved territories from ${source.name} into ${destination.name} and deleted ${source.name}")
         }, destinationArg, sourceArg)
     }
 }
