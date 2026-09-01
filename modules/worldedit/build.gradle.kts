@@ -13,7 +13,7 @@ dependencies {
         exclude(group = "it.unimi.dsi", module = "fastutil")
     }
     compileOnly("com.google.guava:guava:33.6.0-jre")
-    compileOnly("it.unimi.dsi:fastutil:8.5.18")
+    compileOnly("it.unimi.dsi:fastutil:8.5.19")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
