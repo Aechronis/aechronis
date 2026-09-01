@@ -27,6 +27,9 @@ private const val DEFAULT_MINIMAP_SCALE = 4
 private const val SNEAKING_MINIMAP_SCALE = 12
 private const val MINIMAP_OPACITY_OFFSET = 4
 
+/** Minimum ticks between renders triggered by movement; ~300ms at 20 TPS. */
+private const val MIN_RENDER_INTERVAL_TICKS = 6
+
 enum class MinimapPosition(val id: String, internal val shaderValue: Int) {
     TOP_LEFT("top-left", 0),
     TOP_RIGHT("top-right", 1),
@@ -44,7 +47,12 @@ enum class MinimapPosition(val id: String, internal val shaderValue: Int) {
     }
 }
 
-internal fun minimapOpacity(position: MinimapPosition): Byte = (position.shaderValue + MINIMAP_OPACITY_OFFSET).toByte()
+/**
+ * Packs both the corner position and the north-lock flag into the marker entity's text opacity,
+ * the only per-player channel the shader can read (see the alpha-channel decode in
+ * vertex_body.glsl). North-lock occupies the next bit above the position buckets.
+ */
+internal fun minimapOpacity(position: MinimapPosition, northLocked: Boolean): Byte = (position.shaderValue + (if (northLocked) MinimapPosition.entries.size else 0) + MINIMAP_OPACITY_OFFSET).toByte()
 
 internal fun augmentPassengerIds(
     vehicleEntityId: Int,
@@ -134,6 +142,9 @@ class Minimap(
     private var lastRasterX = Int.MIN_VALUE
     private var lastRasterZ = Int.MIN_VALUE
     private var lastInstanceId: UUID? = null
+    private var ticksSinceRender = MIN_RENDER_INTERVAL_TICKS
+    private var pendingCenterX: Int? = null
+    private var pendingCenterZ: Int? = null
 
     init {
         spawnEntities()
@@ -151,6 +162,13 @@ class Minimap(
                     refresh()
                 }
                 waypointDisplays.updateTransforms(player.position)
+
+                if (ticksSinceRender < MIN_RENDER_INTERVAL_TICKS) ticksSinceRender++
+                val pendingX = pendingCenterX
+                val pendingZ = pendingCenterZ
+                if (pendingX != null && pendingZ != null && ticksSinceRender >= MIN_RENDER_INTERVAL_TICKS) {
+                    render(pendingX, pendingZ)
+                }
             }
             .repeat(TaskSchedule.tick(1))
             .schedule()
@@ -170,6 +188,19 @@ class Minimap(
         ) {
             return
         }
+
+        // Frequent chunk crossings (e.g. fast vehicles) would otherwise trigger a full async
+        // scan + Component rebuild + packet send almost every tick. Coalesce those into at most
+        // one render per MIN_RENDER_INTERVAL_TICKS, deferring to the latest requested position
+        // once the cooldown elapses instead of dropping it.
+        if (!force && ticksSinceRender < MIN_RENDER_INTERVAL_TICKS) {
+            pendingCenterX = centerX
+            pendingCenterZ = centerZ
+            return
+        }
+        ticksSinceRender = 0
+        pendingCenterX = null
+        pendingCenterZ = null
 
         waypointDisplays.refresh()
         val viewerSnapshot = MinimapViewerSnapshot.capture(resident)
@@ -237,7 +268,10 @@ class Minimap(
 
     fun refresh() {
         invalidateRasterPosition()
-        renderCurrent()
+        // A deliberate scale/settings change, not incidental movement -- must not sit behind the
+        // movement-coalescing cooldown or a sneak toggle / settings change could take up to
+        // MIN_RENDER_INTERVAL_TICKS to actually show on screen.
+        renderCurrent(force = true)
     }
 
     private fun invalidateRasterPosition() {
@@ -294,7 +328,7 @@ class Minimap(
         ),
     )
 
-    private fun minimapOpacity(): Byte = minimapOpacity(resident.minimapPosition)
+    private fun minimapOpacity(): Byte = minimapOpacity(resident.minimapPosition, resident.minimapNorthLocked)
 
     private fun updateHudMetadata() {
         player.sendPacket(

@@ -89,6 +89,7 @@ object Deserializer {
                     ?.let(MinimapPosition::fromId)
                     ?: MinimapPosition.DEFAULT
                 val minimapShiftEnabled = resident.get("minimapShift")?.asBoolean ?: true
+                val minimapNorthLocked = resident.get("minimapNorthLocked")?.asBoolean ?: true
                 val townJoinLockedUntil = resident.get("townJoinLockedUntil")?.takeUnless { it.isJsonNull }?.let { value ->
                     runCatching { value.asLong }.getOrNull()
                 }
@@ -126,6 +127,7 @@ object Deserializer {
                     minimapEnabled,
                     minimapPosition,
                     minimapShiftEnabled,
+                    minimapNorthLocked,
                     townJoinLockedUntil,
                 )
             }

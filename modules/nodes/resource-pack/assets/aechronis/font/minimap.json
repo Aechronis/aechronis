@@ -188,6 +188,13 @@
       "height": 16,
       "ascent": 15,
       "chars": [""]
+    },
+    {
+      "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/player_arrow.png",
+      "height": 16,
+      "ascent": 15,
+      "chars": [""]
     }
   ]
 }

@@ -15,6 +15,7 @@ private const val ALLY_WAYPOINT_ICON_CODEPOINT = 0xE00A
 private const val LARGE_SCALE_ALLY_WAYPOINT_ICON_CODEPOINT = 0xE00B
 private const val CORE_ICON_CODEPOINT = 0xECF0
 internal const val PLAYER_ICON_CODEPOINT = 0xECF1
+internal const val PLAYER_ARROW_ICON_CODEPOINT = 0xECF2
 
 internal object MinimapIcons {
     fun waypointIconCodepoint(scale: Int, sharing: WaypointSharing): Int {
