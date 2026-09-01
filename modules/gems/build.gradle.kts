@@ -5,7 +5,7 @@ plugins {
 
 dependencies {
     compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly("net.minestom:minestom:2026.08.16-26.2")
     compileOnly("com.h2database:h2:2.4.240")
     compileOnly(project(":modules:nodes"))
     compileOnly(project(":modules:utils"))

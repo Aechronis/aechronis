@@ -6,7 +6,7 @@ plugins {
 dependencies {
     compileOnly(project(":server"))
     compileOnly(project(":modules:utils"))
-    compileOnly("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly("net.minestom:minestom:2026.08.16-26.2")
     add("moduleApi", "com.sk89q.worldedit:worldedit-core:7.4.4") {
         exclude(group = "com.google.code.gson", module = "gson")
         exclude(group = "com.google.guava", module = "guava")

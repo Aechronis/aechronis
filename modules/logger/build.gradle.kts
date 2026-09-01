@@ -7,7 +7,7 @@ dependencies {
     compileOnly(project(":server"))
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:combat"))
-    compileOnly("net.minestom:minestom:2026.07.12-26.2")
+    compileOnly("net.minestom:minestom:2026.08.16-26.2")
     compileOnly(project(":modules:vanilla"))
     compileOnly(project(":modules:worldedit"))
 
