@@ -19,6 +19,6 @@ dependencies {
     testImplementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
-    testImplementation("org.junit.platform:junit-platform-launcher:6.1.2")
+    testImplementation("org.junit.platform:junit-platform-launcher:6.1.3")
     testImplementation("org.slf4j:slf4j-simple:2.0.18")
 }
