@@ -327,7 +327,7 @@ class Town(
             }
             town.needsUpdate()
             Nodes.needsSave = true
-            Resident.renderMinimaps()
+            FlagWar.requestMinimapRefresh()
             if (commitWarState) FlagWar.commitTerritoryOccupation(territory, town, colonized = false)
         }
 
@@ -345,14 +345,16 @@ class Town(
                 .mapNotNull(Territory::fromId)
                 .toList()
 
-            territories.forEach { territory ->
-                capture(annexingTown, territory, commitWarState = false)
+            FlagWar.deferMinimapRefresh {
+                territories.forEach { territory ->
+                    capture(annexingTown, territory, commitWarState = false)
+                }
+                if (defeatedTown.lives > 0) loseLife(defeatedTown)
+                territories.forEach { territory ->
+                    FlagWar.commitTerritoryOccupation(territory, annexingTown, colonized, flushJournal = false)
+                }
+                FlagWar.flushTerritoryOccupationJournal()
             }
-            if (defeatedTown.lives > 0) loseLife(defeatedTown)
-            territories.forEach { territory ->
-                FlagWar.commitTerritoryOccupation(territory, annexingTown, colonized, flushJournal = false)
-            }
-            FlagWar.flushTerritoryOccupationJournal()
         }
 
         /** Moves every territory from [source] to [destination], then destroys [source]. */

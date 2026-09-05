@@ -366,7 +366,7 @@ object FlagWar {
             colonizedChunks.remove(coord)
         }
         needsSave = true
-        Resident.renderMinimaps()
+        requestMinimapRefresh()
     }
 
     /** Remove partial occupations and active flags owned by a town being deleted. */
@@ -1271,7 +1271,7 @@ object FlagWar {
         stopAttackTaskIfIdle()
     }
 
-    private fun requestMinimapRefresh() {
+    internal fun requestMinimapRefresh() {
         if (minimapRefreshDeferrals > 0) {
             minimapRefreshPending = true
         } else {
@@ -1279,7 +1279,7 @@ object FlagWar {
         }
     }
 
-    private inline fun deferMinimapRefresh(block: () -> Unit) {
+    internal fun deferMinimapRefresh(block: () -> Unit) {
         minimapRefreshDeferrals++
         try {
             block()
