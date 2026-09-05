@@ -41,6 +41,7 @@ import net.aechronis.nodes.constants.ErrorTooManyAttacks
 import net.aechronis.nodes.constants.ErrorTownBlacklisted
 import net.aechronis.nodes.constants.ErrorTownNotWhitelisted
 import net.aechronis.nodes.objects.Coord
+import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
@@ -99,6 +100,10 @@ object FlagWar {
     // ============================================
     // flag that war is turned on
     internal var enabled: Boolean = false
+
+    // All other non-allied nations are enemies for this war period.
+    internal var deathWar: Boolean = false
+    internal val isDeathWar: Boolean get() = enabled && deathWar
 
     // allow annexing territories during war (disable for border skirmishes)
     internal var canAnnexTerritories: Boolean = false
@@ -175,6 +180,12 @@ object FlagWar {
         val status = if (enabled) "enabled" else "${ChatColor.GRAY}disabled"
         Message.print(sender, "${ChatColor.BOLD}Nodes war status: $status")
         if (enabled) {
+            val mode = when {
+                isDeathWar -> "deathwar"
+                canOnlyAttackBorders -> "skirmish"
+                else -> "normal"
+            }
+            Message.print(sender, "- Mode${ChatColor.WHITE}: $mode")
             Message.print(sender, "- Can Annex Territories${ChatColor.WHITE}: $canAnnexTerritories")
             Message.print(sender, "- Can Only Attack Borders${ChatColor.WHITE}: $canOnlyAttackBorders")
             Message.print(sender, "- Destruction Enabled${ChatColor.WHITE}: $destructionEnabled")
@@ -237,7 +248,9 @@ object FlagWar {
         }
 
         if (enabled) {
-            if (canOnlyAttackBorders) {
+            if (isDeathWar) {
+                Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes deathwar enabled")
+            } else if (canOnlyAttackBorders) {
                 Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes border skirmishing enabled")
             } else {
                 Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes war enabled")
@@ -456,6 +469,7 @@ object FlagWar {
         townsDefeatedThisWar.clear()
         territoryOccupationJournalDirty = false
         enabled = false
+        deathWar = false
         canAnnexTerritories = false
         canOnlyAttackBorders = false
         destructionEnabled = false
@@ -485,6 +499,7 @@ object FlagWar {
 
         // disable war
         enabled = false
+        deathWar = false
 
         // iterate chunks and stop current attacks
         for (attack in chunkToAttacker.values.toList()) {
@@ -521,16 +536,25 @@ object FlagWar {
     /**
      * Enable war, set war state flags
      */
-    internal fun enable(canAnnexTerritories: Boolean, canOnlyAttackBorders: Boolean, destructionEnabled: Boolean) {
+    internal fun enable(
+        canAnnexTerritories: Boolean,
+        canOnlyAttackBorders: Boolean,
+        destructionEnabled: Boolean,
+        deathWar: Boolean = false,
+    ) {
         skirmishTargetsByNation.clear()
         townsDefeatedThisWar.clear()
         enabled = true
+        FlagWar.deathWar = deathWar
         FlagWar.canAnnexTerritories = canAnnexTerritories
         FlagWar.canOnlyAttackBorders = canOnlyAttackBorders
         FlagWar.destructionEnabled = destructionEnabled
         needsSave = true
 
         startSaveTask(restart = true)
+        revalidateWarAttacks()
+        Nametag.refreshRelationships()
+        Resident.renderMinimaps()
     }
 
     /**
@@ -538,6 +562,7 @@ object FlagWar {
      */
     internal fun disable() {
         enabled = false
+        deathWar = false
         canAnnexTerritories = false
         canOnlyAttackBorders = false
         destructionEnabled = false
@@ -564,6 +589,7 @@ object FlagWar {
         }
 
         attackers.entries.removeIf { it.value.isEmpty() }
+        Nametag.refreshRelationships()
         Resident.renderMinimaps()
 
         if (colonizedChunks.isNotEmpty() || chunkToAttacker.values.any { it.mode == AttackMode.COLONIZATION }) {
@@ -980,7 +1006,7 @@ object FlagWar {
         return effectiveOccupier === attackingTown || Town.areAllied(attackingTown, effectiveOccupier)
     }
 
-    /** Normal wars require enemies; border skirmishes allow any non-allied opponent. */
+    /** Wars require enemies (including deathwar hostility); skirmishes allow any non-allied town. */
     internal fun townIsWarOpponent(attackingTown: Town, otherTown: Town?): Boolean {
         if (otherTown == null) return false
         return if (canOnlyAttackBorders) {
@@ -1320,6 +1346,10 @@ object FlagWar {
      *   4. attacking town/ally home chunk -> recapture territory
      */
     internal fun finishAttack(attack: Attack) {
+        if (attack.mode == AttackMode.WAR && !warAttackRemainsAuthorized(attack)) {
+            cancelAttack(attack)
+            return
+        }
         if (!attack.markEnded()) return
         try {
             synchronized(Nodes.occupationPersistenceLock) {
@@ -1529,6 +1559,10 @@ object FlagWar {
 
     // Update one attack. Called by the single global attack scheduler.
     internal fun attackTick(attack: Attack) {
+        if (attack.mode == AttackMode.WAR && !warAttackRemainsAuthorized(attack)) {
+            attack.cancel()
+            return
+        }
         if (attack.mode == AttackMode.COLONIZATION && !Colonization.attackRemainsAuthorized(attack)) {
             attack.cancel()
             return
@@ -1543,6 +1577,24 @@ object FlagWar {
         attack.progressBar.progress(progress.toFloat() / attack.attackTime.toFloat())
         // At most five relationship-group entities are updated, never every player.
         attack.textDisplay.updateProgress()
+    }
+
+    private fun warAttackRemainsAuthorized(attack: Attack): Boolean {
+        if (!enabled) return false
+        val chunk = TerritoryChunk.fromCoord(attack.coord) ?: return false
+        return chunk.territory === attack.targetTerritory &&
+            chunkIsAttackable(chunk, chunk.territory, attack.town) &&
+            !chunkAlreadyCaptured(chunk, chunk.territory, attack.town)
+    }
+
+    /** Stop pending captures when diplomacy makes their targets friendly. */
+    internal fun revalidateWarAttacks() {
+        deferMinimapRefresh {
+            chunkToAttacker.values
+                .filter { it.mode == AttackMode.WAR && !warAttackRemainsAuthorized(it) }
+                .toList()
+                .forEach(::cancelAttack)
+        }
     }
 
     // intended to run on PlayerJoin event

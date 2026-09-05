@@ -203,6 +203,7 @@ object WarSerializer {
             append("\"flagAnnex\":${FlagWar.canAnnexTerritories},")
             append("\"flagBordersOnly\":${FlagWar.canOnlyAttackBorders},")
             append("\"flagDestruction\":${FlagWar.destructionEnabled},")
+            append("\"flagDeathWar\":${FlagWar.isDeathWar},")
             append("\"occupied\":{")
             append(
                 occupiedByTown.entries.joinToString(",") { (townId, coordinates) ->

@@ -51,7 +51,7 @@ object Alliance {
      */
     fun request(nation1: Nation, nation2: Nation): Result<AllianceRequest> {
         // check nations are not enemies
-        if (nation1.enemies.contains(nation2) || nation2.enemies.contains(nation1)) {
+        if (!FlagWar.isDeathWar && (nation1.enemies.contains(nation2) || nation2.enemies.contains(nation1))) {
             return Result.failure(ErrorAllyRequestEnemies)
         }
         // check nations not already allied
@@ -91,7 +91,8 @@ object Alliance {
                     timeoutThread.cancel()
                 }
 
-                Nation.addAlly(nation1, nation2)
+                val result = Nation.addAlly(nation1, nation2)
+                result.exceptionOrNull()?.let { return Result.failure(it) }
                 return Result.success(AllianceRequest.ACCEPTED)
             }
         }

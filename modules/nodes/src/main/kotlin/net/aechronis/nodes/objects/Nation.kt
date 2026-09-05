@@ -16,6 +16,7 @@ import net.aechronis.nodes.constants.ErrorTownHasNation
 import net.aechronis.nodes.serdes.SaveState
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.utils.Color
+import net.aechronis.nodes.war.FlagWar
 import net.minestom.server.command.CommandSender
 import net.minestom.server.entity.Player
 import java.util.Random
@@ -36,6 +37,11 @@ class Nation(
         fun fromName(name: String): Nation? = Nodes.nations[name]
 
         fun fromUuid(uuid: UUID): Nation? = Nodes.nations.values.firstOrNull { nation -> nation.uuid == uuid }
+
+        fun areEnemies(nation: Nation, other: Nation): Boolean {
+            if (nation === other || other in nation.allies || nation in other.allies) return false
+            return FlagWar.isDeathWar || other in nation.enemies || nation in other.enemies
+        }
 
         private fun indexTownMembers(nation: Nation, town: Town) {
             val indexedPlayers = town.playersOnline.associateBy { it.uuid }
@@ -203,7 +209,12 @@ class Nation(
 
         fun addAlly(nation: Nation, other: Nation): Result<Boolean> {
             if ((nation.allies.contains(other) && other.allies.contains(nation)) || nation === other) return Result.failure(net.aechronis.nodes.constants.ErrorAlreadyAllies)
-            if (nation.enemies.contains(other) || other.enemies.contains(nation)) return Result.failure(net.aechronis.nodes.constants.ErrorAlreadyEnemies)
+            if (!FlagWar.isDeathWar && (nation.enemies.contains(other) || other.enemies.contains(nation))) {
+                return Result.failure(net.aechronis.nodes.constants.ErrorAlreadyEnemies)
+            }
+            // Accepting a deathwar alliance also ends any declared hostility.
+            nation.enemies.remove(other)
+            other.enemies.remove(nation)
             nation.allies.add(other)
             other.allies.add(nation)
             nation.towns.forEach { town ->
@@ -216,6 +227,7 @@ class Nation(
             }
             nation.needsUpdate()
             other.needsUpdate()
+            FlagWar.revalidateWarAttacks()
             Nametag.refreshRelationships()
             Nodes.needsSave = true
             Resident.renderMinimaps()
@@ -307,6 +319,8 @@ class Nation(
     val allies: HashSet<Nation> = hashSetOf()
     val enemies: HashSet<Nation> = hashSetOf()
 
+    fun effectiveEnemies(): Set<Nation> = Nodes.nations.values.filterTo(hashSetOf()) { areEnemies(this, it) }
+
     // Maximum nation members allowed online while war is enabled. Null means unlimited.
     var rallyCap: Int? = null
         private set
@@ -349,8 +363,9 @@ class Nation(
             "${ChatColor.GRAY}None"
         }
 
-        val enemies = if (this.enemies.isNotEmpty()) {
-            this.enemies.joinToString(", ") { v -> v.name }
+        val currentEnemies = effectiveEnemies()
+        val enemies = if (currentEnemies.isNotEmpty()) {
+            currentEnemies.joinToString(", ") { v -> v.name }
         } else {
             "${ChatColor.GRAY}None"
         }

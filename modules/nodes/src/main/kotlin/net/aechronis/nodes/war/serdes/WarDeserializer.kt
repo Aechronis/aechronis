@@ -28,8 +28,9 @@ object WarDeserializer {
             val canAnnexTerritories = jsonObj.get("flagAnnex")?.asBoolean ?: true
             val canOnlyAttackBorders = jsonObj.get("flagBordersOnly")?.asBoolean ?: false
             val destructionEnabled = jsonObj.get("flagDestruction")?.asBoolean ?: true
+            val deathWar = jsonObj.get("flagDeathWar")?.asBoolean ?: false
 
-            FlagWar.enable(canAnnexTerritories, canOnlyAttackBorders, destructionEnabled)
+            FlagWar.enable(canAnnexTerritories, canOnlyAttackBorders, destructionEnabled, deathWar)
         }
 
         val jsonSkirmishTargets = jsonObj.get("skirmishTargets")?.asJsonObject

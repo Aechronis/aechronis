@@ -76,7 +76,7 @@ class Town(
             if (town1 == null || town2 == null) return false
             val nation1 = town1.nation
             val nation2 = town2.nation
-            return nation1 != null && nation2 != null && nation1.enemies.contains(nation2)
+            return nation1 != null && nation2 != null && Nation.areEnemies(nation1, nation2)
         }
 
         fun relationshipOfTownToTown(town: Town?, other: Town?): DiplomaticRelationship {
@@ -87,7 +87,7 @@ class Town(
                 if (nation != null && nation === otherNation) return DiplomaticRelationship.NATION
                 if (nation != null && otherNation != null) {
                     if (nation.allies.contains(otherNation)) return DiplomaticRelationship.ALLY
-                    if (nation.enemies.contains(otherNation)) return DiplomaticRelationship.ENEMY
+                    if (Nation.areEnemies(nation, otherNation)) return DiplomaticRelationship.ENEMY
                 }
             }
             return DiplomaticRelationship.NEUTRAL
@@ -789,8 +789,9 @@ class Town(
         } else {
             "${ChatColor.GRAY}None"
         }
-        val enemies = if (this.nation?.enemies?.isNotEmpty() == true) {
-            this.nation!!.enemies.joinToString(", ") { it -> it.name }
+        val currentEnemies = this.nation?.effectiveEnemies().orEmpty()
+        val enemies = if (currentEnemies.isNotEmpty()) {
+            currentEnemies.joinToString(", ") { it -> it.name }
         } else {
             "${ChatColor.GRAY}None"
         }
