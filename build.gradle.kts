@@ -4,7 +4,6 @@ import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.Sync
-import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 
 plugins {
@@ -38,10 +37,6 @@ subprojects {
             }
             configurations.named("implementation") {
                 extendsFrom(moduleImplementation.get())
-            }
-            val compileOnly = configurations.named("compileOnly")
-            configurations.named("testImplementation") {
-                extendsFrom(compileOnly.get())
             }
             val runtimeClasspath = configurations.named("runtimeClasspath")
             val moduleLibrariesClasspath =
@@ -82,16 +77,6 @@ subprojects {
             }
         }
     }
-
-    tasks.withType<Test>().configureEach {
-        useJUnitPlatform()
-        systemProperty("keepRunning", System.getProperty("keepRunning", "false"))
-        systemProperty(
-            "aechronis.dangerously-enable-all-permissions",
-            System.getProperty("aechronis.dangerously-enable-all-permissions", "false"),
-        )
-    }
-
 }
 
 val runtimeModuleProjects =

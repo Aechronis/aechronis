@@ -10,7 +10,4 @@ dependencies {
     compileOnly(project(":modules:nodes"))
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:vanilla"))
-
-    testImplementation("org.jetbrains.kotlin:kotlin-test")
-    testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
 }
