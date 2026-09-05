@@ -926,7 +926,7 @@ object FlagWar {
         return false
     }
 
-    /** A successful territory capture defeats its town by taking its home or crossing 70% occupation. */
+    /** A successful territory capture defeats its town by taking its home. */
     internal fun shouldAnnexTown(
         defeatedTown: Town,
         capturedTerritory: Territory,
@@ -936,14 +936,7 @@ object FlagWar {
         // it through another territory would otherwise permanently consume its
         // warzone land.
         if (Warzone.ownsRegisteredZone(defeatedTown)) return false
-        if (capturedTerritory.id == defeatedTown.home) return true
-
-        val totalTerritories = defeatedTown.territories.size
-        if (totalTerritories == 0) return false
-        val capturedTerritories = defeatedTown.territories.count { territoryId ->
-            Territory.fromId(territoryId)?.occupier?.let { occupier -> occupier !== defeatedTown } == true
-        }
-        return capturedTerritories.toLong() * 10 > totalTerritories.toLong() * 7
+        return capturedTerritory.id == defeatedTown.home
     }
 
     // check if chunk was already captured

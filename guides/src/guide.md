@@ -35,7 +35,7 @@ Attack enemy's territory by putting down a fence block in a chunk (fence is a "f
 Turn on minimap to see where to attack: use /t minimap
 Capture a territory's home chunk ("H" symbol on the minimap) to capture the territory
 
-Capturing a town's home territory annexes the entire town. A town is also annexed once more than 70% of its territories are occupied. If several towns contributed captures, the town that completes the final territory flag receives every territory and is recorded as the annexer.
+Capturing a town's home territory annexes the entire town.
 
 ### colonization
 
