@@ -198,7 +198,7 @@ class Town(
                 if (plot.name.isNotBlank() && !town.plots.containsKey(plot.name) && Plot.isValid(town, plot)) town.plots[plot.name] = plot
             }
             town.aiConfig = aiConfig
-            town.lives = lives?.coerceAtLeast(1) ?: 1
+            town.lives = lives?.coerceAtLeast(0) ?: 1
             town.capitalLifeGranted = capitalLifeGranted
             town.lifeRevision = lifeRevision.coerceAtLeast(0L)
             Nodes.towns[name] = town
@@ -216,7 +216,7 @@ class Town(
         }
 
         internal fun loseLife(town: Town): Int {
-            require(town.lives > 1) { "A town at its final life must be annexed instead of losing another life" }
+            require(town.lives > 0) { "A town with no remaining lives cannot lose another life" }
             town.lives--
             town.lifeRevision++
             town.needsUpdate()
@@ -241,7 +241,7 @@ class Town(
             revision: Long,
         ) {
             if (revision <= town.lifeRevision) return
-            val restoredLives = lives.coerceAtLeast(1)
+            val restoredLives = lives.coerceAtLeast(0)
             town.lives = restoredLives
             town.capitalLifeGranted = capitalLifeGranted
             town.lifeRevision = revision
@@ -331,30 +331,28 @@ class Town(
             if (commitWarState) FlagWar.commitTerritoryOccupation(territory, town, colonized = false)
         }
 
-        // transfer a defeated towns claimed land to the conquering town and remove the defeated town
+        // Occupy all of a defeated town's land, preserving its ownership and residents.
         internal fun annex(
             annexingTown: Town,
             defeatedTown: Town,
+            colonized: Boolean = false,
         ) = synchronized(Nodes.occupationPersistenceLock) {
             require(annexingTown !== defeatedTown) { "A town cannot annex itself" }
             require(Nodes.towns[annexingTown.name] === annexingTown) { "The annexing town must still exist" }
             require(Nodes.towns[defeatedTown.name] === defeatedTown) { "The defeated town must still exist" }
 
-            val transferredTerritories = defeatedTown.territories
+            val territories = defeatedTown.territories
                 .mapNotNull(Territory::fromId)
                 .toList()
 
-            destroy(defeatedTown)
-
-            transferredTerritories.forEach { territory ->
-                check(territory.town == null) { "Defeated territory ${territory.id} was not released" }
-                annexingTown.territories.add(territory.id)
-                annexingTown.annexed.add(territory.id)
-                territory.town = annexingTown
+            territories.forEach { territory ->
+                capture(annexingTown, territory, commitWarState = false)
             }
-            annexingTown.needsUpdate()
-            Nodes.needsSave = true
-            Resident.renderMinimaps()
+            if (defeatedTown.lives > 0) loseLife(defeatedTown)
+            territories.forEach { territory ->
+                FlagWar.commitTerritoryOccupation(territory, annexingTown, colonized, flushJournal = false)
+            }
+            FlagWar.flushTerritoryOccupationJournal()
         }
 
         /** Moves every territory from [source] to [destination], then destroys [source]. */
@@ -683,7 +681,7 @@ class Town(
     // nation for town
     var nation: Nation? = null
 
-    // Remaining war defeats before the town is annexed. A living town always has at least one.
+    // Remaining lives; defeated towns retain their territory ownership even at zero.
     var lives: Int = 1
         private set
 

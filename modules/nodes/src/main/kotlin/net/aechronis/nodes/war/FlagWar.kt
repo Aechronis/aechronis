@@ -300,10 +300,21 @@ object FlagWar {
         territory: Territory,
         occupier: Town?,
         colonized: Boolean,
+        flushJournal: Boolean = true,
     ) = synchronized(Nodes.occupationPersistenceLock) {
+        if (colonized && occupier != null) {
+            territory.chunks.forEach { coord ->
+                TerritoryChunk.fromCoord(coord)?.let { chunk ->
+                    chunk.occupier = occupier
+                    occupiedChunks.add(coord)
+                    colonizedChunks.add(coord)
+                }
+            }
+            requestMinimapRefresh()
+        }
         territoryOccupations[territory.id] = TerritoryOccupationState(occupier?.uuid, colonized)
         territoryOccupationJournalDirty = true
-        flushTerritoryOccupationJournal()
+        if (flushJournal) flushTerritoryOccupationJournal()
     }
 
     /** Persist a previously failed occupation transition before towns.json. */
@@ -596,7 +607,7 @@ object FlagWar {
         mode: AttackMode,
     ): TownDefeatOutcome {
         if (mode != AttackMode.WAR) {
-            Town.annex(attackerTown, defeatedTown)
+            Town.annex(attackerTown, defeatedTown, colonized = mode == AttackMode.COLONIZATION)
             WarSerializer.save(false)
             return TownDefeatOutcome.ANNEXED
         }
@@ -607,7 +618,7 @@ object FlagWar {
 
         val outcome = when {
             defeatedTown.lives > 1 -> {
-                Town.loseLife(defeatedTown)
+                Town.annex(attackerTown, defeatedTown)
                 TownDefeatOutcome.LOST_LIFE
             }
             canAnnexDefeatedTown(mode) -> {
@@ -932,9 +943,8 @@ object FlagWar {
         capturedTerritory: Territory,
     ): Boolean {
         if (capturedTerritory.town !== defeatedTown) return false
-        // A town containing any registered warzone must remain a town: annexing
-        // it through another territory would otherwise permanently consume its
-        // warzone land.
+        // Capturing another territory must not occupy a registered warzone or
+        // bypass its independent scoring mechanics.
         if (Warzone.ownsRegisteredZone(defeatedTown)) return false
         return capturedTerritory.id == defeatedTown.home
     }
@@ -1395,19 +1405,6 @@ object FlagWar {
                     // captured enemy territory
                     else {
                         Town.capture(attackerTown, territory, commitWarState = false)
-                        if (attack.mode == AttackMode.COLONIZATION) {
-                            // A completed colony must retain the same off-war control
-                            // that partial colony chunks have. Persist an occupier on
-                            // every chunk so the provenance survives war.json reloads.
-                            for (coord in territory.chunks) {
-                                TerritoryChunk.fromCoord(coord)?.let { territoryChunk ->
-                                    territoryChunk.occupier = attackerTown
-                                    occupiedChunks.add(coord)
-                                    colonizedChunks.add(coord)
-                                }
-                            }
-                            requestMinimapRefresh()
-                        }
                         commitTerritoryOccupation(
                             territory,
                             attackerTown,
@@ -1420,19 +1417,20 @@ object FlagWar {
                         }
                         val action = if (attack.mode == AttackMode.COLONIZATION) "colonized" else "captured"
                         Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} $action territory (id=${territory.id}) from ${territoryTown?.name}!")
-                        // Warzones are always occupied, never permanently annexed.
-                        // This includes a warzone that is a town's home territory
-                        // and a stopped warzone later captured during normal war.
+                        // Warzones do not trigger town-wide occupation or life loss,
+                        // including stopped warzones captured during normal war.
                         if (territoryTown != null && !Warzone.isRegistered(territory) && shouldAnnexTown(territoryTown, territory)) {
                             val defeatedTownName = territoryTown.name
                             when (resolveTownDefeat(attackerTown, territoryTown, attack.mode)) {
                                 TownDefeatOutcome.ALREADY_DEFEATED_THIS_WAR -> Unit
                                 TownDefeatOutcome.LOST_LIFE -> Message.broadcast(
-                                    "${ChatColor.DARK_RED}[Conquest] $defeatedTownName lost a life and has " +
+                                    "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} occupied all territories of " +
+                                        "$defeatedTownName, which lost a life and has " +
                                         "${territoryTown.lives} remaining; it cannot lose another life this war!",
                                 )
                                 TownDefeatOutcome.ANNEXED -> Message.broadcast(
-                                    "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} annexed $defeatedTownName; " +
+                                    "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} occupied all territories of " +
+                                        "$defeatedTownName, which has ${territoryTown.lives} lives remaining; " +
                                         "${attacker?.name ?: attackerTown.name} made the decisive capture!",
                                 )
                                 TownDefeatOutcome.FINAL_LIFE_PROTECTED -> Message.broadcast(

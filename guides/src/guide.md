@@ -35,7 +35,7 @@ Attack enemy's territory by putting down a fence block in a chunk (fence is a "f
 Turn on minimap to see where to attack: use /t minimap
 Capture a territory's home chunk ("H" symbol on the minimap) to capture the territory
 
-Capturing a town's home territory annexes the entire town.
+Capturing a town's home territory occupies all of its territories for the attacking town and removes one defending-town life. The defending town keeps ownership of its land and remains in existence at zero lives. During normal war, a town can lose only one life per war; modes that disable annexation protect its final life. Registered warzone towns are exempt from town-wide defeat.
 
 ### colonization
 

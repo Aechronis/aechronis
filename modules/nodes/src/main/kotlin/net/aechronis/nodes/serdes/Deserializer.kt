@@ -181,7 +181,7 @@ object Deserializer {
                 }
 
                 val lives = town.get("lives")?.let { value ->
-                    runCatching { value.asInt.takeIf { it > 0 } }.getOrNull()
+                    runCatching { value.asInt.takeIf { it >= 0 } }.getOrNull()
                 }
                 val capitalLifeGranted = town.get("capitalLifeGranted")?.asBoolean ?: false
                 val lifeRevision = town.get("lifeRevision")?.asLong?.coerceAtLeast(0L) ?: 0L
