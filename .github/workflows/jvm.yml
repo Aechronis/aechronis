@@ -34,13 +34,11 @@ jobs:
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./gradlew build serverDistributionZip --no-daemon
+        run: ./gradlew build assembleServerDistribution --no-daemon
       - name: Upload runnable server layout
         uses: actions/upload-artifact@v7
         with:
           name: aechronis-server
-          path: |
-            build/distributions/aechronis/
-            build/distributions/aechronis-server.zip
+          path: build/distributions/aechronis/
           include-hidden-files: true
           if-no-files-found: error

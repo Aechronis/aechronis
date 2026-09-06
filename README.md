@@ -14,9 +14,8 @@ This repository contains the Aechronis server, its Kotlin modules, guides, and r
 The JVM projects share one Gradle build:
 
 Run `./gradlew build` to check every JVM project and build each of its JARs.
-Run `./gradlew serverDistributionZip` to assemble the complete runnable layout
-under `build/distributions/aechronis/` and its archive at
-`build/distributions/aechronis-server.zip`. The layout keeps the core at
+Run `./gradlew assembleServerDistribution` to assemble the complete runnable layout
+under `build/distributions/aechronis/`. The layout keeps the core at
 `aechronis.jar` and every gameplay JAR directly under `modules/`; deploy both.
 
 Runtime modules are built independently. For example,

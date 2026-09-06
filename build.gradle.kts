@@ -2,7 +2,6 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.bundling.Jar
-import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.Sync
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 
@@ -93,30 +92,18 @@ val runtimeModuleProjects =
         ":modules:iterations:a-new-millenium",
     )
 
-val assembleServerDistribution =
-    tasks.register<Sync>("assembleServerDistribution") {
-        group = "distribution"
-        description = "Assembles a runnable core JAR and direct modules/*.jar layout."
-        dependsOn(":server:shadowJar")
-        dependsOn(runtimeModuleProjects.map { "$it:shadowJar" })
-
-        into(layout.buildDirectory.dir("distributions/aechronis"))
-        from(project(":server").tasks.withType<ShadowJar>())
-        into("modules") {
-            runtimeModuleProjects.forEach { modulePath ->
-                from(project(modulePath).tasks.withType<ShadowJar>())
-            }
-            from("server/src/main/distribution/modules/.required-modules")
-        }
-    }
-
-tasks.register<Zip>("serverDistributionZip") {
+tasks.register<Sync>("assembleServerDistribution") {
     group = "distribution"
-    description = "Packages the runnable server distribution."
-    dependsOn(assembleServerDistribution)
-    archiveFileName.set("aechronis-server.zip")
-    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
-    from(layout.buildDirectory.dir("distributions/aechronis")) {
-        into("aechronis")
+    description = "Assembles a runnable core JAR and direct modules/*.jar layout."
+    dependsOn(":server:shadowJar")
+    dependsOn(runtimeModuleProjects.map { "$it:shadowJar" })
+
+    into(layout.buildDirectory.dir("distributions/aechronis"))
+    from(project(":server").tasks.withType<ShadowJar>())
+    into("modules") {
+        runtimeModuleProjects.forEach { modulePath ->
+            from(project(modulePath).tasks.withType<ShadowJar>())
+        }
+        from("server/src/main/distribution/modules/.required-modules")
     }
 }
