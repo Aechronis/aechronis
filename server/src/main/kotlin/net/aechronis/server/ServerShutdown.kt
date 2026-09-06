@@ -95,7 +95,7 @@ object ServerShutdown {
                 System.err.println("Failed to $stage during shutdown: ${error.message}")
                 error.printStackTrace()
             }
-        Runtime.getRuntime().addShutdownHook(Thread(::shutdown, "server-shutdown"))
+        Runtime.getRuntime().addShutdownHook(Thread({ shutdownCompletion().join() }, "server-shutdown"))
     }
 
     fun configure(
@@ -122,7 +122,25 @@ object ServerShutdown {
         )
     }
 
+    private var shutdownFuture: java.util.concurrent.CompletableFuture<Void>? = null
+
+    @Synchronized
+    private fun shutdownCompletion(): java.util.concurrent.CompletableFuture<Void> {
+        shutdownFuture?.let { return it }
+        val future = java.util.concurrent.CompletableFuture<Void>()
+        shutdownFuture = future
+        Thread.ofVirtual().name("server-shutdown-coordinator").start {
+            try {
+                coordinator.shutdown()
+                future.complete(null)
+            } catch (error: Throwable) {
+                future.completeExceptionally(error)
+            }
+        }
+        return future
+    }
+
     fun shutdown() {
-        coordinator.shutdown()
+        shutdownCompletion()
     }
 }

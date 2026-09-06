@@ -14,6 +14,7 @@ import net.aechronis.guard.listeners.TeleportListener
 import net.aechronis.guard.objects.ZonePolicy
 import net.aechronis.guard.storage.ZoneRegistry
 import net.aechronis.guard.storage.ZoneStorage
+import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.utils.hasPermission
 import net.minestom.server.MinecraftServer
@@ -72,7 +73,8 @@ object Guard {
             eventNode.addListener(VehicleSpawnEvent::class.java, ::handleVehicleSpawn)
             ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
             command = GuardCommand(config.adminPermission, config.bypassPermission)
-            MinecraftServer.getCommandManager().register(command!!)
+            ModuleCommands
+                .register(command!!)
         } catch (error: Throwable) {
             shutdown()
             throw error
@@ -169,7 +171,8 @@ object Guard {
             MinecraftServer.getGlobalEventHandler().removeChild(eventNode)
         }
         command?.let { registered ->
-            MinecraftServer.getCommandManager().unregister(registered)
+            ModuleCommands
+                .unregister(registered)
             command = null
         }
         save()

@@ -20,6 +20,7 @@ import io.github.openminigameserver.worldedit.platform.actors.MinestomPlayer
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomWorld
 import io.github.openminigameserver.worldedit.platform.misc.WorldEditCommand
+import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.EntityType
@@ -80,7 +81,8 @@ class MinestomPlatform(
         unregisterCommands()
         commandManager.allCommands.forEach { command ->
             val minestomCommand = WorldEditCommand(command)
-            MinecraftServer.getCommandManager().register(minestomCommand)
+            ModuleCommands
+                .register(minestomCommand)
             registeredCommands += minestomCommand
         }
     }
@@ -93,7 +95,7 @@ class MinestomPlatform(
     }
 
     private fun unregisterCommands() {
-        val commandManager = MinecraftServer.getCommandManager()
+        val commandManager = ModuleCommands
         registeredCommands.forEach(commandManager::unregister)
         registeredCommands.clear()
     }

@@ -204,7 +204,7 @@ internal class CraftingStorePluginAdapter(
         val manager = MinecraftServer.getCommandManager()
         check(!manager.commandExists("craftingstore")) { "Cannot register /craftingstore: command already exists" }
         command = AdminCommand()
-        manager.register(command!!)
+        options.registerCommand(command!!)
     }
 
     private inner class AdminCommand : Command("craftingstore") {
@@ -349,7 +349,7 @@ internal class CraftingStorePluginAdapter(
 
         command?.let { registered ->
             cleanup {
-                MinecraftServer.getCommandManager().unregister(registered)
+                options.unregisterCommand(registered)
                 command = null
             }
         }

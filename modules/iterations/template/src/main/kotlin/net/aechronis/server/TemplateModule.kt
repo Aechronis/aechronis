@@ -31,18 +31,8 @@ class TemplateModule : AechronisModule {
                 .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build(),
         )
-    override val dependencies =
-        setOf(
-            "utils",
-            "watchdog",
-            "combat",
-            "vanilla",
-            "worldedit",
-            "nodes",
-            "logger",
-            "guard",
-            "gems",
-        )
+    override val dependencies = setOf("combat", "vanilla", "nodes")
+    override val reloadTogether = setOf("combat")
 
     override fun configure(context: ModuleContext) {
         registerItems()

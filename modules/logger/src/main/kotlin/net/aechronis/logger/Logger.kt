@@ -28,6 +28,7 @@ import net.aechronis.logger.repos.InventorySnapshot
 import net.aechronis.logger.repos.Rollback
 import net.aechronis.logger.repos.StorageChange
 import net.aechronis.logger.utils.awaitLifecycleFuture
+import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
@@ -135,7 +136,8 @@ object Logger {
             eventNodeRegistered = true
 
             command = LoggerCommand()
-            MinecraftServer.getCommandManager().register(command!!)
+            ModuleCommands
+                .register(command!!)
 
             initialized = true
             hasInitialized = true
@@ -184,7 +186,13 @@ object Logger {
             eventNodeRegistered = false
         }
         command?.let { registered ->
-            if (cleanup { MinecraftServer.getCommandManager().unregister(registered) }) command = null
+            if (cleanup {
+                    ModuleCommands
+                        .unregister(registered)
+                }
+            ) {
+                command = null
+            }
         }
         cleanup(BlockListener::close)
         cleanup(LootListener::close)

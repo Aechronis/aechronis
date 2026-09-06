@@ -71,6 +71,7 @@ import net.aechronis.nodes.war.Alliance
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.nodes.war.serdes.WarSerializer
+import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
@@ -189,7 +190,7 @@ object Nodes {
         ModuleEvents.addChild(globalEventHandler, eventNode)
         ModuleEvents.addChild(globalEventHandler, highPriorityEventNode)
         ModuleEvents.addChild(globalEventHandler, postPermissionEventNode)
-        commands.forEach(MinecraftServer.getCommandManager()::register)
+        commands.forEach(ModuleCommands::register)
         lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: System.currentTimeMillis()
         reloadManagers()
         MiningBoostManager.start()
@@ -247,7 +248,7 @@ object Nodes {
                 globalEventHandler.removeChild(node)
             }
         }
-        val commandManager = MinecraftServer.getCommandManager()
+        val commandManager = ModuleCommands
         cleanupStage(CleanupStage.COMMANDS) {
             commands.forEach { command -> commandManager.unregister(command) }
             commands = emptyList()

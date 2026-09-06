@@ -33,17 +33,13 @@ class ResourcePackServer private constructor(
     private var serverStopped = false
     private var closed = false
 
-    @Synchronized
-    fun install(
+    internal fun prepare(
         id: String,
         directory: Path?,
-        externalPacks: List<ResourcePackInfo> = emptyList(),
-    ): ResourcePackRegistration {
-        check(!closed) { "Resource-pack server is closed" }
+        externalPacks: List<ResourcePackInfo>,
+    ): ModuleResourcePacks {
         require(id.matches(RESOURCE_PACK_ID_PATTERN)) { "Invalid resource-pack ID: '$id'" }
-        check(id !in activePacks) { "Resource packs for module '$id' are already active" }
         require(directory != null || externalPacks.isNotEmpty()) { "Module '$id' does not provide any resource packs" }
-
         val hostedPack =
             directory?.let {
                 ServedResourcePack(
@@ -58,6 +54,16 @@ class ResourcePackServer private constructor(
                 hostedPack = hostedPack,
                 externalPacks = externalPacks.toList(),
             )
+        return packs
+    }
+
+    @Synchronized
+    internal fun installPrepared(packs: ModuleResourcePacks): ResourcePackRegistration {
+        check(!closed) { "Resource-pack server is closed" }
+        val id = packs.moduleId
+        check(id !in activePacks) { "Resource packs for module '$id' are already active" }
+        val hostedPack = packs.hostedPack
+        val externalPacks = packs.externalPacks
         activePacks[id] = packs
         hostedPack?.let { println("[ResourcePack] serving ${it.id} (${it.archive.hash})") }
         if (externalPacks.isNotEmpty()) {
@@ -67,15 +73,22 @@ class ResourcePackServer private constructor(
     }
 
     @Synchronized
-    fun resourcePackInfos(serverAddress: String?): List<ResourcePackInfo> {
+    fun resourcePackInfos(
+        serverAddress: String?,
+        moduleIds: Set<String>? = null,
+    ): List<ResourcePackInfo> {
         check(!closed) { "Resource-pack server is closed" }
         return buildList {
             // External packs are base layers. Keep every one of them below all hosted module
             // packs so module assets consistently override their external dependencies.
-            activePacks.values.forEach { addAll(it.externalPacks) }
-            activePacks.values.mapNotNull(ModuleResourcePacks::hostedPack).forEach { pack ->
-                add(resourcePackInfo(pack, serverAddress))
-            }
+            activePacks.values.filter { moduleIds == null || it.moduleId in moduleIds }.forEach { addAll(it.externalPacks) }
+            activePacks.values
+                .filter { moduleIds == null || it.moduleId in moduleIds }
+                .mapNotNull(
+                    ModuleResourcePacks::hostedPack,
+                ).forEach { pack ->
+                    add(resourcePackInfo(pack, serverAddress))
+                }
         }
     }
 

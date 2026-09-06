@@ -18,19 +18,9 @@ object ModuleBlocks {
     private val handlers = ConcurrentHashMap<Key, HandlerBridge>()
     private val placementRules = ConcurrentHashMap<Int, PlacementRuleBridge>()
 
-    @Volatile
-    private var activeScope: ModuleResourceScope? = null
-
-    internal fun activate(scope: ModuleResourceScope) {
-        check(activeScope == null) { "Module block bridges already have an active generation" }
-        activeScope = scope
-    }
-
     internal fun deactivate(scope: ModuleResourceScope) {
-        if (activeScope !== scope) return
         handlers.values.forEach { it.clear(scope) }
         placementRules.values.forEach { it.clear(scope) }
-        activeScope = null
     }
 
     fun registerHandler(
@@ -38,7 +28,7 @@ object ModuleBlocks {
         supplier: Supplier<out BlockHandler>,
     ) {
         val manager = MinecraftServer.getBlockManager()
-        val scope = activeScope
+        val scope = ModuleRuntime.captureScope()
         if (scope == null) {
             check(!ModuleRuntime.isManagedRuntime()) { "No module generation is active" }
             manager.registerHandler(key, supplier)
@@ -68,7 +58,7 @@ object ModuleBlocks {
         supplier: Supplier<out BlockHandler>,
     ): Boolean {
         val manager = MinecraftServer.getBlockManager()
-        val scope = activeScope
+        val scope = ModuleRuntime.captureScope()
         if (scope == null) {
             check(!ModuleRuntime.isManagedRuntime()) { "No module generation is active" }
             if (manager.getHandler(key.asString()) != null) return false
@@ -106,7 +96,7 @@ object ModuleBlocks {
         factory: (BlockPlacementRule?) -> BlockPlacementRule,
     ) {
         val manager = MinecraftServer.getBlockManager()
-        val scope = activeScope
+        val scope = ModuleRuntime.captureScope()
         if (scope == null) {
             check(!ModuleRuntime.isManagedRuntime()) { "No module generation is active" }
             val rule = factory(manager.getBlockPlacementRule(block))
@@ -140,49 +130,71 @@ object ModuleBlocks {
         @Volatile
         private var delegate: BlockHandler? = null
 
+        @Volatile
+        private var entityTags: Collection<Tag<*>> = fallback?.blockEntityTags?.toList() ?: emptyList()
+
+        @Volatile
+        private var entityAction: Byte = fallback?.blockEntityAction ?: -1
+
         fun install(
             scope: ModuleResourceScope,
             handler: BlockHandler,
         ) {
-            owner = scope
+            check(owner == null || owner === scope) { "Block handler '$key' is owned by another active module" }
+            entityTags = handler.blockEntityTags.toList()
+            entityAction = handler.blockEntityAction
             delegate = handler
+            owner = scope
         }
 
         fun clear(scope: ModuleResourceScope) {
             if (owner !== scope) return
             delegate = null
             owner = null
+            entityTags = fallback?.blockEntityTags?.toList() ?: emptyList()
+            entityAction = fallback?.blockEntityAction ?: -1
         }
 
         fun wasAbsentBeforeClaim(): Boolean = fallback == null
 
-        private fun current(): BlockHandler? = delegate ?: fallback
+        private fun <T> dispatch(
+            rejected: T,
+            action: (BlockHandler) -> T,
+        ): T {
+            val scope = owner
+            val handler = delegate
+            return if (scope != null && handler != null) {
+                scope.dispatchCallback(rejected) { action(handler) }
+            } else {
+                fallback?.let(action) ?: rejected
+            }
+        }
 
         override fun onPlace(placement: BlockHandler.Placement) {
-            current()?.onPlace(placement)
+            dispatch(Unit) { it.onPlace(placement) }
         }
 
         override fun onDestroy(destroy: BlockHandler.Destroy) {
-            current()?.onDestroy(destroy)
+            dispatch(Unit) { it.onDestroy(destroy) }
         }
 
-        override fun onInteract(interaction: BlockHandler.Interaction): Boolean = current()?.onInteract(interaction) ?: true
+        override fun onInteract(interaction: BlockHandler.Interaction): Boolean = dispatch(true) { it.onInteract(interaction) }
 
         override fun onTouch(touch: BlockHandler.Touch) {
-            current()?.onTouch(touch)
+            dispatch(Unit) { it.onTouch(touch) }
         }
 
         override fun tick(tick: BlockHandler.Tick) {
-            current()?.tick(tick)
+            dispatch(Unit) { it.tick(tick) }
         }
 
-        override fun isTickable(): Boolean = current()?.isTickable ?: false
+        override fun isTickable(): Boolean = dispatch(false) { it.isTickable }
 
-        override fun getBlockEntityTags(): Collection<Tag<*>> = current()?.blockEntityTags ?: emptyList()
+        override fun getBlockEntityTags(): Collection<Tag<*>> = entityTags
 
-        override fun getBlockEntityAction(): Byte = current()?.blockEntityAction ?: -1
+        override fun getBlockEntityAction(): Byte = entityAction
 
-        override fun getKey(): Key = current()?.key ?: key
+        override fun getKey(): Key = key
     }
 
     internal class PlacementRuleBridge(
@@ -199,8 +211,9 @@ object ModuleBlocks {
             scope: ModuleResourceScope,
             rule: BlockPlacementRule,
         ) {
-            owner = scope
+            check(owner == null || owner === scope) { "Placement rule for $block is owned by another active module" }
             delegate = rule
+            owner = scope
         }
 
         fun clear(scope: ModuleResourceScope) {
@@ -214,14 +227,26 @@ object ModuleBlocks {
                 require(rule.block == block) { "Placement-rule factory returned a rule for ${rule.block}, expected $block" }
             }
 
-        private fun current(): BlockPlacementRule? = delegate ?: fallback
+        private fun <T> dispatch(
+            rejected: T,
+            action: (BlockPlacementRule) -> T,
+        ): T {
+            val scope = owner
+            val rule = delegate
+            return if (scope != null && rule != null) {
+                scope.dispatchCallback(rejected) { action(rule) }
+            } else {
+                fallback?.let(action) ?: rejected
+            }
+        }
 
-        override fun blockUpdate(updateState: UpdateState): Block = current()?.blockUpdate(updateState) ?: updateState.currentBlock
+        override fun blockUpdate(updateState: UpdateState): Block = dispatch(updateState.currentBlock) { it.blockUpdate(updateState) }
 
-        override fun blockPlace(placementState: PlacementState): Block? = current()?.blockPlace(placementState) ?: placementState.block
+        override fun blockPlace(placementState: PlacementState): Block? =
+            dispatch(placementState.block) { it.blockPlace(placementState) }
 
-        override fun isSelfReplaceable(replacement: Replacement): Boolean = current()?.isSelfReplaceable(replacement) ?: false
+        override fun isSelfReplaceable(replacement: Replacement): Boolean = dispatch(false) { it.isSelfReplaceable(replacement) }
 
-        override fun maxUpdateDistance(): Int = current()?.maxUpdateDistance() ?: DEFAULT_UPDATE_RANGE
+        override fun maxUpdateDistance(): Int = dispatch(DEFAULT_UPDATE_RANGE) { it.maxUpdateDistance() }
     }
 }

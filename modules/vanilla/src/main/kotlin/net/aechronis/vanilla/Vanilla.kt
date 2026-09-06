@@ -1,5 +1,6 @@
 package net.aechronis.vanilla
 
+import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.vanilla.commands.Back
 import net.aechronis.vanilla.commands.Broadcast
@@ -128,7 +129,8 @@ object Vanilla {
             if (config.kothEnabled) commands += KothCommand()
             if (config.oresEnabled) commands += Ore()
             if (config.factoriesEnabled) commands += FactoryCommand()
-            MinecraftServer.getCommandManager().register(*commands.toTypedArray())
+            ModuleCommands
+                .register(*commands.toTypedArray())
         }
         println("Loading Vanilla")
         val playerDataEventNode =

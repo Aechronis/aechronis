@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.modules.ModuleRecipes
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.RecipesListener
 import net.aechronis.vanilla.objects.Recipe
@@ -165,7 +166,7 @@ object Recipes {
         val timeStart = System.currentTimeMillis()
         RecipesListener.init()
 
-        val recipeManager = MinecraftServer.getRecipeManager()
+        val recipeManager = ModuleRecipes
         recipeBookRecipes.forEach(recipeManager::removeRecipe)
         recipeBookRecipes.clear()
         recipesByDisplay.clear()
@@ -199,7 +200,7 @@ object Recipes {
             if (player != null) workspace.returnGridItems(player)
         }
         recipeBrowsers.keys.forEach { inventory -> inventory.viewers.toList().forEach { it.closeInventory() } }
-        val recipeManager = MinecraftServer.getRecipeManager()
+        val recipeManager = ModuleRecipes
         recipeBookRecipes.forEach(recipeManager::removeRecipe)
         workspaces.clear()
         recipeBrowsers.clear()

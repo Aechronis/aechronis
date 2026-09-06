@@ -27,11 +27,29 @@ internal class ModuleResourceScope(
 ) {
     val eventNode: EventNode<Event> = EventNode.all("module-generation")
 
+    val commands = ConcurrentHashMap.newKeySet<net.minestom.server.command.builder.Command>()
+    val recipes = ConcurrentHashMap.newKeySet<net.minestom.server.recipe.Recipe>()
+
+    fun detachInputs() {
+        commands.forEach(ModuleCommands::unregister)
+        synchronized(lifecycleLock) {
+            attachedEventNodes.forEach { node ->
+                MinecraftServer.getGlobalEventHandler().removeChild(node)
+                Server.eventNode.removeChild(node)
+            }
+        }
+        Server.eventNode.removeChild(eventNode)
+    }
+
     private val tasks = linkedSetOf<TrackedTask>()
     private val attachedEventNodes = Collections.newSetFromMap(IdentityHashMap<EventNode<out Event>, Boolean>())
     private val lifecycleLock = Any()
     private val eventLock = ReentrantLock()
     private val eventsIdle = eventLock.newCondition()
+
+    @Volatile
+    var published = true
+
     private var acceptingTasks = true
     private var acceptingEvents = true
     private var activeEvents = 0
@@ -59,6 +77,16 @@ internal class ModuleResourceScope(
         }
     }
 
+    fun validateEventNodes() {
+        synchronized(lifecycleLock) {
+            attachedEventNodes.forEach { node ->
+                check(
+                    !ModuleEventCallbackTracker.instrument(node, this),
+                ) { "Module event node '${node.name}' was mutated after attachment" }
+            }
+        }
+    }
+
     fun ownsEventNode(node: EventNode<out Event>): Boolean = synchronized(lifecycleLock) { node in attachedEventNodes }
 
     private fun dispatchEvent(callback: Runnable) {
@@ -70,7 +98,7 @@ internal class ModuleResourceScope(
         callback: () -> T,
     ): T {
         eventLock.withLock {
-            if (!acceptingEvents) return rejected
+            if (!acceptingEvents || (!published && !ModuleRuntime.isLifecycleCallback())) return rejected
             activeEvents += 1
         }
 
@@ -123,6 +151,10 @@ internal class ModuleResourceScope(
         }
     }
 
+    fun rejectCallbacks() {
+        eventLock.withLock { acceptingEvents = false }
+    }
+
     fun quiesceEvents(timeout: Duration = EVENT_QUIESCE_TIMEOUT) {
         require(!timeout.isNegative && !timeout.isZero) { "Event quiescence timeout must be positive" }
         eventLock.withLock {
@@ -167,6 +199,7 @@ internal class ModuleResourceScope(
 
     fun invoke(callback: Supplier<TaskSchedule>): TaskSchedule {
         if (!synchronized(lifecycleLock) { acceptingTasks }) return TaskSchedule.stop()
+        if (!published) return TaskSchedule.nextTick()
         return dispatchCallback(TaskSchedule.stop(), callback::get)
     }
 
@@ -197,30 +230,35 @@ internal class ModuleResourceScope(
 }
 
 internal object ModuleRuntime {
+    private val lifecycleCallback = ThreadLocal.withInitial { false }
+
+    fun isLifecycleCallback(): Boolean = lifecycleCallback.get()
+
+    fun <T> withLifecycleCallbacks(action: () -> T): T {
+        val previous = lifecycleCallback.get()
+        lifecycleCallback.set(true)
+        return try {
+            action()
+        } finally {
+            lifecycleCallback.set(previous)
+        }
+    }
+
     private val stackWalker = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
     private val scopesByClassLoader = ConcurrentHashMap<ClassLoader, ModuleResourceScope>()
 
     @Volatile
     private var managedRuntime = false
 
-    @Volatile
-    private var activeScope: ModuleResourceScope? = null
-
     fun activate(scope: ModuleResourceScope) {
-        check(activeScope == null) { "A module generation is already active" }
         check(scopesByClassLoader.putIfAbsent(scope.classLoader, scope) == null) { "Module classloader is already active" }
-        var blocksActivated = false
         var eventNodeAttached = false
         try {
-            ModuleBlocks.activate(scope)
-            blocksActivated = true
             Server.eventNode.addChild(scope.eventNode)
             eventNodeAttached = true
             managedRuntime = true
-            activeScope = scope
         } catch (error: Throwable) {
             if (eventNodeAttached) runCatching { Server.eventNode.removeChild(scope.eventNode) }
-            if (blocksActivated) runCatching { ModuleBlocks.deactivate(scope) }
             scopesByClassLoader.remove(scope.classLoader, scope)
             throw error
         }
@@ -230,18 +268,19 @@ internal object ModuleRuntime {
         Server.eventNode.removeChild(scope.eventNode)
         ModuleBlocks.deactivate(scope)
         scopesByClassLoader.remove(scope.classLoader, scope)
-        if (activeScope === scope) activeScope = null
     }
 
+    fun ownsCommand(command: net.minestom.server.command.builder.Command): Boolean =
+        scopesByClassLoader.values.any { command in it.commands }
+
+    fun ownsNode(node: EventNode<out Event>): Boolean = scopesByClassLoader.values.any { it.eventNode === node || it.ownsEventNode(node) }
+
     fun captureScope(): ModuleResourceScope? {
-        Thread.currentThread().contextClassLoader?.let { loader ->
-            scopesByClassLoader[loader]?.let { return it }
-        }
         var owner: ModuleResourceScope? = null
         stackWalker.forEach { frame ->
             if (owner == null) frame.declaringClass.classLoader?.let { owner = scopesByClassLoader[it] }
         }
-        return owner
+        return owner ?: scopesByClassLoader[Thread.currentThread().contextClassLoader]
     }
 
     fun track(

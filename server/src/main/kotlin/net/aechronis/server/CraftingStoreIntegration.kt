@@ -7,6 +7,7 @@ import net.aechronis.craftingstore.Withdrawal
 import net.aechronis.server.events.CraftingStoreBalanceRequest
 import net.aechronis.server.events.CraftingStoreRefundRequest
 import net.aechronis.server.events.CraftingStoreWithdrawRequest
+import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
@@ -23,6 +24,11 @@ object CraftingStoreIntegration {
                 dataDirectory = Path.of("craftingstore"),
                 permissionChecker = { player: Player, permission: String -> player.hasPermission(permission) },
                 economy = economy,
+                registerCommand = {
+                    ModuleCommands
+                        .register(it)
+                },
+                unregisterCommand = ModuleCommands::unregister,
             ),
         ) { node -> ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), node) }
     }

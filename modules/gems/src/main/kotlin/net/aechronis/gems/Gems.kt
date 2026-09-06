@@ -1,6 +1,7 @@
 package net.aechronis.gems
 
 import net.aechronis.nodes.objects.MiningBoostManager
+import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Storage
@@ -104,7 +105,7 @@ object Gems {
             eventNode.addListener(PlayerCustomClickEvent::class.java, ::onCustomClick)
             ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
             commands = listOf(GemCommand(repository), GemShopCommand())
-            commands.forEach(MinecraftServer.getCommandManager()::register)
+            commands.forEach(ModuleCommands::register)
         } catch (error: Throwable) {
             shutdown()
             throw error
@@ -118,7 +119,7 @@ object Gems {
         if (this::eventNode.isInitialized) {
             MinecraftServer.getGlobalEventHandler().removeChild(eventNode)
         }
-        val commandManager = MinecraftServer.getCommandManager()
+        val commandManager = ModuleCommands
         commands.forEach { command -> commandManager.unregister(command) }
         commands = emptyList()
         val activeSessions = sessions.toMap()

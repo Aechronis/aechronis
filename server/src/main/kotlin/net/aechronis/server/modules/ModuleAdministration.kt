@@ -1,5 +1,7 @@
 package net.aechronis.server.modules
 
+import java.util.concurrent.CompletableFuture
+
 data class ModuleSnapshot(
     val generation: Long,
     val phase: String,
@@ -22,18 +24,18 @@ data class ModuleOperationResult(
     val rolledBack: Boolean = false,
 )
 
-/** Synchronous administration surface used by the server-owned module command. */
+/** Administration operations complete asynchronously; cancelling a view never cancels a reload. */
 interface ModuleAdministration {
     fun snapshot(): ModuleSnapshot
 
-    fun enable(id: String): ModuleOperationResult
+    fun enable(id: String): CompletableFuture<ModuleOperationResult>
 
     fun disable(
         id: String,
         cascade: Boolean,
-    ): ModuleOperationResult
+    ): CompletableFuture<ModuleOperationResult>
 
-    fun restart(id: String): ModuleOperationResult
+    fun restart(id: String): CompletableFuture<ModuleOperationResult>
 
-    fun reload(): ModuleOperationResult
+    fun reload(): CompletableFuture<ModuleOperationResult>
 }

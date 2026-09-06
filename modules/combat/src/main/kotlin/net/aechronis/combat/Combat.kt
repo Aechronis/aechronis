@@ -37,6 +37,7 @@ import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.bypassesCombatDamageImmunity
 import net.aechronis.combat.utils.combatDamageKind
+import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
@@ -233,9 +234,12 @@ object Combat {
             ModuleEvents.addChild(globalEventHandler, highPriorityEventNode)
 
             // register commands
-            MinecraftServer.getCommandManager().register(CombatAdminCommand())
-            MinecraftServer.getCommandManager().register(AdsCommand())
-            MinecraftServer.getCommandManager().register(HatsCommand())
+            ModuleCommands
+                .register(CombatAdminCommand())
+            ModuleCommands
+                .register(AdsCommand())
+            ModuleCommands
+                .register(HatsCommand())
 
             // run background schedulers/tasks
             ModelManager.start()

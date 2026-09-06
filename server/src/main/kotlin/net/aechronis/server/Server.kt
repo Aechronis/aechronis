@@ -180,6 +180,7 @@ private fun startMinecraftServer(
             saveCoreWorld = WorldSaver::saveWorldAndWait,
             resourcePackDirectory = resourcePackDirectory,
             resourcePackServer = resourcePackServer,
+            liveExecutor = { MinecraftServer.getSchedulerManager().scheduleNextTick(it) },
         )
 
     ServerShutdown.configure(

@@ -8,6 +8,7 @@ import net.minestom.server.command.builder.Command
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.command.builder.suggestion.SuggestionEntry
 import net.minestom.server.entity.Player
+import java.util.concurrent.CompletableFuture
 
 const val MODULE_MANAGEMENT_PERMISSION = "server.modules.manage"
 
@@ -114,12 +115,20 @@ class ModuleCommand(
     private fun apply(
         sender: CommandSender,
         description: String,
-        operation: () -> ModuleOperationResult,
+        operation: () -> CompletableFuture<ModuleOperationResult>,
     ) {
-        val result =
-            runCatching(operation).getOrElse { error ->
-                ModuleOperationResult(false, "Failed to $description: ${error.message ?: error.javaClass.simpleName}")
-            }
+        sender.sendMessage(Component.text("Starting $description…", NamedTextColor.YELLOW))
+        val future = runCatching(operation).getOrElse { CompletableFuture.failedFuture(it) }
+        future.whenComplete { completed, error ->
+            val result = completed ?: ModuleOperationResult(false, "Failed to $description: ${error?.message}")
+            reportResult(sender, result)
+        }
+    }
+
+    private fun reportResult(
+        sender: CommandSender,
+        result: ModuleOperationResult,
+    ) {
         val suffix =
             result.affectedIds
                 .sorted()

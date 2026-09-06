@@ -2,80 +2,49 @@ package net.aechronis.server.modules
 
 import net.aechronis.server.Server
 import net.minestom.server.MinecraftServer
-import net.minestom.server.command.builder.Command
-import net.minestom.server.event.Event
 import net.minestom.server.event.EventNode
 import net.minestom.server.network.packet.server.CachedPacket
-import net.minestom.server.recipe.Recipe
 import java.util.Collections
 import java.util.IdentityHashMap
 
-internal class RuntimeRegistrations private constructor(
-    private val commands: Set<Command>,
-    private val globalEventChildren: Set<EventNode<Event>>,
-    private val serverEventChildren: Set<EventNode<Event>>,
-    private val recipes: Set<Recipe>,
-    private val moduleClassLoader: ClassLoader,
+internal class RuntimeRegistrations(
+    private val scope: ModuleResourceScope,
 ) {
-    private var recipePacketInvalidationRequired = false
-
-    fun instrumentCallbacks(scope: ModuleResourceScope) {
+    /** Reject untracked registrations before admitting callbacks from this module. */
+    fun record(action: () -> Unit) {
+        val manager = MinecraftServer.getCommandManager()
+        val commandsBefore = synchronized(manager) { manager.commands.toSet() }
         val global = MinecraftServer.getGlobalEventHandler()
-        global.children
-            .identityDifference(globalEventChildren)
-            .forEach { node -> validateInstrumented(node, scope) }
-        Server.eventNode.children
-            .identityDifference(serverEventChildren)
-            .filterNot { node -> node === scope.eventNode }
-            .forEach { node -> validateInstrumented(node, scope) }
-    }
-
-    private fun validateInstrumented(
-        node: EventNode<Event>,
-        scope: ModuleResourceScope,
-    ) {
-        check(scope.ownsEventNode(node)) {
-            "Module event node '${node.name}' was attached without ModuleEvents.addChild"
+        val globalBefore = global.children.toSet()
+        val serverBefore = Server.eventNode.children.toSet()
+        try {
+            action()
+        } finally {
+            val addedCommands = synchronized(manager) { manager.commands - commandsBefore }
+            val untrackedCommands = addedCommands.filterNot(ModuleRuntime::ownsCommand)
+            val addedNodes = (global.children - globalBefore) + (Server.eventNode.children - serverBefore)
+            val untrackedNodes = addedNodes.filterNot(ModuleRuntime::ownsNode)
+            // Retain unexpected additions for cleanup even when validation rejects startup.
+            scope.commands.addAll(untrackedCommands)
+            untrackedNodes.forEach {
+                global.removeChild(it)
+                Server.eventNode.removeChild(it)
+            }
+            check(untrackedCommands.isEmpty()) { "Module commands must use ModuleCommands.register" }
+            check(untrackedNodes.isEmpty()) { "Module event nodes must use ModuleEvents.addChild" }
+            scope.validateEventNodes()
         }
-        check(!ModuleEventCallbackTracker.instrument(node, scope)) {
-            "Module event node '${node.name}' was mutated after attachment"
-        }
     }
 
-    fun detachInputs() {
-        val commandManager = MinecraftServer.getCommandManager()
-        commandManager.commands.identityDifference(commands).forEach(commandManager::unregister)
+    fun detachInputs() = scope.detachInputs()
 
-        val global = MinecraftServer.getGlobalEventHandler()
-        global.children.identityDifference(globalEventChildren).forEach(global::removeChild)
-        Server.eventNode.children
-            .identityDifference(serverEventChildren)
-            .forEach(Server.eventNode::removeChild)
-    }
-
-    @Synchronized
     fun cleanup() {
         detachInputs()
-        EventNodeCachePruner.prune(moduleClassLoader)
-        val recipeManager = MinecraftServer.getRecipeManager()
-        val addedRecipes = recipeManager.recipes.identityDifference(recipes)
-        if (addedRecipes.isNotEmpty()) recipePacketInvalidationRequired = true
-        addedRecipes.forEach(recipeManager::removeRecipe)
-        if (recipePacketInvalidationRequired) {
-            (recipeManager.declareRecipesPacket as? CachedPacket)?.invalidate()
-            recipePacketInvalidationRequired = false
-        }
-    }
-
-    companion object {
-        fun capture(moduleClassLoader: ClassLoader): RuntimeRegistrations =
-            RuntimeRegistrations(
-                commands = MinecraftServer.getCommandManager().commands.identityCopy(),
-                globalEventChildren = MinecraftServer.getGlobalEventHandler().children.identityCopy(),
-                serverEventChildren = Server.eventNode.children.identityCopy(),
-                recipes = MinecraftServer.getRecipeManager().recipes.identityCopy(),
-                moduleClassLoader = moduleClassLoader,
-            )
+        EventNodeCachePruner.prune(scope.classLoader)
+        scope.recipes.forEach(ModuleRecipes::removeRecipe)
+        scope.recipes.clear()
+        scope.commands.clear()
+        (MinecraftServer.getRecipeManager().declareRecipesPacket as? CachedPacket)?.invalidate()
     }
 }
 
@@ -140,13 +109,3 @@ private object EventNodeCachePruner {
             check(trySetAccessible()) { "Cannot access Minestom event cache field '$name'" }
         }
 }
-
-private fun <T : Any> Collection<T>.identityCopy(): Set<T> =
-    Collections.newSetFromMap(IdentityHashMap<T, Boolean>()).also { it.addAll(this) }
-
-private fun <T : Any> Collection<T>.identityDifference(baseline: Set<T>): List<T> =
-    filter { candidate ->
-        baseline.none {
-            it === candidate
-        }
-    }

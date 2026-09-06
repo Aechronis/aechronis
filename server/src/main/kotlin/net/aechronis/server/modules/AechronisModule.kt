@@ -3,10 +3,15 @@ package net.aechronis.server.modules
 import net.kyori.adventure.resource.ResourcePackInfo
 import java.util.concurrent.CompletableFuture
 
+/** Providers expose side-effect-free metadata; runtime hooks execute on the lifecycle worker. */
 interface AechronisModule {
     val id: String
 
     val dependencies: Set<String>
+        get() = emptySet()
+
+    /** Dependencies that retain objects/configuration supplied by this module; reload as a unit. */
+    val reloadTogether: Set<String>
         get() = emptySet()
 
     /** Remote base packs placed before every module's automatically discovered embedded pack. */

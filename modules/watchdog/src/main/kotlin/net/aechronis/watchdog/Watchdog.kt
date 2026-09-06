@@ -1,5 +1,6 @@
 package net.aechronis.watchdog
 
+import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.watchdog.alert.StaffAlert
@@ -54,7 +55,8 @@ object Watchdog {
             events.register(eventNode)
             ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
             command = WatchdogCommand(config.staffAlertPermission)
-            MinecraftServer.getCommandManager().register(command!!)
+            ModuleCommands
+                .register(command!!)
             tickTask =
                 ModuleScheduler
                     .buildTask(ticker::tick)
@@ -84,7 +86,8 @@ object Watchdog {
             MinecraftServer.getGlobalEventHandler().removeChild(eventNode)
         }
         command?.let { registered ->
-            MinecraftServer.getCommandManager().unregister(registered)
+            ModuleCommands
+                .unregister(registered)
             command = null
         }
         PlayerStateReg.clear()

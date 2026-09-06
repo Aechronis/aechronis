@@ -10,6 +10,9 @@ class NodesModule : AechronisModule {
     override val id = "nodes"
     override val dependencies = setOf("utils", "combat", "vanilla", "worldedit")
 
+    // Quiescence shuts down Combat's temporary-block restore manager before removing war structures.
+    override val reloadTogether = setOf("combat")
+
     override fun initialize(context: ModuleContext) {
         Nodes.initialize(takeConfiguration(context))
         context.addListener(SpawnPointChangedEvent::class.java) { event ->
