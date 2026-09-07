@@ -75,11 +75,17 @@ class ModuleManager private constructor(
 
     override fun reload(): CompletableFuture<ModuleOperationResult> = submit("Reload modules", Action.RELOAD)
 
+    // Installation shares lifecycle ownership with staging so console reloads cannot read a
+    // partially installed development build.
+    internal fun reloadWithInstall(install: () -> Unit): CompletableFuture<ModuleOperationResult> =
+        submit("Reload modules", Action.RELOAD, install = install)
+
     private fun submit(
         description: String,
         action: Action,
         id: String? = null,
         cascade: Boolean = false,
+        install: () -> Unit = {},
     ): CompletableFuture<ModuleOperationResult> =
         synchronized(submissionLock) {
             if (closing || phase != "running") {
@@ -89,7 +95,7 @@ class ModuleManager private constructor(
             }
             phase = "staging"
             publicSnapshot = publicSnapshot.copy(phase = phase)
-            val operation = CompletableFuture.supplyAsync({ transition(description, action, id, cascade) }, worker)
+            val operation = CompletableFuture.supplyAsync({ transition(description, action, id, cascade, install) }, worker)
             // A caller cancelling its view must not interrupt persistence or release operation ownership.
             operation.minimalCompletionStage().toCompletableFuture()
         }
@@ -99,6 +105,7 @@ class ModuleManager private constructor(
         action: Action,
         id: String?,
         cascade: Boolean,
+        install: () -> Unit,
     ): ModuleOperationResult {
         val context = checkNotNull(context)
         val staged = mutableListOf<ModuleArtifact>()
@@ -109,6 +116,7 @@ class ModuleManager private constructor(
         var gameplayPause: AutoCloseable? = null
         val startedAt = System.nanoTime()
         try {
+            install()
             staged += measured("stage JARs") { ModuleArtifact.stage(moduleJarsForGeneration(directory)) }
             val proposed = staged.associateByTo(linkedMapOf()) { it.definition.id }
             var nextDisabled = disabled

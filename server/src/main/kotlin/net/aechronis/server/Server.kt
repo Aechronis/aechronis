@@ -6,6 +6,7 @@ import me.lucko.luckperms.minestom.CommandRegistry
 import me.lucko.luckperms.minestom.LuckPermsMinestom
 import me.lucko.spark.minestom.SparkMinestom
 import net.aechronis.server.commands.SetSpawnCommand
+import net.aechronis.server.dev.DevModuleWatcher
 import net.aechronis.server.events.SpawnPointChangedEvent
 import net.aechronis.server.listeners.ResourcePackListener
 import net.aechronis.server.modules.MODULE_MANAGEMENT_PERMISSION
@@ -175,6 +176,7 @@ private fun startMinecraftServer(
 
     val moduleDirectory = Path.of(System.getProperty("aechronis.modules.directory", "modules"))
     val moduleManager = ModuleManager.discover(moduleDirectory)
+    val devWatcher = DevModuleWatcher.fromSystemProperties(moduleDirectory, moduleManager::reloadWithInstall)
     val moduleContext =
         ModuleContext(
             saveCoreWorld = WorldSaver::saveWorldAndWait,
@@ -184,7 +186,10 @@ private fun startMinecraftServer(
         )
 
     ServerShutdown.configure(
-        beginShutdown = moduleManager::beginShutdown,
+        beginShutdown = {
+            devWatcher?.close()
+            moduleManager.beginShutdown()
+        },
         stopWorldSaver = WorldSaver::shutdown,
         closeCraftingStore = CraftingStoreIntegration::shutdown,
         closeVotifier = VotifierIntegration::shutdown,
@@ -234,4 +239,5 @@ private fun startMinecraftServer(
     WorldSaver.start { moduleManager.saveCheckpoint(moduleContext) }
 
     server.start("0.0.0.0", port)
+    devWatcher?.start()
 }

@@ -1,11 +1,14 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.Sync
 import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
 
 plugins {
+    id("jvm-toolchains")
     kotlin("jvm") version "2.4.10" apply false
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0" apply false
     id("com.gradleup.shadow") version "9.6.1" apply false
@@ -106,4 +109,46 @@ tasks.register<Sync>("assembleServerDistribution") {
         }
         from("server/src/main/distribution/modules/.required-modules")
     }
+}
+
+val prepareDevRun = tasks.register<Sync>("prepareDevRun") {
+    group = "application"
+    description = "Builds and installs the complete server in run/, preserving runtime data."
+    from(tasks.named("assembleServerDistribution"))
+    into(layout.projectDirectory.dir("run"))
+    // Gradle ignores extra files in output directories when checking whether a task is up-to-date.
+    // Always sync so manually installed or older versioned module JARs cannot survive a dev launch.
+    outputs.upToDateWhen { false }
+    preserve {
+        include("**/*")
+        exclude("aechronis.jar", "modules/*.jar", "modules/.required-modules")
+    }
+}
+
+tasks.register<Sync>("assembleDevModules") {
+    group = "application"
+    description = "Stages runtime module JARs for devRun's automatic reload."
+    into(layout.buildDirectory.dir("dev-watch/modules"))
+    runtimeModuleProjects.forEach { modulePath ->
+        from(project(modulePath).tasks.withType<ShadowJar>())
+    }
+}
+
+val devJavaLauncher = extensions.getByType<JavaToolchainService>().launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(25))
+}
+
+tasks.register<JavaExec>("devRun") {
+    group = "application"
+    description = "Starts the server in run/ and automatically rebuilds and reloads changed runtime modules."
+    dependsOn(prepareDevRun)
+    javaLauncher.set(devJavaLauncher)
+    workingDir(layout.projectDirectory.dir("run"))
+    classpath = files(layout.projectDirectory.file("run/aechronis.jar"))
+    mainClass.set("net.aechronis.server.ServerKt")
+    systemProperty("aechronis.dangerously-enable-all-permissions", "true")
+    systemProperty("aechronis.dev.projectRoot", layout.projectDirectory.asFile.absolutePath)
+    systemProperty("aechronis.dev.modulePaths", runtimeModuleProjects.joinToString(",") { it.removePrefix(":").replace(':', '/') })
+    systemProperty("aechronis.dev.buildFiles", allprojects.joinToString(",") { relativePath(it.buildFile) })
+    standardInput = System.`in`
 }
