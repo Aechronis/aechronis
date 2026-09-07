@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/qbz-95-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [0.5402, -6.137555, 0.832128],
+      "scale": [0.4043, 0.46484, 0.42969]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [-4.867195, -5.970563, -0.832219],
+      "scale": [0.4043, 0.46484, 0.42969]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/ak12",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [14.935545, 3.5, -3.966734],
+      "scale": [1.2, 1.2, 1.2]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [14.935545, 3.5, -3.966734],
+      "scale": [1.2, 1.2, 1.2]
+    }
+  }
+}

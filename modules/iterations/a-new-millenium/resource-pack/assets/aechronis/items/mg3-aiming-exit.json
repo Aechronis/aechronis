@@ -1,0 +1,38 @@
+{
+  "hand_animation_on_swap": false,
+  "swap_animation_scale": 1,
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:display_context",
+    "cases": [
+      {
+        "when": [
+          "thirdperson_righthand",
+          "thirdperson_lefthand"
+        ],
+        "model": {
+          "type": "minecraft:range_dispatch",
+          "property": "minecraft:custom_model_data",
+          "index": 0,
+          "entries": [
+            {
+              "threshold": 1,
+              "model": {
+                "type": "minecraft:model",
+                "model": "aechronis:item/mg3-crouching"
+              }
+            }
+          ],
+          "fallback": {
+            "type": "minecraft:model",
+            "model": "aechronis:item/mg3-standing"
+          }
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "aechronis:item/mg3-aiming"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/ak47",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [-180.0, 11.75, -180.0],
+      "translation": [11.199103, 0.5, -4.371712],
+      "scale": [1, 1, 1]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [9.332385, 0.25, 6.214971],
+      "scale": [0, 0, 0]
+    }
+  }
+}

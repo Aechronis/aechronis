@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/glock17-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [28.64789, -17.188734, 0],
+      "translation": [-1.925618, -0.117424, 0.369239],
+      "scale": [0.6, 0.6, 0.6]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [28.64789, -17.188734, 0],
+      "translation": [-1.904122, -0.120612, 0.375074],
+      "scale": [0.6, 0.6, 0.6]
+    }
+  }
+}

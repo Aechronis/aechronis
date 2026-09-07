@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/vz61",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [13.241874, 3.0, 1.319473],
+      "scale": [1, 1, 1]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [13.241874, 3.0, 1.319473],
+      "scale": [1, 1, 1]
+    }
+  }
+}

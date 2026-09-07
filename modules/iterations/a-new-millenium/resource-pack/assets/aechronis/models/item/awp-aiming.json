@@ -1,14 +1,24 @@
 {
-	"format_version": "1.21.11",
-	"parent": "aechronis:item/awp",
-	"display": {
-		"firstperson_righthand": {
-			"translation": [-8.5, 2, 1.75],
-			"scale": [0, 0, 0]
-		},
-		"firstperson_lefthand": {
-			"translation": [-9.5, 2, 1.75],
-			"scale": [0, 0, 0]
-		}
-	}
+  "format_version": "1.21.11",
+  "parent": "aechronis:item/awp",
+  "display": {
+    "firstperson_righthand": {
+      "translation": [-8.5, 2, 1.75],
+      "scale": [0, 0, 0]
+    },
+    "firstperson_lefthand": {
+      "translation": [-9.5, 2, 1.75],
+      "scale": [0, 0, 0]
+    },
+    "thirdperson_righthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [0.263114, 2.772268, -6.998421],
+      "scale": [1, 1, 1]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [0.263114, 2.772268, -6.998421],
+      "scale": [1, 1, 1]
+    }
+  }
 }

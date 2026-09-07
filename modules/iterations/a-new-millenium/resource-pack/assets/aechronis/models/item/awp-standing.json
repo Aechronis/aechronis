@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/awp-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [0.263114, 2.772268, -6.998421],
+      "scale": [1, 1, 1]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [0.263114, 2.772268, -6.998421],
+      "scale": [1, 1, 1]
+    }
+  }
+}

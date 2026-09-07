@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/ak74",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [12.025134, 3.5, -0.418211],
+      "scale": [1, 1, 1]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [12.025134, 3.5, -0.418211],
+      "scale": [1, 1, 1]
+    }
+  }
+}

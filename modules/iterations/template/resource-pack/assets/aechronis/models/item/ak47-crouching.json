@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/ak47-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [-151.35211, 17.188734, -180.0],
+      "translation": [-1.68666, 0.39245, -1.062384],
+      "scale": [0.43555, 0.43555, 0.43555]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [-151.35211, 17.188734, 180.0],
+      "translation": [-1.253919, 0.328273, -0.944909],
+      "scale": [0.43555, 0.43555, 0.43555]
+    }
+  }
+}

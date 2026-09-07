@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/qbz-95",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [35.454725, -19.5, -18.118614],
+      "scale": [1.25, 1.25, 1.25]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [35.454725, -19.5, -18.118614],
+      "scale": [1.25, 1.25, 1.25]
+    }
+  }
+}

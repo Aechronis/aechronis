@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/at4",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [8.448672, 6.0, 4.028295],
+      "scale": [1.5, 1.5, 1.5]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, -10.25, 0],
+      "translation": [-2.296187, 8.5, 10.2571],
+      "scale": [1.5, 1.5, 1.5]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/glock17",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [15.543914, 0.75, -3.097892],
+      "scale": [1, 1, 1]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [15.543914, 0.75, -3.097892],
+      "scale": [1, 1, 1]
+    }
+  }
+}

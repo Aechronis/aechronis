@@ -604,9 +604,14 @@ class Drone(
             sendTelemetry(player, it, speed, battery, distance, newActiveInverted)
         }
 
-        // fill the hotbar with glow lichen, which the resource pack retextures to nothing
+        // fill the hotbar with sculk veins using the pack's invisible item model
         for (slot in PILOT_HOTBAR_SLOTS) {
-            player.sendPacket(SetPlayerInventorySlotPacket(slot, ItemStack.of(Material.GLOW_LICHEN).withCustomName(Component.empty())))
+            player.sendPacket(
+                SetPlayerInventorySlotPacket(
+                    slot,
+                    ItemStack.of(Material.SCULK_VEIN).withItemModel("aechronis:invisible").withCustomName(Component.empty()),
+                ),
+            )
         }
     }
 

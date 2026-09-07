@@ -1,0 +1,6 @@
+{
+  "block.sculk_vein.break": {
+    "replace": true,
+    "sounds": []
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/at4-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [28.64789, -17.188734, 0],
+      "translation": [-4.250419, -3.005532, 7.001244],
+      "scale": [1.3, 1.3, 1.3]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [28.64789, -17.188734, 0],
+      "translation": [-4.053497, -3.034736, 7.054702],
+      "scale": [1.3, 1.3, 1.3]
+    }
+  }
+}

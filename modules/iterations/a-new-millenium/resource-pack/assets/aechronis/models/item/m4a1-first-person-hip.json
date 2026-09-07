@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/m4a1",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [13.950737, 3.5, -4.140382],
+      "scale": [1.25, 1.25, 1.25]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, -10.0, 0],
+      "translation": [13.950737, 3.5, -4.140382],
+      "scale": [1.25, 1.25, 1.25]
+    }
+  }
+}

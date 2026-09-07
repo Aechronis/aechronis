@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/mp5-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [-2.06263, 0.728165, 0.352732],
+      "scale": [0.8, 0.8, 0.8]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [-2.06263, 0.728165, 0.352732],
+      "scale": [0.8, 0.8, 0.8]
+    }
+  }
+}

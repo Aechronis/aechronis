@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/mg3-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [28.64789, -17.188734, 0],
+      "translation": [-1.709807, 2.579788, -1.981545],
+      "scale": [1, 1, 1]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [28.64789, -17.188734, 0],
+      "translation": [-0.18723, 2.353984, -1.568214],
+      "scale": [1, 1, 1]
+    }
+  }
+}

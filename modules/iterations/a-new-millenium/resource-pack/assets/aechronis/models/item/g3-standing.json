@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/g3-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [-1.316442, 2.366967, -1.907175],
+      "scale": [0.9, 0.9, 0.9]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [-1.316442, 2.366967, -1.907175],
+      "scale": [0.9, 0.9, 0.9]
+    }
+  }
+}

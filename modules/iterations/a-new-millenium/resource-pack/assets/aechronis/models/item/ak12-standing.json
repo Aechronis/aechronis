@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/ak12-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [-1.07429, 1.006626, -2.773168],
+      "scale": [0.9, 0.9, 0.9]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [5.729578, -17.188734, 0],
+      "translation": [-1.106447, 1.007619, -2.783065],
+      "scale": [0.9, 0.9, 0.9]
+    }
+  }
+}

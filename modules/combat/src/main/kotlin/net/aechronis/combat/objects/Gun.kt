@@ -4,6 +4,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.GUN_MINING_TOOL
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Particles
@@ -87,6 +88,8 @@ class Gun(
     init {
         require(maxRange.isFinite() && maxRange > 0.0) { "Gun maxRange must be a positive finite number" }
     }
+
+    override fun toItemStack(): ItemStack = super.toItemStack().with(DataComponents.TOOL, GUN_MINING_TOOL)
 
     // ===============
     // AMMO FUNCTIONS

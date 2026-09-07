@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/m9-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [28.64789, -17.188734, 0],
+      "translation": [-1.916098, 0.327661, 0.013399],
+      "scale": [0.7, 0.7, 0.7]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [28.64789, -17.188734, 0],
+      "translation": [-1.615167, 0.283032, 0.095092],
+      "scale": [0.7, 0.7, 0.7]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "parent": "aechronis:item/vz61-aiming",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [28.64789, -17.188734, 0],
+      "translation": [-1.78619, 1.184882, 0.008638],
+      "scale": [0.8, 0.8, 0.8]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [28.64789, -17.188734, 0],
+      "translation": [-1.487972, 1.140655, 0.089594],
+      "scale": [0.8, 0.8, 0.8]
+    }
+  }
+}
