@@ -139,9 +139,9 @@ object Nodes {
         this.config = config
         WarSerializer.resume()
         FlagWar.initialize(config.flagBlocks)
-        println("Loading world from: $config.path")
+        println("Loading world from: ${config.pathWorld}")
         check(loadWorld()) {
-            "Invalid world file at ${config.path}/${config.pathWorld}; refusing to start Nodes with partial state"
+            "Invalid world file at ${config.pathWorld}; refusing to start Nodes with partial state"
         }
         println("- Resource Nodes: ${ResourceNode.count()}")
         println("- Territories: ${Territory.count()}")
@@ -472,13 +472,13 @@ object Nodes {
             buildings.clear()
             minimapBuildingsByChunk.clear()
             chunkToBuilding.clear()
-            if (!Files.exists(config.pathWorld)) {
-                System.err.println("Failed to load world: ${config.pathWorld}")
-                return false
+            if (Files.notExists(config.pathWorld)) {
+                println("[Nodes] No world definition found at ${config.pathWorld}; starting without resource nodes or territories")
+            } else {
+                val (resources, territoriesJson) = Deserializer.worldFromJson(config.pathWorld)
+                if (resources != null) loadResources(resources)
+                if (territoriesJson != null) loadTerritories(territoriesJson)
             }
-            val (resources, territoriesJson) = Deserializer.worldFromJson(config.pathWorld)
-            if (resources != null) loadResources(resources)
-            if (territoriesJson != null) loadTerritories(territoriesJson)
             if (!Files.exists(config.pathTowns)) {
                 System.err.println("No towns found: ${config.pathTowns}")
                 loaded = true
