@@ -5,7 +5,7 @@ plugins {
 
 dependencies {
     compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.08.16-26.2")
+    compileOnly("net.minestom:minestom:2026.08.28-26.2")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     compileOnly("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     compileOnly(project(":modules:combat"))
