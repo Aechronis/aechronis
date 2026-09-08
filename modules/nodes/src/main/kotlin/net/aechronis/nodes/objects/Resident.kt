@@ -8,11 +8,13 @@
 
 package net.aechronis.nodes.objects
 
-import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.chat.ChatMode
+import net.aechronis.nodes.serdes.ResidentJsonCodec
 import net.aechronis.nodes.serdes.SaveState
+import net.aechronis.nodes.serdes.snapshotList
+import net.aechronis.nodes.serdes.snapshotMap
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.hasPermission
@@ -516,7 +518,7 @@ class Resident(val uuid: UUID, val name: String) {
      * Immutable save snapshot, must be composed of immutable primitives.
      * Used to generate json string serialization.
      */
-    class ResidentSaveState(r: Resident) : SaveState {
+    class ResidentSaveState(r: Resident) : SaveState() {
         val uuid = r.uuid
         val name = r.name
         val town = r.town?.name
@@ -527,41 +529,10 @@ class Resident(val uuid: UUID, val name: String) {
         val minimapShiftEnabled = r.minimapShiftEnabled
         val minimapNorthLocked = r.minimapNorthLocked
         val townJoinLockedUntil = r.townJoinLockedUntil
-        val waypoints = r.permanentWaypoints
-        val waypointVisibility = r.waypointVisibility.toMap()
+        val waypoints = r.permanentWaypoints.snapshotList()
+        val waypointVisibility = r.waypointVisibility.snapshotMap()
 
-        override var jsonString: String? = null
-
-        override fun createJsonString(): String {
-            val waypointsJson = waypoints.joinToString(",", prefix = "[", postfix = "]") { waypoint ->
-                "{" +
-                    "\"name\":${JsonPrimitive(waypoint.name)}," +
-                    "\"x\":${waypoint.x}," +
-                    "\"y\":${waypoint.y}," +
-                    "\"z\":${waypoint.z}," +
-                    "\"sharing\":${JsonPrimitive(waypoint.sharing.id)}," +
-                    "\"sharedGroup\":${waypoint.sharedGroupId?.let { JsonPrimitive(it.toString()) } ?: "null"}" +
-                    "}"
-            }
-            val waypointVisibilityJson = waypointVisibility.entries.joinToString(",", prefix = "{", postfix = "}") { (key, visible) ->
-                "${JsonPrimitive(key)}:$visible"
-            }
-            return (
-                "{" +
-                    "\"name\":${JsonPrimitive(this.name)}," +
-                    "\"town\":${this.town?.let { JsonPrimitive(it) } ?: "null"}," +
-                    "\"nation\":${this.nation?.let { JsonPrimitive(it) } ?: "null"}," +
-                    "\"trust\":${this.trusted}," +
-                    "\"minimap\":${this.minimapEnabled}," +
-                    "\"minimapPosition\":${JsonPrimitive(this.minimapPosition.id)}," +
-                    "\"minimapShift\":${this.minimapShiftEnabled}," +
-                    "\"minimapNorthLocked\":${this.minimapNorthLocked}," +
-                    "\"townJoinLockedUntil\":${this.townJoinLockedUntil ?: "null"}," +
-                    "\"waypoints\":$waypointsJson," +
-                    "\"waypointVisibility\":$waypointVisibilityJson" +
-                    "}"
-                )
-        }
+        override fun encode(): String = ResidentJsonCodec.encode(this)
     }
 
     // function to let client flag this object as dirty

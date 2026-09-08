@@ -1,7 +1,7 @@
 package net.aechronis.vanilla.managers
 
-import com.google.gson.GsonBuilder
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.FactoriesListener
@@ -38,7 +38,6 @@ object Factories {
     private val factoryItemTag = Tag.String(FACTORY_ITEM_TAG_KEY)
     private val factoryTierTag = Tag.Integer(FACTORY_TIER_TAG_KEY)
     private val factoryBlock = Block.FURNACE
-    private val gson = GsonBuilder().setPrettyPrinting().create()
 
     private data class Location(
         val world: String,
@@ -54,6 +53,7 @@ object Factories {
         var selectedRecipe: String? = null,
     )
 
+    @Serializable
     private data class SavedFactory(
         val world: String,
         val x: Int,
@@ -400,10 +400,9 @@ object Factories {
     private fun load() {
         placed.clear()
         if (!Files.exists(file)) return
-        val type = object : TypeToken<List<SavedFactory>>() {}.type
         val saved =
             runCatching {
-                Files.newBufferedReader(file).use { reader -> gson.fromJson<List<SavedFactory>>(reader, type).orEmpty() }
+                Json.decodeFromString<List<SavedFactory>>(Files.readString(file))
             }.getOrElse { error ->
                 System.err.println("Failed to load factories: ${error.message}")
                 emptyList()
@@ -473,7 +472,7 @@ object Factories {
         }
 
     private fun writeToDisk(saved: List<SavedFactory>) {
-        AtomicFiles.write(file) { writer -> gson.toJson(saved, writer) }
+        AtomicFiles.write(file) { writer -> writer.write(Json.encodeToString(saved)) }
     }
 
     private fun save() {

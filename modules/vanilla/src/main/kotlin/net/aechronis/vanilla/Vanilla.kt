@@ -1,6 +1,7 @@
 package net.aechronis.vanilla
 
 import net.aechronis.server.modules.ModuleCommands
+import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.vanilla.commands.Back
 import net.aechronis.vanilla.commands.Broadcast
@@ -70,6 +71,7 @@ import net.aechronis.vanilla.managers.Warps
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import net.aechronis.vanilla.managers.Music as MusicManager
 import net.aechronis.vanilla.managers.Shutdown as ShutdownManager
 import net.aechronis.vanilla.managers.TpsBar as TpsBarManager
@@ -181,10 +183,10 @@ object Vanilla {
     }
 
     /** Called by the server's coordinated shutdown hook after vehicles have ejected their riders. */
-    fun saveBeforeShutdown() {
+    fun saveBeforeShutdown(context: ModuleContext) {
         println("Vanilla: saving data before shutdown...")
         runSaveStages(
-            "checkpoint" to ::saveCheckpoint,
+            "checkpoint" to { context.captureLive(::saveCheckpoint).join() },
             "ores" to { if (config.oresEnabled) Ores.saveAll() },
             "factories" to { if (config.factoriesEnabled) Factories.saveAll() },
             "koth" to { if (config.kothEnabled) Koth.saveAll() },
@@ -195,6 +197,7 @@ object Vanilla {
 
     fun shutdown() {
         runSaveStages(
+            "player data writer" to PlayerData::shutdown,
             "crate rolls" to Crates::shutdown,
             "corpse loot" to Mannequin::shutdown,
             "item frames" to ItemFrames::shutdown,
@@ -217,10 +220,20 @@ object Vanilla {
     }
 
     // flushes player and container state immediately before the containing world is saved
-    fun saveCheckpoint() {
-        runSaveStages(
-            "player data" to { if (config.playerDataEnabled) PlayerData.saveAll() },
-            "storage" to { if (config.storageEnabled) Storage.flushToWorld() },
+    fun saveCheckpoint(): CompletableFuture<Void> {
+        var playerSave = CompletableFuture.completedFuture<Void>(null)
+        val captureFailure =
+            runCatching {
+                runSaveStages(
+                    "player data" to { if (config.playerDataEnabled) playerSave = PlayerData.saveAll() },
+                    "storage" to { if (config.storageEnabled) Storage.flushToWorld() },
+                )
+            }.exceptionOrNull()
+        // Even a failed container capture must not hide a still-running player write from unload.
+        return CompletableFuture.allOf(
+            playerSave,
+            captureFailure?.let { CompletableFuture.failedFuture<Void>(it) }
+                ?: CompletableFuture.completedFuture(null),
         )
     }
 

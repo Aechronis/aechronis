@@ -1,9 +1,15 @@
 package net.aechronis.nodes.objects
 
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonArray
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import net.aechronis.nodes.Message
 import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.MinecraftServer
@@ -656,15 +662,14 @@ object Trains {
         if (!Files.exists(path)) return
         runCatching {
             Files.newBufferedReader(path).use { reader ->
-                val root = JsonParser.parseReader(reader).asJsonObject
-                nextStationId = root.get("nextStationId")?.asInt?.coerceAtLeast(1) ?: 1
-                root.getAsJsonArray("stations")?.forEach { element ->
-                    val json = element.asJsonObject
-                    val id = json.get("id")?.asInt ?: return@forEach
+                val root = Json.parseToJsonElement(reader.readText()).jsonObject
+                nextStationId = root.get("nextStationId")?.jsonPrimitive?.int?.coerceAtLeast(1) ?: 1
+                root["stations"]?.jsonArray?.forEach { element ->
+                    val json = element.jsonObject
+                    val id = json.get("id")?.jsonPrimitive?.int ?: return@forEach
                     val position = positionFromJson(json) ?: return@forEach
                     if (id <= 0 || id in stations || position in stationsByPosition) return@forEach
-                    // Legacy station tiers are deliberately ignored: tiering is now owned by the chunk building.
-                    val station = TrainStation(id, position, json.get("banned")?.asBoolean ?: false)
+                    val station = TrainStation(id, position, json.get("banned")?.jsonPrimitive?.boolean ?: false)
                     stations[id] = station
                     stationsByPosition[position] = id
                     nextStationId = max(nextStationId, id + 1)
@@ -689,44 +694,40 @@ object Trains {
 
     private fun save() {
         if (!::path.isInitialized) return
-        val root = JsonObject().also { it.addProperty("nextStationId", nextStationId) }
-        root.add(
-            "stations",
-            JsonArray().also { array ->
+        val root = buildJsonObject {
+            put("nextStationId", nextStationId)
+            putJsonArray("stations") {
                 stations.values.forEach { station ->
-                    array.add(
-                        JsonObject().also { json ->
-                            json.addProperty("id", station.id)
-                            json.addProperty("x", station.position.blockX())
-                            json.addProperty("y", station.position.blockY())
-                            json.addProperty("z", station.position.blockZ())
-                            json.addProperty("banned", station.banned)
+                    add(
+                        buildJsonObject {
+                            put("id", station.id)
+                            put("x", station.position.blockX())
+                            put("y", station.position.blockY())
+                            put("z", station.position.blockZ())
+                            put("banned", station.banned)
                         },
                     )
                 }
-            },
-        )
-        root.add(
-            "edges",
-            JsonArray().also { array ->
+            }
+            putJsonArray("edges") {
                 edges.forEach { edge ->
-                    array.add(
-                        JsonObject().also { json ->
-                            json.addProperty("station", edge.stationId)
-                            json.add("start", positionToJson(edge.start))
-                            json.add("end", positionToJson(edge.end))
-                            edge.destinationId?.let { json.addProperty("destination", it) } ?: json.add("destination", null)
-                            json.addProperty("distance", edge.distance)
+                    add(
+                        buildJsonObject {
+                            put("station", edge.stationId)
+                            put("start", positionToJson(edge.start))
+                            put("end", positionToJson(edge.end))
+                            edge.destinationId?.let { put("destination", it) }
+                            put("distance", edge.distance)
                         },
                     )
                 }
-            },
-        )
+            }
+        }
         val parent = path.parent ?: Path.of(".")
         Files.createDirectories(parent)
         val temporary = Files.createTempFile(parent, "trains-", ".json.tmp")
         try {
-            Files.writeString(temporary, GsonBuilder().create().toJson(root))
+            Files.writeString(temporary, root.toString())
             try {
                 Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
             } catch (_: AtomicMoveNotSupportedException) {
@@ -737,16 +738,16 @@ object Trains {
         }
     }
 
-    private fun positionToJson(position: BlockVec) = JsonObject().also {
-        it.addProperty("x", position.blockX())
-        it.addProperty("y", position.blockY())
-        it.addProperty("z", position.blockZ())
+    private fun positionToJson(position: BlockVec): JsonObject = buildJsonObject {
+        put("x", position.blockX())
+        put("y", position.blockY())
+        put("z", position.blockZ())
     }
 
     private fun positionFromJson(json: JsonObject): BlockVec? {
-        val x = json.get("x")?.asInt ?: return null
-        val y = json.get("y")?.asInt ?: return null
-        val z = json.get("z")?.asInt ?: return null
+        val x = json.get("x")?.jsonPrimitive?.int ?: return null
+        val y = json.get("y")?.jsonPrimitive?.int ?: return null
+        val z = json.get("z")?.jsonPrimitive?.int ?: return null
         return BlockVec(x, y, z)
     }
 

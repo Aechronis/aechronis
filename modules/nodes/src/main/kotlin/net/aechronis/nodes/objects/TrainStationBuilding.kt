@@ -29,16 +29,9 @@ class TrainStationBuilding(
 
     class TrainStationBuildingSaveState(train: TrainStationBuilding) : BuildingSaveState() {
         override val type = train.type
-        val chunkX = train.chunkX
-        val chunkZ = train.chunkZ
-        val tier = train.tier
-
-        override fun createJsonString(): String = "{" +
-            "\"type\":\"$type\"," +
-            "\"chunkX\":$chunkX," +
-            "\"chunkZ\":$chunkZ," +
-            "\"tier\":$tier" +
-            "}"
+        override val chunkX = train.chunkX
+        override val chunkZ = train.chunkZ
+        override val tier = train.tier
     }
 
     override fun printInfo(sender: CommandSender) {

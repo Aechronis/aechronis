@@ -1,7 +1,7 @@
 package net.aechronis.combat.storage
 
-import com.google.gson.Gson
-import com.google.gson.JsonParser
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
 import net.minestom.server.MinecraftServer
@@ -50,7 +50,11 @@ object HatCollection {
 internal class HatCollectionStore(
     private val dataDirectory: Path,
 ) {
-    private val gson = Gson()
+    @Serializable
+    private data class SavedHats(
+        val hats: List<String>,
+    )
+
     private val playerCollections = ConcurrentHashMap<UUID, MutableSet<String>>()
 
     fun initialize(onlinePlayerUuids: Iterable<UUID>) {
@@ -67,7 +71,7 @@ internal class HatCollectionStore(
     fun save(uuid: UUID) {
         val collection = playerCollections[uuid] ?: return
         val file = getPlayerFile(uuid)
-        writeAtomically(file, gson.toJson(mapOf("hats" to collection.sorted())))
+        writeAtomically(file, Json.encodeToString(SavedHats(collection.sorted())))
     }
 
     fun unload(uuid: UUID) {
@@ -127,18 +131,10 @@ internal class HatCollectionStore(
             }
         }
 
-    private fun parseHats(json: String): List<String> {
-        val root = JsonParser.parseString(json)
-        require(root.isJsonObject) { "Hat collection must be a JSON object" }
-        val hats = root.asJsonObject.get("hats")
-        require(hats != null && hats.isJsonArray) { "Hat collection must contain a hats array" }
-        return hats.asJsonArray.map { element ->
-            require(element.isJsonPrimitive && element.asJsonPrimitive.isString) {
-                "Hat collection entries must be strings"
-            }
-            element.asString.also { name -> require(name.isNotBlank()) { "Hat names must not be blank" } }
+    private fun parseHats(contents: String): List<String> =
+        Json.decodeFromString<SavedHats>(contents).hats.onEach { name ->
+            require(name.isNotBlank()) { "Hat names must not be blank" }
         }
-    }
 
     private fun writeAtomically(
         target: Path,

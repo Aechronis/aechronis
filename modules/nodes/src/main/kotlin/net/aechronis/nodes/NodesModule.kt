@@ -20,7 +20,7 @@ class NodesModule : AechronisModule {
         }
     }
 
-    override fun saveCheckpoint(context: ModuleContext): CompletableFuture<Void> = Nodes.saveWorld(checkIfNeedsSave = true, async = true)
+    override fun saveCheckpoint(context: ModuleContext): CompletableFuture<Void> = context.captureLive { Nodes.saveWorld(checkIfNeedsSave = true, async = true) }
 
     override fun prepareForShutdown(context: ModuleContext) {
         // Combat is a dependency and normally prepares after Nodes. Restore its temporary block
@@ -29,7 +29,7 @@ class NodesModule : AechronisModule {
         Nodes.prepareForShutdown()
         // Nodes teardown removes temporary war structures and performs its final durable save.
         // Run it before the core world checkpoint so shutdown/reload cannot persist ghost flags.
-        Nodes.cleanup()
+        Nodes.cleanup { action -> context.captureLive(action) }
     }
 
     override fun shutdown(context: ModuleContext) = Nodes.cleanup()

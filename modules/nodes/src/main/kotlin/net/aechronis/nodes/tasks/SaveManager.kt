@@ -12,75 +12,65 @@ package net.aechronis.nodes.tasks
 
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.BuildingSaveState
-import net.aechronis.nodes.objects.Nation.NationSaveState
-import net.aechronis.nodes.objects.Resident.ResidentSaveState
-import net.aechronis.nodes.objects.Town.TownSaveState
 import net.aechronis.nodes.serdes.Serializer
+import net.aechronis.nodes.serdes.WorldSaveState
+import net.aechronis.nodes.serdes.snapshotList
 import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
  * Runnable task to save world. This can be run either synchronously or
  * asynchronously by the caller.
  *
  */
-class TaskSaveWorld(
-    val residentsSnapshot: List<ResidentSaveState>,
-    val townsSnapshot: List<TownSaveState>,
-    val nationsSnapshot: List<NationSaveState>,
-    val backupTimestamp: Long?,
+internal class TaskSaveWorld(
+    private val snapshot: WorldSaveState,
+    private val pathTowns: Path,
+    private val backupTask: TaskSaveBackup?,
 ) : Runnable {
     override fun run() {
-        // serialize world state
-        val jsonStr = Serializer.worldToJson(
-            residentsSnapshot,
-            townsSnapshot,
-            nationsSnapshot,
-        )
-
-        AtomicFiles.writeString(Nodes.config.pathTowns, jsonStr)
-
-        // if backup timestamp millis timestamp (using System.currentTimeMillis())
-        // was provided, copy this saved world state to backup folder
-        if (backupTimestamp != null) {
-            TaskSaveBackup(backupTimestamp).run()
-        }
+        AtomicFiles.writeString(pathTowns, snapshot.toJsonString())
+        backupTask?.run()
     }
 }
 
 // backup format
-private val BACKUP_DATE_FORMATTER = SimpleDateFormat("yyyy.MM.dd.HH.mm.ss")
+private val BACKUP_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy.MM.dd.HH.mm.ss").withZone(ZoneId.systemDefault())
 
 /**
  * Save timestamped backup file of towns.json into backup folder.
  */
 internal class TaskSaveBackup(
-    val timestamp: Long, // millis timestamp from System.currentTimeMillis()
+    private val timestamp: Long, // millis timestamp from System.currentTimeMillis()
+    private val pathTowns: Path,
+    private val pathBackup: Path,
+    private val pathLastBackupTime: Path,
 ) : Runnable {
     override fun run() {
-        if (Files.exists(Nodes.config.pathTowns)) {
+        if (Files.exists(pathTowns)) {
             // save towns file backup
-            val date = Date(timestamp)
-            val backupName = "towns.${BACKUP_DATE_FORMATTER.format(date)}.json"
-            val pathBackup = Nodes.config.pathBackup.resolve(backupName)
-            AtomicFiles.copy(Nodes.config.pathTowns, pathBackup)
+            val backupName = "towns.${BACKUP_DATE_FORMATTER.format(Instant.ofEpochMilli(timestamp))}.json"
+            AtomicFiles.copy(pathTowns, pathBackup.resolve(backupName))
         }
 
         // save last backup timestamp to file
-        AtomicFiles.writeString(Nodes.config.pathLastBackupTime, timestamp.toString())
+        AtomicFiles.writeString(pathLastBackupTime, timestamp.toString())
     }
 }
 
 class TaskSaveBuildings(
-    val buildingsSnapshot: List<BuildingSaveState>,
-    val pathBuildingsSave: Path,
+    buildingsSnapshot: List<BuildingSaveState>,
+    private val pathBuildingsSave: Path,
 ) : Runnable {
+    private val buildingsSnapshot = buildingsSnapshot.snapshotList()
+
     override fun run() {
         val jsonStr = Serializer.buildingsToJson(buildingsSnapshot)
         AtomicFiles.writeString(pathBuildingsSave, jsonStr)
@@ -88,8 +78,7 @@ class TaskSaveBuildings(
 }
 
 /**
- * Async periodic tick scheduler to signal main thread
- * to save world state.
+ * Captures world state on the tick scheduler, then queues serialization and file writes.
  */
 object SaveManager {
 

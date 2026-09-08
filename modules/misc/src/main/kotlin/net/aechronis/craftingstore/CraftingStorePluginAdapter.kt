@@ -1,6 +1,6 @@
 package net.aechronis.craftingstore
 
-import com.google.gson.GsonBuilder
+import kotlinx.serialization.json.Json
 import net.craftingstore.core.CraftingStore
 import net.craftingstore.core.CraftingStorePlugin
 import net.craftingstore.core.PluginConfiguration
@@ -462,7 +462,6 @@ private class StoreLogger(
 internal class ConfigStore(
     private val directory: Path,
 ) {
-    private val gson = GsonBuilder().setPrettyPrinting().create()
     private val file = directory.resolve("config.json")
     private val lock = Any()
 
@@ -470,7 +469,7 @@ internal class ConfigStore(
 
     fun current(): CraftingStoreFileConfig =
         synchronized(lock) {
-            gson.fromJson(gson.toJson(config), CraftingStoreFileConfig::class.java).normalized()
+            config.copy().normalized()
         }
 
     fun effectiveApiKey(): String = System.getenv("CRAFTINGSTORE_API_KEY")?.takeIf { it.isNotBlank() } ?: current().apiKey
@@ -483,10 +482,7 @@ internal class ConfigStore(
                 saveLocked()
                 return@synchronized
             }
-            val parsed =
-                gson.fromJson(Files.readString(file), CraftingStoreFileConfig::class.java)
-                    ?: error("CraftingStore config is empty")
-            config = parsed.normalized()
+            config = Json.decodeFromString<CraftingStoreFileConfig>(Files.readString(file)).normalized()
         }
 
     fun update(change: (CraftingStoreFileConfig) -> Unit) =
@@ -499,7 +495,7 @@ internal class ConfigStore(
 
     private fun saveLocked() {
         val temporary = file.resolveSibling("config.json.tmp")
-        Files.writeString(temporary, gson.toJson(config))
+        Files.writeString(temporary, Json.encodeToString(config))
         try {
             Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
         } catch (

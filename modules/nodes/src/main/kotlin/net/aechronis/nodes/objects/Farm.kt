@@ -39,16 +39,9 @@ class Farm(
 
     class FarmSaveState(f: Farm) : BuildingSaveState() {
         override val type = f.type
-        val chunkX = f.chunkX
-        val chunkZ = f.chunkZ
-        val tier = f.tier
-
-        override fun createJsonString(): String = "{" +
-            "\"type\":\"$type\"," +
-            "\"chunkX\":$chunkX," +
-            "\"chunkZ\":$chunkZ," +
-            "\"tier\":$tier" +
-            "}"
+        override val chunkX = f.chunkX
+        override val chunkZ = f.chunkZ
+        override val tier = f.tier
     }
 
     override fun printInfo(sender: CommandSender) {

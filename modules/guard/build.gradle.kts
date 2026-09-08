@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm")
+    kotlin("plugin.serialization")
     id("org.jlleitschuh.gradle.ktlint")
 }
 
@@ -9,5 +10,5 @@ dependencies {
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:worldedit"))
     compileOnly(project(":modules:combat"))
-    compileOnly("com.google.code.gson:gson:2.14.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 }

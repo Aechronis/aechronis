@@ -1,5 +1,8 @@
 package net.aechronis.guard.objects
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ZoneBounds(
     val minX: Int,
     val minY: Int,

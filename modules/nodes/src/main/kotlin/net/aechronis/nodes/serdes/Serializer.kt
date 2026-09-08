@@ -12,20 +12,15 @@
 
 package net.aechronis.nodes.serdes
 
-import com.google.gson.JsonPrimitive
+import kotlinx.serialization.json.JsonPrimitive
 import net.aechronis.nodes.objects.BuildingSaveState
-import net.aechronis.nodes.objects.MiningBoostManager
-import net.aechronis.nodes.objects.Nation.NationSaveState
-import net.aechronis.nodes.objects.Resident.ResidentSaveState
-import net.aechronis.nodes.objects.Town.TownSaveState
 
 object Serializer {
 
-    fun worldToJson(
-        residents: List<ResidentSaveState>,
-        towns: List<TownSaveState>,
-        nations: List<NationSaveState>,
-    ): String {
+    fun worldToJson(snapshot: WorldSaveState): String {
+        val residents = snapshot.residents
+        val towns = snapshot.towns
+        val nations = snapshot.nations
         // calculate string builder capacity
 
         // initial metadata header + close bracket [26]: {"meta":{"type":"towns"},}
@@ -63,7 +58,7 @@ object Serializer {
         // Metadata (for web editor)
         // ===============================
         jsonString.append("{\"meta\":{\"type\":\"towns\"},")
-        jsonString.append("\"miningBoost\":${MiningBoostManager.toJsonString()},")
+        jsonString.append("\"miningBoost\":${snapshot.miningBoost.toJsonString()},")
 
         // ===============================
         // Residents

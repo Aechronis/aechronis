@@ -1,7 +1,7 @@
 package net.aechronis.vanilla.managers
 
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import net.aechronis.utils.hasPermission
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
@@ -15,18 +15,22 @@ object Whitelist {
     const val SUPER_ADMIN_TIER = 2
     const val BYPASS_PERMISSION = "vanilla.whitelist"
 
+    @Serializable
     data class Entry(
-        val uuid: String?,
+        val uuid: String? = null,
         val name: String,
-        val tier: Int = WEAK_TIER,
-    )
+        val tier: Int,
+    ) {
+        init {
+            require(tier in WEAK_TIER..SUPER_ADMIN_TIER) { "Whitelist tier must be between $WEAK_TIER and $SUPER_ADMIN_TIER" }
+        }
+    }
 
     var enabled: Boolean = false
         private set
 
     // lowercase name -> entry
     private val entries = ConcurrentHashMap<String, Entry>()
-    private val gson = Gson()
 
     private lateinit var entriesFile: Path
     private lateinit var stateFile: Path
@@ -114,14 +118,8 @@ object Whitelist {
     private fun load() {
         if (Files.exists(entriesFile)) {
             runCatching {
-                Files.newBufferedReader(entriesFile).use { reader ->
-                    val type = object : TypeToken<List<Entry>>() {}.type
-                    val loaded: List<Entry>? = gson.fromJson(reader, type)
-                    loaded?.forEach { entry ->
-                        // Older whitelist files have no tier, which Gson reads as zero.
-                        val tier = entry.tier.takeIf { it in WEAK_TIER..SUPER_ADMIN_TIER } ?: WEAK_TIER
-                        entries[entry.name.lowercase()] = Entry(entry.uuid, entry.name, tier)
-                    }
+                Json.decodeFromString<List<Entry>>(Files.readString(entriesFile)).forEach { entry ->
+                    entries[entry.name.lowercase()] = entry
                 }
             }.onFailure { error ->
                 System.err.println("Failed to load whitelist: ${error.message}")
@@ -135,7 +133,7 @@ object Whitelist {
 
     private fun save() {
         Files.newBufferedWriter(entriesFile).use { writer ->
-            gson.toJson(entries.values.toList(), writer)
+            writer.write(Json.encodeToString(entries.values.toList()))
         }
     }
 

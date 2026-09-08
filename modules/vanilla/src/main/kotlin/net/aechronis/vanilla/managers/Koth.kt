@@ -4,8 +4,8 @@ import com.cronutils.model.CronType
 import com.cronutils.model.definition.CronDefinitionBuilder
 import com.cronutils.model.time.ExecutionTime
 import com.cronutils.parser.CronParser
-import com.google.gson.GsonBuilder
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.listeners.KothListener
 import net.aechronis.vanilla.objects.KothZone
@@ -26,19 +26,20 @@ import java.io.DataOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.UUID
 
 /** Command-configured King of the Hill events persisted in vanilla/koth.json. */
 object Koth {
+    @Serializable
     internal data class SavedPosition(
         val x: Int,
         val y: Int,
         val z: Int,
     )
 
+    @Serializable
     internal data class SavedKoth(
         val name: String,
         var world: String? = null,
@@ -84,7 +85,6 @@ object Koth {
     private val captureGlowReferences = mutableMapOf<UUID, Int>()
     private val captureGlowPreviousStates = mutableMapOf<UUID, Boolean>()
     private val captureGlowPlayers = mutableMapOf<UUID, Player>()
-    private val gson = GsonBuilder().setPrettyPrinting().create()
     private val cronParser = CronParser(CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX))
     private lateinit var file: Path
 
@@ -584,28 +584,12 @@ object Koth {
         definitions.clear()
         if (!Files.exists(file)) return
         runCatching {
-            Files.newBufferedReader(file).use { reader ->
-                val type = object : TypeToken<List<SavedKoth>>() {}.type
-                gson.fromJson<List<SavedKoth>?>(reader, type).orEmpty()
-            }
+            Json.decodeFromString<List<SavedKoth>>(Files.readString(file))
         }.onSuccess { saved ->
-            var migrated = false
             saved.forEach { entry ->
-                val normalizedSchedules = entry.schedules.map(::normalizeSchedule)
-                if (normalizedSchedules.any { it == null }) {
-                    System.err.println("Skipping invalid or duplicate KOTH '${entry.name}' in $file")
-                    return@forEach
-                }
-                val schedules = normalizedSchedules.filterNotNull()
-                if (entry.schedules != schedules) {
-                    entry.schedules.clear()
-                    entry.schedules += schedules
-                    migrated = true
-                }
                 if (valid(entry) && definitions.putIfAbsent(entry.name, entry) == null) return@forEach
                 System.err.println("Skipping invalid or duplicate KOTH '${entry.name}' in $file")
             }
-            if (migrated) save()
         }.onFailure { error ->
             System.err.println("Failed to load KOTHs from $file: ${error.message}")
         }
@@ -613,7 +597,7 @@ object Koth {
 
     private fun save() {
         if (!::file.isInitialized) return
-        AtomicFiles.write(file) { writer -> gson.toJson(definitions.values.toList(), writer) }
+        AtomicFiles.write(file) { writer -> writer.write(Json.encodeToString(definitions.values.toList())) }
     }
 
     private fun decodeTransientState(payload: ByteArray): List<TransientKothState> =
@@ -684,15 +668,10 @@ object Koth {
             saved.rewardCommands.all(String::isNotBlank) &&
             saved.schedules.all { normalizeSchedule(it) != null }
 
-    /**
-     * Accepts five-field Unix cron expressions and migrates the legacy HH:mm schedule format.
-     */
+    /** Validates and normalizes five-field Unix cron expressions. */
     internal fun normalizeSchedule(expression: String): String? {
         val trimmed = expression.trim()
         if (trimmed.isBlank()) return null
-        runCatching { LocalTime.parse(trimmed) }.getOrNull()?.let { time ->
-            return "${time.minute} ${time.hour} * * *"
-        }
         return runCatching {
             cronParser.parse(trimmed).also { it.validate() }.asString()
         }.getOrNull()

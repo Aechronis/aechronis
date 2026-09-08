@@ -1,5 +1,8 @@
 package net.aechronis.votifier
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class VotifierFileConfig(
     var protocolV1Enabled: Boolean = true,
     var tokens: Map<String, String> = emptyMap(),

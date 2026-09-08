@@ -2,8 +2,8 @@ package net.aechronis.vanilla.managers
 
 import net.aechronis.vanilla.serdes.PlayerDataDeserializer
 import net.aechronis.vanilla.serdes.PlayerDataSerializer
+import net.aechronis.vanilla.serdes.PlayerDataSnapshot
 import net.kyori.adventure.nbt.BinaryTagIO
-import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.Event
@@ -12,21 +12,22 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.util.AbstractMap.SimpleImmutableEntry
-import java.util.UUID
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 import java.util.concurrent.ConcurrentHashMap
 
 // loosely based on https://github.com/Quiet-Terminal-Interactive/Cattlelog
 object PlayerData {
     private val tracked: MutableSet<Player> = ConcurrentHashMap.newKeySet<Player>()
-    private val pendingDisconnectSaves = ConcurrentHashMap<UUID, CompoundBinaryTag>()
+    private var writer: PlayerDataWriter? = null
     private lateinit var dataPath: Path
 
     fun init(path: Path): EventNode<Event> {
         val timeStart = System.currentTimeMillis()
         Files.createDirectories(path)
         dataPath = path
+        check(writer == null) { "Player data is already initialized" }
+        writer = PlayerDataWriter(path)
 
         val node = EventNode.all("vanilla-playerdata")
 
@@ -37,7 +38,7 @@ object PlayerData {
         }
 
         node.addListener(PlayerDisconnectEvent::class.java) { event ->
-            saveAndUntrackPlayer(event.player, path)
+            saveAndUntrackPlayer(event.player)
         }
 
         adoptOnlinePlayers(MinecraftServer.getConnectionManager().onlinePlayers, path)
@@ -47,36 +48,33 @@ object PlayerData {
         return node
     }
 
-    fun saveAll() {
-        if (!::dataPath.isInitialized) return
-        saveAll(dataPath)
-    }
-
-    internal fun saveAll(path: Path) {
+    /** Capture on the game thread; the returned future covers serialization and durable writes. */
+    fun saveAll(): CompletableFuture<Void> {
+        val writer = writer ?: return CompletableFuture.completedFuture(null)
         var failure: Throwable? = null
-
-        for ((uuid, data) in pendingDisconnectSaves) {
-            try {
-                writePlayerData(uuid, data, path)
-                pendingDisconnectSaves.remove(uuid, data)
-            } catch (e: Exception) {
-                System.err.println("Failed to retry player data save for $uuid: ${e.message}")
-                if (failure == null) failure = e else failure.addSuppressed(e)
-            }
-        }
-
+        val snapshots = ArrayList<PlayerDataSnapshot>(tracked.size)
         for (player in tracked) {
             try {
-                savePlayer(player, path)
+                snapshots += PlayerDataSnapshot.capture(player)
             } catch (e: Exception) {
-                System.err.println("Failed to save player data for ${player.uuid}: ${e.message}")
-                if (failure == null) failure = e else failure.addSuppressed(e)
+                System.err.println("Failed to snapshot player data for ${player.uuid}: ${e.message}")
+                failure?.addSuppressed(e) ?: run { failure = e }
             }
         }
-        failure?.let { throw it }
+        return writer.save(snapshots, retryPending = true).handle { _, error ->
+            if (error != null) {
+                failure?.addSuppressed(error) ?: run { failure = error }
+            }
+            failure?.let { throw CompletionException(it) }
+            null
+        }
     }
 
-    fun hasSavedData(player: Player): Boolean = ::dataPath.isInitialized && Files.exists(dataPath.resolve("${player.uuid}.dat"))
+    fun shutdown() {
+        writer?.close()
+        writer = null
+        tracked.clear()
+    }
 
     /**
      * Adopts players that survived a module-generation replacement. Their live Minestom state is
@@ -95,8 +93,6 @@ object PlayerData {
         }
     }
 
-    internal fun isTracked(player: Player): Boolean = player in tracked
-
     private fun restoreModuleState(
         player: Player,
         path: Path,
@@ -114,27 +110,19 @@ object PlayerData {
         player: Player,
         path: Path,
     ): Boolean {
-        val pending = pendingDisconnectSaves.remove(player.uuid)
+        val pending = writer?.pending(player.uuid)
         val loaded =
             if (pending == null) {
                 tryLoadPlayer(player, path)
             } else {
-                runCatching { PlayerDataDeserializer.deserialize(player, pending) }
+                runCatching { PlayerDataDeserializer.deserialize(player, PlayerDataSerializer.serialize(pending)) }
                     .onFailure { error ->
-                        pendingDisconnectSaves.putIfAbsent(player.uuid, pending)
                         System.err.println("Failed to restore pending player data for ${player.uuid}: ${error.message}")
                     }.isSuccess
             }
 
         if (loaded) tracked.add(player)
         return loaded
-    }
-
-    fun loadPlayer(
-        player: Player,
-        path: Path,
-    ) {
-        tryLoadPlayer(player, path)
     }
 
     private fun tryLoadPlayer(
@@ -156,10 +144,7 @@ object PlayerData {
         }.isSuccess
     }
 
-    internal fun saveAndUntrackPlayer(
-        player: Player,
-        path: Path,
-    ) {
+    internal fun saveAndUntrackPlayer(player: Player) {
         val shouldSave = tracked.remove(player)
         Commands.closeViewsOf(player)
         try {
@@ -167,61 +152,22 @@ object PlayerData {
 
             val data =
                 try {
-                    PlayerDataSerializer.serialize(player)
+                    PlayerDataSnapshot.capture(player)
                 } catch (error: Exception) {
                     System.err.println("Failed to snapshot player data for ${player.uuid}: ${error.message}")
                     return
                 }
 
-            try {
-                writePlayerData(player.uuid, data, path)
-                pendingDisconnectSaves.remove(player.uuid)
-            } catch (error: Exception) {
-                pendingDisconnectSaves[player.uuid] = data
-                System.err.println("Failed to save player data for ${player.uuid}; queued for retry: ${error.message}")
+            // Capture before clearing module-owned inventories. Never wait for a tick or disk from
+            // this entity callback; reconnects can restore the queued immutable snapshot directly.
+            checkNotNull(writer).save(listOf(data)).whenComplete { _, error ->
+                if (error != null) {
+                    System.err.println("Failed to save player data for ${data.uuid}; queued for retry: ${error.message}")
+                }
             }
         } finally {
             Commands.removeEnderChest(player)
             Commands.clearPlayerReferences(player)
-        }
-    }
-
-    private fun savePlayer(
-        player: Player,
-        path: Path,
-    ) {
-        val data = PlayerDataSerializer.serialize(player)
-        writePlayerData(player.uuid, data, path)
-    }
-
-    private fun writePlayerData(
-        uuid: UUID,
-        data: CompoundBinaryTag,
-        path: Path,
-    ) {
-        val target = path.resolve("$uuid.dat")
-        val temporary = path.resolve(".$uuid.${Thread.currentThread().threadId()}.tmp")
-
-        try {
-            Files.newOutputStream(temporary).use { out ->
-                BinaryTagIO.writer().writeNamed(
-                    SimpleImmutableEntry("", data),
-                    out,
-                    BinaryTagIO.Compression.GZIP,
-                )
-            }
-            try {
-                Files.move(
-                    temporary,
-                    target,
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING,
-                )
-            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
-                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING)
-            }
-        } finally {
-            Files.deleteIfExists(temporary)
         }
     }
 }

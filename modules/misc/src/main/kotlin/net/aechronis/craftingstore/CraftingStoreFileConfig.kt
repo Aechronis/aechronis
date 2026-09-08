@@ -1,6 +1,9 @@
 package net.aechronis.craftingstore
 
+import kotlinx.serialization.Serializable
+
 /** JSON-only settings. Runtime callbacks deliberately do not live here. */
+@Serializable
 data class CraftingStoreFileConfig(
     var apiKey: String = "",
     var debug: Boolean = false,

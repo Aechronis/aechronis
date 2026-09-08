@@ -1,35 +1,32 @@
 package net.aechronis.vanilla.serdes
 
-import net.aechronis.vanilla.managers.Commands
-import net.aechronis.vanilla.managers.KillShop
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
 import net.kyori.adventure.nbt.StringBinaryTag
 import net.minestom.server.coordinate.Pos
-import net.minestom.server.entity.Player
-import net.minestom.server.inventory.AbstractInventory
+import net.minestom.server.item.ItemStack
 
 object PlayerDataSerializer {
-    fun serialize(player: Player): CompoundBinaryTag {
+    fun serialize(snapshot: PlayerDataSnapshot): CompoundBinaryTag {
         val builder =
             CompoundBinaryTag
                 .builder()
-                .putFloat("Health", player.getHealth())
-                .putInt("Food", player.food)
-                .putFloat("FoodSaturation", player.foodSaturation)
-                .putInt("Points", player.getTag(KillShop.POINTS_TAG) ?: 0)
-                .putString("GameMode", player.gameMode.name)
-                .putBoolean("AllowFlying", player.isAllowFlying)
-                .putBoolean("Flying", player.isFlying)
-                .put("Position", serializePosition(player.position))
-                .put("Inventory", serializeInventory(player.inventory))
-                .put("EnderChest", serializeInventory(Commands.getEnderChest(player)))
+                .putFloat("Health", snapshot.health)
+                .putInt("Food", snapshot.food)
+                .putFloat("FoodSaturation", snapshot.foodSaturation)
+                .putInt("Points", snapshot.points)
+                .putString("GameMode", snapshot.gameMode.name)
+                .putBoolean("AllowFlying", snapshot.allowFlying)
+                .putBoolean("Flying", snapshot.flying)
+                .put("Position", serializePosition(snapshot.position))
+                .put("Inventory", serializeInventory(snapshot.inventory))
+                .put("EnderChest", serializeInventory(snapshot.enderChest))
 
-        val cursorItem = player.inventory.cursorItem
+        val cursorItem = snapshot.cursorItem
         if (!cursorItem.isAir) builder.put("CursorItem", cursorItem.toItemNBT())
 
-        val ignored = Commands.getIgnored(player)
+        val ignored = snapshot.ignored
         if (ignored.isNotEmpty()) {
             val list = ListBinaryTag.builder(BinaryTagTypes.STRING)
             ignored.forEach { list.add(StringBinaryTag.stringBinaryTag(it.toString())) }
@@ -49,11 +46,10 @@ object PlayerDataSerializer {
             .putFloat("Pitch", position.pitch())
             .build()
 
-    private fun serializeInventory(inventory: AbstractInventory): ListBinaryTag {
+    private fun serializeInventory(inventory: List<ItemStack>): ListBinaryTag {
         val builder = ListBinaryTag.builder(BinaryTagTypes.COMPOUND)
 
-        for (slot in 0..<inventory.getSize()) {
-            val item = inventory.getItemStack(slot)
+        for ((slot, item) in inventory.withIndex()) {
             if (item.isAir()) continue
 
             val itemNbt = item.toItemNBT()

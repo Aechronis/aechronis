@@ -39,16 +39,9 @@ class OilRig(
 
     class OilRigSaveState(oilRig: OilRig) : BuildingSaveState() {
         override val type = oilRig.type
-        val chunkX = oilRig.chunkX
-        val chunkZ = oilRig.chunkZ
-        val tier = oilRig.tier
-
-        override fun createJsonString(): String = "{" +
-            "\"type\":\"$type\"," +
-            "\"chunkX\":$chunkX," +
-            "\"chunkZ\":$chunkZ," +
-            "\"tier\":$tier" +
-            "}"
+        override val chunkX = oilRig.chunkX
+        override val chunkZ = oilRig.chunkZ
+        override val tier = oilRig.tier
     }
 
     override fun printInfo(sender: CommandSender) {

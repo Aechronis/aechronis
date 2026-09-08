@@ -1,12 +1,13 @@
 plugins {
     `java-library`
     kotlin("jvm")
+    kotlin("plugin.serialization")
     id("org.jlleitschuh.gradle.ktlint")
 }
 
 dependencies {
     api("net.minestom:minestom:2026.08.16-26.2")
-    implementation("com.google.code.gson:gson:2.14.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     api("net.craftingstore:core:2.11.2-SNAPSHOT") {
         isChanging = true
     }

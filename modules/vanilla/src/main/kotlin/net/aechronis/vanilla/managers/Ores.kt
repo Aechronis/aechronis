@@ -1,7 +1,7 @@
 package net.aechronis.vanilla.managers
 
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.OreSounds
@@ -45,6 +45,7 @@ object Ores {
         @Transient var originalBlock: Block? = null,
     )
 
+    @Serializable
     private data class SavedOre(
         val world: String,
         val x: Int,
@@ -63,7 +64,6 @@ object Ores {
     // This must run before Guard (-1000) and Nodes' protection node (-999) so configured ores are mineable everywhere.
     private val eventNode = EventNode.all("vanilla-ores").setPriority(-1001)
     internal val cooldowns = ConcurrentHashMap<Cooldown, Long>()
-    private val gson = Gson()
     private lateinit var file: Path
 
     fun init(path: Path) {
@@ -421,12 +421,8 @@ object Ores {
         ores.clear()
         if (!Files.exists(file)) return
         runCatching {
-            Files.newBufferedReader(file).use { reader ->
-                val type = object : TypeToken<List<SavedOre>>() {}.type
-                val saved: List<SavedOre>? = gson.fromJson(reader, type)
-                saved.orEmpty().filter { it.timeSeconds > 0 }.forEach { entry ->
-                    ores[OreLocation(entry.world, entry.x, entry.y, entry.z)] = Ore(entry.timeSeconds)
-                }
+            Json.decodeFromString<List<SavedOre>>(Files.readString(file)).filter { it.timeSeconds > 0 }.forEach { entry ->
+                ores[OreLocation(entry.world, entry.x, entry.y, entry.z)] = Ore(entry.timeSeconds)
             }
         }.onFailure { error ->
             System.err.println("Failed to load ores: ${error.message}")
@@ -439,7 +435,7 @@ object Ores {
                 ores.map { (location, ore) ->
                     SavedOre(location.world, location.x, location.y, location.z, ore.timeSeconds)
                 }
-            gson.toJson(saved, writer)
+            writer.write(Json.encodeToString(saved))
         }
     }
 

@@ -6,14 +6,15 @@
 
 package net.aechronis.nodes.objects
 
-import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.ErrorNationExists
 import net.aechronis.nodes.constants.ErrorPlayerHasNation
 import net.aechronis.nodes.constants.ErrorPlayerNotInTown
 import net.aechronis.nodes.constants.ErrorTownHasNation
+import net.aechronis.nodes.serdes.NationJsonCodec
 import net.aechronis.nodes.serdes.SaveState
+import net.aechronis.nodes.serdes.snapshotList
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.utils.Color
 import net.aechronis.nodes.war.FlagWar
@@ -278,29 +279,10 @@ class Nation(
         }
 
         fun loadDiplomacy(
-            towns: ArrayList<Town>,
-            townAllies: ArrayList<ArrayList<String>>,
-            townEnemies: ArrayList<ArrayList<String>>,
             nations: ArrayList<Nation>,
             nationAllies: ArrayList<ArrayList<String>>,
             nationEnemies: ArrayList<ArrayList<String>>,
         ) {
-            val allies = hashSetOf<NationPair>()
-            val enemies = hashSetOf<NationPair>()
-            towns.forEachIndexed { i, town ->
-                val nation = town.nation ?: return@forEachIndexed
-                if (town !== nation.capital) return@forEachIndexed
-                townAllies[i].forEach { name -> Town.fromName(name)?.let { other -> if (other === other.nation?.capital) allies.add(NationPair(nation, other.nation!!)) } }
-                townEnemies[i].forEach { name -> Town.fromName(name)?.let { other -> if (other === other.nation?.capital) enemies.add(NationPair(nation, other.nation!!)) } }
-            }
-            allies.forEach { pair ->
-                pair.nation1.allies.add(pair.nation2)
-                pair.nation2.allies.add(pair.nation1)
-            }
-            enemies.forEach { pair ->
-                pair.nation1.enemies.add(pair.nation2)
-                pair.nation2.enemies.add(pair.nation1)
-            }
             nations.forEachIndexed { i, nation ->
                 nationAllies[i].forEach { name -> fromName(name)?.let { nation.allies.add(it) } }
                 nationEnemies[i].forEach { name -> fromName(name)?.let { nation.enemies.add(it) } }
@@ -386,38 +368,17 @@ class Nation(
      * Immutable save snapshot, must be composed of immutable primitives.
      * Used to generate json string serialization.
      */
-    class NationSaveState(n: Nation) : SaveState {
+    class NationSaveState(n: Nation) : SaveState() {
         val uuid = n.uuid
         val name = n.name
         val capital = n.capital.name
         val color = n.color
-        val towns = n.towns.map { x -> x.name }
-        val allies = n.allies.map { x -> x.name }
-        val enemies = n.enemies.map { x -> x.name }
+        val towns = n.towns.map { x -> x.name }.snapshotList()
+        val allies = n.allies.map { x -> x.name }.snapshotList()
+        val enemies = n.enemies.map { x -> x.name }.snapshotList()
         val rallyCap = n.rallyCap
 
-        override var jsonString: String? = null
-
-        override fun createJsonString(): String {
-            val towns = this.towns.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
-            val allies = this.allies.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
-            val enemies = this.enemies.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
-            val rallyCap = this.rallyCap?.let { "\"rallyCap\":$it," } ?: ""
-
-            val jsonString = (
-                "{" +
-                    "\"uuid\":${JsonPrimitive(this.uuid.toString())}," +
-                    "\"capital\":${JsonPrimitive(capital)}," +
-                    "\"color\":[${this.color.r},${this.color.g},${this.color.b}]," +
-                    rallyCap +
-                    "\"towns\":$towns," +
-                    "\"allies\":$allies," +
-                    "\"enemies\":$enemies" +
-                    "}"
-                )
-
-            return jsonString
-        }
+        override fun encode(): String = NationJsonCodec.encode(this)
     }
 
     // function to let client flag this object as dirty

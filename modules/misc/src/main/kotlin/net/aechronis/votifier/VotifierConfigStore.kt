@@ -1,8 +1,8 @@
 package net.aechronis.votifier
 
-import com.google.gson.GsonBuilder
 import com.vexsoftware.votifier.net.protocol.v1crypto.RSAIO
 import com.vexsoftware.votifier.net.protocol.v1crypto.RSAKeygen
+import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -11,7 +11,6 @@ import java.security.KeyPair
 internal class VotifierConfigStore(
     private val directory: Path,
 ) {
-    private val gson = GsonBuilder().setPrettyPrinting().create()
     private val file = directory.resolve("config.json")
     private val lock = Any()
 
@@ -19,7 +18,7 @@ internal class VotifierConfigStore(
 
     fun current(): VotifierFileConfig =
         synchronized(lock) {
-            gson.fromJson(gson.toJson(config), VotifierFileConfig::class.java).normalized()
+            config.copy().normalized()
         }
 
     fun reload() =
@@ -30,10 +29,7 @@ internal class VotifierConfigStore(
                 saveLocked()
                 return@synchronized
             }
-            val parsed =
-                gson.fromJson(Files.readString(file), VotifierFileConfig::class.java)
-                    ?: error("Votifier config is empty")
-            config = parsed.normalized()
+            config = Json.decodeFromString<VotifierFileConfig>(Files.readString(file)).normalized()
         }
 
     fun loadOrCreateProtocolV1Key(): KeyPair =
@@ -53,7 +49,7 @@ internal class VotifierConfigStore(
 
     private fun saveLocked() {
         val temporary = file.resolveSibling("config.json.tmp")
-        Files.writeString(temporary, gson.toJson(config))
+        Files.writeString(temporary, Json.encodeToString(config))
         try {
             Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
         } catch (_: Exception) {

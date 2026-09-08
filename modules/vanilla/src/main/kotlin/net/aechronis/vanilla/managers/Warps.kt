@@ -1,7 +1,8 @@
 package net.aechronis.vanilla.managers
 
-import com.google.gson.GsonBuilder
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
@@ -19,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap
 object Warps {
     const val COOLDOWN_BYPASS_PERMISSION = "warp.cooldown.bypass"
 
+    @Serializable
     data class SavedWarp(
         val name: String,
         val world: String,
@@ -46,7 +48,6 @@ object Warps {
     private val warps = linkedMapOf<String, SavedWarp>()
     private val lastUse = ConcurrentHashMap<UUID, Long>()
     private val pendingWarps = ConcurrentHashMap<UUID, PendingWarp>()
-    private val gson = GsonBuilder().setPrettyPrinting().create()
     private lateinit var file: Path
 
     fun init(path: Path) {
@@ -154,10 +155,7 @@ object Warps {
             warps.clear()
             if (!Files.exists(file)) return
             runCatching {
-                Files.newBufferedReader(file).use { reader ->
-                    val type = object : TypeToken<List<SavedWarp>>() {}.type
-                    gson.fromJson<List<SavedWarp>?>(reader, type).orEmpty()
-                }
+                Json.decodeFromString<List<SavedWarp>>(Files.readString(file))
             }.onSuccess { saved ->
                 saved.forEach { warp ->
                     if (valid(warp) && warps.putIfAbsent(warp.name.key(), warp) == null) return@forEach
@@ -172,7 +170,7 @@ object Warps {
     private fun save() {
         if (!::file.isInitialized) return
         val saved = synchronized(warps) { warps.values.toList() }
-        AtomicFiles.write(file) { writer -> gson.toJson(saved, writer) }
+        AtomicFiles.write(file) { writer -> writer.write(Json.encodeToString(saved)) }
     }
 
     private fun valid(warp: SavedWarp): Boolean =

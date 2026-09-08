@@ -4,10 +4,14 @@
 
 package net.aechronis.nodes
 
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonArray
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.ColonizationMenu
 import net.aechronis.nodes.commands.AllyChatCommand
@@ -59,6 +63,7 @@ import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.serdes.Deserializer
+import net.aechronis.nodes.serdes.WorldSaveState
 import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.tasks.IncomeManager
 import net.aechronis.nodes.tasks.SaveManager
@@ -238,7 +243,7 @@ object Nodes {
     }
 
     @Synchronized
-    internal fun cleanup() {
+    internal fun cleanup(captureLive: (() -> Unit) -> Unit = { it() }) {
         if (!initialized.get()) return
         val persistState = initializationComplete
 
@@ -275,10 +280,12 @@ object Nodes {
             }
         }
         cleanupStage(CleanupStage.TOWNS) {
-            towns.values.forEach { town ->
-                town.applications.values.forEach(Task::cancel)
-                town.applications.clear()
-                if (persistState && town.income.pushToStorage(true)) town.needsUpdate()
+            captureLive {
+                towns.values.forEach { town ->
+                    town.applications.values.forEach(Task::cancel)
+                    town.applications.clear()
+                    if (persistState && town.income.pushToStorage(true)) town.needsUpdate()
+                }
             }
         }
         cleanupStage(CleanupStage.ALLIANCE, Alliance::cleanup)
@@ -289,7 +296,14 @@ object Nodes {
         // A generation whose initialize call failed may contain cleared or partially loaded maps.
         // Tear it down, but never let that candidate overwrite the last valid snapshot used by rollback.
         cleanupStage(CleanupStage.FINAL_SAVE) {
-            if (persistState) saveWorld(checkIfNeedsSave = false, async = false)
+            if (persistState) {
+                lateinit var finalSave: CompletableFuture<Void>
+                captureLive { finalSave = saveWorld(checkIfNeedsSave = false, async = true) }
+                // Capture/prepare failures are returned before anything reaches the save queue.
+                // Join only that already-failed future, then drain the writer outside captureLive.
+                if (finalSave.isCompletedExceptionally) finalSave.join()
+                awaitSaveQueue("completing the final Nodes save")
+            }
         }
         initializationComplete = false
         initialized.set(false)
@@ -343,15 +357,15 @@ object Nodes {
         val currentTerritory = territories[territoryId] ?: error("Territory '$territoryId' does not exist")
         val path = config.pathWorld
         val root = Files.newBufferedReader(path).use { reader ->
-            JsonParser.parseReader(reader).asJsonObject
+            Json.parseToJsonElement(reader.readText()).jsonObject
         }
-        val territoriesJson = root.get("territories")?.asJsonObject
+        val territoriesJson = root.get("territories")?.jsonObject
             ?: error("World file does not contain territories")
-        val territoryJson = territoriesJson.get(territoryId.toString())?.asJsonObject
+        val territoryJson = territoriesJson.get(territoryId.toString())?.jsonObject
             ?: error("World file does not contain territory '$territoryId'")
 
-        val nodes = territoryJson.get("nodes")?.takeIf { it.isJsonArray }?.asJsonArray
-            ?.map { it.asString }
+        val nodes = territoryJson.get("nodes")?.takeIf { it is JsonArray }?.jsonArray
+            ?.map { requireNotNull(it.jsonPrimitive.contentOrNull) }
             ?.toMutableList()
             ?: mutableListOf()
 
@@ -364,14 +378,14 @@ object Nodes {
             error("Resource node '$resourceNodeName' is not assigned to territory '$territoryId'")
         }
 
-        val updatedNodes = JsonArray()
-        nodes.forEach(updatedNodes::add)
-        territoryJson.add("nodes", updatedNodes)
+        val updatedTerritory = JsonObject(territoryJson + ("nodes" to JsonArray(nodes.map(::JsonPrimitive))))
+        val updatedTerritories = JsonObject(territoriesJson + (territoryId.toString() to updatedTerritory))
+        val updatedRoot = JsonObject(root + ("territories" to updatedTerritories))
 
         val parent = path.parent ?: Paths.get(".")
         val temporaryPath = Files.createTempFile(parent, "world-", ".json.tmp")
         try {
-            Files.writeString(temporaryPath, GsonBuilder().create().toJson(root))
+            Files.writeString(temporaryPath, updatedRoot.toString())
             try {
                 Files.move(
                     temporaryPath,
@@ -390,7 +404,7 @@ object Nodes {
             add(territoryId)
             for (neighborId in currentTerritory.neighbors) add(neighborId)
         }.distinct()
-        loadTerritories(territoriesJson, reloadIds)
+        loadTerritories(updatedTerritories, reloadIds)
     }
 
     internal fun loadTerritories(json: JsonObject, ids: List<TerritoryId>? = null) {
@@ -535,6 +549,9 @@ object Nodes {
                     }
 
                     val backupTimestamp = current.takeIf { backup }
+                    val backupTask = backupTimestamp?.let {
+                        TaskSaveBackup(it, config.pathTowns, config.pathBackup, config.pathLastBackupTime)
+                    }
 
                     if (saveState) {
                         // failed occupation journal write must not be followed by
@@ -544,10 +561,14 @@ object Nodes {
                         lastQueuedRevision = dirtyRevision
                         SaveRequest(
                             worldTask = TaskSaveWorld(
-                                residents.values.map { it.getSaveState() },
-                                towns.values.map { it.getSaveState() },
-                                nations.values.map { it.getSaveState() },
-                                backupTimestamp,
+                                WorldSaveState(
+                                    residents.values.map { it.getSaveState() },
+                                    towns.values.map { it.getSaveState() },
+                                    nations.values.map { it.getSaveState() },
+                                    MiningBoostManager.getSaveState(),
+                                ),
+                                config.pathTowns,
+                                backupTask,
                             ),
                             buildingTask = TaskSaveBuildings(buildings.map { it.getSaveState() }, config.pathBuildings),
                             revision = dirtyRevision,
@@ -555,7 +576,7 @@ object Nodes {
                         ).also { if (backupTimestamp != null) backupPending = true }
                     } else {
                         SaveRequest(
-                            backupTask = TaskSaveBackup(backupTimestamp!!),
+                            backupTask = backupTask!!,
                             backupTimestamp = backupTimestamp,
                         ).also { backupPending = true }
                     }

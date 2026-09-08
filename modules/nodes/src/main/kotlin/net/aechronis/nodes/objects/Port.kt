@@ -1,6 +1,5 @@
 package net.aechronis.nodes.objects
 
-import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.utils.ChatColor
@@ -63,19 +62,10 @@ class Port(
     class PortSaveState(p: Port) : BuildingSaveState() {
         override val type = p.type
         val name = p.name
-        val chunkX = p.chunkX
-        val chunkZ = p.chunkZ
-        val tier = p.tier
+        override val chunkX = p.chunkX
+        override val chunkZ = p.chunkZ
+        override val tier = p.tier
         val isPublic = p.isPublic
-
-        override fun createJsonString(): String = "{" +
-            "\"type\":${JsonPrimitive(type)}," +
-            "\"name\":${JsonPrimitive(name)}," +
-            "\"chunkX\":$chunkX," +
-            "\"chunkZ\":$chunkZ," +
-            "\"tier\":$tier," +
-            "\"isPublic\":$isPublic" +
-            "}"
     }
 
     override fun printInfo(sender: CommandSender) {

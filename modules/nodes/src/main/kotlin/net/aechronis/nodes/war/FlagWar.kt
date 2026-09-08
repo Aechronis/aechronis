@@ -49,7 +49,6 @@ import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.utils.ChatColor
-import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.serdes.WarDeserializer
 import net.aechronis.nodes.war.serdes.WarSerializer
 import net.aechronis.server.modules.ModuleScheduler
@@ -263,11 +262,8 @@ object FlagWar {
     /**
      * Load an occupied chunk from json
      */
-    internal fun loadOccupiedChunk(townName: String, coord: Coord) {
-        // get town
-        val town = runCatching { UUID.fromString(townName) }.getOrNull()
-            ?.let(Town::fromUuid)
-            ?: Town.fromName(townName)
+    internal fun loadOccupiedChunk(townId: UUID, coord: Coord) {
+        val town = Town.fromUuid(townId)
         if (town == null) {
             return
         }
@@ -335,20 +331,6 @@ object FlagWar {
         if (!territoryOccupationJournalDirty) return@synchronized
         WarSerializer.save(false)
         territoryOccupationJournalDirty = false
-    }
-
-    /** Upgrade legacy colony saves using the core chunk as explicit evidence. */
-    internal fun migrateLegacyTerritoryOccupations() {
-        Nodes.territories.values.forEach { territory ->
-            if (territory.id in territoryOccupations) return@forEach
-            val core = TerritoryChunk.fromCoord(territory.core) ?: return@forEach
-            if (core.coord !in colonizedChunks) return@forEach
-            val occupier = core.occupier ?: return@forEach
-            territoryOccupations[territory.id] = TerritoryOccupationState(occupier.uuid, colonized = true)
-            Town.restoreOccupation(territory, occupier)
-            territoryOccupationJournalDirty = true
-            needsSave = true
-        }
     }
 
     /**

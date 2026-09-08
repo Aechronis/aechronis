@@ -38,6 +38,10 @@ interface AechronisModule {
 
     fun saveState(context: ModuleContext) = Unit
 
+    /**
+     * Captures mutable state through [ModuleContext.captureLive] before returning the queued disk
+     * write's future. That future must cover all persistence work so reload can drain it safely.
+     */
     fun saveCheckpoint(context: ModuleContext): CompletableFuture<Void> = CompletableFuture.completedFuture(null)
 
     fun shutdown(context: ModuleContext) = Unit

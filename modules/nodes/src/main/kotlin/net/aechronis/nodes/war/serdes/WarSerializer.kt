@@ -28,7 +28,7 @@
 
 package net.aechronis.nodes.war.serdes
 
-import com.google.gson.JsonPrimitive
+import kotlinx.serialization.json.JsonPrimitive
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.war.FlagWar

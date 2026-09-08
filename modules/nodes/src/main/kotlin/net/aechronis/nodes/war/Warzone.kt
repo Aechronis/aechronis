@@ -1,7 +1,14 @@
 package net.aechronis.nodes.war
 
-import com.google.gson.JsonParser
-import com.google.gson.JsonPrimitive
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Territory
@@ -155,22 +162,20 @@ object Warzone {
         if (!Files.exists(Nodes.config.pathWarzone)) return@synchronized
         runCatching {
             Files.newBufferedReader(Nodes.config.pathWarzone).use { reader ->
-                JsonParser.parseReader(reader).asJsonObject
+                Json.parseToJsonElement(reader.readText()).jsonObject
             }
         }.onSuccess { root ->
-            root.get("zones")?.takeIf { it.isJsonObject }?.asJsonObject?.entrySet()?.forEach { (idText, value) ->
+            root.get("zones")?.takeIf { it is JsonObject }?.jsonObject?.entries?.forEach { (idText, value) ->
                 runCatching {
-                    val zone = value.asJsonObject
+                    val zone = value.jsonObject
                     val state = State(TerritoryId(idText.toInt()))
-                    state.stopped = zone.get("stopped")?.asBoolean ?: false
-                    state.activeNationId = zone.get("active")?.takeUnless { it.isJsonNull }?.asString?.let(UUID::fromString)
-                    state.activeSinceMillis = zone.get("activeSince")?.takeUnless { it.isJsonNull }?.asLong
-                    zone.get("scores")?.takeIf { it.isJsonObject }?.asJsonObject?.entrySet()?.forEach { (nationId, score) ->
-                        state.scores[UUID.fromString(nationId)] = score.asLong.coerceAtLeast(0L)
+                    state.stopped = zone.get("stopped")?.jsonPrimitive?.boolean ?: false
+                    state.activeNationId = zone.get("active")?.takeUnless { it is JsonNull }?.jsonPrimitive?.contentOrNull?.let(UUID::fromString)
+                    state.activeSinceMillis = zone.get("activeSince")?.takeUnless { it is JsonNull }?.jsonPrimitive?.long
+                    zone.get("scores")?.takeIf { it is JsonObject }?.jsonObject?.entries?.forEach { (nationId, score) ->
+                        state.scores[UUID.fromString(nationId)] = score.jsonPrimitive.long.coerceAtLeast(0L)
                     }
-                    // Do not activate malformed legacy entries for wilderness.
-                    // The source file is left alone; registering a warzone now
-                    // always requires a territory to belong to a town.
+                    // Warzones require a territory that belongs to a town.
                     if (Territory.fromId(state.territoryId)?.town != null) states[state.territoryId] = state
                 }.onFailure { error ->
                     System.err.println("[Nodes] Ignoring invalid warzone $idText: ${error.message}")

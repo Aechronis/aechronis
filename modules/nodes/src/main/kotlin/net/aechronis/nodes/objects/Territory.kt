@@ -7,7 +7,13 @@
 
 package net.aechronis.nodes.objects
 
-import com.google.gson.JsonObject
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.Nodes.territories
@@ -88,10 +94,10 @@ data class TerritoryPreprocessing(
          * Otherwise, load all ids.
          */
         fun loadFromJson(json: JsonObject, ids: List<TerritoryId>? = null): List<TerritoryPreprocessing> {
-            val idStrings = ids?.asSequence()?.map { id -> id.toInt().toString() } ?: json.keySet().asSequence()
+            val idStrings = ids?.asSequence()?.map { id -> id.toInt().toString() } ?: json.keys.asSequence()
 
             val territories = idStrings
-                .map { id -> fromJson(id.toInt(), json[id].asJsonObject) }
+                .map { id -> fromJson(id.toInt(), json.getValue(id).jsonObject) }
                 .toList()
 
             return territories
@@ -103,49 +109,49 @@ data class TerritoryPreprocessing(
          */
         fun fromJson(id: Int, json: JsonObject): TerritoryPreprocessing {
             // territory name
-            val name: String = json.get("name")?.asString ?: ""
+            val name: String = json.get("name")?.let { requireNotNull(it.jsonPrimitive.contentOrNull) } ?: ""
 
             // territory color, 6 possible colors -> integer in range [0, 5]
             // if null (editor error?), assign 5, the least likely color
-            val color: Int = json.get("color")?.asInt ?: 5
+            val color: Int = json.get("color")?.jsonPrimitive?.int ?: 5
 
             // core chunk (required)
-            val coreChunkArray = json.get("coreChunk")!!.asJsonArray!!
-            val coreChunk = Coord(coreChunkArray[0].asInt, coreChunkArray[1].asInt)
+            val coreChunkArray = json.getValue("coreChunk").jsonArray
+            val coreChunk = Coord(coreChunkArray[0].jsonPrimitive.int, coreChunkArray[1].jsonPrimitive.int)
 
             // chunks:
             // parse interleaved coordinate buffer
             // [x1, y1, x2, y2, ... , xN, yN]
             val chunks: MutableList<Coord> = mutableListOf()
-            val jsonChunkArray = json.get("chunks")?.asJsonArray
+            val jsonChunkArray = json.get("chunks")?.jsonArray
             if (jsonChunkArray !== null) {
-                for (i in 0 until jsonChunkArray.size() step 2) {
-                    val c = Coord(jsonChunkArray[i].asInt, jsonChunkArray[i + 1].asInt)
+                for (i in 0 until jsonChunkArray.size step 2) {
+                    val c = Coord(jsonChunkArray[i].jsonPrimitive.int, jsonChunkArray[i + 1].jsonPrimitive.int)
                     chunks.add(c)
                 }
             }
 
             // resource nodes
             val resourceNodes: MutableList<String> = mutableListOf()
-            val jsonNodesArray = json.get("nodes")?.asJsonArray
+            val jsonNodesArray = json.get("nodes")?.jsonArray
             if (jsonNodesArray !== null) {
                 jsonNodesArray.forEach { nodeJson ->
-                    val s = nodeJson.asString
+                    val s = requireNotNull(nodeJson.jsonPrimitive.contentOrNull)
                     resourceNodes.add(s)
                 }
             }
 
             // neighbor territory ids
             val neighbors: MutableList<Int> = mutableListOf()
-            val jsonNeighborsArray = json.get("neighbors")?.asJsonArray
+            val jsonNeighborsArray = json.get("neighbors")?.jsonArray
             if (jsonNeighborsArray !== null) {
                 jsonNeighborsArray.forEach { neighborId ->
-                    neighbors.add(neighborId.asInt)
+                    neighbors.add(neighborId.jsonPrimitive.int)
                 }
             }
 
             // flag that territory borders wilderness (regions without any territories)
-            val bordersWilderness: Boolean = json.get("isEdge")?.asBoolean ?: false
+            val bordersWilderness: Boolean = json.get("isEdge")?.jsonPrimitive?.boolean ?: false
 
             return TerritoryPreprocessing(
                 TerritoryId(id),

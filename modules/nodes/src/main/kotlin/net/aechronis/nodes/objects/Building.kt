@@ -1,6 +1,7 @@
 package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.serdes.BuildingJsonCodec
 import net.aechronis.nodes.serdes.SaveState
 import net.minestom.server.command.CommandSender
 import net.minestom.server.item.Material
@@ -84,8 +85,11 @@ abstract class Building(
 }
 
 // common json save state for any building
-abstract class BuildingSaveState : SaveState {
+abstract class BuildingSaveState : SaveState() {
     abstract val type: String
+    abstract val chunkX: Int
+    abstract val chunkZ: Int
+    abstract val tier: Int
 
-    override var jsonString: String? = null
+    final override fun encode(): String = BuildingJsonCodec.encode(this)
 }

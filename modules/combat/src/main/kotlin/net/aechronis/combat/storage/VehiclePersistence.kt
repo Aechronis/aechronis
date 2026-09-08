@@ -1,6 +1,8 @@
 package net.aechronis.combat.storage
 
-import com.google.gson.GsonBuilder
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import net.aechronis.combat.objects.ArmedVehicle
 import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Item
@@ -24,23 +26,24 @@ object VehiclePersistence {
     private const val FORMAT_VERSION = 1
     private val LIFECYCLE_TIMEOUT = Duration.ofSeconds(10)
 
-    private val gson = GsonBuilder().setPrettyPrinting().create()
     private lateinit var path: Path
     private lateinit var instance: Instance
     private var initialized = false
 
+    @Serializable
     private data class PersistedVehicles(
-        val version: Int = FORMAT_VERSION,
-        val vehicles: List<PersistedVehicle> = emptyList(),
+        val version: Int,
+        val vehicles: List<PersistedVehicle>,
     )
 
+    @Serializable
     private data class PersistedVehicle(
-        val type: String = "",
-        val x: Double = 0.0,
-        val y: Double = 0.0,
-        val z: Double = 0.0,
-        val yaw: Float = 0f,
-        val pitch: Float = 0f,
+        val type: String,
+        val x: Double,
+        val y: Double,
+        val z: Double,
+        val yaw: Float,
+        val pitch: Float,
         val health: Float? = null,
         val ammo: Int? = null,
     )
@@ -103,7 +106,7 @@ object VehiclePersistence {
                     ammo = Vehicle.entityAmmo[entity],
                 )
             }
-        write(PersistedVehicles(vehicles = vehicles))
+        write(PersistedVehicles(version = FORMAT_VERSION, vehicles = vehicles))
     }
 
     private fun load(deadline: VehicleLifecycleDeadline) {
@@ -111,10 +114,10 @@ object VehiclePersistence {
 
         val saved =
             try {
-                Files.newBufferedReader(path).use { reader -> gson.fromJson(reader, PersistedVehicles::class.java) }
+                Json.decodeFromString<PersistedVehicles>(Files.readString(path))
             } catch (exception: Exception) {
                 throw IllegalStateException("Failed to load vehicles from $path", exception)
-            } ?: throw IllegalStateException("Vehicle save is empty: $path")
+            }
 
         require(saved.version == FORMAT_VERSION) {
             "Unsupported vehicle save version ${saved.version} in $path"
@@ -230,7 +233,7 @@ object VehiclePersistence {
         val temporary = Files.createTempFile(parent, "vehicles-", ".json.tmp")
         var writeFailure: Throwable? = null
         try {
-            Files.newBufferedWriter(temporary).use { writer -> gson.toJson(saved, writer) }
+            Files.newBufferedWriter(temporary).use { writer -> writer.write(Json.encodeToString(saved)) }
             preservePermissions(path, temporary)
             try {
                 Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)

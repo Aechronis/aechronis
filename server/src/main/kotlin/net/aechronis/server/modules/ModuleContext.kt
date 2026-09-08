@@ -23,6 +23,7 @@ class ModuleContext(
     private val resourcePackDirectory: Path? = null,
     private val resourcePackServer: ResourcePackServer? = null,
     private val liveExecutor: Executor? = null,
+    private val liveExecutionAvailable: () -> Boolean = { true },
 ) {
     private val saveCoreWorldCallback = saveCoreWorld
     private val transientState = ConcurrentHashMap<String, ByteArray>()
@@ -107,7 +108,7 @@ class ModuleContext(
     /** Park the tick at a scheduler boundary, after the previous entity tick has finished. */
     internal fun pauseGameplay(): AutoCloseable {
         check(tickPause == null) { "Gameplay is already paused" }
-        val executor = liveExecutor ?: return AutoCloseable {}
+        val executor = liveExecutor?.takeIf { liveExecutionAvailable() } ?: return AutoCloseable {}
         val pause = ModuleTickPause(executor)
         tickPause = pause
         val startedAt = System.nanoTime()
@@ -121,14 +122,24 @@ class ModuleContext(
         }
     }
 
-    internal fun runLive(action: () -> Unit) {
-        val executor = tickPause ?: liveExecutor
-        if (executor == null) {
-            action()
+    /**
+     * Captures live state at a global tick boundary, including while reload has parked gameplay.
+     * Call only from a lifecycle hook, never a player/event callback: waiting there would block the
+     * tick that must execute this action. Return immutable snapshots or queued save futures, and
+     * wait for disk I/O on the lifecycle worker after this method returns.
+     * Before the game starts or after it stops, lifecycle cleanup captures directly because no
+     * scheduler is available. An existing gameplay pause always owns live execution until released.
+     */
+    fun <T> captureLive(capture: () -> T): T {
+        val executor = tickPause ?: liveExecutor?.takeIf { liveExecutionAvailable() }
+        return if (executor == null) {
+            capture()
         } else {
-            CompletableFuture.runAsync(action, executor).join()
+            CompletableFuture.supplyAsync(capture, executor).join()
         }
     }
+
+    internal fun runLive(action: () -> Unit) = captureLive(action)
 
     internal fun saveCoreWorld() = saveCoreWorldCallback()
 }

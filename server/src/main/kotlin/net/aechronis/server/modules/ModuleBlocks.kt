@@ -242,8 +242,7 @@ object ModuleBlocks {
 
         override fun blockUpdate(updateState: UpdateState): Block = dispatch(updateState.currentBlock) { it.blockUpdate(updateState) }
 
-        override fun blockPlace(placementState: PlacementState): Block? =
-            dispatch(placementState.block) { it.blockPlace(placementState) }
+        override fun blockPlace(placementState: PlacementState): Block? = dispatch(placementState.block) { it.blockPlace(placementState) }
 
         override fun isSelfReplaceable(replacement: Replacement): Boolean = dispatch(false) { it.isSelfReplaceable(replacement) }
 

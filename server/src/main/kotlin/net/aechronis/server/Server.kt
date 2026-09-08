@@ -183,6 +183,7 @@ private fun startMinecraftServer(
             resourcePackDirectory = resourcePackDirectory,
             resourcePackServer = resourcePackServer,
             liveExecutor = { MinecraftServer.getSchedulerManager().scheduleNextTick(it) },
+            liveExecutionAvailable = { MinecraftServer.process().isAlive },
         )
 
     ServerShutdown.configure(

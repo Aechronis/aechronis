@@ -10,7 +10,16 @@
 
 package net.aechronis.nodes.objects
 
-import com.google.gson.JsonObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.utils.ChatColor
@@ -543,103 +552,103 @@ object DefaultResourceAttributeLoader : ResourceAttributeLoader {
         // this should always run first. ignore existing resources input
         val resources: HashMap<String, ResourceNode> = hashMapOf()
 
-        for (name in json.keySet()) {
+        for (name in json.keys) {
             try {
-                val node = json[name].asJsonObject
+                val node = json.getValue(name).jsonObject
 
                 val attributes: ArrayList<ResourceAttribute> = arrayListOf()
 
                 // icon
                 val icon = node.get("icon")?.let { jsonIcon ->
-                    if (jsonIcon.isJsonPrimitive) {
-                        jsonIcon.asString
+                    if (jsonIcon is JsonPrimitive && jsonIcon !is JsonNull) {
+                        requireNotNull(jsonIcon.jsonPrimitive.contentOrNull)
                     } else {
                         null
                     }
                 }
 
                 // priority
-                val priority = node.get("priority")?.asInt ?: 0
+                val priority = node.get("priority")?.jsonPrimitive?.int ?: 0
 
                 // ATTRIBUTES
 
                 // main resource attributes
-                node.get("income")?.asJsonObject?.let { jsonIncome ->
-                    if (jsonIncome.size() > 0) {
+                node.get("income")?.jsonObject?.let { jsonIncome ->
+                    if (jsonIncome.size > 0) {
                         val income = parseJsonIncome(jsonIncome)
                         attributes.add(ResourceAttributeIncome(income))
                     }
                 }
-                node.get("ore")?.asJsonObject?.let { jsonOre ->
-                    if (jsonOre.size() > 0) {
+                node.get("ore")?.jsonObject?.let { jsonOre ->
+                    if (jsonOre.size > 0) {
                         val ores = parseJsonMapMaterialToOre(jsonOre)
                         attributes.add(ResourceAttributeOre(ores))
                     }
                 }
 
                 // territory total modifiers
-                node.get("income_total_multiplier")?.asDouble?.let { multiplier ->
+                node.get("income_total_multiplier")?.jsonPrimitive?.double?.let { multiplier ->
                     attributes.add(ResourceAttributeTotalIncomeMultiplier(multiplier))
                 }
-                node.get("ore_total_multiplier")?.asDouble?.let { multiplier ->
+                node.get("ore_total_multiplier")?.jsonPrimitive?.double?.let { multiplier ->
                     attributes.add(ResourceAttributeTotalOreMultiplier(multiplier))
                 }
 
                 // territory specific type multipliers
-                node.get("income_multiplier")?.asJsonObject?.let { jsonIncome ->
-                    if (jsonIncome.size() > 0) {
+                node.get("income_multiplier")?.jsonObject?.let { jsonIncome ->
+                    if (jsonIncome.size > 0) {
                         val incomeMultiplier = parseJsonIncome(jsonIncome)
                         attributes.add(ResourceAttributeIncomeMultiplier(incomeMultiplier))
                     }
                 }
-                node.get("ore_multiplier")?.asJsonObject?.let { jsonOre ->
-                    if (jsonOre.size() > 0) {
+                node.get("ore_multiplier")?.jsonObject?.let { jsonOre ->
+                    if (jsonOre.size > 0) {
                         val oresMultiplier = parseJsonMapMaterialToDouble(jsonOre)
                         attributes.add(ResourceAttributeOreMultiplier(oresMultiplier))
                     }
                 }
 
                 // neighbor direct properties
-                node.get("neighbor_income")?.asJsonObject?.let { jsonIncome ->
-                    if (jsonIncome.size() > 0) {
+                node.get("neighbor_income")?.jsonObject?.let { jsonIncome ->
+                    if (jsonIncome.size > 0) {
                         val income = parseJsonIncome(jsonIncome)
                         attributes.add(ResourceAttributeNeighborIncome(income))
                     }
                 }
-                node.get("neighbor_ore")?.asJsonObject?.let { jsonOre ->
-                    if (jsonOre.size() > 0) {
+                node.get("neighbor_ore")?.jsonObject?.let { jsonOre ->
+                    if (jsonOre.size > 0) {
                         val ores = parseJsonMapMaterialToOre(jsonOre)
                         attributes.add(ResourceAttributeNeighborOre(ores))
                     }
                 }
 
                 // neighbor modifiers
-                node.get("neighbor_income_total_multiplier")?.asDouble?.let { multiplier ->
+                node.get("neighbor_income_total_multiplier")?.jsonPrimitive?.double?.let { multiplier ->
                     attributes.add(ResourceAttributeNeighborTotalIncomeMultiplier(multiplier))
                 }
-                node.get("neighbor_ore_total_multiplier")?.asDouble?.let { multiplier ->
+                node.get("neighbor_ore_total_multiplier")?.jsonPrimitive?.double?.let { multiplier ->
                     attributes.add(ResourceAttributeNeighborTotalOreMultiplier(multiplier))
                 }
 
                 // neighbor specific multipliers
-                node.get("neighbor_income_multiplier")?.asJsonObject?.let { jsonIncome ->
-                    if (jsonIncome.size() > 0) {
+                node.get("neighbor_income_multiplier")?.jsonObject?.let { jsonIncome ->
+                    if (jsonIncome.size > 0) {
                         val incomeMultiplier = parseJsonIncome(jsonIncome)
                         attributes.add(ResourceAttributeNeighborIncomeMultiplier(incomeMultiplier))
                     }
                 }
-                node.get("neighbor_ore_multiplier")?.asJsonObject?.let { jsonOre ->
-                    if (jsonOre.size() > 0) {
+                node.get("neighbor_ore_multiplier")?.jsonObject?.let { jsonOre ->
+                    if (jsonOre.size > 0) {
                         val oresMultiplier = parseJsonMapMaterialToDouble(jsonOre)
                         attributes.add(ResourceAttributeNeighborOreMultiplier(oresMultiplier))
                     }
                 }
 
                 // claim time modifiers
-                node.get("attacker_time_multiplier")?.asDouble?.let { multiplier ->
+                node.get("attacker_time_multiplier")?.jsonPrimitive?.double?.let { multiplier ->
                     attributes.add(ResourceAttributeAttackerTimeMultiplier(multiplier))
                 }
-                node.get("defender_time_multiplier")?.asDouble?.let { multiplier ->
+                node.get("defender_time_multiplier")?.jsonPrimitive?.double?.let { multiplier ->
                     attributes.add(ResourceAttributeDefenderTimeMultiplier(multiplier))
                 }
 
@@ -669,12 +678,12 @@ object DefaultResourceAttributeLoader : ResourceAttributeLoader {
 private fun parseJsonIncome(json: JsonObject): MutableMap<Material, Double> {
     val income = mutableMapOf<Material, Double>()
 
-    json.keySet().forEach { type ->
+    json.keys.forEach { type ->
         val itemName = type.uppercase()
 
         val material = Material.fromKey(type)
         if (material !== null) {
-            income.put(material, json.get(type).asDouble)
+            income.put(material, json.getValue(type).jsonPrimitive.double)
         } else {
             println("parseJsonIncome(): Failed to parse income material type: $itemName")
         }
@@ -689,29 +698,29 @@ private fun parseJsonIncome(json: JsonObject): MutableMap<Material, Double> {
 private fun parseJsonMapMaterialToOre(json: JsonObject): MutableMap<Material, OreDeposit> {
     val ores = mutableMapOf<Material, OreDeposit>()
 
-    json.keySet().forEach { type ->
+    json.keys.forEach { type ->
         val material = Material.fromKey(type)
         if (material !== null) {
             val oreData = json.get(type)
 
             // parse array format: [rate, minDrop, maxDrop]
-            if (oreData?.isJsonArray ?: false) {
-                val oreDataAsArray = oreData.asJsonArray
-                if (oreDataAsArray.size() == 3) {
+            if (oreData is JsonArray) {
+                val oreDataAsArray = oreData.jsonArray
+                if (oreDataAsArray.size == 3) {
                     ores.put(
                         material,
                         OreDeposit(
                             material,
-                            oreDataAsArray[0].asDouble,
-                            oreDataAsArray[1].asInt,
-                            oreDataAsArray[2].asInt,
+                            oreDataAsArray[0].jsonPrimitive.double,
+                            oreDataAsArray[1].jsonPrimitive.int,
+                            oreDataAsArray[2].jsonPrimitive.int,
                         ),
                     )
                 }
             }
             // parse number format: rate (default minDrop = maxDrop = 1)
-            else if (oreData?.isJsonPrimitive ?: false) {
-                val oreDataRate = oreData.asDouble
+            else if (oreData is JsonPrimitive && oreData !is JsonNull) {
+                val oreDataRate = oreData.jsonPrimitive.double
                 ores.put(
                     material,
                     OreDeposit(
@@ -734,10 +743,10 @@ private fun parseJsonMapMaterialToOre(json: JsonObject): MutableMap<Material, Or
 private fun parseJsonMapMaterialToDouble(json: JsonObject): MutableMap<Material, Double> {
     val map = mutableMapOf<Material, Double>()
 
-    json.keySet().forEach { type ->
+    json.keys.forEach { type ->
         val material = Material.fromKey(type)
         if (material !== null) {
-            map[material] = json.get(type).asDouble
+            map[material] = json.getValue(type).jsonPrimitive.double
         } else {
             println("parseJsonMapMaterialToDouble(): Failed to parse material type: $type")
         }

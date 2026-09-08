@@ -1,10 +1,11 @@
 package net.aechronis.nodes.objects
 
-import com.google.gson.JsonPrimitive
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
+import net.aechronis.nodes.serdes.PlotJsonCodec
 import net.aechronis.nodes.serdes.SaveState
+import net.aechronis.nodes.serdes.snapshotNestedMap
 import java.util.UUID
 
 class Plot(
@@ -174,9 +175,12 @@ class Plot(
         val maxX: Int,
         val maxY: Int,
         val maxZ: Int,
-        val groupPermissions: Map<PermissionsGroup, Map<TownPermissions, Boolean>>,
-        val playerPermissions: Map<UUID, Map<TownPermissions, Boolean>>,
-    ) : SaveState {
+        groupPermissions: Map<PermissionsGroup, Map<TownPermissions, Boolean>>,
+        playerPermissions: Map<UUID, Map<TownPermissions, Boolean>>,
+    ) : SaveState() {
+        val groupPermissions: Map<PermissionsGroup, Map<TownPermissions, Boolean>> = groupPermissions.snapshotNestedMap()
+        val playerPermissions: Map<UUID, Map<TownPermissions, Boolean>> = playerPermissions.snapshotNestedMap()
+
         constructor(plot: Plot) : this(
             plot.name,
             plot.minX,
@@ -189,27 +193,6 @@ class Plot(
             plot.playerPermissionEntries(),
         )
 
-        override var jsonString: String? = null
-
-        override fun createJsonString(): String {
-            val groups = groupPermissions.entries.joinToString(",", "{", "}") { (group, permissions) ->
-                "${JsonPrimitive(group.toString())}:${permissionsToJson(permissions)}"
-            }
-            val players = playerPermissions.entries.joinToString(",", "{", "}") { (player, permissions) ->
-                "${JsonPrimitive(player.toString())}:${permissionsToJson(permissions)}"
-            }
-
-            return "{" +
-                "\"name\":${JsonPrimitive(name)}," +
-                "\"min\":[$minX,$minY,$minZ]," +
-                "\"max\":[$maxX,$maxY,$maxZ]," +
-                "\"permissions\":$groups," +
-                "\"players\":$players" +
-                "}"
-        }
+        override fun encode(): String = PlotJsonCodec.encode(this)
     }
-}
-
-private fun permissionsToJson(permissions: Map<TownPermissions, Boolean>): String = permissions.entries.joinToString(",", "{", "}") { (permission, allowed) ->
-    "${JsonPrimitive(permission.toString())}:$allowed"
 }

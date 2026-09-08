@@ -1,8 +1,12 @@
 package net.aechronis.nodes.objects
 
-import com.google.gson.JsonObject
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import net.aechronis.combat.tasks.HasteEffectManager
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.serdes.MiningBoostSaveState
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
@@ -117,25 +121,15 @@ object MiningBoostManager {
         return miningBoost?.multiplier ?: 1
     }
 
-    /** Serialize only the global boost state; it is embedded in towns.json. */
+    /** Capture both boosts together; background serialization must not read the live manager. */
     @Synchronized
-    fun toJsonString(): String = "{\"haste\":${haste.toJson()},\"boost\":${miningBoost.toJson()}}"
+    fun getSaveState(): MiningBoostSaveState = MiningBoostSaveState(haste.toSaveState(), miningBoost.toSaveState())
 
     /** Load the optional global boost object from towns.json. */
     @Synchronized
     fun load(json: JsonObject?) {
-        haste =
-            json
-                ?.get("haste")
-                ?.takeIf { it.isJsonObject }
-                ?.asJsonObject
-                ?.toActiveBoost(HASTE_MAX_MULTIPLIER)
-        miningBoost =
-            json
-                ?.get("boost")
-                ?.takeIf { it.isJsonObject }
-                ?.asJsonObject
-                ?.toActiveBoost(MINING_BOOST_MAX_MULTIPLIER)
+        haste = (json?.get("haste") as? JsonObject)?.toActiveBoost(HASTE_MAX_MULTIPLIER)
+        miningBoost = (json?.get("boost") as? JsonObject)?.toActiveBoost(MINING_BOOST_MAX_MULTIPLIER)
         expire(System.currentTimeMillis())
     }
 
@@ -240,15 +234,15 @@ object MiningBoostManager {
         }
     }
 
-    private fun ActiveBoost?.toJson(): String = this?.let {
-        "{\"multiplier\":${it.multiplier},\"startedAt\":${it.startedAt},\"expiresAt\":${it.expiresAt}}"
-    } ?: "null"
+    private fun ActiveBoost?.toSaveState(): MiningBoostSaveState.BoostSaveState? = this?.let {
+        MiningBoostSaveState.BoostSaveState(it.multiplier, it.startedAt, it.expiresAt)
+    }
 
     private fun JsonObject.toActiveBoost(maxMultiplier: Int): ActiveBoost? {
-        val multiplier = get("multiplier")?.asInt ?: return null
-        val expiresAt = get("expiresAt")?.asLong ?: return null
+        val multiplier = get("multiplier")?.jsonPrimitive?.int ?: return null
+        val expiresAt = get("expiresAt")?.jsonPrimitive?.long ?: return null
         if (multiplier !in 1..maxMultiplier || expiresAt <= System.currentTimeMillis()) return null
-        val startedAt = get("startedAt")?.asLong ?: System.currentTimeMillis()
+        val startedAt = get("startedAt")?.jsonPrimitive?.long ?: System.currentTimeMillis()
         return ActiveBoost(multiplier, startedAt.coerceAtMost(expiresAt), expiresAt)
     }
 }

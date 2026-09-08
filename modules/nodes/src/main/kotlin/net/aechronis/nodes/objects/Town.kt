@@ -18,12 +18,13 @@ import net.aechronis.nodes.constants.ErrorTownExists
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.serdes.SaveState
+import net.aechronis.nodes.serdes.TownJsonCodec
+import net.aechronis.nodes.serdes.snapshotList
+import net.aechronis.nodes.serdes.snapshotMap
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.utils.Color
 import net.aechronis.nodes.utils.EnumArrayMap
 import net.aechronis.nodes.utils.createEnumArrayMap
-import net.aechronis.nodes.utils.stringArrayFromSet
-import net.aechronis.nodes.utils.stringMapFromMap
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.server.modules.ModuleScheduler
@@ -826,73 +827,28 @@ class Town(
      * Immutable save snapshot, must be composed of immutable primitives.
      * Used to generate json string serialization.
      */
-    class TownSaveState(t: Town) : SaveState {
+    class TownSaveState(t: Town) : SaveState() {
         val uuid = t.uuid
         val name = t.name
         val leader = t.leader?.uuid
         val home = t.home
-        val spawnpoint = doubleArrayOf(t.spawnpoint.x, t.spawnpoint.y, t.spawnpoint.z)
-        val color = intArrayOf(t.color.r, t.color.g, t.color.b)
-        val permissions = t.permissions.copyOf()
-        val residents = t.residents.map { x -> x.uuid }
-        val officers = t.officers.map { x -> x.uuid }
-        val territories = t.territories.toList()
-        val annexed = t.annexed.toList()
-        val captured = t.captured.toList()
+        val spawnpoint = Vec(t.spawnpoint.x, t.spawnpoint.y, t.spawnpoint.z)
+        val color = t.color
+        val permissions = TownPermissions.entries.associateWith { t.permissions[it].snapshotList() }.snapshotMap()
+        val residents = t.residents.map { x -> x.uuid }.snapshotList()
+        val officers = t.officers.map { x -> x.uuid }.snapshotList()
+        val territories = t.territories.snapshotList()
+        val annexed = t.annexed.snapshotList()
+        val captured = t.captured.snapshotList()
         val lives = t.lives
         val capitalLifeGranted = t.capitalLifeGranted
         val lifeRevision = t.lifeRevision
-        val income = t.income.snapshot()
-        val protectedBlocks: HashSet<BlockVec> = HashSet(t.protectedBlocks)
-        val plots: List<Plot.PlotSaveState> = t.plots.values.map { it.getSaveState() }
-        val aiConfig: AiTownConfig = t.aiConfig
+        val income = t.income.snapshot().snapshotMap()
+        val protectedBlocks: List<BlockVec> = t.protectedBlocks.snapshotList()
+        val plots: List<Plot.PlotSaveState> = t.plots.values.map { it.getSaveState() }.snapshotList()
+        val aiConfig: AiTownConfig = t.aiConfig.copy(guns = t.aiConfig.guns.snapshotList())
 
-        override var jsonString: String? = null
-
-        override fun createJsonString(): String {
-            val leaderUUID = if (this.leader != null) "\"${this.leader}\"" else null
-            val officers = this.officers.joinToString(",", "[", "]") { x -> "\"$x\"" }
-            val residents = this.residents.joinToString(",", "[", "]") { x -> "\"$x\"" }
-            val territories = this.territories.joinToString(",", "[", "]")
-            val annexed = this.annexed.joinToString(",", "[", "]")
-            val captured = this.captured.joinToString(",", "[", "]")
-            val income = stringMapFromMap<Material, Int>(
-                this.income,
-                { k -> "\"$k\"" },
-                { v -> "$v" },
-            )
-
-            val col = this.color
-            val spawn = "[${this.spawnpoint[0]},${this.spawnpoint[1]},${this.spawnpoint[2]}]"
-
-            val permissions = permissionsToJsonString(this.permissions)
-            val ai = if (this.aiConfig == AiTownConfig()) "" else "\"ai\":${this.aiConfig.toJsonString()},"
-
-            val jsonStrong = (
-                "{" +
-                    "\"uuid\":\"${this.uuid}\"," +
-                    "\"leader\":$leaderUUID," +
-                    "\"home\":${this.home}," +
-                    "\"spawn\":$spawn," +
-                    "\"color\":[${col[0]},${col[1]},${col[2]}]," +
-                    "\"perms\":$permissions," +
-                    "\"residents\":$residents," +
-                    "\"officers\":$officers," +
-                    "\"territories\":$territories," +
-                    "\"annexed\":$annexed," +
-                    "\"captured\":$captured," +
-                    "\"lives\":$lives," +
-                    "\"capitalLifeGranted\":$capitalLifeGranted," +
-                    "\"lifeRevision\":$lifeRevision," +
-                    "\"income\":$income," +
-                    ai +
-                    "\"protect\":${blocksToJsonString(this.protectedBlocks)}," +
-                    "\"plots\":[${this.plots.joinToString(",") { it.toJsonString() }}]" +
-                    "}"
-                )
-
-            return jsonStrong
-        }
+        override fun encode(): String = TownJsonCodec.encode(this)
     }
 
     // function to let client flag this object as dirty
@@ -910,47 +866,4 @@ class Town(
         }
         return this.saveState
     }
-}
-
-// string format for town permissions
-private fun permissionsToJsonString(permissions: EnumArrayMap<TownPermissions, EnumSet<PermissionsGroup>>): String {
-    val str = StringBuilder()
-
-    str.append("{")
-
-    var index = 0
-    for (type in enumValues<TownPermissions>()) {
-        val groups = permissions[type]
-        str.append("\"${type}\":")
-        str.append(stringArrayFromSet<PermissionsGroup>(groups) { g -> "${g.ordinal}" })
-        if (index < permissions.size - 1) {
-            str.append(",")
-        }
-        index += 1
-    }
-
-    str.append("}")
-
-    val s = str.toString()
-    return s
-}
-
-// string format for protected blocks HashSet<BlockVec>
-private fun blocksToJsonString(blocks: HashSet<BlockVec>): String {
-    val str = StringBuilder()
-    str.append("[")
-
-    var index = 0
-    for (block in blocks) {
-        str.append("[${block.blockX},${block.blockY},${block.blockZ}]")
-        if (index < blocks.size - 1) {
-            str.append(",")
-        }
-        index += 1
-    }
-
-    str.append("]")
-
-    val s = str.toString()
-    return s
 }

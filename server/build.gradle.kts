@@ -71,7 +71,7 @@ dependencies {
     implementation("io.github.4drian3d:signedvelocity-minestom:1.4.1")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-fluids:1.10.2-SNAPSHOT")
-    implementation("com.google.code.gson:gson:2.14.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("com.google.guava:guava:33.6.0-jre")
     implementation("it.unimi.dsi:fastutil:8.5.18")
 }

@@ -1,16 +1,10 @@
-/**
- * Json save state with lazily created json string
- */
-
 package net.aechronis.nodes.serdes
 
-interface SaveState {
-    // json string, lazily created
-    var jsonString: String?
+/** A detached snapshot whose encoded representation is cached without exposing mutable state. */
+abstract class SaveState {
+    private val jsonString: String by lazy { encode() }
 
-    // create the json string
-    fun createJsonString(): String
+    protected abstract fun encode(): String
 
-    // memoized access to json string
-    fun toJsonString(): String = jsonString ?: createJsonString().also { jsonString = it }
+    fun toJsonString(): String = jsonString
 }

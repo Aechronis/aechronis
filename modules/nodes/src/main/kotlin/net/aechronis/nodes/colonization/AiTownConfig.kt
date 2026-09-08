@@ -1,6 +1,10 @@
 package net.aechronis.nodes.colonization
 
-import com.google.gson.JsonPrimitive
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 
@@ -17,12 +21,9 @@ data class AiTownConfig(
         require(unknown.isEmpty()) { "Unknown gun(s): ${unknown.joinToString(", ")}" }
     }
 
-    internal fun toJsonString(): String {
-        val gunsJson = guns.joinToString(",", "[", "]") { JsonPrimitive(it).toString() }
-        return "{" +
-            "\"controlled\":$controlled," +
-            "\"enemyCount\":$enemyCount," +
-            "\"guns\":$gunsJson" +
-            "}"
+    internal fun toJsonElement(): JsonObject = buildJsonObject {
+        put("controlled", controlled)
+        put("enemyCount", enemyCount)
+        putJsonArray("guns") { guns.forEach { add(it) } }
     }
 }

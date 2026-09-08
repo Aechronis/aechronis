@@ -32,16 +32,10 @@ class VanillaModule : AechronisModule {
         }
     }
 
-    override fun saveCheckpoint(context: ModuleContext): CompletableFuture<Void> =
-        try {
-            Vanilla.saveCheckpoint()
-            CompletableFuture.completedFuture(null)
-        } catch (error: Throwable) {
-            CompletableFuture.failedFuture(error)
-        }
+    override fun saveCheckpoint(context: ModuleContext): CompletableFuture<Void> = context.captureLive(Vanilla::saveCheckpoint)
 
     override fun saveState(context: ModuleContext) {
-        Vanilla.saveBeforeShutdown()
+        Vanilla.saveBeforeShutdown(context)
         publishOrClear(context, CROPS_STATE_KEY, Vanilla.config.cropsEnabled, Crops::captureTransientState)
         publishOrClear(context, SAPLINGS_STATE_KEY, Vanilla.config.saplingsEnabled, Saplings::captureTransientState)
         publishOrClear(context, ORE_COOLDOWNS_STATE_KEY, Vanilla.config.oresEnabled, Ores::captureTransientState)
