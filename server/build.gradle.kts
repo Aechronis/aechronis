@@ -72,6 +72,4 @@ dependencies {
     implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-fluids:1.10.2-SNAPSHOT")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-    implementation("com.google.guava:guava:33.6.0-jre")
-    implementation("it.unimi.dsi:fastutil:8.5.18")
 }
