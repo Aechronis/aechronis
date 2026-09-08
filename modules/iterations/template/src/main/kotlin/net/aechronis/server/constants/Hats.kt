@@ -9,7 +9,6 @@ object Hats {
     val gasMask =
         Hat(
             name = "gas-mask",
-            itemName = Component.text("Gas mask", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            protection = 0.1F,
+            displayName = Component.text("Gas mask", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
         )
 }

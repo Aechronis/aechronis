@@ -1,5 +1,6 @@
 package net.aechronis.server
 
+import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.server.constants.Ammo
@@ -48,6 +49,7 @@ class TemplateModule : AechronisModule {
     }
 
     private fun registerItems() {
+        Hat.registerHats(Hats.gasMask)
         Item.registerItems(
             Ammo.ammo762x39mm,
             Ammo.tankShell,
@@ -56,7 +58,6 @@ class TemplateModule : AechronisModule {
             Armor.jacket,
             Armor.trousers,
             Armor.boots,
-            Hats.gasMask,
             Planes.fighter,
             Planes.bomber,
             Cars.truck,

@@ -11,8 +11,9 @@ package net.aechronis.combat.commands
 
 import net.aechronis.combat.commands.arguments.ArgumentHat
 import net.aechronis.combat.commands.arguments.ArgumentItem
+import net.aechronis.combat.listeners.HatListener
 import net.aechronis.combat.objects.Explosion
-import net.aechronis.combat.objects.Hat
+import net.aechronis.combat.objects.HatMenu
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.utils.Message
@@ -48,7 +49,6 @@ class CombatAdminGiveCommand : Command("give", "combat.admin") {
 
         addSyntax({ player: Player, context ->
             val item = context[itemArg]
-            if (item is Hat) HatCollection.give(player.uuid, item)
             val stack = item.toItemStack()
             if (!player.inventory.addItemStack(stack)) player.dropItem(stack)
         }, itemArg)
@@ -96,7 +96,7 @@ class CombatAdminHatCommand : Command("hat", "combat.admin") {
         setDefaultExecutor { sender, _ ->
             Message.print(sender, "Usage:")
             Message.print(sender, "/combatadmin hat give <player-name> <hat-name>")
-            Message.print(sender, "/combatadmin hat remove <player-name> <hat-name>")
+            Message.print(sender, "/combatadmin hat remove <player-name> <hat-number>")
         }
 
         addSubcommand(CombatAdminHatGiveCommand())
@@ -121,10 +121,9 @@ class CombatAdminHatGiveCommand : Command("give", "combat.admin") {
                 }
             val hat = context[hatArg]
 
-            HatCollection.give(target.uuid, hat)
-            val stack = hat.toItemStack()
-            if (!target.inventory.addItemStack(stack)) target.dropItem(stack)
-            Message.print(sender, "Gave hat '${hat.name}' to ${target.username}")
+            val instance = HatCollection.give(target.uuid, hat)
+            HatMenu.refresh(target)
+            Message.print(sender, "Gave ${hat.name} #${instance.number} to ${target.username}")
         }, playerArg, hatArg)
     }
 }
@@ -132,10 +131,10 @@ class CombatAdminHatGiveCommand : Command("give", "combat.admin") {
 class CombatAdminHatRemoveCommand : Command("remove", "combat.admin") {
     init {
         val playerArg = ArgumentEntity("player-name").onlyPlayers(true).singleEntity(true)
-        val hatArg = ArgumentHat.create("hat-name")
+        val numberArg = ArgumentType.Long("hat-number").min(1L)
 
         setDefaultExecutor { sender, _ ->
-            Message.print(sender, "Usage: /combatadmin hat remove <player-name> <hat-name>")
+            Message.print(sender, "Usage: /combatadmin hat remove <player-name> <hat-number>")
         }
 
         addSyntax({ sender: Player, context ->
@@ -144,10 +143,15 @@ class CombatAdminHatRemoveCommand : Command("remove", "combat.admin") {
                     Message.print(sender, "Player not found")
                     return@addSyntax
                 }
-            val hat = context[hatArg]
-
-            HatCollection.remove(target.uuid, hat)
-            Message.print(sender, "Removed hat '${hat.name}' from ${target.username}")
-        }, playerArg, hatArg)
+            val number = context[numberArg]
+            val hat =
+                HatCollection.remove(target.uuid, number) ?: run {
+                    Message.error(sender, "${target.username} does not own hat #$number")
+                    return@addSyntax
+                }
+            HatListener.refresh(target)
+            HatMenu.refresh(target)
+            Message.print(sender, "Removed ${hat.hatName} #${hat.number} from ${target.username}")
+        }, playerArg, numberArg)
     }
 }

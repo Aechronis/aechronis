@@ -3,138 +3,182 @@ package net.aechronis.combat.storage
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.aechronis.combat.objects.Hat
-import net.aechronis.combat.objects.Item
-import net.minestom.server.MinecraftServer
+import net.aechronis.combat.objects.HatInstance
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFileAttributeView
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 object HatCollection {
     private val store = HatCollectionStore(Path.of("combat", "hats"))
 
-    fun initialize() {
-        val onlinePlayers = MinecraftServer.getConnectionManager().onlinePlayers.map { it.uuid }
-        store.initialize(onlinePlayers)
-    }
-
-    fun load(uuid: UUID) = store.load(uuid)
-
-    fun save(uuid: UUID) = store.save(uuid)
-
-    fun unload(uuid: UUID) = store.unload(uuid)
+    fun initialize() = store.initialize()
 
     fun shutdown() = store.shutdown()
 
     fun owns(
         uuid: UUID,
-        hat: Hat,
+        hat: HatInstance,
     ): Boolean = store.owns(uuid, hat)
 
-    fun hats(uuid: UUID): List<Hat> = store.hats(uuid)
+    fun hats(uuid: UUID): List<HatInstance> = store.hats(uuid)
+
+    fun equipped(uuid: UUID): HatInstance? = store.equipped(uuid)
+
+    fun equip(
+        uuid: UUID,
+        hat: HatInstance?,
+    ) = store.equip(uuid, hat)
 
     fun give(
         uuid: UUID,
         hat: Hat,
-    ) = store.give(uuid, hat)
+    ): HatInstance = store.give(uuid, hat)
 
     fun remove(
         uuid: UUID,
-        hat: Hat,
-    ) = store.remove(uuid, hat)
+        number: Long,
+    ): HatInstance? = store.remove(uuid, number)
 }
 
+/** Ownership and the global sequence commit together, so a failed write cannot issue a duplicate number. */
 internal class HatCollectionStore(
     private val dataDirectory: Path,
 ) {
     @Serializable
     private data class SavedHats(
-        val hats: List<String>,
+        val hats: List<HatInstance> = emptyList(),
+        val equipped: Long? = null,
     )
 
-    private val playerCollections = ConcurrentHashMap<UUID, MutableSet<String>>()
+    @Serializable
+    private data class Registry(
+        val version: Int = 1,
+        val nextNumber: Long = 1,
+        val players: Map<String, SavedHats> = emptyMap(),
+    )
 
-    fun initialize(onlinePlayerUuids: Iterable<UUID>) {
+    private val json = Json { encodeDefaults = true }
+    private val registryFile = dataDirectory.resolve("registry.json")
+
+    @Volatile private var registry: Registry? = null
+
+    @Synchronized
+    fun initialize() {
+        if (registry != null) return
         Files.createDirectories(dataDirectory)
-        onlinePlayerUuids.forEach(::load)
+        val saved =
+            if (Files.exists(registryFile)) {
+                json.decodeFromString<Registry>(Files.readString(registryFile))
+            } else {
+                Registry()
+            }
+        validate(saved)
+        if (!Files.exists(registryFile)) writeAtomically(registryFile, json.encodeToString(saved))
+        registry = saved
     }
 
-    private fun getPlayerFile(uuid: UUID): Path = dataDirectory.resolve("$uuid.json")
-
-    fun load(uuid: UUID) {
-        getOrLoad(uuid)
-    }
-
-    fun save(uuid: UUID) {
-        val collection = playerCollections[uuid] ?: return
-        val file = getPlayerFile(uuid)
-        writeAtomically(file, Json.encodeToString(SavedHats(collection.sorted())))
-    }
-
-    fun unload(uuid: UUID) {
-        save(uuid)
-        playerCollections.remove(uuid)
-    }
-
+    @Synchronized
     fun shutdown() {
-        val failures = ArrayList<Throwable>()
-        for (uuid in playerCollections.keys.toList()) {
-            try {
-                save(uuid)
-                playerCollections.remove(uuid)
-            } catch (exception: Throwable) {
-                failures.add(exception)
-            }
-        }
-        if (failures.isNotEmpty()) {
-            throw IllegalStateException("Failed to save ${failures.size} hat collection(s)").apply {
-                failures.forEach(::addSuppressed)
-            }
-        }
+        // Every mutation is already committed before being published in memory.
+        registry = null
     }
+
+    private fun current(): Registry = checkNotNull(registry) { "Hat registry has not been initialized" }
 
     fun owns(
         uuid: UUID,
-        hat: Hat,
-    ): Boolean = getOrLoad(uuid).contains(hat.name)
+        hat: HatInstance,
+    ): Boolean = current().players[uuid.toString()]?.hats?.contains(hat) == true
 
-    fun hats(uuid: UUID): List<Hat> =
-        getOrLoad(uuid)
-            .mapNotNull { Item.getFromName(it) as? Hat }
-            .sortedBy { it.name }
+    fun hats(uuid: UUID): List<HatInstance> =
+        current()
+            .players[uuid.toString()]
+            ?.hats
+            .orEmpty()
+            .filter { it.definition != null }
+            .sortedBy { it.number }
 
+    // Packet rendering only reads an immutable snapshot; it never performs disk I/O.
+    fun equipped(uuid: UUID): HatInstance? {
+        val collection = registry?.players?.get(uuid.toString()) ?: return null
+        return collection.hats.firstOrNull { it.number == collection.equipped && it.definition != null }
+    }
+
+    @Synchronized
+    fun equip(
+        uuid: UUID,
+        hat: HatInstance?,
+    ) {
+        val saved = current()
+        val owner = uuid.toString()
+        val collection = saved.players[owner] ?: SavedHats()
+        require(hat == null || (hat in collection.hats && hat.definition != null)) { "You do not own this hat" }
+        val updated = collection.copy(equipped = hat?.number)
+        if (updated == collection) return
+        commit(saved.copy(players = saved.players + (owner to updated)))
+    }
+
+    @Synchronized
     fun give(
         uuid: UUID,
         hat: Hat,
-    ) {
-        val collection = getOrLoad(uuid)
-        collection.add(hat.name)
-        save(uuid)
+    ): HatInstance {
+        val saved = current()
+        check(saved.nextNumber < Long.MAX_VALUE) { "Hat numbers are exhausted" }
+        val owner = uuid.toString()
+        val collection = saved.players[owner] ?: SavedHats()
+        val instance = HatInstance(saved.nextNumber, hat.name)
+        commit(
+            saved.copy(
+                nextNumber = saved.nextNumber + 1,
+                players = saved.players + (owner to collection.copy(hats = collection.hats + instance)),
+            ),
+        )
+        return instance
     }
 
+    @Synchronized
     fun remove(
         uuid: UUID,
-        hat: Hat,
-    ) {
-        val collection = getOrLoad(uuid)
-        if (collection.remove(hat.name)) save(uuid)
+        number: Long,
+    ): HatInstance? {
+        val saved = current()
+        val owner = uuid.toString()
+        val collection = saved.players[owner] ?: return null
+        val hat = collection.hats.firstOrNull { it.number == number } ?: return null
+        val updated =
+            collection.copy(
+                hats = collection.hats - hat,
+                equipped = collection.equipped.takeUnless { it == number },
+            )
+        commit(saved.copy(players = saved.players + (owner to updated)))
+        return hat
     }
 
-    private fun getOrLoad(uuid: UUID): MutableSet<String> =
-        playerCollections.computeIfAbsent(uuid) {
-            val file = getPlayerFile(uuid)
-            ConcurrentHashMap.newKeySet<String>().apply {
-                if (Files.exists(file)) addAll(parseHats(Files.readString(file)))
-            }
-        }
+    private fun commit(saved: Registry) {
+        writeAtomically(registryFile, json.encodeToString(saved))
+        registry = saved
+    }
 
-    private fun parseHats(contents: String): List<String> =
-        Json.decodeFromString<SavedHats>(contents).hats.onEach { name ->
-            require(name.isNotBlank()) { "Hat names must not be blank" }
+    private fun validate(saved: Registry) {
+        require(saved.version == 1) { "Unsupported hat registry version: ${saved.version}" }
+        require(saved.nextNumber > 0) { "Invalid next hat number" }
+        val numbers = hashSetOf<Long>()
+        saved.players.forEach { (owner, collection) ->
+            require(UUID.fromString(owner).toString() == owner) { "Invalid hat owner: $owner" }
+            collection.hats.forEach { hat ->
+                require(hat.number > 0 && hat.number < saved.nextNumber) { "Invalid hat number: ${hat.number}" }
+                require(hat.hatName.isNotBlank()) { "Hat names must not be blank" }
+                require(numbers.add(hat.number)) { "Duplicate hat number: ${hat.number}" }
+            }
+            require(
+                collection.equipped == null || collection.hats.any { it.number == collection.equipped },
+            ) { "Equipped hat is not owned by $owner" }
         }
+    }
 
     private fun writeAtomically(
         target: Path,

@@ -1,8 +1,8 @@
 package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.managers.Combat
 import net.minestom.server.component.DataComponents
+import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.event.inventory.CreativeInventoryActionEvent
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
@@ -16,44 +16,47 @@ object CombatInventoryListener {
     private val craftingSlots =
         PlayerInventoryUtils.CRAFT_SLOT_1..PlayerInventoryUtils.CRAFT_SLOT_4
 
-    private fun isArmorItem(itemStack: ItemStack): Boolean =
-        itemStack
-            .get(DataComponents.EQUIPPABLE)
-            ?.slot
-            ?.isArmor == true
+    private fun acceptsItem(
+        slot: Int,
+        item: ItemStack,
+    ): Boolean {
+        if (item.isAir) return true
+        val equipmentSlot =
+            when (slot) {
+                PlayerInventoryUtils.HELMET_SLOT -> EquipmentSlot.HELMET
+                PlayerInventoryUtils.CHESTPLATE_SLOT -> EquipmentSlot.CHESTPLATE
+                PlayerInventoryUtils.LEGGINGS_SLOT -> EquipmentSlot.LEGGINGS
+                PlayerInventoryUtils.BOOTS_SLOT -> EquipmentSlot.BOOTS
+                else -> return true
+            }
+        return item.get(DataComponents.EQUIPPABLE)?.slot == equipmentSlot
+    }
 
     private fun incomingItem(event: InventoryPreClickEvent): ItemStack =
         when (val click = event.click) {
-            is Click.Left, is Click.Right -> event.player.inventory.cursorItem
-            is Click.LeftDrag, is Click.RightDrag, is Click.MiddleDrag -> event.player.inventory.cursorItem
+            is Click.Left, is Click.Right, is Click.Drag -> event.player.inventory.cursorItem
             is Click.HotbarSwap -> event.player.inventory.getItemStack(click.hotbarSlot)
             is Click.OffhandSwap -> event.player.inventory.getItemStack(PlayerInventoryUtils.OFFHAND_SLOT)
             else -> ItemStack.AIR
         }
 
-    private fun targetsArmorSlot(event: InventoryPreClickEvent): Boolean {
-        if (event.inventory !== event.player.inventory) return false
-
-        return when (val click = event.click) {
-            is Click.LeftDrag, is Click.RightDrag, is Click.MiddleDrag ->
-                click.slots().any { it in armorSlots }
-            else -> event.slot in armorSlots
-        }
-    }
-
     fun onInventoryClick(event: InventoryPreClickEvent) {
-        if (!Combat.isInCombat(event.player)) return
-        if (!targetsArmorSlot(event)) return
-
         val incoming = incomingItem(event)
-        if (!incoming.isAir && !isArmorItem(incoming)) event.isCancelled = true
+        if (incoming.isAir) return
+        val invalidPlacement =
+            when (val click = event.click) {
+                is Click.Drag -> {
+                    // Mixed drags report player slots after the opened container's slots.
+                    val offset = if (event.inventory === event.player.inventory) 0 else event.inventory.size
+                    click.slots().any { slot -> slot - offset in armorSlots && !acceptsItem(slot - offset, incoming) }
+                }
+                else -> event.inventory === event.player.inventory && !acceptsItem(event.slot, incoming)
+            }
+        if (invalidPlacement) event.isCancelled = true
     }
 
     fun onCreativeInventoryAction(event: CreativeInventoryActionEvent) {
-        if (!Combat.isInCombat(event.player)) return
-        if (event.slot in armorSlots && !event.clickedItem.isAir && !isArmorItem(event.clickedItem)) {
-            event.isCancelled = true
-        }
+        if (!acceptsItem(event.slot, event.clickedItem)) event.isCancelled = true
     }
 
     fun onInventoryClose(event: InventoryCloseEvent) {

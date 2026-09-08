@@ -3,9 +3,9 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Grenade
+import net.aechronis.combat.objects.HatMenu
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Vehicle
-import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.aechronis.combat.utils.LagCompensation
@@ -44,8 +44,7 @@ object PlayerDisconnectListener {
         ModelManager.clearPlayer(player)
         KeyPressListener.playerInputEvent.remove(player)
         Hitbox.viewingHitboxes.remove(player)
-        // save and unload hat collection
-        HatCollection.unload(player.uuid)
+        HatMenu.close(player)
     }
 
     fun init() {

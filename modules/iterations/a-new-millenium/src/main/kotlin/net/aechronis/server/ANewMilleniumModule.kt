@@ -1,5 +1,6 @@
 package net.aechronis.server
 
+import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.nodes.NodesConfig
@@ -94,6 +95,7 @@ class ANewMilleniumModule : AechronisModule {
     }
 
     private fun registerItems() {
+        Hat.registerHats(Hats.gasMask)
         Item.registerItems(
             Ammo.ammo762x39mm,
             Ammo.ammo762x39mmExplosive,
@@ -115,7 +117,6 @@ class ANewMilleniumModule : AechronisModule {
             Grenades.rgo,
             Melees.baton,
             *Armor.all.toTypedArray(),
-            Hats.gasMask,
             Planes.b2,
             Planes.f16,
             Planes.j20,

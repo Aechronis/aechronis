@@ -22,6 +22,7 @@ import net.aechronis.combat.listeners.RespawnProtectionListener
 import net.aechronis.combat.listeners.VehicleListener
 import net.aechronis.combat.listeners.WeaponLoreListener
 import net.aechronis.combat.objects.Grenade
+import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Projectile
@@ -280,6 +281,7 @@ object Combat {
         cleanup(failures, "vehicle removal") { VehiclePersistence.shutdown() }
         cleanup(failures, "player model restoration") { ModelManager.shutdown() }
         cleanup(failures, "temporary block restoration") { BlockRestoreManager.shutdown() }
+        cleanup(failures, "hat cosmetics") { HatListener.shutdown() }
         cleanup(failures, "hat storage") { HatCollection.shutdown() }
         cleanup(failures, "vehicle tick state") { VehicleTickManager.shutdown() }
         cleanup(failures, "lag compensation") { LagCompensation.clear() }
@@ -297,6 +299,7 @@ object Combat {
         MannequinDamageListener.shutdown()
         Hitbox.viewingHitboxes.clear()
         Item.registeredItems.clear()
+        Hat.registeredHats.clear()
         config = CombatConfig()
 
         if (failures.isNotEmpty()) {
