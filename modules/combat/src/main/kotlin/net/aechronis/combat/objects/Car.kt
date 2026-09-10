@@ -57,7 +57,7 @@ open class Car(
         if (!canEnterAsDriver(player, entity)) return
 
         super.onEnter(player, entity)
-        if (playerVehicleEntity[player] === entity) {
+        if (VehicleRegistry.driver(player)?.entity === entity) {
             VehicleCameraDistance.apply(player, hitbox, seatOffsets.firstOrNull() ?: Vec.ZERO)
         }
         playerSpeed[player] = 0f
@@ -73,7 +73,7 @@ open class Car(
     }
 
     override fun onTick(player: Player) {
-        val entity = playerVehicleEntity[player] ?: return
+        val entity = VehicleRegistry.driver(player)?.entity ?: return
         var currentSpeed = playerSpeed[player] ?: 0f
         val inputEvent = KeyPressListener.playerInputEvent[player]
 

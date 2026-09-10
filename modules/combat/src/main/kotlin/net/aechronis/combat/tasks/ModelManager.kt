@@ -4,7 +4,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
-import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.utils.AIM_ENTRY_COOLDOWN_GROUP
 import net.aechronis.combat.utils.AIM_ENTRY_TICKS
 import net.aechronis.combat.utils.gunItemModel
@@ -132,7 +132,7 @@ object ModelManager {
         if (!showAim || firstPersonAdsDisabled) clearAimEntry(player)
         if (showAim || firstPersonAdsDisabled || gun == null) aimExits.remove(player)
         val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
-        val isPilotingDrone = Vehicle.playerVehicle[player] is Drone
+        val isPilotingDrone = VehicleRegistry.driver(player)?.vehicle is Drone
         setHitAnimationDisabled(player, gun != null || isLookingAtVehicle || isPilotingDrone, allowInstantBreaking = gun != null)
         updateFakeBlocks(player, instance, gun?.automatic == true || isLookingAtVehicle)
         if (gun == null) restoreSniperScope(player)

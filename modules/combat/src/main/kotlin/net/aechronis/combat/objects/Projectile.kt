@@ -277,7 +277,9 @@ private fun firstVehicleImpact(
 ): ProjectileImpact? {
     var closest: ProjectileImpact? = null
 
-    for ((entity, vehicle) in Vehicle.entityVehicle) {
+    for (runtime in VehicleRegistry.all()) {
+        val entity = runtime.entity
+        val vehicle = runtime.vehicle
         if (entity.instance !== instance || entity in ignoredEntities) continue
 
         val position = entity.position

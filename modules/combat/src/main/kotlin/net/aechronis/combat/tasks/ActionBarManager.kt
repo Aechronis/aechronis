@@ -7,7 +7,8 @@ import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Plane
-import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleRegistry
+import net.aechronis.combat.objects.VehicleRide
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -30,8 +31,9 @@ object ActionBarManager {
     }
 
     fun updateActionBar(player: Player) {
-        val vehicleTelemetry = vehicleTelemetry(player)
-        val vehicle = Vehicle.playerVehicle[player]
+        val ride = VehicleRegistry.driver(player)
+        val vehicleTelemetry = ride?.let(::vehicleTelemetry)
+        val vehicle = ride?.vehicle
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
         val ammo =
             gun
@@ -48,13 +50,15 @@ object ActionBarManager {
         player.sendActionBar(actionBar)
     }
 
-    private fun vehicleTelemetry(player: Player): Component? {
-        val vehicle = Vehicle.playerVehicle[player] ?: return null
-        val entity = Vehicle.playerVehicleEntity[player] ?: return null
+    private fun vehicleTelemetry(ride: VehicleRide): Component? {
+        val player = ride.player
+        val vehicle = ride.vehicle
+        val entity = ride.entity
+        val runtime = ride.runtime
         val health =
             when (vehicle) {
                 is Drone -> Drone.entityHealth[entity]?.let { it to vehicle.rawHealth }
-                else -> Vehicle.entityHealth[entity]?.let { it.health to it.maxHealth }
+                else -> runtime.health?.let { it to (runtime.maxHealth ?: return null) }
             } ?: return null
         val movementTelemetry =
             when (vehicle) {
@@ -70,7 +74,7 @@ object ActionBarManager {
         val healthText = String.format(Locale.ROOT, "Health: [%.0f/%.0f]", health.first, health.second)
         val ammoText =
             (vehicle as? ArmedVehicle)?.let {
-                val currentAmmo = Vehicle.getEntityAmmo(entity) ?: it.maxAmmo
+                val currentAmmo = runtime.ammo ?: it.maxAmmo
                 "Ammo: [$currentAmmo/${it.maxAmmo}]"
             }
         val text = listOfNotNull(movementTelemetry, healthText, ammoText).joinToString(" ")

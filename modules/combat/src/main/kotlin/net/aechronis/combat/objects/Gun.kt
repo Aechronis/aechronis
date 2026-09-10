@@ -359,7 +359,7 @@ class Gun(
         val targetPlayers = validTargets.filterIsInstance<Player>().toSet()
         val targetVehicles =
             targetPlayers.mapNotNullTo(hashSetOf()) { player ->
-                Vehicle.playerVehicleEntity[player] ?: Vehicle.passengerVehicleEntity[player]
+                VehicleRegistry.ride(player)?.entity
             }
         val vehicleHit = checkVehicleHit(instance, origin, ray.direction, ray.distance, targetVehicles)
 
@@ -434,7 +434,9 @@ class Gun(
         if (maxDistance <= 0.0 || direction.lengthSquared() == 0.0) return null
         val vector = direction.normalize().mul(maxDistance)
         var closest: Triple<Double, Entity, Vehicle>? = null
-        for ((entity, vehicle) in Vehicle.entityVehicle) {
+        for (runtime in VehicleRegistry.all()) {
+            val entity = runtime.entity
+            val vehicle = runtime.vehicle
             if (entity.instance != instance) continue
             if (validVehicles != null && entity !in validVehicles) continue
             val vehiclePos = entity.position

@@ -3,11 +3,11 @@ package net.aechronis.combat.storage
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import net.aechronis.combat.objects.ArmedVehicle
 import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleRegistry
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.instance.Instance
 import java.nio.file.AtomicMoveNotSupportedException
@@ -77,7 +77,9 @@ object VehiclePersistence {
         if (!initialized) return
 
         val planes =
-            Vehicle.entityVehicle.toList().mapNotNull { (entity, vehicle) ->
+            VehicleRegistry.all().mapNotNull { runtime ->
+                val entity = runtime.entity
+                val vehicle = runtime.vehicle
                 if (entity.instance === instance && vehicle is Plane) entity to vehicle else null
             }
         val deadline = VehicleLifecycleDeadline.after(LIFECYCLE_TIMEOUT)
@@ -92,7 +94,9 @@ object VehiclePersistence {
     fun save() {
         if (!initialized) return
         val vehicles =
-            Vehicle.entityVehicle.toList().mapNotNull { (entity, vehicle) ->
+            VehicleRegistry.all().mapNotNull { runtime ->
+                val entity = runtime.entity
+                val vehicle = runtime.vehicle
                 if (entity.instance !== instance || vehicle is Drone) return@mapNotNull null
                 val position = entity.position
                 PersistedVehicle(
@@ -102,8 +106,8 @@ object VehiclePersistence {
                     z = position.z,
                     yaw = position.yaw,
                     pitch = position.pitch,
-                    health = Vehicle.entityHealth[entity]?.health,
-                    ammo = Vehicle.entityAmmo[entity],
+                    health = runtime.health,
+                    ammo = runtime.ammo,
                 )
             }
         write(PersistedVehicles(version = FORMAT_VERSION, vehicles = vehicles))
@@ -161,14 +165,7 @@ object VehiclePersistence {
         val placementPosition = entityPosition.add(0.0, -vehicle.hitbox.getGroundOffset(), 0.0)
         val entity = vehicle.spawn(instance, placementPosition)
 
-        vehicle.health?.let { definition ->
-            saved.health?.takeIf { it.isFinite() }?.let { health ->
-                Vehicle.entityHealth[entity]?.restore(health.coerceIn(0f, definition.maxHealth))
-            }
-        }
-        (vehicle as? ArmedVehicle)?.let { armedVehicle ->
-            saved.ammo?.let { ammo -> Vehicle.entityAmmo[entity] = ammo.coerceIn(0, armedVehicle.maxAmmo) }
-        }
+        VehicleRegistry.runtime(entity)?.restore(saved.health, saved.ammo)
     }
 
     private fun groundPlane(

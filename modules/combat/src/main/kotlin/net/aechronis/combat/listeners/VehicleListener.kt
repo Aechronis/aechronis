@@ -4,6 +4,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -21,8 +22,7 @@ object VehicleListener {
         Vehicle.reconcileOccupant(player)
 
         // check if player is already in a vehicle
-        if (Vehicle.playerVehicle[player] != null) return
-        if (Vehicle.passengerVehicle[player] != null) return
+        if (VehicleRegistry.ride(player) != null) return
 
         // check if player is looking at a vehicle
         val lookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player]
@@ -54,8 +54,7 @@ object VehicleListener {
         Vehicle.reconcileOccupant(player)
 
         val boat = Item.getFromItemStack(player.itemInMainHand) as? Boat ?: return
-        if (Vehicle.playerVehicle[player] != null) return
-        if (Vehicle.passengerVehicle[player] != null) return
+        if (VehicleRegistry.ride(player) != null) return
 
         val eyePosition = player.position.add(0.0, player.eyeHeight, 0.0)
         val target = findWaterPlacementPosition(player.instance, eyePosition, eyePosition.direction()) ?: return

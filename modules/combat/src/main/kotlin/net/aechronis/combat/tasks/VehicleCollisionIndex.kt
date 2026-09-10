@@ -1,6 +1,7 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleRegistry
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
@@ -29,7 +30,7 @@ internal class VehicleCollisionIndex {
 
         for (player in players) {
             val instance = player.instance ?: continue
-            if (Vehicle.playerVehicle[player] != null || Vehicle.passengerVehicle[player] != null) continue
+            if (VehicleRegistry.ride(player) != null) continue
 
             val box = player.boundingBox
             val start = box.relativeStart()

@@ -140,7 +140,7 @@ class Tank(
         // body movement
         super.onTick(player)
 
-        val entity = playerVehicleEntity[player] ?: return
+        val entity = VehicleRegistry.driver(player)?.entity ?: return
 
         val turret = entityTurret[entity] ?: return
         val barrel = entityBarrel[entity] ?: return
@@ -209,7 +209,7 @@ class Tank(
             buildSet<Entity> {
                 add(body)
                 add(player)
-                addAll(entityPassengers[body].orEmpty())
+                addAll(VehicleRegistry.passengers(body).map { it.player })
             }
         val obstruction =
             firstProjectileImpact(

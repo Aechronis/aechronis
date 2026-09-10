@@ -16,15 +16,12 @@ object PlayerDisconnectListener {
         val player = event.player
 
         // vehicle
-        Vehicle.playerVehicle[player]?.onExit(player)
+        Vehicle.exit(player)
         Drone.clearCrashStatic(player, resetCamera = false)
-
-        Vehicle.passengerVehicle[player]?.onPassengerExit(player)
 
         VehicleTickManager.playerLookingAtVehicle.remove(player)
         VehicleTickManager.playerLookingAtEntity.remove(player)
         VehicleTickManager.removePlayer(player)
-        Vehicle.emptyAmmoFeedbackAt.remove(player)
 
         // cancel any active tasks before removing
         Combat.aimingResetTasks.remove(player)?.cancel()

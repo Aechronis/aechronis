@@ -184,7 +184,7 @@ class Drone(
     override fun onExit(player: Player) {
         val retainCrashStatic = hasCrashStatic(player)
         // restore the drone model's (and mounted payload's) visibility to the pilot
-        val entity = playerVehicleEntity[player]
+        val entity = VehicleRegistry.driver(player)?.entity
         entity?.addViewer(player)
         entityPayload[entity]?.addViewer(player)
         super.onExit(player)
@@ -308,7 +308,7 @@ class Drone(
 
     // ends a pilots flight
     private fun endFlight(player: Player) {
-        val entity = playerVehicleEntity[player]
+        val entity = VehicleRegistry.driver(player)?.entity
         if (projectileModel == null || entity == null) {
             onExit(player)
             return
@@ -365,7 +365,9 @@ class Drone(
     ): Boolean {
         if (instance.getBlock(p).isSolid) return true
 
-        for ((vehicleEntity, vehicle) in Vehicle.entityVehicle) {
+        for (runtime in VehicleRegistry.all()) {
+            val vehicleEntity = runtime.entity
+            val vehicle = runtime.vehicle
             if (vehicleEntity == droneEntity || vehicleEntity.instance != instance) continue
             val vp = vehicleEntity.position
             if (vehicle.hitbox.containsPoint(p.asVec(), vp, vp.yaw, vp.pitch, vehicle.hitboxRoll(vehicleEntity)) != null) return true
@@ -411,7 +413,7 @@ class Drone(
     }
 
     override fun onTick(player: Player) {
-        val entity = playerVehicleEntity[player] ?: return
+        val entity = VehicleRegistry.driver(player)?.entity ?: return
         val inputEvent = KeyPressListener.playerInputEvent[player]
 
         spectateCamera(player, entitySpider[entity])
@@ -545,7 +547,7 @@ class Drone(
 
         entityPayload[entity]?.teleport(payloadWorldPos(finalPos.withPitch(renderPitch)))
 
-        playerSeatEntity[player]?.teleport(finalPos)
+        VehicleRegistry.driver(player)?.seat?.teleport(finalPos)
 
         val center = hitbox.getWorldCenter(finalPos, yaw, pitch, 0f)
 

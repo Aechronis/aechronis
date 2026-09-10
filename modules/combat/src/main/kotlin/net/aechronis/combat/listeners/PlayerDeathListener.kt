@@ -40,8 +40,7 @@ object PlayerDeathListener {
     }
 
     internal fun exitVehicles(player: Player) {
-        Vehicle.playerVehicle[player]?.onExit(player)
-        Vehicle.passengerVehicle[player]?.onPassengerExit(player)
+        Vehicle.exit(player)
     }
 
     internal fun attackerName(attacker: Entity): Component =

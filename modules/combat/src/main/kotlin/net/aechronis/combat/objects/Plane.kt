@@ -135,13 +135,13 @@ class Plane(
         playerState[player] = PlaneState.LANDED
         takeoffCounter[player] = 0
         playerThrottle[player] = 0f
-        if (playerVehicleEntity[player] === entity) {
+        if (VehicleRegistry.driver(player)?.entity === entity) {
             VehicleCameraDistance.apply(player, hitbox, seatOffsets.firstOrNull() ?: Vec.ZERO)
         }
     }
 
     override fun onExit(player: Player) {
-        val entity = playerVehicleEntity[player]
+        val entity = VehicleRegistry.driver(player)?.entity
         val state = playerState[player]
         if (entity != null &&
             (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) &&
@@ -178,13 +178,11 @@ class Plane(
 
     override fun prepareForShutdown(entity: Entity) {
         entityDives.remove(entity)
-        playerVehicleEntity.entries
-            .filter { it.value === entity }
-            .forEach { (player, _) ->
-                playerState[player] = PlaneState.LANDED
-                playerThrottle[player] = 0f
-                playerRoll[player] = 0f
-            }
+        VehicleRegistry.driverOf(entity)?.let { ride ->
+            playerState[ride.player] = PlaneState.LANDED
+            playerThrottle[ride.player] = 0f
+            playerRoll[ride.player] = 0f
+        }
         (entity.entityMeta as ItemDisplayMeta).leftRotation = setRoll(0f)
         super.prepareForShutdown(entity)
     }
@@ -246,7 +244,7 @@ class Plane(
     }
 
     override fun onTick(player: Player) {
-        val entity = playerVehicleEntity[player] ?: return
+        val entity = VehicleRegistry.driver(player)?.entity ?: return
         var roll = playerRoll[player] ?: 0f
         var state = playerState[player] ?: PlaneState.LANDED
 
@@ -347,7 +345,7 @@ class Plane(
     }
 
     override fun hitboxRoll(entity: Entity): Float {
-        val pilot = playerVehicleEntity.entries.firstOrNull { it.value === entity }?.key ?: return 0f
+        val pilot = VehicleRegistry.driverOf(entity)?.player ?: return 0f
         return playerRoll[pilot] ?: 0f
     }
 
@@ -433,7 +431,7 @@ class Plane(
     private fun fireGuns(player: Player) {
         if (weapons.isEmpty()) return
 
-        val entity = playerVehicleEntity[player] ?: return
+        val entity = VehicleRegistry.driver(player)?.entity ?: return
         if ((getAmmo(entity) ?: 0) <= 0) {
             reloadAmmoIfEmpty(player, entity)
             return
@@ -470,7 +468,7 @@ class Plane(
 
     private fun fireBomb(player: Player) {
         val bomb = bomb ?: return
-        val entity = playerVehicleEntity[player] ?: return
+        val entity = VehicleRegistry.driver(player)?.entity ?: return
         val now = System.currentTimeMillis()
         if (now - (lastBombFireTime[entity] ?: 0L) < bomb.fireCooldown) return
 
@@ -487,7 +485,7 @@ class Plane(
             buildSet<Entity> {
                 add(entity)
                 add(player)
-                addAll(entityPassengers[entity].orEmpty())
+                addAll(VehicleRegistry.passengers(entity).map { it.player })
             }
         val obstruction =
             firstProjectileImpact(

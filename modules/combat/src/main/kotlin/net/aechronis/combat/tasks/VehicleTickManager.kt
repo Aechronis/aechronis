@@ -4,6 +4,8 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleRegistry
+import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.withCombatAttribution
 import net.aechronis.server.modules.ModuleScheduler
@@ -45,32 +47,34 @@ object VehicleTickManager {
                 Vehicle.reconcileOccupants()
 
                 // tick occupied vehicles
-                for ((player, vehicle) in Vehicle.playerVehicle.toList()) {
-                    vehicle.onTick(player)
+                for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.DRIVER }) {
+                    ride.vehicle.onTick(ride.player)
                 }
 
-                for ((entity, vehicle) in Vehicle.entityVehicle.toList()) {
-                    if (Vehicle.playerVehicleEntity.values.none { it === entity }) {
-                        vehicle.onUnoccupiedTick(entity)
+                for (runtime in VehicleRegistry.all()) {
+                    if (VehicleRegistry.driverOf(runtime.entity) == null) {
+                        runtime.vehicle.onUnoccupiedTick(runtime.entity)
                     }
                 }
 
-                val vehicles = Vehicle.entityVehicle.toList()
-                val vehicleLookIndex = prepareVehicleLookIndex(vehicles)
-                val activeEntities = vehicles.map { (entity, _) -> entity }.toSet()
+                val vehicles = VehicleRegistry.all()
+                val vehicleLookIndex = prepareVehicleLookIndex(vehicles.map { it.entity to it.vehicle })
+                val activeEntities = vehicles.map { it.entity }.toSet()
                 collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)
 
                 // Keep players outside every vehicle model and handle moving impacts.
-                for ((entity, vehicle) in vehicles) {
-                    handlePlayerCollisions(entity, vehicle, previousVehiclePositions[entity], collisionIndex)
+                for (runtime in vehicles) {
+                    handlePlayerCollisions(runtime.entity, runtime.vehicle, previousVehiclePositions[runtime.entity], collisionIndex)
                 }
                 previousVehiclePositions.keys.removeIf { it !in activeEntities }
-                for ((entity, _) in vehicles) previousVehiclePositions[entity] = entity.position
+                for (runtime in vehicles) previousVehiclePositions[runtime.entity] = runtime.entity.position
                 lastImpacts.keys.removeIf { it.vehicle !in activeEntities }
 
                 // render hitboxes for all vehicles
                 if (Hitbox.viewingHitboxes.isNotEmpty()) {
-                    for ((entity, vehicle) in vehicles) {
+                    for (runtime in vehicles) {
+                        val entity = runtime.entity
+                        val vehicle = runtime.vehicle
                         val pos = entity.position
                         vehicle.hitbox.render(
                             entity.instance ?: continue,
@@ -88,7 +92,7 @@ object VehicleTickManager {
                 // see modelmanager
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
                     // skip players already in a vehicle
-                    if (Vehicle.playerVehicle[player] != null) {
+                    if (VehicleRegistry.driver(player) != null) {
                         playerLookingAtVehicle.remove(player)
                         playerLookingAtEntity.remove(player)
                         continue
@@ -368,10 +372,7 @@ object VehicleTickManager {
                     .coerceAtMost((player.health - 1.0F).coerceAtLeast(0.0F))
             if (amount <= 0.0F) return@forEachCandidate
 
-            val driver =
-                Vehicle.playerVehicleEntity.entries
-                    .firstOrNull { it.value === entity }
-                    ?.key
+            val driver = VehicleRegistry.driverOf(entity)?.player
             val damage =
                 Damage(DamageType.CRAMMING, driver, driver, position, amount)
                     .withCombatAttribution(CombatDamageKind.VEHICLE)
