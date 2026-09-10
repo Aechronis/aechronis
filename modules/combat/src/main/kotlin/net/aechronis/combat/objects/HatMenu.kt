@@ -58,8 +58,18 @@ object HatMenu {
                     .withLore(Component.text(if (selected) "Equipped" else "Click to equip", NamedTextColor.GRAY)),
             )
         }
-        if (hats.isEmpty()) inventory.setItemStack(22, button(Material.PAPER, Component.text("You do not own any hats",
-            NamedTextColor.DARK_RED)))
+        if (hats.isEmpty()) {
+            inventory.setItemStack(
+                22,
+                button(
+                    Material.PAPER,
+                    Component.text(
+                        "You do not own any hats",
+                        NamedTextColor.DARK_RED,
+                    ),
+                ),
+            )
+        }
         if (page > 0) inventory.setItemStack(45, button(Material.ARROW, Component.text("Previous page")))
         inventory.setItemStack(49, button(Material.BARRIER, Component.text("Remove hat", NamedTextColor.RED)))
         if (page < lastPage) inventory.setItemStack(53, button(Material.ARROW, Component.text("Next page")))
