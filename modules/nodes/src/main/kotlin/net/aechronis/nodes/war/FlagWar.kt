@@ -1,231 +1,135 @@
-/**
- * Flag war implementation conceptually based on
- * Towny flag war:
- * https://github.com/TownyAdvanced/Towny/tree/master/src/com/palmergames/bukkit/towny/war/flagwar
- *
- * War handled by placing a "flag" block onto a chunk to start
- * a "conquer" timer. When timer ends, the chunk is claimed
- * by the attacker's town.
- *
- * When a territory's core is taken, the territory is converted
- * to "occupied" status by the attacking town.
- *
- * Flag block object:
- *     i       <- torch for light (so players can see it)
- *    [ ]      <- wool beacon block (destroy to cancel)
- *     |       <- initial item placed to start claim
- *
- * ----
- * i dont even fully understand save architecture anymore after 6 months
- * hope this doesnt break during war time :^)
- * t. xeth
- */
-
 package net.aechronis.nodes.war
 
-import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
-import net.aechronis.nodes.colonization.Colonization
-import net.aechronis.nodes.constants.ErrorAlreadyCaptured
-import net.aechronis.nodes.constants.ErrorAlreadyUnderAttack
-import net.aechronis.nodes.constants.ErrorAnnexDisabled
-import net.aechronis.nodes.constants.ErrorChunkNotEdge
-import net.aechronis.nodes.constants.ErrorFlagTooHigh
-import net.aechronis.nodes.constants.ErrorNotBorderTerritory
-import net.aechronis.nodes.constants.ErrorNotEnemy
-import net.aechronis.nodes.constants.ErrorSkirmishNationRequired
-import net.aechronis.nodes.constants.ErrorSkirmishTargetLocked
-import net.aechronis.nodes.constants.ErrorSkirmishTargetSelectionRole
-import net.aechronis.nodes.constants.ErrorSkyBlocked
-import net.aechronis.nodes.constants.ErrorTooManyAttacks
-import net.aechronis.nodes.constants.ErrorTownBlacklisted
-import net.aechronis.nodes.constants.ErrorTownNotWhitelisted
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Nametag
-import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.Town
-import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.serdes.WarDeserializer
 import net.aechronis.nodes.war.serdes.WarSerializer
-import net.aechronis.server.modules.ModuleScheduler
-import net.kyori.adventure.bossbar.BossBar
-import net.kyori.adventure.text.Component
-import net.minestom.server.MinecraftServer
 import net.minestom.server.adventure.audience.Audiences
 import net.minestom.server.command.CommandSender
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.Task
-import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-private val SKY_BEACON_FRAME_BLOCK = Block.SEA_LANTERN
-private val SKY_BEACON_BLOCK = Block.BLACK_WOOL
-
-// contain all flag materials for sky beacon
-private val SKY_BEACON_BLOCKS: Set<Block> = setOf(
-    SKY_BEACON_FRAME_BLOCK,
-    SKY_BEACON_BLOCK,
-)
-
-internal data class TerritoryOccupationState(
-    val occupierId: UUID?,
-    val colonized: Boolean,
-)
-
-internal data class SkirmishTargetSelection(
-    val nationId: UUID,
-    val territoryId: TerritoryId,
-)
-
-internal enum class TownDefeatOutcome {
-    ALREADY_DEFEATED_THIS_WAR,
-    LOST_LIFE,
-    ANNEXED,
-    FINAL_LIFE_PROTECTED,
-}
-
+/**
+ * Flag-based chunk conquest, conceptually based on
+ * https://github.com/TownyAdvanced/Towny/tree/master/src/com/palmergames/bukkit/towny/war/flagwar
+ * A flag starts a capture timer; taking a core occupies its territory.
+ * This facade coordinates war sessions and exposes the shared state to existing consumers.
+ */
 object FlagWar {
+    private val state = FlagWarState()
+    private val presentation = WarPresentation(state)
+    private val rules = WarAttackRules(state)
+    private val occupations = WarOccupations(state, presentation)
+    private val capture = WarCapture(state, rules, occupations, presentation)
+    private val attacks = WarAttacks(state, rules, occupations, presentation, capture)
+    private var cleanupSnapshotHandled = false
 
-    // ============================================
-    // war settings
-    // ============================================
-    // flag that war is turned on
-    internal var enabled: Boolean = false
-
-    // All other non-allied nations are enemies for this war period.
-    internal var deathWar: Boolean = false
-    internal val isDeathWar: Boolean get() = enabled && deathWar
-
-    // allow annexing territories during war (disable for border skirmishes)
-    internal var canAnnexTerritories: Boolean = false
-
-    // only allow attacking border territories, cannot go deeper in
-    internal var canOnlyAttackBorders: Boolean = false
-
-    // TODO: war permissions, can create/destroy during war
-    internal var destructionEnabled: Boolean = false
-
-    // ticks for the save task
-    var saveTaskPeriod: Int = 20
-    // ============================================
-
-    // flag items that can be used to claim during war
-    internal val flagBlocks: MutableSet<Block> = mutableSetOf()
-
-    // flag sky beacon size, must be in [2, 16]
-    internal var skyBeaconSize: Int = 6
-
-    // map attacker UUID -> List of Attack instances
-    internal val attackers: HashMap<UUID, ArrayList<Attack>> = hashMapOf()
-
-    // map chunk -> Attack instance
-    internal val chunkToAttacker: ConcurrentHashMap<Coord, Attack> = ConcurrentHashMap()
-
-    // map flag block -> Attack instance (for cancelling attacks)
-    internal val blockToAttacker: HashMap<BlockVec, Attack> = hashMapOf()
-
-    // set of all occupied chunks
-    internal val occupiedChunks: MutableSet<Coord> = ConcurrentHashMap.newKeySet() // create concurrent set from ConcurrentHashMap
-
-    internal val colonizedChunks: MutableSet<Coord> = ConcurrentHashMap.newKeySet()
-
-    internal val territoryOccupations: MutableMap<TerritoryId, TerritoryOccupationState> = hashMapOf()
-
-    // One target territory per nation for the current border skirmish.
-    internal val skirmishTargetsByNation: MutableMap<UUID, TerritoryId> = hashMapOf()
-
-    // A town can consume at most one life during one enabled war period.
-    internal val townsDefeatedThisWar: MutableSet<UUID> = hashSetOf()
-
-    internal var territoryOccupationJournalDirty: Boolean = false
-
-    // attack/flag update tick interval
     internal const val ATTACK_TICK: Int = 20
 
-    // flag that save required
-    @Volatile
-    internal var needsSave: Boolean = false
+    internal var enabled: Boolean
+        get() = state.enabled
+        set(value) {
+            state.enabled = value
+        }
 
-    // periodic task to check for save
-    internal var saveTask: Task? = null
+    internal var deathWar: Boolean
+        get() = state.deathWar
+        set(value) {
+            state.deathWar = value
+        }
 
-    // One scheduler advances every active attack instead of one task per flag.
-    internal var attackTask: Task? = null
+    internal val isDeathWar: Boolean get() = state.isDeathWar
 
-    // Core captures can cancel many flags; refresh all minimaps once afterward.
-    private var minimapRefreshDeferrals: Int = 0
-    private var minimapRefreshPending: Boolean = false
-    private var cleanupSnapshotHandled: Boolean = false
+    internal var canAnnexTerritories: Boolean
+        get() = state.canAnnexTerritories
+        set(value) {
+            state.canAnnexTerritories = value
+        }
+
+    internal var canOnlyAttackBorders: Boolean
+        get() = state.canOnlyAttackBorders
+        set(value) {
+            state.canOnlyAttackBorders = value
+        }
+
+    internal var destructionEnabled: Boolean
+        get() = state.destructionEnabled
+        set(value) {
+            state.destructionEnabled = value
+        }
+
+    var saveTaskPeriod: Int
+        get() = state.saveTaskPeriod
+        set(value) {
+            state.saveTaskPeriod = value
+        }
+
+    internal val flagBlocks: MutableSet<Block> get() = state.flagBlocks
+
+    internal var skyBeaconSize: Int
+        get() = state.skyBeaconSize
+        set(value) {
+            state.skyBeaconSize = value
+        }
+
+    internal val attackers: HashMap<UUID, ArrayList<Attack>> get() = state.attackers
+
+    internal val chunkToAttacker: ConcurrentHashMap<Coord, Attack> get() = state.chunkToAttacker
+
+    internal val blockToAttacker: HashMap<BlockVec, Attack> get() = state.blockToAttacker
+
+    internal val occupiedChunks: MutableSet<Coord> get() = state.occupiedChunks
+
+    internal val colonizedChunks: MutableSet<Coord> get() = state.colonizedChunks
+
+    internal val territoryOccupations: MutableMap<TerritoryId, TerritoryOccupationState> get() = state.territoryOccupations
+
+    internal val skirmishTargetsByNation: MutableMap<UUID, TerritoryId> get() = state.skirmishTargetsByNation
+
+    internal val townsDefeatedThisWar: MutableSet<UUID> get() = state.townsDefeatedThisWar
+
+    internal var territoryOccupationJournalDirty: Boolean
+        get() = state.territoryOccupationJournalDirty
+        set(value) {
+            state.territoryOccupationJournalDirty = value
+        }
+
+    internal var needsSave: Boolean
+        get() = state.needsSave
+        set(value) {
+            state.needsSave = value
+        }
+
+    internal var saveTask: Task?
+        get() = state.saveTask
+        set(value) {
+            state.saveTask = value
+        }
+
+    internal var attackTask: Task?
+        get() = state.attackTask
+        set(value) {
+            state.attackTask = value
+        }
 
     fun initialize(flagBlocks: Set<Block>) {
         cleanupSnapshotHandled = false
-        this.flagBlocks.clear()
-        FlagWar.flagBlocks.addAll(flagBlocks)
-        skyBeaconSize = Nodes.config.flagBeaconSize.coerceIn(2, 16)
+        state.flagBlocks.clear()
+        state.flagBlocks.addAll(flagBlocks)
+        state.skyBeaconSize = Nodes.config.flagBeaconSize.coerceIn(2, 16)
     }
 
-    /**
-     * Print info to sender about current war state
-     */
-    fun printInfo(sender: CommandSender, detailed: Boolean = false) {
-        val status = if (enabled) "enabled" else "${ChatColor.GRAY}disabled"
-        Message.print(sender, "${ChatColor.BOLD}Nodes war status: $status")
-        if (enabled) {
-            val mode = when {
-                isDeathWar -> "deathwar"
-                canOnlyAttackBorders -> "skirmish"
-                else -> "normal"
-            }
-            Message.print(sender, "- Mode${ChatColor.WHITE}: $mode")
-            Message.print(sender, "- Can Annex Territories${ChatColor.WHITE}: $canAnnexTerritories")
-            Message.print(sender, "- Can Only Attack Borders${ChatColor.WHITE}: $canOnlyAttackBorders")
-            Message.print(sender, "- Destruction Enabled${ChatColor.WHITE}: $destructionEnabled")
-            if (canOnlyAttackBorders) {
-                Message.print(sender, "- Nations With Selected Targets${ChatColor.WHITE}: ${skirmishTargetsByNation.size}")
-            }
-            if (detailed) {
-                Message.print(sender, "- Using Towns Whitelist${ChatColor.WHITE}: ${Nodes.config.warUseWhitelist}")
-                Message.print(sender, "- Can leave town${ChatColor.WHITE}: ${Nodes.config.canLeaveTownDuringWar}")
-            }
-        }
-    }
-
-    /**
-     * Async save loop task
-     */
-    internal object SaveLoop : Runnable {
-        override fun run() {
-            synchronized(Nodes.occupationPersistenceLock) {
-                if (!needsSave && !territoryOccupationJournalDirty) return
-                try {
-                    if (territoryOccupationJournalDirty) {
-                        flushTerritoryOccupationJournal()
-                        needsSave = false
-                    } else {
-                        needsSave = false
-                        WarSerializer.save(true).whenComplete { _, error ->
-                            if (error != null) needsSave = true
-                        }
-                    }
-                } catch (error: Exception) {
-                    needsSave = true
-                    System.err.println("Failed to save war state: ${error.message}")
-                }
-            }
-        }
-    }
-
-    /**
-     * Load war state from .json file
-     */
     internal fun load() {
         // A reload must not leave a scheduler advancing discarded attacks.
         attackTask?.cancel()
@@ -247,193 +151,19 @@ object FlagWar {
         }
 
         if (enabled) {
-            if (isDeathWar) {
-                Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes deathwar enabled")
-            } else if (canOnlyAttackBorders) {
-                Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes border skirmishing enabled")
-            } else {
-                Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes war enabled")
-            }
+            presentation.warEnabled()
         } else if (colonizedChunks.isNotEmpty()) {
-            startSaveTask()
+            occupations.startSaveTask()
         }
     }
 
-    /**
-     * Load an occupied chunk from json
-     */
-    internal fun loadOccupiedChunk(townId: UUID, coord: Coord) {
-        val town = Town.fromUuid(townId)
-        if (town == null) {
-            return
-        }
-
-        // get territory chunk
-        val terrChunk = TerritoryChunk.fromCoord(coord)
-        if (terrChunk == null) {
-            return
-        }
-
-        // mark chunk occupied
-        terrChunk.occupier = town
-        occupiedChunks.add(terrChunk.coord)
-    }
-
-    internal fun loadColonizedChunk(coord: Coord) {
-        val chunk = TerritoryChunk.fromCoord(coord) ?: return
-        if (chunk.occupier != null && occupiedChunks.contains(coord)) colonizedChunks.add(coord)
-    }
-
-    internal fun isColonized(coord: Coord): Boolean = colonizedChunks.contains(coord)
-
-    internal fun loadTerritoryOccupation(
-        territoryId: TerritoryId,
-        occupierId: UUID?,
-        colonized: Boolean,
-    ) {
-        territoryOccupations[territoryId] = TerritoryOccupationState(occupierId, colonized)
-        val territory = Territory.fromId(territoryId) ?: return
-        val occupier = occupierId?.let(Town::fromUuid)
-        if (occupierId != null && occupier == null) {
-            System.err.println("[Nodes] Ignoring unknown town $occupierId in territory occupation $territoryId")
-            return
-        }
-        Town.restoreOccupation(territory, occupier)
-    }
-
-    /**
-     * Records a complete territory transition before a later towns.json
-     * snapshot can expose the same in-memory occupation.
-     */
-    internal fun commitTerritoryOccupation(
-        territory: Territory,
-        occupier: Town?,
-        colonized: Boolean,
-        flushJournal: Boolean = true,
-    ) = synchronized(Nodes.occupationPersistenceLock) {
-        if (colonized && occupier != null) {
-            territory.chunks.forEach { coord ->
-                TerritoryChunk.fromCoord(coord)?.let { chunk ->
-                    chunk.occupier = occupier
-                    occupiedChunks.add(coord)
-                    colonizedChunks.add(coord)
-                }
-            }
-            requestMinimapRefresh()
-        }
-        territoryOccupations[territory.id] = TerritoryOccupationState(occupier?.uuid, colonized)
-        territoryOccupationJournalDirty = true
-        if (flushJournal) flushTerritoryOccupationJournal()
-    }
-
-    /** Persist a previously failed occupation transition before towns.json. */
-    internal fun flushTerritoryOccupationJournal() = synchronized(Nodes.occupationPersistenceLock) {
-        if (!territoryOccupationJournalDirty) return@synchronized
-        WarSerializer.save(false)
-        territoryOccupationJournalDirty = false
-    }
-
-    /**
-     * Clear all live and persisted chunk-level occupation state for a territory.
-     * Territory ownership/occupation itself remains the caller's responsibility.
-     */
-    internal fun clearTerritoryOccupation(territory: Territory) {
-        territory.chunks.forEach { coord ->
-            chunkToAttacker[coord]?.cancel()
-            TerritoryChunk.fromCoord(coord)?.let { chunk ->
-                chunk.attacker = null
-                chunk.occupier = null
-            }
-            occupiedChunks.remove(coord)
-            colonizedChunks.remove(coord)
-        }
-        needsSave = true
-        requestMinimapRefresh()
-    }
-
-    /** Remove partial occupations and active flags owned by a town being deleted. */
-    internal fun clearOccupationsBy(town: Town) {
-        chunkToAttacker.values
-            .filter { attack -> attack.town === town || attack.targetTerritory.town === town }
-            .toList()
-            .forEach(Attack::cancel)
-        occupiedChunks.toList().forEach { coord ->
-            val chunk = TerritoryChunk.fromCoord(coord)
-            if (chunk?.occupier === town) {
-                chunk.occupier = null
-                occupiedChunks.remove(coord)
-                colonizedChunks.remove(coord)
-            }
-        }
-        needsSave = true
-        Resident.renderMinimaps()
-    }
-
-    /**
-     * Stop one player's live flags for a town-to-town colonization campaign.
-     * When the last participant stops, also release every completed chunk and
-     * territory that this attacking town colonized from the selected AI town.
-     */
-    internal fun stopColonizationCampaign(
-        attacker: UUID,
-        attackingTown: Town,
-        targetTown: Town,
-        abandonCompletedProgress: Boolean,
-    ) = synchronized(Nodes.occupationPersistenceLock) {
-        chunkToAttacker.values
-            .filter { attack ->
-                attack.mode == AttackMode.COLONIZATION &&
-                    attack.town === attackingTown &&
-                    attack.targetTown === targetTown &&
-                    (abandonCompletedProgress || attack.attacker == attacker)
-            }.toList()
-            .forEach(Attack::cancel)
-
-        if (!abandonCompletedProgress) return@synchronized
-
-        var changed = false
-        Nodes.territories.values
-            .filter { territory -> territory.town === targetTown }
-            .forEach { territory ->
-                val occupation = territoryOccupations[territory.id]
-                val territoryColonizedByAttacker = territory.occupier === attackingTown &&
-                    occupation?.occupierId == attackingTown.uuid &&
-                    occupation.colonized
-
-                territory.chunks.forEach { coord ->
-                    val chunk = TerritoryChunk.fromCoord(coord) ?: return@forEach
-                    if (coord !in colonizedChunks || chunk.occupier !== attackingTown) return@forEach
-                    chunk.occupier = null
-                    occupiedChunks.remove(coord)
-                    colonizedChunks.remove(coord)
-                    changed = true
-                }
-
-                if (territoryColonizedByAttacker) {
-                    Town.restoreOccupation(territory, null)
-                    territoryOccupations[territory.id] = TerritoryOccupationState(null, colonized = false)
-                    territoryOccupationJournalDirty = true
-                    changed = true
-                }
-            }
-
-        if (changed) {
-            needsSave = true
-            Resident.renderMinimaps()
-            WarSerializer.save(false)
-            territoryOccupationJournalDirty = false
-            needsSave = false
-        }
-    }
-
-    /** Cancel live tasks and discard in-memory war state before reloading world data. */
     internal fun resetForReload() {
         saveTask?.cancel()
         saveTask = null
         attackTask?.cancel()
         attackTask = null
 
-        chunkToAttacker.values.toList().forEach(::cancelAttack)
+        chunkToAttacker.values.toList().forEach(attacks::cancelAttack)
         occupiedChunks.toList().forEach { coord ->
             TerritoryChunk.fromCoord(coord)?.let { chunk ->
                 chunk.attacker = null
@@ -458,7 +188,6 @@ object FlagWar {
         needsSave = false
     }
 
-    // cleanup when server is shutdown
     internal fun cleanup(persistState: Boolean = true) {
         // stop scheduled work
         saveTask?.cancel()
@@ -491,7 +220,7 @@ object FlagWar {
                 chunk.attacker = null
                 chunk.occupier = null
             }
-            cancelAttack(attack)
+            attacks.cancelAttack(attack)
         }
 
         // clear occupied chunks
@@ -515,9 +244,6 @@ object FlagWar {
         territoryOccupationJournalDirty = false
     }
 
-    /**
-     * Enable war, set war state flags
-     */
     internal fun enable(
         canAnnexTerritories: Boolean,
         canOnlyAttackBorders: Boolean,
@@ -533,15 +259,12 @@ object FlagWar {
         FlagWar.destructionEnabled = destructionEnabled
         needsSave = true
 
-        startSaveTask(restart = true)
-        revalidateWarAttacks()
+        occupations.startSaveTask(restart = true)
+        attacks.revalidateWarAttacks()
         Nametag.refreshRelationships()
         Resident.renderMinimaps()
     }
 
-    /**
-     * Disable war, cleanup war state
-     */
     internal fun disable() {
         enabled = false
         deathWar = false
@@ -557,7 +280,7 @@ object FlagWar {
         saveTask = null
 
         // stop global war flags without touching independent colonization flags
-        chunkToAttacker.values.filter { it.mode == AttackMode.WAR }.toList().forEach(::cancelAttack)
+        chunkToAttacker.values.filter { it.mode == AttackMode.WAR }.toList().forEach(attacks::cancelAttack)
 
         // clear global war captures while preserving colonized chunks
         for (coord in occupiedChunks.toList()) {
@@ -575,14 +298,14 @@ object FlagWar {
         Resident.renderMinimaps()
 
         if (colonizedChunks.isNotEmpty() || chunkToAttacker.values.any { it.mode == AttackMode.COLONIZATION }) {
-            startSaveTask()
+            occupations.startSaveTask()
         }
 
         // save war.json with any retained colony progress
         try {
             synchronized(Nodes.occupationPersistenceLock) {
                 if (territoryOccupationJournalDirty) {
-                    flushTerritoryOccupationJournal()
+                    occupations.flushTerritoryOccupationJournal()
                 } else {
                     WarSerializer.save(false)
                 }
@@ -590,195 +313,102 @@ object FlagWar {
             }
         } catch (error: Exception) {
             needsSave = true
-            startSaveTask()
+            occupations.startSaveTask()
             throw error
         }
     }
 
-    // initiate attack on a territory chunk:
-    // 1. check chunk is valid target, flag placement valid,
-    //    and player can attack
-    // 2. create and run attack timer thread
-    internal fun beginAttack(attacker: UUID, attackingTown: Town, chunk: TerritoryChunk, flagBase: BlockVec): Result<Attack> = beginAttack(attacker, attackingTown, chunk, flagBase, AttackMode.WAR)
+    fun printInfo(sender: CommandSender, detailed: Boolean = false) = presentation.printInfo(sender, detailed)
 
-    internal fun beginColonizationAttack(attacker: UUID, attackingTown: Town, chunk: TerritoryChunk, flagBase: BlockVec): Result<Attack> = beginAttack(attacker, attackingTown, chunk, flagBase, AttackMode.COLONIZATION)
+    internal object SaveLoop : Runnable {
+        override fun run() = occupations.save()
+    }
 
-    internal fun beginWarzoneAttack(attacker: UUID, attackingTown: Town, chunk: TerritoryChunk, flagBase: BlockVec): Result<Attack> = beginAttack(attacker, attackingTown, chunk, flagBase, AttackMode.WARZONE)
+    internal fun beginAttack(attacker: UUID, attackingTown: Town, chunk: TerritoryChunk, flagBase: BlockVec): Result<Attack> = attacks.beginAttack(attacker, attackingTown, chunk, flagBase, AttackMode.WAR)
 
-    internal fun canCaptureTerritoryCore(): Boolean = canAnnexTerritories || canOnlyAttackBorders
+    internal fun beginColonizationAttack(attacker: UUID, attackingTown: Town, chunk: TerritoryChunk, flagBase: BlockVec): Result<Attack> = attacks.beginAttack(attacker, attackingTown, chunk, flagBase, AttackMode.COLONIZATION)
 
-    internal fun canAnnexDefeatedTown(mode: AttackMode): Boolean = mode != AttackMode.WAR || canAnnexTerritories
+    internal fun beginWarzoneAttack(attacker: UUID, attackingTown: Town, chunk: TerritoryChunk, flagBase: BlockVec): Result<Attack> = attacks.beginAttack(attacker, attackingTown, chunk, flagBase, AttackMode.WARZONE)
+
+    internal fun canCaptureTerritoryCore(): Boolean = rules.canCaptureTerritoryCore()
+
+    internal fun canAnnexDefeatedTown(mode: AttackMode): Boolean = rules.canAnnexDefeatedTown(mode)
+
+    internal fun isBorderTerritory(territory: Territory): Boolean = rules.isBorderTerritory(territory)
+
+    internal fun shouldAnnexTown(
+        defeatedTown: Town,
+        capturedTerritory: Territory,
+    ): Boolean = rules.shouldAnnexTown(defeatedTown, capturedTerritory)
+
+    internal fun chunkAlreadyCaptured(chunk: TerritoryChunk, territory: Territory, attackingTown: Town): Boolean = rules.chunkAlreadyCaptured(chunk, territory, attackingTown)
+
+    internal fun chunkAlreadyColonizedBy(
+        chunk: TerritoryChunk,
+        territory: Territory,
+        attackingTown: Town,
+    ): Boolean = rules.chunkAlreadyColonizedBy(chunk, territory, attackingTown)
+
+    internal fun townIsWarOpponent(attackingTown: Town, otherTown: Town?): Boolean = rules.townIsWarOpponent(attackingTown, otherTown)
+
+    internal fun prepareSkirmishTargetSelection(
+        attacker: UUID,
+        attackingTown: Town,
+        territory: Territory,
+    ): Result<SkirmishTargetSelection?> = rules.prepareSkirmishTargetSelection(attacker, attackingTown, territory)
+
+    internal fun commitSkirmishTargetSelection(selection: SkirmishTargetSelection): Boolean = rules.commitSkirmishTargetSelection(selection)
+
+    internal fun skirmishTarget(attackingTown: Town): Territory? = rules.skirmishTarget(attackingTown)
+
+    internal fun chunkIsAttackable(chunk: TerritoryChunk, territory: Territory, attackingTown: Town): Boolean = rules.chunkIsAttackable(chunk, territory, attackingTown)
+
+    internal fun chunkIsAtEdge(chunk: TerritoryChunk, attackingTown: Town): Boolean = rules.chunkIsAtEdge(chunk, attackingTown)
+
+    internal fun canAttackFromNeighborChunk(neighborChunk: TerritoryChunk?, attacker: Town): Boolean = rules.canAttackFromNeighborChunk(neighborChunk, attacker)
+
+    internal fun loadOccupiedChunk(townId: UUID, coord: Coord) = occupations.loadOccupiedChunk(townId, coord)
+
+    internal fun loadColonizedChunk(coord: Coord) = occupations.loadColonizedChunk(coord)
+
+    internal fun isColonized(coord: Coord): Boolean = occupations.isColonized(coord)
+
+    internal fun loadTerritoryOccupation(
+        territoryId: TerritoryId,
+        occupierId: UUID?,
+        colonized: Boolean,
+    ) = occupations.loadTerritoryOccupation(territoryId, occupierId, colonized)
+
+    internal fun commitTerritoryOccupation(
+        territory: Territory,
+        occupier: Town?,
+        colonized: Boolean,
+        flushJournal: Boolean = true,
+    ) = occupations.commitTerritoryOccupation(territory, occupier, colonized, flushJournal)
+
+    internal fun flushTerritoryOccupationJournal() = occupations.flushTerritoryOccupationJournal()
+
+    internal fun clearTerritoryOccupation(territory: Territory) = occupations.clearTerritoryOccupation(territory)
+
+    internal fun clearOccupationsBy(town: Town) = occupations.clearOccupationsBy(town)
+
+    internal fun stopColonizationCampaign(
+        attacker: UUID,
+        attackingTown: Town,
+        targetTown: Town,
+        abandonCompletedProgress: Boolean,
+    ) = occupations.stopColonizationCampaign(attacker, attackingTown, targetTown, abandonCompletedProgress)
+
+    internal fun loadSkirmishTarget(nationId: UUID, territoryId: TerritoryId) = occupations.loadSkirmishTarget(nationId, territoryId)
+
+    internal fun loadDefeatedTown(townId: UUID) = occupations.loadDefeatedTown(townId)
 
     internal fun resolveTownDefeat(
         attackerTown: Town,
         defeatedTown: Town,
         mode: AttackMode,
-    ): TownDefeatOutcome {
-        if (mode != AttackMode.WAR) {
-            Town.annex(attackerTown, defeatedTown, colonized = mode == AttackMode.COLONIZATION)
-            WarSerializer.save(false)
-            return TownDefeatOutcome.ANNEXED
-        }
+    ): TownDefeatOutcome = capture.resolveTownDefeat(attackerTown, defeatedTown, mode)
 
-        if (!townsDefeatedThisWar.add(defeatedTown.uuid)) {
-            return TownDefeatOutcome.ALREADY_DEFEATED_THIS_WAR
-        }
-
-        val outcome = when {
-            defeatedTown.lives > 1 -> {
-                Town.annex(attackerTown, defeatedTown)
-                TownDefeatOutcome.LOST_LIFE
-            }
-            canAnnexDefeatedTown(mode) -> {
-                Town.annex(attackerTown, defeatedTown)
-                TownDefeatOutcome.ANNEXED
-            }
-            else -> TownDefeatOutcome.FINAL_LIFE_PROTECTED
-        }
-        needsSave = true
-        // Persist the life and per-war defeat marker together. towns.json will
-        // catch up through the normal world save queue; war.json is the journal
-        // used to recover either value after an abrupt stop.
-        WarSerializer.save(false)
-        return outcome
-    }
-
-    private fun beginAttack(
-        attacker: UUID,
-        attackingTown: Town,
-        chunk: TerritoryChunk,
-        flagBase: BlockVec,
-        mode: AttackMode,
-    ): Result<Attack> {
-        val flagBaseX = flagBase.blockX
-        val flagBaseY = flagBase.blockY
-        val flagBaseZ = flagBase.blockZ
-        val territory = chunk.territory
-        val territoryTown = territory.town
-
-        // run checks that chunk attack is valid
-
-        // check chunk has a town
-        if (territoryTown === null) {
-            return Result.failure(ErrorNotEnemy)
-        }
-
-        if (mode == AttackMode.COLONIZATION) {
-            if (!Colonization.isAuthorized(attacker, attackingTown, territoryTown)) {
-                return Result.failure(ErrorNotEnemy)
-            }
-        } else if (mode == AttackMode.WARZONE) {
-            if (!Warzone.isActive(territory) || attackingTown.nation == null) return Result.failure(ErrorNotEnemy)
-        } else {
-            // check if town blacklisted
-            if (Nodes.config.warUseBlacklist && Nodes.config.warBlacklist.contains(territoryTown.uuid)) {
-                return Result.failure(ErrorTownBlacklisted)
-            }
-
-            // check if town not whitelisted
-            if (Nodes.config.warUseWhitelist) {
-                if (!Nodes.config.warWhitelist.contains(territoryTown.uuid) || (Nodes.config.onlyWhitelistCanClaim && !Nodes.config.warWhitelist.contains(attackingTown.uuid))) {
-                    return Result.failure(ErrorTownNotWhitelisted)
-                }
-            }
-        }
-
-        val pendingSkirmishTarget = if (mode == AttackMode.WAR) {
-            prepareSkirmishTargetSelection(attacker, attackingTown, territory)
-                .getOrElse { return Result.failure(it) }
-        } else {
-            null
-        }
-
-        // check chunk not currently under attack
-        // A warzone uses normal chunk-by-chunk war progress. The core chunk
-        // is the only chunk that can capture the whole territory.
-        if (chunk.attacker !== null) {
-            return Result.failure(ErrorAlreadyUnderAttack)
-        }
-
-        val alreadyCaptured = when (mode) {
-            AttackMode.COLONIZATION -> chunkAlreadyColonizedBy(chunk, territory, attackingTown)
-            AttackMode.WARZONE,
-            AttackMode.WAR,
-            -> chunkAlreadyCaptured(chunk, territory, attackingTown)
-        }
-        if (alreadyCaptured) {
-            return Result.failure(ErrorAlreadyCaptured)
-        }
-
-        // check chunk either:
-        // 1. belongs to enemy
-        // 2. town chunk occupied by enemy
-        // 3. allied chunk occupied by enemy
-        if (mode == AttackMode.COLONIZATION || mode == AttackMode.WARZONE || chunkIsAttackable(chunk, territory, attackingTown)) {
-            if (mode == AttackMode.WAR) {
-                if (!canCaptureTerritoryCore() && chunk.coord == territory.core) {
-                    return Result.failure(ErrorAnnexDisabled)
-                }
-
-                // check for only attacking border territories
-                if (canOnlyAttackBorders && !isBorderTerritory(territory)) {
-                    return Result.failure(ErrorNotBorderTerritory)
-                }
-            }
-
-            // check that chunk valid, either:
-            // 1. next to wilderness
-            // 2. next to occupied chunk (by town or allies)
-            if (!chunkIsAtEdge(chunk, attackingTown)) {
-                return Result.failure(ErrorChunkNotEdge)
-            }
-
-            // check that there is room to create flag
-            if (flagBaseY >= 253) { // need room for wool + torch
-                return Result.failure(ErrorFlagTooHigh)
-            }
-
-            // check flag has vision to sky
-            val instance = MinecraftServer.getInstanceManager().instances.first()
-            for (y in flagBaseY + 1..255) {
-                if (!instance.getBlock(flagBaseX, y, flagBaseZ).isAir) {
-                    return Result.failure(ErrorSkyBlocked)
-                }
-            }
-
-            // attacker's current attacks (if any exist)
-            var currentAttacks = attackers.get(attacker)
-            if (currentAttacks == null) {
-                currentAttacks = ArrayList(Nodes.config.maxPlayerChunkAttacks) // set initial capacity = max attacks
-                attackers.put(attacker, currentAttacks)
-            } else if (currentAttacks.size >= Nodes.config.maxPlayerChunkAttacks) {
-                return Result.failure(ErrorTooManyAttacks)
-            }
-
-            val attack = createAttack(
-                attacker,
-                attackingTown,
-                chunk,
-                flagBase,
-                mode = mode,
-            )
-
-            pendingSkirmishTarget?.takeIf(::commitSkirmishTargetSelection)?.let { selection ->
-                attackingTown.nation?.let { nation ->
-                    Message.broadcast(
-                        "${ChatColor.DARK_RED}[War] ${nation.name} selected ${territory.name} " +
-                            "(id=${territory.id}) for this border skirmish!",
-                    )
-                }
-            }
-
-            // mark that save required
-            needsSave = true
-
-            return Result.success(attack)
-        } else {
-            return Result.failure(ErrorNotEnemy)
-        }
-    }
-
-    // actually creates attack instance
     internal fun createAttack(
         attacker: UUID,
         attackingTown: Town,
@@ -787,847 +417,32 @@ object FlagWar {
         skyBeaconColorBlocksInput: MutableList<BlockVec>? = null,
         skyBeaconWireframeBlocksInput: MutableList<BlockVec>? = null,
         mode: AttackMode = AttackMode.WAR,
-    ): Attack {
-        val flagBaseX = flagBase.blockX
-        val flagBaseY = flagBase.blockY
-        val flagBaseZ = flagBase.blockZ
-        val territory = chunk.territory
+    ): Attack = attacks.createAttack(attacker, attackingTown, chunk, flagBase, skyBeaconColorBlocksInput, skyBeaconWireframeBlocksInput, mode)
 
-        val flagBlock = flagBase.add(0, 1, 0)
-        val flagTorch = flagBase.add(0, 2, 0)
-        val action = when (mode) {
-            AttackMode.COLONIZATION -> "Colonizing"
-            AttackMode.WARZONE -> "Capturing warzone"
-            AttackMode.WAR -> "Attacking"
-        }
-        val progressBar = BossBar.bossBar(Component.text("$action ${territory.town!!.name} at ($flagBaseX, $flagBaseY, $flagBaseZ)"), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS)
+    internal fun loadAttack(attacker: UUID, coord: Coord, flagBase: BlockVec, completionTime: Long) = attacks.loadAttack(attacker, coord, flagBase, completionTime)
 
-        // calculate max attack time based on chunk and other modifiers
-        // convert milliseconds to ticks
-        var attackTime = Nodes.config.chunkAttackTime.toDouble() * 20 / 1000
-        if (territory.bordersWilderness) {
-            attackTime *= Nodes.config.chunkAttackFromWastelandMultiplier
-        }
-        // town specific claim time modifiers
-        val terrTown = territory.town
-        if (terrTown !== null) {
-            if (territory.id == terrTown.home) {
-                attackTime *= Nodes.config.chunkAttackHomeMultiplier
-            }
-            attackTime *= if (terrTown.uuid == attackingTown.uuid || Town.areAllied(terrTown, attackingTown)) {
-                territory.defenderTimeMultiplier
-            } else {
-                territory.attackerTimeMultiplier
-            }
-        }
+    internal fun cancelAttack(attack: Attack) = attacks.cancelAttack(attack)
 
-        val progress = 0L
+    internal fun cancelWarzoneAttacks(territory: Territory) = attacks.cancelWarzoneAttacks(territory)
 
-        // get sky beacon blocks
-        val skyBeaconColorBlocks: MutableList<BlockVec> = if (skyBeaconColorBlocksInput === null) {
-            mutableListOf()
-        } else {
-            skyBeaconColorBlocksInput
-        }
-        val skyBeaconWireframeBlocks: MutableList<BlockVec> = if (skyBeaconWireframeBlocksInput === null) {
-            mutableListOf()
-        } else {
-            skyBeaconWireframeBlocksInput
-        }
+    internal fun finishAttack(attack: Attack) = attacks.finishAttack(attack)
 
-        if (skyBeaconColorBlocksInput === null || skyBeaconWireframeBlocksInput === null) {
-            createAttackBeacon(
-                skyBeaconColorBlocks,
-                skyBeaconWireframeBlocks,
-                chunk.coord,
-                flagBaseY,
-            )
-        }
+    internal fun attackTick(attack: Attack) = attacks.attackTick(attack)
 
-        val instance = MinecraftServer.getInstanceManager().instances.first()
+    internal fun revalidateWarAttacks() = attacks.revalidateWarAttacks()
 
-        // no flag base block, set to default
-        if (!Nodes.config.flagBlocks.contains(instance.getBlock(flagBase))) {
-            instance.setBlock(flagBase, Nodes.config.flagBlockDefault)
-        }
-
-        // initialize flag blocks
-        instance.setBlock(flagBlock, Block.DEEPSLATE)
-        instance.setBlock(flagTorch, Block.TORCH)
-
-        // create new attack instance
-        val attack = Attack(
-            attacker,
-            attackingTown,
-            chunk.coord,
-            territory,
-            flagBase,
-            flagBlock,
-            flagTorch,
-            skyBeaconColorBlocks.toList(),
-            skyBeaconWireframeBlocks.toList(),
-            progressBar,
-            attackTime.toLong(),
-            progress,
-            mode,
-        )
-
-        // mark territory chunk under attack
-        chunk.attacker = attackingTown
-
-        // enable boss bar for player
-        val player = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(attacker)
-        if (player != null) {
-            attack.progressBar.addViewer(player)
-        }
-
-        // add attack to list of attacks by attacker
-        var currentAttacks = attackers.get(attacker)
-        if (currentAttacks == null) {
-            currentAttacks = ArrayList(Nodes.config.maxPlayerChunkAttacks) // set initial capacity = max attacks
-            attackers.put(attacker, currentAttacks)
-        }
-        currentAttacks.add(attack)
-
-        // map chunk to the attack
-        chunkToAttacker.put(chunk.coord, attack)
-        startAttackTask()
-        requestMinimapRefresh()
-
-        // map flag block to attack (for breaking)
-        blockToAttacker.put(flagBlock, attack)
-
-        if (mode == AttackMode.COLONIZATION) startSaveTask()
-        notifyColonizationAttackStarted(attack)
-
-        return attack
-    }
-
-    internal fun loadAttack(attacker: UUID, coord: Coord, flagBase: BlockVec, completionTime: Long) {
-        val resident = Resident.fromUuid(attacker) ?: return
-        val attackingTown = resident.town ?: return
-        val chunk = TerritoryChunk.fromCoord(coord) ?: return
-        if (chunk.attacker !== null || chunk.territory.town === null) return
-        if (!canCaptureTerritoryCore() && chunk.coord == chunk.territory.core) return
-
-        val attack = createAttack(attacker, attackingTown, chunk, flagBase, mode = AttackMode.WAR)
-        attack.restoreCompletionTime(completionTime)
-        attack.progressBar.progress(attack.progress.toFloat() / attack.attackTime.toFloat())
-        attack.textDisplay.updateProgress()
-
-        if (attack.progress >= attack.attackTime) {
-            finishAttack(attack)
-        }
-    }
-
-    // check if territory is a border territory of a town, requirements:
-    // any adjacent territory is not of the same town
-    internal fun isBorderTerritory(territory: Territory): Boolean {
-        // do not allow attacking home territory
-        val territoryTown = territory.town
-        if (territoryTown !== null && territoryTown.home == territory.id) {
-            return false
-        }
-
-        // territory borders wilderness (no territories)
-        if (territory.bordersWilderness) {
-            return true
-        }
-
-        // otherwise, check if any neighbor territory is not owned by the town
-        for (neighborTerritoryId in territory.neighbors) {
-            val neighborTerritory = Nodes.territories[neighborTerritoryId]
-            if (neighborTerritory !== null && neighborTerritory.town !== territoryTown) {
-                return true
-            }
-        }
-
-        return false
-    }
-
-    /** A successful territory capture defeats its town by taking its home. */
-    internal fun shouldAnnexTown(
-        defeatedTown: Town,
-        capturedTerritory: Territory,
-    ): Boolean {
-        if (capturedTerritory.town !== defeatedTown) return false
-        // Capturing another territory must not occupy a registered warzone or
-        // bypass its independent scoring mechanics.
-        if (Warzone.ownsRegisteredZone(defeatedTown)) return false
-        return capturedTerritory.id == defeatedTown.home
-    }
-
-    // check if chunk was already captured
-    // 1. territory occupied by town or allies and chunk not occupied
-    // 2. chunk occupied by town or allies
-    internal fun chunkAlreadyCaptured(chunk: TerritoryChunk, territory: Territory, attackingTown: Town): Boolean {
-        val territoryOccupier = territory.occupier
-        val chunkOccupier = chunk.occupier
-
-        if (territoryOccupier === attackingTown || Town.areAllied(attackingTown, territoryOccupier)) {
-            if (!townIsWarOpponent(attackingTown, chunkOccupier)) {
-                return true
-            }
-        }
-
-        if (chunkOccupier !== null) {
-            if (chunkOccupier === attackingTown || Town.areAllied(attackingTown, chunkOccupier)) {
-                return true
-            }
-        }
-
-        return false
-    }
-
-    internal fun chunkAlreadyColonizedBy(
-        chunk: TerritoryChunk,
-        territory: Territory,
-        attackingTown: Town,
-    ): Boolean {
-        val effectiveOccupier = chunk.occupier ?: territory.occupier ?: return false
-        return effectiveOccupier === attackingTown || Town.areAllied(attackingTown, effectiveOccupier)
-    }
-
-    /** Wars require enemies (including deathwar hostility); skirmishes allow any non-allied town. */
-    internal fun townIsWarOpponent(attackingTown: Town, otherTown: Town?): Boolean {
-        if (otherTown == null) return false
-        return if (canOnlyAttackBorders) {
-            !Town.areAllied(attackingTown, otherTown)
-        } else {
-            Town.areEnemies(attackingTown, otherTown)
-        }
-    }
-
-    /**
-     * Validate the nation-wide target lock for a border skirmish. A null
-     * selection means either this is not a skirmish or the nation already
-     * selected this territory. A non-null selection is committed only after
-     * the flag passes every other attack validation.
-     */
-    internal fun prepareSkirmishTargetSelection(
-        attacker: UUID,
-        attackingTown: Town,
-        territory: Territory,
-    ): Result<SkirmishTargetSelection?> {
-        if (!canOnlyAttackBorders) return Result.success(null)
-
-        val nation = attackingTown.nation ?: return Result.failure(ErrorSkirmishNationRequired)
-        val selectedTerritory = skirmishTargetsByNation[nation.uuid]
-        if (selectedTerritory != null) {
-            return if (selectedTerritory == territory.id) {
-                Result.success(null)
-            } else {
-                Result.failure(ErrorSkirmishTargetLocked)
-            }
-        }
-
-        val resident = Resident.fromUuid(attacker)
-        val canSelect = resident?.town === attackingTown &&
-            (resident === attackingTown.leader || attackingTown.officers.contains(resident))
-        if (!canSelect) return Result.failure(ErrorSkirmishTargetSelectionRole)
-
-        return Result.success(SkirmishTargetSelection(nation.uuid, territory.id))
-    }
-
-    internal fun commitSkirmishTargetSelection(selection: SkirmishTargetSelection): Boolean {
-        val existing = skirmishTargetsByNation[selection.nationId]
-        check(existing == null || existing == selection.territoryId) {
-            "Nation ${selection.nationId} already selected skirmish territory $existing"
-        }
-        if (existing != null) return false
-        skirmishTargetsByNation[selection.nationId] = selection.territoryId
-        return true
-    }
-
-    internal fun skirmishTarget(attackingTown: Town): Territory? = attackingTown.nation
-        ?.let { nation -> skirmishTargetsByNation[nation.uuid] }
-        ?.let(Territory::fromId)
-
-    internal fun loadSkirmishTarget(nationId: UUID, territoryId: TerritoryId) {
-        if (!enabled || !canOnlyAttackBorders) return
-        if (Nation.fromUuid(nationId) == null) {
-            System.err.println("[Nodes] Ignoring skirmish target for unknown nation $nationId")
-            return
-        }
-        if (Territory.fromId(territoryId) == null) {
-            System.err.println("[Nodes] Ignoring unknown skirmish target territory $territoryId")
-            return
-        }
-        skirmishTargetsByNation[nationId] = territoryId
-    }
-
-    internal fun loadDefeatedTown(townId: UUID) {
-        if (enabled && Town.fromUuid(townId) != null) townsDefeatedThisWar.add(townId)
-    }
-
-    // Check that a chunk belongs to an opponent and can be attacked:
-    // 1. belongs to an opposing town
-    // 2. town chunk occupied by an opponent
-    // 3. allied chunk occupied by an opponent
-    // 4. town's occupied territory, chunk occupied by an opponent
-    // 5. ally's occupied territory, chunk occupied by an opponent
-    internal fun chunkIsAttackable(chunk: TerritoryChunk, territory: Territory, attackingTown: Town): Boolean {
-        if (townIsWarOpponent(attackingTown, territory.town)) {
-            return true
-        }
-
-        val attackingNation = attackingTown.nation
-        val territoryNation = territory.town?.nation
-
-        // your town, nation, or ally town chunk occupied by an opponent
-        if ((territory.town === attackingTown) ||
-            (attackingNation !== null && attackingNation === territoryNation) ||
-            (Town.areAllied(attackingTown, territory.town))
-        ) {
-            if (townIsWarOpponent(attackingTown, territory.occupier)) {
-                return true
-            }
-            if (townIsWarOpponent(attackingTown, chunk.occupier)) {
-                return true
-            }
-        }
-
-        // your occupied territory or ally's occupied territory
-        // chunk occupied by an opponent
-        val occupier = territory.occupier
-        val occupierNation = occupier?.nation
-        if (occupier === attackingTown ||
-            (attackingNation !== null && attackingNation === occupierNation) ||
-            Town.areAllied(attackingTown, occupier)
-        ) {
-            if (townIsWarOpponent(attackingTown, chunk.occupier)) {
-                return true
-            }
-        }
-
-        return false
-    }
-
-    // check that chunk valid, either:
-    // 1. next to wilderness
-    // 2. next to occupied chunk (by town or allies)
-    internal fun chunkIsAtEdge(chunk: TerritoryChunk, attackingTown: Town): Boolean {
-        val coord = chunk.coord
-
-        val chunkNorth = TerritoryChunk.fromCoord(Coord(coord.x, coord.z - 1))
-        val chunkSouth = TerritoryChunk.fromCoord(Coord(coord.x, coord.z + 1))
-        val chunkWest = TerritoryChunk.fromCoord(Coord(coord.x - 1, coord.z))
-        val chunkEast = TerritoryChunk.fromCoord(Coord(coord.x + 1, coord.z))
-
-        return canAttackFromNeighborChunk(chunkNorth, attackingTown) ||
-            canAttackFromNeighborChunk(chunkSouth, attackingTown) ||
-            canAttackFromNeighborChunk(chunkWest, attackingTown) ||
-            canAttackFromNeighborChunk(chunkEast, attackingTown)
-    }
-
-    /**
-     * conditions for attacking a chunk relative to a neighbor chunk
-     */
-    internal fun canAttackFromNeighborChunk(neighborChunk: TerritoryChunk?, attacker: Town): Boolean {
-        // no territory here
-        if (neighborChunk === null) {
-            return true
-        }
-
-        val attackerNation = attacker.nation
-
-        val neighborTerritory = neighborChunk.territory
-        val neighborTown = neighborTerritory.town
-        val neighborTerritoryOccupier = neighborTerritory.occupier
-        val neighborChunkOccupier = neighborChunk.occupier
-
-        // territory is unoccupied
-        if (neighborTown === null) {
-            return true
-        }
-
-        // neighbor is your town and occupier is friendly
-        if (neighborTown === attacker) {
-            if (neighborTerritoryOccupier === null) {
-                return true
-            } else if (Town.areAllied(attacker, neighborTerritoryOccupier)) {
-                return true
-            }
-        }
-
-        // you are neighbor territory occupier or an ally is the occupier
-        if (neighborTerritoryOccupier === attacker || Town.areAllied(attacker, neighborTerritoryOccupier)) {
-            return true
-        }
-
-        // you or an ally is occupying the neighboring chunk
-        if (neighborChunkOccupier === attacker || Town.areAllied(attacker, neighborChunkOccupier)) {
-            return true
-        }
-
-        if (attackerNation !== null) {
-            val neighborNation = neighborTown.nation
-            val neighborTerritoryOccupierNation = neighborTerritoryOccupier?.nation
-            val neighborChunkOccupierNation = neighborChunk.occupier?.nation
-
-            // additional neighbor town check, when occupier is in same nation (somehow)
-            if (neighborTown === attacker && neighborNation === neighborTerritoryOccupierNation) {
-                return true
-            }
-
-            // neighboring chunk belongs to nation and occupied by friendly
-            if (attackerNation === neighborNation) {
-                if (neighborTerritoryOccupier === null) {
-                    return true
-                } else if (Town.areAllied(attacker, neighborTerritoryOccupier)) {
-                    return true
-                }
-            }
-
-            if (attackerNation === neighborTerritoryOccupierNation) {
-                return true
-            }
-
-            if (attackerNation === neighborChunkOccupierNation) {
-                return true
-            }
-        }
-
-        return false
-    }
-
-    /**
-     * Create/update a flag attack beacon. Coordinates are recorded so only
-     * blocks owned by this attack are removed during cleanup.
-     */
     internal fun createAttackBeacon(
         skyBeaconColorBlocks: MutableList<BlockVec>,
         skyBeaconWireframeBlocks: MutableList<BlockVec>,
         coord: Coord,
         flagBaseY: Int,
-    ) {
-        // get starting corner
-        val size = skyBeaconSize
-        val startPositionInChunk: Int = (16 - size) / 2
-        val x0: Int = coord.x * 16 + startPositionInChunk
-        val z0: Int = coord.z * 16 + startPositionInChunk
-        val y0: Int = maxOf(flagBaseY + Nodes.config.flagBeaconSkyLevel, Nodes.config.flagBeaconMinSkyLevel)
-        val xEnd: Int = x0 + size - 1
-        val zEnd: Int = z0 + size - 1
-        val yEnd: Int = minOf(255, y0 + size - 1) // beacon is size blocks high
-        val instance = MinecraftServer.getInstanceManager().instances.first()
+    ) = presentation.createAttackBeacon(skyBeaconColorBlocks, skyBeaconWireframeBlocks, coord, flagBaseY)
 
-        for (y in y0..yEnd) {
-            for (x in x0..xEnd) {
-                for (z in z0..zEnd) {
-                    val block = instance.getBlock(x, y, z)
-                    if (block != Block.AIR && block !in SKY_BEACON_BLOCKS) continue
+    internal fun requestMinimapRefresh() = presentation.requestMinimapRefresh()
 
-                    // Avoid allocating a coordinate unless this position will be changed.
-                    val blockPos = BlockVec(x, y, z)
-                    if (((y == y0 || y == yEnd) && (x == x0 || x == xEnd || z == z0 || z == zEnd)) ||
-                        ((x == x0 || x == xEnd) && (z == z0 || z == zEnd))
-                    ) {
-                        skyBeaconWireframeBlocks.add(blockPos)
-                        instance.setBlock(blockPos, SKY_BEACON_FRAME_BLOCK)
-                    } else {
-                        skyBeaconColorBlocks.add(blockPos)
-                        instance.setBlock(blockPos, SKY_BEACON_BLOCK)
-                    }
-                }
-            }
-        }
-    }
+    internal fun deferMinimapRefresh(block: () -> Unit) = presentation.deferMinimapRefresh(block)
 
-    private fun clearAttackBlocks(attack: Attack) {
-        val instance = MinecraftServer.getInstanceManager().instances.first()
-        instance.setBlock(attack.flagTorch, Block.AIR)
-        instance.setBlock(attack.flagBlock, Block.AIR)
-        instance.setBlock(attack.flagBase, Block.AIR)
-        attack.skyBeaconWireframeBlocks.forEach { instance.setBlock(it, Block.AIR) }
-        attack.skyBeaconColorBlocks.forEach { instance.setBlock(it, Block.AIR) }
-    }
+    fun sendWarProgressBarToPlayer(player: Player) = presentation.sendWarProgressBarToPlayer(player)
 
-    private fun removeAttackReferences(attack: Attack) {
-        attackers[attack.attacker]?.let { attacks ->
-            attacks.remove(attack)
-            if (attacks.isEmpty()) attackers.remove(attack.attacker)
-        }
-        chunkToAttacker.remove(attack.coord)
-        blockToAttacker.remove(attack.flagBlock)
-        stopAttackTaskIfIdle()
-    }
-
-    internal fun requestMinimapRefresh() {
-        if (minimapRefreshDeferrals > 0) {
-            minimapRefreshPending = true
-        } else {
-            Resident.renderMinimaps()
-        }
-    }
-
-    internal fun deferMinimapRefresh(block: () -> Unit) {
-        minimapRefreshDeferrals++
-        try {
-            block()
-        } finally {
-            minimapRefreshDeferrals--
-            if (minimapRefreshDeferrals == 0 && minimapRefreshPending) {
-                minimapRefreshPending = false
-                Resident.renderMinimaps()
-            }
-        }
-    }
-
-    // cleanup attack instance, then dispatch signal
-    // that attack cancelled (was defended)
-    // (runs on main thread)
-    // TODO: signal event that chunk defended (broadcast message)
-    internal fun cancelAttack(attack: Attack) {
-        if (!attack.markEnded()) return
-        try {
-            synchronized(Nodes.occupationPersistenceLock) {
-                cancelAttackOnce(attack)
-            }
-        } finally {
-            notifyColonizationAttackEnded(attack)
-        }
-    }
-
-    internal fun cancelWarzoneAttacks(territory: Territory) {
-        chunkToAttacker.values
-            .filter { it.mode == AttackMode.WARZONE && it.targetTerritory === territory }
-            .toList()
-            .forEach(::cancelAttack)
-    }
-
-    private fun cancelAttackOnce(attack: Attack) {
-        // remove status from territory chunk
-        val chunk = TerritoryChunk.fromCoord(attack.coord)
-        chunk?.attacker = null
-
-        // remove progress bar from player
-        attack.progressBar.removeViewer(Audiences.all())
-
-        clearAttackBlocks(attack)
-
-        // remove text display
-        attack.textDisplay.remove()
-
-        removeAttackReferences(attack)
-        requestMinimapRefresh()
-
-        // mark save needed
-        needsSave = true
-    }
-
-    /**
-     * finish attack instance and capture chunk
-     * - set chunk occupation status
-     * - dispatch signal that attack finished
-     * (runs on main thread)
-     * different results:
-     *   1. attacking enemy chunk -> capture chunk
-     *   2. attacking enemy home chunk -> capture territory
-     *   3. attacking town/ally occupied chunk -> capture chunk
-     *   4. attacking town/ally home chunk -> recapture territory
-     */
-    internal fun finishAttack(attack: Attack) {
-        if (attack.mode == AttackMode.WAR && !warAttackRemainsAuthorized(attack)) {
-            cancelAttack(attack)
-            return
-        }
-        if (!attack.markEnded()) return
-        try {
-            synchronized(Nodes.occupationPersistenceLock) {
-                finishAttackOnce(attack)
-            }
-        } finally {
-            notifyColonizationAttackEnded(attack)
-        }
-    }
-
-    private fun finishAttackOnce(attack: Attack) {
-        val messageContext = when (attack.mode) {
-            AttackMode.COLONIZATION -> "[Colonization]"
-            AttackMode.WARZONE -> "[Warzone]"
-            AttackMode.WAR -> "[War]"
-        }
-
-        // remove progress bar from player
-        attack.progressBar.removeViewer(Audiences.all())
-
-        clearAttackBlocks(attack)
-
-        // remove town and cap progress textdisplay
-        attack.textDisplay.remove()
-
-        removeAttackReferences(attack)
-
-        // mark that save required
-        needsSave = true
-
-        // chunk should not be null unless territory swapped
-        // out during attack and chunks were modified in new territory
-        val chunk = TerritoryChunk.fromCoord(attack.coord)
-        if (chunk == null || chunk.territory !== attack.targetTerritory) {
-            println("finishAttack(): TerritoryChunk at ${attack.coord} is null")
-            requestMinimapRefresh()
-            return
-        }
-
-        if (attack.mode == AttackMode.WAR && chunk.coord == chunk.territory.core && !canCaptureTerritoryCore()) {
-            chunk.attacker = null
-            requestMinimapRefresh()
-            return
-        }
-
-        // handle occupation state of chunk
-        // if chunk is core chunk of territory, attacking town occupies territory
-        if (chunk.coord == chunk.territory.core) {
-            deferMinimapRefresh {
-                synchronized(Nodes.occupationPersistenceLock) {
-                    val territory = chunk.territory
-                    val territoryTown = territory.town
-                    val attacker = Resident.fromUuid(attack.attacker)
-                    val attackerTown = attack.town
-                    val attackerNation = attackerTown.nation
-
-                    // cleanup territory chunks
-                    for (coord in territory.chunks) {
-                        val territoryChunk = TerritoryChunk.fromCoord(coord)
-                        if (territoryChunk != null) {
-                            // cancel any concurrent attacks in this territory
-                            chunkToAttacker.get(territoryChunk.coord)?.cancel()
-
-                            // clear occupy/attack status from chunks
-                            territoryChunk.attacker = null
-                            territoryChunk.occupier = null
-
-                            // remove from internal list of occupied chunks
-                            occupiedChunks.remove(territoryChunk.coord)
-                            colonizedChunks.remove(territoryChunk.coord)
-                        }
-                    }
-
-                    // handle re-capturing your own territory, nation territory, or ally territory from enemy
-                    if (territoryTown === attackerTown ||
-                        (attackerNation !== null && attackerNation === territoryTown?.nation) ||
-                        Town.areAllied(attackerTown, territoryTown)
-                    ) {
-                        val occupier = territory.occupier
-                        Town.release(territory)
-                        Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} liberated territory (id=${territory.id}) from ${occupier?.name}!")
-                    }
-                    // captured enemy territory
-                    else {
-                        Town.capture(attackerTown, territory, commitWarState = false)
-                        commitTerritoryOccupation(
-                            territory,
-                            attackerTown,
-                            colonized = attack.mode == AttackMode.COLONIZATION,
-                        )
-                        // Warzone scoring starts only when normal war mechanics
-                        // complete a core-chunk capture of this territory.
-                        if (attack.mode == AttackMode.WARZONE) {
-                            Warzone.onTerritoryOccupied(territory, attackerTown)
-                        }
-                        val action = if (attack.mode == AttackMode.COLONIZATION) "colonized" else "captured"
-                        Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} $action territory (id=${territory.id}) from ${territoryTown?.name}!")
-                        // Warzones do not trigger town-wide occupation or life loss,
-                        // including stopped warzones captured during normal war.
-                        if (territoryTown != null && !Warzone.isRegistered(territory) && shouldAnnexTown(territoryTown, territory)) {
-                            val defeatedTownName = territoryTown.name
-                            when (resolveTownDefeat(attackerTown, territoryTown, attack.mode)) {
-                                TownDefeatOutcome.ALREADY_DEFEATED_THIS_WAR -> Unit
-                                TownDefeatOutcome.LOST_LIFE -> Message.broadcast(
-                                    "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} occupied all territories of " +
-                                        "$defeatedTownName, which lost a life and has " +
-                                        "${territoryTown.lives} remaining; it cannot lose another life this war!",
-                                )
-                                TownDefeatOutcome.ANNEXED -> Message.broadcast(
-                                    "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} occupied all territories of " +
-                                        "$defeatedTownName, which has ${territoryTown.lives} lives remaining; " +
-                                        "${attacker?.name ?: attackerTown.name} made the decisive capture!",
-                                )
-                                TownDefeatOutcome.FINAL_LIFE_PROTECTED -> Message.broadcast(
-                                    "${ChatColor.DARK_RED}[Conquest] $defeatedTownName was defeated but cannot be annexed " +
-                                        "during this war mode; it remains on its final life.",
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        // else, attacking normal chunk cases:
-        // 1. your town, chunk captured by enemy -> liberating, remove flag
-        // 2. your town (occupied) -> liberating, put flag
-        // 3. territory occupied by your town, captured -> liberating, remove flag
-        // 4. enemy town, empty chunk -> attacking, put flag
-        else {
-            val town = chunk.territory.town
-            val occupier = chunk.territory.occupier
-            val attacker = Resident.fromUuid(attack.attacker)
-
-            chunk.attacker = null
-
-            if (town === attack.town) {
-                // re-capturing territory from occupier
-                if (occupier !== null) {
-                    chunk.occupier = town
-                    occupiedChunks.add(chunk.coord)
-                    colonizedChunks.remove(chunk.coord)
-
-                    Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} liberated chunk (${chunk.coord.x}, ${chunk.coord.z}) from ${occupier.name}!")
-                }
-                // must be defending captured chunk
-                else {
-                    val chunkOccupier = chunk.occupier
-
-                    chunk.occupier = null
-                    occupiedChunks.remove(chunk.coord)
-                    colonizedChunks.remove(chunk.coord)
-
-                    if (chunkOccupier !== null) {
-                        Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} defended chunk (${chunk.coord.x}, ${chunk.coord.z}) against ${chunkOccupier.name}!")
-                    }
-                }
-            } else if (occupier === attack.town && chunk.occupier !== null) {
-                val chunkOccupier = chunk.occupier
-                if (attack.mode == AttackMode.COLONIZATION) {
-                    // restore explicit provenance for a recaptured piece of a
-                    // full colony so its control still works outside global war
-                    chunk.occupier = attack.town
-                    occupiedChunks.add(chunk.coord)
-                    colonizedChunks.add(chunk.coord)
-                } else {
-                    chunk.occupier = null
-                    occupiedChunks.remove(chunk.coord)
-                    colonizedChunks.remove(chunk.coord)
-                }
-
-                Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} defended chunk (${chunk.coord.x}, ${chunk.coord.z}) against ${chunkOccupier?.name}!")
-            } else {
-                chunk.occupier = attack.town
-                occupiedChunks.add(chunk.coord)
-                if (attack.mode == AttackMode.COLONIZATION) {
-                    colonizedChunks.add(chunk.coord)
-                } else {
-                    colonizedChunks.remove(chunk.coord)
-                }
-
-                Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} captured chunk (${chunk.coord.x}, ${chunk.coord.z}) from ${chunk.territory.town?.name}!")
-            }
-
-            // update minimaps
-            requestMinimapRefresh()
-        }
-    }
-
-    private fun notifyColonizationAttackStarted(attack: Attack) {
-        if (attack.mode != AttackMode.COLONIZATION) return
-        try {
-            Colonization.onAttackStarted(attack)
-        } catch (error: Exception) {
-            System.err.println("Failed to start colonization defenders for ${attack.coord}: ${error.message}")
-            attack.cancel()
-        }
-    }
-
-    private fun notifyColonizationAttackEnded(attack: Attack) {
-        if (attack.mode != AttackMode.COLONIZATION) return
-        try {
-            Colonization.onAttackEnded(attack)
-        } catch (error: Exception) {
-            System.err.println("Failed to stop colonization defenders for ${attack.coord}: ${error.message}")
-        }
-    }
-
-    // Update one attack. Called by the single global attack scheduler.
-    internal fun attackTick(attack: Attack) {
-        if (attack.mode == AttackMode.WAR && !warAttackRemainsAuthorized(attack)) {
-            attack.cancel()
-            return
-        }
-        if (attack.mode == AttackMode.COLONIZATION && !Colonization.attackRemainsAuthorized(attack)) {
-            attack.cancel()
-            return
-        }
-        val progress = attack.updateProgressFromClock()
-
-        if (progress >= attack.attackTime) {
-            finishAttack(attack)
-            return
-        }
-
-        attack.progressBar.progress(progress.toFloat() / attack.attackTime.toFloat())
-        // At most five relationship-group entities are updated, never every player.
-        attack.textDisplay.updateProgress()
-    }
-
-    private fun warAttackRemainsAuthorized(attack: Attack): Boolean {
-        if (!enabled) return false
-        val chunk = TerritoryChunk.fromCoord(attack.coord) ?: return false
-        return chunk.territory === attack.targetTerritory &&
-            chunkIsAttackable(chunk, chunk.territory, attack.town) &&
-            !chunkAlreadyCaptured(chunk, chunk.territory, attack.town)
-    }
-
-    /** Stop pending captures when diplomacy makes their targets friendly. */
-    internal fun revalidateWarAttacks() {
-        deferMinimapRefresh {
-            chunkToAttacker.values
-                .filter { it.mode == AttackMode.WAR && !warAttackRemainsAuthorized(it) }
-                .toList()
-                .forEach(::cancelAttack)
-        }
-    }
-
-    // intended to run on PlayerJoin event
-    // if war enabled and player has attacks,
-    // send progress bars to player
-    fun sendWarProgressBarToPlayer(player: Player) {
-        val uuid = player.uuid
-
-        // add attack to list of attacks by attacker
-        val currentAttacks = attackers.get(uuid)
-        if (currentAttacks != null) {
-            for (attack in currentAttacks) {
-                attack.progressBar.addViewer(player)
-            }
-        }
-    }
-
-    /** Re-evaluate display grouping after diplomacy or membership changes. */
-    fun refreshAttackTextDisplays() {
-        chunkToAttacker.values.forEach { it.textDisplay.refreshPlayers() }
-    }
-
-    private fun startAttackTask() {
-        if (attackTask != null) return
-        attackTask = ModuleScheduler
-            .buildTask {
-                // A snapshot allows completion/cancellation to remove entries
-                // without changing the collection currently being iterated.
-                chunkToAttacker.values.toList().forEach(::attackTick)
-            }
-            .delay(TaskSchedule.tick(ATTACK_TICK))
-            .repeat(TaskSchedule.tick(ATTACK_TICK))
-            .schedule()
-    }
-
-    private fun stopAttackTaskIfIdle() {
-        if (chunkToAttacker.isNotEmpty()) return
-        attackTask?.cancel()
-        attackTask = null
-    }
-
-    private fun startSaveTask(restart: Boolean = false) {
-        if (restart) {
-            saveTask?.cancel()
-            saveTask = null
-        }
-        if (saveTask != null) return
-        saveTask = ModuleScheduler
-            .buildTask(SaveLoop)
-            .delay(TaskSchedule.tick(saveTaskPeriod))
-            .repeat(TaskSchedule.tick(saveTaskPeriod))
-            .schedule()
-    }
+    fun refreshAttackTextDisplays() = presentation.refreshAttackTextDisplays()
 }
