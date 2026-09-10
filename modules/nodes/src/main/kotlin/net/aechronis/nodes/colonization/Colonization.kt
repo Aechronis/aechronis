@@ -434,12 +434,7 @@ object Colonization {
             val distanceToFlag = flagPosition?.let(flagReachOrigin::distanceSquared)
             val decision = defenderDecision(session, defender, attack, targets, now)
             val targetPlayer = decision.targetId?.let { targetId -> targets.firstOrNull { it.uuid == targetId } }
-            defender.motor.lookTarget = targetPlayer
-                ?.takeIf { decision.memory.targetWasVisible }
-                ?.let { player ->
-                    Vehicle.protectedVehicleAimPosition(player)
-                        ?: player.position.add(0.0, player.eyeHeight, 0.0)
-                } ?: decision.aimPosition?.toPos()
+            updateDefenderAim(defender, decision, targetPlayer)
             if (
                 decision.mineObjective &&
                 !defender.weapon.reloadPending &&
@@ -449,115 +444,196 @@ object Colonization {
                 distanceToFlag <= FLAG_REACH * FLAG_REACH &&
                 hasClearFlagReach(entity, flagPosition, instance)
             ) {
-                if (
-                    defender.blockBreaker.kind != DefenderBlockBreakKind.FLAG ||
-                    defender.blockBreaker.attack !== attack
-                ) {
-                    beginFlagBreaking(session, defender, attack)
+                when (tickFlagBreaking(session, defender, attack, now)) {
+                    FlagBreakingOutcome.ATTACK_CANCELLED -> return
+                    FlagBreakingOutcome.CONTINUE_MINING -> continue
                 }
-                when (
-                    defender.blockBreaker.tick(
-                        instance = instance,
-                        nowMillis = now,
-                        restartWhenBlockChanges = true,
-                        canContinue = { position, _ -> position == attack.flagBlock && isAttackActive(attack) },
-                    )
-                ) {
-                    DefenderBlockBreakTickResult.COMPLETED -> {
-                        val location = attack.flagBlock
-                        attack.cancel()
-                        Message.broadcast(
-                            "${ChatColor.GOLD}[Colonization] AI defenders broke the flag at " +
-                                "(${location.blockX}, ${location.blockY}, ${location.blockZ})",
-                        )
-                        return
-                    }
-                    DefenderBlockBreakTickResult.INVALID -> {
-                        if (instance.getBlock(attack.flagBlock).isAir) {
-                            attack.cancel()
-                            return
-                        }
-                    }
-                    DefenderBlockBreakTickResult.IN_PROGRESS -> Unit
-                }
-                continue
             } else if (defender.blockBreaker.kind == DefenderBlockBreakKind.FLAG) {
                 defender.blockBreaker.stop(instance)
             }
 
-            val directCombatTarget = when (decision.movement) {
-                DefenderMovement.RETREAT_FROM_TARGET,
-                DefenderMovement.STRAFE_AROUND_TARGET,
-                -> targetPlayer
-
-                else -> null
-            }
-            val navigationGoal = navigationGoalFor(session, defender, attack, decision, targetPlayer)
-            if (directCombatTarget != null) {
-                if (defender.navigation.hasGoal) {
-                    defender.navigation.cancel()
-                    defender.navigation.retainCurrentChunk()
-                    reconcileSessionChunkLeases(session)
-                }
-                val lookAt = Vehicle.protectedVehicleAimPosition(directCombatTarget)
-                    ?: directCombatTarget.position.add(0.0, directCombatTarget.eyeHeight, 0.0)
-                val movementTarget = safeDirectCombatMovementTarget(
-                    session = session,
-                    defender = defender,
-                    attack = attack,
-                    targetPosition = directCombatTarget.position,
-                    decision = decision,
-                )
-                if (movementTarget != null) {
-                    defender.motor.moveTowards(movementTarget, 0.28, lookAt)
-                } else {
-                    defender.motor.lookTowards(lookAt)
-                }
-            } else if (navigationGoal != null) {
-                if (navigationGoal.attack == null) {
-                    if (defender.blockBreaker.kind == DefenderBlockBreakKind.TERRAIN) {
-                        defender.blockBreaker.stop(instance)
-                    }
-                    defender.navigation.clearTerrainRecovery()
-                }
-                defender.navigation.discardStaleGoal(navigationGoal)
-                if (
-                    navigationGoal.attack != null &&
-                    (defender.blockBreaker.kind == DefenderBlockBreakKind.TERRAIN || defender.navigation.recoveryRequested) &&
-                    recoverFlagRouteTerrain(session, defender, navigationGoal, now)
-                ) {
-                    continue
-                }
-                if (pathPreparationsRemaining > 0 && defender.navigation.shouldRequestPath(navigationGoal, now)) {
-                    prepareNavigationPath(session, defender, navigationGoal, now)
-                    pathPreparationsRemaining -= 1
-                }
-            } else if (defender.navigation.hasGoal) {
-                if (defender.blockBreaker.kind == DefenderBlockBreakKind.TERRAIN) {
-                    defender.blockBreaker.stop(instance)
-                }
-                defender.navigation.clearTerrainRecovery()
-                defender.navigation.cancel()
-                defender.navigation.retainCurrentChunk()
-                reconcileSessionChunkLeases(session)
-            }
-
-            val reloadWasPending = defender.weapon.reloadPending
-            defender.weapon.updateReload(now)
-            if (reloadWasPending || targetPlayer == null || !decision.wantsToFire) continue
-            if (!defender.weapon.canFire(now)) continue
-            val gun = defender.weapon.gun
-            val targetsInRange = targets.filter { entity.getDistanceSquared(it) <= gun.maxRange * gun.maxRange }
-            if (targetPlayer !in targetsInRange) continue
-            val targetPosition = Vehicle.protectedVehicleAimPosition(targetPlayer)
-                ?: targetPlayer.position.add(0.0, targetPlayer.eyeHeight, 0.0)
-            if (!hasClearShot(entity, targetPosition, instance)) continue
-            if (!playerLikeAimAligned(entity.position, targetPosition, 12F, 10F)) continue
-
-            entity.lookAt(targetPosition)
-            gun.fireFromEntity(entity, targetPosition, targetsInRange)
-            defender.weapon.recordShot(now)
+            val movement = moveDefender(session, defender, attack, decision, targetPlayer, now)
+            if (movement == DefenderMovementOutcome.RECOVERING_TERRAIN) continue
+            updateDefenderWeapon(session, defender, decision, targetPlayer, targets, now)
         }
+    }
+
+    private fun updateDefenderAim(
+        defender: AiDefender,
+        decision: DefenderDecision,
+        targetPlayer: Player?,
+    ) {
+        defender.motor.lookTarget = targetPlayer
+            ?.takeIf { decision.memory.targetWasVisible }
+            ?.let { player ->
+                Vehicle.protectedVehicleAimPosition(player)
+                    ?: player.position.add(0.0, player.eyeHeight, 0.0)
+            } ?: decision.aimPosition?.toPos()
+    }
+
+    private enum class FlagBreakingOutcome {
+        CONTINUE_MINING,
+        ATTACK_CANCELLED,
+    }
+
+    private fun tickFlagBreaking(
+        session: DefenseSession,
+        defender: AiDefender,
+        attack: Attack,
+        now: Long,
+    ): FlagBreakingOutcome {
+        if (
+            defender.blockBreaker.kind != DefenderBlockBreakKind.FLAG ||
+            defender.blockBreaker.attack !== attack
+        ) {
+            beginFlagBreaking(session, defender, attack)
+        }
+        when (
+            defender.blockBreaker.tick(
+                instance = session.instance,
+                nowMillis = now,
+                restartWhenBlockChanges = true,
+                canContinue = { position, _ -> position == attack.flagBlock && isAttackActive(attack) },
+            )
+        ) {
+            DefenderBlockBreakTickResult.COMPLETED -> {
+                val location = attack.flagBlock
+                attack.cancel()
+                Message.broadcast(
+                    "${ChatColor.GOLD}[Colonization] AI defenders broke the flag at " +
+                        "(${location.blockX}, ${location.blockY}, ${location.blockZ})",
+                )
+                return FlagBreakingOutcome.ATTACK_CANCELLED
+            }
+            DefenderBlockBreakTickResult.INVALID -> {
+                if (session.instance.getBlock(attack.flagBlock).isAir) {
+                    attack.cancel()
+                    return FlagBreakingOutcome.ATTACK_CANCELLED
+                }
+            }
+            DefenderBlockBreakTickResult.IN_PROGRESS -> Unit
+        }
+        return FlagBreakingOutcome.CONTINUE_MINING
+    }
+
+    private enum class DefenderMovementOutcome {
+        READY_FOR_WEAPON_UPDATE,
+        RECOVERING_TERRAIN,
+    }
+
+    private fun moveDefender(
+        session: DefenseSession,
+        defender: AiDefender,
+        attack: Attack?,
+        decision: DefenderDecision,
+        targetPlayer: Player?,
+        now: Long,
+    ): DefenderMovementOutcome {
+        val directCombatTarget = when (decision.movement) {
+            DefenderMovement.RETREAT_FROM_TARGET,
+            DefenderMovement.STRAFE_AROUND_TARGET,
+            -> targetPlayer
+
+            else -> null
+        }
+        val navigationGoal = navigationGoalFor(session, defender, attack, decision, targetPlayer)
+        if (directCombatTarget != null) {
+            moveDefenderInCombat(session, defender, attack, decision, directCombatTarget)
+        } else if (navigationGoal != null) {
+            return navigateDefender(session, defender, navigationGoal, now)
+        } else if (defender.navigation.hasGoal) {
+            stopTerrainRecovery(session, defender)
+            defender.navigation.cancel()
+            defender.navigation.retainCurrentChunk()
+            reconcileSessionChunkLeases(session)
+        }
+        return DefenderMovementOutcome.READY_FOR_WEAPON_UPDATE
+    }
+
+    private fun moveDefenderInCombat(
+        session: DefenseSession,
+        defender: AiDefender,
+        attack: Attack?,
+        decision: DefenderDecision,
+        target: Player,
+    ) {
+        if (defender.navigation.hasGoal) {
+            defender.navigation.cancel()
+            defender.navigation.retainCurrentChunk()
+            reconcileSessionChunkLeases(session)
+        }
+        val lookAt = Vehicle.protectedVehicleAimPosition(target)
+            ?: target.position.add(0.0, target.eyeHeight, 0.0)
+        val movementTarget = safeDirectCombatMovementTarget(
+            session = session,
+            defender = defender,
+            attack = attack,
+            targetPosition = target.position,
+            decision = decision,
+        )
+        if (movementTarget != null) {
+            defender.motor.moveTowards(movementTarget, 0.28, lookAt)
+        } else {
+            defender.motor.lookTowards(lookAt)
+        }
+    }
+
+    private fun navigateDefender(
+        session: DefenseSession,
+        defender: AiDefender,
+        goal: NavigationGoal,
+        now: Long,
+    ): DefenderMovementOutcome {
+        if (goal.attack == null) stopTerrainRecovery(session, defender)
+        defender.navigation.discardStaleGoal(goal)
+        if (
+            goal.attack != null &&
+            (defender.blockBreaker.kind == DefenderBlockBreakKind.TERRAIN || defender.navigation.recoveryRequested) &&
+            recoverFlagRouteTerrain(session, defender, goal, now)
+        ) {
+            return DefenderMovementOutcome.RECOVERING_TERRAIN
+        }
+        if (pathPreparationsRemaining > 0 && defender.navigation.shouldRequestPath(goal, now)) {
+            prepareNavigationPath(session, defender, goal, now)
+            pathPreparationsRemaining -= 1
+        }
+        return DefenderMovementOutcome.READY_FOR_WEAPON_UPDATE
+    }
+
+    private fun stopTerrainRecovery(
+        session: DefenseSession,
+        defender: AiDefender,
+    ) {
+        if (defender.blockBreaker.kind == DefenderBlockBreakKind.TERRAIN) {
+            defender.blockBreaker.stop(session.instance)
+        }
+        defender.navigation.clearTerrainRecovery()
+    }
+
+    private fun updateDefenderWeapon(
+        session: DefenseSession,
+        defender: AiDefender,
+        decision: DefenderDecision,
+        targetPlayer: Player?,
+        targets: List<Player>,
+        now: Long,
+    ) {
+        val reloadWasPending = defender.weapon.reloadPending
+        defender.weapon.updateReload(now)
+        if (reloadWasPending || targetPlayer == null || !decision.wantsToFire) return
+        if (!defender.weapon.canFire(now)) return
+        val entity = defender.entity
+        val gun = defender.weapon.gun
+        val targetsInRange = targets.filter { entity.getDistanceSquared(it) <= gun.maxRange * gun.maxRange }
+        if (targetPlayer !in targetsInRange) return
+        val targetPosition = Vehicle.protectedVehicleAimPosition(targetPlayer)
+            ?: targetPlayer.position.add(0.0, targetPlayer.eyeHeight, 0.0)
+        if (!hasClearShot(entity, targetPosition, session.instance)) return
+        if (!playerLikeAimAligned(entity.position, targetPosition, 12F, 10F)) return
+
+        entity.lookAt(targetPosition)
+        gun.fireFromEntity(entity, targetPosition, targetsInRange)
+        defender.weapon.recordShot(now)
     }
 
     private fun beginFlagBreaking(
