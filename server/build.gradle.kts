@@ -66,7 +66,7 @@ dependencies {
     implementation("com.h2database:h2:2.4.240")
     runtimeOnly("org.mariadb.jdbc:mariadb-java-client:3.5.10")
     implementation("com.zaxxer:HikariCP:7.1.0")
-    implementation("org.slf4j:slf4j-simple:2.0.18")
+    implementation("org.slf4j:slf4j-simple:2.0.19")
     implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
     implementation("io.github.4drian3d:signedvelocity-minestom:1.4.1")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
