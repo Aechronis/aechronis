@@ -38,3 +38,21 @@ Java's service-provider mechanism. The server rejects invalid or duplicate IDs
 and dependency cycles before enabling a module. A module whose dependency is
 missing or disabled remains discovered but disabled, with the reason visible in
 `/modules info`.
+
+## Nodes state ownership
+
+`Nodes` coordinates module lifecycle and persistence. World registries are private
+inside their domain owners: `Town`, `Nation`, `Resident`, `ResourceNode`,
+`Territory`, and `Building`. Use their lookup methods and `all()` membership
+snapshots for queries, and their create/load/rename/destroy operations for changes.
+Snapshots retain live domain objects; they do not make those objects immutable or
+permit mutation from arbitrary threads.
+
+`Territory.install` owns replacement of both a territory definition and its chunk
+index. `Building` owns the shared gameplay/minimap chunk index. World reload clears
+these through each owner's `clearRegistry` operation. `PortWarpTask` owns active
+warp registration, completion, and cancellation.
+
+Persistent gameplay changes call `Nodes.markWorldDirty()`. Save revisions and
+completion bookkeeping remain private to `Nodes`; occupation changes retain the
+existing persistence lock and journal ordering.

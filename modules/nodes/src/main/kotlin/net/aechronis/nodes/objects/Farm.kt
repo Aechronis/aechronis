@@ -25,7 +25,7 @@ class Farm(
             if (Building.hasAt(chunkX, chunkZ)) return Result.failure(net.aechronis.nodes.constants.ErrorChunkHasBuilding)
             return Farm(chunkX, chunkZ, tier).also {
                 Building.register(it)
-                Nodes.needsSave = true
+                Nodes.markWorldDirty()
             }.let { Result.success(it) }
         }
     }

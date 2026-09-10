@@ -15,8 +15,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import net.aechronis.nodes.Message
-import net.aechronis.nodes.Nodes
-import net.aechronis.nodes.Nodes.territories
 import net.aechronis.nodes.utils.ChatColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.CommandSender
@@ -323,11 +321,34 @@ data class Territory(
     var occupier: Town? = null, // town occupier (after being captured in war)
 ) {
     companion object {
-        fun count(): Int = Nodes.territories.size
+        private val territories = hashMapOf<TerritoryId, Territory>()
+        private val chunks = java.util.concurrent.ConcurrentHashMap<Coord, TerritoryChunk>()
+
+        internal fun all(): List<Territory> = territories.values.toList()
+
+        internal fun chunkAt(coord: Coord): TerritoryChunk? = chunks[coord]
+
+        /** Replace the definition and its chunk index together, retaining town ownership. */
+        internal fun install(territory: Territory) {
+            territories[territory.id]?.let { old ->
+                old.chunks.forEach(chunks::remove)
+                territory.town = old.town
+                territory.occupier = old.occupier
+            }
+            territories[territory.id] = territory
+            territory.chunks.forEach { chunks[it] = TerritoryChunk(it, territory) }
+        }
+
+        internal fun clearRegistry() {
+            chunks.clear()
+            territories.clear()
+        }
+
+        fun count(): Int = territories.size
 
         fun fromId(id: TerritoryId): Territory? = territories[id]
 
-        fun fromCoord(coord: Coord): Territory? = Nodes.territoryChunks[coord]?.territory
+        fun fromCoord(coord: Coord): Territory? = chunkAt(coord)?.territory
 
         fun fromBlock(blockX: Int, blockZ: Int): Territory? = fromCoord(Coord.fromBlockCoords(blockX, blockZ))
 

@@ -1,10 +1,11 @@
 package net.aechronis.nodes.colonization
 
-import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.CHUNK_SIZE
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Resident
+import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
 
 internal enum class ColonizationAccess {
@@ -24,11 +25,11 @@ internal fun canStartColonization(
 internal fun colonizationAccess(
     attackingNation: Nation,
     targetTown: Town,
-    ports: Iterable<Port> = Nodes.buildings.filterIsInstance<Port>(),
+    ports: Iterable<Port> = Building.all().filterIsInstance<Port>(),
     portOwner: (Port) -> Town? = Port::getOwner,
 ): ColonizationAccess? {
     val targetTerritories = targetTown.territories
-        .mapNotNull(Nodes.territories::get)
+        .mapNotNull(Territory::fromId)
         .filter { territory -> territory.town === targetTown }
 
     if (targetTerritories.any { territory -> territory.borders(attackingNation) }) {

@@ -1,6 +1,5 @@
 package net.aechronis.nodes.commands.arguments
 
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.ResourceNode
 import net.minestom.server.command.builder.arguments.Argument
 import net.minestom.server.command.builder.arguments.ArgumentType
@@ -16,7 +15,7 @@ object ArgumentResourceNode {
             val end = (start + suggestion.length).coerceIn(start, input.length)
             val prefix = input.substring(start, end).removePrefix("\"").lowercase()
 
-            Nodes.resourceNodes.keys
+            ResourceNode.all().map { it.name }
                 .asSequence()
                 .filter { it.lowercase().startsWith(prefix) }
                 .sortedBy { it.lowercase() }
@@ -30,9 +29,8 @@ object ArgumentResourceNode {
                 }
         }
         return string.map { input ->
-            Nodes.resourceNodes.entries
-                .firstOrNull { (name, _) -> name.equals(input, ignoreCase = true) }
-                ?.value
+            ResourceNode.all()
+                .firstOrNull { it.name.equals(input, ignoreCase = true) }
                 ?: throw ArgumentSyntaxException("Resource node not found", input, 1)
         }
     }

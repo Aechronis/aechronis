@@ -675,7 +675,7 @@ class NodesAdminTownDefaultTownSpawnsCommand : NodesCommand("defaulttownspawns",
         addSyntax({ player, resident, context ->
             // set town home territory
             for (town in context[townsArg]) {
-                val terrHome = Nodes.territories.get(town.home)
+                val terrHome = Territory.fromId(town.home)
                 if (terrHome !== null) {
                     val spawnpoint = Territory.defaultSpawnLocation(terrHome)
                     town.spawnpoint = spawnpoint
@@ -687,7 +687,7 @@ class NodesAdminTownDefaultTownSpawnsCommand : NodesCommand("defaulttownspawns",
             }
 
             // TODO: move this out
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
         }, townsArg)
     }
 }

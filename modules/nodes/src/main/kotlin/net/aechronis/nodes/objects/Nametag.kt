@@ -4,7 +4,6 @@
 
 package net.aechronis.nodes.objects
 
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.text.Component
@@ -194,7 +193,7 @@ object Nametag {
     private fun initializeViewer(player: Player) {
         val state = ViewerState()
         viewers[player.uuid] = state
-        Nodes.towns.values.forEach { town ->
+        Town.all().forEach { town ->
             createTownTeam(player, state, town, onlineMembers(town))
         }
         RelationshipHitbox.refreshViewer(player)
@@ -218,7 +217,7 @@ object Nametag {
 
     private fun refreshViewerRelationships(viewer: Player) {
         val state = viewers[viewer.uuid] ?: return
-        Nodes.towns.values.forEach { town ->
+        Town.all().forEach { town ->
             val relationship = townRelationshipViewedByPlayer(town, viewer)
             val previous = state.relationships.put(town.townNametagId, relationship)
             when {

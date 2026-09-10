@@ -1,6 +1,5 @@
 package net.aechronis.nodes.commands.arguments
 
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryId
 import net.minestom.server.command.builder.arguments.Argument
@@ -17,7 +16,7 @@ object ArgumentTerritory {
         word.setSuggestionCallback { sender, context, suggestion ->
             val input = suggestion.input.substringAfterLast(" ").lowercase()
 
-            Nodes.territories.values
+            Territory.all()
                 .filter { it.id.toString().startsWith(input) }
                 .forEach { territory ->
                     suggestion.addEntry(SuggestionEntry(territory.id.toString()))

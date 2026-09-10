@@ -5,8 +5,8 @@
 package net.aechronis.nodes.commands
 
 import net.aechronis.nodes.Message
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentNation
+import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.utils.ChatColor
 
@@ -59,7 +59,7 @@ class NationListCommand : NodesCommand("list") {
 
         addSyntax({ player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}Nation - Population - Towns")
-            val nationsList = ArrayList(Nodes.nations.values)
+            val nationsList = ArrayList(Nation.all())
             nationsList.sortByDescending { it.residents.size }
             for (n in nationsList) {
                 val townsList = ArrayList(n.towns)

@@ -1,6 +1,7 @@
 package net.aechronis.nodes.tasks
 
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.Trains
@@ -48,7 +49,7 @@ object IncomeCalculator {
     fun calculateBreakdown(): Map<Town, IncomeBreakdown> {
         val incomes = LinkedHashMap<Town, MutableIncomeBreakdown>()
 
-        Nodes.towns.values.forEach { town ->
+        Town.all().forEach { town ->
             // A town may already have tax income from an earlier town's occupied
             // territory. Do not replace that accumulator when its own turn runs.
             incomes.getOrPut(town, ::MutableIncomeBreakdown)
@@ -73,7 +74,7 @@ object IncomeCalculator {
         val buildings = mutableMapOf<Material, Double>()
         val trains = mutableMapOf<Material, Double>()
         territory.chunks.forEach { coord ->
-            Nodes.chunkToBuilding[listOf(coord.x, coord.z)]?.income()?.forEach { (material, amount) ->
+            Building.getAt(coord.x, coord.z)?.income()?.forEach { (material, amount) ->
                 add(buildings, material, amount)
             }
             Trains.incomeAt(coord.x, coord.z).forEach { (material, amount) ->

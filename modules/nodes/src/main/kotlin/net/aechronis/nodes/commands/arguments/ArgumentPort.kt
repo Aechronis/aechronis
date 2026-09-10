@@ -1,6 +1,6 @@
 package net.aechronis.nodes.commands.arguments
 
-import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Port
 import net.minestom.server.command.builder.arguments.Argument
 import net.minestom.server.command.builder.arguments.ArgumentType
@@ -16,7 +16,7 @@ object ArgumentPort {
         word.setSuggestionCallback { sender, context, suggestion ->
             val input = suggestion.input.substringAfterLast(" ").lowercase()
 
-            Nodes.buildings.asSequence().filterIsInstance<Port>()
+            Building.all().asSequence().filterIsInstance<Port>()
                 .filter { it.name.lowercase().startsWith(input) }
                 .forEach { port ->
                     suggestion.addEntry(SuggestionEntry(port.name))

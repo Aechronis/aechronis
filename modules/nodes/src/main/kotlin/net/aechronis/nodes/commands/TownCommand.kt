@@ -258,7 +258,7 @@ class TownApplyCommand : NodesCommand("apply", null, "join") {
                 return@addSyntax
             }
 
-            val activeApplicationTown = Nodes.towns.values.firstOrNull { it.applications.containsKey(resident) }
+            val activeApplicationTown = Town.all().firstOrNull { it.applications.containsKey(resident) }
             if (activeApplicationTown != null) {
                 Message.error(player, "You have already applied to ${activeApplicationTown.name}")
                 return@addSyntax
@@ -795,7 +795,7 @@ class TownListCommand : NodesCommand("list") {
 
         addSyntax({ player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}Town - Population")
-            val townsList = ArrayList(Nodes.towns.values)
+            val townsList = ArrayList(Town.all())
             townsList.sortByDescending { it.residents.size }
             townsList.forEach { town ->
                 Message.print(player, "${town.name}${ChatColor.WHITE} - ${town.residents.size}")

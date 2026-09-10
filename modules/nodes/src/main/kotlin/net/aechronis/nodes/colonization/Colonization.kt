@@ -5,7 +5,6 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.utils.Ray
 import net.aechronis.nodes.Message
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
@@ -213,8 +212,8 @@ object Colonization {
         if (attack.targetTerritory.town !== targetTown) return false
         if (defenseSessions[targetTown.uuid]?.targetTown !== targetTown) return false
         val attackingNation = attack.town.nation ?: return false
-        return Nodes.towns[attack.town.name] === attack.town &&
-            Nodes.towns[targetTown.name] === targetTown &&
+        return Town.fromName(attack.town.name) === attack.town &&
+            Town.fromName(targetTown.name) === targetTown &&
             targetTown.isAi &&
             targetTown !== attack.town &&
             targetTown.nation !== attackingNation &&
@@ -803,7 +802,7 @@ object Colonization {
 
     private fun pruneInvalidCampaignState(session: DefenseSession) {
         val targetTown = session.targetTown
-        val targetValid = Nodes.towns[targetTown.name] === targetTown && targetTown.isAi
+        val targetValid = Town.fromName(targetTown.name) === targetTown && targetTown.isAi
         selections.entries
             .filter { (attacker, selection) ->
                 selection.targetTown === targetTown &&
@@ -825,7 +824,7 @@ object Colonization {
     ): Boolean {
         val attackingTown = selection.attackingTown
         val targetTown = selection.targetTown
-        return Nodes.towns[attackingTown.name] === attackingTown &&
+        return Town.fromName(attackingTown.name) === attackingTown &&
             Resident.fromUuid(attacker)?.town === attackingTown &&
             targetTown !== attackingTown &&
             targetTown.nation !== attackingTown.nation

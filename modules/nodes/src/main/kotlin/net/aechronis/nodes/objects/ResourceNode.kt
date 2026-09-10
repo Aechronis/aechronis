@@ -21,7 +21,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import net.aechronis.nodes.Message
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.utils.ChatColor
 import net.minestom.server.command.CommandSender
 import net.minestom.server.item.Material
@@ -76,7 +75,23 @@ data class ResourceNode(
     val attributes: List<ResourceAttribute>,
 ) {
     companion object {
-        fun count(): Int = Nodes.resourceNodes.size
+        private val resourceNodes = hashMapOf<String, ResourceNode>()
+
+        /** Snapshot of registry membership; the domain objects retain their live identity. */
+        internal fun all(): List<ResourceNode> = resourceNodes.values.toList()
+
+        /** Called by world reload after runtime users of the old world have stopped. */
+        internal fun clearRegistry() {
+            resourceNodes.clear()
+        }
+
+        internal fun fromName(name: String): ResourceNode? = resourceNodes[name]
+
+        internal fun loadRegistry(json: JsonObject) {
+            resourceNodes.putAll(loadFromJson(json))
+        }
+
+        fun count(): Int = resourceNodes.size
 
         fun loadFromJson(json: JsonObject): HashMap<String, ResourceNode> = DefaultResourceAttributeLoader.load(json)
     }

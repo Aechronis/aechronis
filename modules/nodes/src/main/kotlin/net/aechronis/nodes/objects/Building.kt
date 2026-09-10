@@ -15,33 +15,40 @@ abstract class Building(
     tier: Int,
 ) {
     companion object {
-        fun getAt(chunkX: Int, chunkZ: Int): Building? = Nodes.chunkToBuilding[listOf(chunkX, chunkZ)]
+        private val buildings = mutableListOf<Building>()
+        private val buildingsByChunk = java.util.concurrent.ConcurrentHashMap<Coord, Building>()
 
-        internal fun getForMinimap(coord: Coord): Building? = Nodes.minimapBuildingsByChunk[coord]
+        internal fun all(): List<Building> = buildings.toList()
+
+        internal fun clearRegistry() {
+            buildings.clear()
+            buildingsByChunk.clear()
+        }
+
+        fun getAt(chunkX: Int, chunkZ: Int): Building? = buildingsByChunk[Coord(chunkX, chunkZ)]
+
+        internal fun getForMinimap(coord: Coord): Building? = buildingsByChunk[coord]
 
         internal fun register(building: Building) {
-            Nodes.buildings.add(building)
-            Nodes.chunkToBuilding[listOf(building.chunkX, building.chunkZ)] = building
-            Nodes.minimapBuildingsByChunk[Coord(building.chunkX, building.chunkZ)] = building
+            buildings.add(building)
+            buildingsByChunk[Coord(building.chunkX, building.chunkZ)] = building
             building.needsUpdate()
             Resident.renderMinimaps()
         }
 
         fun destroy(building: Building) {
-            Nodes.buildings.remove(building)
-            val chunk = listOf(building.chunkX, building.chunkZ)
-            if (Nodes.chunkToBuilding[chunk] === building) Nodes.chunkToBuilding.remove(chunk)
-            Nodes.minimapBuildingsByChunk.remove(Coord(building.chunkX, building.chunkZ), building)
-            Nodes.needsSave = true
+            buildings.remove(building)
+            buildingsByChunk.remove(Coord(building.chunkX, building.chunkZ), building)
+            Nodes.markWorldDirty()
             Resident.renderMinimaps()
         }
 
         fun setTier(building: Building, tier: Int) {
             building.setTier(tier)
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
         }
 
-        internal fun hasAt(chunkX: Int, chunkZ: Int): Boolean = Nodes.chunkToBuilding.containsKey(listOf(chunkX, chunkZ))
+        internal fun hasAt(chunkX: Int, chunkZ: Int): Boolean = buildingsByChunk.containsKey(Coord(chunkX, chunkZ))
     }
 
     // building tier

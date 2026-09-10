@@ -9,6 +9,7 @@ import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.commands.arguments.ArgumentPort
 import net.aechronis.nodes.constants.DiplomaticRelationship
+import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Town
@@ -38,7 +39,7 @@ class PortListCommand : NodesCommand("list") {
 
         addSyntax({ player, resident, context ->
             Message.print(player, "${ChatColor.BOLD}List of ports:")
-            for (port in Nodes.buildings.asSequence().filterIsInstance<Port>()) {
+            for (port in Building.all().asSequence().filterIsInstance<Port>()) {
                 val status = if (port.isPublic) "(public)" else "(owned)"
                 Message.print(player, "- ${port.name} ${ChatColor.GRAY}T${port.tier} $status")
             }
@@ -70,17 +71,15 @@ class PortWarpCommand : NodesCommand("warp") {
 
         addSyntax({ player, resident, context ->
             // check if player is already warping
-            if (Nodes.playerWarpTasks.contains(player)) {
+            if (PortWarpTask.isWarping(player)) {
                 Message.print(player, "${ChatColor.RED}You are already warping somewhere")
                 return@addSyntax
             }
 
             // get port player is at
-            val sourceBuilding = Nodes.chunkToBuilding.get(
-                listOf(
-                    Math.floorDiv(player.position.blockX(), 16),
-                    Math.floorDiv(player.position.blockZ(), 16),
-                ),
+            val sourceBuilding = Building.getAt(
+                Math.floorDiv(player.position.blockX(), 16),
+                Math.floorDiv(player.position.blockZ(), 16),
             )
             val source = sourceBuilding as? net.aechronis.nodes.objects.Port
             if (source === null) {
@@ -144,10 +143,7 @@ class PortWarpCommand : NodesCommand("warp") {
             )
 
             // run asynchronous warp timer
-            Nodes.playerWarpTasks.put(
-                player,
-                task.start(),
-            )
+            task.start()
         }, portArg)
     }
 }

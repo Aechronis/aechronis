@@ -1,7 +1,6 @@
 package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.MinimapIcons
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.PLAYER_ARROW_ICON_CODEPOINT
 import net.aechronis.nodes.PLAYER_ICON_CODEPOINT
 import net.aechronis.nodes.constants.DiplomaticRelationship
@@ -99,7 +98,7 @@ internal object MinimapMarkerRenderer {
         for (chunkX in visibleChunksX) {
             for (chunkZ in visibleChunksZ) {
                 val coord = Coord(chunkX, chunkZ)
-                Nodes.territoryChunks[coord]?.let { territoryChunk ->
+                TerritoryChunk.fromCoord(coord)?.let { territoryChunk ->
                     val territory = territoryChunk.territory
                     appendChunkMarker(
                         MinimapIcons.territoryIconCodepoint(territoryRelationship(viewer, territoryChunk)),
@@ -188,10 +187,10 @@ internal object MinimapMarkerRenderer {
         val coord = territoryChunk.coord
         val territoryId = territoryChunk.territory.id
         var mask = 0
-        if (Nodes.territoryChunks[Coord(coord.x - 1, coord.z)]?.territory?.id != territoryId) mask = mask or 1
-        if (Nodes.territoryChunks[Coord(coord.x + 1, coord.z)]?.territory?.id != territoryId) mask = mask or 2
-        if (Nodes.territoryChunks[Coord(coord.x, coord.z - 1)]?.territory?.id != territoryId) mask = mask or 4
-        if (Nodes.territoryChunks[Coord(coord.x, coord.z + 1)]?.territory?.id != territoryId) mask = mask or 8
+        if (TerritoryChunk.fromCoord(Coord(coord.x - 1, coord.z))?.territory?.id != territoryId) mask = mask or 1
+        if (TerritoryChunk.fromCoord(Coord(coord.x + 1, coord.z))?.territory?.id != territoryId) mask = mask or 2
+        if (TerritoryChunk.fromCoord(Coord(coord.x, coord.z - 1))?.territory?.id != territoryId) mask = mask or 4
+        if (TerritoryChunk.fromCoord(Coord(coord.x, coord.z + 1))?.territory?.id != territoryId) mask = mask or 8
         return mask
     }
 

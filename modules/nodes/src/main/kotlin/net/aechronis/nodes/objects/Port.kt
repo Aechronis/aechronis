@@ -31,14 +31,14 @@ class Port(
 
         fun load(name: String, chunkX: Int, chunkZ: Int, tier: Int, isPublic: Boolean): Port = Port(name, chunkX, chunkZ, tier, isPublic).also { Building.register(it) }
 
-        fun getByName(name: String): Port? = Nodes.buildings.asSequence().filterIsInstance<Port>().firstOrNull { it.name == name }
+        fun getByName(name: String): Port? = Building.all().asSequence().filterIsInstance<Port>().firstOrNull { it.name == name }
 
         fun create(name: String, chunkX: Int, chunkZ: Int, tier: Int, isPublic: Boolean): Result<Port> {
-            if (Nodes.buildings.asSequence().filterIsInstance<Port>().any { it.name == name }) return Result.failure(net.aechronis.nodes.constants.ErrorPortExists)
+            if (Building.all().asSequence().filterIsInstance<Port>().any { it.name == name }) return Result.failure(net.aechronis.nodes.constants.ErrorPortExists)
             if (Building.hasAt(chunkX, chunkZ)) return Result.failure(net.aechronis.nodes.constants.ErrorChunkHasBuilding)
             return Port(name, chunkX, chunkZ, tier, isPublic).also {
                 Building.register(it)
-                Nodes.needsSave = true
+                Nodes.markWorldDirty()
             }.let { Result.success(it) }
         }
 

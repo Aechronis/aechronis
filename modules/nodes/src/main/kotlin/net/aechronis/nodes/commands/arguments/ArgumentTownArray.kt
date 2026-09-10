@@ -1,6 +1,5 @@
 package net.aechronis.nodes.commands.arguments
 
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Town
 import net.minestom.server.command.builder.arguments.Argument
 import net.minestom.server.command.builder.arguments.ArgumentType
@@ -16,7 +15,7 @@ object ArgumentTownArray {
         stringArray.setSuggestionCallback { sender, context, suggestion ->
             val input = suggestion.input.substringAfterLast(" ").lowercase()
 
-            Nodes.towns.values
+            Town.all()
                 .filter { it.name.startsWith(input) }
                 .forEach { town ->
                     suggestion.addEntry(SuggestionEntry(town.name))

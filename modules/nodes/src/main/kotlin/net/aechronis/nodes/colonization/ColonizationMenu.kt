@@ -79,7 +79,7 @@ object ColonizationMenu {
             return
         }
 
-        val nations = Nodes.nations.values
+        val nations = Nation.all()
             .filter { nation ->
                 nation !== attackingNation &&
                     nation.towns.any { town -> Colonization.canSelectTarget(attackingTown, town) }

@@ -38,10 +38,20 @@ internal data class VisibleWaypoint(
 
 class Resident(val uuid: UUID, val name: String) {
     companion object {
+        private val residents = linkedMapOf<UUID, Resident>()
+
+        /** Snapshot of registry membership; the domain objects retain their live identity. */
+        internal fun all(): List<Resident> = residents.values.toList()
+
+        /** Called by world reload after runtime users of the old world have stopped. */
+        internal fun clearRegistry() {
+            residents.clear()
+        }
+
         fun create(player: Player) {
-            if (!Nodes.residents.containsKey(player.uuid)) {
-                Nodes.residents[player.uuid] = Resident(player.uuid, player.username)
-                Nodes.needsSave = true
+            if (!residents.containsKey(player.uuid)) {
+                residents[player.uuid] = Resident(player.uuid, player.username)
+                Nodes.markWorldDirty()
             }
         }
 
@@ -67,20 +77,20 @@ class Resident(val uuid: UUID, val name: String) {
             resident.waypointVisibility.putAll(waypointVisibility)
             waypoints.forEach { waypoint -> resident.loadPermanentWaypoint(waypoint) }
             resident.needsUpdate()
-            Nodes.residents[uuid] = resident
+            residents[uuid] = resident
         }
 
-        fun count(): Int = Nodes.residents.size
+        fun count(): Int = residents.size
 
-        fun fromPlayer(player: Player): Resident? = Nodes.residents[player.uuid]
+        fun fromPlayer(player: Player): Resident? = residents[player.uuid]
 
         fun fromName(name: String): Resident? {
             val player = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(name)
-            if (player != null) return Nodes.residents.values.firstOrNull { it.uuid == player.uuid }
-            return Nodes.residents.values.firstOrNull { it.name.equals(name, ignoreCase = true) }
+            if (player != null) return residents.values.firstOrNull { it.uuid == player.uuid }
+            return residents.values.firstOrNull { it.name.equals(name, ignoreCase = true) }
         }
 
-        fun fromUuid(uuid: UUID): Resident? = Nodes.residents[uuid]
+        fun fromUuid(uuid: UUID): Resident? = residents[uuid]
 
         fun setOnline(resident: Resident, player: Player) {
             resident.town?.let { town ->
@@ -110,7 +120,7 @@ class Resident(val uuid: UUID, val name: String) {
         internal fun setTrust(resident: Resident, trust: Boolean) {
             resident.trusted = trust
             resident.needsUpdate()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
         }
 
         internal fun startPlotSelection(resident: Resident) {
@@ -237,14 +247,14 @@ class Resident(val uuid: UUID, val name: String) {
         val duration = durationMillis.coerceAtLeast(0)
         townJoinLockedUntil = if (duration == 0L) null else System.currentTimeMillis() + duration
         needsUpdate()
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
         return townJoinLockedUntil
     }
 
     fun clearTownJoinCooldown() {
         townJoinLockedUntil = null
         needsUpdate()
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
     }
 
     fun townJoinCooldownRemainingMillis(now: Long = System.currentTimeMillis()): Long {
@@ -252,7 +262,7 @@ class Resident(val uuid: UUID, val name: String) {
         if (lockedUntil > now) return lockedUntil - now
         townJoinLockedUntil = null
         needsUpdate()
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
         return 0
     }
 
@@ -270,7 +280,7 @@ class Resident(val uuid: UUID, val name: String) {
 
     internal fun availablePermanentWaypoints(): List<VisibleWaypoint> = buildList {
         permanentWaypointsByName.values.forEach { waypoint -> add(VisibleWaypoint(waypoint, this@Resident)) }
-        Nodes.residents.values.asSequence()
+        residents.values.asSequence()
             .filter { owner -> owner !== this@Resident }
             .flatMap { owner -> owner.permanentWaypointsByName.values.asSequence().map { waypoint -> VisibleWaypoint(waypoint, owner) } }
             .filter { visible -> visible.waypoint.isSharedWith(this@Resident) }
@@ -291,7 +301,7 @@ class Resident(val uuid: UUID, val name: String) {
             waypointVisibility[visible.visibilityKey] = isVisible
         }
         needsUpdate()
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
         minimap?.refresh()
         return isVisible
     }
@@ -363,7 +373,7 @@ class Resident(val uuid: UUID, val name: String) {
         minimapEnabled = enabled
         if (enabled) player()?.let(::createMinimap) else destroyMinimap()
         needsUpdate()
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
         return true
     }
 
@@ -372,7 +382,7 @@ class Resident(val uuid: UUID, val name: String) {
         minimapPosition = position
         minimap?.respawn()
         needsUpdate()
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
         return true
     }
 
@@ -380,7 +390,7 @@ class Resident(val uuid: UUID, val name: String) {
         minimapShiftEnabled = !minimapShiftEnabled
         minimap?.updateSettings()
         needsUpdate()
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
         return minimapShiftEnabled
     }
 
@@ -388,7 +398,7 @@ class Resident(val uuid: UUID, val name: String) {
         minimapNorthLocked = !minimapNorthLocked
         minimap?.updateSettings()
         needsUpdate()
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
         return minimapNorthLocked
     }
 
@@ -433,7 +443,7 @@ class Resident(val uuid: UUID, val name: String) {
         )
         permanentWaypointsByName[waypoint.key] = waypoint
         needsUpdate()
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
         if (sharing == WaypointSharing.PRIVATE) minimap?.refresh() else renderMinimaps()
         waypoint
     }
@@ -449,11 +459,11 @@ class Resident(val uuid: UUID, val name: String) {
         permanentWaypointsByName.remove(key)
         val visibilityKey = VisibleWaypoint(current, this).visibilityKey
         clearWaypointVisibility(visibilityKey)
-        Nodes.residents.values.asSequence()
+        residents.values.asSequence()
             .filter { resident -> resident !== this }
             .forEach { resident -> resident.clearWaypointVisibility(visibilityKey) }
         needsUpdate()
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
         if (current.sharing == WaypointSharing.PRIVATE) minimap?.refresh() else renderMinimaps()
         return true
     }

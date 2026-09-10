@@ -33,7 +33,7 @@ internal class WarAttackRules(private val state: FlagWarState) {
 
         // otherwise, check if any neighbor territory is not owned by the town
         for (neighborTerritoryId in territory.neighbors) {
-            val neighborTerritory = Nodes.territories[neighborTerritoryId]
+            val neighborTerritory = Territory.fromId(neighborTerritoryId)
             if (neighborTerritory !== null && neighborTerritory.town !== territoryTown) {
                 return true
             }

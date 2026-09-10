@@ -1,7 +1,6 @@
 package net.aechronis.nodes.tasks
 
 import net.aechronis.nodes.Message
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.server.modules.ModuleScheduler
@@ -21,6 +20,17 @@ class PortWarpTask(
     val timeWarp: Long,
 ) {
 
+    companion object {
+        private val activeWarps = java.util.concurrent.ConcurrentHashMap<Player, PortWarpTask>()
+
+        internal fun isWarping(player: Player): Boolean = activeWarps.containsKey(player)
+
+        internal fun cancelAll() {
+            activeWarps.values.forEach { it.task?.cancel() }
+            activeWarps.clear()
+        }
+    }
+
     // remaining time counter
     private var time = timeWarp
 
@@ -34,12 +44,13 @@ class PortWarpTask(
     )
 
     fun start(): Task {
+        check(activeWarps.putIfAbsent(player, this) == null) { "Player is already warping" }
         val runnable = object : Runnable {
             override fun run() {
                 if (player.position.blockX() != initialPos.blockX() || player.position.blockY() != initialPos.blockY() || player.position.blockZ() != initialPos.blockZ() || player.vehicle !== initialVehicle) {
                     Message.announcement(player, "${ChatColor.RED}Moved! Stopped warping...")
                     task?.cancel()
-                    Nodes.playerWarpTasks.remove(player)
+                    activeWarps.remove(player, this@PortWarpTask)
                     return
                 }
 
@@ -47,7 +58,7 @@ class PortWarpTask(
 
                 if (time <= 0) {
                     task?.cancel()
-                    Nodes.playerWarpTasks.remove(player)
+                    activeWarps.remove(player, this@PortWarpTask)
 
                     val vehicle = initialVehicle
                     if (vehicle == null) {
@@ -82,11 +93,16 @@ class PortWarpTask(
             }
         }
 
-        this.task = ModuleScheduler
-            .buildTask { runnable.run() }
-            .delay(TaskSchedule.millis(100))
-            .repeat(TaskSchedule.millis(100))
-            .schedule()
+        try {
+            this.task = ModuleScheduler
+                .buildTask { runnable.run() }
+                .delay(TaskSchedule.millis(100))
+                .repeat(TaskSchedule.millis(100))
+                .schedule()
+        } catch (error: Throwable) {
+            activeWarps.remove(player, this)
+            throw error
+        }
 
         return this.task!!
     }

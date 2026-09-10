@@ -43,7 +43,6 @@ import net.aechronis.nodes.listeners.NodesVanillaStorageBridge
 import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.listeners.TrainsListener
 import net.aechronis.nodes.objects.Building
-import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.MinimapPassengerTracker
 import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Nametag
@@ -54,7 +53,6 @@ import net.aechronis.nodes.objects.RelationshipHitbox
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.ResourceNode
 import net.aechronis.nodes.objects.Territory
-import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.TerritoryPreprocessing
 import net.aechronis.nodes.objects.TerritoryResources
@@ -66,6 +64,7 @@ import net.aechronis.nodes.serdes.Deserializer
 import net.aechronis.nodes.serdes.WorldSaveState
 import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.tasks.IncomeManager
+import net.aechronis.nodes.tasks.PortWarpTask
 import net.aechronis.nodes.tasks.SaveManager
 import net.aechronis.nodes.tasks.SerialSaveQueue
 import net.aechronis.nodes.tasks.TaskSaveBackup
@@ -79,16 +78,13 @@ import net.aechronis.nodes.war.serdes.WarSerializer
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
-import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.timer.Task
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
-import java.util.UUID
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.TimeUnit
@@ -97,24 +93,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.measureNanoTime
 import net.minestom.server.command.builder.Command as MinestomCommand
 
-/** Global lifecycle, persistence, registries, and cross-domain engine coordination. */
+/** Module lifecycle, persistence scheduling, and cross-domain engine coordination. */
 object Nodes {
     val lowPriorityEventNode = EventNode.all("nodes-low-priority").setPriority(999)
     val eventNode = EventNode.all("nodes")
     val highPriorityEventNode = EventNode.all("nodes-high-priority").setPriority(-999)
     val postPermissionEventNode = EventNode.all("nodes-post-permission").setPriority(-998)
 
-    internal val resourceNodes: HashMap<String, ResourceNode> = hashMapOf()
-    internal val territoryChunks: ConcurrentHashMap<Coord, TerritoryChunk> = ConcurrentHashMap()
-    internal val territories: HashMap<TerritoryId, Territory> = hashMapOf()
-    internal val towns: LinkedHashMap<String, Town> = LinkedHashMap()
-    internal val nations: LinkedHashMap<String, Nation> = LinkedHashMap()
-    internal val residents: LinkedHashMap<UUID, Resident> = LinkedHashMap()
-    internal val buildings: MutableList<Building> = mutableListOf()
-    internal val minimapBuildingsByChunk: ConcurrentHashMap<Coord, Building> = ConcurrentHashMap()
-    var playerWarpTasks: HashMap<Player, Task> = hashMapOf()
-    var chunkToBuilding: HashMap<List<Int>, Building> = hashMapOf()
-    internal var lastBackupTime: Long = 0
+    private var lastBackupTime: Long = 0
     val war = FlagWar
     private val initialized = AtomicBoolean()
     private var initializationComplete = false
@@ -126,15 +112,22 @@ object Nodes {
     private var saveRevision = 0L
     private var lastQueuedRevision = -1L
     private var backupPending = false
-    internal var needsSave: Boolean = false
+    private var needsSave: Boolean = false
         set(value) {
             synchronized(occupationPersistenceLock) {
                 field = value
                 if (value) saveRevision++
             }
         }
+
+    /** Records a persistent domain change without exposing save completion bookkeeping. */
+    internal fun markWorldDirty() {
+        needsSave = true
+    }
+
     internal val hiddenOreInvalidBlocks: OreBlockCache = OreBlockCache(2000)
     lateinit var config: NodesConfig
+        private set
 
     fun initialize(config: NodesConfig = NodesConfig()) {
         check(initialized.compareAndSet(false, true)) { "Nodes is already initialized" }
@@ -265,12 +258,9 @@ object Nodes {
         cleanupStage(CleanupStage.MINING_BOOST, MiningBoostManager::stop)
         cleanupStage(CleanupStage.COLONIZATION_MENUS, ColonizationMenu::closeAll)
         cleanupStage(CleanupStage.WAYPOINT_MENUS, WaypointMenu::closeAll)
-        cleanupStage(CleanupStage.WARP_TASKS) {
-            playerWarpTasks.values.forEach(Task::cancel)
-            playerWarpTasks.clear()
-        }
+        cleanupStage(CleanupStage.WARP_TASKS, PortWarpTask::cancelAll)
         cleanupStage(CleanupStage.RESIDENTS) {
-            residents.values.forEach { resident ->
+            Resident.all().forEach { resident ->
                 resident.destroyMinimap()
                 resident.clearPlotSelection()
                 resident.teleportThread?.cancel()
@@ -281,7 +271,7 @@ object Nodes {
         }
         cleanupStage(CleanupStage.TOWNS) {
             captureLive {
-                towns.values.forEach { town ->
+                Town.all().forEach { town ->
                     town.applications.values.forEach(Task::cancel)
                     town.applications.clear()
                     if (persistState && town.income.pushToStorage(true)) town.needsUpdate()
@@ -339,7 +329,7 @@ object Nodes {
     }
 
     internal fun loadResources(json: JsonObject) {
-        resourceNodes.putAll(ResourceNode.loadFromJson(json))
+        ResourceNode.loadRegistry(json)
     }
 
     /**
@@ -350,11 +340,11 @@ object Nodes {
         resourceNodeName: String,
         add: Boolean,
     ): Result<Unit> = runCatching {
-        if (!resourceNodes.containsKey(resourceNodeName)) {
+        if (ResourceNode.fromName(resourceNodeName) == null) {
             error("Resource node '$resourceNodeName' does not exist")
         }
 
-        val currentTerritory = territories[territoryId] ?: error("Territory '$territoryId' does not exist")
+        val currentTerritory = Territory.fromId(territoryId) ?: error("Territory '$territoryId' does not exist")
         val path = config.pathWorld
         val root = Files.newBufferedReader(path).use { reader ->
             Json.parseToJsonElement(reader.readText()).jsonObject
@@ -413,9 +403,9 @@ object Nodes {
         if (ids != null) {
             val neighbors = hashSetOf<TerritoryId>()
             ids.forEach { id ->
-                territories[id]?.let { territory ->
+                Territory.fromId(id)?.let { territory ->
                     for (neighborId in territory.neighbors) {
-                        territories[neighborId]?.let { neighbor ->
+                        Territory.fromId(neighborId)?.let { neighbor ->
                             neighbors.add(neighborId)
                             for (neighborNeighborId in neighbor.neighbors) neighbors.add(neighborNeighborId)
                         }
@@ -423,14 +413,14 @@ object Nodes {
                 }
             }
             neighbors.forEach { id ->
-                territories[id]?.let { territory ->
-                    val resources = territory.resourceNodes.map { resourceNodes[it] ?: error("Resource node '$it' does not exist (for territory id=${territory.id})") }.sortedBy { it.priority }
+                Territory.fromId(id)?.let { territory ->
+                    val resources = territory.resourceNodes.map { ResourceNode.fromName(it) ?: error("Resource node '$it' does not exist (for territory id=${territory.id})") }.sortedBy { it.priority }
                     graph[id] = resources.fold(config.globalResources.copy()) { current, resource -> resource.apply(current) }
                 }
             }
         }
         preprocessing.forEach { territory ->
-            val resources = territory.resourceNodes.map { resourceNodes[it] ?: error("Resource node '$it' does not exist (for territory id=${territory.id})") }.sortedBy { it.priority }
+            val resources = territory.resourceNodes.map { ResourceNode.fromName(it) ?: error("Resource node '$it' does not exist (for territory id=${territory.id})") }.sortedBy { it.priority }
             graph[territory.id] = resources.fold(config.globalResources.copy()) { current, resource -> resource.apply(current) }
         }
         val toBuild = if (ids == null) {
@@ -441,7 +431,7 @@ object Nodes {
                 for (neighborId in territory.neighbors) neighborIds.add(neighborId)
             }
             preprocessing.forEach { neighborIds.remove(it.id) }
-            preprocessing + neighborIds.mapNotNull { territories[it]?.toPreprocessing() }
+            preprocessing + neighborIds.mapNotNull { Territory.fromId(it)?.toPreprocessing() }
         }
         toBuild.forEach { territory ->
             var resources = graph[territory.id] ?: return@forEach
@@ -456,15 +446,9 @@ object Nodes {
                 return@forEach
             }
             val resources = graph[data.id]!!.applyNeighborModifiers()
-            val names = data.resourceNodes.sortedBy { resourceNodes[it]!!.priority }
+            val names = data.resourceNodes.sortedBy { ResourceNode.fromName(it)!!.priority }
             val territory = Territory(data.id, data.name, data.color, data.core, data.chunks, data.bordersWilderness, data.neighbors, names, resources.income, OreSampler(ArrayList(resources.ores.values)), resources.attackerTimeMultiplier, resources.defenderTimeMultiplier)
-            territories[data.id]?.let { old ->
-                old.chunks.forEach(territoryChunks::remove)
-                territory.town = old.town
-                territory.occupier = old.occupier
-            }
-            territories[data.id] = territory
-            data.chunks.forEach { territoryChunks[it] = TerritoryChunk(it, territory) }
+            Territory.install(territory)
         }
     }
 
@@ -472,20 +456,17 @@ object Nodes {
         FlagWar.resetForReload()
         Warzone.resetForReload()
         Colonization.resetForReload()
-        residents.values.forEach { it.destroyMinimap() }
+        Resident.all().forEach { it.destroyMinimap() }
         MiningBoostManager.reset()
 
         var loaded = false
         try {
-            resourceNodes.clear()
-            territoryChunks.clear()
-            territories.clear()
-            towns.clear()
-            nations.clear()
-            residents.clear()
-            buildings.clear()
-            minimapBuildingsByChunk.clear()
-            chunkToBuilding.clear()
+            ResourceNode.clearRegistry()
+            Territory.clearRegistry()
+            Town.clearRegistry()
+            Nation.clearRegistry()
+            Resident.clearRegistry()
+            Building.clearRegistry()
             if (Files.notExists(config.pathWorld)) {
                 println("[Nodes] No world definition found at ${config.pathWorld}; starting without resource nodes or territories")
             } else {
@@ -499,9 +480,9 @@ object Nodes {
                 return true
             }
             Deserializer.townsFromJson(config.pathTowns)
-            residents.values.forEach { it.getSaveState() }
-            towns.values.forEach { it.getSaveState() }
-            nations.values.forEach { it.getSaveState() }
+            Resident.all().forEach { it.getSaveState() }
+            Town.all().forEach { it.getSaveState() }
+            Nation.all().forEach { it.getSaveState() }
             FlagWar.load()
             Warzone.load()
             if (!Files.exists(config.pathBuildings)) {
@@ -510,7 +491,7 @@ object Nodes {
                 return true
             }
             Deserializer.buildingsFromJson(config.pathBuildings)
-            buildings.forEach { it.getSaveState() }
+            Building.all().forEach { it.getSaveState() }
             loaded = true
             return true
         } finally {
@@ -562,15 +543,15 @@ object Nodes {
                         SaveRequest(
                             worldTask = TaskSaveWorld(
                                 WorldSaveState(
-                                    residents.values.map { it.getSaveState() },
-                                    towns.values.map { it.getSaveState() },
-                                    nations.values.map { it.getSaveState() },
+                                    Resident.all().map { it.getSaveState() },
+                                    Town.all().map { it.getSaveState() },
+                                    Nation.all().map { it.getSaveState() },
                                     MiningBoostManager.getSaveState(),
                                 ),
                                 config.pathTowns,
                                 backupTask,
                             ),
-                            buildingTask = TaskSaveBuildings(buildings.map { it.getSaveState() }, config.pathBuildings),
+                            buildingTask = TaskSaveBuildings(Building.all().map { it.getSaveState() }, config.pathBuildings),
                             revision = dirtyRevision,
                             backupTimestamp = backupTimestamp,
                         ).also { if (backupTimestamp != null) backupPending = true }
@@ -687,7 +668,7 @@ object Nodes {
     private const val SHUTDOWN_DRAIN_TIMEOUT_SECONDS = 60L
 
     internal fun saveWorldPreprocess() {
-        towns.values.forEach { town -> if (town.income.pushToStorage(false)) town.needsUpdate() }
+        Town.all().forEach { town -> if (town.income.pushToStorage(false)) town.needsUpdate() }
     }
 
     /** Cross-domain income engine. */

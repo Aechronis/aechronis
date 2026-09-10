@@ -31,6 +31,7 @@ package net.aechronis.nodes.war.serdes
 import kotlinx.serialization.json.JsonPrimitive
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.TerritoryChunk
+import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.war.FlagWar
 import java.nio.charset.StandardCharsets
 import java.nio.file.AtomicMoveNotSupportedException
@@ -191,7 +192,7 @@ object WarSerializer {
         val defeatedTowns = FlagWar.townsDefeatedThisWar
             .sortedBy(UUID::toString)
             .joinToString(",") { townId -> JsonPrimitive(townId.toString()).toString() }
-        val townLives = Nodes.towns.values
+        val townLives = Town.all()
             .sortedBy { town -> town.uuid.toString() }
             .joinToString(",") { town ->
                 "${JsonPrimitive(town.uuid.toString())}:{\"lives\":${town.lives}," +

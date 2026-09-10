@@ -110,7 +110,7 @@ object MiningBoostManager {
         lastEffectUpdate = 0L
         if (type == "haste") haste = updated else miningBoost = updated
 
-        Nodes.needsSave = true
+        Nodes.markWorldDirty()
         update(now)
         return Result.success(updated.toInfo(now))
     }
@@ -175,11 +175,11 @@ object MiningBoostManager {
     private fun expire(now: Long) {
         if (haste?.expiresAt?.let { it <= now } == true) {
             haste = null
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
         }
         if (miningBoost?.expiresAt?.let { it <= now } == true) {
             miningBoost = null
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
         }
     }
 

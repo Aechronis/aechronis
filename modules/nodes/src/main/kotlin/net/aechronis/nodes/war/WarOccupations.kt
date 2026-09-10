@@ -153,7 +153,7 @@ internal class WarOccupations(
         if (!abandonCompletedProgress) return@synchronized
 
         var changed = false
-        Nodes.territories.values
+        Territory.all()
             .filter { territory -> territory.town === targetTown }
             .forEach { territory ->
                 val occupation = state.territoryOccupations[territory.id]

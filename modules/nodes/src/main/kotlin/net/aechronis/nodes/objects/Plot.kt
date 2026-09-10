@@ -23,7 +23,7 @@ class Plot(
             validate(town, plot)?.let { return Result.failure(IllegalArgumentException(it)) }
             town.plots[name] = plot
             town.needsUpdate()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             return Result.success(plot)
         }
 
@@ -34,7 +34,7 @@ class Plot(
             plot.copyPermissionsFrom(existing)
             town.plots[existing.name] = plot
             town.needsUpdate()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             return Result.success(plot)
         }
 
@@ -42,20 +42,20 @@ class Plot(
             if (town.plots[plot.name] !== plot) return false
             town.plots.remove(plot.name)
             town.needsUpdate()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             return true
         }
 
         fun setGroupPermissions(town: Town, plot: Plot, group: PermissionsGroup, permissions: Iterable<TownPermissions>, allowed: Boolean?) {
             permissions.forEach { plot.setGroupPermission(group, it, allowed) }
             town.needsUpdate()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
         }
 
         fun setPlayerPermissions(town: Town, plot: Plot, player: Resident, permissions: Iterable<TownPermissions>, allowed: Boolean?) {
             permissions.forEach { plot.setPlayerPermission(player.uuid, it, allowed) }
             town.needsUpdate()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
         }
 
         internal fun isValid(town: Town, plot: Plot, ignored: Plot? = null): Boolean = validate(town, plot, ignored) == null

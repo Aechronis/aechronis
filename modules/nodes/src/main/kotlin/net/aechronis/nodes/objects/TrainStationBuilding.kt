@@ -17,7 +17,7 @@ class TrainStationBuilding(
             if (Building.hasAt(chunkX, chunkZ)) return Result.failure(net.aechronis.nodes.constants.ErrorChunkHasBuilding)
             return TrainStationBuilding(chunkX, chunkZ, tier).also {
                 Building.register(it)
-                Nodes.needsSave = true
+                Nodes.markWorldDirty()
             }.let(Result.Companion::success)
         }
     }

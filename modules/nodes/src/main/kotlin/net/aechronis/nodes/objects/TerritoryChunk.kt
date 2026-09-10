@@ -1,7 +1,5 @@
 package net.aechronis.nodes.objects
 
-import net.aechronis.nodes.Nodes
-
 /**
  * TerritoryChunk
  *
@@ -25,6 +23,6 @@ data class TerritoryChunk(
     companion object {
         fun fromBlock(blockX: Int, blockZ: Int): TerritoryChunk? = fromCoord(Coord.fromBlockCoords(blockX, blockZ))
 
-        fun fromCoord(coord: Coord): TerritoryChunk? = Nodes.territoryChunks[coord]
+        fun fromCoord(coord: Coord): TerritoryChunk? = Territory.chunkAt(coord)
     }
 }

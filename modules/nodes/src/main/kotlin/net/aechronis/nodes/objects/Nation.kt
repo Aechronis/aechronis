@@ -28,16 +28,30 @@ private val random = Random()
 
 class Nation(
     val uuid: UUID,
-    var name: String,
+    name: String,
     var capital: Town, // main town in nation, used for nation leadership
 ) {
 
+    // Registry keys can change only through the domain rename operation.
+    var name: String = name
+        private set
+
     companion object {
-        fun count(): Int = Nodes.nations.size
+        private val nations = linkedMapOf<String, Nation>()
 
-        fun fromName(name: String): Nation? = Nodes.nations[name]
+        /** Snapshot of registry membership; the domain objects retain their live identity. */
+        internal fun all(): List<Nation> = nations.values.toList()
 
-        fun fromUuid(uuid: UUID): Nation? = Nodes.nations.values.firstOrNull { nation -> nation.uuid == uuid }
+        /** Called by world reload after runtime users of the old world have stopped. */
+        internal fun clearRegistry() {
+            nations.clear()
+        }
+
+        fun count(): Int = nations.size
+
+        fun fromName(name: String): Nation? = nations[name]
+
+        fun fromUuid(uuid: UUID): Nation? = nations.values.firstOrNull { nation -> nation.uuid == uuid }
 
         fun areEnemies(nation: Nation, other: Nation): Boolean {
             if (nation === other || other in nation.allies || nation in other.allies) return false
@@ -78,14 +92,14 @@ class Nation(
 
             val nation = Nation(UUID.randomUUID(), name, town)
             Town.initializeCapitalLives(town)
-            Nodes.nations[name] = nation
+            nations[name] = nation
             nation.towns.add(town)
             town.nation = nation
             indexTownMembers(nation, town)
             town.needsUpdate()
             nation.needsUpdate()
             Nametag.refreshRelationships()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             Resident.renderMinimaps()
             return Result.success(nation)
         }
@@ -111,7 +125,7 @@ class Nation(
                 indexTownMembers(nation, town)
             }
             nation.needsUpdate()
-            Nodes.nations[name] = nation
+            nations[name] = nation
             return nation
         }
 
@@ -132,9 +146,9 @@ class Nation(
             nation.towns.clear()
             nation.residents.clear()
             nation.playersOnline.clear()
-            Nodes.nations.remove(nation.name)
+            nations.remove(nation.name)
             Nametag.refreshRelationships()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             Resident.renderMinimaps()
         }
 
@@ -146,7 +160,7 @@ class Nation(
             indexTownMembers(nation, town)
             nation.needsUpdate()
             Nametag.refreshRelationships()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             Resident.renderMinimaps()
             return Result.success(town)
         }
@@ -166,7 +180,7 @@ class Nation(
             town.needsUpdate()
             nation.needsUpdate()
             Nametag.refreshRelationships()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             Resident.renderMinimaps()
             return Result.success(town)
         }
@@ -174,14 +188,14 @@ class Nation(
         fun setColor(nation: Nation, r: Int, g: Int, b: Int) {
             nation.color = Color(r, g, b)
             nation.needsUpdate()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
         }
 
         fun rename(nation: Nation, name: String): Boolean {
-            if (Nodes.nations.containsKey(name)) return false
-            Nodes.nations.remove(nation.name)
+            if (nations.containsKey(name)) return false
+            nations.remove(nation.name)
             nation.name = name
-            Nodes.nations[name] = nation
+            nations[name] = nation
             nation.needsUpdate()
             nation.towns.forEach { town ->
                 town.needsUpdate()
@@ -189,7 +203,7 @@ class Nation(
             }
             nation.enemies.forEach { it.needsUpdate() }
             nation.allies.forEach { it.needsUpdate() }
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             return true
         }
 
@@ -197,7 +211,7 @@ class Nation(
             require(rallyCap > 0) { "Rally cap must be at least 1" }
             nation.rallyCap = rallyCap
             nation.needsUpdate()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
         }
 
         fun setCapital(nation: Nation, town: Town) {
@@ -205,7 +219,7 @@ class Nation(
             nation.capital = town
             Town.initializeCapitalLives(town)
             nation.needsUpdate()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
         }
 
         fun addAlly(nation: Nation, other: Nation): Result<Boolean> {
@@ -230,7 +244,7 @@ class Nation(
             other.needsUpdate()
             FlagWar.revalidateWarAttacks()
             Nametag.refreshRelationships()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             Resident.renderMinimaps()
             return Result.success(true)
         }
@@ -244,7 +258,7 @@ class Nation(
             nation.needsUpdate()
             other.needsUpdate()
             Nametag.refreshRelationships()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             Resident.renderMinimaps()
             return Result.success(true)
         }
@@ -260,7 +274,7 @@ class Nation(
             nation.needsUpdate()
             enemy.needsUpdate()
             Nametag.refreshRelationships()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             Resident.renderMinimaps()
             return Result.success(true)
         }
@@ -273,7 +287,7 @@ class Nation(
             nation.needsUpdate()
             enemy.needsUpdate()
             Nametag.refreshRelationships()
-            Nodes.needsSave = true
+            Nodes.markWorldDirty()
             Resident.renderMinimaps()
             return Result.success(true)
         }
@@ -301,7 +315,7 @@ class Nation(
     val allies: HashSet<Nation> = hashSetOf()
     val enemies: HashSet<Nation> = hashSetOf()
 
-    fun effectiveEnemies(): Set<Nation> = Nodes.nations.values.filterTo(hashSetOf()) { areEnemies(this, it) }
+    fun effectiveEnemies(): Set<Nation> = nations.values.filterTo(hashSetOf()) { areEnemies(this, it) }
 
     // Maximum nation members allowed online while war is enabled. Null means unlimited.
     var rallyCap: Int? = null
