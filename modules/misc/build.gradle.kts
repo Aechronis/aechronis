@@ -13,5 +13,5 @@ dependencies {
     }
     api("com.github.NuVotifier.NuVotifier:nuvotifier-api:2.7.1")
     api("com.github.NuVotifier.NuVotifier:nuvotifier-common:2.7.1")
-    compileOnly("io.netty:netty-handler:4.1.49.Final")
+    compileOnly("io.netty:netty-handler:4.2.17.Final")
 }
