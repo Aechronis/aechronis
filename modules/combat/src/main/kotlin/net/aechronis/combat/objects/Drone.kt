@@ -20,6 +20,7 @@ import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.entity.metadata.avatar.MannequinMeta
 import net.minestom.server.entity.metadata.display.AbstractDisplayMeta
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
+import net.minestom.server.event.player.PlayerInputEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
@@ -423,19 +424,60 @@ class Drone(
             return
         }
 
-        // battery
         val throttle = playerThrottle[player] ?: 0F
-        val drain = (BATTERY_IDLE_FRACTION + (1f - BATTERY_IDLE_FRACTION) * throttle / 100f) / batteryLifeTicks
-        val battery = ((entityBattery[entity] ?: 1f) - drain).coerceAtLeast(0f)
-        entityBattery[entity] = battery
+        val battery = drainBattery(entity, throttle)
         if (battery <= 0f) {
             destroy(entity)
             return
         }
 
         val position = entity.position
+        val orientation = updateOrientation(player, position, inputEvent)
+        val speed = ((throttle / 100f) * maxSpeed).toDouble()
+        val finalPos = moveDrone(player, entity, position, orientation, speed) ?: return
 
-        // continuous orientation
+        playFlightBuzz(player, entity, finalPos, throttle)
+        entityPayload[entity]?.teleport(payloadWorldPos(finalPos.withPitch(orientation.renderPitch)))
+        VehicleRegistry.driver(player)?.seat?.teleport(finalPos)
+
+        updatePilotView(player, entity, finalPos, orientation)
+
+        val distance = playerOriginalPos[player]?.distance(entity.position) ?: return
+        if (distance > maxRange) {
+            endFlight(player)
+            return
+        }
+
+        updatePilotHud(player, entity, speed, battery, distance, orientation.inverted)
+    }
+
+    private fun drainBattery(
+        entity: Entity,
+        throttle: Float,
+    ): Float {
+        val drain = (BATTERY_IDLE_FRACTION + (1f - BATTERY_IDLE_FRACTION) * throttle / 100f) / batteryLifeTicks
+        val battery = ((entityBattery[entity] ?: 1f) - drain).coerceAtLeast(0f)
+        entityBattery[entity] = battery
+        return battery
+    }
+
+    private data class FlightOrientation(
+        val yaw: Float,
+        val pitch: Float,
+        val renderPitch: Float,
+        val direction: Vec,
+        val displayYaw: Float,
+        val displayPitch: Float,
+        val cameraPitch: Float,
+        val inverted: Boolean,
+        val switchCamera: Boolean,
+    )
+
+    private fun updateOrientation(
+        player: Player,
+        position: Pos,
+        inputEvent: PlayerInputEvent?,
+    ): FlightOrientation {
         var yaw = playerYaw[player] ?: position.yaw
         val prevPitch = playerPitch[player] ?: position.pitch
         var rawPitch = prevPitch
@@ -456,6 +498,8 @@ class Drone(
         var newActiveInverted = activeInverted
         var doSwitch = false
 
+        // Hold the camera at the inversion boundary for one tick, then replace it
+        // on the next tick. Movement and observer rendering keep the unclamped pitch.
         if (pendingSwitch) {
             rawPitch = playerBoundary[player] ?: 90f
             newActiveInverted = !activeInverted
@@ -512,98 +556,134 @@ class Drone(
         val atBoundary = abs(pitch) >= 90f
         val spiderPitch = if (atBoundary) displayPitch else displayPitch - 1F
 
-        val speed = ((throttle / 100f) * maxSpeed).toDouble()
+        return FlightOrientation(
+            yaw = yaw,
+            pitch = pitch,
+            renderPitch = renderPitch,
+            direction = Vec(dirX, dirY, dirZ),
+            displayYaw = displayYaw,
+            displayPitch = displayPitch,
+            cameraPitch = spiderPitch,
+            inverted = newActiveInverted,
+            switchCamera = doSwitch,
+        )
+    }
 
+    private fun moveDrone(
+        player: Player,
+        entity: Entity,
+        position: Pos,
+        orientation: FlightOrientation,
+        speed: Double,
+    ): Pos? {
         val finalPos =
             Pos(
-                position.x + dirX * speed,
-                position.y + dirY * speed,
-                position.z + dirZ * speed,
-                yaw,
-                pitch,
+                position.x + orientation.direction.x * speed,
+                position.y + orientation.direction.y * speed,
+                position.z + orientation.direction.z * speed,
+                orientation.yaw,
+                orientation.pitch,
             )
 
         val impact = droneImpactPoint(player, entity, position, finalPos)
         if (impact != null) {
-            entity.teleport(impact.withPitch(renderPitch))
+            entity.teleport(impact.withPitch(orientation.renderPitch))
             entity.instance?.let { instance ->
-                val crashCamera = spawnSpider(instance, impact.withView(displayYaw, spiderPitch))
+                val crashCamera = spawnSpider(instance, impact.withView(orientation.displayYaw, orientation.cameraPitch))
                 startCrashStatic(player, crashCamera)
             }
             detonate(entity, player)
-            return
+            return null
         }
 
-        entity.teleport(finalPos.withPitch(renderPitch))
+        entity.teleport(finalPos.withPitch(orientation.renderPitch))
+        return finalPos
+    }
 
+    private fun playFlightBuzz(
+        player: Player,
+        entity: Entity,
+        position: Pos,
+        throttle: Float,
+    ) {
         val buzzPeriod = buzzPeriodTicks.coerceAtLeast(1)
         val buzzTick = playerBuzzTick[player] ?: 0
         if (buzzTick == 0) {
             val pitch = (buzzSound.pitch() * (1f + BUZZ_THROTTLE_PITCH_GAIN * throttle / 100f)).coerceIn(0.5f, 2.0f)
             val buzz = Sound.sound(buzzSound.name(), buzzSound.source(), buzzSound.volume(), pitch)
-            entity.instance?.playSound(buzz, finalPos.x, finalPos.y, finalPos.z)
+            entity.instance?.playSound(buzz, position.x, position.y, position.z)
         }
         playerBuzzTick[player] = (buzzTick + 1) % buzzPeriod
+    }
 
-        entityPayload[entity]?.teleport(payloadWorldPos(finalPos.withPitch(renderPitch)))
-
-        VehicleRegistry.driver(player)?.seat?.teleport(finalPos)
-
-        val center = hitbox.getWorldCenter(finalPos, yaw, pitch, 0f)
-
-        if (doSwitch) {
-            val instance = entity.instance
-            if (instance != null) {
-                val oldSpider = entitySpider[entity]
-                val freshSpider = spawnSpider(instance, center.withView(displayYaw, spiderPitch))
-                freshSpider.setView(displayYaw, spiderPitch, displayYaw)
-                entitySpider[entity] = freshSpider
-                // spectate the fresh camera before removing the old one
-                spectateCamera(player, freshSpider)
-
-                // respawn the viewmodel(s) on the fresh camera in lockstep
-                val oldViewmodel = playerViewmodel[player]
-                val oldPayloadViewmodel = playerPayloadViewmodel[player]
-                spawnViewmodels(player, freshSpider, displayYaw, spiderPitch, newActiveInverted)
-                oldViewmodel?.remove()
-                oldPayloadViewmodel?.remove()
-                oldSpider?.remove()
-            }
+    private fun updatePilotView(
+        player: Player,
+        entity: Entity,
+        position: Pos,
+        orientation: FlightOrientation,
+    ) {
+        val center = hitbox.getWorldCenter(position, orientation.yaw, orientation.pitch, 0f)
+        if (orientation.switchCamera) {
+            replaceCamera(player, entity, center, orientation)
         }
 
         val spider = entitySpider[entity]
         if (spider != null) {
             spider.teleport(center.withView(spider.position.yaw, spider.position.pitch))
-            spider.setView(displayYaw, spiderPitch, displayYaw)
+            spider.setView(orientation.displayYaw, orientation.cameraPitch, orientation.displayYaw)
         }
 
         // keep the first-person models oriented to the camera so they stay in the same place on screen
-        playerViewmodel[player]?.setView(displayYaw, spiderPitch)
-        playerPayloadViewmodel[player]?.setView(displayYaw, spiderPitch)
+        playerViewmodel[player]?.setView(orientation.displayYaw, orientation.cameraPitch)
+        playerPayloadViewmodel[player]?.setView(orientation.displayYaw, orientation.cameraPitch)
 
-        playerLockYaw[player] = displayYaw
-        playerLockPitch[player] = displayPitch
+        playerLockYaw[player] = orientation.displayYaw
+        playerLockPitch[player] = orientation.displayPitch
         player.sendPacket(
             PlayerPositionAndLookPacket(
                 -1,
                 Pos.ZERO,
                 Pos.ZERO,
-                displayYaw,
-                displayPitch,
+                orientation.displayYaw,
+                orientation.displayPitch,
                 RelativeFlags.COORD or RelativeFlags.DELTA_COORD,
             ),
         )
+    }
 
-        val distance = playerOriginalPos[player]?.distance(entity.position) ?: return
+    private fun replaceCamera(
+        player: Player,
+        entity: Entity,
+        center: Pos,
+        orientation: FlightOrientation,
+    ) {
+        val instance = entity.instance ?: return
+        val oldSpider = entitySpider[entity]
+        val freshSpider = spawnSpider(instance, center.withView(orientation.displayYaw, orientation.cameraPitch))
+        freshSpider.setView(orientation.displayYaw, orientation.cameraPitch, orientation.displayYaw)
+        entitySpider[entity] = freshSpider
+        // spectate the fresh camera before removing the old one
+        spectateCamera(player, freshSpider)
 
-        // out of range
-        if (distance > maxRange) {
-            endFlight(player)
-            return
-        }
+        // respawn the viewmodel(s) on the fresh camera in lockstep
+        val oldViewmodel = playerViewmodel[player]
+        val oldPayloadViewmodel = playerPayloadViewmodel[player]
+        spawnViewmodels(player, freshSpider, orientation.displayYaw, orientation.cameraPitch, orientation.inverted)
+        oldViewmodel?.remove()
+        oldPayloadViewmodel?.remove()
+        oldSpider?.remove()
+    }
 
+    private fun updatePilotHud(
+        player: Player,
+        entity: Entity,
+        speed: Double,
+        battery: Float,
+        distance: Double,
+        inverted: Boolean,
+    ) {
         entity.instance?.let {
-            sendTelemetry(player, it, speed, battery, distance, newActiveInverted)
+            sendTelemetry(player, it, speed, battery, distance, inverted)
         }
 
         // fill the hotbar with sculk veins using the pack's invisible item model
