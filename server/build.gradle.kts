@@ -68,7 +68,7 @@ dependencies {
     implementation("com.zaxxer:HikariCP:7.1.0")
     implementation("org.slf4j:slf4j-simple:2.0.19")
     implementation("dev.lu15:spark-minestom:1.10-SNAPSHOT")
-    implementation("io.github.4drian3d:signedvelocity-minestom:1.4.1")
+    implementation("io.github.4drian3d:signedvelocity-minestom:1.5.0")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-fluids:1.10.2-SNAPSHOT")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
