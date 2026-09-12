@@ -26,7 +26,7 @@ object ActionBarManager {
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
                     updateActionBar(player)
                 }
-            }.repeat(TaskSchedule.tick(5))
+            }.repeat(TaskSchedule.tick(1))
             .schedule()
     }
 
