@@ -9,6 +9,7 @@ object Guns {
     val ak47 =
         Gun(
             name = "ak47",
+            animatedViewModelProfile = 12,
             itemName = Component.text("AK-47", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 30,

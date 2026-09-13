@@ -1,6 +1,5 @@
 package net.aechronis.combat
 
-import net.aechronis.combat.commands.AdsCommand
 import net.aechronis.combat.commands.CombatAdminCommand
 import net.aechronis.combat.commands.HatsCommand
 import net.aechronis.combat.listeners.AimingListener
@@ -35,6 +34,7 @@ import net.aechronis.combat.tasks.PlayerPositionManager
 import net.aechronis.combat.tasks.ProjectileTickManager
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.GunAnimation
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.bypassesCombatDamageImmunity
 import net.aechronis.combat.utils.combatDamageKind
@@ -47,7 +47,6 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.event.EventNode
 import net.minestom.server.timer.Task
-import java.util.UUID
 
 object Combat {
     private var initialized = false
@@ -62,19 +61,6 @@ object Combat {
 
     val playerAiming = HashMap<Player, Boolean>()
     val aimingResetTasks = HashMap<Player, Task>()
-
-    // This preference is intentionally process-local and retained across reconnects.
-    private val adsAnimationDisabledPlayers = HashSet<UUID>()
-
-    fun isAdsAnimationDisabled(playerUuid: UUID): Boolean = playerUuid in adsAnimationDisabledPlayers
-
-    fun toggleAdsAnimation(playerUuid: UUID): Boolean =
-        if (adsAnimationDisabledPlayers.remove(playerUuid)) {
-            false
-        } else {
-            adsAnimationDisabledPlayers.add(playerUuid)
-            true
-        }
 
     val reloadTasks = HashMap<Player, Task>()
 
@@ -210,6 +196,7 @@ object Combat {
             BlockRestoreManager.initialize()
 
             // register listeners
+            GunAnimation.init()
             AimingListener.init()
             AmmoInventoryListener.init()
             ReloadListener.init()
@@ -237,8 +224,6 @@ object Combat {
             // register commands
             ModuleCommands
                 .register(CombatAdminCommand())
-            ModuleCommands
-                .register(AdsCommand())
             ModuleCommands
                 .register(HatsCommand())
 
@@ -287,7 +272,6 @@ object Combat {
         cleanup(failures, "lag compensation") { LagCompensation.clear() }
 
         playerAiming.clear()
-        adsAnimationDisabledPlayers.clear()
         playerPreviousPositions.clear()
         playerSpeeds.clear()
         playerLastActionTimes.clear()

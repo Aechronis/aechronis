@@ -12,13 +12,14 @@ object Guns {
     val m4a1 =
         Gun(
             name = "m4a1",
+            animatedViewModelProfile = 2,
             itemName = Component.text("M4A1", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 30,
             damage = 12F,
             automatic = true,
             sniper = false,
-            cooldown = 80,
+            cooldown = 100,
             reloadTime = 2500,
             recoilMin = 1F,
             recoilMax = 4F,
@@ -31,13 +32,14 @@ object Guns {
     val ak12 =
         Gun(
             name = "ak12",
+            animatedViewModelProfile = 3,
             itemName = Component.text("AK-12", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 30,
             damage = 9F,
             automatic = true,
             sniper = false,
-            cooldown = 80,
+            cooldown = 100,
             reloadTime = 3000,
             recoilMin = 1F,
             recoilMax = 4F,
@@ -50,13 +52,14 @@ object Guns {
     val qbz95 =
         Gun(
             name = "qbz-95",
+            animatedViewModelProfile = 4,
             itemName = Component.text("QBZ-95", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 30,
             damage = 12F,
             automatic = true,
             sniper = false,
-            cooldown = 80,
+            cooldown = 100,
             reloadTime = 3000,
             recoilMin = 3F,
             recoilMax = 6F,
@@ -69,13 +72,14 @@ object Guns {
     val ak74 =
         Gun(
             name = "ak74",
+            animatedViewModelProfile = 0,
             itemName = Component.text("AK-74", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 30,
             damage = 7F,
             automatic = true,
             sniper = false,
-            cooldown = 80,
+            cooldown = 100,
             reloadTime = 3200,
             recoilMin = 1F,
             recoilMax = 4F,
@@ -88,6 +92,7 @@ object Guns {
     val g3 =
         Gun(
             name = "g3",
+            animatedViewModelProfile = 5,
             itemName = Component.text("G3", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 15,
@@ -108,6 +113,8 @@ object Guns {
     val awp =
         Gun(
             name = "awp",
+            animatedViewModelProfile = 6,
+            fireAnimationTicks = 24,
             itemName = Component.text("AWP", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 3,
@@ -129,13 +136,14 @@ object Guns {
     val glock17 =
         Gun(
             name = "glock17",
+            animatedViewModelProfile = 1,
             itemName = Component.text("Glock 17", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo9mm,
             maxAmmo = 17,
             damage = 4.5F,
             automatic = false,
             sniper = false,
-            cooldown = 130,
+            cooldown = 150,
             reloadTime = 2200,
             recoilMin = 0.5F,
             recoilMax = 2F,
@@ -148,6 +156,7 @@ object Guns {
     val m9 =
         Gun(
             name = "m9",
+            animatedViewModelProfile = 7,
             itemName = Component.text("M9", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo9mm,
             maxAmmo = 15,
@@ -167,6 +176,7 @@ object Guns {
     val mg3 =
         Gun(
             name = "mg3",
+            animatedViewModelProfile = 8,
             itemName = Component.text("MG3", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo762x39mm,
             maxAmmo = 100,
@@ -186,6 +196,7 @@ object Guns {
     val planeMg3 =
         Gun(
             name = "plane-mg3",
+            animatedViewModelProfile = 8,
             itemName = Component.text("Plane MachineGun", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo762x39mmExplosive,
             maxAmmo = 200,
@@ -212,6 +223,7 @@ object Guns {
     val at4 =
         Gun(
             name = "at4",
+            animatedViewModelProfile = 9,
             itemName = Component.text("AT4", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.rocket,
             maxAmmo = 1,
@@ -232,13 +244,14 @@ object Guns {
     val mp5 =
         Gun(
             name = "mp5",
+            animatedViewModelProfile = 10,
             itemName = Component.text("MP5", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo9mm,
             maxAmmo = 30,
             damage = 3.5F,
             automatic = true,
             sniper = false,
-            cooldown = 70,
+            cooldown = 100,
             reloadTime = 2400,
             recoilMin = 1F,
             recoilMax = 3F,
@@ -251,13 +264,14 @@ object Guns {
     val vz61 =
         Gun(
             name = "vz61",
+            animatedViewModelProfile = 11,
             itemName = Component.text("Vz. 61", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.ammo9mm,
             maxAmmo = 20,
             damage = 3.5F,
             automatic = true,
             sniper = false,
-            cooldown = 60,
+            cooldown = 100,
             reloadTime = 3000,
             recoilMin = 2F,
             recoilMax = 4F,

@@ -2,13 +2,22 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
+import net.aechronis.combat.listeners.WeaponLoreListener
 import net.aechronis.combat.tasks.BlockRestoreManager
+import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.GUN_FIRE_ANIMATION_TICKS
 import net.aechronis.combat.utils.GUN_MINING_TOOL
+import net.aechronis.combat.utils.GUN_SWING_ANIMATION
+import net.aechronis.combat.utils.GUN_USE_COOLDOWN
+import net.aechronis.combat.utils.GunAnimation
+import net.aechronis.combat.utils.GunAnimationAction
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Particles
 import net.aechronis.combat.utils.Ray
+import net.aechronis.combat.utils.gunClientTrail
+import net.aechronis.combat.utils.prepareGunPacketBundle
 import net.aechronis.combat.utils.withCombatAttribution
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.key.Key
@@ -19,10 +28,12 @@ import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.title.Title
+import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
+import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.MainHand
 import net.minestom.server.entity.Player
@@ -31,7 +42,13 @@ import net.minestom.server.entity.damage.Damage
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import net.minestom.server.network.ConnectionState
+import net.minestom.server.network.packet.server.SendablePacket
+import net.minestom.server.network.packet.server.ServerPacket
+import net.minestom.server.network.packet.server.play.EntityEquipmentPacket
 import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket
+import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
+import net.minestom.server.network.player.PlayerSocketConnection
 import net.minestom.server.particle.Particle
 import net.minestom.server.timer.TaskSchedule
 import java.math.BigDecimal
@@ -64,6 +81,10 @@ class Gun(
     val maxRange: Double = 128.0,
     val bulletTrailParticle: Particle? = null,
     val bulletTrailOffset: Vec = Vec.ZERO,
+    /** Allocated by the Blockbench plugin and shared with the shader atlas. */
+    val animatedViewModelProfile: Int = 0,
+    /** Must match the saved model's fire_ticks (manual actions can outlast recoil). */
+    val fireAnimationTicks: Int = GUN_FIRE_ANIMATION_TICKS,
 ) : Item(
         name,
         itemName,
@@ -86,10 +107,19 @@ class Gun(
         Material.WARPED_FUNGUS_ON_A_STICK,
     ) {
     init {
+        require(cooldown > 0 && cooldown % 50L == 0L) { "Gun cooldown must be a positive multiple of 50 ms" }
+        require(animatedViewModelProfile in 0..15) { "Gun animation profile must fit the four-bit protocol" }
+        require(fireAnimationTicks in 1..255) { "Gun fire animation must last 1–255 ticks" }
         require(maxRange.isFinite() && maxRange > 0.0) { "Gun maxRange must be a positive finite number" }
     }
 
-    override fun toItemStack(): ItemStack = super.toItemStack().with(DataComponents.TOOL, GUN_MINING_TOOL)
+    override fun toItemStack(): ItemStack {
+        val item = super.toItemStack().with(DataComponents.TOOL, GUN_MINING_TOOL)
+        return item
+            .withItemModel("$itemModel-equip")
+            .with(DataComponents.SWING_ANIMATION, GUN_SWING_ANIMATION)
+            .with(DataComponents.USE_COOLDOWN, GUN_USE_COOLDOWN)
+    }
 
     // ===============
     // AMMO FUNCTIONS
@@ -116,11 +146,16 @@ class Gun(
         setAmmo(player, getAmmo(player) + amount)
     }
 
-    fun getAmmo(player: Player): Int = damageToAmmo(player.itemInMainHand.get(DataComponents.DAMAGE) ?: 0)
+    fun getAmmo(player: Player): Int = getAmmo(player.itemInMainHand)
+
+    internal fun getAmmo(item: ItemStack): Int = damageToAmmo(item.get(DataComponents.DAMAGE) ?: 0)
 
     fun hasAmmo(player: Player): Boolean = getAmmo(player) > 0
 
-    fun toEmptyItemStack(): ItemStack = toItemStack().with(DataComponents.DAMAGE, ammoToDamage(0))
+    fun toEmptyItemStack(): ItemStack {
+        val item = toItemStack().with(DataComponents.DAMAGE, ammoToDamage(0))
+        return item.withItemModel("$itemModelEmpty-equip")
+    }
 
     private fun damageToAmmo(damage: Int): Int = ((99 - damage) * maxAmmo.toDouble() / 98).roundToInt().coerceIn(0, maxAmmo)
 
@@ -130,6 +165,7 @@ class Gun(
     // RELOAD FUNCTIONS
     // ================
     fun reload(player: Player): Boolean {
+        if (!GunAnimation.canUse(player, this)) return false
         // check player has ammo
         if (ammo.get(player) == 0) {
             player.showTitle(
@@ -148,6 +184,7 @@ class Gun(
 
         // create task
         runReloadTask(player)
+        GunAnimation.start(player, this, GunAnimationAction.RELOAD, ((reloadTime + 49) / 50).coerceIn(1, 255).toInt())
 
         // play sound
         player.instance.playSound(soundReload, player.position.x, player.position.y, player.position.z)
@@ -157,6 +194,8 @@ class Gun(
 
     private fun runReloadTask(player: Player) {
         var time = reloadTime
+        val reloadSlot = player.heldSlot
+        val reloadInstance = player.instance
 
         Combat.reloadTasks[player] =
             ModuleScheduler
@@ -166,7 +205,13 @@ class Gun(
 
                     // cancel reload if player changes item their holding
                     // or has no ammo in inventory
-                    if (player.itemInMainHand.getTag(Tags.name) != name || ammo.get(player) == 0) {
+                    if (player.itemInMainHand.getTag(Tags.name) != name ||
+                        ammo.get(player) == 0 ||
+                        player.heldSlot != reloadSlot ||
+                        player.instance !== reloadInstance ||
+                        player.isDead ||
+                        !player.isOnline
+                    ) {
                         player.showTitle(
                             Title.title(
                                 Component.empty(),
@@ -178,6 +223,7 @@ class Gun(
                         )
                         Combat.reloadTasks[player]?.cancel()
                         Combat.reloadTasks.remove(player)
+                        GunAnimation.clear(player)
                         return@buildTask
                     }
 
@@ -188,6 +234,7 @@ class Gun(
 
                         Combat.reloadTasks[player]!!.cancel()
                         Combat.reloadTasks.remove(player)
+                        GunAnimation.clear(player)
                     } else {
                         player.showTitle(
                             Title.title(
@@ -214,9 +261,11 @@ class Gun(
         ignoreAmmo: Boolean = false,
         lagCompensate: Boolean = firePos == null,
     ): Boolean {
+        if (firePos == null && !GunAnimation.canUse(player, this)) return false
         val firedAtNanos = System.nanoTime()
         val now = System.currentTimeMillis()
-        if (now - (Combat.playerLastActionTimes[player] ?: 0L) < cooldown && !ignoreCooldown) return false
+        val lastAction = Combat.playerLastActionTimes[player] ?: 0L
+        if (now - lastAction < cooldown && !ignoreCooldown) return false
         if (Combat.reloadTasks[player] != null) return false
         Combat.playerLastActionTimes[player] = now
         if (!hasAmmo(player) && !ignoreAmmo) return false
@@ -302,27 +351,115 @@ class Gun(
             trailEndPoint = blockHit.point.asPos()
         }
 
-        // draw bullet trail particle if set
-        if (bulletTrailParticle != null) {
-            val trailStart =
-                if (firePos == null) {
-                    bulletTrailOrigin(
-                        offsetPos,
-                        player.settings.mainHand,
-                        bulletTrailOffset,
-                        Combat.playerAiming[player] == true,
+        // Sample the authoritative trail once, retaining its existing range filtering.
+        val trail =
+            bulletTrailParticle?.let { particle ->
+                val trailStart =
+                    if (firePos == null) {
+                        bulletTrailOrigin(
+                            offsetPos,
+                            player.settings.mainHand,
+                            bulletTrailOffset,
+                            Combat.playerAiming[player] == true,
+                        )
+                    } else {
+                        offsetPos
+                    }
+                Particles.prepareLine(player.instance, particle, trailStart, trailEndPoint)
+            }
+
+        // Animated FIRE clips and their tracer share a fixed two-tick protocol;
+        // the authoritative firing cooldown remains independent of that visual.
+        val animation =
+            if (firePos == null) {
+                val finalItem =
+                    WeaponLoreListener.refreshLore(
+                        if (ignoreAmmo) {
+                            player.itemInMainHand
+                        } else {
+                            player.itemInMainHand.with(
+                                DataComponents.DAMAGE,
+                                ammoToDamage(
+                                    getAmmo(player) - 1,
+                                ),
+                            )
+                        },
                     )
-                } else {
-                    offsetPos
+                GunAnimation.prepareFire(player, this, finalItem)
+            } else {
+                null
+            }
+        if (animation != null) {
+            val instance = player.instance
+            val clientTrail =
+                gunClientTrail(this, animation.item, player.settings.mainHand, trailEndPoint, animation.worldAge)
+            val worldTrail = if (clientTrail != null) trail?.copy(viewers = trail.viewers.filter { it !== player }) else trail
+            val observers = player.viewers.filterTo(HashSet()) { it.isOnline && it.instance === instance && it !== player }
+            val trailViewers = worldTrail?.viewers?.toSet() ?: emptySet()
+            val recipients = observers + trailViewers + player
+            val kick = recoilPacket(aimingMultiplier)
+            var published = false
+            try {
+                // Frame every complete bundle before publishing any of them. The
+                // subsequent inventory mutation can broadcast identical equipment,
+                // but it cannot leak a new firing trigger ahead of the trail.
+                val bundles =
+                    recipients
+                        .filter {
+                            it.isOnline &&
+                                it.instance === instance &&
+                                it.playerConnection.serverState == ConnectionState.PLAY &&
+                                it.playerConnection.clientState == ConnectionState.PLAY
+                        }.map { viewer ->
+                            val packets =
+                                buildList<ServerPacket> {
+                                    if (viewer === player) {
+                                        add(animation.ownerClock)
+                                        add(SetPlayerInventorySlotPacket(animation.slot.toInt(), animation.item))
+                                        add(kick)
+                                        clientTrail?.let(::add)
+                                    } else if (viewer in observers) {
+                                        ModelManager.shaderTimePacket(viewer, animation.worldAge)?.let(::add)
+                                        add(EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.MAIN_HAND to animation.item)))
+                                    }
+                                    if (viewer in trailViewers) addAll(checkNotNull(worldTrail).packets)
+                                }
+                            val outbound: List<SendablePacket> =
+                                if (viewer.playerConnection is PlayerSocketConnection) {
+                                    listOf(
+                                        prepareGunPacketBundle(viewer, packets),
+                                    )
+                                } else {
+                                    packets
+                                }
+                            viewer to outbound
+                        }
+                for ((viewer, packets) in bundles) viewer.sendPackets(packets)
+                published = true
+            } catch (exception: Exception) {
+                // Damage has already been resolved. A visual transport failure
+                // must still spend ammunition and synchronize the owner's stack.
+                MinecraftServer.getExceptionManager().handleException(exception)
+                ModelManager.syncShaderTime(player, animation.worldAge)
+                for (viewer in observers) ModelManager.syncShaderTime(viewer, animation.worldAge)
+                worldTrail?.send()
+                player.sendPacket(kick)
+                if (player.playerConnection.serverState == ConnectionState.PLAY &&
+                    player.playerConnection.clientState == ConnectionState.PLAY
+                ) {
+                    clientTrail?.let(player::sendPacket)
                 }
-            Particles.particleLine(player.instance, bulletTrailParticle, trailStart, trailEndPoint)
+            } finally {
+                // Keep the normal equip events/attributes and item-change listener
+                // path. false suppresses only the owner's redundant slot packet.
+                player.inventory.setItemStack(animation.slot.toInt(), animation.item, !published)
+            }
+        } else {
+            trail?.send()
+            recoil(player, aimingMultiplier)
+            if (!ignoreAmmo) addAmmo(player, -1)
+            if (firePos == null) GunAnimation.start(player, this, GunAnimationAction.FIRE, fireAnimationTicks)
         }
-
-        // Send recoil packet to player.
-        recoil(player, aimingMultiplier)
-
-        // decrement ammo
-        if (!ignoreAmmo) addAmmo(player, -1)
 
         return true
     }
@@ -412,17 +549,18 @@ class Gun(
         player: Player,
         multiplier: Float = 1F,
     ) {
-        player.sendPacket(
-            PlayerPositionAndLookPacket(
-                -1,
-                Pos.ZERO,
-                Pos.ZERO,
-                0F,
-                -(Random.nextFloat() * (recoilMax - recoilMin) + recoilMin) * multiplier,
-                RelativeFlags.VIEW or RelativeFlags.COORD or RelativeFlags.DELTA_COORD,
-            ),
-        )
+        player.sendPacket(recoilPacket(multiplier))
     }
+
+    private fun recoilPacket(multiplier: Float): PlayerPositionAndLookPacket =
+        PlayerPositionAndLookPacket(
+            -1,
+            Pos.ZERO,
+            Pos.ZERO,
+            0F,
+            -(Random.nextFloat() * (recoilMax - recoilMin) + recoilMin) * multiplier,
+            RelativeFlags.VIEW or RelativeFlags.COORD or RelativeFlags.DELTA_COORD,
+        )
 
     internal fun checkVehicleHit(
         instance: Instance,

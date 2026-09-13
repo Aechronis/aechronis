@@ -3,6 +3,7 @@ package net.aechronis.combat.utils
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.network.packet.server.play.ParticlePacket
@@ -32,28 +33,46 @@ object Particles {
         to: Pos,
         spacing: Double = DEFAULT_TRAIL_SPACING,
         maxParticles: Int = MAX_TRAIL_PARTICLES,
-    ) {
+    ) = prepareLine(instance, particle, from, to, spacing, maxParticles).send()
+
+    internal fun prepareLine(
+        instance: Instance,
+        particle: Particle,
+        from: Pos,
+        to: Pos,
+        spacing: Double = DEFAULT_TRAIL_SPACING,
+        maxParticles: Int = MAX_TRAIL_PARTICLES,
+    ): ParticleLinePackets {
         val distance = from.distance(to)
         val count = particleLinePointCount(distance, spacing, maxParticles)
-        if (count == 0) return
 
         val viewers =
             instance.players.filter {
                 distanceSquaredToSegment(it.position, from, to) <= TRAIL_VIEW_DISTANCE * TRAIL_VIEW_DISTANCE
             }
-        if (viewers.isEmpty()) return
+        if (viewers.isEmpty() || count == 0) return ParticleLinePackets(emptyList(), emptyList())
 
         if (count == 1) {
-            PacketSendingUtils.sendGroupedPacket(viewers, ParticlePacket(particle, from, Pos.ZERO, 0F, 1))
-            return
+            return ParticleLinePackets(viewers, listOf(ParticlePacket(particle, from, Pos.ZERO, 0F, 1)))
         }
 
         val direction = to.sub(from)
-        for (index in 0 until count) {
-            val progress = index.toDouble() / (count - 1).toDouble()
-            val point = from.add(direction.mul(progress))
-            PacketSendingUtils.sendGroupedPacket(viewers, ParticlePacket(particle, point, Pos.ZERO, 0F, 1))
-        }
+        val packets =
+            List(count) { index ->
+                val progress = index.toDouble() / (count - 1).toDouble()
+                val point = from.add(direction.mul(progress))
+                ParticlePacket(particle, point, Pos.ZERO, 0F, 1)
+            }
+        return ParticleLinePackets(viewers, packets)
+    }
+}
+
+internal data class ParticleLinePackets(
+    val viewers: List<Player>,
+    val packets: List<ParticlePacket>,
+) {
+    fun send() {
+        for (packet in packets) PacketSendingUtils.sendGroupedPacket(viewers, packet)
     }
 }
 

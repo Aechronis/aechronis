@@ -5,7 +5,10 @@ import com.sun.net.httpserver.HttpServer
 import net.kyori.adventure.resource.ResourcePackInfo
 import net.kyori.adventure.resource.ResourcePackRequest
 import net.kyori.adventure.text.Component
+import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
+import net.minestom.server.event.EventListener
+import net.minestom.server.event.player.PlayerDisconnectEvent
 import java.net.InetSocketAddress
 import java.net.URI
 import java.nio.charset.StandardCharsets
@@ -30,6 +33,10 @@ class ResourcePackServer private constructor(
         get() = server.address.port
 
     private val activePacks = linkedMapOf<String, ModuleResourcePacks>()
+    private val playerProviders = linkedMapOf<String, PlayerPackProvider>()
+    private val playerRequests = hashMapOf<UUID, PlayerPackRequest>()
+    private var disconnectListener: EventListener<PlayerDisconnectEvent>? = null
+    private var packRevision = 0L
     private var serverStopped = false
     private var closed = false
 
@@ -65,6 +72,7 @@ class ResourcePackServer private constructor(
         val hostedPack = packs.hostedPack
         val externalPacks = packs.externalPacks
         activePacks[id] = packs
+        packRevision += 1
         hostedPack?.let { println("[ResourcePack] serving ${it.id} (${it.archive.hash})") }
         if (externalPacks.isNotEmpty()) {
             println("[ResourcePack] registered ${externalPacks.size} external pack(s) for $id")
@@ -92,8 +100,157 @@ class ResourcePackServer private constructor(
         }
     }
 
+    /** Providers run on configuration or HTTP workers, never while holding the registry lock. */
+    @Synchronized
+    fun registerPlayerResourcePack(
+        id: String,
+        provider: (Player) -> Map<String, ByteArray>?,
+    ): AutoCloseable {
+        check(!closed) { "Resource-pack server is closed" }
+        require(id.matches(RESOURCE_PACK_ID_PATTERN)) { "Invalid resource-pack ID: '$id'" }
+        check(id !in playerProviders) { "Player resource-pack provider '$id' is already active" }
+        if (disconnectListener == null) {
+            disconnectListener = EventListener.of(PlayerDisconnectEvent::class.java) { event -> releasePlayer(event.player.uuid) }
+            MinecraftServer.getGlobalEventHandler().addListener(checkNotNull(disconnectListener))
+        }
+        val registration = PlayerPackProvider(id, provider)
+        playerProviders[id] = registration
+        return AutoCloseable { unregisterPlayerProvider(registration) }
+    }
+
+    /** Used by AsyncPlayerConfigurationEvent, where building a personalized pack may block. */
     fun sendResourcePacks(player: Player) {
-        sendResourcePacks(player, resourcePackInfos(player.playerConnection.serverAddress))
+        val request = beginPlayerRequest(player, includeBase = true) ?: return
+        prepareAndSend(player, request)
+    }
+
+    /** Refreshing a skin only replaces personalized layers; base archives stay installed. */
+    fun refreshPlayerResourcePacks(player: Player) = enqueuePlayerPacks(player, includeBase = false)
+
+    internal fun sendResourcePacksAsync(player: Player) = enqueuePlayerPacks(player, includeBase = true)
+
+    private fun enqueuePlayerPacks(
+        player: Player,
+        includeBase: Boolean,
+    ) {
+        val request = beginPlayerRequest(player, includeBase) ?: return
+        runCatching {
+            executor.execute {
+                runCatching { prepareAndSend(player, request) }
+                    .onFailure { println("[ResourcePack] player pack refresh failed: ${it.message}") }
+            }
+        }.onFailure { if (!synchronized(this) { closed }) throw it }
+    }
+
+    @Synchronized
+    private fun beginPlayerRequest(
+        player: Player,
+        includeBase: Boolean,
+    ): PlayerPackRequest? {
+        if (closed || !player.isOnline) return null
+        // A skin refresh may supersede a hot-reload worker, but it must retain
+        // that worker's obligation to publish the new shared stack as well.
+        val request = PlayerPackRequest(includeBase || playerRequests[player.uuid]?.includeBase == true)
+        playerRequests[player.uuid] = request
+        return request
+    }
+
+    private fun prepareAndSend(
+        player: Player,
+        request: PlayerPackRequest,
+    ) {
+        val (revision, providers) =
+            synchronized(this) {
+                if (closed || playerRequests[player.uuid] !== request || !player.isOnline) return
+                packRevision to playerProviders.values.toList()
+            }
+        val prepared = mutableListOf<Pair<PlayerPackProvider, ResourcePackArchive?>>()
+        val adopted = mutableSetOf<ResourcePackArchive>()
+        try {
+            for (provider in providers) {
+                val callback =
+                    synchronized(this) {
+                        if (closed || playerRequests[player.uuid] !== request || !player.isOnline) return
+                        provider.callback
+                    } ?: continue
+                val archive =
+                    runCatching { callback(player)?.let(ResourcePackArchive::create) }
+                        .onFailure { println("[ResourcePack] player provider '${provider.id}' failed: ${it.message}") }
+                        .getOrNull()
+                prepared += provider to archive
+            }
+            synchronized(this) {
+                if (closed || playerRequests[player.uuid] !== request || !player.isOnline) return
+                if (revision != packRevision) {
+                    // The atlas may have changed while the provider built its
+                    // image. Rebuild against the new base instead of losing the
+                    // player's one-shot skin refresh or publishing stale pixels.
+                    enqueuePlayerPacks(player, request.includeBase)
+                    return
+                }
+                val overlays = mutableListOf<ResourcePackInfo>()
+                val removed = mutableListOf<UUID>()
+                for ((provider, archive) in prepared) {
+                    if (playerProviders[provider.id] !== provider) continue
+                    val previous = provider.packs[player.uuid]
+                    if (archive == null) {
+                        provider.packs.remove(player.uuid)
+                        previous?.let {
+                            removed += it.uuid
+                            it.retire()
+                        }
+                        continue
+                    }
+                    val pack =
+                        if (previous?.archive?.hash == archive.hash) {
+                            previous
+                        } else {
+                            val uuid =
+                                UUID.nameUUIDFromBytes(
+                                    "aechronis:player-resource-pack:${provider.id}:${player.uuid}".toByteArray(StandardCharsets.UTF_8),
+                                )
+                            ServedResourcePack("player-$uuid", uuid, archive).also {
+                                adopted += archive
+                                provider.packs[player.uuid] = it
+                                previous?.retire()
+                            }
+                        }
+                    overlays += resourcePackInfo(pack, player.playerConnection.serverAddress)
+                }
+                // Sending under the lock makes the request token check and publication atomic.
+                // A newer skin request cannot be followed by a stale worker's packet.
+                if (removed.isNotEmpty()) player.removeResourcePacks(removed)
+                val base = if (request.includeBase) resourcePackInfos(player.playerConnection.serverAddress) else emptyList()
+                sendResourcePacks(player, base + overlays)
+                playerRequests.remove(player.uuid, request)
+            }
+        } finally {
+            synchronized(this) {
+                for ((provider, archive) in prepared) {
+                    if (archive != null && archive !in adopted) archive.close()
+                }
+                if (playerProviders.isEmpty()) playerRequests.remove(player.uuid, request)
+            }
+        }
+    }
+
+    @Synchronized
+    private fun releasePlayer(uuid: UUID) {
+        playerRequests.remove(uuid)
+        for (provider in playerProviders.values) provider.packs.remove(uuid)?.retire()
+    }
+
+    @Synchronized
+    private fun unregisterPlayerProvider(provider: PlayerPackProvider) {
+        if (playerProviders[provider.id] !== provider) return
+        playerProviders.remove(provider.id)
+        provider.callback = null
+        for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
+            provider.packs[player.uuid]?.let { player.removeResourcePacks(it.uuid) }
+        }
+        provider.packs.values.forEach(ServedResourcePack::retire)
+        provider.packs.clear()
+        if (playerProviders.isEmpty()) playerRequests.clear()
     }
 
     private fun sendResourcePacks(
@@ -141,15 +298,31 @@ class ResourcePackServer private constructor(
     internal fun uninstall(packs: ModuleResourcePacks) {
         if (activePacks[packs.moduleId] !== packs) return
         activePacks.remove(packs.moduleId)
+        packRevision += 1
         packs.hostedPack?.let { pack ->
             pack.retire()
             println("[ResourcePack] stopped serving ${pack.id}")
         }
     }
 
-    @Synchronized
     override fun close() {
-        if (closed) return
+        val packs =
+            synchronized(this) {
+                if (closed) return
+                closed = true
+                disconnectListener?.let { MinecraftServer.getGlobalEventHandler().removeListener(it) }
+                disconnectListener = null
+                val packs =
+                    activePacks.values.mapNotNull(ModuleResourcePacks::hostedPack) + playerProviders.values.flatMap { it.packs.values }
+                activePacks.clear()
+                playerProviders.values.forEach {
+                    it.callback = null
+                    it.packs.clear()
+                }
+                playerProviders.clear()
+                playerRequests.clear()
+                packs
+            }
         var failure: Throwable? = null
 
         fun cleanup(action: () -> Unit) {
@@ -165,19 +338,15 @@ class ResourcePackServer private constructor(
             }
         }
         cleanup { shutdownResourcePackExecutor(executor) }
-        activePacks.values.forEach { packs -> packs.hostedPack?.let { cleanup(it::retire) } }
-        activePacks.clear()
+        packs.forEach { cleanup(it::retire) }
         failure?.let { throw it }
-        closed = true
     }
 
     private fun handle(exchange: HttpExchange) {
         exchange.use {
             val pack =
                 synchronized(this) {
-                    activePacks.values
-                        .asSequence()
-                        .mapNotNull(ModuleResourcePacks::hostedPack)
+                    (activePacks.values.mapNotNull(ModuleResourcePacks::hostedPack) + playerProviders.values.flatMap { it.packs.values })
                         .firstOrNull { it.path == exchange.requestURI.path }
                 }
             if (pack == null || !pack.acquire()) {
@@ -216,6 +385,16 @@ class ResourcePackServer private constructor(
             }
         }
     }
+
+    private class PlayerPackProvider(
+        val id: String,
+        var callback: ((Player) -> Map<String, ByteArray>?)?,
+        val packs: MutableMap<UUID, ServedResourcePack> = hashMapOf(),
+    )
+
+    private class PlayerPackRequest(
+        val includeBase: Boolean,
+    )
 
     companion object {
         private val RESOURCE_PACK_ID_PATTERN = Regex("[a-z0-9][a-z0-9-]{0,63}")
@@ -340,6 +519,25 @@ internal data class ResourcePackArchive(
     }
 
     companion object {
+        fun create(files: Map<String, ByteArray>): ResourcePackArchive {
+            require("pack.mcmeta" in files) { "Player resource pack must contain pack.mcmeta" }
+            files.keys.forEach(::requirePackEntry)
+            val archive = Files.createTempFile("aechronis-player-resource-pack-", ".zip")
+            try {
+                ZipOutputStream(Files.newOutputStream(archive)).use { output ->
+                    for ((name, bytes) in files.toSortedMap()) {
+                        output.putNextEntry(ZipEntry(name).apply { time = 0L })
+                        output.write(bytes)
+                        output.closeEntry()
+                    }
+                }
+                return ResourcePackArchive(archive, sha1(archive), Files.size(archive))
+            } catch (exception: Exception) {
+                Files.deleteIfExists(archive)
+                throw exception
+            }
+        }
+
         fun create(directory: Path): ResourcePackArchive {
             val root = directory.toAbsolutePath().normalize()
             require(Files.isDirectory(root)) { "Resource-pack directory does not exist: $root" }
@@ -389,5 +587,11 @@ internal data class ResourcePackArchive(
             }
             return digest.digest().joinToString("") { "%02x".format(it) }
         }
+    }
+}
+
+private fun requirePackEntry(path: String) {
+    require(path.isNotEmpty() && '\\' !in path && '\u0000' !in path && path.split('/').none { it.isEmpty() || it == "." || it == ".." }) {
+        "Invalid resource-pack entry: '$path'"
     }
 }

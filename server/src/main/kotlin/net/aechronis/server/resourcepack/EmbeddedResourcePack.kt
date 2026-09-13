@@ -11,6 +11,25 @@ import java.util.jar.JarFile
 object EmbeddedResourcePack {
     private const val EMBEDDED_ROOT = "embedded-resource-pack/"
 
+    /** Reads from the owning module JAR, or its live pack when running exploded classes. */
+    fun readAsset(
+        owner: Class<*>,
+        path: String,
+    ): ByteArray? {
+        require(path.isNotEmpty() && '\\' !in path && path.split('/').none { it.isEmpty() || it == "." || it == ".." }) {
+            "Invalid resource-pack asset path: $path"
+        }
+        val location = codeLocation(owner)
+        if (Files.isDirectory(location, LinkOption.NOFOLLOW_LINKS)) {
+            val file = findLivePack(location)?.resolve(path) ?: return null
+            return if (Files.isRegularFile(file)) Files.readAllBytes(file) else null
+        }
+        return JarFile(location.toFile()).use { archive ->
+            val entry = archive.getJarEntry(EMBEDDED_ROOT + path) ?: return null
+            archive.getInputStream(entry).use { it.readBytes() }
+        }
+    }
+
     fun installIfPresent(
         directory: Path?,
         owner: Class<*>,

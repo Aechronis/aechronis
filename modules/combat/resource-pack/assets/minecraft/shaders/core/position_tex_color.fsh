@@ -58,8 +58,8 @@ void main() {
     // Only crosshair.png uses this RGBA marker. Restore its vanilla white when
     // visible; checking the texel before tinting leaves other HUD sprites alone.
     if (all(lessThan(abs(texel * 255.0 - vec4(17.0, 143.0, 79.0, 254.0)), vec4(0.5)))) {
-        // ModelManager refreshes 11500 each tick while aiming. Allow partial
-        // ticks and float rounding, without matching idle/combat or drone times.
+        // ModelManager sends the 11500..11999 aiming band plus a partial tick.
+        // Other gun states use separate bands; drone cameras own their telemetry.
         if (aiming) {
             discard;
         }

@@ -1,6 +1,42 @@
 {
   "model": {
-    "type": "minecraft:model",
-    "model": "aechronis:item/m4a1"
-  }
+    "type": "minecraft:select",
+    "property": "minecraft:display_context",
+    "cases": [
+      {
+        "when": "firstperson_righthand",
+        "model": {
+          "type": "minecraft:model",
+          "model": "aechronis:item/m4a1-animation-hip-right",
+          "tints": [
+            {
+              "type": "minecraft:custom_model_data",
+              "index": 0,
+              "default": 16777215
+            }
+          ]
+        }
+      },
+      {
+        "when": "firstperson_lefthand",
+        "model": {
+          "type": "minecraft:model",
+          "model": "aechronis:item/m4a1-animation-hip-left",
+          "tints": [
+            {
+              "type": "minecraft:custom_model_data",
+              "index": 0,
+              "default": 16777215
+            }
+          ]
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "aechronis:item/m4a1"
+    }
+  },
+  "hand_animation_on_swap": false,
+  "swap_animation_scale": 1
 }

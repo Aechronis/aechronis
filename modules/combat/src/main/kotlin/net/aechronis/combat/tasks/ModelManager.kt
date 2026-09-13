@@ -5,14 +5,14 @@ import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.VehicleRegistry
-import net.aechronis.combat.utils.AIM_ENTRY_COOLDOWN_GROUP
-import net.aechronis.combat.utils.AIM_ENTRY_TICKS
+import net.aechronis.combat.utils.GunAnimation
+import net.aechronis.combat.utils.GunHandSkins
+import net.aechronis.combat.utils.gunAnimationPhase
 import net.aechronis.combat.utils.gunItemModel
 import net.aechronis.combat.utils.scopeHelmet
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
-import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EntityPose
@@ -23,11 +23,8 @@ import net.minestom.server.entity.attribute.AttributeModifier
 import net.minestom.server.entity.attribute.AttributeOperation
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
-import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.network.packet.server.play.EntityEquipmentPacket
-import net.minestom.server.network.packet.server.play.SetCooldownPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.potion.Potion
 import net.minestom.server.timer.TaskSchedule
@@ -35,11 +32,8 @@ import net.minestom.server.timer.TaskSchedule
 object ModelManager {
     private const val HIT_ANIMATION_HASTE_SOURCE = "combat:hit_animation"
 
-    // we give the client time to replace the zero-scale steady ADS model before
-    // changing material, so the outgoing model can render the item swap animation
-    private const val AIM_EXIT_PRIME_TICKS = 2
-
-    // client world age carries shader flags; the dimension clocks remain unchanged.
+    // Client world age carries shader flags plus a 0..499 animation phase; the
+    // dimension clocks remain unchanged. Partial ticks keep the phase smooth.
     // both active values stay in 11xxx so rendertype_lines also hides fake block outlines.
     private const val SHADER_IDLE_TIME = 10000L
     private const val SHADER_COMBAT_TIME = 11000L
@@ -62,6 +56,17 @@ object ModelManager {
             add(Vec(0.0, 2.0, 1.0))
         }
 
+    private val automaticGunFakeBlockOffsets =
+        buildList {
+            for (y in 1..3) {
+                for (x in -2..2) {
+                    for (z in -2..2) {
+                        add(Vec(x.toDouble(), y.toDouble(), z.toDouble()))
+                    }
+                }
+            }
+        }
+
     private val hitAnimationDisabledPlayers = HashSet<Player>()
 
     private data class FakeBlocks(
@@ -70,23 +75,6 @@ object ModelManager {
     )
 
     private val fakeBlocks = HashMap<Player, FakeBlocks>()
-
-    private data class AimEntry(
-        val gun: Gun,
-        val slot: Byte,
-        val crouching: Boolean,
-        var ticksRemaining: Int = AIM_ENTRY_TICKS,
-    )
-
-    private val aimEntries = HashMap<Player, AimEntry>()
-
-    private data class AimExit(
-        val gun: Gun,
-        val slot: Byte,
-        var ticksRemaining: Int = AIM_EXIT_PRIME_TICKS,
-    )
-
-    private val aimExits = HashMap<Player, AimExit>()
 
     private val sniperScopeModifier =
         AttributeModifier(
@@ -118,41 +106,66 @@ object ModelManager {
             .schedule()
     }
 
+    /** Returns false when a drone owns world-age telemetry instead of the gun clock. */
+    internal fun syncShaderTime(
+        player: Player,
+        worldAge: Long,
+    ): Boolean {
+        val packet = shaderTimePacket(player, worldAge) ?: return false
+        player.sendPacket(packet)
+        return true
+    }
+
+    internal fun shaderTimePacket(
+        player: Player,
+        worldAge: Long,
+        ammoAvailable: Boolean? = null,
+    ): SetTimePacket? {
+        val instance = player.instance ?: return null
+        if (VehicleRegistry.driver(player)?.vehicle is Drone || Drone.crashStaticCamera(player) != null) return null
+        val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
+        val hideCrosshair =
+            gun != null &&
+                Combat.playerAiming[player] == true &&
+                Combat.reloadTasks[player] == null &&
+                (ammoAvailable ?: gun.hasAmmo(player))
+        val band =
+            when {
+                hideCrosshair -> SHADER_AIMING_TIME
+                gun != null || VehicleTickManager.playerLookingAtVehicle[player] != null -> SHADER_COMBAT_TIME
+                else -> SHADER_IDLE_TIME
+            }
+        return SetTimePacket(band + gunAnimationPhase(worldAge), instance.createTimePacket().clocks)
+    }
+
     fun updateModel(player: Player) {
         val instance = player.instance ?: return
         restoreStowedGuns(player)
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
         val isAiming = gun != null && Combat.playerAiming[player] == true
-        val firstPersonAdsDisabled = Combat.isAdsAnimationDisabled(player.uuid)
         val showAim =
             gun != null &&
                 isAiming &&
                 Combat.reloadTasks[player] == null &&
                 gun.hasAmmo(player)
-        if (!showAim || firstPersonAdsDisabled) clearAimEntry(player)
-        if (showAim || firstPersonAdsDisabled || gun == null) aimExits.remove(player)
         val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
         val isPilotingDrone = VehicleRegistry.driver(player)?.vehicle is Drone
+        val droneOwnsShaderTime = isPilotingDrone || Drone.crashStaticCamera(player) != null
+        GunAnimation.update(player, gun, viewModelVisible = !droneOwnsShaderTime)
         setHitAnimationDisabled(player, gun != null || isLookingAtVehicle || isPilotingDrone, allowInstantBreaking = gun != null)
-        updateFakeBlocks(player, instance, gun?.automatic == true || isLookingAtVehicle)
+        updateFakeBlocks(player, instance, gun?.automatic == true || isLookingAtVehicle, automaticGun = gun?.automatic == true)
         if (gun == null) restoreSniperScope(player)
-        if (gun == null && !isLookingAtVehicle) {
-            player.sendPacket(SetTimePacket(SHADER_IDLE_TIME, instance.createTimePacket().clocks))
-            return
-        }
-
-        // hide the crosshair only when the first-person aiming animation is shown.
-        val hideCrosshair = showAim && !firstPersonAdsDisabled
-        val shaderTime = if (hideCrosshair) SHADER_AIMING_TIME else SHADER_COMBAT_TIME
-        player.sendPacket(SetTimePacket(shaderTime, instance.createTimePacket().clocks))
-
+        // Empty-handed players and late viewers need this same instance phase to
+        // see another player's ongoing animation. Only the HUD band is personal.
+        syncShaderTime(player, instance.worldAge)
         if (gun == null) return
 
-        val item = player.itemInMainHand
         val hasAmmo = gun.hasAmmo(player)
+        val preserveAction = droneOwnsShaderTime || GunAnimation.isSettling(player, gun) || GunAnimation.isFiring(player, gun)
+        if (!preserveAction) GunAnimation.updateAim(player, gun, showAim)
 
         // sniper scope
-        if (gun.sniper && isAiming && hasAmmo) {
+        if (gun.sniper && showAim && GunAnimation.isFullyAimed(player, gun)) {
             player.sendPacket(
                 EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to scopeHelmet(player.helmet))),
             )
@@ -161,65 +174,38 @@ object ModelManager {
             restoreSniperScope(player)
         }
 
-        // set correct model
-        if (Combat.reloadTasks[player] != null) {
-            aimExits.remove(player)
-            player.itemInMainHand = gunItemModel(item, gun.material, gun.itemModelReloading)
-        } else if (!hasAmmo) {
-            aimExits.remove(player)
-            player.itemInMainHand = gunItemModel(item, gun.material, gun.itemModelEmpty)
-        } else if (firstPersonAdsDisabled) {
-            // keep the loaded crossbow pose for other players and F5
-            // the model selects normal first-person geometry without ADS swap animations
-            player.itemInMainHand =
-                gunItemModel(
-                    item,
-                    gun.material,
-                    "${gun.itemModelAiming}-third-person",
-                    aiming = showAim,
-                    crouching = player.pose == EntityPose.SNEAKING,
-                )
-        } else if (showAim) {
-            val entryModel = "${gun.itemModelAiming}-enter"
-            var entry = aimEntries[player]
-            if (entry != null && (entry.gun !== gun || entry.slot != player.heldSlot)) {
-                clearAimEntry(player)
-                entry = null
+        GunHandSkins.update(player)
+        // Keep the accepted action's carrier stable while its shader runs.
+        // Manual scoped actions exit ADS within that carrier before re-aiming.
+        if (preserveAction) return
+        val model =
+            when {
+                Combat.reloadTasks[player] != null -> gun.itemModelReloading
+                !hasAmmo -> gun.itemModelEmpty
+                showAim -> gun.itemModelAiming
+                else -> gun.itemModel
             }
-            if (entry == null &&
-                (item.material() != Material.CROSSBOW || item.get(DataComponents.ITEM_MODEL) == "${gun.itemModelAiming}-third-person")
-            ) {
-                entry = AimEntry(gun, player.heldSlot, player.pose == EntityPose.SNEAKING)
-                aimEntries[player] = entry
-                // client use packets still arrive while on cooldown, keeping right-click
-                // aiming alive, but vanilla crossbow use cannot reset the hand height.
-                player.sendPacket(SetCooldownPacket(AIM_ENTRY_COOLDOWN_GROUP, AIM_ENTRY_TICKS + 1))
-            }
-            val entering = entry != null && entry.ticksRemaining-- > 0
-            player.itemInMainHand =
-                gunItemModel(
-                    item,
-                    gun.material,
-                    if (entering) entryModel else gun.itemModelAiming,
-                    aiming = true,
-                    // changing pose components during entry would restart the swap.
-                    crouching = if (entering) entry.crouching else player.pose == EntityPose.SNEAKING,
-                    enteringAim = entering,
-                )
-            if (!entering) clearAimEntry(player)
-        } else {
-            updateAimExit(player, gun, item)
-        }
+        // These first-person models implement pose interpolation in the
+        // shader; changing the vanilla material only supplies the F5 pose.
+        player.itemInMainHand =
+            gunItemModel(
+                player.itemInMainHand,
+                gun.material,
+                model,
+                aiming = showAim,
+                crouching = player.pose == EntityPose.SNEAKING,
+            )
     }
 
     private fun updateFakeBlocks(
         player: Player,
         instance: Instance,
         enabled: Boolean,
+        automaticGun: Boolean,
     ) {
         val positions =
             if (enabled) {
-                fakeBlockOffsets
+                (if (automaticGun) automaticGunFakeBlockOffsets else fakeBlockOffsets)
                     .map { player.position.add(it).asBlockVec() }
                     .filter { instance.isChunkLoaded(it) && instance.getBlock(it).isAir }
                     .toSet()
@@ -241,57 +227,10 @@ object ModelManager {
         fakeBlocks[player] = FakeBlocks(instance, positions)
     }
 
-    private fun updateAimExit(
-        player: Player,
-        gun: Gun,
-        item: ItemStack,
-    ) {
-        var exit = aimExits[player]
-        if (exit != null && (exit.gun !== gun || exit.slot != player.heldSlot)) {
-            aimExits.remove(player)
-            exit = null
-        }
-        if (exit == null && item.material() == Material.CROSSBOW) {
-            exit = AimExit(gun, player.heldSlot)
-            aimExits[player] = exit
-        }
-        if (exit != null && exit.ticksRemaining-- > 0) {
-            // This visually identical model replaces steady ADS immediately,
-            // but restores swap scale for the material change on the next phase.
-            player.itemInMainHand =
-                gunItemModel(
-                    item,
-                    gun.material,
-                    "${gun.itemModelAiming}-exit",
-                    aiming = true,
-                    crouching = player.pose == EntityPose.SNEAKING,
-                )
-        } else {
-            aimExits.remove(player)
-            player.itemInMainHand = gunItemModel(item, gun.material, gun.itemModel)
-        }
-    }
-
-    private fun clearAimEntry(player: Player) {
-        if (aimEntries.remove(player) != null) {
-            player.sendPacket(SetCooldownPacket(AIM_ENTRY_COOLDOWN_GROUP, 0))
-        }
-    }
-
-    private fun restoreStowedGuns(
-        player: Player,
-        includeHeld: Boolean = false,
-    ) {
+    private fun restoreStowedGuns(player: Player) {
         for (slot in 0 until player.inventory.size) {
-            if (!includeHeld && slot == player.heldSlot.toInt()) continue
-            val item = player.inventory.getItemStack(slot)
-            val gun = Item.getFromItemStack(item) as? Gun ?: continue
-            if (item.material() != Material.CROSSBOW &&
-                item.get(DataComponents.ITEM_MODEL) != "${gun.itemModelAiming}-third-person"
-            ) {
-                continue
-            }
-            player.inventory.setItemStack(slot, gunItemModel(item, gun.material, gun.itemModel))
+            if (slot == player.heldSlot.toInt()) continue
+            GunAnimation.restoreSlot(player, slot)
         }
     }
 
@@ -303,6 +242,7 @@ object ModelManager {
     }
 
     internal fun clearPlayer(player: Player) {
+        GunAnimation.cancel(player)
         val previous = fakeBlocks.remove(player)
         if (previous != null && player.isOnline && player.instance === previous.instance) {
             for (position in previous.positions) {
@@ -311,9 +251,6 @@ object ModelManager {
                 }
             }
         }
-        clearAimEntry(player)
-        aimExits.remove(player)
-        restoreStowedGuns(player, includeHeld = true)
         player.getAttribute(Attribute.MOVEMENT_SPEED).removeModifier(sniperScopeModifier)
         hitAnimationDisabledPlayers.remove(player)
         player.getAttribute(Attribute.ATTACK_SPEED).removeModifier(attackSpeedModifier)
@@ -326,8 +263,6 @@ object ModelManager {
         val players =
             buildSet {
                 addAll(hitAnimationDisabledPlayers)
-                addAll(aimEntries.keys)
-                addAll(aimExits.keys)
                 addAll(fakeBlocks.keys)
                 runCatching { MinecraftServer.getConnectionManager().onlinePlayers }
                     .getOrNull()
@@ -355,6 +290,7 @@ object ModelManager {
 
         hitAnimationDisabledPlayers.clear()
         fakeBlocks.clear()
+        GunAnimation.shutdown()
         try {
             HasteEffectManager.shutdown()
         } catch (exception: Throwable) {

@@ -3,6 +3,7 @@ package net.aechronis.server
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.storage.VehiclePersistence
+import net.aechronis.combat.utils.GunHandSkins
 import net.aechronis.nodes.NodesConfig
 import net.aechronis.nodes.NodesModule
 import net.aechronis.nodes.objects.OreDeposit
@@ -27,6 +28,7 @@ import net.aechronis.server.craft.Weapons
 import net.aechronis.server.listeners.PlayerJoinListener
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.tasks.TabManager
 import net.aechronis.vanilla.VanillaConfig
 import net.aechronis.vanilla.VanillaModule
@@ -54,6 +56,10 @@ class ANewMilleniumModule : AechronisModule {
 
     override fun configure(context: ModuleContext) {
         registerItems()
+        val hands by lazy {
+            checkNotNull(EmbeddedResourcePack.readAsset(javaClass, GunHandSkins.HAND_TEXTURE)) { "Missing iteration hand atlas" }
+        }
+        GunHandSkins.registerTemplate { hands }
         VanillaModule.configure(
             VanillaConfig(
                 recipesConfig = RecipesConfig(recpies = Blocks.list + Tools.list + Smelting.list + Weapons.list + Vehicles.list),

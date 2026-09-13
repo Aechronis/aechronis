@@ -55,7 +55,7 @@ void main() {
     encodedLineEndpoint.y = lineVertex == 0 || lineVertex == 3 ? 1.0 : 0.0;
     sourceLineWidth = LineWidth;
 	
-	// ModelManager sends time 11000 (combat) or 11500 (aiming). Hide
+	// ModelManager sends 11000..11499 (combat) or 11500..11999 (aiming). Hide
 	// Minecraft's translucent black selection outline around its fake sculk veins.
 	int tickGameTime = int(GameTime * 24000);
 	if ((tickGameTime / 1000) % 10 == 1) {

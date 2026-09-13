@@ -9,6 +9,7 @@ import net.aechronis.server.resourcepack.ResourcePackServer
 import net.kyori.adventure.resource.ResourcePackInfo
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.Player
 import net.minestom.server.event.Event
 import net.minestom.server.instance.InstanceContainer
 import java.nio.file.Files
@@ -92,9 +93,26 @@ class ModuleContext(
     internal fun installResourcePacks(packs: ModuleResourcePacks): ResourcePackRegistration =
         checkNotNull(resourcePackServer).installPrepared(packs)
 
+    /** Close the registration during shutdown. Provider work participates in module quiescence. */
+    fun registerPlayerResourcePack(
+        id: String,
+        provider: (Player) -> Map<String, ByteArray>?,
+    ): AutoCloseable {
+        val scope = ModuleRuntime.captureScope()
+        return checkNotNull(resourcePackServer) { "Resource-pack server is unavailable" }
+            .registerPlayerResourcePack(id) { player ->
+                if (scope == null) provider(player) else scope.dispatchCallback(null) { provider(player) }
+            }
+    }
+
+    /** Queue only the player's overlay layers after their skin becomes available or changes. */
+    fun refreshPlayerResourcePacks(player: Player) {
+        resourcePackServer?.refreshPlayerResourcePacks(player)
+    }
+
     internal fun sendResourcePacksToOnlinePlayers() {
         val server = resourcePackServer ?: return
-        MinecraftServer.getConnectionManager().onlinePlayers.forEach(server::sendResourcePacks)
+        MinecraftServer.getConnectionManager().onlinePlayers.forEach(server::sendResourcePacksAsync)
     }
 
     internal fun removeResourcePacksFromOnlinePlayers(moduleIds: Set<String>) {

@@ -3,6 +3,7 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.GunAnimation
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.clearCombatAttribution
 import net.aechronis.combat.utils.combatDamageKind
@@ -17,6 +18,7 @@ import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 object PlayerDeathListener {
     fun onPlayerDeath(event: PlayerDeathEvent) {
         val player = event.player
+        GunAnimation.cancel(player)
         val damage = Combat.activeDamage(player)
         val killer = damage?.attacker
         val weapon = damage?.combatWeapon()

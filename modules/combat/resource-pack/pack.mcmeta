@@ -1,8 +1,29 @@
 {
   "pack": {
     "pack_format": 88,
-    "min_format": [75,0],
-    "max_format": [88,0],
-    "description": "           §6§lAechronis\n§7   Combat resource pack"
+    "min_format": [
+      75,
+      0
+    ],
+    "max_format": [
+      88,
+      0
+    ],
+    "description": "           \u00a76\u00a7lAechronis\n\u00a77   Combat resource pack"
+  },
+  "overlays": {
+    "entries": [
+      {
+        "directory": "overlay_1_21_11",
+        "min_format": [
+          75,
+          0
+        ],
+        "max_format": [
+          75,
+          0
+        ]
+      }
+    ]
   }
 }

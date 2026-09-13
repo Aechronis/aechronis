@@ -3,6 +3,7 @@ package net.aechronis.server
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.storage.VehiclePersistence
+import net.aechronis.combat.utils.GunHandSkins
 import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.Boats
@@ -16,6 +17,7 @@ import net.aechronis.server.constants.Tanks
 import net.aechronis.server.listeners.PlayerJoinListener
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.tasks.TabManager
 import net.kyori.adventure.resource.ResourcePackInfo
 import java.net.URI
@@ -37,6 +39,10 @@ class TemplateModule : AechronisModule {
 
     override fun configure(context: ModuleContext) {
         registerItems()
+        val hands by lazy {
+            checkNotNull(EmbeddedResourcePack.readAsset(javaClass, GunHandSkins.HAND_TEXTURE)) { "Missing iteration hand atlas" }
+        }
+        GunHandSkins.registerTemplate { hands }
     }
 
     override fun initialize(context: ModuleContext) {

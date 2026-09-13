@@ -1,0 +1,8 @@
+{
+  "name": "aechronis-combat-blockbench",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "pngjs": "7.0.0"
+  }
+}
