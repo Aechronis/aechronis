@@ -1,8 +1,7 @@
 name: Guides Pages
 
 on:
-  # Keep deployment manual until Pages and the public custom domain are cut over
-  # from the existing public guides repository.
+  push:
   workflow_dispatch:
 
 permissions:
@@ -17,23 +16,28 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      MDBOOK_VERSION: 0.4.48
     defaults:
       run:
         working-directory: guides
     steps:
       - uses: actions/checkout@v7
-      - name: Install mdBook
-        run: cargo install --locked --version "$MDBOOK_VERSION" mdbook
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: guides/package-lock.json
+      - name: Install dependencies
+        run: npm ci
       - name: Configure Pages
         uses: actions/configure-pages@v6
       - name: Build guides
-        run: mdbook build
+        run: npm run build
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: guides/book
+          path: guides/.vitepress/dist
 
   deploy:
     needs: build

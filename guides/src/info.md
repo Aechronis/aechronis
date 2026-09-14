@@ -2,7 +2,7 @@
 
 ---
 
-<img src="info/1.png">
+<img src="/info/1.png">
 
 Welcome to aechronis we are minecraft server no 34943940394 doing fun historical iterations
 for a group of node enjoyers. If you are just here for the guides goto [quick guide](guide.md).

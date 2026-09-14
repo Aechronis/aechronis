@@ -1,0 +1,29 @@
+/* Keep each tier's illustration and description in the same row. */
+.vp-doc .building-tier {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.vp-doc .building-tier-details > :first-child {
+  margin-top: 0;
+}
+
+.vp-doc .building-tier-details > :last-child {
+  margin-bottom: 0;
+}
+
+.vp-doc .building-tier-image {
+  width: 100%;
+  height: auto;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .vp-doc .building-tier {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+}
