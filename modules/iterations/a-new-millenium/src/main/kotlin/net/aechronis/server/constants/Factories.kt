@@ -10,7 +10,7 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 
 object Factories {
-    // Vehicle fuel costs are the wiki's oil costs (guides/src/buildings.md) x16: the wiki's
+    // Vehicle fuel costs are the wiki's oil costs (site/src/buildings.md) x16: the wiki's
     // "starter"/"mid"/"top" oil price points (16/32/48, 8 at tier 3) become fixed fuel price
     // points (256/512/768, 128 at tier 3) that never change - only which vehicle sits at a
     // given price point changes as tiers unlock new (or cheaper) options.
@@ -29,7 +29,7 @@ object Factories {
         output = listOf(vehicle.toItemStack()),
     )
 
-    // Rates taken from the website (guides/src/buildings.md); expected to change once the
+    // Rates taken from the website (site/src/buildings.md); expected to change once the
     // active-factory rework lands.
     val oilRefinery =
         Factory(

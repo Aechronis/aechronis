@@ -12,4 +12,4 @@
 * `/modules/watchdog` - [AGPL-3.0](modules/watchdog/LICENSE)
 * `/modules/iterations/a-new-millenium/resource-pack` - [AGPL-3.0](modules/iterations/a-new-millenium/resource-pack/LICENSE)
 * `/modules/iterations/template/resource-pack` - [AGPL-3.0](modules/iterations/template/resource-pack/LICENSE)
-* `/guides` - [AGPL-3.0](guides/LICENSE)
+* `/site` - [AGPL-3.0](site/LICENSE)

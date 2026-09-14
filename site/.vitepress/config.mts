@@ -52,7 +52,7 @@ export default defineConfig({
       pattern: ({ relativePath }) => {
         // The home page includes info.md; edit the actual content source.
         const path = relativePath === 'index.md' ? 'info.md' : relativePath
-        return `https://github.com/Aechronis/aechronis/edit/master/guides/src/${path}`
+        return `https://github.com/Aechronis/aechronis/edit/master/site/src/${path}`
       },
       text: 'Edit page',
     },

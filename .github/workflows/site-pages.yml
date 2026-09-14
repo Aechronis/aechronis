@@ -1,4 +1,4 @@
-name: Guides Pages
+name: Site Pages
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: guides
+        working-directory: site
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,17 +27,17 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: guides/package-lock.json
+          cache-dependency-path: site/package-lock.json
       - name: Install dependencies
         run: npm ci
       - name: Configure Pages
         uses: actions/configure-pages@v6
-      - name: Build guides
+      - name: Build site
         run: npm run build
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: guides/.vitepress/dist
+          path: site/.vitepress/dist
 
   deploy:
     needs: build
