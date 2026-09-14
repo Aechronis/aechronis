@@ -14,7 +14,6 @@ Enjoy the srvr!
 - IP: play.aechronis.net
 - Dynmap: [map.aechronis.net](https://map.aechronis.net/)
 - Bans: [bans.aechronis.net](https://bans.aechronis.net/)
-- Store: [store.aechronis.net](https://store.aechronis.net/)
 - Github: [github.com/aechronis](https://github.com/aechronis/)
 - Discord: [discord.aechronis.net](https://discord.aechronis.net/)
 - Texture Pack: [github.com/aechronis/reasource-pack](https://github.com/Aechronis/resource-pack/releases/)
@@ -26,5 +25,4 @@ Enjoy the srvr!
 #### Affiliation Disclaimer
 
 - We are not affiliated with Mojang and/or Microsoft.
-
 

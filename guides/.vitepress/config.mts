@@ -44,6 +44,10 @@ export default defineConfig({
   cleanUrls: false,
   head: [['link', { rel: 'icon', type: 'image/png', href: '/favicon.png' }]],
   themeConfig: {
+    footer: {
+      message: 'The Aechronis server is in no way affiliated with Mojang Studios, nor should it be considered a company endorsed by Mojang Studios. Any contributions or purchases made on this store goes to the Aechronis team.',
+      copyright: 'For support or a purchase history, please send us a ticket in <a href="https://discord.aechronis.net/">our discord</a>.',
+    },
     editLink: {
       pattern: ({ relativePath }) => {
         // The home page includes info.md; edit the actual content source.
@@ -55,6 +59,7 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guide' },
       { text: 'Rules', link: '/rules' },
+      { text: 'Store', link: '/store' },
       { text: 'Map', link: 'https://map.aechronis.net/' },
     ],
     sidebar: [
