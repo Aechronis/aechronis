@@ -1,6 +1,4 @@
-# Aechronis: Official Rulebook
-
-*Last updated: 16/03/2026*
+# Rules
 
 ---
 
