@@ -1,7 +1,5 @@
 # Rules
 
----
-
 ## 1. Chat & Community Rules
 
 ### 1.1 Abusing Chat 
@@ -223,7 +221,3 @@
 
 ### 13.6 Post-War Looting
 * Looting or pillaging after the war period has ended is strictly forbidden.
-
----
-
-*Staff reserve the right to issue bans or punishments at their discretion.*

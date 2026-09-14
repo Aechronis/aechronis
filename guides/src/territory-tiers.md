@@ -1,6 +1,5 @@
 # Territory Tiers
 
----
 
 ## Nodesweeps
 

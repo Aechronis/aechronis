@@ -1,6 +1,5 @@
 # Quick guides for noobz 
 
----
 
 ## Nodes
 

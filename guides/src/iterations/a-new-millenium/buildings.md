@@ -4,7 +4,6 @@ See the [buildings overview](../../buildings.md) for submissions, passive and ac
 
 # Passive buildings
 
----
 
 ## Farm
 Farms produce food.
@@ -45,7 +44,6 @@ Farms produce food.
 <img src="/iterations/a-new-millenium/buildings/farm/3.webp" alt="Farm, tier 3" class="building-tier-image">
 </div>
 
----
 
 ## Port
 Ports produce fish and allow you to teleport to an allied town's port if it is close enough. Requires territory tier 1.
@@ -89,7 +87,6 @@ Ports must be built within 2 chunks of the territories edge:
 <img src="/iterations/a-new-millenium/buildings/port/3.webp" alt="Port, tier 3" class="building-tier-image">
 </div>
 
----
 
 ## Train station
 Train stations produce small amounts of coal and oil. Rails can be built connecting railways to allow fast travel between them. Requires territory tier 1. A station's tier belongs to its chunk: every registered gold-block station in a chunk with a train-station building shares that building's tier.
@@ -130,7 +127,6 @@ Train stations produce small amounts of coal and oil. Rails can be built connect
 <img src="/iterations/a-new-millenium/buildings/train-station/3.webp" alt="Train station, tier 3" class="building-tier-image">
 </div>
 
----
 
 ## Oil rig
 Oil rigs produce oil (Dragon's Breath in-game). Requires territory tier 2.
@@ -167,7 +163,6 @@ Oil rigs produce oil (Dragon's Breath in-game). Requires territory tier 2.
 
 ## Active Buildings
 
----
 ## Oil refinery
 Oil refineries convert oil into useful fuel. Requires territory tier 3.
 
@@ -201,7 +196,6 @@ Oil refineries convert oil into useful fuel. Requires territory tier 3.
 <img src="/iterations/a-new-millenium/buildings/oil-refinery/3.webp" alt="Oil refinery, tier 3" class="building-tier-image">
 </div>
 
----
 ## Land factory
 Land factories convert fuel into various land vehicles. Requires territory tier 3. If a tier has more than one vehicle available, interacting with the factory opens a menu to pick which one to build.
 
@@ -244,7 +238,6 @@ Land factories convert fuel into various land vehicles. Requires territory tier 
 <img src="/iterations/a-new-millenium/buildings/land-factory/3.webp" alt="Land factory, tier 3" class="building-tier-image">
 </div>
 
----
 ## Air factory
 Air factories convert fuel into various air vehicles. Requires territory tier 3. If a tier has more than one vehicle available, interacting with the factory opens a menu to pick which one to build.
 

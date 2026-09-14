@@ -1,6 +1,5 @@
 # Colonization
 
----
 
 Colonization lets you capture territory from an AI-controlled town without waiting for normal war to be enabled. AI control and defender settings belong to individual towns, so a nation can contain both AI and player-controlled towns. All normal war mechanics apply to colonization.
 

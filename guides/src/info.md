@@ -1,6 +1,5 @@
 # Aechronis
 
----
 
 <img src="/info/1.png">
 
