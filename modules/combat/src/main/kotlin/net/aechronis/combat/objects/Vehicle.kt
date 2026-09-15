@@ -50,6 +50,41 @@ open class Vehicle(
         itemLore,
         itemModel,
     ) {
+    /** Whether live instances of this vehicle are included in vehicle saves. */
+    open val persistent: Boolean = true
+
+    /** Whether the driver uses a vehicle-owned camera, viewmodel, and shader clock. */
+    open val customDriverView: Boolean = false
+
+    /** Current and maximum health for vehicle telemetry. */
+    open fun healthStatus(entity: Entity): Pair<Float, Float>? {
+        val runtime = VehicleRegistry.runtime(entity) ?: return null
+        return (runtime.health ?: return null) to (runtime.maxHealth ?: return null)
+    }
+
+    protected fun driverEntity(player: Player): Entity? = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this }?.entity
+
+    protected fun driverSeat(player: Player): Entity? = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this }?.seat
+
+    /** Checks live vehicle hitboxes, including their current roll, for a movement collision. */
+    protected fun intersectsVehicle(
+        instance: Instance,
+        point: Vec,
+        excludedEntity: Entity,
+    ): Boolean =
+        VehicleRegistry.all().any { runtime ->
+            val entity = runtime.entity
+            if (entity == excludedEntity || entity.instance != instance) return@any false
+            val position = entity.position
+            runtime.vehicle.hitbox.containsPoint(
+                point,
+                position,
+                position.yaw,
+                position.pitch,
+                runtime.vehicle.hitboxRoll(entity),
+            ) != null
+        }
+
     // ================
     // PLACE FUNCTIONS
     // ================
@@ -546,7 +581,6 @@ open class Vehicle(
             VehicleRegistry.rides().forEach { ride -> cleanup { forceExit(ride.player) } }
 
             listOf<() -> Unit>(
-                Drone::shutdownRuntimeState,
                 Plane::shutdownRuntimeState,
                 Tank::shutdownRuntimeState,
                 Car::shutdownRuntimeState,
@@ -577,6 +611,8 @@ open class Vehicle(
         }
 
         fun isVehicleOccupant(player: Player): Boolean = activeRide(player) != null
+
+        fun drivenBy(player: Player): Vehicle? = VehicleRegistry.driver(player)?.vehicle
 
         // true while the player rides a vehicle that protects its occupants from damage
         fun isProtectedOccupant(player: Player): Boolean = activeRide(player)?.vehicle?.invulnerableWhileRiding == true

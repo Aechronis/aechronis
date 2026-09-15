@@ -1,10 +1,8 @@
 package net.aechronis.combat.utils
 
 import net.aechronis.combat.Combat
-import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
-import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.tasks.ModelManager
 import net.minestom.server.color.Color
 import net.minestom.server.component.DataComponents
@@ -204,8 +202,7 @@ internal object GunAnimation {
         player.isOnline &&
             !player.isDead &&
             player.instance != null &&
-            VehicleRegistry.driver(player)?.vehicle !is Drone &&
-            Drone.crashStaticCamera(player) == null
+            !ModelManager.hasCustomView(player)
 
     private fun matches(
         player: Player,

@@ -8,7 +8,6 @@ import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.Boats
 import net.aechronis.server.constants.Cars
-import net.aechronis.server.constants.Drones
 import net.aechronis.server.constants.Grenades
 import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Hats
@@ -68,8 +67,6 @@ class TemplateModule : AechronisModule {
             Planes.bomber,
             Cars.truck,
             Tanks.m1a1Abrams,
-            Drones.scoutDrone,
-            Drones.kamikazeDrone,
             Boats.ussButler,
         )
     }

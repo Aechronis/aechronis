@@ -1,11 +1,11 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
-import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.utils.EntityTags
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.damage.Damage
 import net.minestom.server.event.entity.EntityDamageEvent
 
 object MannequinDamageListener {
@@ -13,21 +13,6 @@ object MannequinDamageListener {
 
     fun onEntityDamage(event: EntityDamageEvent) {
         val entity = event.entity
-
-        // a drone operator clone takes hits on the pilot's behalf: cancel the
-        // damage on the clone and apply it to the pilot instead.
-        val pilot = entity.let { Drone.mannequinPilot[it] }
-        if (pilot != null) {
-            event.isCancelled = true
-
-            forwarding.add(pilot)
-            try {
-                Combat.applyDamage(pilot, event.damage)
-            } finally {
-                forwarding.remove(pilot)
-            }
-            return
-        }
 
         // other mannequins (such as corpses) ignore damage entirely
         if (
@@ -41,6 +26,19 @@ object MannequinDamageListener {
         // occupants of a protecting vehicle are invulnerable while riding
         if (entity is Player && entity !in forwarding && Vehicle.isProtectedOccupant(entity)) {
             event.isCancelled = true
+        }
+    }
+
+    /** Applies a proxy body's damage to its owner while bypassing vehicle occupant protection. */
+    fun forwardDamage(
+        player: Player,
+        damage: Damage,
+    ) {
+        forwarding.add(player)
+        try {
+            Combat.applyDamage(player, damage)
+        } finally {
+            forwarding.remove(player)
         }
     }
 

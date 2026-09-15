@@ -3,7 +3,6 @@ package net.aechronis.combat.storage
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.Vehicle
@@ -97,7 +96,7 @@ object VehiclePersistence {
             VehicleRegistry.all().mapNotNull { runtime ->
                 val entity = runtime.entity
                 val vehicle = runtime.vehicle
-                if (entity.instance !== instance || vehicle is Drone) return@mapNotNull null
+                if (entity.instance !== instance || !vehicle.persistent) return@mapNotNull null
                 val position = entity.position
                 PersistedVehicle(
                     type = vehicle.name,
@@ -141,7 +140,7 @@ object VehiclePersistence {
         deadline: VehicleLifecycleDeadline,
     ) {
         val vehicle = Item.getFromName(saved.type) as? Vehicle
-        if (vehicle == null || vehicle is Drone) {
+        if (vehicle == null || !vehicle.persistent) {
             System.err.println("[Combat] Ignoring unknown or non-persistent vehicle '${saved.type}'")
             return
         }

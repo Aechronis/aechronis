@@ -25,9 +25,11 @@ import net.aechronis.server.craft.Smelting
 import net.aechronis.server.craft.Tools
 import net.aechronis.server.craft.Vehicles
 import net.aechronis.server.craft.Weapons
+import net.aechronis.server.listeners.DroneListener
 import net.aechronis.server.listeners.PlayerJoinListener
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.objects.Drone
 import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.tasks.TabManager
 import net.aechronis.vanilla.VanillaConfig
@@ -95,6 +97,7 @@ class ANewMilleniumModule : AechronisModule {
         TabManager.start()
 
         initializeVehiclePersistence(context)
+        DroneListener.init(context)
         PlayerJoinListener.init(context)
         CraftingStoreIntegration.initialize()
         VotifierIntegration.initialize()
@@ -151,6 +154,7 @@ class ANewMilleniumModule : AechronisModule {
             ::shutdownExternalServices,
             TabManager::shutdown,
             VehiclePersistence::shutdown,
+            Drone::shutdownRuntimeState,
             Item.registeredItems::clear,
         ).forEach { cleanup ->
             runCatching(cleanup).onFailure { error ->

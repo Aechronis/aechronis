@@ -3,7 +3,6 @@ package net.aechronis.combat.tasks
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.ArmedVehicle
 import net.aechronis.combat.objects.Car
-import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Plane
@@ -55,11 +54,7 @@ object ActionBarManager {
         val vehicle = ride.vehicle
         val entity = ride.entity
         val runtime = ride.runtime
-        val health =
-            when (vehicle) {
-                is Drone -> Drone.entityHealth[entity]?.let { it to vehicle.rawHealth }
-                else -> runtime.health?.let { it to (runtime.maxHealth ?: return null) }
-            } ?: return null
+        val health = vehicle.healthStatus(entity) ?: return null
         val movementTelemetry =
             when (vehicle) {
                 is Plane ->

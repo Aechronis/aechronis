@@ -1,7 +1,6 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
-import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Grenade
 import net.aechronis.combat.objects.HatMenu
 import net.aechronis.combat.objects.Hitbox
@@ -17,7 +16,6 @@ object PlayerDisconnectListener {
 
         // vehicle
         Vehicle.exit(player)
-        Drone.clearCrashStatic(player, resetCamera = false)
 
         VehicleTickManager.playerLookingAtVehicle.remove(player)
         VehicleTickManager.playerLookingAtEntity.remove(player)

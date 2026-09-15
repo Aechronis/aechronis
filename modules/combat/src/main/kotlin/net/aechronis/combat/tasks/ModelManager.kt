@@ -1,10 +1,9 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
-import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
-import net.aechronis.combat.objects.VehicleRegistry
+import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.utils.GunAnimation
 import net.aechronis.combat.utils.GunHandSkins
 import net.aechronis.combat.utils.gunAnimationPhase
@@ -28,6 +27,7 @@ import net.minestom.server.network.packet.server.play.EntityEquipmentPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.potion.Potion
 import net.minestom.server.timer.TaskSchedule
+import java.util.concurrent.ConcurrentHashMap
 
 object ModelManager {
     private const val HIT_ANIMATION_HASTE_SOURCE = "combat:hit_animation"
@@ -68,6 +68,7 @@ object ModelManager {
         }
 
     private val hitAnimationDisabledPlayers = HashSet<Player>()
+    private val customViewPlayers = ConcurrentHashMap.newKeySet<Player>()
 
     private data class FakeBlocks(
         val instance: Instance,
@@ -106,7 +107,17 @@ object ModelManager {
             .schedule()
     }
 
-    /** Returns false when a drone owns world-age telemetry instead of the gun clock. */
+    /** Tracks a temporary camera or shader clock that can outlive a vehicle ride. */
+    fun setCustomView(
+        player: Player,
+        enabled: Boolean,
+    ) {
+        if (enabled) customViewPlayers.add(player) else customViewPlayers.remove(player)
+    }
+
+    fun hasCustomView(player: Player): Boolean = Vehicle.drivenBy(player)?.customDriverView == true || player in customViewPlayers
+
+    /** Returns false when a custom view owns world-age telemetry instead of the gun clock. */
     internal fun syncShaderTime(
         player: Player,
         worldAge: Long,
@@ -122,7 +133,7 @@ object ModelManager {
         ammoAvailable: Boolean? = null,
     ): SetTimePacket? {
         val instance = player.instance ?: return null
-        if (VehicleRegistry.driver(player)?.vehicle is Drone || Drone.crashStaticCamera(player) != null) return null
+        if (hasCustomView(player)) return null
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
         val hideCrosshair =
             gun != null &&
@@ -149,10 +160,10 @@ object ModelManager {
                 Combat.reloadTasks[player] == null &&
                 gun.hasAmmo(player)
         val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
-        val isPilotingDrone = VehicleRegistry.driver(player)?.vehicle is Drone
-        val droneOwnsShaderTime = isPilotingDrone || Drone.crashStaticCamera(player) != null
-        GunAnimation.update(player, gun, viewModelVisible = !droneOwnsShaderTime)
-        setHitAnimationDisabled(player, gun != null || isLookingAtVehicle || isPilotingDrone, allowInstantBreaking = gun != null)
+        val hasCustomDriverView = Vehicle.drivenBy(player)?.customDriverView == true
+        val customViewOwnsShaderTime = hasCustomView(player)
+        GunAnimation.update(player, gun, viewModelVisible = !customViewOwnsShaderTime)
+        setHitAnimationDisabled(player, gun != null || isLookingAtVehicle || hasCustomDriverView, allowInstantBreaking = gun != null)
         updateFakeBlocks(player, instance, gun?.automatic == true || isLookingAtVehicle, automaticGun = gun?.automatic == true)
         if (gun == null) restoreSniperScope(player)
         // Empty-handed players and late viewers need this same instance phase to
@@ -161,7 +172,7 @@ object ModelManager {
         if (gun == null) return
 
         val hasAmmo = gun.hasAmmo(player)
-        val preserveAction = droneOwnsShaderTime || GunAnimation.isSettling(player, gun) || GunAnimation.isFiring(player, gun)
+        val preserveAction = customViewOwnsShaderTime || GunAnimation.isSettling(player, gun) || GunAnimation.isFiring(player, gun)
         if (!preserveAction) GunAnimation.updateAim(player, gun, showAim)
 
         // sniper scope
@@ -242,6 +253,7 @@ object ModelManager {
     }
 
     internal fun clearPlayer(player: Player) {
+        customViewPlayers.remove(player)
         GunAnimation.cancel(player)
         val previous = fakeBlocks.remove(player)
         if (previous != null && player.isOnline && player.instance === previous.instance) {
@@ -263,6 +275,7 @@ object ModelManager {
         val players =
             buildSet {
                 addAll(hitAnimationDisabledPlayers)
+                addAll(customViewPlayers)
                 addAll(fakeBlocks.keys)
                 runCatching { MinecraftServer.getConnectionManager().onlinePlayers }
                     .getOrNull()
@@ -289,6 +302,7 @@ object ModelManager {
         }
 
         hitAnimationDisabledPlayers.clear()
+        customViewPlayers.clear()
         fakeBlocks.clear()
         GunAnimation.shutdown()
         try {

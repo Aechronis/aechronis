@@ -6,7 +6,6 @@ import net.aechronis.combat.listeners.AimingListener
 import net.aechronis.combat.listeners.AmmoInventoryListener
 import net.aechronis.combat.listeners.ArmorProtectionListener
 import net.aechronis.combat.listeners.CooldownResetListener
-import net.aechronis.combat.listeners.DroneListener
 import net.aechronis.combat.listeners.FireListener
 import net.aechronis.combat.listeners.GrenadeListener
 import net.aechronis.combat.listeners.HatListener
@@ -210,7 +209,6 @@ object Combat {
             RespawnProtectionListener.init()
             MannequinDamageListener.init()
             VehicleListener.init()
-            DroneListener.init()
             KeyPressListener.init()
             HatListener.init()
             LagCompensationListener.init()

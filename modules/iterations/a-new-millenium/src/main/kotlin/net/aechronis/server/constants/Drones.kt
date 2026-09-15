@@ -1,8 +1,8 @@
 package net.aechronis.server.constants
 
-import net.aechronis.combat.objects.Drone
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
+import net.aechronis.server.objects.Drone
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component

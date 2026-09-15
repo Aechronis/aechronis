@@ -1,7 +1,12 @@
-package net.aechronis.combat.objects
+package net.aechronis.server.objects
 
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
+import net.aechronis.combat.objects.AmmoTypes
+import net.aechronis.combat.objects.Explosion
+import net.aechronis.combat.objects.Hitbox
+import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.setRoll
 import net.aechronis.server.modules.ModuleScheduler
@@ -84,6 +89,11 @@ class Drone(
         placeTime,
     ) {
     val rawHealth: Float = health
+
+    override val persistent = false
+    override val customDriverView = true
+
+    override fun healthStatus(entity: Entity): Pair<Float, Float>? = entityHealth[entity]?.let { it to rawHealth }
 
     override fun onEnter(
         player: Player,
@@ -185,7 +195,7 @@ class Drone(
     override fun onExit(player: Player) {
         val retainCrashStatic = hasCrashStatic(player)
         // restore the drone model's (and mounted payload's) visibility to the pilot
-        val entity = VehicleRegistry.driver(player)?.entity
+        val entity = driverEntity(player)
         entity?.addViewer(player)
         entityPayload[entity]?.addViewer(player)
         super.onExit(player)
@@ -309,7 +319,7 @@ class Drone(
 
     // ends a pilots flight
     private fun endFlight(player: Player) {
-        val entity = VehicleRegistry.driver(player)?.entity
+        val entity = driverEntity(player)
         if (projectileModel == null || entity == null) {
             onExit(player)
             return
@@ -366,13 +376,7 @@ class Drone(
     ): Boolean {
         if (instance.getBlock(p).isSolid) return true
 
-        for (runtime in VehicleRegistry.all()) {
-            val vehicleEntity = runtime.entity
-            val vehicle = runtime.vehicle
-            if (vehicleEntity == droneEntity || vehicleEntity.instance != instance) continue
-            val vp = vehicleEntity.position
-            if (vehicle.hitbox.containsPoint(p.asVec(), vp, vp.yaw, vp.pitch, vehicle.hitboxRoll(vehicleEntity)) != null) return true
-        }
+        if (intersectsVehicle(instance, p.asVec(), droneEntity)) return true
 
         for (other in instance.players) {
             if (other == pilot) continue
@@ -414,7 +418,7 @@ class Drone(
     }
 
     override fun onTick(player: Player) {
-        val entity = VehicleRegistry.driver(player)?.entity ?: return
+        val entity = driverEntity(player) ?: return
         val inputEvent = KeyPressListener.playerInputEvent[player]
 
         spectateCamera(player, entitySpider[entity])
@@ -438,7 +442,7 @@ class Drone(
 
         playFlightBuzz(player, entity, finalPos, throttle)
         entityPayload[entity]?.teleport(payloadWorldPos(finalPos.withPitch(orientation.renderPitch)))
-        VehicleRegistry.driver(player)?.seat?.teleport(finalPos)
+        driverSeat(player)?.teleport(finalPos)
 
         updatePilotView(player, entity, finalPos, orientation)
 
@@ -740,6 +744,7 @@ class Drone(
         camera.setAutoViewable(false)
         camera.addViewer(player)
         playerCrashStaticCameras[player] = camera
+        ModelManager.setCustomView(player, true)
 
         player.spectate(camera)
         player.instance?.let { instance ->
@@ -800,13 +805,12 @@ class Drone(
 
         internal fun hasCrashStatic(player: Player): Boolean = playerCrashStaticCameras.containsKey(player)
 
-        internal fun crashStaticCamera(player: Player): LivingEntity? = playerCrashStaticCameras[player]
-
         internal fun clearCrashStatic(
             player: Player,
             resetCamera: Boolean = true,
         ) {
             playerCrashStaticTasks.remove(player)?.cancel()
+            ModelManager.setCustomView(player, false)
             val camera = playerCrashStaticCameras.remove(player) ?: return
             if (resetCamera && player.isOnline) player.stopSpectating()
             camera.remove()
@@ -843,6 +847,7 @@ class Drone(
             mannequinPilot.keys.toSet().forEach(Entity::remove)
 
             for (player in players) {
+                ModelManager.setCustomView(player, false)
                 playerOriginalBoundingBox[player]?.let { original ->
                     runCatching { player.boundingBox = original }
                 }
@@ -888,6 +893,7 @@ class Drone(
         ) {
             if (!playerCrashStaticCameras.remove(player, camera)) return
             playerCrashStaticTasks.remove(player)
+            ModelManager.setCustomView(player, false)
             if (player.isOnline) player.stopSpectating()
             camera.remove()
         }

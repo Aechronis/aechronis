@@ -288,7 +288,7 @@ class Explosion private constructor(
     )
 
     companion object {
-        internal fun bypassingDamageImmunity(
+        fun bypassingDamageImmunity(
             instance: Instance,
             pos: Pos,
             radius: Int,
