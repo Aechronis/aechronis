@@ -19,6 +19,10 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.RelativeFlags
+import net.minestom.server.entity.attribute.Attribute
+import net.minestom.server.entity.attribute.AttributeModifier
+import net.minestom.server.entity.attribute.AttributeOperation
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
@@ -58,6 +62,9 @@ open class Vehicle(
 
     /** Whether the driver uses a vehicle-owned camera, viewmodel, and shader clock. */
     open val customDriverView: Boolean = false
+
+    /** Controls from an unmounted standing position instead of a passenger seat. */
+    open val standingDriver: Boolean = false
 
     /** Current and maximum health for vehicle telemetry. */
     open fun healthStatus(entity: Entity): Pair<Float, Float>? {
@@ -231,9 +238,17 @@ open class Vehicle(
         meta.isHasNoGravity = true
 
         seatEntity.spawn()
-        seatEntity.addPassenger(player)
+        if (!standingDriver) seatEntity.addPassenger(player)
 
         VehicleRegistry.enter(player, entity, seatEntity, VehicleSeatRole.DRIVER)
+        if (standingDriver) {
+            standingControlFieldViews.putIfAbsent(player, player.fieldViewModifier)
+            // A zero walking-speed baseline disables the client's speed-based FOV adjustment.
+            player.fieldViewModifier = 0f
+            standingControlAttributes.forEach { player.getAttribute(it).addModifier(standingControlModifier) }
+            player.velocity = Vec.ZERO
+            moveStandingDriver(player, seatPos)
+        }
         hideOccupant(player)
         LagCompensation.resetHistory(player)
     }
@@ -243,6 +258,7 @@ open class Vehicle(
         val ride = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this } ?: return
         // Detach before removing the seat: Minestom removal events reenter invalidation.
         VehicleRegistry.leave(player)
+        if (standingDriver) restoreStandingControl(player)
         LagCompensation.resetHistory(player)
         ride.seat.removePassenger(player)
         ride.seat.remove()
@@ -262,9 +278,12 @@ open class Vehicle(
         }
 
         val playerView = player.position
-        ride.seat.teleport(
-            getSeatWorldPos(entity, 0).withView(playerView.yaw, playerView.pitch),
-        )
+        val controlPosition = getSeatWorldPos(entity, 0).withView(playerView.yaw, playerView.pitch)
+        ride.seat.teleport(controlPosition)
+        if (standingDriver) {
+            player.velocity = Vec.ZERO
+            if (player.position.distanceSquared(controlPosition) > 1.0e-8) moveStandingDriver(player, controlPosition)
+        }
 
         updatePassengerSeats(entity)
     }
@@ -279,7 +298,11 @@ open class Vehicle(
         VehicleRegistry.driverOf(entity)?.let { ride ->
             val seatPosition = getSeatWorldPos(entity, 0)
             ride.seat.teleport(seatPosition)
-            ride.player.teleport(seatPosition)
+            if (standingDriver) {
+                moveStandingDriver(ride.player, seatPosition)
+            } else {
+                ride.player.teleport(seatPosition)
+            }
         }
         VehicleRegistry.passengers(entity).forEachIndexed { index, ride ->
             val seatPosition = getSeatWorldPos(entity, index + 1)
@@ -563,6 +586,27 @@ open class Vehicle(
     }
 
     companion object {
+        private val standingControlFieldViews = HashMap<Player, Float>()
+
+        // Multiplying the total by zero also suppresses sprint and equipment speed bonuses.
+        private val standingControlAttributes = listOf(Attribute.MOVEMENT_SPEED, Attribute.JUMP_STRENGTH, Attribute.GRAVITY)
+        private val standingControlModifier =
+            AttributeModifier("aechronis:standing_vehicle_control", -1.0, AttributeOperation.ADD_MULTIPLIED_TOTAL)
+
+        private fun restoreStandingControl(player: Player) {
+            standingControlAttributes.forEach { player.getAttribute(it).removeModifier(standingControlModifier) }
+            standingControlFieldViews.remove(player)?.let { player.fieldViewModifier = it }
+        }
+
+        private fun moveStandingDriver(
+            player: Player,
+            position: Pos,
+        ) {
+            // Zero relative view deltas preserve even mouse movement not yet received by the server.
+            // Continuous movement must not wait for teleport confirmations, which block incoming look updates.
+            player.teleport(position.withView(0f, 0f), Vec.ZERO, null, RelativeFlags.VIEW, false)
+        }
+
         private const val VISIBILITY_RULE_OWNER = "combat:vehicle-occupant"
         private val hiddenOccupants = HashSet<Player>()
         private val forcedExitPlayers = HashSet<Player>()
@@ -670,8 +714,11 @@ open class Vehicle(
                     entity.instance != null &&
                     entity.instance === player.instance &&
                     seat.instance === player.instance &&
-                    player.vehicle === seat &&
-                    player in seat.passengers
+                    if (ride.role == VehicleSeatRole.DRIVER && ride.vehicle.standingDriver) {
+                        player.vehicle == null && player.position.distanceSquared(seat.position) < 16.0
+                    } else {
+                        player.vehicle === seat && player in seat.passengers
+                    }
             }
         }
 
@@ -688,6 +735,7 @@ open class Vehicle(
                     if (player.vehicle === ride.seat) ride.seat.removePassenger(player)
                     if (!ride.seat.isRemoved) ride.seat.remove()
                 } finally {
+                    if (ride.role == VehicleSeatRole.DRIVER && ride.vehicle.standingDriver) restoreStandingControl(player)
                     forcedExitPlayers.remove(player)
                     if (hiddenOccupants.remove(player)) VisibilityRules.remove(player, VISIBILITY_RULE_OWNER)
                 }
