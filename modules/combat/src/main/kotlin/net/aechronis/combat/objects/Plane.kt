@@ -98,6 +98,7 @@ class Plane(
     val seatOffset: List<Vec> = listOf(Vec.ZERO),
     invisibleWhileRiding: Boolean = true,
     invulnerableWhileRiding: Boolean = true,
+    animatedParts: List<AnimatedPart> = emptyList(),
 ) : Vehicle(
         name,
         itemName,
@@ -111,6 +112,7 @@ class Plane(
         seatOffset,
         invisibleWhileRiding,
         invulnerableWhileRiding,
+        animatedParts,
     ),
     ArmedVehicle {
     init {

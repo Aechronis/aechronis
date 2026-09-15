@@ -8,6 +8,42 @@ internal class VehicleRuntime(
     val entity: Entity,
     val vehicle: Vehicle,
 ) {
+    private val animatedParts = ArrayList<AnimatedPartRuntime>()
+    private var previousAnimationPosition = entity.position
+    private var animationAgeTicks = 0L
+
+    fun spawnAnimatedParts() {
+        try {
+            vehicle.animatedParts.forEach { animatedParts.add(AnimatedPartRuntime(it, this)) }
+        } catch (exception: Exception) {
+            removeAnimatedParts()
+            VehicleRegistry.remove(entity)
+            entity.remove()
+            throw exception
+        }
+    }
+
+    fun updateAnimatedParts() {
+        if (animatedParts.isEmpty() || entity.isRemoved || entity.instance == null) return
+        val context =
+            AnimatedPart.Context(
+                vehicle,
+                entity,
+                VehicleRegistry.driverOf(entity)?.player,
+                previousAnimationPosition,
+                entity.position,
+                vehicle.hitboxRoll(entity),
+                ++animationAgeTicks,
+            )
+        animatedParts.forEach { it.update(context) }
+        previousAnimationPosition = context.position
+    }
+
+    fun removeAnimatedParts() {
+        animatedParts.forEach { it.remove() }
+        animatedParts.clear()
+    }
+
     private val healthState: Health? = vehicle.health?.fresh()
     private val ammoCapacity: Int? =
         (vehicle as? ArmedVehicle)?.maxAmmo?.also {
@@ -139,11 +175,12 @@ internal object VehicleRegistry {
 
     fun remove(entity: Entity): VehicleRuntime? {
         require(playerRides.values.none { it.entity === entity }) { "Vehicle riders must leave before removal" }
-        return runtimes.remove(entity)
+        return runtimes.remove(entity)?.also { it.removeAnimatedParts() }
     }
 
     fun clear() {
         playerRides.clear()
+        runtimes.values.forEach { it.removeAnimatedParts() }
         runtimes.clear()
     }
 }

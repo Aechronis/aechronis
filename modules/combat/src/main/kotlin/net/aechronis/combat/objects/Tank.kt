@@ -58,6 +58,7 @@ class Tank(
     val projectileTrailSpacing: Double = 1.0,
     val projectileTrailMaxParticles: Int = 96,
     val projectileMaxRange: Double = 128.0,
+    animatedParts: List<AnimatedPart> = emptyList(),
 ) : Car(
         name,
         itemName,
@@ -77,6 +78,7 @@ class Tank(
         seatOffsets,
         invisibleWhileRiding,
         invulnerableWhileRiding,
+        animatedParts,
     ),
     ArmedVehicle {
     init {

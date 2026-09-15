@@ -44,12 +44,15 @@ open class Vehicle(
     val invisibleWhileRiding: Boolean = true,
     // occupant takes no damage while they're riding
     val invulnerableWhileRiding: Boolean = true,
+    animatedParts: List<AnimatedPart> = emptyList(),
 ) : Item(
         name,
         itemName,
         itemLore,
         itemModel,
     ) {
+    val animatedParts: List<AnimatedPart> = animatedParts.toList()
+
     /** Whether live instances of this vehicle are included in vehicle saves. */
     open val persistent: Boolean = true
 
@@ -206,7 +209,7 @@ open class Vehicle(
 
         entity.spawn()
 
-        VehicleRegistry.register(entity, this)
+        VehicleRegistry.register(entity, this).spawnAnimatedParts()
 
         return entity
     }

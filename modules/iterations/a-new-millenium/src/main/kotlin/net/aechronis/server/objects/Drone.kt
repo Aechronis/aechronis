@@ -3,6 +3,7 @@ package net.aechronis.server.objects
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.objects.AmmoTypes
+import net.aechronis.combat.objects.AnimatedPart
 import net.aechronis.combat.objects.Explosion
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Vehicle
@@ -77,6 +78,7 @@ class Drone(
     val buzzSound: Sound = Sound.sound(Key.key("${Tags.NAMESPACE}:$name.buzz"), Sound.Source.PLAYER, 1f, 1f),
     // replay length for buzz
     val buzzPeriodTicks: Int = 20,
+    animatedParts: List<AnimatedPart> = emptyList(),
 ) : Vehicle(
         name,
         itemName,
@@ -87,6 +89,7 @@ class Drone(
         hitbox,
         null,
         placeTime,
+        animatedParts = animatedParts,
     ) {
     val rawHealth: Float = health
 

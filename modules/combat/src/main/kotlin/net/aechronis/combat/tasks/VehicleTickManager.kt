@@ -58,6 +58,7 @@ object VehicleTickManager {
                 }
 
                 val vehicles = VehicleRegistry.all()
+                vehicles.forEach { it.updateAnimatedParts() }
                 val vehicleLookIndex = prepareVehicleLookIndex(vehicles.map { it.entity to it.vehicle })
                 val activeEntities = vehicles.map { it.entity }.toSet()
                 collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)

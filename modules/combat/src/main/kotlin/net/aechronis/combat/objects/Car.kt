@@ -35,6 +35,7 @@ open class Car(
     seatOffsets: List<Vec> = listOf(Vec.ZERO),
     invisibleWhileRiding: Boolean = false,
     invulnerableWhileRiding: Boolean = false,
+    animatedParts: List<AnimatedPart> = emptyList(),
 ) : Vehicle(
         name,
         itemName,
@@ -48,6 +49,7 @@ open class Car(
         seatOffsets,
         invisibleWhileRiding,
         invulnerableWhileRiding,
+        animatedParts,
     ) {
     override fun onEnter(
         player: Player,
