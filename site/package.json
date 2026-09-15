@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "sync:weapons": "node scripts/sync-weapons.mjs",
+    "sync:vehicles": "node scripts/sync-vehicles.mjs",
+    "predev": "npm run sync:weapons && npm run sync:vehicles",
+    "prebuild": "npm run sync:weapons && npm run sync:vehicles"
   },
   "devDependencies": {
     "vitepress": "1.6.4",
@@ -13,5 +17,8 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "three": "^0.186.0"
   }
 }

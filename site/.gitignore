@@ -1,3 +1,11 @@
 node_modules/
 .vitepress/cache/
 .vitepress/dist/
+
+# Generated from server definitions and source models before dev/build.
+.vitepress/theme/weapons.json
+src/iterations/*/weapons.md
+src/public/iterations/*/weapons/
+.vitepress/theme/vehicles.json
+src/iterations/*/vehicles.md
+src/public/iterations/*/vehicles/

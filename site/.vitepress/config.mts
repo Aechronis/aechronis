@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process'
 const iterationsDir = fileURLToPath(new URL('../src/iterations/', import.meta.url))
 const iterations = readdirSync(iterationsDir, { withFileTypes: true })
   .filter(entry => entry.isDirectory() && !entry.name.startsWith('.')
-    && existsSync(join(iterationsDir, entry.name, 'buildings.md')))
+    && ['buildings', 'weapons', 'vehicles'].some(page => existsSync(join(iterationsDir, entry.name, `${page}.md`))))
   .sort((a, b) => a.name.localeCompare(b.name))
   .map(entry => {
     const { title } = JSON.parse(readFileSync(join(iterationsDir, entry.name, 'iteration.json'), 'utf8'))
@@ -17,7 +17,9 @@ const iterations = readdirSync(iterationsDir, { withFileTypes: true })
     return {
       text: title,
       collapsed: false,
-      items: [{ text: 'Buildings', link: `/iterations/${entry.name}/buildings` }],
+      items: ['weapons', 'vehicles', 'buildings']
+        .filter(page => existsSync(join(iterationsDir, entry.name, `${page}.md`)))
+        .map(page => ({ text: page[0].toUpperCase() + page.slice(1), link: `/iterations/${entry.name}/${page}` })),
     }
   })
 

@@ -32,7 +32,8 @@ jobs:
         run: npm ci
       - name: Configure Pages
         uses: actions/configure-pages@v6
-      - name: Build site
+      # prebuild exports weapon stats, meshes, and textures from this checkout.
+      - name: Generate weapon catalogue and build site
         run: npm run build
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
