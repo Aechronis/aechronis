@@ -42,8 +42,7 @@ export default defineConfig({
     const [hash, date, author] = commit.split('\n')
     page.gitRevision = { hash, date, author }
   },
-  // Keep mdBook's .html URLs working on GitHub Pages.
-  cleanUrls: false,
+  cleanUrls: true,
   head: [['link', { rel: 'icon', type: 'image/png', href: '/favicon.png' }]],
   themeConfig: {
     footer: {
