@@ -10,7 +10,6 @@ import net.aechronis.nodes.objects.OreDeposit
 import net.aechronis.nodes.objects.TerritoryResources
 import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
-import net.aechronis.server.constants.Boats
 import net.aechronis.server.constants.Cars
 import net.aechronis.server.constants.Drones
 import net.aechronis.server.constants.Factories
@@ -135,7 +134,6 @@ class ANewMilleniumModule : AechronisModule {
             Tanks.t90,
             Drones.scoutDrone,
             Drones.kamikazeDrone,
-            Boats.ussButler,
         )
     }
 
