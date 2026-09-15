@@ -44,7 +44,6 @@ import java.nio.file.Path
 
 class ANewMilleniumModule : AechronisModule {
     override val id = "a-new-millenium"
-    override val conflicts = setOf("template")
     override val externalResourcePacks =
         listOf(
             ResourcePackInfo
