@@ -10,5 +10,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     api("com.github.NuVotifier.NuVotifier:nuvotifier-api:2.7.1")
     api("com.github.NuVotifier.NuVotifier:nuvotifier-common:2.7.1")
-    compileOnly("io.netty:netty-handler:4.2.17.Final")
+    compileOnly("io.netty:netty-handler:4.2.18.Final")
 }
