@@ -50,7 +50,7 @@ tasks.named<ShadowJar>("shadowJar") {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2026.08.28-26.2")
+    implementation("net.minestom:minestom:2026.09.12-26.2")
     implementation(project(":modules:misc"))
 
     implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")

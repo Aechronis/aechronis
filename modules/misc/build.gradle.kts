@@ -6,7 +6,7 @@ plugins {
 }
 
 dependencies {
-    api("net.minestom:minestom:2026.08.28-26.2")
+    api("net.minestom:minestom:2026.09.12-26.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     api("com.github.NuVotifier.NuVotifier:nuvotifier-api:2.7.1")
     api("com.github.NuVotifier.NuVotifier:nuvotifier-common:2.7.1")
