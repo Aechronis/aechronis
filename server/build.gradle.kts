@@ -47,14 +47,6 @@ tasks.named<ShadowJar>("shadowJar") {
     from(luckPermsBundleTrees) {
         exclude("net/kyori/adventure/**")
     }
-
-    relocate("org.apache.http", "net.aechronis.craftingstore.libs.apache.http")
-    relocate("org.apache.commons", "net.aechronis.craftingstore.libs.apache.commons")
-    relocate("commons.logging", "net.aechronis.craftingstore.libs.commons.logging")
-    relocate("io.socket", "net.aechronis.craftingstore.libs.socket")
-    relocate("org.json", "net.aechronis.craftingstore.libs.json")
-    relocate("okhttp3", "net.aechronis.craftingstore.libs.okhttp3")
-    relocate("okio", "net.aechronis.craftingstore.libs.okio")
 }
 
 dependencies {

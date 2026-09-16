@@ -49,21 +49,6 @@ private val CANCEL_ACTION = Key.key("gems", "cancel")
 private val transactionTimeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
 
 object Gems {
-    /** Minimal transaction bridge for integrations such as CraftingStore. */
-    fun craftingStoreWithdraw(
-        uuid: UUID,
-        amount: Long,
-        reason: String,
-    ): UUID? = repository.purchase(uuid, reason, amount)
-
-    fun craftingStoreRefund(
-        uuid: UUID,
-        amount: Long,
-        reason: String,
-    ): Boolean = repository.refund(uuid, amount, reason)
-
-    fun craftingStoreBalance(uuid: UUID): Long? = repository.findPlayerByUuid(uuid)?.balance
-
     fun rememberPlayer(player: Player) = repository.rememberPlayer(player.uuid, player.username)
 
     fun grantVoteReward(

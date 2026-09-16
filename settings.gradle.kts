@@ -43,6 +43,7 @@ include(
     ":modules:logger",
     ":modules:watchdog",
     ":modules:gems",
+    ":modules:tebex",
     ":modules:misc",
     ":modules:guard",
     ":modules:iterations:a-new-millenium",

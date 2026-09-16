@@ -10,12 +10,11 @@ internal class ShutdownCoordinator(
     private val started = AtomicBoolean()
 
     @Volatile
-    private var stages = Stages({}, {}, {}, {}, {}, {}, {}, {}, {})
+    private var stages = Stages({}, {}, {}, {}, {}, {}, {}, {})
 
     fun configure(
         beginShutdown: () -> Unit,
         stopWorldSaver: () -> Unit,
-        closeCraftingStore: () -> Unit,
         closeVotifier: () -> Unit,
         prepareModules: () -> Unit,
         saveModuleState: () -> Unit,
@@ -27,7 +26,6 @@ internal class ShutdownCoordinator(
             Stages(
                 beginShutdown,
                 stopWorldSaver,
-                closeCraftingStore,
                 closeVotifier,
                 prepareModules,
                 saveModuleState,
@@ -43,7 +41,6 @@ internal class ShutdownCoordinator(
         val configured = stages
         runStage("begin module shutdown", configured.beginShutdown)
         runStage("stop the world saver", configured.stopWorldSaver)
-        runStage("close CraftingStore", configured.closeCraftingStore)
         runStage("close Votifier", configured.closeVotifier)
         val prepared = runStage("quiesce module work", configured.prepareModules)
         if (prepared) {
@@ -75,7 +72,6 @@ internal class ShutdownCoordinator(
     private data class Stages(
         val beginShutdown: () -> Unit,
         val stopWorldSaver: () -> Unit,
-        val closeCraftingStore: () -> Unit,
         val closeVotifier: () -> Unit,
         val prepareModules: () -> Unit,
         val saveModuleState: () -> Unit,
@@ -101,7 +97,6 @@ object ServerShutdown {
     fun configure(
         beginShutdown: () -> Unit,
         stopWorldSaver: () -> Unit,
-        closeCraftingStore: () -> Unit,
         closeVotifier: () -> Unit,
         prepareModules: () -> Unit,
         saveModuleState: () -> Unit,
@@ -112,7 +107,6 @@ object ServerShutdown {
         coordinator.configure(
             beginShutdown,
             stopWorldSaver,
-            closeCraftingStore,
             closeVotifier,
             prepareModules,
             saveModuleState,

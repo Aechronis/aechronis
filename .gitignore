@@ -37,6 +37,8 @@ dist/
 /luckperms/
 /logger/
 /gems/
+/tebex/
+/server/tebex/
 /guard/
 /combat/
 /nodes/

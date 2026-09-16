@@ -9,7 +9,6 @@ object LuckPermsPermissions {
 
     private val server =
         setOf(
-            "craftingstore.admin",
             "server.setspawn",
         )
 

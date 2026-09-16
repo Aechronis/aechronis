@@ -93,6 +93,7 @@ val runtimeModuleProjects =
         ":modules:logger",
         ":modules:guard",
         ":modules:gems",
+        ":modules:tebex",
         ":modules:iterations:a-new-millenium",
     )
 

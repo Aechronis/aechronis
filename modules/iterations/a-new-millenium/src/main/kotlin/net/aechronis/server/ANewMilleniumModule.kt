@@ -97,7 +97,6 @@ class ANewMilleniumModule : AechronisModule {
         initializeVehiclePersistence(context)
         DroneListener.init(context)
         PlayerJoinListener.init(context)
-        CraftingStoreIntegration.initialize()
         VotifierIntegration.initialize()
     }
 
@@ -161,18 +160,7 @@ class ANewMilleniumModule : AechronisModule {
         failure?.let { throw it }
     }
 
-    private fun shutdownExternalServices() {
-        var failure: Throwable? = null
-        listOf(
-            VotifierIntegration::shutdown,
-            CraftingStoreIntegration::shutdown,
-        ).forEach { cleanup ->
-            runCatching(cleanup).onFailure { error ->
-                failure?.addSuppressed(error) ?: run { failure = error }
-            }
-        }
-        failure?.let { throw it }
-    }
+    private fun shutdownExternalServices() = VotifierIntegration.shutdown()
 
     private fun initializeVehiclePersistence(context: ModuleContext) {
         val vehiclePath = Path.of("combat", "vehicles.json")
