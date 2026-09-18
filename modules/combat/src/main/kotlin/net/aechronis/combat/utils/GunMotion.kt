@@ -75,7 +75,7 @@ internal object GunMotionTracker {
             val discontinuity = elapsed !in 1..5 || distanceSquared > 2.25 * elapsed * elapsed
             sample.desired =
                 when {
-                    discontinuity || !player.isOnGround || player.vehicle != null || Vehicle.isVehicleOccupant(player) -> 0
+                    discontinuity || player.vehicle != null || Vehicle.isVehicleOccupant(player) -> 0
                     distanceSquared > 0.00001 -> {
                         sample.lastMovingAge = age
                         if (player.isSprinting) 2 else 1
