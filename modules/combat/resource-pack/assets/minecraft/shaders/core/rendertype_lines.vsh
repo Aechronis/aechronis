@@ -57,8 +57,8 @@ void main() {
 	
 	// ModelManager sends 11000..11499 (combat) or 11500..11999 (aiming). Hide
 	// Minecraft's translucent black selection outline around its fake sculk veins.
-	int tickGameTime = int(GameTime * 24000);
-	if ((tickGameTime / 1000) % 10 == 1) {
+	float tickGameTime = floor(GameTime * 24000.0 + 0.008);
+	if (tickGameTime >= 11000.0 && tickGameTime < 12003.0) {
 		if (Color == vec4(0, 0, 0, .4)) {
 			vertexColor = vec4(0, 0, 0, 0);
 			gl_Position = vec4(0);

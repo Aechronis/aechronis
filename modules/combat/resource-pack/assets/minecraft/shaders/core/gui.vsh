@@ -48,5 +48,5 @@ void main() {
     guiExtent = ceil(projectionExtent - 0.001);
     float clock = floor(GameTime * 24000.0 + 0.008);
     bool orthographic = abs(ProjMat[2][3]) < 0.000001 && abs(ProjMat[3][3] - 1.0) < 0.000001;
-    combatCooldownPass = clock >= 11000.0 && clock < 12000.0 && orthographic ? 1.0 : 0.0;
+    combatCooldownPass = clock >= 11000.0 && clock < 12003.0 && orthographic ? 1.0 : 0.0;
 }

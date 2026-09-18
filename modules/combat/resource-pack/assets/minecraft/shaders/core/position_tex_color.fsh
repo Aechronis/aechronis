@@ -53,8 +53,8 @@ void main() {
     vec4 texel = texture(Sampler0, texCoord0);
     // ModelManager sends this before changing the held item's aiming material.
     float tickGameTime = floor(GameTime * 24000.0 + 0.008);
-    bool aiming = tickGameTime >= 11500.0 && tickGameTime < 12000.0;
-    bool combat = tickGameTime >= 11000.0 && tickGameTime < 12000.0;
+    bool aiming = tickGameTime >= 11500.0 && tickGameTime < 12003.0;
+    bool combat = tickGameTime >= 11000.0 && tickGameTime < 12003.0;
     // Only crosshair.png uses this RGBA marker. Restore its vanilla white when
     // visible; checking the texel before tinting leaves other HUD sprites alone.
     if (all(lessThan(abs(texel * 255.0 - vec4(17.0, 143.0, 79.0, 254.0)), vec4(0.5)))) {
