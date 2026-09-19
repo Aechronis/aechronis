@@ -1,6 +1,6 @@
 package net.aechronis.watchdog.alert
 
-import net.aechronis.utils.hasPermission
+import net.aechronis.server.hasPermission
 import net.aechronis.watchdog.WatchdogConfig
 import net.aechronis.watchdog.objects.Flag
 import net.aechronis.watchdog.objects.TranslationProbe

@@ -2,6 +2,7 @@ package net.aechronis.server.commands
 
 import net.aechronis.server.Server
 import net.aechronis.server.hasPermission
+import net.aechronis.server.modules.ModulePermissions
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.Command
@@ -9,6 +10,7 @@ import net.minestom.server.entity.Player
 
 class SetSpawnCommand : Command("setspawn") {
     init {
+        ModulePermissions.register(PERMISSION)
         setDefaultExecutor { sender, _ ->
             val player = sender as? Player
             if (player == null) {

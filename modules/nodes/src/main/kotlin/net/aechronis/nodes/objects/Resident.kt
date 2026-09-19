@@ -16,8 +16,8 @@ import net.aechronis.nodes.serdes.SaveState
 import net.aechronis.nodes.serdes.snapshotList
 import net.aechronis.nodes.serdes.snapshotMap
 import net.aechronis.nodes.utils.ChatColor
+import net.aechronis.server.hasPermission
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.utils.hasPermission
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.CommandSender
 import net.minestom.server.coordinate.Pos

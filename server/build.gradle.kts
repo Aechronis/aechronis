@@ -24,16 +24,6 @@ tasks.named<Jar>("jar") {
     destinationDirectory.set(layout.buildDirectory.dir("plain-libs"))
 }
 
-val luckPermsBundle = configurations.dependencyScope("luckPermsBundle")
-val luckPermsBundleClasspath =
-    configurations.resolvable("luckPermsBundleClasspath") {
-        extendsFrom(luckPermsBundle.get())
-    }
-val luckPermsBundleTrees =
-    providers.provider {
-        luckPermsBundleClasspath.get().files.map(::zipTree)
-    }
-
 tasks.named<ShadowJar>("shadowJar") {
     archiveClassifier.set("")
     eachFile {
@@ -41,20 +31,12 @@ tasks.named<ShadowJar>("shadowJar") {
             duplicatesStrategy = DuplicatesStrategy.INCLUDE
         }
     }
-    dependencies {
-        exclude(dependency("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT"))
-    }
-    from(luckPermsBundleTrees) {
-        exclude("net/kyori/adventure/**")
-    }
 }
 
 dependencies {
     implementation("net.minestom:minestom:2026.09.12-26.2")
     implementation(project(":modules:misc"))
 
-    implementation("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
-    add("luckPermsBundle", "com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     implementation("com.h2database:h2:2.5.250")
     runtimeOnly("org.mariadb.jdbc:mariadb-java-client:3.5.10")
     implementation("com.zaxxer:HikariCP:7.1.0")

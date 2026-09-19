@@ -5,6 +5,5 @@ plugins {
 
 dependencies {
     compileOnly(project(":server"))
-    compileOnly("com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
     compileOnly("net.minestom:minestom:2026.09.12-26.2")
 }

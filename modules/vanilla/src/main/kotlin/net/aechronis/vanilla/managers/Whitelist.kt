@@ -2,7 +2,8 @@ package net.aechronis.vanilla.managers
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import net.aechronis.utils.hasPermission
+import net.aechronis.server.hasPermission
+import net.aechronis.server.modules.ModulePermissions
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import java.nio.file.Files
@@ -36,6 +37,7 @@ object Whitelist {
     private lateinit var stateFile: Path
 
     fun init(path: Path) {
+        ModulePermissions.register(BYPASS_PERMISSION)
         entriesFile = path
         stateFile = path.resolveSibling("whitelist-enabled.txt")
         Files.createDirectories(path.parent)

@@ -2,6 +2,7 @@ package net.aechronis.watchdog
 
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
+import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.watchdog.alert.StaffAlert
 import net.aechronis.watchdog.checks.FlagSink
@@ -38,6 +39,7 @@ object Watchdog {
         check(initialized.compareAndSet(false, true)) { "Watchdog is already initialized" }
         try {
             this.config = config
+            ModulePermissions.register(config.staffAlertPermission)
             eventNode = EventNode.all("watchdog")
 
             val state: (Player) -> PlayerState = PlayerStateReg::getOrCreate

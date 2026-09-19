@@ -35,6 +35,7 @@ rootProject.name = "aechronis"
 
 include(
     ":server",
+    ":modules:luckperms",
     ":modules:utils",
     ":modules:combat",
     ":modules:nodes",

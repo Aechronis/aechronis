@@ -14,9 +14,10 @@ import net.aechronis.guard.listeners.TeleportListener
 import net.aechronis.guard.objects.ZonePolicy
 import net.aechronis.guard.storage.ZoneRegistry
 import net.aechronis.guard.storage.ZoneStorage
+import net.aechronis.server.hasPermission
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
-import net.aechronis.utils.hasPermission
+import net.aechronis.server.modules.ModulePermissions
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.Event
@@ -49,6 +50,7 @@ object Guard {
         check(initialized.compareAndSet(false, true)) { "Guard is already initialized" }
         try {
             this.config = config
+            ModulePermissions.register(config.bypassPermission)
             eventNode = EventNode.all("guard").setPriority(-1000)
             registry = ZoneRegistry()
             policy =

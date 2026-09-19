@@ -1,8 +1,9 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.hasPermission
+import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.VisibilityRules
-import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -172,6 +173,7 @@ object Vanish {
     }
 
     fun init() {
+        ModulePermissions.register(*(1..5).map { "vanilla.vanish.$it" }.toTypedArray())
         Vanilla.eventNode.addListener(PlayerInputEvent::class.java, ::onInput)
         Vanilla.eventNode.addListener(PlayerGameModeChangeEvent::class.java, ::onGameModeChange)
         Vanilla.eventNode.addListener(PlayerSpawnEvent::class.java, ::onSpawn)

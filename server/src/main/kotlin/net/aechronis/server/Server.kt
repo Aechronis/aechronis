@@ -1,18 +1,15 @@
 package net.aechronis.server
 
 import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
-import me.lucko.luckperms.common.config.generic.adapter.EnvironmentVariableConfigAdapter
-import me.lucko.luckperms.minestom.CommandRegistry
-import me.lucko.luckperms.minestom.LuckPermsMinestom
 import me.lucko.spark.minestom.SparkMinestom
 import net.aechronis.server.commands.SetSpawnCommand
 import net.aechronis.server.dev.DevModuleWatcher
 import net.aechronis.server.events.SpawnPointChangedEvent
 import net.aechronis.server.listeners.ResourcePackListener
-import net.aechronis.server.modules.MODULE_MANAGEMENT_PERMISSION
 import net.aechronis.server.modules.ModuleCommand
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleManager
+import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.PlayerAdmissionGate
 import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.resourcepack.ResourcePackServer
@@ -204,17 +201,10 @@ private fun startMinecraftServer(
     PlayerAdmissionGate(moduleManager::isAcceptingPlayers).install(Server.eventNode)
 
     // Core registrations must exist before the module manager captures its baseline.
-    LuckPermsMinestom
-        .builder(Path.of("luckperms"))
-        .permissionSuggestions(LuckPermsPermissions.all + MODULE_MANAGEMENT_PERMISSION)
-        .commandRegistry(CommandRegistry.minestom())
-        .configurationAdapter { plugin ->
-            EnvironmentVariableConfigAdapter(plugin)
-        }.enable()
-
     MinecraftServer.getCommandManager().register(ModuleCommand(moduleManager))
     MinecraftServer.getCommandManager().register(SetSpawnCommand())
     ResourcePackListener.initialize(resourcePackServer)
+    ModulePermissions.register("spark")
     SparkMinestom
         .builder(Path.of("spark"))
         .commands(true)

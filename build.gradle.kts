@@ -84,6 +84,7 @@ subprojects {
 
 val runtimeModuleProjects =
     listOf(
+        ":modules:luckperms",
         ":modules:utils",
         ":modules:watchdog",
         ":modules:combat",

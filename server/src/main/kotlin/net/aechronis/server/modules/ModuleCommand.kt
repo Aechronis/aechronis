@@ -1,8 +1,8 @@
 package net.aechronis.server.modules
 
+import net.aechronis.server.hasPermission
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
-import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.command.CommandSender
 import net.minestom.server.command.builder.Command
 import net.minestom.server.command.builder.arguments.ArgumentType
@@ -22,6 +22,7 @@ class ModuleCommand(
         }
 
     init {
+        ModulePermissions.register(MODULE_MANAGEMENT_PERMISSION)
         // Minestom also evaluates command conditions while building a player's command tree, so
         // this predicate must remain free of user-visible side effects.
         setCondition { sender, _ -> canManage(sender) }
@@ -153,15 +154,5 @@ private fun ModuleStatus.stateColor(): NamedTextColor = if (enabled) NamedTextCo
 
 private fun hasModuleManagementPermission(sender: CommandSender): Boolean {
     if (sender !is Player) return true
-    if (System.getProperty("aechronis.dangerously-enable-all-permissions").toBoolean()) return true
-    return runCatching {
-        LuckPermsProvider
-            .get()
-            .userManager
-            .getUser(sender.uuid)
-            ?.cachedData
-            ?.permissionData
-            ?.checkPermission(MODULE_MANAGEMENT_PERMISSION)
-            ?.asBoolean() == true
-    }.getOrDefault(false)
+    return sender.hasPermission(MODULE_MANAGEMENT_PERMISSION)
 }

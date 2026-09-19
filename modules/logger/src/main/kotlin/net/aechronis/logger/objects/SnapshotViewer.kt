@@ -1,8 +1,8 @@
 package net.aechronis.logger.objects
 
 import net.aechronis.logger.Logger
+import net.aechronis.server.hasPermission
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.utils.hasPermission
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer

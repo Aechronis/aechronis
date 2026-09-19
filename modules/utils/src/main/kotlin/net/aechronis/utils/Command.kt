@@ -1,5 +1,7 @@
 package net.aechronis.utils
 
+import net.aechronis.server.hasPermission
+import net.aechronis.server.modules.ModulePermissions
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.CommandSender
@@ -22,6 +24,10 @@ open class Command(
     val permission: String? = null,
     vararg aliases: String,
 ) : MinestomCommand(name, *aliases) {
+    init {
+        ModulePermissions.register(permission)
+    }
+
     /**
      * Adds a default executor that requires a permitted player sender.
      */
@@ -39,8 +45,11 @@ open class Command(
     private fun setDefaultExecutorWithPermission(
         permission: String?,
         executor: (player: Player, context: CommandContext) -> Unit,
-    ) = super.setDefaultExecutor { sender, context ->
-        validatedPlayer(sender, permission)?.let { executor(it, context) }
+    ) {
+        ModulePermissions.register(permission)
+        super.setDefaultExecutor { sender, context ->
+            validatedPlayer(sender, permission)?.let { executor(it, context) }
+        }
     }
 
     /**
@@ -64,9 +73,12 @@ open class Command(
         permission: String?,
         executor: (player: Player, context: CommandContext) -> Unit,
         vararg args: Argument<*>,
-    ) = super.addSyntax({ sender, context ->
-        validatedPlayer(sender, permission)?.let { executor(it, context) }
-    }, *args)
+    ) = run {
+        ModulePermissions.register(permission)
+        super.addSyntax({ sender, context ->
+            validatedPlayer(sender, permission)?.let { executor(it, context) }
+        }, *args)
+    }
 
     /** Adds a default executor that can be run by players, console, or server senders. */
     fun setSenderDefaultExecutor(executor: (sender: CommandSender, context: CommandContext) -> Unit) =
@@ -76,8 +88,11 @@ open class Command(
     fun setSenderDefaultExecutor(
         permission: String?,
         executor: (sender: CommandSender, context: CommandContext) -> Unit,
-    ) = super.setDefaultExecutor { sender, context ->
-        if (validatedSender(sender, permission)) executor(sender, context)
+    ) {
+        ModulePermissions.register(permission)
+        super.setDefaultExecutor { sender, context ->
+            if (validatedSender(sender, permission)) executor(sender, context)
+        }
     }
 
     /** Adds a syntax that can be executed by players, console, or server senders. */
@@ -91,9 +106,12 @@ open class Command(
         permission: String?,
         executor: (sender: CommandSender, context: CommandContext) -> Unit,
         vararg args: Argument<*>,
-    ) = super.addSyntax({ sender, context ->
-        if (validatedSender(sender, permission)) executor(sender, context)
-    }, *args)
+    ) = run {
+        ModulePermissions.register(permission)
+        super.addSyntax({ sender, context ->
+            if (validatedSender(sender, permission)) executor(sender, context)
+        }, *args)
+    }
 
     /** Allows libraries to impose additional execution policy. */
     protected open fun canExecute(player: Player): Boolean = true

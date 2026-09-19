@@ -2,7 +2,7 @@ package net.aechronis.vanilla.managers
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import net.aechronis.utils.hasPermission
+import net.aechronis.server.hasPermission
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.FactoriesListener
 import net.aechronis.vanilla.objects.Factory

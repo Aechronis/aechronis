@@ -12,8 +12,9 @@ import net.aechronis.logger.params.ParamManager
 import net.aechronis.logger.params.ParseResult
 import net.aechronis.logger.utils.RollbackExecution
 import net.aechronis.logger.utils.parseMutation
+import net.aechronis.server.hasPermission
+import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.utils.Command
-import net.aechronis.utils.hasPermission
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
@@ -29,6 +30,7 @@ open class LoggerMutationCommand(
     private val kind: RollbackOperationKind,
 ) : Command(name, permission, alias) {
     init {
+        ModulePermissions.register("$permission.force", "$permission.confirm")
         setDefaultExecutor { sender, _ -> sender.sendMessage(Component.text(MUTATION_USAGE, NamedTextColor.GOLD)) }
         val params =
             ArgumentType.StringArray("params").setSuggestionCallback { sender, context, suggestion ->

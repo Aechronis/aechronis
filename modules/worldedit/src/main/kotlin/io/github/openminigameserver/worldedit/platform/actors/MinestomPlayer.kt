@@ -17,7 +17,7 @@ import com.sk89q.worldedit.world.entity.EntityType
 import io.github.openminigameserver.worldedit.platform.MinestomPlatform
 import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
 import io.github.openminigameserver.worldedit.platform.misc.SessionKeyImpl
-import net.aechronis.utils.hasPermission
+import net.aechronis.server.hasPermission
 import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.Player
 import java.util.Locale

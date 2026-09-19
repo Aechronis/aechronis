@@ -265,6 +265,7 @@ internal object ModuleRuntime {
     }
 
     fun deactivate(scope: ModuleResourceScope) {
+        ModulePermissions.remove(scope)
         Server.eventNode.removeChild(scope.eventNode)
         ModuleBlocks.deactivate(scope)
         scopesByClassLoader.remove(scope.classLoader, scope)
@@ -275,7 +276,8 @@ internal object ModuleRuntime {
 
     fun ownsNode(node: EventNode<out Event>): Boolean = scopesByClassLoader.values.any { it.eventNode === node || it.ownsEventNode(node) }
 
-    fun captureScope(): ModuleResourceScope? {
+    fun captureScope(preferContext: Boolean = false): ModuleResourceScope? {
+        if (preferContext) scopesByClassLoader[Thread.currentThread().contextClassLoader]?.let { return it }
         var owner: ModuleResourceScope? = null
         stackWalker.forEach { frame ->
             if (owner == null) frame.declaringClass.classLoader?.let { owner = scopesByClassLoader[it] }

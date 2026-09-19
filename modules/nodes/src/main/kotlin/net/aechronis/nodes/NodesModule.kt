@@ -4,6 +4,7 @@ import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.server.events.SpawnPointChangedEvent
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.modules.ModulePermissions
 import java.util.concurrent.CompletableFuture
 
 class NodesModule : AechronisModule {
@@ -14,6 +15,7 @@ class NodesModule : AechronisModule {
     override val reloadTogether = setOf("combat")
 
     override fun initialize(context: ModuleContext) {
+        ModulePermissions.register("nodes.bypass", "*")
         Nodes.initialize(takeConfiguration(context))
         context.addListener(SpawnPointChangedEvent::class.java) { event ->
             Nodes.config.defaultRespawnPoint = event.spawnPoint

@@ -3,8 +3,9 @@ package net.aechronis.vanilla.managers
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import net.aechronis.server.hasPermission
+import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.utils.hasPermission
 import net.aechronis.vanilla.Vanilla
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
@@ -51,6 +52,7 @@ object Warps {
     private lateinit var file: Path
 
     fun init(path: Path) {
+        ModulePermissions.register(COOLDOWN_BYPASS_PERMISSION)
         file = path
         Files.createDirectories(path.parent)
         load()
