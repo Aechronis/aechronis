@@ -1,0 +1,4 @@
+{"meta":{"type":"buildings"},"buildings":[
+  {"type":"port","name":"London","chunkX":8,"chunkZ":-434,"tier":2,"isPublic":true},
+  {"type":"port","name":"London","chunkX":8,"chunkZ":-435,"tier":2,"isPublic":true}
+]}

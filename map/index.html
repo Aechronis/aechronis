@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Nodes Map</title>
+  <!-- JetBrains Mono via Google Fonts. The served @font-face includes local()
+       references, so clients with the font installed use it locally instead of
+       downloading. display=swap shows fallback while the webfont arrives. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="theme-color" content="#111111">
+</head>
+
+<body>
+
+  <div id="map"></div>
+
+  <div id="panels">
+    <button id="panels-close" type="button" aria-label="Close panels">&times;</button>
+    <aside id="nation-panel" class="info-panel empty"></aside>
+    <aside id="territory-panel" class="info-panel empty"></aside>
+  </div>
+
+  <div id="coords" hidden></div>
+
+  <div id="loading">
+    <img src="logo.png" class="loading-spinner" alt="" aria-hidden="true">
+  </div>
+
+</body>
+
+</html>
