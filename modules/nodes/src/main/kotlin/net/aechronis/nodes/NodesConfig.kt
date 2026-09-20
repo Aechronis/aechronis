@@ -38,6 +38,8 @@ data class NodesConfig(
     // ===================================
     // resource configs
     // ===================================
+    val activeBuildings: List<net.aechronis.nodes.objects.ActiveBuildingDefinition> = emptyList(),
+
     // territory income enabled
     val incomeEnabled: Boolean = true,
 

@@ -7,7 +7,7 @@ A nodesweep is the process by which staff evaluate territories submitted by nati
 
 ## What are the benefits of Territory Tiers?
 
-Each territory tier gets an increased base income rate and mining rate. Higher territory tiers also unlock new buildings (see [Buildings](buildings.md))
+Each territory tier gets an increased base income rate and mining rate.
 
 ### Tier 1
 * +50% income 

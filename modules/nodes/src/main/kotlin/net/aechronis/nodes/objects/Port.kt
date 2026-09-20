@@ -3,6 +3,7 @@ package net.aechronis.nodes.objects
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.utils.ChatColor
+import net.kyori.adventure.text.Component
 import net.minestom.server.command.CommandSender
 import net.minestom.server.item.Material
 
@@ -26,7 +27,7 @@ class Port(
     chunkZ: Int,
     tier: Int,
     val isPublic: Boolean,
-) : Building(chunkX, chunkZ, tier) {
+) : Building(chunkX, chunkZ, tier, Component.text("Port: $name")) {
     companion object {
 
         fun load(name: String, chunkX: Int, chunkZ: Int, tier: Int, isPublic: Boolean): Port = Port(name, chunkX, chunkZ, tier, isPublic).also { Building.register(it) }

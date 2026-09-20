@@ -6,7 +6,6 @@ import net.aechronis.vanilla.config.FoodConfig
 import net.aechronis.vanilla.config.MusicConfig
 import net.aechronis.vanilla.config.RecipesConfig
 import net.aechronis.vanilla.config.ShopConfig
-import net.aechronis.vanilla.objects.Factory
 
 data class VanillaConfig(
     // Feature toggles
@@ -42,7 +41,6 @@ data class VanillaConfig(
     val spawnEnabled: Boolean = true,
     val kothEnabled: Boolean = true,
     val oresEnabled: Boolean = true,
-    val factoriesEnabled: Boolean = true,
     // Paths
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",
@@ -53,12 +51,8 @@ data class VanillaConfig(
     val kothsPath: String = "koth.json",
     val votePath: String = "vote.txt",
     val warpsPath: String = "warps.json",
-    val factoriesPath: String = "factories.json",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),
-    // Factories
-    val factories: List<Factory> = listOf(),
-    val factoryBuildTimeSeconds: Long = 3_600L,
     // Food
     val foodConfig: FoodConfig = FoodConfig(),
     // Shop

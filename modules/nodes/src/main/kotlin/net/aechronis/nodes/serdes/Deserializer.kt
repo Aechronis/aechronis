@@ -505,6 +505,7 @@ object Deserializer {
             }
 
             when (type) {
+                "active" -> BuildingJsonCodec.loadActive(building)
                 "port" -> loadPort(building)
                 "farm" -> loadFarm(building)
                 "oil_rig" -> loadOilRig(building)

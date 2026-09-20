@@ -10,7 +10,6 @@ import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.Convert
 import net.aechronis.vanilla.commands.Craft
 import net.aechronis.vanilla.commands.EnderChest
-import net.aechronis.vanilla.commands.FactoryCommand
 import net.aechronis.vanilla.commands.Fly
 import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
@@ -51,7 +50,6 @@ import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Efficiency
 import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.EnvironmentalDamage
-import net.aechronis.vanilla.managers.Factories
 import net.aechronis.vanilla.managers.Filter
 import net.aechronis.vanilla.managers.Food
 import net.aechronis.vanilla.managers.ItemFrames
@@ -130,7 +128,6 @@ object Vanilla {
                 if (config.whitelistEnabled) commands += Whitelist()
                 if (config.kothEnabled) commands += KothCommand()
                 if (config.oresEnabled) commands += Ore()
-                if (config.factoriesEnabled) commands += FactoryCommand()
                 ModuleCommands
                     .register(*commands.toTypedArray())
             }
@@ -174,7 +171,6 @@ object Vanilla {
         if (config.musicEnabled) measure("Music") { MusicManager.init() }
         if (config.kothEnabled) measure("Koth") { Koth.init(Path.of(config.path, config.kothsPath)) }
         if (config.oresEnabled) measure("Ores") { Ores.init(Path.of(config.path, config.oresPath)) }
-        if (config.factoriesEnabled) measure("Factories") { Factories.init(Path.of(config.path, config.factoriesPath)) }
         measure("Vote Links") { VoteLinks.init(Path.of(config.path, config.votePath)) }
         measure("Warps") { Warps.init(Path.of(config.path, config.warpsPath)) }
         val globalEventHandler = MinecraftServer.getGlobalEventHandler()
@@ -188,7 +184,6 @@ object Vanilla {
         runSaveStages(
             "checkpoint" to { context.captureLive(::saveCheckpoint).join() },
             "ores" to { if (config.oresEnabled) Ores.saveAll() },
-            "factories" to { if (config.factoriesEnabled) Factories.saveAll() },
             "koth" to { if (config.kothEnabled) Koth.saveAll() },
             "warps" to Warps::saveAll,
         )
@@ -213,7 +208,6 @@ object Vanilla {
             "storage" to Storage::shutdown,
             "sign editors" to Signs::shutdown,
             "pending warps" to Warps::shutdown,
-            "factories" to { if (config.factoriesEnabled) Factories.shutdown() },
             "shop inventories" to KillShop::shutdown,
             "command inventories" to Commands::shutdown,
         )

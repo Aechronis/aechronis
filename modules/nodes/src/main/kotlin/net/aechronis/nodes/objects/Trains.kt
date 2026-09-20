@@ -363,7 +363,11 @@ object Trains {
         .filter { Math.floorDiv(it.position.blockX(), 16) == chunkX && Math.floorDiv(it.position.blockZ(), 16) == chunkZ }
         .fold(mutableMapOf()) { income, station ->
             val tier = tierAt(station.position)
-            if (tier > 0) income[Material.COAL] = (income[Material.COAL] ?: 0.0) + coalIncome(tier)
+            if (tier > 0) {
+                val coal = coalIncome(tier)
+                income[Material.COAL] = (income[Material.COAL] ?: 0.0) + coal
+                income[Material.DRAGON_BREATH] = (income[Material.DRAGON_BREATH] ?: 0.0) + coal / 2.0
+            }
             income
         }
 

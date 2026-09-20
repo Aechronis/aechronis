@@ -21,6 +21,8 @@ import net.aechronis.nodes.commands.arguments.ArgumentTerritory
 import net.aechronis.nodes.commands.arguments.ArgumentTerritoryArray
 import net.aechronis.nodes.commands.arguments.ArgumentTown
 import net.aechronis.nodes.commands.arguments.ArgumentTownArray
+import net.aechronis.nodes.objects.ActiveBuilding
+import net.aechronis.nodes.objects.ActiveBuildings
 import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.MiningBoostManager
@@ -1124,12 +1126,14 @@ class NodesAdminBuildingCommand : NodesCommand("building", "nodes.admin") {
             Message.print(player, "${ChatColor.AQUA}/nodesadmin building create${ChatColor.WHITE}: Create a new building")
             Message.print(player, "${ChatColor.AQUA}/nodesadmin building delete${ChatColor.WHITE}: Delete the building in your current chunk")
             Message.print(player, "${ChatColor.AQUA}/nodesadmin building settier${ChatColor.WHITE}: Set tier of the building in your current chunk")
+            Message.print(player, "${ChatColor.AQUA}/nda building setprogress${ChatColor.WHITE}: Set active factory production progress in your current chunk")
             Message.print(player, "Run a command with no args to see usage.")
         }
 
         addSubcommand(NodesAdminBuildingCreateCommand())
         addSubcommand(NodesAdminBuildingDeleteCommand())
         addSubcommand(NodesAdminBuildingSetTierCommand())
+        addSubcommand(NodesAdminBuildingSetProgressCommand())
     }
 }
 
@@ -1141,8 +1145,12 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
             Message.print(player, "/nodesadmin building create farm [tier]")
             Message.print(player, "/nodesadmin building create oilrig [tier]")
             Message.print(player, "/nodesadmin building create train [tier]")
+            Message.print(player, "/nodesadmin building create active <type> <tier> (stand at the output location)")
+            Message.print(player, "Active types: ${Nodes.config.activeBuildings.joinToString { it.name }}")
         }
 
+        val activeLit = ArgumentType.Literal("active")
+        val activeTypeArg = ArgumentType.Word("type")
         val portLit = ArgumentType.Literal("port")
         val farmLit = ArgumentType.Literal("farm")
         val oilRigLit = ArgumentType.Literal("oilrig")
@@ -1150,6 +1158,13 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
         val nameArg = ArgumentSanitizedString.create("name")
         val publicArg = ArgumentBoolean("public")
         val tierArg = ArgumentType.Integer("tier").between(1, 3)
+
+        addSyntax({ player, resident, context ->
+            val instance = player.instance ?: return@addSyntax
+            ActiveBuilding.create(context[activeTypeArg], instance.getDimensionName(), player.position.asBlockVec(), context[tierArg])
+                .onSuccess { Message.print(player, "Approved ${it.definitionName} (tier ${it.tier}); use /t buildings to operate it") }
+                .onFailure { Message.error(player, it.message ?: "Unable to create active building") }
+        }, activeLit, activeTypeArg, tierArg)
 
         addSyntax({ player, resident, context ->
             Port.create(
@@ -1217,6 +1232,14 @@ class NodesAdminBuildingDeleteCommand : NodesCommand("delete", "nodes.admin") {
                 Message.error(player, "No building in this chunk")
                 return@setDefaultExecutor
             }
+            if (building is ActiveBuilding && building.production != null) {
+                Message.error(player, "Wait for production to finish before deleting this building")
+                return@setDefaultExecutor
+            }
+            if (building is ActiveBuilding && building.inputItems().any { !it.isAir }) {
+                Message.error(player, "Empty the building's input inventory before deleting it")
+                return@setDefaultExecutor
+            }
             Building.destroy(building)
             Message.print(player, "Deleted ${building.type} in chunk (${building.chunkX}, ${building.chunkZ})")
         }
@@ -1237,9 +1260,38 @@ class NodesAdminBuildingSetTierCommand : NodesCommand("settier", "nodes.admin") 
                 Message.error(player, "No building in this chunk")
                 return@addSyntax
             }
+            if (building is ActiveBuilding && building.production != null) {
+                Message.error(player, "Wait for production to finish before changing its tier")
+                return@addSyntax
+            }
             Building.setTier(building, context[tierArg])
             Message.print(player, "${building.type} in chunk (${building.chunkX}, ${building.chunkZ}) set to tier ${building.tier}")
         }, tierArg)
+    }
+}
+
+class NodesAdminBuildingSetProgressCommand : NodesCommand("setprogress", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /nda building setprogress <0-100>")
+            Message.print(player, "Stand in the active factory's chunk. It must already be producing.")
+        }
+
+        val progressArg = ArgumentType.Integer("percent").between(0, 100)
+        addSyntax({ player, resident, context ->
+            val building = buildingAtPlayer(player) as? ActiveBuilding
+            if (building == null || building.world != player.instance?.getDimensionName()) {
+                Message.error(player, "No active factory in this chunk")
+                return@addSyntax
+            }
+            val percent = context[progressArg]
+            if (!ActiveBuildings.setProgress(building, percent)) {
+                Message.error(player, "This factory is idle; start a recipe through /t buildings first")
+                return@addSyntax
+            }
+            Message.print(player, "${building.definitionName} production progress set to $percent%")
+            if (percent == 100) Message.print(player, "Output will drop on the next production update once the chunk is loaded")
+        }, progressArg)
     }
 }
 

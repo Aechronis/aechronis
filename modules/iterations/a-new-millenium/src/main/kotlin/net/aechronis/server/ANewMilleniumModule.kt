@@ -66,7 +66,6 @@ class ANewMilleniumModule : AechronisModule {
                 VanillaConfig(
                     recipesConfig = RecipesConfig(recpies = Blocks.list + Tools.list + Smelting.list + Weapons.list + Vehicles.list),
                     blocksConfig = BlocksConfig(converterCycles = Blocks.converterCycles),
-                    factories = Factories.list,
                     shopEnabled = false,
                 ),
             )
@@ -74,6 +73,7 @@ class ANewMilleniumModule : AechronisModule {
         measure("Nodes configuration") {
             NodesModule.configure(
                 NodesConfig(
+                    activeBuildings = Factories.list,
                     defaultRespawnPoint = context.spawnPoint,
                     chunkAttackTime = 120_000,
                     chunkAttackFromWastelandMultiplier = 1.25,

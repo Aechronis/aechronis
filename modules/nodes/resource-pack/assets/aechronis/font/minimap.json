@@ -2,6 +2,13 @@
   "providers": [
     {
       "type": "bitmap",
+      "file": "aechronis:font/minimap/icons/active_building.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": [""]
+    },
+    {
+      "type": "bitmap",
       "file": "aechronis:font/minimap/icons/farm.png",
       "height": 9,
       "ascent": 8,

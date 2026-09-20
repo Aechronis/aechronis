@@ -3,6 +3,7 @@ package net.aechronis.nodes.objects
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.serdes.BuildingJsonCodec
 import net.aechronis.nodes.serdes.SaveState
+import net.kyori.adventure.text.Component
 import net.minestom.server.command.CommandSender
 import net.minestom.server.item.Material
 
@@ -13,6 +14,7 @@ abstract class Building(
     val chunkX: Int,
     val chunkZ: Int,
     tier: Int,
+    var displayName: Component,
 ) {
     companion object {
         private val buildings = mutableListOf<Building>()

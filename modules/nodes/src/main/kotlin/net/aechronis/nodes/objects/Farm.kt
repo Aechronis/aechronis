@@ -3,6 +3,7 @@ package net.aechronis.nodes.objects
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.utils.ChatColor
+import net.kyori.adventure.text.Component
 import net.minestom.server.command.CommandSender
 import net.minestom.server.item.Material
 
@@ -17,7 +18,7 @@ class Farm(
     chunkX: Int,
     chunkZ: Int,
     tier: Int,
-) : Building(chunkX, chunkZ, tier) {
+) : Building(chunkX, chunkZ, tier, Component.text("Farm")) {
     companion object {
         fun load(chunkX: Int, chunkZ: Int, tier: Int): Farm = Farm(chunkX, chunkZ, tier).also { Building.register(it) }
 

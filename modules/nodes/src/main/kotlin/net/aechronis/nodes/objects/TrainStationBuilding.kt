@@ -3,13 +3,14 @@ package net.aechronis.nodes.objects
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.utils.ChatColor
+import net.kyori.adventure.text.Component
 import net.minestom.server.command.CommandSender
 
 class TrainStationBuilding(
     chunkX: Int,
     chunkZ: Int,
     tier: Int,
-) : Building(chunkX, chunkZ, tier) {
+) : Building(chunkX, chunkZ, tier, Component.text("Train Station")) {
     companion object {
         fun load(chunkX: Int, chunkZ: Int, tier: Int): TrainStationBuilding = TrainStationBuilding(chunkX, chunkZ, tier).also { Building.register(it) }
 

@@ -42,6 +42,7 @@ import net.aechronis.nodes.listeners.NodesPlotSelectionListener
 import net.aechronis.nodes.listeners.NodesVanillaStorageBridge
 import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.listeners.TrainsListener
+import net.aechronis.nodes.objects.ActiveBuildings
 import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.MinimapPassengerTracker
 import net.aechronis.nodes.objects.MiningBoostManager
@@ -165,6 +166,7 @@ object Nodes {
             NodesVanillaStorageBridge.init()
             ColonizationMenu.init()
             TrainsListener.init()
+            ActiveBuildings.init()
             WaypointMenu.init()
             TestTownSelection.init()
         }
@@ -267,6 +269,7 @@ object Nodes {
         cleanupStage(CleanupStage.MINING_BOOST, MiningBoostManager::stop)
         cleanupStage(CleanupStage.COLONIZATION_MENUS, ColonizationMenu::closeAll)
         cleanupStage(CleanupStage.WAYPOINT_MENUS, WaypointMenu::closeAll)
+        cleanupStage(CleanupStage.ACTIVE_BUILDINGS, ActiveBuildings::shutdown)
         cleanupStage(CleanupStage.WARP_TASKS, PortWarpTask::cancelAll)
         cleanupStage(CleanupStage.RESIDENTS) {
             Resident.all().forEach { resident ->
@@ -326,6 +329,7 @@ object Nodes {
         MINING_BOOST,
         COLONIZATION_MENUS,
         WAYPOINT_MENUS,
+        ACTIVE_BUILDINGS,
         WARP_TASKS,
         RESIDENTS,
         TOWNS,

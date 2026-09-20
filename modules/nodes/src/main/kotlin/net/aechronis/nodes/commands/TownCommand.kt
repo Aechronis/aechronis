@@ -16,6 +16,7 @@ import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TownBuildingsMenu
 import net.aechronis.nodes.objects.TownFly
 import net.aechronis.nodes.tasks.IncomeBreakdown
 import net.aechronis.nodes.tasks.IncomeCalculator
@@ -56,6 +57,7 @@ class TownCommand : NodesCommand("t", null, "town") {
             Message.print(player, "/town info${ChatColor.WHITE}: View town details")
             Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
             Message.print(player, "/town income${ChatColor.WHITE}: Open town income")
+            Message.print(player, "/town buildings${ChatColor.WHITE}: View buildings and manage production")
             Message.print(player, "/town income info${ChatColor.WHITE}: View income rates per income tick")
             Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
             Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
@@ -84,6 +86,7 @@ class TownCommand : NodesCommand("t", null, "town") {
                 Message.print(player, "/town info${ChatColor.WHITE}: View town details")
                 Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
                 Message.print(player, "/town income${ChatColor.WHITE}: Open town income")
+                Message.print(player, "/town buildings${ChatColor.WHITE}: View buildings and manage production")
                 Message.print(player, "/town income info${ChatColor.WHITE}: View income rates per income tick")
                 Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
                 Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
@@ -110,6 +113,7 @@ class TownCommand : NodesCommand("t", null, "town") {
         addSubcommand(TownInfoCommand())
         addSubcommand(TownOnlineCommand())
         addSubcommand(TownIncomeCommand())
+        addSubcommand(TownBuildingsCommand())
         addSubcommand(TownPermissionsCommand())
         addSubcommand(TownProtectCommand())
         addSubcommand(TownTrustCommand())
@@ -137,6 +141,7 @@ class TownHelpCommand : NodesCommand("help") {
             Message.print(player, "/town info${ChatColor.WHITE}: View town details")
             Message.print(player, "/town online${ChatColor.WHITE}: View town's online players")
             Message.print(player, "/town income${ChatColor.WHITE}: Open town income")
+            Message.print(player, "/town buildings${ChatColor.WHITE}: View buildings and manage production")
             Message.print(player, "/town income info${ChatColor.WHITE}: View income rates per income tick")
             Message.print(player, "/town permissions${ChatColor.WHITE}: Set town protection permissions")
             Message.print(player, "/town protect${ChatColor.WHITE}: Protect town chests")
@@ -845,6 +850,12 @@ class TownOnlineCommand : NodesCommand("online") {
             val playersOnline = context[townArg].playersOnline.joinToString(", ", transform = { p -> p.username })
             Message.print(player, "Players online in town ${context[townArg].name} [$numPlayersOnline]: ${ChatColor.WHITE}$playersOnline")
         }, townArg)
+    }
+}
+
+class TownBuildingsCommand : NodesCommand("buildings") {
+    init {
+        addSyntax({ player, resident, town, _ -> TownBuildingsMenu.open(player, town) })
     }
 }
 
