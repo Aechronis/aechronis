@@ -98,7 +98,7 @@ object Factories {
         }
         load()
         FactoriesListener.init()
-        println("├─ Factories enabled (${placed.size} placed, ${definitions.size} configured)")
+        println("Factories enabled (${placed.size} placed, ${definitions.size} configured)")
     }
 
     /** Blocks until every save queued before this call has reached disk, then writes the current state directly. */

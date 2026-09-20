@@ -3,6 +3,7 @@ package net.aechronis.gems
 import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.objects.StorageContents
@@ -84,13 +85,17 @@ object Gems {
     fun initialize() {
         if (!initialized.compareAndSet(false, true)) return
         try {
-            eventNode = EventNode.all("gems")
-            eventNode.addListener(InventoryPreClickEvent::class.java, ::onInventoryClick)
-            eventNode.addListener(InventoryCloseEvent::class.java, ::onInventoryClose)
-            eventNode.addListener(PlayerCustomClickEvent::class.java, ::onCustomClick)
-            ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
-            commands = listOf(GemCommand(repository), GemShopCommand())
-            commands.forEach(ModuleCommands::register)
+            measure("Shop listeners") {
+                eventNode = EventNode.all("gems")
+                eventNode.addListener(InventoryPreClickEvent::class.java, ::onInventoryClick)
+                eventNode.addListener(InventoryCloseEvent::class.java, ::onInventoryClose)
+                eventNode.addListener(PlayerCustomClickEvent::class.java, ::onCustomClick)
+                ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
+            }
+            measure("Commands") {
+                commands = listOf(GemCommand(repository), GemShopCommand())
+                commands.forEach(ModuleCommands::register)
+            }
         } catch (error: Throwable) {
             shutdown()
             throw error

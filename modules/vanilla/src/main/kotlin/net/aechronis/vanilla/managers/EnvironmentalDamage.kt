@@ -23,14 +23,12 @@ object EnvironmentalDamage {
     private val DROWN: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:drown")
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         ModuleScheduler
             .buildTask(::tick)
             .repeat(TaskSchedule.tick(1))
             .schedule()
         Vanilla.eventNode.addListener(PlayerDeathEvent::class.java, ::removePlayer)
         Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, ::removePlayer)
-        println("├─ Environmental damage enabled in ${System.currentTimeMillis() - timeStart}ms")
     }
 
     private fun tick() {

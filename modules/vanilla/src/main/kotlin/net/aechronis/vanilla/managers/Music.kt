@@ -31,11 +31,8 @@ object Music {
     private val discsByKey = HashMap<Key, MusicDisc>()
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         registerSongs()
         MusicListener.init()
-        val timeEnd = System.currentTimeMillis()
-        println("├─ Music enabled in ${timeEnd - timeStart}ms")
     }
 
     private fun registerSongs() {

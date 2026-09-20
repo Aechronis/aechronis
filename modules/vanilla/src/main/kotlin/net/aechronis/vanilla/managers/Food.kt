@@ -21,7 +21,6 @@ object Food {
     private val STARVE: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:starve")
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         val config = Vanilla.config
         for (item in config.foodConfig.foodItems) {
             foodItems[item.material] = item
@@ -31,8 +30,6 @@ object Food {
             .buildTask(::tick)
             .repeat(TaskSchedule.seconds(config.foodConfig.foodTickSeconds))
             .schedule()
-        val timeEnd = System.currentTimeMillis()
-        println("├─ Food enabled in ${timeEnd - timeStart}ms")
     }
 
     fun onEat(

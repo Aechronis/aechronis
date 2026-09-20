@@ -23,7 +23,6 @@ object Crops {
     val msPerState = mutableMapOf<CropType, Long>()
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         msPerState[CropType.Wheat] = Vanilla.config.wheatMsPerStage
         msPerState[CropType.Carrots] = Vanilla.config.carrotMsPerStage
         msPerState[CropType.Potatoes] = Vanilla.config.potatoMsPerStage
@@ -34,9 +33,6 @@ object Crops {
             .buildTask(::growthTick)
             .repeat(TaskSchedule.seconds(Vanilla.config.cropGrowthCheckSeconds))
             .schedule()
-        val timeEnd = System.currentTimeMillis()
-        val timeLoad = timeEnd - timeStart
-        println("├─ Crops enabled in ${timeLoad}ms")
     }
 
     internal fun captureTransientState(): ByteArray {

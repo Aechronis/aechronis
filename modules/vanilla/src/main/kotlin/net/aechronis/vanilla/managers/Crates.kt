@@ -40,7 +40,6 @@ object Crates {
     )
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         val configured = Vanilla.config.cratesConfig.crates
         configured.forEach(Crate::validate)
         require(configured.map { it.id }.toSet().size == configured.size) {
@@ -50,8 +49,6 @@ object Crates {
         definitions.clear()
         definitions.putAll(configured.associateBy { it.id })
         CratesListener.init()
-
-        println("├─ Crates enabled in ${System.currentTimeMillis() - timeStart}ms")
     }
 
     fun itemFor(id: String): ItemStack {

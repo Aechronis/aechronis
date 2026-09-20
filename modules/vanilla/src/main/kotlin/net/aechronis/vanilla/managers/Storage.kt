@@ -54,14 +54,9 @@ object Storage {
     ): Boolean = accessChecker?.invoke(player, position, access) ?: true
 
     fun init(legacyRoot: Path) {
-        val timeStart = System.currentTimeMillis()
         this.legacyRoot = legacyRoot
         ModuleBlocks.registerHandlerIfAbsent(barrelKey) { defaultBarrelHandler }
         StorageListener.init()
-
-        val timeEnd = System.currentTimeMillis()
-        val timeLoad = timeEnd - timeStart
-        println("├─ Storage enabled in ${timeLoad}ms")
     }
 
     fun keyFor(

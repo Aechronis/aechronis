@@ -93,7 +93,6 @@ object Koth {
     private const val MAX_TRANSIENT_ENTRIES = 4096
 
     fun init(path: Path) {
-        val timeStart = System.currentTimeMillis()
         file = path
         Files.createDirectories(path.parent)
         load()
@@ -102,7 +101,7 @@ object Koth {
             .buildTask(::scheduledTick)
             .repeat(TaskSchedule.seconds(1))
             .schedule()
-        println("├─ KOTH enabled in ${System.currentTimeMillis() - timeStart}ms (${definitions.size} configured)")
+        println("KOTH: ${definitions.size} configured")
     }
 
     fun saveAll() = save()

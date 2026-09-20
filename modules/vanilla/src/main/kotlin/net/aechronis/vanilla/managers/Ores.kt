@@ -82,7 +82,7 @@ object Ores {
             .repeat(TaskSchedule.seconds(1))
             .schedule()
 
-        println("├─ Ores enabled (${ores.size} configured)")
+        println("Ores enabled (${ores.size} configured)")
     }
 
     fun saveAll() = save()

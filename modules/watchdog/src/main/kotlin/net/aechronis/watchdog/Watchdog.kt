@@ -4,6 +4,7 @@ import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.ModuleScheduler
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.watchdog.alert.StaffAlert
 import net.aechronis.watchdog.checks.FlagSink
 import net.aechronis.watchdog.commands.WatchdogCommand
@@ -54,16 +55,22 @@ object Watchdog {
             val events = WatchdogEventHandler(config, state, isBypassed, attacks, probeService, alerts, flag)
             val ticker = WatchdogTicker(config, state, isBypassed, probeService, flag)
 
-            events.register(eventNode)
-            ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
-            command = WatchdogCommand(config.staffAlertPermission)
-            ModuleCommands
-                .register(command!!)
-            tickTask =
-                ModuleScheduler
-                    .buildTask(ticker::tick)
-                    .repeat(TaskSchedule.tick(1))
-                    .schedule()
+            measure("Detection listeners") {
+                events.register(eventNode)
+                ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
+            }
+            measure("Commands") {
+                command = WatchdogCommand(config.staffAlertPermission)
+                ModuleCommands
+                    .register(command!!)
+            }
+            measure("Detection scheduler") {
+                tickTask =
+                    ModuleScheduler
+                        .buildTask(ticker::tick)
+                        .repeat(TaskSchedule.tick(1))
+                        .schedule()
+            }
 
             println("Watchdog enabled")
         } catch (error: Throwable) {

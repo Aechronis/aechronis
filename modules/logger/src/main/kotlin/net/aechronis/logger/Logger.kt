@@ -30,6 +30,7 @@ import net.aechronis.logger.repos.StorageChange
 import net.aechronis.logger.utils.awaitLifecycleFuture
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerDisconnectEvent
@@ -73,75 +74,83 @@ object Logger {
         active = true
 
         try {
-            val timeStart = System.currentTimeMillis()
             Logger.config = config
             eventNode = EventNode.all("logger").setPriority(-50)
             resources.clear()
-            database = Database(config)
-            resources += database
-            database.create()
-            database.migrateBlockLog()
-            database.createFeatureLog()
-            database.migrateFeatureLog()
-            database.createRollbackTables()
-            database.createStorageChangeLog()
-            database.migrateStorageChangeLog()
-            database.createInventorySnapshotLog()
-            database.migrateInventorySnapshotLog()
-            database.createInventoryChangeLog()
-            database.createEntityChangeLog()
-
-            repository = BlockLog(database)
-            resources += repository
-            featureLog = FeatureLog(database)
-            resources += featureLog
-            rollback = Rollback(database)
-            resources += rollback
-            val interruptedOperations =
-                awaitLifecycleFuture(
-                    rollback.markInterruptedOperationsAsync(),
-                    "interrupted rollback recovery scan",
-                )
-            if (interruptedOperations > 0) {
-                println("[Logger] $interruptedOperations interrupted rollback operation(s) require recovery")
+            measure("Database connection") {
+                database = Database(config)
+                resources += database
             }
-            storageChange = StorageChange(database)
-            resources += storageChange
-            inventorySnapshot = InventorySnapshot(database)
-            resources += inventorySnapshot
-            inventoryChange = InventoryChange(database)
-            resources += inventoryChange
-            entityChange = EntityChange(database)
-            resources += entityChange
-            rollbackService = RollbackService()
-            resources += rollbackService
-            originalChunkService = OriginalChunkService(Path.of(config.originalWorldPath))
-            resources += originalChunkService
-
-            BlockListener.init()
-            CombatExplosionListener.init()
-            WorldEditListener.init()
-            EntityListener.init()
-            EntityChangeListener.init()
-            InventoryListener.init()
-            InventorySnapshotListener.init()
-            LootListener.init()
-            SnapshotViewer.init()
-            VanillaStorage.init()
-            eventNode.addListener(PlayerDisconnectEvent::class.java) { event ->
-                RollbackSafety.clear(event.player.uuid)
-                PendingRollbackRegistry.clearPlayer(event.player.uuid)
+            measure("Database schema and migrations") {
+                database.create()
+                database.migrateBlockLog()
+                database.createFeatureLog()
+                database.migrateFeatureLog()
+                database.createRollbackTables()
+                database.createStorageChangeLog()
+                database.migrateStorageChangeLog()
+                database.createInventorySnapshotLog()
+                database.migrateInventorySnapshotLog()
+                database.createInventoryChangeLog()
+                database.createEntityChangeLog()
             }
-            ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
-            eventNodeRegistered = true
 
-            command = LoggerCommand()
-            ModuleCommands
-                .register(command!!)
+            measure("Repositories and recovery services") {
+                repository = BlockLog(database)
+                resources += repository
+                featureLog = FeatureLog(database)
+                resources += featureLog
+                rollback = Rollback(database)
+                resources += rollback
+                val interruptedOperations =
+                    awaitLifecycleFuture(
+                        rollback.markInterruptedOperationsAsync(),
+                        "interrupted rollback recovery scan",
+                    )
+                if (interruptedOperations > 0) {
+                    println("[Logger] $interruptedOperations interrupted rollback operation(s) require recovery")
+                }
+                storageChange = StorageChange(database)
+                resources += storageChange
+                inventorySnapshot = InventorySnapshot(database)
+                resources += inventorySnapshot
+                inventoryChange = InventoryChange(database)
+                resources += inventoryChange
+                entityChange = EntityChange(database)
+                resources += entityChange
+                rollbackService = RollbackService()
+                resources += rollbackService
+                originalChunkService = OriginalChunkService(Path.of(config.originalWorldPath))
+                resources += originalChunkService
+            }
+
+            measure("Listeners") {
+                BlockListener.init()
+                CombatExplosionListener.init()
+                WorldEditListener.init()
+                EntityListener.init()
+                EntityChangeListener.init()
+                InventoryListener.init()
+                InventorySnapshotListener.init()
+                LootListener.init()
+                SnapshotViewer.init()
+                VanillaStorage.init()
+                eventNode.addListener(PlayerDisconnectEvent::class.java) { event ->
+                    RollbackSafety.clear(event.player.uuid)
+                    PendingRollbackRegistry.clearPlayer(event.player.uuid)
+                }
+                ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
+                eventNodeRegistered = true
+            }
+
+            measure("Commands") {
+                command = LoggerCommand()
+                ModuleCommands
+                    .register(command!!)
+            }
 
             initialized = true
             hasInitialized = true
-            println("Logger enabled in ${System.currentTimeMillis() - timeStart}ms")
         } catch (error: Throwable) {
             runCatching(::close).exceptionOrNull()?.let(error::addSuppressed)
             throw error

@@ -193,7 +193,6 @@ object Blocks {
     }
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         outputsByInput.clear()
         cycleByMaterial.clear()
 
@@ -212,9 +211,5 @@ object Blocks {
         }
 
         BlocksListener.init()
-
-        val timeEnd = System.currentTimeMillis()
-        val timeLoad = timeEnd - timeStart
-        println("├─ Blocks enabled in ${timeLoad}ms")
     }
 }

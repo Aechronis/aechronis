@@ -270,9 +270,6 @@ object TreeFeller {
     }
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         TreeFellerListener.init()
-        val timeEnd = System.currentTimeMillis()
-        println("├─ TreeFeller enabled in ${timeEnd - timeStart}ms")
     }
 }

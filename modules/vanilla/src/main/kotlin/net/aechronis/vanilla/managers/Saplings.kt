@@ -28,8 +28,6 @@ object Saplings {
     val saplings = ConcurrentHashMap<BlockKey, SaplingsPlanted>()
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
-
         registerPlacementRules()
         SaplingsListener.init()
 
@@ -37,9 +35,6 @@ object Saplings {
             .buildTask(::growthTick)
             .repeat(TaskSchedule.seconds(Vanilla.config.saplingGrowthCheckSeconds))
             .schedule()
-
-        val timeEnd = System.currentTimeMillis()
-        println("├─ Saplings enabled in ${timeEnd - timeStart}ms")
     }
 
     internal fun captureTransientState(): ByteArray {

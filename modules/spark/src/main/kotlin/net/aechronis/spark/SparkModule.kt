@@ -5,6 +5,7 @@ import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModulePermissions
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import java.time.Duration
 
 class SparkModule : AechronisModule {
@@ -15,13 +16,15 @@ class SparkModule : AechronisModule {
 
     override fun initialize(context: ModuleContext) {
         check(spark == null) { "Spark module is already initialized" }
-        val adapter = MinestomSparkPlugin(context)
+        val adapter = measure("Platform adapter") { MinestomSparkPlugin(context) }
         plugin = adapter
-        val platform = SparkPlatform(adapter)
+        val platform = measure("Profiler platform") { SparkPlatform(adapter) }
         spark = platform
-        platform.enable()
-        ModulePermissions.register(*platform.commandManager.allSparkPermissions.toTypedArray())
-        ModuleCommands.register(SparkCommand(platform))
+        measure("Enable profiler") { platform.enable() }
+        measure("Commands and permissions") {
+            ModulePermissions.register(*platform.commandManager.allSparkPermissions.toTypedArray())
+            ModuleCommands.register(SparkCommand(platform))
+        }
     }
 
     override fun shutdown(context: ModuleContext) {

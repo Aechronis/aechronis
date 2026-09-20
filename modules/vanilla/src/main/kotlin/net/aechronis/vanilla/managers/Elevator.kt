@@ -67,7 +67,6 @@ object Elevator {
     }
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         Vanilla.eventNode.addListener(PlayerInputEvent::class.java, Elevator::onInput)
         Vanilla.eventNode.addListener(PlayerBlockPlaceEvent::class.java) { event ->
             if (!event.isCancelled && event.block === IRON) {
@@ -83,6 +82,5 @@ object Elevator {
                 columns[iid]?.get(key)?.remove(event.blockPosition.blockY())
             }
         }
-        println("├─ Elevators enabled in ${System.currentTimeMillis() - timeStart}ms")
     }
 }

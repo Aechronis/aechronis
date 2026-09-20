@@ -304,12 +304,28 @@ class ModuleManager private constructor(
         context: ModuleContext,
         resourcesPrepared: Boolean = false,
     ) {
-        if (!resourcesPrepared) modules.forEach { it.prepareResources(context) }
-        // Initializers can synchronously announce services and receive replies (e.g. vote rewards).
-        // Background game callbacks remain gated until the whole affected graph is ready.
-        ModuleRuntime.withLifecycleCallbacks {
-            modules.asReversed().forEach { it.configure(context) }
-            modules.forEach { it.start(context) }
+        ModuleStartupTimings.report("Module startup") {
+            if (!resourcesPrepared) {
+                ModuleStartupTimings.measure("Resource packs") {
+                    modules.forEach { module ->
+                        ModuleStartupTimings.measure(module.module.id) { module.prepareResources(context) }
+                    }
+                }
+            }
+            // Initializers can synchronously announce services and receive replies (e.g. vote rewards).
+            // Background game callbacks remain gated until the whole affected graph is ready.
+            ModuleRuntime.withLifecycleCallbacks {
+                ModuleStartupTimings.measure("Configuration") {
+                    modules.asReversed().forEach { module ->
+                        ModuleStartupTimings.measure(module.module.id) { module.configure(context) }
+                    }
+                }
+                ModuleStartupTimings.measure("Initialization") {
+                    modules.forEach { module ->
+                        ModuleStartupTimings.measure(module.module.id) { module.start(context) }
+                    }
+                }
+            }
         }
     }
 

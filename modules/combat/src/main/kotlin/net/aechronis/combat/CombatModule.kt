@@ -4,6 +4,7 @@ import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.combat.utils.GunHandSkins
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 
 class CombatModule : AechronisModule {
     override val id = "combat"
@@ -11,7 +12,7 @@ class CombatModule : AechronisModule {
 
     override fun initialize(context: ModuleContext) {
         Combat.initialize()
-        GunHandSkins.initialize(context)
+        measure("Hand skins") { GunHandSkins.initialize(context) }
     }
 
     override fun prepareForShutdown(context: ModuleContext) = BlockRestoreManager.shutdown()

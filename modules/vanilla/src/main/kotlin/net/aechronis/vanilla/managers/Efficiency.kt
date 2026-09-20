@@ -51,12 +51,10 @@ object Efficiency {
     internal fun onTick(event: PlayerTickEvent) = update(event.player)
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         Vanilla.eventNode.addListener(EntityEquipEvent::class.java, ::onEquip)
         Vanilla.eventNode.addListener(PlayerChangeHeldSlotEvent::class.java, ::onHeldSlotChange)
         Vanilla.eventNode.addListener(PlayerSpawnEvent::class.java) { update(it.player) }
         Vanilla.eventNode.addListener(PlayerTickEvent::class.java, ::onTick)
-        println("├─ Efficiency enabled in ${System.currentTimeMillis() - timeStart}ms")
     }
 
     fun shutdown() {

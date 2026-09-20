@@ -18,6 +18,7 @@ import net.aechronis.server.hasPermission
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModulePermissions
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.Event
@@ -50,33 +51,41 @@ object Guard {
         check(initialized.compareAndSet(false, true)) { "Guard is already initialized" }
         try {
             this.config = config
-            ModulePermissions.register(config.bypassPermission)
-            eventNode = EventNode.all("guard").setPriority(-1000)
-            registry = ZoneRegistry()
-            policy =
-                ZonePolicy(
-                    config.defaultFlags
-                        .mapNotNull { (name, value) ->
-                            (value as? BooleanFlagValue)?.let { name to it }
-                        }.toMap(),
-                )
+            measure("Protection policy") {
+                ModulePermissions.register(config.bypassPermission)
+                eventNode = EventNode.all("guard").setPriority(-1000)
+                registry = ZoneRegistry()
+                policy =
+                    ZonePolicy(
+                        config.defaultFlags
+                            .mapNotNull { (name, value) ->
+                                (value as? BooleanFlagValue)?.let { name to it }
+                            }.toMap(),
+                    )
+            }
 
             runCatching {
-                registry.replaceAll(storage.load(config.dataPath))
+                measure("Zone data") {
+                    registry.replaceAll(storage.load(config.dataPath))
+                }
             }.onFailure { println("Guard could not load zones from ${config.dataPath}: $it") }
 
-            eventNode.addListener(PlayerBlockPlaceEvent::class.java, BlockPlaceListener::handle)
-            eventNode.addListener(PlayerBlockBreakEvent::class.java, BlockBreakListener::handle)
-            eventNode.addListener(PlayerBlockInteractEvent::class.java, BlockInteractListener::handle)
-            eventNode.addListener(PlayerMoveEvent::class.java, MoveListener::handle)
-            eventNode.addListener(EntityTeleportEvent::class.java, TeleportListener::handle)
-            eventNode.addListener(EntityDamageEvent::class.java, DamageListener::handle)
-            eventNode.addListener(ExplosionBlockDamageEvent::class.java, ::handleExplosion)
-            eventNode.addListener(VehicleSpawnEvent::class.java, ::handleVehicleSpawn)
-            ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
-            command = GuardCommand(config.adminPermission, config.bypassPermission)
-            ModuleCommands
-                .register(command!!)
+            measure("Protection listeners") {
+                eventNode.addListener(PlayerBlockPlaceEvent::class.java, BlockPlaceListener::handle)
+                eventNode.addListener(PlayerBlockBreakEvent::class.java, BlockBreakListener::handle)
+                eventNode.addListener(PlayerBlockInteractEvent::class.java, BlockInteractListener::handle)
+                eventNode.addListener(PlayerMoveEvent::class.java, MoveListener::handle)
+                eventNode.addListener(EntityTeleportEvent::class.java, TeleportListener::handle)
+                eventNode.addListener(EntityDamageEvent::class.java, DamageListener::handle)
+                eventNode.addListener(ExplosionBlockDamageEvent::class.java, ::handleExplosion)
+                eventNode.addListener(VehicleSpawnEvent::class.java, ::handleVehicleSpawn)
+                ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
+            }
+            measure("Commands") {
+                command = GuardCommand(config.adminPermission, config.bypassPermission)
+                ModuleCommands
+                    .register(command!!)
+            }
         } catch (error: Throwable) {
             shutdown()
             throw error

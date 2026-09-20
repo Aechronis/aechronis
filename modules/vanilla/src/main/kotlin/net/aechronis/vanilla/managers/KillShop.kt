@@ -24,10 +24,7 @@ object KillShop {
     val playerCooldowns = ConcurrentHashMap<UUID, ConcurrentHashMap<Int, Long>>()
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         ShopListener.init()
-        val timeEnd = System.currentTimeMillis()
-        println("├─ Shop enabled in ${timeEnd - timeStart}ms")
     }
 
     fun openShop(player: Player) {

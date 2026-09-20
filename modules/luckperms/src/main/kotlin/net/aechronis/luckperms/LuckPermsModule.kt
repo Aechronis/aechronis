@@ -8,6 +8,7 @@ import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleEvents
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
 import java.nio.file.Path
 import java.time.Duration
@@ -27,35 +28,43 @@ class LuckPermsModule : AechronisModule {
         try {
             lateinit var plugin: LPMinestomPlugin
             val api =
-                LuckPermsMinestom
-                    .builder(Path.of("luckperms"))
-                    .commandRegistry({ ModuleCommands.register(it) }, ModuleCommands::unregister)
-                    .configurationAdapter {
-                        plugin = it
-                        EnvironmentVariableConfigAdapter(it)
-                    }.enable()
-            suggestions = PermissionSuggestions(plugin.permissionRegistry)
-            // Reload does not repeat the login event for players already connected.
-            MinecraftServer
-                .getConnectionManager()
-                .onlinePlayers
-                .map { api.userManager.loadUser(it.uuid, it.username) }
-                .forEach { it.join() }
-            permissionProvider =
-                Permissions.registerProvider { uuid, permission ->
-                    api.userManager
-                        .getUser(uuid)
-                        ?.cachedData
-                        ?.permissionData
-                        ?.checkPermission(permission)
-                        ?.asBoolean() == true
+                measure("Permission platform") {
+                    LuckPermsMinestom
+                        .builder(Path.of("luckperms"))
+                        .commandRegistry({ ModuleCommands.register(it) }, ModuleCommands::unregister)
+                        .configurationAdapter {
+                            plugin = it
+                            EnvironmentVariableConfigAdapter(it)
+                        }.enable()
                 }
+            suggestions = measure("Permission suggestions") { PermissionSuggestions(plugin.permissionRegistry) }
+            // Reload does not repeat the login event for players already connected.
+            measure("Online user data") {
+                MinecraftServer
+                    .getConnectionManager()
+                    .onlinePlayers
+                    .map { api.userManager.loadUser(it.uuid, it.username) }
+                    .forEach { it.join() }
+            }
+            measure("Permission provider") {
+                permissionProvider =
+                    Permissions.registerProvider { uuid, permission ->
+                        api.userManager
+                            .getUser(uuid)
+                            ?.cachedData
+                            ?.permissionData
+                            ?.checkPermission(permission)
+                            ?.asBoolean() == true
+                    }
+            }
         } finally {
             // LuckPerms attaches its listener node directly. Adopt it into module ownership
             // after setup so reload can detach and drain its callbacks before disabling it.
-            (global.children - existingNodes).forEach { node ->
-                global.removeChild(node)
-                ModuleEvents.addChild(global, node)
+            measure("Event ownership") {
+                (global.children - existingNodes).forEach { node ->
+                    global.removeChild(node)
+                    ModuleEvents.addChild(global, node)
+                }
             }
         }
     }

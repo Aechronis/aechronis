@@ -12,6 +12,7 @@ import io.github.openminigameserver.worldedit.platform.adapters.MinestomAdapter
 import io.github.openminigameserver.worldedit.platform.config.WorldEditConfig
 import io.github.openminigameserver.worldedit.platform.config.WorldEditConfiguration
 import io.github.openminigameserver.worldedit.platform.misc.WorldEditExecutor
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.instance.block.Block
 import net.minestom.server.item.Material
 
@@ -26,18 +27,22 @@ class MinestomWorldEdit {
         check(!active) { "WorldEdit is already initialized" }
         active = true
         try {
-            config.dataFolder.mkdirs()
-            MinestomAdapter.platform = platform
-            this.config = WorldEditConfiguration(config).apply { load() }
+            measure("Configuration") {
+                config.dataFolder.mkdirs()
+                MinestomAdapter.platform = platform
+                this.config = WorldEditConfiguration(config).apply { load() }
+            }
 
-            platform.registerWorldEditEventHandlers()
-            WorldEdit.getInstance().platformManager.register(platform)
-            WorldEdit.getInstance().eventBus.post(PlatformsRegisteredEvent())
+            measure("Platform registration") {
+                platform.registerWorldEditEventHandlers()
+                WorldEdit.getInstance().platformManager.register(platform)
+                WorldEdit.getInstance().eventBus.post(PlatformsRegisteredEvent())
+            }
 
-            registerBlocks()
-            registerItems()
+            measure("Block registry") { registerBlocks() }
+            measure("Item registry") { registerItems() }
 
-            WorldEdit.getInstance().eventBus.post(PlatformReadyEvent(platform))
+            measure("Platform ready") { WorldEdit.getInstance().eventBus.post(PlatformReadyEvent(platform)) }
             println("Finished loading WorldEdit")
         } catch (error: Throwable) {
             runCatching(::shutdown).exceptionOrNull()?.let(error::addSuppressed)

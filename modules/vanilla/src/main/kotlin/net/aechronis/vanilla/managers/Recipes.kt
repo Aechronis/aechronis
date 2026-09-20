@@ -162,8 +162,6 @@ object Recipes {
             .joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
 
     fun init() {
-        // measure load time
-        val timeStart = System.currentTimeMillis()
         RecipesListener.init()
 
         val recipeManager = ModuleRecipes
@@ -186,10 +184,6 @@ object Recipes {
         val onlinePlayers = MinecraftServer.getConnectionManager().onlinePlayers
         RecipesListener.attachOnlinePlayers(onlinePlayers)
         onlinePlayers.forEach { it.refreshRecipes() }
-
-        val timeEnd = System.currentTimeMillis()
-        val timeLoad = timeEnd - timeStart
-        println("├─ Recpies enabled in ${timeLoad}ms")
     }
 
     fun shutdown() {

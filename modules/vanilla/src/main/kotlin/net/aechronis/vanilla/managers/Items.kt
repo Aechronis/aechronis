@@ -18,7 +18,6 @@ object Items {
     private val groundItems = mutableSetOf<ItemEntity>()
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         ItemListener.init()
         Vanilla.eventNode.addListener(EntitySpawnEvent::class.java, ::onEntitySpawn)
         Vanilla.eventNode.addListener(EntityDespawnEvent::class.java, ::onEntityDespawn)
@@ -26,8 +25,6 @@ object Items {
             groundItems += instance.entities.filterIsInstance<ItemEntity>()
         }
         enforceGroundItemLimit()
-        val timeEnd = System.currentTimeMillis()
-        println("├─ Items enabled in ${timeEnd - timeStart}ms")
     }
 
     private fun onEntitySpawn(event: EntitySpawnEvent) {

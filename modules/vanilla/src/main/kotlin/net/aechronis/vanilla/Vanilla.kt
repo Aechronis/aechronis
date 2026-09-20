@@ -3,6 +3,7 @@ package net.aechronis.vanilla
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleEvents
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.vanilla.commands.Back
 import net.aechronis.vanilla.commands.Broadcast
 import net.aechronis.vanilla.commands.Clear
@@ -89,97 +90,96 @@ object Vanilla {
     ) {
         config = c
         ShutdownManager.configure(shutdownAction)
-        // measure load time
-        val timeStart = System.currentTimeMillis()
 
-        PlayerActivityListener.init()
-        BlockPlacementCooldownListener.init()
-        CombatInventoryListener.init()
-        WarpListener.init()
-        Filter.init()
+        measure("Player Activity Listener") { PlayerActivityListener.init() }
+        measure("Block Placement Cooldown Listener") { BlockPlacementCooldownListener.init() }
+        measure("Combat Inventory Listener") { CombatInventoryListener.init() }
+        measure("Warp Listener") { WarpListener.init() }
+        measure("Filter") { Filter.init() }
 
         if (config.commandsEnabled) {
-            val commands =
-                mutableListOf(
-                    Back(),
-                    Message(),
-                    Reply(),
-                    GameMode(),
-                    Give(),
-                    Teleport(),
-                    Fly(),
-                    Kill(),
-                    Broadcast(),
-                    Clear(),
-                    EnderChest(),
-                    InventorySee(),
-                    Ignore(),
-                    Gm(),
-                    List(),
-                    TpsBar(),
-                    Shutdown(),
-                    Vanish(),
-                    Vote(),
-                    Warp(),
-                )
-            if (config.musicEnabled) commands += Music()
-            if (config.blocksEnabled) commands += Convert()
-            if (config.recipesEnabled) commands += Craft()
-            if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
-            if (config.shopEnabled) commands += Shop()
-            if (config.whitelistEnabled) commands += Whitelist()
-            if (config.kothEnabled) commands += KothCommand()
-            if (config.oresEnabled) commands += Ore()
-            if (config.factoriesEnabled) commands += FactoryCommand()
-            ModuleCommands
-                .register(*commands.toTypedArray())
+            measure("Commands") {
+                val commands =
+                    mutableListOf(
+                        Back(),
+                        Message(),
+                        Reply(),
+                        GameMode(),
+                        Give(),
+                        Teleport(),
+                        Fly(),
+                        Kill(),
+                        Broadcast(),
+                        Clear(),
+                        EnderChest(),
+                        InventorySee(),
+                        Ignore(),
+                        Gm(),
+                        List(),
+                        TpsBar(),
+                        Shutdown(),
+                        Vanish(),
+                        Vote(),
+                        Warp(),
+                    )
+                if (config.musicEnabled) commands += Music()
+                if (config.blocksEnabled) commands += Convert()
+                if (config.recipesEnabled) commands += Craft()
+                if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
+                if (config.shopEnabled) commands += Shop()
+                if (config.whitelistEnabled) commands += Whitelist()
+                if (config.kothEnabled) commands += KothCommand()
+                if (config.oresEnabled) commands += Ore()
+                if (config.factoriesEnabled) commands += FactoryCommand()
+                ModuleCommands
+                    .register(*commands.toTypedArray())
+            }
         }
-        println("Loading Vanilla")
         val playerDataEventNode =
-            if (config.playerDataEnabled) PlayerData.init(Path.of(config.path, config.playerDataPath)) else null
-        if (config.storageEnabled) Storage.init(Path.of(config.path, config.storagePath))
-        if (config.signsEnabled) Signs.init()
-        if (config.shelvesEnabled) Shelves.init()
-        if (config.itemFramesEnabled) ItemFrames.init()
-        if (config.whitelistEnabled) WhitelistManager.init(Path.of(config.path, config.whitelistPath))
-        if (config.recipesEnabled) Recipes.init()
-        if (config.cropsEnabled) Crops.init()
-        if (config.saplingsEnabled) Saplings.init()
-        if (config.elevatorEnabled) Elevator.init()
-        if (config.mannequinEnabled) Mannequin.init()
-        if (config.blocksEnabled) Blocks.init()
-        if (config.treeFellerEnabled) TreeFeller.init()
-        if (config.foodEnabled) Food.init()
-        if (config.shopEnabled) KillShop.init()
-        if (config.cratesEnabled) Crates.init()
-        if (config.itemsEnabled) Items.init()
-        if (config.bundlesEnabled) Bundles.init()
-        if (config.boatsEnabled) Boats.init()
-        if (config.efficiencyEnabled) Efficiency.init()
+            if (config.playerDataEnabled) measure("Player data") { PlayerData.init(Path.of(config.path, config.playerDataPath)) } else null
+        if (config.storageEnabled) measure("Storage") { Storage.init(Path.of(config.path, config.storagePath)) }
+        if (config.signsEnabled) measure("Signs") { Signs.init() }
+        if (config.shelvesEnabled) measure("Shelves") { Shelves.init() }
+        if (config.itemFramesEnabled) measure("Item Frames") { ItemFrames.init() }
+        if (config.whitelistEnabled) measure("Whitelist") { WhitelistManager.init(Path.of(config.path, config.whitelistPath)) }
+        if (config.recipesEnabled) measure("Recipes") { Recipes.init() }
+        if (config.cropsEnabled) measure("Crops") { Crops.init() }
+        if (config.saplingsEnabled) measure("Saplings") { Saplings.init() }
+        if (config.elevatorEnabled) measure("Elevator") { Elevator.init() }
+        if (config.mannequinEnabled) measure("Mannequin") { Mannequin.init() }
+        if (config.blocksEnabled) measure("Blocks") { Blocks.init() }
+        if (config.treeFellerEnabled) measure("Tree Feller") { TreeFeller.init() }
+        if (config.foodEnabled) measure("Food") { Food.init() }
+        if (config.shopEnabled) measure("Shop") { KillShop.init() }
+        if (config.cratesEnabled) measure("Crates") { Crates.init() }
+        if (config.itemsEnabled) measure("Items") { Items.init() }
+        if (config.bundlesEnabled) measure("Bundles") { Bundles.init() }
+        if (config.boatsEnabled) measure("Boats") { Boats.init() }
+        if (config.efficiencyEnabled) measure("Efficiency") { Efficiency.init() }
         if (config.commandsEnabled) {
-            CommandsListener.init()
-            VanishManager.init()
-            TpsBarManager.init()
+            measure("Command listeners") { CommandsListener.init() }
+            measure("Vanish") { VanishManager.init() }
+            measure("TPS bar") { TpsBarManager.init() }
         }
-        if (config.blockDropsEnabled) PlayerBreakListener.init()
-        if (config.fallDamageEnabled) FallDamageListener.init()
-        if (config.fireDamageEnabled || config.drowningEnabled || config.voidDamageEnabled) EnvironmentalDamage.init()
-        if (config.serverLinksEnabled) ServerLinksListener.init()
-        if (config.combatEnabled) Combat.init()
-        if (config.musicEnabled) MusicManager.init()
-        if (config.kothEnabled) Koth.init(Path.of(config.path, config.kothsPath))
-        if (config.oresEnabled) Ores.init(Path.of(config.path, config.oresPath))
-        if (config.factoriesEnabled) Factories.init(Path.of(config.path, config.factoriesPath))
-        VoteLinks.init(Path.of(config.path, config.votePath))
-        Warps.init(Path.of(config.path, config.warpsPath))
+        if (config.blockDropsEnabled) measure("Player Break Listener") { PlayerBreakListener.init() }
+        if (config.fallDamageEnabled) measure("Fall Damage Listener") { FallDamageListener.init() }
+        if (config.fireDamageEnabled ||
+            config.drowningEnabled ||
+            config.voidDamageEnabled
+        ) {
+            measure("Environmental Damage") { EnvironmentalDamage.init() }
+        }
+        if (config.serverLinksEnabled) measure("Server Links Listener") { ServerLinksListener.init() }
+        if (config.combatEnabled) measure("Combat") { Combat.init() }
+        if (config.musicEnabled) measure("Music") { MusicManager.init() }
+        if (config.kothEnabled) measure("Koth") { Koth.init(Path.of(config.path, config.kothsPath)) }
+        if (config.oresEnabled) measure("Ores") { Ores.init(Path.of(config.path, config.oresPath)) }
+        if (config.factoriesEnabled) measure("Factories") { Factories.init(Path.of(config.path, config.factoriesPath)) }
+        measure("Vote Links") { VoteLinks.init(Path.of(config.path, config.votePath)) }
+        measure("Warps") { Warps.init(Path.of(config.path, config.warpsPath)) }
         val globalEventHandler = MinecraftServer.getGlobalEventHandler()
         ModuleEvents.addChild(globalEventHandler, eventNode)
         playerDataEventNode?.let { node -> ModuleEvents.addChild(globalEventHandler, node) }
-
-        // print load time
-        val timeEnd = System.currentTimeMillis()
-        val timeLoad = timeEnd - timeStart
-        println("└─ Vanilla Loaded in ${timeLoad}ms")
     }
 
     /** Called by the server's coordinated shutdown hook after vehicles have ejected their riders. */

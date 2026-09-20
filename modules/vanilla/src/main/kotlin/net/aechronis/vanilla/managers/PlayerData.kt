@@ -23,7 +23,6 @@ object PlayerData {
     private lateinit var dataPath: Path
 
     fun init(path: Path): EventNode<Event> {
-        val timeStart = System.currentTimeMillis()
         Files.createDirectories(path)
         dataPath = path
         check(writer == null) { "Player data is already initialized" }
@@ -42,9 +41,6 @@ object PlayerData {
         }
 
         adoptOnlinePlayers(MinecraftServer.getConnectionManager().onlinePlayers, path)
-        val timeEnd = System.currentTimeMillis()
-        val timeLoad = timeEnd - timeStart
-        println("├─ Playerdata enabled in ${timeLoad}ms")
         return node
     }
 

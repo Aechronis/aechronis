@@ -4,6 +4,7 @@ import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleScheduler
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.ConsoleSender
 import net.minestom.server.command.builder.Command
@@ -35,23 +36,25 @@ class TebexModule : AechronisModule {
             println("[Tebex] Disabled: set TEBEX_SECRET to the game server secret key to enable purchase delivery")
             return
         }
-        journal = DeliveryJournal(Path.of("tebex", "deliveries.log"))
-        val client = TebexApi(secret)
+        journal = measure("Delivery journal") { DeliveryJournal(Path.of("tebex", "deliveries.log")) }
+        val client = measure("API client") { TebexApi(secret) }
         api = client
         running = true
-        registerRecoveryCommand()
-        tickTask =
-            ModuleScheduler
-                .buildTask { tick() }
-                .delay(TaskSchedule.nextTick())
-                .repeat(TaskSchedule.tick(1))
-                .schedule()
-        val executor =
-            Executors.newSingleThreadScheduledExecutor { action ->
-                Thread(action, "tebex-queue").also { it.isDaemon = true }
-            }
-        worker = executor
-        executor.scheduleWithFixedDelay({ poll(client) }, 1, 1, TimeUnit.SECONDS)
+        measure("Recovery command") { registerRecoveryCommand() }
+        measure("Delivery schedulers") {
+            tickTask =
+                ModuleScheduler
+                    .buildTask { tick() }
+                    .delay(TaskSchedule.nextTick())
+                    .repeat(TaskSchedule.tick(1))
+                    .schedule()
+            val executor =
+                Executors.newSingleThreadScheduledExecutor { action ->
+                    Thread(action, "tebex-queue").also { it.isDaemon = true }
+                }
+            worker = executor
+            executor.scheduleWithFixedDelay({ poll(client) }, 1, 1, TimeUnit.SECONDS)
+        }
         println("[Tebex] Purchase delivery enabled; ${journal.uncertain().size} command(s) need reconciliation")
     }
 

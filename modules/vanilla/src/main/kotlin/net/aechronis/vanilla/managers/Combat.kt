@@ -22,14 +22,11 @@ object Combat {
     private val bossBars = ConcurrentHashMap<UUID, BossBar>()
 
     fun init() {
-        val timeStart = System.currentTimeMillis()
         CombatListener.init()
         ModuleScheduler
             .buildTask(::tick)
             .repeat(TaskSchedule.seconds(Vanilla.config.combatTickSeconds))
             .schedule()
-        val timeEnd = System.currentTimeMillis()
-        println("├─ Combat enabled in ${timeEnd - timeStart}ms")
     }
 
     fun tag(

@@ -28,6 +28,7 @@ import net.aechronis.server.listeners.DroneListener
 import net.aechronis.server.listeners.PlayerJoinListener
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.server.objects.Drone
 import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.tasks.TabManager
@@ -55,49 +56,53 @@ class ANewMilleniumModule : AechronisModule {
     override val reloadTogether = setOf("combat", "vanilla", "nodes")
 
     override fun configure(context: ModuleContext) {
-        registerItems()
+        measure("Item catalogue") { registerItems() }
         val hands by lazy {
             checkNotNull(EmbeddedResourcePack.readAsset(javaClass, GunHandSkins.HAND_TEXTURE)) { "Missing iteration hand atlas" }
         }
         GunHandSkins.registerTemplate { hands }
-        VanillaModule.configure(
-            VanillaConfig(
-                recipesConfig = RecipesConfig(recpies = Blocks.list + Tools.list + Smelting.list + Weapons.list + Vehicles.list),
-                blocksConfig = BlocksConfig(converterCycles = Blocks.converterCycles),
-                factories = Factories.list,
-                shopEnabled = false,
-            ),
-        )
-        NodesModule.configure(
-            NodesConfig(
-                defaultRespawnPoint = context.spawnPoint,
-                chunkAttackTime = 120_000,
-                chunkAttackFromWastelandMultiplier = 1.25,
-                chunkAttackHomeMultiplier = 1.25,
-                globalResources =
-                    TerritoryResources(
-                        ores =
-                            mutableMapOf(
-                                Material.IRON_ORE to OreDeposit(Material.IRON_ORE, 0.0405, 1, 1),
-                                Material.GOLD_ORE to OreDeposit(Material.GOLD_ORE, 0.0225, 1, 1),
-                                Material.DIAMOND_ORE to OreDeposit(Material.DIAMOND_ORE, 0.015, 1, 1),
-                                Material.COPPER_ORE to OreDeposit(Material.COPPER_ORE, 0.0045, 1, 1),
-                                Material.COAL to OreDeposit(Material.COAL, 0.055, 1, 1),
-                                Material.REDSTONE to OreDeposit(Material.REDSTONE, 0.0125, 1, 1),
-                                Material.BLAZE_POWDER to OreDeposit(Material.BLAZE_POWDER, 0.0125, 1, 1),
-                            ),
-                    ),
-            ),
-        )
+        measure("Vanilla configuration") {
+            VanillaModule.configure(
+                VanillaConfig(
+                    recipesConfig = RecipesConfig(recpies = Blocks.list + Tools.list + Smelting.list + Weapons.list + Vehicles.list),
+                    blocksConfig = BlocksConfig(converterCycles = Blocks.converterCycles),
+                    factories = Factories.list,
+                    shopEnabled = false,
+                ),
+            )
+        }
+        measure("Nodes configuration") {
+            NodesModule.configure(
+                NodesConfig(
+                    defaultRespawnPoint = context.spawnPoint,
+                    chunkAttackTime = 120_000,
+                    chunkAttackFromWastelandMultiplier = 1.25,
+                    chunkAttackHomeMultiplier = 1.25,
+                    globalResources =
+                        TerritoryResources(
+                            ores =
+                                mutableMapOf(
+                                    Material.IRON_ORE to OreDeposit(Material.IRON_ORE, 0.0405, 1, 1),
+                                    Material.GOLD_ORE to OreDeposit(Material.GOLD_ORE, 0.0225, 1, 1),
+                                    Material.DIAMOND_ORE to OreDeposit(Material.DIAMOND_ORE, 0.015, 1, 1),
+                                    Material.COPPER_ORE to OreDeposit(Material.COPPER_ORE, 0.0045, 1, 1),
+                                    Material.COAL to OreDeposit(Material.COAL, 0.055, 1, 1),
+                                    Material.REDSTONE to OreDeposit(Material.REDSTONE, 0.0125, 1, 1),
+                                    Material.BLAZE_POWDER to OreDeposit(Material.BLAZE_POWDER, 0.0125, 1, 1),
+                                ),
+                        ),
+                ),
+            )
+        }
     }
 
     override fun initialize(context: ModuleContext) {
-        TabManager.start()
+        measure("Tab list") { TabManager.start() }
 
-        initializeVehiclePersistence(context)
-        DroneListener.init(context)
-        PlayerJoinListener.init(context)
-        VotifierIntegration.initialize()
+        measure("Vehicle persistence") { initializeVehiclePersistence(context) }
+        measure("Drone listeners") { DroneListener.init(context) }
+        measure("Player listeners") { PlayerJoinListener.init(context) }
+        measure("Votifier") { VotifierIntegration.initialize() }
     }
 
     private fun registerItems() {

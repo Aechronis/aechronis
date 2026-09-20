@@ -39,6 +39,7 @@ import net.aechronis.combat.utils.bypassesCombatDamageImmunity
 import net.aechronis.combat.utils.combatDamageKind
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.LivingEntity
@@ -187,55 +188,55 @@ object Combat {
         this.config = config
 
         try {
-            // measure load time
-            val timeStart = System.currentTimeMillis()
-
             // initialize storage
-            HatCollection.initialize()
-            BlockRestoreManager.initialize()
+            measure("Storage") {
+                HatCollection.initialize()
+                BlockRestoreManager.initialize()
+            }
 
             // register listeners
-            GunAnimation.init()
-            AimingListener.init()
-            AmmoInventoryListener.init()
-            ReloadListener.init()
-            FireListener.init()
-            GrenadeListener.init()
-            MeleeListener.init()
-            PlayerDeathListener.init()
-            PlayerDisconnectListener.init()
-            CooldownResetListener.init()
-            ArmorProtectionListener.init()
-            RespawnProtectionListener.init()
-            MannequinDamageListener.init()
-            VehicleListener.init()
-            KeyPressListener.init()
-            HatListener.init()
-            LagCompensationListener.init()
-            WeaponLoreListener.init()
+            measure("Listeners") {
+                GunAnimation.init()
+                AimingListener.init()
+                AmmoInventoryListener.init()
+                ReloadListener.init()
+                FireListener.init()
+                GrenadeListener.init()
+                MeleeListener.init()
+                PlayerDeathListener.init()
+                PlayerDisconnectListener.init()
+                CooldownResetListener.init()
+                ArmorProtectionListener.init()
+                RespawnProtectionListener.init()
+                MannequinDamageListener.init()
+                VehicleListener.init()
+                KeyPressListener.init()
+                HatListener.init()
+                LagCompensationListener.init()
+                WeaponLoreListener.init()
 
-            val globalEventHandler = MinecraftServer.getGlobalEventHandler()
-            ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)
-            ModuleEvents.addChild(globalEventHandler, eventNode)
-            ModuleEvents.addChild(globalEventHandler, highPriorityEventNode)
+                val globalEventHandler = MinecraftServer.getGlobalEventHandler()
+                ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)
+                ModuleEvents.addChild(globalEventHandler, eventNode)
+                ModuleEvents.addChild(globalEventHandler, highPriorityEventNode)
+            }
 
             // register commands
-            ModuleCommands
-                .register(CombatAdminCommand())
-            ModuleCommands
-                .register(HatsCommand())
+            measure("Commands") {
+                ModuleCommands
+                    .register(CombatAdminCommand())
+                ModuleCommands
+                    .register(HatsCommand())
+            }
 
             // run background schedulers/tasks
-            ModelManager.start()
-            PlayerPositionManager.start()
-            ActionBarManager.start()
-            VehicleTickManager.start()
-            ProjectileTickManager.start()
-
-            // print load time
-            val timeEnd = System.currentTimeMillis()
-            val timeLoad = timeEnd - timeStart
-            println("Enabled in ${timeLoad}ms")
+            measure("Schedulers") {
+                ModelManager.start()
+                PlayerPositionManager.start()
+                ActionBarManager.start()
+                VehicleTickManager.start()
+                ProjectileTickManager.start()
+            }
         } catch (exception: Throwable) {
             try {
                 shutdown()

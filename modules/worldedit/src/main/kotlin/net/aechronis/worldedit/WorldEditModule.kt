@@ -3,6 +3,7 @@ package net.aechronis.worldedit
 import io.github.openminigameserver.worldedit.MinestomWorldEdit
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 
 class WorldEditModule : AechronisModule {
     override val id = "worldedit"
@@ -12,7 +13,7 @@ class WorldEditModule : AechronisModule {
 
     override fun initialize(context: ModuleContext) {
         check(worldEdit == null) { "WorldEdit module is already initialized" }
-        val instance = MinestomWorldEdit()
+        val instance = measure("Platform construction") { MinestomWorldEdit() }
         worldEdit = instance
         instance.init()
     }

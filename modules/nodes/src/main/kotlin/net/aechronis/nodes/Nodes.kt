@@ -77,6 +77,7 @@ import net.aechronis.nodes.war.Warzone
 import net.aechronis.nodes.war.serdes.WarSerializer
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import net.minestom.server.timer.Task
@@ -133,68 +134,76 @@ object Nodes {
         check(initialized.compareAndSet(false, true)) { "Nodes is already initialized" }
         initializationComplete = false
         completedCleanupStages.clear()
-        val timeStart = System.currentTimeMillis()
         this.config = config
-        WarSerializer.resume()
-        FlagWar.initialize(config.flagBlocks)
+        measure("War configuration") {
+            WarSerializer.resume()
+            FlagWar.initialize(config.flagBlocks)
+        }
         println("Loading world from: ${config.pathWorld}")
-        check(loadWorld()) {
-            "Invalid world file at ${config.pathWorld}; refusing to start Nodes with partial state"
+        measure("World data") {
+            check(loadWorld()) {
+                "Invalid world file at ${config.pathWorld}; refusing to start Nodes with partial state"
+            }
         }
         println("- Resource Nodes: ${ResourceNode.count()}")
         println("- Territories: ${Territory.count()}")
         println("- Residents: ${Resident.count()}")
         println("- Towns: ${Town.count()}")
         println("- Nations: ${Nation.count()}")
-        MinimapPassengerTracker.init()
-        RelationshipHitbox.init()
-        NodesChatListener.init()
-        NodesChestProtectionListener.init()
-        NodesIncomeInventoryListener.init()
-        NodesPlayerDamageListener.init()
-        NodesPlayerJoinQuitListener.init()
-        NodesPlayerMoveListener.init()
-        NodesPlotSelectionListener.init()
-        NodesWorldListener.init()
-        NodesChestProtectionDestroyListener.init()
-        NodesVanillaStorageBridge.init()
-        ColonizationMenu.init()
-        TrainsListener.init()
-        WaypointMenu.init()
-        TestTownSelection.init()
-        Trains.initialize(config.pathTrains)
-        commands =
-            listOf(
-                TownCommand(),
-                NationCommand(),
-                NodesAdminCommand(),
-                AllyCommand(),
-                UnallyCommand(),
-                GlobalChatCommand(),
-                TownChatCommand(),
-                NationChatCommand(),
-                AllyChatCommand(),
-                PlayerCommand(),
-                TerritoryCommand(),
-                RatesCommand(),
-                PortCommand(),
-                WaypointCommand(),
-                TrainCommand(),
-                ColonizeCommand(),
-                WarzoneCommand(),
-            )
-        val globalEventHandler = MinecraftServer.getGlobalEventHandler()
-        ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)
-        ModuleEvents.addChild(globalEventHandler, eventNode)
-        ModuleEvents.addChild(globalEventHandler, highPriorityEventNode)
-        ModuleEvents.addChild(globalEventHandler, postPermissionEventNode)
-        commands.forEach(ModuleCommands::register)
-        lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: System.currentTimeMillis()
-        reloadManagers()
-        MiningBoostManager.start()
-        initializeOnlinePlayers()
+        measure("Listeners and menus") {
+            MinimapPassengerTracker.init()
+            RelationshipHitbox.init()
+            NodesChatListener.init()
+            NodesChestProtectionListener.init()
+            NodesIncomeInventoryListener.init()
+            NodesPlayerDamageListener.init()
+            NodesPlayerJoinQuitListener.init()
+            NodesPlayerMoveListener.init()
+            NodesPlotSelectionListener.init()
+            NodesWorldListener.init()
+            NodesChestProtectionDestroyListener.init()
+            NodesVanillaStorageBridge.init()
+            ColonizationMenu.init()
+            TrainsListener.init()
+            WaypointMenu.init()
+            TestTownSelection.init()
+        }
+        measure("Trains") { Trains.initialize(config.pathTrains) }
+        measure("Commands and event registration") {
+            commands =
+                listOf(
+                    TownCommand(),
+                    NationCommand(),
+                    NodesAdminCommand(),
+                    AllyCommand(),
+                    UnallyCommand(),
+                    GlobalChatCommand(),
+                    TownChatCommand(),
+                    NationChatCommand(),
+                    AllyChatCommand(),
+                    PlayerCommand(),
+                    TerritoryCommand(),
+                    RatesCommand(),
+                    PortCommand(),
+                    WaypointCommand(),
+                    TrainCommand(),
+                    ColonizeCommand(),
+                    WarzoneCommand(),
+                )
+            val globalEventHandler = MinecraftServer.getGlobalEventHandler()
+            ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)
+            ModuleEvents.addChild(globalEventHandler, eventNode)
+            ModuleEvents.addChild(globalEventHandler, highPriorityEventNode)
+            ModuleEvents.addChild(globalEventHandler, postPermissionEventNode)
+            commands.forEach(ModuleCommands::register)
+        }
+        measure("Managers") {
+            lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: System.currentTimeMillis()
+            reloadManagers()
+            MiningBoostManager.start()
+        }
+        measure("Online players") { initializeOnlinePlayers() }
         initializationComplete = true
-        println("Enabled in ${System.currentTimeMillis() - timeStart}ms")
         println("now this is epic")
     }
 

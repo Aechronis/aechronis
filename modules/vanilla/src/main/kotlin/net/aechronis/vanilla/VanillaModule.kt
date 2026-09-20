@@ -2,6 +2,7 @@ package net.aechronis.vanilla
 
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.vanilla.listeners.WhitelistListener
 import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Crops
@@ -19,14 +20,16 @@ class VanillaModule : AechronisModule {
 
     override fun initialize(context: ModuleContext) {
         Vanilla.init(c = takeConfiguration(), shutdownAction = context::shutdownServer)
-        if (Vanilla.config.cropsEnabled) Crops.restoreTransientState(context.peekTransientState(CROPS_STATE_KEY))
-        if (Vanilla.config.saplingsEnabled) Saplings.restoreTransientState(context.peekTransientState(SAPLINGS_STATE_KEY))
-        if (Vanilla.config.oresEnabled) Ores.restoreTransientState(context.peekTransientState(ORE_COOLDOWNS_STATE_KEY))
-        if (Vanilla.config.combatEnabled) Combat.restoreTransientState(context.peekTransientState(COMBAT_TAGS_STATE_KEY))
-        if (Vanilla.config.commandsEnabled) Vanish.restoreTransientState(context.peekTransientState(VANISH_STATE_KEY))
-        if (Vanilla.config.shopEnabled) KillShop.restoreTransientState(context.peekTransientState(SHOP_COOLDOWNS_STATE_KEY))
-        // Vanish must restore first so KOTH remembers its glow as a pre-existing visibility state.
-        if (Vanilla.config.kothEnabled) Koth.restoreTransientState(context.peekTransientState(KOTH_ACTIVE_STATE_KEY))
+        measure("Restore transient state") {
+            if (Vanilla.config.cropsEnabled) Crops.restoreTransientState(context.peekTransientState(CROPS_STATE_KEY))
+            if (Vanilla.config.saplingsEnabled) Saplings.restoreTransientState(context.peekTransientState(SAPLINGS_STATE_KEY))
+            if (Vanilla.config.oresEnabled) Ores.restoreTransientState(context.peekTransientState(ORE_COOLDOWNS_STATE_KEY))
+            if (Vanilla.config.combatEnabled) Combat.restoreTransientState(context.peekTransientState(COMBAT_TAGS_STATE_KEY))
+            if (Vanilla.config.commandsEnabled) Vanish.restoreTransientState(context.peekTransientState(VANISH_STATE_KEY))
+            if (Vanilla.config.shopEnabled) KillShop.restoreTransientState(context.peekTransientState(SHOP_COOLDOWNS_STATE_KEY))
+            // Vanish must restore first so KOTH remembers its glow as a pre-existing visibility state.
+            if (Vanilla.config.kothEnabled) Koth.restoreTransientState(context.peekTransientState(KOTH_ACTIVE_STATE_KEY))
+        }
         if (Vanilla.config.whitelistEnabled) {
             context.addListener(AsyncPlayerPreLoginEvent::class.java, WhitelistListener::onPreLogin)
         }
