@@ -1,7 +1,6 @@
 package net.aechronis.server
 
 import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
-import me.lucko.spark.minestom.SparkMinestom
 import net.aechronis.server.commands.SetSpawnCommand
 import net.aechronis.server.dev.DevModuleWatcher
 import net.aechronis.server.events.SpawnPointChangedEvent
@@ -9,7 +8,6 @@ import net.aechronis.server.listeners.ResourcePackListener
 import net.aechronis.server.modules.ModuleCommand
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleManager
-import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.PlayerAdmissionGate
 import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.resourcepack.ResourcePackServer
@@ -18,7 +16,6 @@ import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.color.Color
 import net.minestom.server.coordinate.Pos
-import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.instance.InstanceContainer
@@ -204,19 +201,6 @@ private fun startMinecraftServer(
     MinecraftServer.getCommandManager().register(ModuleCommand(moduleManager))
     MinecraftServer.getCommandManager().register(SetSpawnCommand())
     ResourcePackListener.initialize(resourcePackServer)
-    ModulePermissions.register("spark")
-    SparkMinestom
-        .builder(Path.of("spark"))
-        .commands(true)
-        .permissionHandler({ player, permission ->
-            if (player is Player) {
-                player.hasPermission(permission)
-            } else {
-                true // console
-            }
-        })
-        .enable()
-
     SignedVelocity.initialize()
 
     BlockPlacementRuleRegistrations.registerDefault()

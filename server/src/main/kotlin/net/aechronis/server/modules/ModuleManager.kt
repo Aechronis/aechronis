@@ -47,6 +47,7 @@ class ModuleManager private constructor(
     fun initialize(context: ModuleContext) {
         check(this.context == null) { "Modules are already initialized" }
         this.context = context
+        context.administration = this
         try {
             val plan = plan(artifacts, disabled)
             loaded = instantiate(artifacts, plan, emptyMap())

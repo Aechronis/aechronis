@@ -28,7 +28,11 @@ internal class LoadedModule(
             classLoader.close()
             throw error
         }
-    private val scope = ModuleResourceScope(classLoader).apply { published = false }
+    private val scope =
+        ModuleResourceScope(
+            classLoader,
+            ModuleSource(module.id, artifact.fingerprint, artifact.sourceName),
+        ).apply { published = false }
     private val registrations = RuntimeRegistrations(scope)
     private val checkpointTracker = ModuleCheckpointTracker()
     private var preparedPack: ModuleResourcePacks? = null

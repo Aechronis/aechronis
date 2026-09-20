@@ -23,6 +23,7 @@ import kotlin.concurrent.withLock
 
 internal class ModuleResourceScope(
     val classLoader: ClassLoader,
+    val source: ModuleSource? = null,
     private val asyncExecutor: Executor = ForkJoinPool.commonPool(),
 ) {
     val eventNode: EventNode<Event> = EventNode.all("module-generation")
@@ -270,6 +271,13 @@ internal object ModuleRuntime {
         ModuleBlocks.deactivate(scope)
         scopesByClassLoader.remove(scope.classLoader, scope)
     }
+
+    fun diagnosticSources(): List<ModuleSource> = scopesByClassLoader.values.mapNotNull { it.source }.sortedBy { it.id }
+
+    fun diagnosticSource(type: Class<*>): ModuleSource? = type.classLoader?.let { scopesByClassLoader[it]?.source }
+
+    fun diagnosticClass(name: String): Class<*>? =
+        scopesByClassLoader.keys.filterIsInstance<ModuleClassLoader>().firstNotNullOfOrNull { it.findDiagnosticClass(name) }
 
     fun ownsCommand(command: net.minestom.server.command.builder.Command): Boolean =
         scopesByClassLoader.values.any { command in it.commands }

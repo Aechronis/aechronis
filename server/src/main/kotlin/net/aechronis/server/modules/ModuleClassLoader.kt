@@ -10,6 +10,28 @@ internal class ModuleClassLoader(
     jar: URL,
     private val dependencies: List<ModuleClassLoader>,
 ) : URLClassLoader(arrayOf(jar), AechronisModule::class.java.classLoader) {
+    private var closed = false
+
+    @Synchronized
+    fun findDiagnosticClass(name: String): Class<*>? =
+        if (closed) {
+            null
+        } else {
+            try {
+                Class.forName(name, false, this)
+            } catch (_: ClassNotFoundException) {
+                null
+            } catch (_: LinkageError) {
+                null
+            }
+        }
+
+    @Synchronized
+    override fun close() {
+        closed = true
+        super.close()
+    }
+
     override fun loadClass(
         name: String,
         resolve: Boolean,

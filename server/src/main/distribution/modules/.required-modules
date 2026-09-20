@@ -3,6 +3,7 @@ gems
 guard
 logger
 luckperms
+spark
 nodes
 a-new-millenium
 utils

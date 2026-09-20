@@ -26,6 +26,10 @@ class ModuleContext(
     private val liveExecutor: Executor? = null,
     private val liveExecutionAvailable: () -> Boolean = { true },
 ) {
+    internal var administration: ModuleAdministration? = null
+
+    fun moduleSnapshot(): ModuleSnapshot = administration?.snapshot() ?: ModuleSnapshot(0, "unavailable", emptyList())
+
     private val saveCoreWorldCallback = saveCoreWorld
     private val transientState = ConcurrentHashMap<String, ByteArray>()
     private var tickPause: ModuleTickPause? = null
