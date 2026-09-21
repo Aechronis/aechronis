@@ -11,7 +11,7 @@ dependencies {
     compileOnly("org.slf4j:slf4j-api:2.0.19")
     add("moduleImplementation", "me.lucko:spark-common:$sparkVersion")
     // Upstream Spark expects its platform adapter to provide these libraries
-    add("moduleImplementation", "com.google.guava:guava:33.3.1-jre")
+    add("moduleImplementation", "com.google.guava:guava:33.7.1-jre")
     add("moduleImplementation", "com.google.code.gson:gson:2.13.2")
 }
 
