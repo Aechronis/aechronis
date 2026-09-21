@@ -12,7 +12,7 @@ dependencies {
     add("moduleImplementation", "me.lucko:spark-common:$sparkVersion")
     // Upstream Spark expects its platform adapter to provide these libraries
     add("moduleImplementation", "com.google.guava:guava:33.3.1-jre")
-    add("moduleImplementation", "com.google.code.gson:gson:2.13.2")
+    add("moduleImplementation", "com.google.code.gson:gson:2.14.0")
 }
 
 tasks.withType<Jar>().configureEach {
