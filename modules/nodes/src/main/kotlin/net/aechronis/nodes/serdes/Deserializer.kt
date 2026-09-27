@@ -363,6 +363,7 @@ object Deserializer {
                     lives,
                     capitalLifeGranted,
                     lifeRevision,
+                    coatOfArmsUrl = town["coatOfArmsUrl"]?.jsonPrimitive?.contentOrNull,
                 )
             }
         }
@@ -436,6 +437,8 @@ object Deserializer {
                     color,
                     towns,
                     rallyCap,
+                    longName = nation["longName"]?.jsonPrimitive?.contentOrNull,
+                    flagUrl = nation["flagUrl"]?.jsonPrimitive?.contentOrNull,
                 )
 
                 nations.add(nationObject)

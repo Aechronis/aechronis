@@ -10,6 +10,8 @@ internal object NationJsonCodec {
     fun encode(snapshot: Nation.NationSaveState): String = buildJsonObject {
         put("uuid", snapshot.uuid.toString())
         put("capital", snapshot.capital)
+        put("longName", snapshot.longName)
+        put("flagUrl", snapshot.flagUrl)
         putJsonArray("color") {
             add(snapshot.color.r)
             add(snapshot.color.g)

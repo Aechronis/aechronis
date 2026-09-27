@@ -13,6 +13,7 @@ internal object TownJsonCodec {
     fun encode(snapshot: Town.TownSaveState): String = buildJsonObject {
         put("uuid", snapshot.uuid.toString())
         put("leader", snapshot.leader?.toString())
+        put("coatOfArmsUrl", snapshot.coatOfArmsUrl)
         put("home", snapshot.home.toInt())
         putJsonArray("spawn") {
             add(snapshot.spawnpoint.x)

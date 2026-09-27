@@ -111,12 +111,16 @@ class Nation(
             color: Color?,
             towns: ArrayList<String>,
             rallyCap: Int? = null,
+            longName: String? = null,
+            flagUrl: String? = null,
         ): Nation {
             val capital = Town.fromName(capitalName) ?: throw net.aechronis.nodes.constants.ErrorTownDoesNotExist
             val nation = Nation(uuid, name, capital)
             Town.initializeCapitalLives(capital)
             if (color != null) nation.color = color
             nation.rallyCap = rallyCap?.takeIf { it > 0 }
+            nation.longName = longName
+            nation.flagUrl = flagUrl
             for (townName in towns) {
                 val town = Town.fromName(townName) ?: continue
                 nation.towns.add(town)
@@ -205,6 +209,18 @@ class Nation(
             nation.allies.forEach { it.needsUpdate() }
             Nodes.markWorldDirty()
             return true
+        }
+
+        fun setLongName(nation: Nation, value: String?) {
+            nation.longName = value
+            nation.needsUpdate()
+            Nodes.markWorldDirty()
+        }
+
+        fun setFlagUrl(nation: Nation, value: String?) {
+            nation.flagUrl = value
+            nation.needsUpdate()
+            Nodes.markWorldDirty()
         }
 
         fun setRallyCap(nation: Nation, rallyCap: Int) {
@@ -329,6 +345,11 @@ class Nation(
         random.nextInt(256),
     )
 
+    var longName: String? = null
+        private set
+    var flagUrl: String? = null
+        private set
+
     // json string and memoization flag
     private var saveState = NationSaveState(this)
 
@@ -387,6 +408,8 @@ class Nation(
         val name = n.name
         val capital = n.capital.name
         val color = n.color
+        val longName = n.longName
+        val flagUrl = n.flagUrl
         val towns = n.towns.map { x -> x.name }.snapshotList()
         val allies = n.allies.map { x -> x.name }.snapshotList()
         val enemies = n.enemies.map { x -> x.name }.snapshotList()
