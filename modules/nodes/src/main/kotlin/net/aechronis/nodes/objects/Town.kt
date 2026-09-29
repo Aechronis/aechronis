@@ -152,12 +152,10 @@ class Town(
             capitalLifeGranted: Boolean = false,
             lifeRevision: Long = 0L,
             coatOfArmsUrl: String? = null,
-        ): Town? {
+        ): Town {
             val leaderResident = leader?.let { Resident.fromUuid(it) }
-            val home = Territory.fromId(TerritoryId(homeId))
-            if (home == null) {
-                System.err.println("Failed to create town $name with home (id = $homeId)")
-                return null
+            val home = requireNotNull(Territory.fromId(TerritoryId(homeId))) {
+                "Cannot load town '$name': home territory $homeId is missing from the world definition"
             }
             val spawnpoint = spawn ?: Territory.defaultSpawnLocation(home)
             val town = Town(uuid, name, home.id, leaderResident, spawnpoint)

@@ -1470,7 +1470,13 @@ class NodesAdminLoadCommand : NodesCommand("load", "nodes.admin") {
 
         addSyntax({ player, resident, context ->
             Message.print(player, "[Nodes] Loading world")
-            Nodes.loadWorld()
+            try {
+                Nodes.loadWorld()
+            } catch (error: Exception) {
+                System.err.println("[Nodes] Failed to reload world: ${error.message}")
+                error.printStackTrace()
+                Message.error(player, "Failed to load world: ${error.message}. Saving is suspended; correct the data and run /nda load again.")
+            }
         })
     }
 }

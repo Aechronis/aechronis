@@ -185,6 +185,9 @@ earthOverview.src = earthOverviewUrl;
 
 const preparation = new WorkerClient(new Worker(new URL('./map-preparation-worker.mjs', import.meta.url), { type: 'module' }));
 const initialPrepared = preparation.call('initial', { base: document.baseURI });
+// The worker may fail before the overview decodes and bootMap attaches its
+// startup handler. Keep that early rejection handled until it can be retried.
+initialPrepared.catch(() => {});
 // Prepare the background beneath the loader while map data is built off-thread.
 const fontsReady = Promise.all([
   document.fonts.load(`600 100px "${NATION_FONT}"`),
@@ -370,7 +373,7 @@ function bootMap(initial) {
     mapModeSelect.dispatchEvent(new Event('change'));
   });
   const relationStyles = memoize(relationIndex);
-  const displayIndex = () => mapMode === 'relations'
+  const displayIndex = () => dataReady && mapMode === 'relations'
     ? relationStyles(index, data.towns.nations, relationNation, data.war?.flagDeathWar) : index;
   const relationPalette = memoize(buildRelationPalette);
   const relationAttacks = memoize((attacks, styledIndex) =>
@@ -617,6 +620,11 @@ function bootMap(initial) {
   }
 
   function updateSelection() {
+    if (!dataReady) {
+      syncMapMode();
+      redraw();
+      return;
+    }
     const { hit } = selection();
     const nationName = hit && index.townStyle.get(hit.ownerName)?.nation;
     const nationKey = hit
@@ -1235,8 +1243,8 @@ function bootMap(initial) {
   // --- Periodic refresh --------------------------------------------------
   // Poll the three mutable files every 30s. Conditional GETs (If-None-Match /
   // If-Modified-Since) make the unchanged-case a single empty 304 per file,
-  // so unchanged town data is not re-downloaded on every tick. world.json is
-  // treated as static and never re-fetched.
+  // so unchanged town data is not re-downloaded on every tick. Once startup
+  // succeeds, world.json is treated as static and never re-fetched.
   const REFRESH_INTERVAL_MS = 30_000;
   const REFRESH_FILES = ['towns', 'war', 'buildings'];
   // war.json may be 404 (no active war); buildings.json may be 404 too.
@@ -1383,22 +1391,39 @@ function bootMap(initial) {
     }
   });
 
-  Promise.all([initialPrepared, fontsReady]).then(([result]) => {
-    data = result.initial.data;
-    Object.assign(fileMeta, result.initial.meta);
-    installPrepared(result);
-    buildBuildings();
-    dataReady = true;
-    updateSelection();
-    updateHover();
-    redraw();
-  }).catch(error => {
-    console.error('Map preparation failed:', error);
-    if (loadingEl && !loadingHidden) {
-      loadingEl.setAttribute('aria-label', 'Map could not be loaded');
-      loadingEl.querySelector('span').textContent = 'Could not load map. Please reload to try again.';
+  let startupRetryDelay = 5_000;
+  async function loadInitial(pending = preparation.call('initial', { base: document.baseURI })) {
+    try {
+      const [result] = await Promise.all([pending, fontsReady]);
+      data = result.initial.data;
+      Object.assign(fileMeta, result.initial.meta);
+      installPrepared(result);
+      buildBuildings();
+      if (loadingEl && !loadingHidden) {
+        loadingEl.setAttribute('aria-label', 'Loading world map');
+        loadingEl.querySelector('span').textContent = 'Loading map…';
+      }
+      dataReady = true;
+      updateSelection();
+      updateHover();
+      redraw();
+    } catch (error) {
+      dataReady = false;
+      initialLayersSubmitted = false;
+      console.error('Map preparation failed:', error);
+      if (loadingEl && !loadingHidden) {
+        loadingEl.setAttribute('aria-label', 'Map could not be loaded');
+        loadingEl.querySelector('span').textContent = preparation.error
+          ? 'Could not load map. Please reload to try again.'
+          : 'Could not load map data. Retrying…';
+      }
+      if (!preparation.error) {
+        setTimeout(() => loadInitial(), startupRetryDelay);
+        startupRetryDelay = Math.min(startupRetryDelay * 2, REFRESH_INTERVAL_MS);
+      }
     }
-  });
+  }
+  loadInitial(initialPrepared);
 
   ensureAttackAnim();
 }

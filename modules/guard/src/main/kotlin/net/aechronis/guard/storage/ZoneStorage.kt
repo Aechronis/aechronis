@@ -10,7 +10,6 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import net.aechronis.guard.flags.BooleanFlagValue
 import net.aechronis.guard.flags.DecimalFlagValue
 import net.aechronis.guard.flags.FlagName
@@ -47,15 +46,15 @@ class ZoneStorage {
     )
 
     fun load(path: Path): List<Zone> {
-        if (!Files.exists(path)) return emptyList()
+        if (Files.notExists(path)) return emptyList()
         val root = Json.parseToJsonElement(Files.readString(path)).jsonObject
-        val zones = root["zones"]?.jsonArray ?: return emptyList()
-        return zones.mapIndexedNotNull { index, element ->
-            runCatching { readZone(Json.decodeFromString<SavedZone>(element.toString())) }
-                .onFailure { error ->
-                    val name = runCatching { element.jsonObject["name"]?.jsonPrimitive?.content }.getOrNull() ?: "#${index + 1}"
-                    System.err.println("Guard skipped invalid zone $name in $path: ${error.message ?: error}")
-                }.getOrNull()
+        val zones = requireNotNull(root["zones"]) { "Missing zones in $path" }.jsonArray
+        return zones.mapIndexed { index, element ->
+            try {
+                readZone(Json.decodeFromString<SavedZone>(element.toString()))
+            } catch (error: Exception) {
+                throw IllegalArgumentException("Invalid Guard zone #${index + 1} in $path", error)
+            }
         }
     }
 
@@ -98,10 +97,10 @@ class ZoneStorage {
             bounds = saved.bounds,
             priority = saved.priority,
             flags =
-                saved.flags
-                    .mapNotNull { (id, value) ->
-                        FlagName.fromId(id)?.let { it to readValue(Json.decodeFromJsonElement<SavedFlag>(value)) }
-                    }.toMap(),
+                saved.flags.entries.associate { (id, value) ->
+                    val flag = requireNotNull(FlagName.fromId(id)) { "Unknown flag '$id'" }
+                    flag to readValue(Json.decodeFromJsonElement<SavedFlag>(value))
+                },
         )
 
     private fun readValue(saved: SavedFlag): FlagValue =

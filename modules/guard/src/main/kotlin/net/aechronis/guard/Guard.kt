@@ -48,13 +48,20 @@ object Guard {
 
     @Synchronized
     fun init(config: GuardConfig = GuardConfig()) {
-        check(initialized.compareAndSet(false, true)) { "Guard is already initialized" }
+        check(!initialized.get()) { "Guard is already initialized" }
+        // Validate the complete registry before publishing any state. Failed initialization may
+        // still be followed by saveState/shutdown, which must not overwrite the rejected file.
+        val loadedRegistry =
+            measure("Zone data") {
+                ZoneRegistry().apply { replaceAll(storage.load(config.dataPath)) }
+            }
+        this.config = config
+        registry = loadedRegistry
+        initialized.set(true)
         try {
-            this.config = config
             measure("Protection policy") {
                 ModulePermissions.register(config.bypassPermission)
                 eventNode = EventNode.all("guard").setPriority(-1000)
-                registry = ZoneRegistry()
                 policy =
                     ZonePolicy(
                         config.defaultFlags
@@ -63,12 +70,6 @@ object Guard {
                             }.toMap(),
                     )
             }
-
-            runCatching {
-                measure("Zone data") {
-                    registry.replaceAll(storage.load(config.dataPath))
-                }
-            }.onFailure { println("Guard could not load zones from ${config.dataPath}: $it") }
 
             measure("Protection listeners") {
                 eventNode.addListener(PlayerBlockPlaceEvent::class.java, BlockPlaceListener::handle)
@@ -87,7 +88,7 @@ object Guard {
                     .register(command!!)
             }
         } catch (error: Throwable) {
-            shutdown()
+            runCatching(::shutdown).onFailure(error::addSuppressed)
             throw error
         }
     }

@@ -1,11 +1,13 @@
 // Keep the last response text for the small mutable files. Some static hosts
 // ignore conditional headers, so an unchanged 200 must not rebuild the map.
-export async function fetchJsonUpdate(url, previous, { initial = false, optional = false } = {}) {
+export async function fetchJsonUpdate(url, previous, { initial = false, optional = false, timeoutMs } = {}) {
   const headers = {};
   if (previous?.etag) headers['If-None-Match'] = previous.etag;
   if (previous?.lastMod) headers['If-Modified-Since'] = previous.lastMod;
   try {
-    const response = await fetch(url, initial ? undefined : { headers, cache: 'no-store' });
+    const options = initial ? {} : { headers, cache: 'no-store' };
+    if (timeoutMs !== undefined) options.signal = AbortSignal.timeout(timeoutMs);
+    const response = await fetch(url, options);
     if (response.status === 304) return initial ? { body: null, meta: null } : null;
     if (!response.ok) {
       // A transient server failure must not remove existing map data.
