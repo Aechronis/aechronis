@@ -12,4 +12,6 @@ dependencies {
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:vanilla"))
     compileOnly(project(":modules:worldedit"))
+    // Many nation flag URLs (e.g. flagcdn.com) are SVG, which ImageIO cannot decode on its own.
+    add("moduleImplementation", "com.formdev:svgSalamander:1.1.4")
 }

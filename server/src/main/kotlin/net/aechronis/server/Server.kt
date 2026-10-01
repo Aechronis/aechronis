@@ -116,7 +116,7 @@ private fun startMinecraftServer(
 ) {
     val server =
         if (velocitySecret == null) {
-            MinecraftServer.init(Auth.Online())
+            MinecraftServer.init(Auth.Offline())
         } else {
             MinecraftServer.init(Auth.Velocity(velocitySecret))
         }
@@ -164,6 +164,7 @@ private fun startMinecraftServer(
             Server.fullbrightKey,
             AnvilLoader(worldPath, DimensionType.OVERWORLD.key()),
         )
+    Server.instance.setGenerator { unit -> unit.modifier().fillHeight(-64, 0, net.minestom.server.instance.block.Block.STONE) }
     MinecraftServer.getInstanceManager().registerInstance(Server.instance)
     Server.loadSpawnPoint()
 

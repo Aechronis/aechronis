@@ -1,6 +1,7 @@
 package net.aechronis.nodes
 
 import net.aechronis.combat.tasks.BlockRestoreManager
+import net.aechronis.nodes.objects.NationFlagPack
 import net.aechronis.server.events.SpawnPointChangedEvent
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
@@ -17,6 +18,7 @@ class NodesModule : AechronisModule {
     override fun initialize(context: ModuleContext) {
         ModulePermissions.register("nodes.bypass", "*")
         Nodes.initialize(takeConfiguration(context))
+        NationFlagPack.initialize(context)
         context.addListener(SpawnPointChangedEvent::class.java) { event ->
             Nodes.config.defaultRespawnPoint = event.spawnPoint
         }
@@ -34,7 +36,10 @@ class NodesModule : AechronisModule {
         Nodes.cleanup { action -> context.captureLive(action) }
     }
 
-    override fun shutdown(context: ModuleContext) = Nodes.cleanup()
+    override fun shutdown(context: ModuleContext) {
+        NationFlagPack.shutdown()
+        Nodes.cleanup()
+    }
 
     companion object {
         private var configured: NodesConfig? = null
