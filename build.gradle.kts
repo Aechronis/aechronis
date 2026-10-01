@@ -86,6 +86,7 @@ val runtimeModuleProjects =
     listOf(
         ":modules:luckperms",
         ":modules:spark",
+        ":modules:grimac",
         ":modules:utils",
         ":modules:watchdog",
         ":modules:combat",

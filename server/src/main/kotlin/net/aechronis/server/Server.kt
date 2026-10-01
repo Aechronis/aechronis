@@ -1,5 +1,6 @@
 package net.aechronis.server
 
+import ac.grim.grimac.minestom.MinestomSupport
 import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
 import net.aechronis.server.commands.SetSpawnCommand
 import net.aechronis.server.dev.DevModuleWatcher
@@ -80,6 +81,7 @@ object Server {
 }
 
 fun main(args: Array<String>) {
+    MinestomSupport.prepare()
     System.setProperty("minestom.shutdown-on-signal", "false")
 
     val port = args.getOrNull(0)?.toInt() ?: 25565
@@ -134,6 +136,8 @@ private fun startMinecraftServer(
         saveCoreWorld = {},
         closeModules = {},
     )
+
+    MinestomSupport.install()
 
     // register fullbright dimension
     val fullbright =

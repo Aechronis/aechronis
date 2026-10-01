@@ -1,5 +1,6 @@
 package net.aechronis.combat.utils
 
+import ac.grim.grimac.minestom.PacketBridge
 import net.minestom.server.MinecraftServer
 import net.minestom.server.ServerFlag
 import net.minestom.server.adventure.MinestomAdventure
@@ -18,9 +19,10 @@ import net.minestom.server.network.packet.server.play.BundlePacket
  * BufferedPacket explicitly supports multiple framed packets in one queue entry;
  * the socket writer still applies connection encryption to that entire entry.
  *
- * Buffered packets bypass outgoing hooks, so invoke the native event/translation
- * sequence here, before framing. Hooks run on the firing thread rather than the
- * socket writer. No delimiter is published around callbacks or inventory changes.
+ * When the native Grim adapter owns buffered sends, it dispatches the event and
+ * translation sequence on the socket writer while retaining the atomic bundle.
+ * Otherwise perform that sequence here before framing. No delimiter is published
+ * around callbacks or inventory changes.
  * Used only for already-PLAY socket connections: ConnectionManager enables the
  * configured compression threshold before login enters configuration. Other
  * connection implementations retain their ordinary packet path.
@@ -32,15 +34,16 @@ internal fun prepareGunPacketBundle(
 ): BufferedPacket {
     require(packets.size <= 4096) { "Gun bundle exceeds the client packet limit" }
     require(packets.none { it is BundlePacket }) { "Gun bundles cannot contain delimiters" }
+    val deferredEvents = PacketBridge.handlesBufferedPackets(player)
     val outgoing = EventDispatcher.getHandle(PlayerPacketOutEvent::class.java)
     val translated =
         packets.mapNotNull { packet ->
-            if (outgoing.hasListener()) {
+            if (!deferredEvents && outgoing.hasListener()) {
                 val event = PlayerPacketOutEvent(player, packet)
                 outgoing.call(event)
                 if (event.isCancelled) return@mapNotNull null
             }
-            if (ServerFlag.AUTOMATIC_COMPONENT_TRANSLATION && packet is ServerPacket.ComponentHolding) {
+            if (!deferredEvents && ServerFlag.AUTOMATIC_COMPONENT_TRANSLATION && packet is ServerPacket.ComponentHolding) {
                 packet.copyWithOperator { component ->
                     MinestomAdventure.COMPONENT_TRANSLATOR.apply(component, player.locale ?: MinestomAdventure.getDefaultLocale())
                 }

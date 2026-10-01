@@ -9,6 +9,17 @@ plugins {
 
 version = ""
 
+// Compile against the single Minestom library, but keep only its stable hooks in core.
+// The adapter and engine dependencies belong to the reloadable Grim module.
+val grimMinestom =
+    configurations.create("grimMinestom") {
+        isCanBeConsumed = false
+        isTransitive = false
+    }
+configurations.compileOnly {
+    extendsFrom(grimMinestom)
+}
+
 base {
     archivesName.set("aechronis")
 }
@@ -26,6 +37,10 @@ tasks.named<Jar>("jar") {
 
 tasks.named<ShadowJar>("shadowJar") {
     archiveClassifier.set("")
+    dependsOn(grimMinestom)
+    from({ grimMinestom.map { zipTree(it) } }) {
+        include("ac/grim/grimac/minestom/**")
+    }
     eachFile {
         if (path.endsWith(".kotlin_module")) {
             duplicatesStrategy = DuplicatesStrategy.INCLUDE
@@ -34,6 +49,9 @@ tasks.named<ShadowJar>("shadowJar") {
 }
 
 dependencies {
+    grimMinestom("net.aechronis:grim-minestom:2.3.74-minestom.3") {
+        isTransitive = false
+    }
     implementation("net.minestom:minestom:2026.09.12-26.2")
     implementation(project(":modules:misc"))
 

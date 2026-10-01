@@ -10,7 +10,6 @@ import net.minestom.server.event.EventNode
 import net.minestom.server.event.entity.EntityDamageEvent
 import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
-import net.minestom.server.event.player.PlayerMoveEvent
 
 object DroneListener {
     fun onScroll(event: PlayerChangeHeldSlotEvent) {
@@ -27,15 +26,6 @@ object DroneListener {
             ((Drone.playerThrottle[player] ?: 0F) + delta * -10F).coerceIn(0F, 100F)
     }
 
-    fun onMove(event: PlayerMoveEvent) {
-        val player = event.player
-        if (Vehicle.drivenBy(player) !is Drone) return
-
-        val yaw = Drone.playerLockYaw[player] ?: return
-        val pitch = Drone.playerLockPitch[player] ?: return
-        event.newPosition = event.newPosition.withView(yaw, pitch)
-    }
-
     private fun onOperatorDamage(event: EntityDamageEvent) {
         val pilot = Drone.mannequinPilot[event.entity] ?: return
         event.isCancelled = true
@@ -44,7 +34,6 @@ object DroneListener {
 
     fun init(context: ModuleContext) {
         context.addListener(PlayerChangeHeldSlotEvent::class.java, DroneListener::onScroll)
-        context.addListener(PlayerMoveEvent::class.java, DroneListener::onMove)
         context.addListener(PlayerDisconnectEvent::class.java) { event ->
             Drone.clearCrashStatic(event.player, resetCamera = false)
         }

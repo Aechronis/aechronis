@@ -21,7 +21,6 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
-import net.minestom.server.entity.RelativeFlags
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.entity.metadata.avatar.MannequinMeta
 import net.minestom.server.entity.metadata.display.AbstractDisplayMeta
@@ -30,7 +29,7 @@ import net.minestom.server.event.player.PlayerInputEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
-import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket
+import net.minestom.server.network.packet.server.play.PlayerRotationPacket
 import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.network.player.ResolvableProfile
@@ -212,8 +211,6 @@ class Drone(
         playerInverted.remove(player)
         playerPendingSwitch.remove(player)
         playerBoundary.remove(player)
-        playerLockYaw.remove(player)
-        playerLockPitch.remove(player)
         playerViewmodel.remove(player)?.remove()
         if (player.isOnline) {
             for (slot in PILOT_HOTBAR_SLOTS) {
@@ -644,16 +641,13 @@ class Drone(
         playerViewmodel[player]?.setView(orientation.displayYaw, orientation.cameraPitch)
         playerPayloadViewmodel[player]?.setView(orientation.displayYaw, orientation.cameraPitch)
 
-        playerLockYaw[player] = orientation.displayYaw
-        playerLockPitch[player] = orientation.displayPitch
+        // Lock the view without creating a player teleport while the pilot is mounted.
         player.sendPacket(
-            PlayerPositionAndLookPacket(
-                -1,
-                Pos.ZERO,
-                Pos.ZERO,
+            PlayerRotationPacket(
                 orientation.displayYaw,
+                false,
                 orientation.displayPitch,
-                RelativeFlags.COORD or RelativeFlags.DELTA_COORD,
+                false,
             ),
         )
     }
@@ -797,9 +791,6 @@ class Drone(
         val playerPendingSwitch = hashMapOf<Player, Boolean>()
         val playerBoundary = hashMapOf<Player, Float>()
 
-        val playerLockYaw = hashMapOf<Player, Float>()
-        val playerLockPitch = hashMapOf<Player, Float>()
-
         val playerViewmodel = hashMapOf<Player, Entity>()
         val playerPayloadViewmodel = hashMapOf<Player, Entity>()
 
@@ -832,8 +823,6 @@ class Drone(
                     addAll(playerInverted.keys)
                     addAll(playerPendingSwitch.keys)
                     addAll(playerBoundary.keys)
-                    addAll(playerLockYaw.keys)
-                    addAll(playerLockPitch.keys)
                     addAll(playerViewmodel.keys)
                     addAll(playerPayloadViewmodel.keys)
                     addAll(playerCrashStaticCameras.keys)
@@ -882,8 +871,6 @@ class Drone(
             playerInverted.clear()
             playerPendingSwitch.clear()
             playerBoundary.clear()
-            playerLockYaw.clear()
-            playerLockPitch.clear()
             playerViewmodel.clear()
             playerPayloadViewmodel.clear()
             playerCrashStaticCameras.clear()

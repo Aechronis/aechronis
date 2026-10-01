@@ -37,6 +37,7 @@ include(
     ":server",
     ":modules:luckperms",
     ":modules:spark",
+    ":modules:grimac",
     ":modules:utils",
     ":modules:combat",
     ":modules:nodes",
