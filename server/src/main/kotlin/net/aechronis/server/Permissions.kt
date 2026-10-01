@@ -14,6 +14,9 @@ fun interface PermissionProvider {
 object Permissions {
     private var registration: Registration? = null
 
+    val allPermissionsEnabled: Boolean
+        get() = System.getProperty("aechronis.dangerously-enable-all-permissions").toBoolean()
+
     /** Close before disabling the provider. Closing also waits for any in-flight checks. */
     @Synchronized
     fun registerProvider(provider: PermissionProvider): AutoCloseable {
@@ -33,7 +36,7 @@ object Permissions {
         permission: String?,
     ): Boolean {
         if (permission == null) return true
-        if (System.getProperty("aechronis.dangerously-enable-all-permissions").toBoolean()) return true
+        if (allPermissionsEnabled) return true
         return try {
             registration?.provider?.hasPermission(uuid, permission) == true
         } catch (_: Exception) {

@@ -31,7 +31,10 @@ class LuckPermsModule : AechronisModule {
                 measure("Permission platform") {
                     LuckPermsMinestom
                         .builder(Path.of("luckperms"))
-                        .commandRegistry({ ModuleCommands.register(it) }, ModuleCommands::unregister)
+                        .commandRegistry({
+                            enablePermissionBypass(it, plugin)
+                            ModuleCommands.register(it)
+                        }, ModuleCommands::unregister)
                         .configurationAdapter {
                             plugin = it
                             EnvironmentVariableConfigAdapter(it)
