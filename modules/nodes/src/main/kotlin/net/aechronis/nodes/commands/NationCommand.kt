@@ -9,7 +9,6 @@ import net.aechronis.nodes.commands.arguments.ArgumentNation
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.utils.ChatColor
-import net.minestom.server.command.builder.arguments.ArgumentType
 
 class NationCommand : NodesCommand("n", null, "nation") {
     init {
@@ -18,7 +17,6 @@ class NationCommand : NodesCommand("n", null, "nation") {
             Message.print(player, "/nation list${ChatColor.WHITE}: List all nations")
             Message.print(player, "/nation online${ChatColor.WHITE}: View nation's online players")
             Message.print(player, "/nation info${ChatColor.WHITE}: View nation details")
-            Message.print(player, "/nation flag <url>${ChatColor.WHITE}: Set the nation's flag image")
         }
 
         // no args, print current nation info
@@ -39,7 +37,6 @@ class NationCommand : NodesCommand("n", null, "nation") {
         addSubcommand(NationListCommand())
         addSubcommand(NationOnlineCommand())
         addSubcommand(NationInfoCommand())
-        addSubcommand(NationFlagCommand())
     }
 }
 
@@ -122,33 +119,5 @@ class NationInfoCommand : NodesCommand("info") {
         addSyntax({ player, resident, context ->
             context[nationArg].printInfo(player)
         }, nationArg)
-    }
-}
-
-class NationFlagCommand : NodesCommand("flag") {
-    init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nation flag <https-url>")
-        }
-
-        val urlArg = ArgumentType.String("url")
-
-        addSyntax({ player, resident, town, nation, context ->
-            if (town !== nation.capital) {
-                Message.error(player, "Only the nation's capital town can set its flag")
-                return@addSyntax
-            }
-            if (resident !== town.leader && !town.officers.contains(resident)) {
-                Message.error(player, "Only the leader and officers can set the nation's flag")
-                return@addSyntax
-            }
-            val url = context[urlArg]
-            if (!url.startsWith("https://")) {
-                Message.error(player, "Flag URL must start with https://")
-                return@addSyntax
-            }
-            Nation.setItemFlagUrl(nation, url)
-            Message.print(player, "Nation flag updated. Use \"/flags\" to see it once the resource pack refreshes.")
-        }, urlArg)
     }
 }

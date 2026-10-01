@@ -33,7 +33,7 @@ object FlagsMenu {
     fun open(player: Player) {
         // No pagination yet, so anything past a 6-row chest just gets dropped. Worth adding paging
         // if the number of nations with a flag set keeps growing past MAX_SLOTS.
-        val nations = Nation.all().filter { it.itemFlagUrl != null }.sortedBy { it.name.lowercase() }.take(MAX_SLOTS)
+        val nations = Nation.all().filter { it.flagUrl != null }.sortedBy { it.name.lowercase() }.take(MAX_SLOTS)
         val inventory = Inventory(inventoryTypeFor(nations.size.coerceAtLeast(1)), Component.text("Nation Flags", NamedTextColor.DARK_GREEN))
         nations.forEachIndexed { slot, nation -> inventory.setItemStack(slot, flagItemStack(nation)) }
         sessions[player.uuid] = FlagsMenuSession(inventory, nations)
@@ -66,6 +66,7 @@ object FlagsMenu {
         val nation = session.nations.getOrNull(event.slot) ?: return
 
         val now = System.currentTimeMillis()
+        cooldowns.values.removeIf { it <= now }
         val expiry = cooldowns[player.uuid]
         if (expiry != null && expiry > now) {
             Message.error(player, "You can grab another flag in ${(expiry - now) / 1000 + 1}s")
