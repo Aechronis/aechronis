@@ -35,11 +35,9 @@ object FlagsMenu {
     fun open(player: Player) {
         // No pagination yet, so anything past a 6-row chest just gets dropped. Worth adding paging
         // if the number of flagged nations plus other-flags.json entries keeps growing past MAX_SLOTS.
-        val entries =
-            (
-                Nation.all().mapNotNull { nation -> nation.flagUrl?.let { FlagEntry(nation.uuid, nation.name) } } +
-                    OtherFlags.all.map { FlagEntry(it.id, it.name) }
-            ).sortedBy { it.name.lowercase() }.take(MAX_SLOTS)
+        val nationFlags = Nation.all().mapNotNull { nation -> nation.flagUrl?.let { FlagEntry(nation.uuid, nation.name) } }
+        val otherFlags = OtherFlags.all.map { FlagEntry(it.id, it.name) }
+        val entries = (nationFlags + otherFlags).sortedBy { it.name.lowercase() }.take(MAX_SLOTS)
         val inventory = Inventory(inventoryTypeFor(entries.size.coerceAtLeast(1)), Component.text("Nation Flags", NamedTextColor.DARK_GREEN))
         entries.forEachIndexed { slot, entry -> inventory.setItemStack(slot, flagItemStack(entry)) }
         sessions[player.uuid] = FlagsMenuSession(inventory, entries)
