@@ -95,7 +95,7 @@ internal object NationFlagTexture {
         synchronized(this) { cache.remove(nationUuid) }
     }
 
-    /** Rejects anything but a public https URL — leaders can set this to whatever they want, so treat it as untrusted input. */
+    /** Rejects anything but a public https URL — the URL comes from saved data and can point anywhere, so treat it as untrusted input. */
     private fun validate(url: String): URI {
         val uri = URI(url)
         require(uri.scheme == "https") { "Flag URL must be https" }
