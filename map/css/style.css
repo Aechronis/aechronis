@@ -1,250 +1,464 @@
-:root {
-  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('fonts/CormorantGaramond.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
 }
+
+:root {
+  --font-family: Arial, Helvetica, sans-serif;
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --ink: #e4e3da;
+  --muted: #b2b6ae;
+  --accent: #c1b184;
+  --edge: #51564b;
+  --panel: #252b28;
+  --panel-dark: #1d2320;
+  --menu-cloth: url('../assets/menu-cloth.svg');
+  --menu-border: url('../assets/menu-border.svg');
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html,
 body {
   height: 100%;
   margin: 0;
-  color: #e6e6e6;
-  background: #111;
-  font-size: 1em;
-  line-height: 1.4;
-  font-family: var(--mono);
-  /* Stop the page itself from scrolling/bouncing so touch drags reach the
-     map controller instead of triggering pull-to-refresh or rubber-banding. */
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--panel-dark);
+  font: 1rem/1.45 var(--font-family);
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
 }
 
-::-moz-selection {
-  background: #2a4a72;
-  color: #fff;
-  text-shadow: none;
+::selection { background: #635d47; color: #fff; }
+.resource-tooltip-name { display: block; font-size: 15px; font-weight: 700; }
+.resource-tooltip-section, .resource-tooltip-resource + .resource-tooltip-resource {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--edge);
+}
+.resource-tooltip-heading { margin-bottom: 4px; color: var(--muted); }
+.resource-tooltip-section dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 16px;
+  margin: 0;
+}
+.resource-tooltip-section dt, .resource-tooltip-section dd { margin: 0; }
+.resource-tooltip-section dd { text-align: right; font-variant-numeric: tabular-nums; }
+button, select { font: inherit; }
+button { cursor: pointer; touch-action: manipulation; }
+button:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
 }
 
-::selection {
-  background: #2a4a72;
-  color: #fff;
-  text-shadow: none;
-}
-
-/* Deck.gl appends an absolutely-positioned canvas; the parent needs to be a
-   positioned element so the canvas fills it. */
+/* Camera calculations and world wrapping require a full-viewport canvas. */
 #map {
   position: relative;
   height: 100vh;
-  /* dvh tracks the *visible* viewport, so the canvas isn't clipped behind
-     the mobile browser's collapsing address bar. vh stays as the fallback. */
   height: 100dvh;
   width: 100%;
-  background: #000;
-  /* The canvas owns all pan/pinch gestures; without this the browser would
-     intercept them for scroll/zoom. */
+  background: #315b74;
   touch-action: none;
 }
 
-/* On desktop the wrapper is transparent — the two panels keep positioning
-   themselves against the viewport exactly as before. */
-#panels {
-  display: contents;
-}
-
-.info-panel {
-  position: absolute;
-  top: 1rem;
-  bottom: 1rem;
-  width: 300px;
-  max-width: calc(50vw - 2rem);
-  background: rgba(20, 20, 20, 0.94);
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
-  padding: 0.9rem 1rem;
-  overflow-y: auto;
+#panels,
+#map-mode-control {
+  position: fixed;
   z-index: 1000;
-  font: 13px/1.4 var(--mono);
-  color: #e6e6e6;
+  border: 1px solid var(--edge);
+  background: var(--panel);
+  background-image: var(--menu-cloth);
+  box-shadow: 0 2px 6px #0005;
 }
 
-#nation-panel { left: 1rem; }
-#territory-panel { right: 1rem; }
-
-.info-panel.empty {
-  display: none;
+/* Fine cloth embossing and a second rule borrow from Victorian book covers. */
+#panels::after,
+#map-mode-control::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid #c1b18426;
+  pointer-events: none;
 }
+
+#panels {
+  top: calc(0.75rem + env(safe-area-inset-top));
+  bottom: calc(3.25rem + env(safe-area-inset-bottom));
+  left: calc(0.75rem + env(safe-area-inset-left));
+  width: 28rem;
+  max-width: calc(100vw - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right));
+  display: flex;
+  flex-direction: column;
+}
+#panels:not(.has-content), .info-panel.empty { display: none; }
+#panels.has-content {
+  animation: selection-slide-in 300ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes selection-slide-in {
+  from { transform: translateX(calc(-100% - 1.5rem - env(safe-area-inset-left))); }
+  to { transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #panels.has-content { animation: none; }
+}
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  padding-left: 0.875rem;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--edge);
+  background: #2d342e;
+  background-image: var(--menu-border), var(--menu-cloth);
+  background-repeat: repeat-x, repeat;
+  background-position: left bottom, left top;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+#nation-title {
+  margin: 0;
+  padding: 0.5rem 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #ece7d6;
+  font: 400 1.375rem/1.25 var(--font-heading);
+}
+#panels-close {
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.375rem;
+  line-height: 1;
+}
+#panels-close:hover { background: #3a4037; color: var(--ink); }
+#panels-close:active { background: var(--panel-dark); }
+.panel-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #686b5b var(--panel-dark);
+  -webkit-overflow-scrolling: touch;
+}
+.info-panel { padding: 0.875rem; overflow-wrap: anywhere; }
+.panel-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--edge);
+  background: var(--panel-dark);
+}
+.panel-tabs button {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.5rem;
+  border: 0;
+  border-right: 1px solid var(--edge);
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.panel-tabs button:last-child { border-right: 0; }
+.panel-tabs button:hover { background: #3a4037; color: var(--ink); }
+.panel-tabs button[aria-selected="true"] {
+  background: var(--panel);
+  color: var(--ink);
+  border-bottom-color: #b7a577;
+}
+.panel-tabs button:focus-visible { outline: 2px solid #b7a577; outline-offset: -4px; }
+.nation-flag-mount {
+  position: relative;
+  width: 50%;
+  padding: 0.5rem 0 3rem 0.375rem;
+  margin: 0 0 0.75rem;
+}
+.nation-flag-mount::before {
+  content: '';
+  position: absolute;
+  inset: 0.25rem auto 0 0;
+  width: 0.375rem;
+  border-radius: 50% / 3px;
+  background: linear-gradient(90deg, #100e0b, #302a20 22%, #514737 36%, #29231b 58%, #100e0b 90%, #080706);
+  box-shadow: inset 0.5px 0 0 #8b79582b, inset -1px 0 1px #0009, 2px 1px 3px #0009;
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
+.nation-flag-mount::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -0.0625rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #6a5b42, #3b3225 30%, #1c1812 65%, #090806 100%);
+  box-shadow: inset -1px -1px 1px #0008, 1px 2px 2px #0008;
+}
+.nation-flag-cloth {
+  position: relative;
+  box-shadow: 2px 3px 4px #0005;
+}
+.nation-flag-cloth::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, #0003, #fff2 22%, #0002 45%, #fff2 70%, #0003);
+  box-shadow: inset 0 0 0 1px #0002;
+}
+.nation-flag {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.nation-flag-cloth.is-waving {
+  box-shadow: none;
+  filter: drop-shadow(2px 3px 2px #0005);
+}
+.nation-flag-cloth.is-waving::after { display: none; }
+.is-waving .nation-flag { visibility: hidden; }
+.nation-flag-surface {
+  position: absolute;
+  left: 0;
+  top: -12px;
+  pointer-events: none;
+}
+.nation-leader {
+  margin: 0 0 1.25rem;
+  width: 50%;
+}
+.town-coat-of-arms {
+  display: block;
+  width: 50%;
+  height: 11rem;
+  object-fit: contain;
+  object-position: left center;
+  margin: 0 0 1.5rem;
+  filter: drop-shadow(2px 3px 2px #0005);
+}
+.nation-leader-image {
+  position: relative;
+  width: 10rem;
+  max-width: 100%;
+  aspect-ratio: 5 / 6;
+  border-radius: 50%;
+  background: radial-gradient(ellipse closest-side, #9bbbd6 30%, #729bbd 65%, #4f779b 93%, #4f779b00 100%);
+}
+.nation-leader-image::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  transform: scaleX(1.12);
+  z-index: 1;
+  background: url('../assets/leader-laurel.svg') center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+#town-panel .nation-leader-image {
+  background: radial-gradient(ellipse closest-side, #254d35 30%, #193b28 65%, #10291c 93%, #10291c00 100%);
+}
+#town-panel .nation-leader-image::before {
+  filter: grayscale(1);
+}
+.nation-leader-crop {
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  overflow: hidden;
+  mask-image: radial-gradient(ellipse closest-side, #000 98%, transparent 100%);
+}
+.nation-leader img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  transform: translateY(0.5rem);
+  filter: drop-shadow(2px 3px 2px #0005);
+}
+.nation-leader figcaption { margin-top: 0.75rem; }
+.nation-leader figcaption span { display: block; }
+.nation-leader-label { color: var(--muted); font-size: 0.75rem; }
+.info-panel h2 {
+  margin: 0 0 0.625rem;
+  color: #ece7d6;
+  font: 400 1.375rem/1.25 var(--font-heading);
+}
+.info-panel h3 {
+  margin: 1rem 0 0.375rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #ffffff12;
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.info-panel dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 0.375rem 0.75rem;
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+}
+.info-panel dt { color: var(--muted); }
+.info-panel dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.info-panel .subtitle { margin: -0.25rem 0 0.75rem; color: var(--muted); font-size: 0.875rem; }
+.info-panel .empty-list { color: var(--muted); font-size: 0.875rem; }
+.info-panel ul.scroll-list { list-style: none; padding: 0; margin: 0; font-size: 0.875rem; }
+.info-panel ul.scroll-list li { padding: 0.25rem 0; }
+
+/* Vertical icon rail; gold identifies the active mode. */
+#map-mode-control {
+  right: calc(0.75rem + env(safe-area-inset-right));
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  width: 3rem;
+  max-width: calc(100vw - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right));
+}
+#map-mode {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.375rem;
+  border: 0;
+  background: var(--panel);
+  color: var(--ink);
+}
+#map-mode-buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+  padding: 3px;
+}
+#map-mode-buttons button {
+  min-width: 0;
+  min-height: 2.75rem;
+  display: grid;
+  place-items: center;
+  padding: 0.5rem;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+#map-mode-buttons button + button { border-top: 1px solid var(--edge); }
+#map-mode-buttons svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#map-mode-buttons button:hover { background: #343b32; color: var(--ink); }
+#map-mode-buttons button[aria-pressed='true'] {
+  border-left-color: var(--accent);
+  background: #3b4034;
+  background-image: var(--menu-cloth);
+  color: #ede4c6;
+}
+#map-mode-buttons button:active { background: var(--panel-dark); }
+
+#coords {
+  position: fixed;
+  z-index: 1000;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  left: calc(0.75rem + env(safe-area-inset-left));
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.3rem 0.5rem;
+  background: #1d2320e8;
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#coords .coord-chunk { color: var(--muted); margin-left: 0.75rem; }
 
 #loading {
   position: fixed;
   inset: 0;
   z-index: 2000;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #111;
+  gap: 0.75rem;
+  background: var(--panel-dark);
+  color: var(--muted);
+  font-size: 0.875rem;
   opacity: 1;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.2s ease;
+}
+#loading img { object-fit: contain; }
+#loading.is-hidden { opacity: 0; pointer-events: none; }
+
+/* Keep the same scrollable bottom sheet on phones and tablets. */
+@media (max-width: 720px), (pointer: coarse) {
+  #panels {
+    inset: auto 0 0;
+    width: auto;
+    max-width: none;
+    height: 48dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    z-index: 1500;
+  }
+  #map-mode-control {
+    right: calc(0.5rem + env(safe-area-inset-right));
+    bottom: calc(0.5rem + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 1rem - env(safe-area-inset-left) - env(safe-area-inset-right));
+  }
+  #panels.has-content ~ #map-mode-control { bottom: calc(48dvh + 0.5rem); }
+  #coords {
+    top: calc(0.5rem + env(safe-area-inset-top));
+    bottom: auto;
+    left: calc(0.5rem + env(safe-area-inset-left));
+  }
 }
 
-#loading.is-hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.loading-spinner {
-  width: 150px;
-  height: 150px;
-  animation: spin 1.6s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-#coords {
-  position: absolute;
-  bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  background: rgba(20, 20, 20, 0.94);
-  border-radius: 6px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
-  padding: 0.4rem 0.7rem;
-  font: 12px/1.3 var(--mono);
-  color: #e6e6e6;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-#coords .coord-chunk {
-  color: #888;
-  margin-left: 0.6rem;
+@media (max-height: 500px) and (min-width: 480px) {
+  #panels {
+    top: calc(0.5rem + env(safe-area-inset-top));
+    bottom: calc(0.5rem + env(safe-area-inset-bottom));
+    left: calc(0.5rem + env(safe-area-inset-left));
+    right: auto;
+    width: min(28rem, calc(46vw - 1rem - env(safe-area-inset-left)));
+    height: auto;
+    padding-bottom: 0;
+    border: 1px solid var(--edge);
+  }
+  #coords {
+    top: calc(0.5rem + env(safe-area-inset-top));
+    right: calc(0.5rem + env(safe-area-inset-right));
+    bottom: auto;
+    left: auto;
+    max-width: calc(54vw - 1.5rem - env(safe-area-inset-right));
+    white-space: normal;
+  }
+  #coords .coord-chunk { display: inline-block; margin-left: 0.375rem; }
+  #map-mode-control {
+    right: calc(0.5rem + env(safe-area-inset-right));
+    width: 3rem;
+    max-height: calc(100dvh - 4.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+  #map-mode-control, #panels.has-content ~ #map-mode-control { bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loading-spinner { animation: none; }
-}
-
-.info-panel h2 {
-  margin: 0 0 0.4rem 0;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  word-break: break-word;
-}
-
-.info-panel h3 {
-  margin: 0.9rem 0 0.3rem 0;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #b8b8b8;
-  border-bottom: 1px solid #333;
-  padding-bottom: 0.2rem;
-}
-
-.info-panel dl {
-  margin: 0.4rem 0;
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.2rem 0.75rem;
-}
-
-.info-panel dt { color: #9a9a9a; }
-.info-panel dd { margin: 0; word-break: break-word; }
-
-.info-panel .subtitle {
-  color: #888;
-  font-size: 12px;
-  margin: -0.2rem 0 0.4rem 0;
-}
-
-.info-panel ul.scroll-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  font-size: 12px;
-}
-
-.info-panel ul.scroll-list li {
-  padding: 2px 0;
-  border-bottom: 1px solid #2a2a2a;
-}
-
-.info-panel ul.scroll-list li:last-child { border-bottom: 0; }
-
-/* Close button — only surfaced on the mobile bottom sheet (see media query).
-   On desktop you dismiss by tapping empty map, so it stays hidden there. */
-#panels-close {
-  display: none;
-  position: absolute;
-  top: 0.4rem;
-  right: 0.6rem;
-  z-index: 1;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #e6e6e6;
-  font: 20px/1 var(--mono);
-  cursor: pointer;
-}
-
-#panels-close:active { background: rgba(255, 255, 255, 0.18); }
-
-/* --- Mobile / narrow / touch layout -------------------------------------
-   The two side-by-side 300px columns are unreadable on a phone, so below
-   720px (or on any coarse-pointer device) the panels collapse into a single
-   dismissible bottom sheet that scrolls as one. */
-@media (max-width: 720px), (pointer: coarse) {
-  #panels {
-    display: flex;
-    flex-direction: column;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1500;
-    max-height: 38dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    background: rgba(20, 20, 20, 0.97);
-    border-radius: 12px 12px 0 0;
-    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.6);
-    /* Clear the home-indicator / rounded corners on notched phones. */
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  /* Sheet collapses entirely when nothing is selected so it never covers
-     the map for no reason. */
-  #panels:not(.has-content) { display: none; }
-
-  #panels.has-content #panels-close { display: block; }
-
-  .info-panel {
-    position: static;
-    top: auto;
-    bottom: auto;
-    width: auto;
-    max-width: none;
-    border-radius: 0;
-    box-shadow: none;
-    background: transparent;
-    overflow: visible;
-    z-index: auto;
-  }
-
-  /* Divider between the two stacked panels (only when both are present). */
-  #nation-panel:not(.empty) + #territory-panel:not(.empty) {
-    border-top: 1px solid #333;
-  }
-
-  /* Coords readout sits at the bottom (clear of the home indicator); when
-     the sheet is up it rides just above its 45dvh top edge instead. */
-  #coords { bottom: calc(1rem + env(safe-area-inset-bottom)); }
-  #panels.has-content ~ #coords { bottom: calc(38dvh + 0.5rem); }
+  #loading { transition-duration: 0.01s; }
 }

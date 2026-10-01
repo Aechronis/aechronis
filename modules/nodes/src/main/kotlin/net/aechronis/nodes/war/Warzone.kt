@@ -2,7 +2,6 @@ package net.aechronis.nodes.war
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.contentOrNull
@@ -159,30 +158,30 @@ object Warzone {
     fun load() = synchronized(this) {
         clearRuntimeLocked()
         states.clear()
-        if (!Files.exists(Nodes.config.pathWarzone)) return@synchronized
-        runCatching {
-            Files.newBufferedReader(Nodes.config.pathWarzone).use { reader ->
+        if (Files.notExists(Nodes.config.pathWarzone)) return@synchronized
+        try {
+            val root = Files.newBufferedReader(Nodes.config.pathWarzone).use { reader ->
                 Json.parseToJsonElement(reader.readText()).jsonObject
             }
-        }.onSuccess { root ->
-            root.get("zones")?.takeIf { it is JsonObject }?.jsonObject?.entries?.forEach { (idText, value) ->
-                runCatching {
+            val zones = requireNotNull(root["zones"]) { "Missing 'zones' object" }.jsonObject
+            zones.entries.forEach { (idText, value) ->
+                try {
                     val zone = value.jsonObject
                     val state = State(TerritoryId(idText.toInt()))
                     state.stopped = zone.get("stopped")?.jsonPrimitive?.boolean ?: false
                     state.activeNationId = zone.get("active")?.takeUnless { it is JsonNull }?.jsonPrimitive?.contentOrNull?.let(UUID::fromString)
                     state.activeSinceMillis = zone.get("activeSince")?.takeUnless { it is JsonNull }?.jsonPrimitive?.long
-                    zone.get("scores")?.takeIf { it is JsonObject }?.jsonObject?.entries?.forEach { (nationId, score) ->
+                    zone.get("scores")?.jsonObject?.entries?.forEach { (nationId, score) ->
                         state.scores[UUID.fromString(nationId)] = score.jsonPrimitive.long.coerceAtLeast(0L)
                     }
                     // Warzones require a territory that belongs to a town.
                     if (Territory.fromId(state.territoryId)?.town != null) states[state.territoryId] = state
-                }.onFailure { error ->
-                    System.err.println("[Nodes] Ignoring invalid warzone $idText: ${error.message}")
+                } catch (error: Exception) {
+                    throw IllegalArgumentException("Invalid warzone '$idText'", error)
                 }
             }
-        }.onFailure { error ->
-            System.err.println("[Nodes] Failed to load warzones: ${error.message}")
+        } catch (error: Exception) {
+            throw IllegalStateException("Failed to load warzones from ${Nodes.config.pathWarzone}", error)
         }
         ensureTickerLocked()
     }

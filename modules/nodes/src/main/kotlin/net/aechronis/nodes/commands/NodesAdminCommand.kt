@@ -42,6 +42,16 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.adventure.audience.Audiences
 import net.minestom.server.command.builder.arguments.ArgumentBoolean
 import net.minestom.server.command.builder.arguments.ArgumentType
+import java.net.URI
+
+private fun validMapImageUrl(value: String): Boolean {
+    if (value.length > 2048) return false
+    return runCatching {
+        val uri = URI(value)
+        val http = uri.scheme.equals("http", ignoreCase = true) || uri.scheme.equals("https", ignoreCase = true)
+        http && !uri.host.isNullOrBlank() && uri.rawUserInfo == null
+    }.getOrDefault(false)
+}
 
 class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
     init {
@@ -210,6 +220,7 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
             Message.print(player, "/nodesadmin town leader${ChatColor.WHITE}: Set town leader to player")
             Message.print(player, "/nodesadmin town removeleader${ChatColor.WHITE}: Remove leader from a town")
             Message.print(player, "/nodesadmin town color${ChatColor.WHITE}: Set the color of a town")
+            Message.print(player, "/nda town coatofarms <town-name> <url|clear>${ChatColor.WHITE}: Set map coat of arms")
             Message.print(player, "/nodesadmin town open${ChatColor.WHITE}: Toggle town is open to join")
             Message.print(player, "/nodesadmin town income${ChatColor.WHITE}: View a town's income inventory")
             Message.print(player, "/nodesadmin town plot${ChatColor.WHITE}: Manage a town's plots")
@@ -236,6 +247,7 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
         addSubcommand(NodesAdminTownLeaderCommand())
         addSubcommand(NodesAdminTownRemoveLeaderCommand())
         addSubcommand(NodesAdminTownColorCommand())
+        addSubcommand(NodesAdminTownCoatOfArmsCommand())
         addSubcommand(NodesAdminTownIncomeCommand())
         addSubcommand(NodesAdminTownSetHomeCommand())
         addSubcommand(NodesAdminTownDefaultTownSpawnsCommand())
@@ -786,6 +798,26 @@ class NodesAdminTownAiClearCommand : NodesCommand("clear", "nodes.admin") {
     }
 }
 
+class NodesAdminTownCoatOfArmsCommand : NodesCommand("coatofarms", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /nda town coatofarms <town-name> <url|clear>")
+        }
+        val townArg = ArgumentTown.create("town-name")
+        val urlArg = ArgumentType.Word("url")
+        addSyntax({ player, resident, context ->
+            val url = context[urlArg].takeUnless { it.equals("clear", ignoreCase = true) }
+            if (url != null && !validMapImageUrl(url)) {
+                Message.error(player, "Use an HTTP(S) image URL of at most 2048 characters, or clear")
+                return@addSyntax
+            }
+            val town = context[townArg]
+            Town.setCoatOfArmsUrl(town, url)
+            Message.print(player, if (url == null) "Cleared ${town.name}'s map coat of arms" else "Set ${town.name}'s map coat of arms to $url")
+        }, townArg, urlArg)
+    }
+}
+
 class NodesAdminResidentCommand : NodesCommand("resident", "nodes.admin") {
     init {
         setDefaultExecutor { player, _, _ ->
@@ -847,6 +879,8 @@ class NodesAdminNationCommand : NodesCommand("nation", "nodes.admin") {
             Message.print(player, "/nodesadmin nation capital${ChatColor.WHITE}: Set nation's capital town")
             Message.print(player, "/nda nation rallycap <number>${ChatColor.WHITE}: Set your nation's war login cap")
             Message.print(player, "/nodesadmin nation color${ChatColor.WHITE}: Set the color of a nation")
+            Message.print(player, "/nda nation longname <nation-name> <name|clear>${ChatColor.WHITE}: Set map display name")
+            Message.print(player, "/nda nation flag <nation-name> <url|clear>${ChatColor.WHITE}: Set map flag")
             Message.print(player, "Run a command with no args to see usage.")
         }
 
@@ -862,6 +896,8 @@ class NodesAdminNationCommand : NodesCommand("nation", "nodes.admin") {
         addSubcommand(NodesAdminNationCapitalCommand())
         addSubcommand(NodesAdminNationRallyCapCommand())
         addSubcommand(NodesAdminNationColorCommand())
+        addSubcommand(NodesAdminNationLongNameCommand())
+        addSubcommand(NodesAdminNationFlagCommand())
     }
 }
 
@@ -1117,6 +1153,47 @@ class NodesAdminNationColorCommand : NodesCommand("color", "nodes.admin") {
             Nation.setColor(context[nationArg], context[rArg], context[gArg], context[bArg])
             Message.print(player, "Set color of ${context[nationArg].name} to (${context[rArg]}, ${context[gArg]}, ${context[bArg]})")
         }, nationArg, rArg, gArg, bArg)
+    }
+}
+
+class NodesAdminNationLongNameCommand : NodesCommand("longname", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /nda nation longname <nation-name> <display name|clear>")
+        }
+        val nationArg = ArgumentNation.create("nation-name")
+        val nameArg = ArgumentType.StringArray("display-name")
+        addSyntax({ player, resident, context ->
+            val value = context[nameArg].joinToString(" ").trim()
+            if (value.isBlank() || value.length > 128 || value.any { it.isISOControl() || it == '§' }) {
+                Message.error(player, "Use a display name of 1–128 characters without control or formatting codes")
+                return@addSyntax
+            }
+            val nation = context[nationArg]
+            val name = value.takeUnless { it.equals("clear", ignoreCase = true) }
+            Nation.setLongName(nation, name)
+            Message.print(player, if (name == null) "Cleared ${nation.name}'s map display name" else "Set ${nation.name}'s map display name to $name")
+        }, nationArg, nameArg)
+    }
+}
+
+class NodesAdminNationFlagCommand : NodesCommand("flag", "nodes.admin") {
+    init {
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /nda nation flag <nation-name> <url|clear>")
+        }
+        val nationArg = ArgumentNation.create("nation-name")
+        val urlArg = ArgumentType.Word("url")
+        addSyntax({ player, resident, context ->
+            val url = context[urlArg].takeUnless { it.equals("clear", ignoreCase = true) }
+            if (url != null && !validMapImageUrl(url)) {
+                Message.error(player, "Use an HTTP(S) image URL of at most 2048 characters, or clear")
+                return@addSyntax
+            }
+            val nation = context[nationArg]
+            Nation.setFlagUrl(nation, url)
+            Message.print(player, if (url == null) "Cleared ${nation.name}'s map flag" else "Set ${nation.name}'s map flag to $url")
+        }, nationArg, urlArg)
     }
 }
 
@@ -1393,7 +1470,13 @@ class NodesAdminLoadCommand : NodesCommand("load", "nodes.admin") {
 
         addSyntax({ player, resident, context ->
             Message.print(player, "[Nodes] Loading world")
-            Nodes.loadWorld()
+            try {
+                Nodes.loadWorld()
+            } catch (error: Exception) {
+                System.err.println("[Nodes] Failed to reload world: ${error.message}")
+                error.printStackTrace()
+                Message.error(player, "Failed to load world: ${error.message}. Saving is suspended; correct the data and run /nda load again.")
+            }
         })
     }
 }

@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" fill="none">
+  <defs>
+    <linearGradient id="gold" x1="-15" y1="-22" x2="2" y2="-4" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#745019"/>
+      <stop offset=".24" stop-color="#c19438"/>
+      <stop offset=".43" stop-color="#ffe9a4"/>
+      <stop offset=".53" stop-color="#dcba60"/>
+      <stop offset=".7" stop-color="#9a6824"/>
+      <stop offset="1" stop-color="#edc976"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#efcf7b"/>
+      <stop offset=".32" stop-color="#9c712c"/>
+      <stop offset=".52" stop-color="#f7dc8c"/>
+      <stop offset=".76" stop-color="#73501e"/>
+      <stop offset="1" stop-color="#d3ab55"/>
+    </linearGradient>
+    <filter id="relief" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx=".7" dy="1.3" stdDeviation=".65" flood-color="#080c07" flood-opacity=".85"/>
+    </filter>
+    <g id="leaf">
+      <!-- Lobed edges, a folded midrib, and engraved veins make each leaf distinct. -->
+      <path d="M0 0C-2-2-5-3-7-6L-10-6-9-9-13-10-11-13-15-15-12-17-13-21-10-21-8-27C-7-23-4-23-3-20L-1-19-3-16 0-14-2-11 1-8-1-5C0-3 0-1 0 0Z"
+        fill="url(#gold)" stroke="#614117" stroke-width=".55" stroke-linejoin="round"/>
+      <path d="M-.5-1C-5-8-5-17-8-25" stroke="#ffedb1" stroke-width=".85" stroke-linecap="round"/>
+      <path d="M.1-1C-4.1-8-4.3-17-7.3-24" stroke="#6c481b" stroke-width=".5"/>
+      <path d="M-1-3C-4-9-4-17-7.5-25L-5-18-3-16-4-12-2-9Z" fill="#fff0b5" opacity=".22"/>
+      <path d="M-2-5-7-6M-3.2-8-9.8-10M-4-11-11.5-14M-4.8-15-10.6-18M-5.8-19-10-21M-2-5-.8-7M-3.2-9-1.4-12M-4.3-13-2.4-16M-5.4-17-3.6-20"
+        stroke="#68471c" stroke-opacity=".65" stroke-width=".45" stroke-linecap="round"/>
+      <path d="M-4-6-6-8M-5-9-7-12M-6-12-9-15M-7-16-9-19M-5-7-8-7M-7-11-10-11M-8-14-11-15M-2-7-1-9M-3-11-2-14M-4-15-4-18"
+        stroke="#f5d98d" stroke-opacity=".8" stroke-width=".35" stroke-linecap="round"/>
+      <path d="M-9-6-8-8-11-10M-12-11-10-13-13-15M-12-18-11-20M-2-18-4-17M-1-14-3-13"
+        stroke="#fff0bc" stroke-opacity=".7" stroke-width=".45"/>
+      <path d="M-8.5-8-11-10M-10-12-12.5-15M-10.5-18-11-20M-6.8-22-7.5-25"
+        stroke="#fff0bd" stroke-opacity=".8" stroke-width=".6" stroke-linecap="round"/>
+    </g>
+    <g id="branch">
+      <path d="M105 230C58 221 20 186 17 137C14 101 28 70 43 51" stroke="#65471c" stroke-width="2.8" stroke-linecap="round"/>
+      <path d="M105 229C58 220 21 185 18 137C15 101 29 70 44 51" stroke="url(#rim)" stroke-width="1.4" stroke-linecap="round"/>
+      <!-- Smaller shoots sit behind the main leaves, breaking up the outline. -->
+      <g opacity=".9">
+        <use href="#leaf" transform="translate(87 225) rotate(-78) scale(.57)"/>
+        <use href="#leaf" transform="translate(60 208) rotate(-12) scale(-.57 .57)"/>
+        <use href="#leaf" transform="translate(36 182) rotate(-53) scale(.64)"/>
+        <use href="#leaf" transform="translate(23 156) rotate(25) scale(-.59 .59)"/>
+        <use href="#leaf" transform="translate(18 133) rotate(-18) scale(.57)"/>
+        <use href="#leaf" transform="translate(22 107) rotate(42) scale(-.5 .5)"/>
+        <use href="#leaf" transform="translate(31 80) rotate(12) scale(.48)"/>
+      </g>
+      <path d="M69 215C53 214 48 223 55 224C60 225 61 219 56 218M30 173C14 179 10 168 15 165M20 114C8 111 9 101 14 103M28 88C37 84 39 76 35 75"
+        stroke="#d4af5b" stroke-width=".8" stroke-linecap="round"/>
+      <use href="#leaf" transform="translate(93 226) rotate(-64) scale(.85)"/>
+      <use href="#leaf" transform="translate(79 220) rotate(-48) scale(-1.04 1.04)"/>
+      <use href="#leaf" transform="translate(65 213) rotate(-42) scale(1)"/>
+      <use href="#leaf" transform="translate(53 203) rotate(-36) scale(-1.16 1.16)"/>
+      <use href="#leaf" transform="translate(41 190) rotate(-27) scale(1.04)"/>
+      <use href="#leaf" transform="translate(32 176) rotate(-20) scale(-1.2 1.2)"/>
+      <use href="#leaf" transform="translate(24 158) rotate(-8) scale(1)"/>
+      <use href="#leaf" transform="translate(19 140) rotate(3) scale(-1.18 1.18)"/>
+      <use href="#leaf" transform="translate(19 121) rotate(15) scale(.94)"/>
+      <use href="#leaf" transform="translate(22 103) rotate(21) scale(-1.08 1.08)"/>
+      <use href="#leaf" transform="translate(28 86) rotate(30) scale(.8)"/>
+      <use href="#leaf" transform="translate(35 68) rotate(35) scale(.82)"/>
+      <use href="#leaf" transform="translate(43 53) rotate(42) scale(.65)"/>
+      <use href="#leaf" transform="translate(52 40) rotate(48) scale(.46)"/>
+      <!-- Overlapping inner foliage bridges the portrait and the outer branches. -->
+      <use href="#leaf" transform="translate(88 226) rotate(-37) scale(-.82 .82)"/>
+      <use href="#leaf" transform="translate(66 216) rotate(-15) scale(-.92 .92)"/>
+      <use href="#leaf" transform="translate(43 193) rotate(6) scale(-.94 .94)"/>
+      <use href="#leaf" transform="translate(27 163) rotate(18) scale(-.92 .92)"/>
+      <use href="#leaf" transform="translate(21 128) rotate(32) scale(-.88 .88)"/>
+      <use href="#leaf" transform="translate(25 93) rotate(42) scale(-.78 .78)"/>
+      <use href="#leaf" transform="translate(36 64) rotate(50) scale(-.62 .62)"/>
+      <g fill="url(#rim)" stroke="#725021" stroke-width=".45">
+        <ellipse cx="52" cy="213" rx="1.8" ry="2.4" transform="rotate(-32 52 213)"/>
+        <ellipse cx="15" cy="170" rx="1.6" ry="2.2" transform="rotate(-15 15 170)"/>
+        <ellipse cx="13" cy="104" rx="1.4" ry="2" transform="rotate(18 13 104)"/>
+      </g>
+      <path d="m51.5 211.5-.3 1m-36.6-44-.2.9m-1.8-66.6-.2.7" stroke="#fff0b9" stroke-width=".6" stroke-linecap="round"/>
+    </g>
+  </defs>
+  <g filter="url(#relief)">
+    <use href="#branch"/>
+    <use href="#branch" transform="translate(200 0) scale(-1 1)"/>
+    <path d="M93 225q7 5 14 0l-2 7q-5 3-10 0Z" fill="url(#rim)" stroke="#765322" stroke-width=".7"/>
+    <path d="m96 226 1 6m3-5v6m3-7-1 6" stroke="#fff0b2" stroke-opacity=".7" stroke-width=".7"/>
+    <path d="M96 231q-5 2-9 1l4 4 6-3M104 231q5 2 9 1l-4 4-6-3" fill="url(#rim)" stroke="#765322" stroke-width=".6"/>
+  </g>
+</svg>

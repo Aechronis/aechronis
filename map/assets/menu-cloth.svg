@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="240" viewBox="0 0 180 240" fill="none">
+  <defs>
+    <g id="scroll" fill="#c1b184" fill-opacity=".115" stroke="#c1b184" stroke-opacity=".18" stroke-width=".65" stroke-linejoin="round">
+      <path d="M0 25C-5 8-9-14-29-22C-48-30-66-17-65 0C-64 19-44 26-31 16C-20 8-24-7-34-8C-44-10-49-1-44 5C-41 9-35 8-33 4C-34 13-47 15-54 7C-64-5-55-22-40-22C-21-23-9 2 0 25Z"/>
+      <path d="M-8 7C-14-12-25-30-42-28C-36-24-35-20-31-18C-28-17-25-17-22-15C-25-23-21-25-21-25C-20-16-14-13-8 7Z"/>
+      <path d="M-58-13C-64-9-68-1-65 7C-62 3-60 1-59-3ZM-54 17C-49 23-39 23-33 18C-40 19-43 15-46 14Z"/>
+      <path d="M-2 28C-8 34-17 34-22 28C-25 24-24 17-29 14C-27 23-32 28-27 34C-20 41-7 38-2 28Z"/>
+      <path d="M-21 43C-37 39-45 47-48 56C-50 63-44 67-39 63C-35 60-38 55-41 57C-43 58-43 60-41 61C-48 63-48 56-42 51C-36 46-29 47-21 43Z"/>
+      <path d="M-46 52C-51 48-56 43-54 37C-50 40-46 43-46 52ZM-39 48C-40 41-45 36-49 35C-48 42-45 46-39 48Z"/>
+    </g>
+    <g id="ornament">
+      <use href="#scroll"/>
+      <use href="#scroll" transform="scale(-1 1)"/>
+      <g fill="#c1b184" fill-opacity=".13" stroke="#c1b184" stroke-opacity=".2" stroke-width=".7">
+        <path d="M0-57C-15-48-14-36-5-29L0 22L5-29C14-36 15-48 0-57Z"/>
+        <path d="M0-53C-6-43-5-34 0-27C5-34 6-43 0-53Z" fill="none"/>
+        <path d="M-2-24C-14-39-23-29-18-21C-15-17-10-19-11-23C-16-20-18-27-13-27C-8-27-4-20-2-13ZM2-24C14-39 23-29 18-21C15-17 10-19 11-23C16-20 18-27 13-27C8-27 4-20 2-13Z"/>
+        <path d="M-9 24Q0 30 9 24L7 29Q0 34-7 29Z"/>
+        <path d="M0 33C-1 42-12 43-10 51C-8 58-2 60 0 66C2 60 8 58 10 51C12 43 1 42 0 33Z"/>
+        <path d="M0 43C-5 49-4 53 0 58C4 53 5 49 0 43Z" fill="none"/>
+        <path d="M0 72L2 76L0 80L-2 76Z"/>
+      </g>
+      <g stroke="#c1b184" stroke-opacity=".09" stroke-width=".6">
+        <path d="M-3-47V-34M3-47V-34M0-21V21M-59-5C-59-16-47-22-37-18M59-5C59-16 47-22 37-18"/>
+        <path d="M-52 13C-47 18-39 18-34 13M52 13C47 18 39 18 34 13"/>
+      </g>
+    </g>
+  </defs>
+  <!-- Half-drop repeat: mirrored acanthus scrolls and tapered floral finials. -->
+  <use href="#ornament" transform="translate(90 55)"/>
+  <use href="#ornament" transform="translate(0 175)"/>
+  <use href="#ornament" transform="translate(180 175)"/>
+  <use href="#ornament" transform="translate(90 295)"/>
+  <use href="#ornament" transform="translate(0 -65)"/>
+  <use href="#ornament" transform="translate(180 -65)"/>
+</svg>

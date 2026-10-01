@@ -95,6 +95,8 @@ class Attack(
     fun toJson(): StringBuilder {
         jsonString.setLength(0)
         jsonString.append(jsonStringBase)
+        jsonString.append("\"s\":${(completionTimeMillis - attackTime * 50L) / 1000.0},")
+        jsonString.append("\"e\":${completionTimeMillis / 1000.0},")
         jsonString.append("\"t\":${completionTimeMillis / 1000L}")
         jsonString.append("}")
         return jsonString

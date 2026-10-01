@@ -151,12 +151,11 @@ class Town(
             lives: Int? = null,
             capitalLifeGranted: Boolean = false,
             lifeRevision: Long = 0L,
-        ): Town? {
+            coatOfArmsUrl: String? = null,
+        ): Town {
             val leaderResident = leader?.let { Resident.fromUuid(it) }
-            val home = Territory.fromId(TerritoryId(homeId))
-            if (home == null) {
-                System.err.println("Failed to create town $name with home (id = $homeId)")
-                return null
+            val home = requireNotNull(Territory.fromId(TerritoryId(homeId))) {
+                "Cannot load town '$name': home territory $homeId is missing from the world definition"
             }
             val spawnpoint = spawn ?: Territory.defaultSpawnLocation(home)
             val town = Town(uuid, name, home.id, leaderResident, spawnpoint)
@@ -212,6 +211,7 @@ class Town(
                 val plot = Plot(state)
                 if (plot.name.isNotBlank() && !town.plots.containsKey(plot.name) && Plot.isValid(town, plot)) town.plots[plot.name] = plot
             }
+            town.coatOfArmsUrl = coatOfArmsUrl
             town.aiConfig = aiConfig
             town.lives = lives?.coerceAtLeast(0) ?: 1
             town.capitalLifeGranted = capitalLifeGranted
@@ -461,6 +461,12 @@ class Town(
 
         fun addToIncome(town: Town, material: Material, amount: Int) {
             town.income.add(material, amount)
+            town.needsUpdate()
+            Nodes.markWorldDirty()
+        }
+
+        fun setCoatOfArmsUrl(town: Town, value: String?) {
+            town.coatOfArmsUrl = value
             town.needsUpdate()
             Nodes.markWorldDirty()
         }
@@ -748,6 +754,9 @@ class Town(
     // players applying to town and their tasks
     val applications: HashMap<Resident, Task> = hashMapOf()
 
+    var coatOfArmsUrl: String? = null
+        private set
+
     // json string and memoization flag
     private var saveState: TownSaveState
 
@@ -848,6 +857,7 @@ class Town(
         val home = t.home
         val spawnpoint = Vec(t.spawnpoint.x, t.spawnpoint.y, t.spawnpoint.z)
         val color = t.color
+        val coatOfArmsUrl = t.coatOfArmsUrl
         val permissions = TownPermissions.entries.associateWith { t.permissions[it].snapshotList() }.snapshotMap()
         val residents = t.residents.map { x -> x.uuid }.snapshotList()
         val officers = t.officers.map { x -> x.uuid }.snapshotList()

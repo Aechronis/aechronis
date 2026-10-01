@@ -76,6 +76,7 @@ object Deserializer {
 
         val json = Json.parseToJsonElement(Files.readString(path))
         val jsonObj = json.jsonObject
+        require(jsonObj["towns"] is JsonObject) { "Invalid towns file at $path: 'towns' must be an object" }
         MiningBoostManager.load(jsonObj.get("miningBoost")?.takeIf { it is JsonObject }?.jsonObject)
 
         // ===============================
@@ -155,11 +156,8 @@ object Deserializer {
                     UUID.randomUUID()
                 }
 
-                // get home territory id, if missing skip town
-                val homeId = town.get("home")?.jsonPrimitive?.int
-                if (homeId == null) {
-                    System.err.println("Cannot create $name: no home")
-                    return@forEach
+                val homeId = requireNotNull(town.get("home")?.jsonPrimitive?.int) {
+                    "Cannot load town '$name' from $path: missing home territory"
                 }
 
                 // parse leader uuid (may be null)
@@ -363,6 +361,7 @@ object Deserializer {
                     lives,
                     capitalLifeGranted,
                     lifeRevision,
+                    coatOfArmsUrl = town["coatOfArmsUrl"]?.jsonPrimitive?.contentOrNull,
                 )
             }
         }
@@ -438,7 +437,9 @@ object Deserializer {
                     color,
                     towns,
                     rallyCap,
-                    itemFlagUrl,
+                    longName = nation["longName"]?.jsonPrimitive?.contentOrNull,
+                    flagUrl = nation["flagUrl"]?.jsonPrimitive?.contentOrNull,
+                    itemFlagUrl = itemFlagUrl,
                 )
 
                 nations.add(nationObject)

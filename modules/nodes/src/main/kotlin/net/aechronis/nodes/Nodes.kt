@@ -108,6 +108,10 @@ object Nodes {
     val war = FlagWar
     private val initialized = AtomicBoolean()
     private var initializationComplete = false
+
+    @Volatile
+    private var worldLoaded = false
+
     private val completedCleanupStages = mutableSetOf<CleanupStage>()
     private var commands: List<MinestomCommand> = emptyList()
 
@@ -136,6 +140,7 @@ object Nodes {
     fun initialize(config: NodesConfig = NodesConfig()) {
         check(initialized.compareAndSet(false, true)) { "Nodes is already initialized" }
         initializationComplete = false
+        worldLoaded = false
         completedCleanupStages.clear()
         this.config = config
         measure("War configuration") {
@@ -253,7 +258,7 @@ object Nodes {
     @Synchronized
     internal fun cleanup(captureLive: (() -> Unit) -> Unit = { it() }) {
         if (!initialized.get()) return
-        val persistState = initializationComplete
+        val persistState = initializationComplete && worldLoaded
 
         val globalEventHandler = MinecraftServer.getGlobalEventHandler()
         cleanupStage(CleanupStage.EVENTS) {
@@ -313,6 +318,7 @@ object Nodes {
             }
         }
         initializationComplete = false
+        worldLoaded = false
         initialized.set(false)
     }
 
@@ -472,6 +478,10 @@ object Nodes {
     }
 
     internal fun loadWorld(): Boolean {
+        synchronized(occupationPersistenceLock) {
+            // Reloads can also fail after clearing registries; keep their partial state off disk.
+            worldLoaded = false
+        }
         FlagWar.resetForReload()
         Warzone.resetForReload()
         Colonization.resetForReload()
@@ -493,7 +503,7 @@ object Nodes {
                 if (resources != null) loadResources(resources)
                 if (territoriesJson != null) loadTerritories(territoriesJson)
             }
-            if (!Files.exists(config.pathTowns)) {
+            if (Files.notExists(config.pathTowns)) {
                 System.err.println("No towns found: ${config.pathTowns}")
                 loaded = true
                 return true
@@ -504,7 +514,7 @@ object Nodes {
             Nation.all().forEach { it.getSaveState() }
             FlagWar.load()
             Warzone.load()
-            if (!Files.exists(config.pathBuildings)) {
+            if (Files.notExists(config.pathBuildings)) {
                 System.err.println("No buildings found: ${config.pathBuildings}")
                 loaded = true
                 return true
@@ -524,6 +534,7 @@ object Nodes {
                     resident.createMinimap(player)
                 }
                 Nametag.rebuildAllViewers()
+                worldLoaded = true
             }
         }
     }
@@ -537,6 +548,7 @@ object Nodes {
         val request =
             try {
                 synchronized(occupationPersistenceLock) {
+                    check(worldLoaded) { "Cannot save Nodes world before a successful load" }
                     val dirtyRevision = saveRevision
                     val saveState =
                         !checkIfNeedsSave ||
