@@ -111,14 +111,14 @@ class Nation(
             color: Color?,
             towns: ArrayList<String>,
             rallyCap: Int? = null,
-            flagUrl: String? = null,
+            itemFlagUrl: String? = null,
         ): Nation {
             val capital = Town.fromName(capitalName) ?: throw net.aechronis.nodes.constants.ErrorTownDoesNotExist
             val nation = Nation(uuid, name, capital)
             Town.initializeCapitalLives(capital)
             if (color != null) nation.color = color
             nation.rallyCap = rallyCap?.takeIf { it > 0 }
-            nation.flagUrl = flagUrl
+            nation.itemFlagUrl = itemFlagUrl
             for (townName in towns) {
                 val town = Town.fromName(townName) ?: continue
                 nation.towns.add(town)
@@ -216,9 +216,9 @@ class Nation(
             Nodes.markWorldDirty()
         }
 
-        fun setFlagUrl(nation: Nation, url: String) {
+        fun setItemFlagUrl(nation: Nation, url: String) {
             require(url.startsWith("https://")) { "Flag URL must be https" }
-            nation.flagUrl = url
+            nation.itemFlagUrl = url
             nation.needsUpdate()
             Nodes.markWorldDirty()
             NationFlagPack.onFlagChanged(nation.uuid)
@@ -333,7 +333,8 @@ class Nation(
 
     // Web URL the resource pack fetches and serves as this nation's flag item texture. Changed
     // in-game with "/nation flag <url>" (capital leader/officers only, see NationFlagCommand).
-    var flagUrl: String? = null
+    // Distinct from the map's own flag image -- see NodesAdminNationFlagCommand.
+    var itemFlagUrl: String? = null
         private set
 
     // color for displaying on map
@@ -406,7 +407,7 @@ class Nation(
         val allies = n.allies.map { x -> x.name }.snapshotList()
         val enemies = n.enemies.map { x -> x.name }.snapshotList()
         val rallyCap = n.rallyCap
-        val flagUrl = n.flagUrl
+        val itemFlagUrl = n.itemFlagUrl
 
         override fun encode(): String = NationJsonCodec.encode(this)
     }

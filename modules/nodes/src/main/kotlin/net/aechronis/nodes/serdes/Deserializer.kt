@@ -395,7 +395,7 @@ object Deserializer {
                     runCatching { value.jsonPrimitive.int.takeIf { it > 0 } }.getOrNull()
                 }
 
-                val flagUrl = nation.get("flagUrl")?.takeUnless { it is JsonNull }?.let { it.jsonPrimitive.contentOrNull }
+                val itemFlagUrl = nation.get("itemFlagUrl")?.takeUnless { it is JsonNull }?.let { it.jsonPrimitive.contentOrNull }
 
                 // parse towns
                 val towns: ArrayList<String> = arrayListOf()
@@ -438,7 +438,7 @@ object Deserializer {
                     color,
                     towns,
                     rallyCap,
-                    flagUrl,
+                    itemFlagUrl,
                 )
 
                 nations.add(nationObject)

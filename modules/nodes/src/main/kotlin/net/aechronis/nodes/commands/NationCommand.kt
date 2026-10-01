@@ -147,7 +147,7 @@ class NationFlagCommand : NodesCommand("flag") {
                 Message.error(player, "Flag URL must start with https://")
                 return@addSyntax
             }
-            Nation.setFlagUrl(nation, url)
+            Nation.setItemFlagUrl(nation, url)
             Message.print(player, "Nation flag updated. Use \"/flags\" to see it once the resource pack refreshes.")
         }, urlArg)
     }

@@ -16,7 +16,7 @@ internal object NationJsonCodec {
             add(snapshot.color.b)
         }
         snapshot.rallyCap?.let { put("rallyCap", it) }
-        snapshot.flagUrl?.let { put("flagUrl", it) }
+        snapshot.itemFlagUrl?.let { put("itemFlagUrl", it) }
         putJsonArray("towns") { snapshot.towns.forEach { add(it) } }
         putJsonArray("allies") { snapshot.allies.forEach { add(it) } }
         putJsonArray("enemies") { snapshot.enemies.forEach { add(it) } }

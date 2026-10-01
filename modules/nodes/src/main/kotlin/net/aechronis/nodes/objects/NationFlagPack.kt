@@ -7,7 +7,7 @@ import java.util.concurrent.locks.ReentrantLock
 
 /**
  * A shared, non-personalized dynamic resource pack: a flag-on-a-pole item per nation.
- * Rebuilt whenever a nation's flag URL changes via [Nation.setFlagUrl] ("/nation flag <url>").
+ * Rebuilt whenever a nation's flag URL changes via [Nation.setItemFlagUrl] ("/nation flag <url>").
  */
 object NationFlagPack {
     private val packMetadata =
@@ -57,7 +57,7 @@ object NationFlagPack {
             val assets = mutableMapOf("pack.mcmeta" to packMetadata)
             assets["assets/aechronis/textures/item/flag_pole.png"] = poleTexture
             Nation.all().forEach { nation ->
-                val url = nation.flagUrl ?: return@forEach
+                val url = nation.itemFlagUrl ?: return@forEach
                 val texture = NationFlagTexture.resolve(nation.uuid, url) ?: return@forEach
                 val id = "flag_${nation.uuid}"
                 assets["assets/aechronis/items/$id.json"] =
