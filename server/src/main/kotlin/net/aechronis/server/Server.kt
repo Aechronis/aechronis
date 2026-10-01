@@ -115,10 +115,10 @@ private fun startMinecraftServer(
     resourcePackServer: ResourcePackServer,
 ) {
     val server =
-        if (velocitySecret == null) {
-            MinecraftServer.init(Auth.Online())
-        } else {
-            MinecraftServer.init(Auth.Velocity(velocitySecret))
+        when {
+            System.getProperty("aechronis.dev.offlineAuth") == "true" -> MinecraftServer.init(Auth.Offline())
+            velocitySecret == null -> MinecraftServer.init(Auth.Online())
+            else -> MinecraftServer.init(Auth.Velocity(velocitySecret))
         }
 
     // Discovery and core registration happen after Minestom initialization. Install a minimal

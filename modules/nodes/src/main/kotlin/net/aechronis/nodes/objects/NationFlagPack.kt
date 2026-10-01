@@ -1,7 +1,6 @@
 package net.aechronis.nodes.objects
 
 import net.aechronis.server.modules.ModuleContext
-import net.minestom.server.MinecraftServer
 import java.util.UUID
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
@@ -9,8 +8,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 
 /**
- * A shared, non-personalized dynamic resource pack: a flag-on-a-pole item per nation.
- * Rebuilt whenever a nation's flag URL changes via [Nation.setFlagUrl] ("/nda nation flag").
+ * A shared, non-personalized dynamic resource pack: a flag-on-a-pole item per nation, plus the
+ * nation-less decorative flags listed in [OtherFlags]. Rebuilt whenever a nation's flag URL
+ * changes via [Nation.setFlagUrl] ("/nda nation flag").
  */
 object NationFlagPack {
     private val packMetadata =
@@ -19,12 +19,9 @@ object NationFlagPack {
 
     private val poleTexture = readResourceBytes("/flag-textures/flag_pole.png")
 
-    // Each geometry resource is `{"elements":[...],"display":{...}}` (converted from NoProfit's
-    // Blockbench models); its leading "{" is dropped so "textures" can be spliced in ahead of it.
-    private val geometryBodyByVariant: Map<FlagModelVariant, String> =
-        FlagModelVariant.entries.associateWith { variant ->
-            readResourceText("/flag-textures/flag_geometry_${variant.resourceName}.json").removePrefix("{")
-        }
+    // `{"elements":[...],"display":{...}}` (converted from NoProfit's Blockbench model); its
+    // leading "{" is dropped so "textures" can be spliced in ahead of it.
+    private val geometryBody = readResourceText("/flag-textures/flag_geometry.json").removePrefix("{")
 
     @Volatile private var context: ModuleContext? = null
     private var registration: AutoCloseable? = null
@@ -45,15 +42,14 @@ object NationFlagPack {
         registration = context.registerPlayerResourcePack("nation-flags") { _ -> buildAssets() }
     }
 
-    fun flagModelId(nationUuid: UUID): String = "aechronis:flag_$nationUuid"
+    fun flagModelId(id: UUID): String = "aechronis:flag_$id"
 
-    /** Invalidates the cached texture and pushes the updated pack to everyone currently online. */
-    fun onFlagChanged(nationUuid: UUID) {
-        NationFlagTexture.invalidate(nationUuid)
+    // Invalidates the cached texture so the next pack build (next join, not a forced push) picks
+    // up the change. A flag edit shouldn't yank every online player through a resource pack reload.
+    fun onFlagChanged(id: UUID) {
+        NationFlagTexture.invalidate(id)
         generation.incrementAndGet()
         cachedAssets = null
-        val context = context ?: return
-        MinecraftServer.getConnectionManager().onlinePlayers.forEach(context::refreshPlayerResourcePacks)
     }
 
     private fun buildAssets(): Map<String, ByteArray>? {
@@ -65,23 +61,25 @@ object NationFlagPack {
             val startedAt = generation.get()
             val assets = mutableMapOf("pack.mcmeta" to packMetadata)
             assets["assets/aechronis/textures/item/flag_pole.png"] = poleTexture
-            val flagged = Nation.all().mapNotNull { nation -> nation.flagUrl?.let { nation to it } }
+            val flagged =
+                Nation.all().mapNotNull { nation -> nation.flagUrl?.let { nation.uuid to it } } +
+                    OtherFlags.all.map { it.id to it.url }
             // Downloads run in parallel (NationFlagTexture caps how many are in flight at once).
             val textures =
                 Executors.newVirtualThreadPerTaskExecutor().use { executor ->
-                    flagged.map { (nation, url) -> executor.submit(Callable { NationFlagTexture.resolve(nation.uuid, url) }) }.map { it.get() }
+                    flagged.map { (id, url) -> executor.submit(Callable { NationFlagTexture.resolve(id, url) }) }.map { it.get() }
                 }
-            flagged.forEachIndexed { index, (nation, _) ->
+            flagged.forEachIndexed { index, (flagId, _) ->
                 val texture = textures[index] ?: return@forEachIndexed
-                val id = "flag_${nation.uuid}"
+                val id = "flag_$flagId"
                 assets["assets/aechronis/items/$id.json"] =
                     """{"model":{"type":"minecraft:model","model":"aechronis:item/$id"}}""".toByteArray()
                 assets["assets/aechronis/models/item/$id.json"] =
                     (
                         """{"textures":{"cloth":"aechronis:item/$id","pole":"aechronis:item/flag_pole","particle":"aechronis:item/$id"},""" +
-                            geometryBodyByVariant.getValue(texture.variant)
+                            geometryBody
                         ).toByteArray()
-                assets["assets/aechronis/textures/item/$id.png"] = texture.png
+                assets["assets/aechronis/textures/item/$id.png"] = texture
             }
             // A flag that failed to load is left out for now. Don't cache the pack in that case, so
             // the next build retries it once its short failure cooldown is over.

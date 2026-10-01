@@ -1,6 +1,5 @@
 package net.aechronis.nodes.objects
 
-import com.kitfox.svg.SVGUniverse
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
@@ -8,75 +7,44 @@ import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.URI
-import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.Semaphore
-import java.util.logging.Level
-import java.util.logging.Logger
 import javax.imageio.ImageIO
-import kotlin.math.roundToInt
 
-/** The flag cloth model comes in two aspect ratios; each nation's texture picks the closer fit. */
-internal enum class FlagModelVariant(val resourceName: String, val aspectRatio: Double) {
-    TWO_TO_ONE("2_1", 2.0),
-    THREE_TO_TWO("3_2", 1.5),
-    ;
+internal typealias FlagTexture = ByteArray
 
-    companion object {
-        fun closestTo(width: Int, height: Int): FlagModelVariant {
-            val aspect = width.toDouble() / height.toDouble()
-            return entries.minBy { kotlin.math.abs(it.aspectRatio - aspect) }
-        }
-    }
-}
-
-internal data class FlagTexture(val png: ByteArray, val variant: FlagModelVariant)
-
-/** Fetches, validates, and caches a nation's flag texture. Call only from an I/O worker. */
+/** Fetches, validates, and caches a flag texture. Call only from an I/O worker. */
 internal object NationFlagTexture {
     private const val MAX_DOWNLOAD_BYTES = 512 * 1024
     private const val MAX_SOURCE_DIMENSION = 2048
 
-    // Matches the flag-cloth model's own authored texture resolution (see flag-textures/*.json),
-    // so no texture_size override is needed in the generated item model.
-    private const val CLOTH_SIZE = 16
+    // The cloth model is one fixed 2.7:1 shape (see flag-textures/flag_geometry.json) — the
+    // widest that fits Minecraft's -16..32 item model bounds from this pole's anchor point; a
+    // narrower source image is drawn at its real aspect ratio from the pole-side edge and the
+    // rest of the canvas (the far/tip side) is left transparent, so the cloth appears to taper
+    // rather than stretching the image to fill the whole model.
+    private const val CLOTH_HEIGHT = 20
+    private const val CLOTH_WIDTH = 54
 
-    // Flag-icon sites (e.g. flagcdn.com, the source of most seeded nation flags) commonly serve
-    // SVG. ImageIO can't decode that, so SVGs are rasterized to this width (keeping their aspect
-    // ratio) before normalize().
-    private const val SVG_RASTER_SIZE = 256
-
-    // Flat cap rather than tracking per-nation usage. Each entry is a tiny 16x16 PNG, so this is
-    // cheap to raise if a server ever ends up with more flagged nations than this.
-    private const val MAX_CACHED_NATIONS = 512
+    // Flat cap rather than tracking per-flag usage. Each entry is a tiny PNG, so this is cheap to
+    // raise if a server ever ends up with more flagged nations/other-flags than this.
+    private const val MAX_CACHED = 512
     private val retryDelay = Duration.ofSeconds(30).toNanos()
     private val downloads = Semaphore(4)
-    private val cache = LinkedHashMap<UUID, Cached>(MAX_CACHED_NATIONS, .75f, true)
-
-    init {
-        // Unresolved xlink:href gradient stops (common on real flag SVGs) are caught and logged by
-        // the library itself with a full stack trace per occurrence; that's not our failure to report.
-        Logger.getLogger("com.kitfox.svg").level = Level.SEVERE
-    }
-
-    // An SVG may not pull in anything beyond itself: no entities, and no href to anything but an
-    // in-document id or an inline data: URI. svgSalamander would otherwise fetch those references
-    // itself, skipping validate().
-    private val externalReference = Regex("""href\s*=\s*["'](?!#|data:)""", RegexOption.IGNORE_CASE)
+    private val cache = LinkedHashMap<UUID, Cached>(MAX_CACHED, .75f, true)
 
     private data class Cached(val texture: FlagTexture?, val url: String, val expiresAt: Long)
 
-    /** Null means the flag could not be resolved; the nation is simply left out of the pack. */
-    fun resolve(nationUuid: UUID, url: String): FlagTexture? {
-        cached(nationUuid)?.takeIf { it.url == url }?.let { return it.texture }
+    /** Null means the flag could not be resolved; it's simply left out of the pack. */
+    fun resolve(id: UUID, url: String): FlagTexture? {
+        cached(id)?.takeIf { it.url == url }?.let { return it.texture }
         try {
             downloads.acquire()
             try {
-                cached(nationUuid)?.takeIf { it.url == url }?.let { return it.texture }
-                val source = download(validate(url))
-                val texture = FlagTexture(normalize(source), FlagModelVariant.closestTo(source.width, source.height))
-                remember(nationUuid, Cached(texture, url, Long.MAX_VALUE))
+                cached(id)?.takeIf { it.url == url }?.let { return it.texture }
+                val texture = normalize(download(validate(url)))
+                remember(id, Cached(texture, url, Long.MAX_VALUE))
                 return texture
             } finally {
                 downloads.release()
@@ -85,14 +53,14 @@ internal object NationFlagTexture {
             Thread.currentThread().interrupt()
             return null
         } catch (exception: Exception) {
-            remember(nationUuid, Cached(null, url, System.nanoTime() + retryDelay))
-            System.err.println("[NationFlag] Could not load flag for $nationUuid: ${exception.javaClass.simpleName}: ${exception.message}")
+            remember(id, Cached(null, url, System.nanoTime() + retryDelay))
+            System.err.println("[NationFlag] Could not load flag for $id: ${exception.javaClass.simpleName}: ${exception.message}")
             return null
         }
     }
 
-    fun invalidate(nationUuid: UUID) {
-        synchronized(this) { cache.remove(nationUuid) }
+    fun invalidate(id: UUID) {
+        synchronized(this) { cache.remove(id) }
     }
 
     /** Rejects anything but a public https URL — the URL comes from saved data and can point anywhere, so treat it as untrusted input. */
@@ -124,16 +92,8 @@ internal object NationFlagTexture {
 
     private fun download(uri: URI): BufferedImage {
         val (contentType, bytes) = fetch(uri)
-        val image =
-            if (contentType.startsWith("image/svg+xml", ignoreCase = true)) {
-                try {
-                    rasterizeSvg(bytes)
-                } catch (svgError: Exception) {
-                    flagcdnPngFallback(uri) ?: throw svgError
-                }
-            } else {
-                decode(bytes)
-            }
+        require(!contentType.startsWith("image/svg+xml", ignoreCase = true)) { "SVG flags aren't supported, use a PNG" }
+        val image = decode(bytes)
         require(image.width in 1..MAX_SOURCE_DIMENSION && image.height in 1..MAX_SOURCE_DIMENSION) { "Flag image dimensions out of range" }
         return image
     }
@@ -168,18 +128,6 @@ internal object NationFlagTexture {
         }
     }
 
-    // flagcdn.com's SVGs chain gradient stops via xlink:href, which svgSalamander can't resolve
-    // (throws "User must specify at least 2 colors" on flags with a detailed coat of arms, e.g.
-    // Guatemala). Its own PNG endpoint renders the same flag without that gradient limitation.
-    private fun flagcdnPngFallback(svgUri: URI): BufferedImage? {
-        if (svgUri.host != "flagcdn.com" || !svgUri.path.endsWith(".svg")) return null
-        val code = svgUri.path.removePrefix("/").removeSuffix(".svg")
-        if (code.isEmpty() || !code.all { it.isLetterOrDigit() }) return null
-        val (contentType, bytes) = fetch(validate("https://flagcdn.com/w320/$code.png"))
-        if (!contentType.startsWith("image/")) return null
-        return decode(bytes)
-    }
-
     // Reads the declared size from the header first, so a tiny file that claims to be enormous
     // is rejected before ImageIO allocates the full bitmap.
     private fun decode(bytes: ByteArray): BufferedImage {
@@ -198,61 +146,39 @@ internal object NationFlagTexture {
         }
     }
 
-    private fun rasterizeSvg(bytes: ByteArray): BufferedImage {
-        val text = String(bytes, StandardCharsets.UTF_8)
-        require(!text.contains("<!ENTITY", ignoreCase = true)) { "Flag SVG may not declare entities" }
-        require(!externalReference.containsMatchIn(text)) { "Flag SVG may not reference external resources" }
-        val universe = SVGUniverse()
-        val diagram =
-            requireNotNull(universe.getDiagram(universe.loadSVG(ByteArrayInputStream(bytes), "flag-${System.nanoTime()}"))) {
-                "Flag URL is not a decodable SVG"
-            }
-        val sourceWidth = diagram.width.takeIf { it > 0 } ?: 1f
-        val sourceHeight = diagram.height.takeIf { it > 0 } ?: 1f
-        val rasterHeight = (SVG_RASTER_SIZE * sourceHeight / sourceWidth).roundToInt().coerceIn(1, MAX_SOURCE_DIMENSION)
-        val image = BufferedImage(SVG_RASTER_SIZE, rasterHeight, BufferedImage.TYPE_INT_ARGB)
-        val graphics = image.createGraphics()
-        try {
-            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            graphics.scale((SVG_RASTER_SIZE / sourceWidth).toDouble(), (rasterHeight / sourceHeight).toDouble())
-            diagram.render(graphics)
-        } finally {
-            graphics.dispose()
-        }
-        return image
-    }
-
     private fun normalize(source: BufferedImage): ByteArray {
-        val icon = BufferedImage(CLOTH_SIZE, CLOTH_SIZE, BufferedImage.TYPE_INT_ARGB)
-        val graphics = icon.createGraphics()
+        val drawnWidth = (CLOTH_HEIGHT.toLong() * source.width / source.height).toInt().coerceIn(1, CLOTH_WIDTH)
+        val canvas = BufferedImage(CLOTH_WIDTH, CLOTH_HEIGHT, BufferedImage.TYPE_INT_ARGB)
+        val graphics = canvas.createGraphics()
         try {
             graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
-            // The chosen model variant already matches the source's aspect ratio, so this only
-            // absorbs the remainder (e.g. a flag that's neither exactly 2:1 nor 3:2).
-            graphics.drawImage(source, 0, 0, CLOTH_SIZE, CLOTH_SIZE, null)
+            // Drawn from x=0 (the pole side); anything past drawnWidth stays transparent, which is
+            // the far/tip side of the cloth mesh, so a narrower flag appears to taper rather than
+            // stretching to fill the full 2.7:1 model.
+            graphics.drawImage(source, 0, 0, drawnWidth, CLOTH_HEIGHT, null)
         } finally {
             graphics.dispose()
         }
         return ByteArrayOutputStream().use { output ->
-            check(ImageIO.write(icon, "png", output)) { "PNG writer is unavailable" }
+            check(ImageIO.write(canvas, "png", output)) { "PNG writer is unavailable" }
             output.toByteArray()
         }
     }
 
     @Synchronized
-    private fun cached(nationUuid: UUID): Cached? {
-        val value = cache[nationUuid] ?: return null
+    private fun cached(id: UUID): Cached? {
+        val value = cache[id] ?: return null
         if (value.expiresAt == Long.MAX_VALUE || value.expiresAt - System.nanoTime() > 0) return value
-        cache.remove(nationUuid)
+        cache.remove(id)
         return null
     }
 
     @Synchronized
     private fun remember(
-        nationUuid: UUID,
+        id: UUID,
         value: Cached,
     ) {
-        cache[nationUuid] = value
-        while (cache.size > MAX_CACHED_NATIONS) cache.remove(cache.keys.first())
+        cache[id] = value
+        while (cache.size > MAX_CACHED) cache.remove(cache.keys.first())
     }
 }

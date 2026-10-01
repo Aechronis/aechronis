@@ -15,12 +15,14 @@ import net.minestom.server.item.Material
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-private const val GRAB_COOLDOWN_MILLIS = 2_000L
+private const val GRAB_COOLDOWN_MILLIS = 30_000L
 private const val MAX_SLOTS = 54
 
-private data class FlagsMenuSession(val inventory: Inventory, val nations: List<Nation>)
+private data class FlagEntry(val id: UUID, val name: String)
 
-/** `/flags` browser: any player can grab any nation's flag item, with a short cooldown between grabs. */
+private data class FlagsMenuSession(val inventory: Inventory, val entries: List<FlagEntry>)
+
+/** `/flags` browser: any player can grab any nation's or other-flags.json flag, with a cooldown between grabs. */
 object FlagsMenu {
     private val sessions = ConcurrentHashMap<UUID, FlagsMenuSession>()
     private val cooldowns = ConcurrentHashMap<UUID, Long>()
@@ -32,11 +34,15 @@ object FlagsMenu {
 
     fun open(player: Player) {
         // No pagination yet, so anything past a 6-row chest just gets dropped. Worth adding paging
-        // if the number of nations with a flag set keeps growing past MAX_SLOTS.
-        val nations = Nation.all().filter { it.flagUrl != null }.sortedBy { it.name.lowercase() }.take(MAX_SLOTS)
-        val inventory = Inventory(inventoryTypeFor(nations.size.coerceAtLeast(1)), Component.text("Nation Flags", NamedTextColor.DARK_GREEN))
-        nations.forEachIndexed { slot, nation -> inventory.setItemStack(slot, flagItemStack(nation)) }
-        sessions[player.uuid] = FlagsMenuSession(inventory, nations)
+        // if the number of flagged nations plus other-flags.json entries keeps growing past MAX_SLOTS.
+        val entries =
+            (
+                Nation.all().mapNotNull { nation -> nation.flagUrl?.let { FlagEntry(nation.uuid, nation.name) } } +
+                    OtherFlags.all.map { FlagEntry(it.id, it.name) }
+            ).sortedBy { it.name.lowercase() }.take(MAX_SLOTS)
+        val inventory = Inventory(inventoryTypeFor(entries.size.coerceAtLeast(1)), Component.text("Nation Flags", NamedTextColor.DARK_GREEN))
+        entries.forEachIndexed { slot, entry -> inventory.setItemStack(slot, flagItemStack(entry)) }
+        sessions[player.uuid] = FlagsMenuSession(inventory, entries)
         if (!player.openInventory(inventory)) sessions.remove(player.uuid)
     }
 
@@ -54,16 +60,16 @@ object FlagsMenu {
     // pole model around so hard in third person. CROSSBOW does the same trick but combat's gun
     // system already keys aiming-state logic off Material.CROSSBOW, so flags use SPEAR instead
     // to avoid colliding with that. withItemModel() still fully replaces the visible geometry.
-    private fun flagItemStack(nation: Nation): ItemStack = ItemStack.of(Material.WOODEN_SPEAR)
-        .withItemModel(NationFlagPack.flagModelId(nation.uuid))
-        .withCustomName(Component.text("${nation.name} Flag", NamedTextColor.WHITE))
+    private fun flagItemStack(entry: FlagEntry): ItemStack = ItemStack.of(Material.WOODEN_SPEAR)
+        .withItemModel(NationFlagPack.flagModelId(entry.id))
+        .withCustomName(Component.text("${entry.name} Flag", NamedTextColor.WHITE))
 
     private fun onClick(event: InventoryPreClickEvent) {
         val player = event.player
         val session = sessions[player.uuid] ?: return
         if (event.inventory !== session.inventory) return
         event.isCancelled = true
-        val nation = session.nations.getOrNull(event.slot) ?: return
+        val entry = session.entries.getOrNull(event.slot) ?: return
 
         val now = System.currentTimeMillis()
         cooldowns.values.removeIf { it <= now }
@@ -72,7 +78,7 @@ object FlagsMenu {
             Message.error(player, "You can grab another flag in ${(expiry - now) / 1000 + 1}s")
             return
         }
-        if (!player.inventory.addItemStack(flagItemStack(nation))) {
+        if (!player.inventory.addItemStack(flagItemStack(entry))) {
             Message.error(player, "Your inventory is full")
             return
         }
