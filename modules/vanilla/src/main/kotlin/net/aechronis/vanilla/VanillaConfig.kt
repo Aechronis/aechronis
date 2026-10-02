@@ -6,6 +6,7 @@ import net.aechronis.vanilla.config.FoodConfig
 import net.aechronis.vanilla.config.MusicConfig
 import net.aechronis.vanilla.config.RecipesConfig
 import net.aechronis.vanilla.config.ShopConfig
+import net.minestom.server.entity.GameMode
 
 data class VanillaConfig(
     // Feature toggles
@@ -41,6 +42,8 @@ data class VanillaConfig(
     val spawnEnabled: Boolean = true,
     val kothEnabled: Boolean = true,
     val oresEnabled: Boolean = true,
+    // Player defaults
+    val defaultGameMode: GameMode = GameMode.SURVIVAL,
     // Paths
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",

@@ -4,12 +4,17 @@ import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
+import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerCommandEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 
 object PlayerActivityListener {
+    fun onPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
+        event.player.gameMode = Vanilla.config.defaultGameMode
+    }
+
     fun onSpawn(event: PlayerSpawnEvent) {
         if (!event.isFirstSpawn) return
         announce("[+] ${event.player.username}")
@@ -41,6 +46,7 @@ object PlayerActivityListener {
     private val SENSITIVE_COMMANDS = setOf("login", "register", "password", "changepassword")
 
     fun init() {
+        Vanilla.eventNode.addListener(AsyncPlayerConfigurationEvent::class.java, PlayerActivityListener::onPlayerConfiguration)
         Vanilla.eventNode.addListener(PlayerSpawnEvent::class.java, PlayerActivityListener::onSpawn)
         Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, PlayerActivityListener::onDisconnect)
         Vanilla.eventNode.addListener(PlayerCommandEvent::class.java, PlayerActivityListener::onCommand)

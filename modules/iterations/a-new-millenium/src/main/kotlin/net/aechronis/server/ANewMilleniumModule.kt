@@ -24,7 +24,6 @@ import net.aechronis.server.craft.Tools
 import net.aechronis.server.craft.Vehicles
 import net.aechronis.server.craft.Weapons
 import net.aechronis.server.listeners.DroneListener
-import net.aechronis.server.listeners.PlayerJoinListener
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleStartupTimings.measure
@@ -97,7 +96,6 @@ class ANewMilleniumModule : AechronisModule {
         measure("Tab list") { TabManager.start() }
 
         measure("Drone listeners") { DroneListener.init(context) }
-        measure("Player listeners") { PlayerJoinListener.init(context) }
     }
 
     private fun registerItems() {
