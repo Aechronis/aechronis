@@ -52,12 +52,12 @@ private val transactionTimeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:m
 object Gems {
     fun rememberPlayer(player: Player) = repository.rememberPlayer(player.uuid, player.username)
 
-    fun grantVoteReward(
+    fun grantReward(
         player: Player,
         amount: Long,
         deliver: () -> Boolean,
     ): Boolean {
-        require(amount > 0L) { "Vote reward must be positive" }
+        require(amount > 0L) { "Gem reward must be positive" }
         repository.rememberPlayer(player.uuid, player.username)
         if (repository.adjust(player.uuid, amount) == null) return false
 
@@ -68,7 +68,7 @@ object Gems {
         } finally {
             if (!delivered) {
                 check(repository.adjust(player.uuid, -amount) != null) {
-                    "Could not roll back an undelivered vote reward for ${player.username}"
+                    "Could not roll back an undelivered gem reward for ${player.username}"
                 }
             }
         }

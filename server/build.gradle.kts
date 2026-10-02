@@ -53,11 +53,12 @@ dependencies {
         isTransitive = false
     }
     implementation("net.minestom:minestom:2026.09.12-26.2")
-    implementation(project(":modules:misc"))
     // Shared socket types also serve Votifier and PacketEvents. Keep one compatible Netty
     // runtime in core while the protocol engines and all Via state live in their module.
     implementation(platform("io.netty:netty-bom:4.2.18.Final"))
     implementation("io.netty:netty-handler")
+    // NuVotifier probes Epoll availability even when it falls back to NIO.
+    runtimeOnly("io.netty:netty-transport-classes-epoll")
 
     implementation("com.h2database:h2:2.5.250")
     runtimeOnly("org.mariadb.jdbc:mariadb-java-client:3.5.10")

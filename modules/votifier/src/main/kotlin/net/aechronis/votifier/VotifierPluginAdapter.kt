@@ -11,8 +11,6 @@ import com.vexsoftware.votifier.util.KeyCreator
 import io.netty.channel.Channel
 import io.netty.channel.EventLoopGroup
 import net.minestom.server.MinecraftServer
-import net.minestom.server.event.Event
-import net.minestom.server.event.EventNode
 import net.minestom.server.timer.TaskSchedule
 import java.lang.reflect.Field
 import java.security.Key
@@ -29,7 +27,7 @@ import java.util.logging.Level
 internal class VotifierPluginAdapter(
     private val options: VotifierOptions,
     private val configStore: VotifierConfigStore,
-    private val eventNode: EventNode<Event>,
+    private val onVote: (Vote) -> Unit,
 ) : VotifierPlugin {
     private val stopped = AtomicBoolean()
     private val lifecycleLock = ReentrantLock()
@@ -101,7 +99,7 @@ internal class VotifierPluginAdapter(
                             lifecycleLock.lock()
                             try {
                                 check(!stopped.get()) { "Votifier is shut down" }
-                                eventNode.call(VoteReceivedEvent(vote, protocolVersion, remoteAddress))
+                                onVote(Vote(vote))
                                 completion.complete(Unit)
                             } finally {
                                 lifecycleLock.unlock()

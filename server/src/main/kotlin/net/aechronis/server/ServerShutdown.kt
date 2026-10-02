@@ -11,12 +11,11 @@ internal class ShutdownCoordinator(
     private val started = AtomicBoolean()
 
     @Volatile
-    private var stages = Stages({}, {}, {}, {}, {}, {}, {}, {})
+    private var stages = Stages({}, {}, {}, {}, {}, {}, {})
 
     fun configure(
         beginShutdown: () -> Unit,
         stopWorldSaver: () -> Unit,
-        closeVotifier: () -> Unit,
         prepareModules: () -> Unit,
         saveModuleState: () -> Unit,
         stopServer: () -> Unit,
@@ -27,7 +26,6 @@ internal class ShutdownCoordinator(
             Stages(
                 beginShutdown,
                 stopWorldSaver,
-                closeVotifier,
                 prepareModules,
                 saveModuleState,
                 stopServer,
@@ -42,7 +40,6 @@ internal class ShutdownCoordinator(
         val configured = stages
         runStage("begin module shutdown", configured.beginShutdown)
         runStage("stop the world saver", configured.stopWorldSaver)
-        runStage("close Votifier", configured.closeVotifier)
         val prepared = runStage("quiesce module work", configured.prepareModules)
         if (prepared) {
             runStage("save live module state", configured.saveModuleState)
@@ -73,7 +70,6 @@ internal class ShutdownCoordinator(
     private data class Stages(
         val beginShutdown: () -> Unit,
         val stopWorldSaver: () -> Unit,
-        val closeVotifier: () -> Unit,
         val prepareModules: () -> Unit,
         val saveModuleState: () -> Unit,
         val stopServer: () -> Unit,
@@ -111,7 +107,6 @@ object ServerShutdown {
     fun configure(
         beginShutdown: () -> Unit,
         stopWorldSaver: () -> Unit,
-        closeVotifier: () -> Unit,
         prepareModules: () -> Unit,
         saveModuleState: () -> Unit,
         stopServer: () -> Unit,
@@ -124,7 +119,6 @@ object ServerShutdown {
                 beginShutdown()
             },
             stopWorldSaver,
-            closeVotifier,
             prepareModules,
             saveModuleState,
             stopServer,

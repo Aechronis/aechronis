@@ -99,7 +99,6 @@ class ANewMilleniumModule : AechronisModule {
 
         measure("Drone listeners") { DroneListener.init(context) }
         measure("Player listeners") { PlayerJoinListener.init(context) }
-        measure("Votifier") { VotifierIntegration.initialize() }
     }
 
     private fun registerItems() {
@@ -142,14 +141,9 @@ class ANewMilleniumModule : AechronisModule {
         VehiclePersistence.saveForShutdown()
     }
 
-    override fun prepareForShutdown(context: ModuleContext) {
-        shutdownExternalServices()
-    }
-
     override fun shutdown(context: ModuleContext) {
         var failure: Throwable? = null
         listOf(
-            ::shutdownExternalServices,
             TabManager::shutdown,
             VehiclePersistence::shutdown,
             Drone::shutdownRuntimeState,
@@ -161,6 +155,4 @@ class ANewMilleniumModule : AechronisModule {
         }
         failure?.let { throw it }
     }
-
-    private fun shutdownExternalServices() = VotifierIntegration.shutdown()
 }

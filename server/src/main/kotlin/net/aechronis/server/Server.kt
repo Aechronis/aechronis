@@ -130,7 +130,6 @@ private fun startMinecraftServer(
     ServerShutdown.configure(
         beginShutdown = {},
         stopWorldSaver = {},
-        closeVotifier = {},
         prepareModules = {},
         saveModuleState = {},
         stopServer = MinecraftServer::stopCleanly,
@@ -194,7 +193,6 @@ private fun startMinecraftServer(
             moduleManager.beginShutdown()
         },
         stopWorldSaver = WorldSaver::shutdown,
-        closeVotifier = VotifierIntegration::shutdown,
         prepareModules = { moduleManager.prepareForShutdown(moduleContext) },
         saveModuleState = { moduleManager.saveState(moduleContext) },
         stopServer = MinecraftServer::stopCleanly,

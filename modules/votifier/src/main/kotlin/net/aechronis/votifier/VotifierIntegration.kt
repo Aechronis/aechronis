@@ -1,9 +1,9 @@
-package net.aechronis.server
+package net.aechronis.votifier
 
+import com.vexsoftware.votifier.model.Vote
+import net.aechronis.gems.Gems
 import net.aechronis.server.modules.ModuleEvents
-import net.aechronis.votifier.VoteReceivedEvent
-import net.aechronis.votifier.VotifierModule
-import net.aechronis.votifier.VotifierOptions
+import net.aechronis.vanilla.managers.Crates
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.Event
@@ -38,23 +38,15 @@ object VotifierIntegration {
             state.eventNode.addListener(PlayerSpawnEvent::class.java) { event ->
                 drainPendingRewards(state, event.player)
             }
-            state.eventNode.addListener(VoteRewardsAvailableEvent::class.java) {
-                retryOnlineRewards(state)
-            }
             state.eventNodeCleanupPending = true
             ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), state.eventNode)
             state.moduleCleanupPending = true
-            VotifierModule.initialize(
+            Votifier.initialize(
                 options =
                     VotifierOptions(
                         dataDirectory = dataDirectory,
                     ),
-                configureEventNode = { node ->
-                    node.addListener(VoteReceivedEvent::class.java) { event ->
-                        onVoteReceived(state, event)
-                    }
-                },
-                attachEventNode = { node -> ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), node) },
+                onVote = { vote -> onVoteReceived(state, vote) },
             )
             retryOnlineRewards(state)
             state.fullyStarted = true
@@ -78,7 +70,7 @@ object VotifierIntegration {
 
         if (state.moduleCleanupPending) {
             cleanup {
-                VotifierModule.shutdown()
+                Votifier.shutdown()
                 state.moduleCleanupPending = false
             }
         }
@@ -94,9 +86,9 @@ object VotifierIntegration {
 
     private fun onVoteReceived(
         state: RunningVotifierIntegration,
-        event: VoteReceivedEvent,
+        vote: Vote,
     ) {
-        val username = event.username.trim()
+        val username = vote.username.trim()
         if (!usernamePattern.matches(username)) {
             println("Ignoring vote with invalid username '$username'")
             return
@@ -130,20 +122,12 @@ object VotifierIntegration {
     }
 
     private fun giveReward(player: Player): Boolean {
-        val request = VoteRewardRequest(player, VOTE_CRATE_ID, GEM_REWARD)
-        Server.eventNode.call(request)
-        return request.granted
+        val crate = runCatching { Crates.itemFor(VOTE_CRATE_ID) }.getOrNull() ?: return false
+        return Gems.grantReward(player, GEM_REWARD) {
+            player.inventory.addItemStack(crate) || player.dropItem(crate)
+        }
     }
 }
-
-class VoteRewardRequest(
-    val player: Player,
-    val itemId: String,
-    val gems: Long,
-    var granted: Boolean = false,
-) : Event
-
-class VoteRewardsAvailableEvent : Event
 
 private class RunningVotifierIntegration(
     val eventNode: EventNode<Event>,

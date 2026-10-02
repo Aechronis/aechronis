@@ -1,5 +1,5 @@
 * `/server` - [AGPL-3.0](server/LICENSE)
-* `/modules/misc/src/main/kotlin/net/aechronis/votifier` - [GPL-3.0](modules/misc/VOTEIFIER-LICENSE)
+* `/modules/votifier` - [AGPL-3.0](modules/votifier/LICENSE)
 * `/modules/combat` - [AGPL-3.0](modules/combat/LICENSE)
 * `/modules/logger` - [AGPL-3.0](modules/logger/LICENSE)
 * `/modules/nodes` - [GPL-3.0](modules/nodes/LICENSE)

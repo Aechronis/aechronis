@@ -15,13 +15,12 @@ internal class DevModuleWatcher(
     private val moduleDirectory: Path,
     private val reload: (() -> Unit) -> CompletableFuture<ModuleOperationResult>,
     private val quietMillis: Long = 750,
-    buildFiles: List<String> = (modulePaths + listOf("server", "modules/misc")).map { "$it/build.gradle.kts" },
+    buildFiles: List<String> = (modulePaths + "server").map { "$it/build.gradle.kts" },
 ) : AutoCloseable {
     private val moduleRoots = modulePaths.flatMap { listOf("$it/src/main", "$it/resource-pack") }
     private val coreRoots =
         listOf(
             "server/src/main",
-            "modules/misc/src/main",
             "build.gradle.kts",
             "settings.gradle.kts",
             "gradle.properties",

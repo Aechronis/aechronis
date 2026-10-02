@@ -49,7 +49,7 @@ include(
     ":modules:watchdog",
     ":modules:gems",
     ":modules:tebex",
-    ":modules:misc",
+    ":modules:votifier",
     ":modules:guard",
     ":modules:iterations:a-new-millenium",
 )

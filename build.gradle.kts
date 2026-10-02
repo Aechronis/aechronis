@@ -30,7 +30,7 @@ subprojects {
         extensions.configure<JavaPluginExtension> {
             toolchain.languageVersion.set(JavaLanguageVersion.of(25))
         }
-        if (path.startsWith(":modules:") && path != ":modules:misc") {
+        if (path.startsWith(":modules:")) {
             pluginManager.apply("com.gradleup.shadow")
 
             val moduleApi = configurations.dependencyScope("moduleApi")
@@ -98,6 +98,7 @@ val runtimeModuleProjects =
         ":modules:guard",
         ":modules:gems",
         ":modules:tebex",
+        ":modules:votifier",
         ":modules:iterations:a-new-millenium",
     )
 
