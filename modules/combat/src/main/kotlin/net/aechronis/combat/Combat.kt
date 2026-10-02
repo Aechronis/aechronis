@@ -38,6 +38,7 @@ import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.bypassesCombatDamageImmunity
 import net.aechronis.combat.utils.combatDamageKind
 import net.aechronis.server.modules.ModuleCommands
+import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
@@ -47,6 +48,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.event.EventNode
 import net.minestom.server.timer.Task
+import java.nio.file.Path
 
 object Combat {
     private var initialized = false
@@ -245,6 +247,11 @@ object Combat {
             }
             throw exception
         }
+    }
+
+    internal fun initializeVehiclePersistence(context: ModuleContext) {
+        val vehiclePath = Path.of("combat", "vehicles.json")
+        VehiclePersistence.initialize(vehiclePath, context.instance)
     }
 
     /** Releases every piece of combat-owned runtime state without causing gameplay effects. */

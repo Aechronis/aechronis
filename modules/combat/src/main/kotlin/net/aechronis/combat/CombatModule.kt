@@ -13,6 +13,7 @@ class CombatModule : AechronisModule {
     override fun initialize(context: ModuleContext) {
         Combat.initialize()
         measure("Hand skins") { GunHandSkins.initialize(context) }
+        measure("Vehicle persistence") { Combat.initializeVehiclePersistence(context) }
     }
 
     override fun prepareForShutdown(context: ModuleContext) = BlockRestoreManager.shutdown()

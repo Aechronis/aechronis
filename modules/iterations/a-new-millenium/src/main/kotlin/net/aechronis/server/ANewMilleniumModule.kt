@@ -39,8 +39,6 @@ import net.aechronis.vanilla.config.RecipesConfig
 import net.kyori.adventure.resource.ResourcePackInfo
 import net.minestom.server.item.Material
 import java.net.URI
-import java.nio.file.Files
-import java.nio.file.Path
 
 class ANewMilleniumModule : AechronisModule {
     override val id = "a-new-millenium"
@@ -99,7 +97,6 @@ class ANewMilleniumModule : AechronisModule {
     override fun initialize(context: ModuleContext) {
         measure("Tab list") { TabManager.start() }
 
-        measure("Vehicle persistence") { initializeVehiclePersistence(context) }
         measure("Drone listeners") { DroneListener.init(context) }
         measure("Player listeners") { PlayerJoinListener.init(context) }
         measure("Votifier") { VotifierIntegration.initialize() }
@@ -166,19 +163,4 @@ class ANewMilleniumModule : AechronisModule {
     }
 
     private fun shutdownExternalServices() = VotifierIntegration.shutdown()
-
-    private fun initializeVehiclePersistence(context: ModuleContext) {
-        val vehiclePath = Path.of("combat", "vehicles.json")
-        val legacyVehiclePath = Path.of("world", "vehicles.json")
-        if (!Files.exists(vehiclePath) && Files.exists(legacyVehiclePath)) {
-            try {
-                Files.createDirectories(vehiclePath.parent)
-                Files.move(legacyVehiclePath, vehiclePath)
-                println("[Combat] Moved vehicle save from $legacyVehiclePath to $vehiclePath")
-            } catch (exception: Exception) {
-                System.err.println("[Combat] Failed to move vehicle save to $vehiclePath: ${exception.message}")
-            }
-        }
-        VehiclePersistence.initialize(vehiclePath, context.instance)
-    }
 }
