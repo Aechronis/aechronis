@@ -13,5 +13,5 @@ dependencies {
     compileOnly(platform("io.netty:netty-bom:4.2.18.Final"))
     compileOnly("io.netty:netty-handler")
     add("moduleImplementation", "com.google.guava:guava:33.7.1-jre")
-    compileOnly("org.slf4j:slf4j-api:2.0.19")
+    compileOnly("org.slf4j:slf4j-api:2.0.20")
 }
