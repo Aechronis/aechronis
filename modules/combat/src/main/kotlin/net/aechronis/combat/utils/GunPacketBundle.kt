@@ -1,6 +1,6 @@
 package net.aechronis.combat.utils
 
-import ac.grim.grimac.minestom.PacketBridge
+import net.aechronis.server.network.BufferedPacketEventConnection
 import net.minestom.server.MinecraftServer
 import net.minestom.server.ServerFlag
 import net.minestom.server.adventure.MinestomAdventure
@@ -19,8 +19,8 @@ import net.minestom.server.network.packet.server.play.BundlePacket
  * BufferedPacket explicitly supports multiple framed packets in one queue entry;
  * the socket writer still applies connection encryption to that entire entry.
  *
- * When the native Grim adapter owns buffered sends, it dispatches the event and
- * translation sequence on the socket writer while retaining the atomic bundle.
+ * The Via transport dispatches the event and translation sequence on its writer
+ * while retaining the atomic bundle, including while Grim is disabled.
  * Otherwise perform that sequence here before framing. No delimiter is published
  * around callbacks or inventory changes.
  * Used only for already-PLAY socket connections: ConnectionManager enables the
@@ -34,7 +34,7 @@ internal fun prepareGunPacketBundle(
 ): BufferedPacket {
     require(packets.size <= 4096) { "Gun bundle exceeds the client packet limit" }
     require(packets.none { it is BundlePacket }) { "Gun bundles cannot contain delimiters" }
-    val deferredEvents = PacketBridge.handlesBufferedPackets(player)
+    val deferredEvents = player.playerConnection is BufferedPacketEventConnection
     val outgoing = EventDispatcher.getHandle(PlayerPacketOutEvent::class.java)
     val translated =
         packets.mapNotNull { packet ->

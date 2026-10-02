@@ -11,6 +11,7 @@ import java.nio.file.Path
 
 class GrimModule : AechronisModule {
     override val id = "grimac"
+    override val dependencies = setOf("viaversion")
 
     private var runtime: GrimMinestom? = null
 

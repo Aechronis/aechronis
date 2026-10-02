@@ -2,6 +2,8 @@ package net.aechronis.server.modules
 
 import net.aechronis.server.Server
 import net.aechronis.server.ServerShutdown
+import net.aechronis.server.network.ServerNetwork
+import net.aechronis.server.network.ServerTransport
 import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.resourcepack.ModuleResourcePacks
 import net.aechronis.server.resourcepack.ResourcePackRegistration
@@ -25,6 +27,7 @@ class ModuleContext(
     private val resourcePackServer: ResourcePackServer? = null,
     private val liveExecutor: Executor? = null,
     private val liveExecutionAvailable: () -> Boolean = { true },
+    private val network: ServerNetwork? = null,
 ) {
     internal var administration: ModuleAdministration? = null
 
@@ -39,6 +42,10 @@ class ModuleContext(
 
     val spawnPoint: Pos
         get() = Server.spawnPoint
+
+    /** Only one transport generation can own the public listener. Close this registration on unload. */
+    fun installServerTransport(transport: ServerTransport): AutoCloseable =
+        checkNotNull(network) { "The server network is unavailable" }.install(transport)
 
     /** Registers a generation-owned listener that is detached and allowed to finish on unload. */
     fun <E : Event> addListener(

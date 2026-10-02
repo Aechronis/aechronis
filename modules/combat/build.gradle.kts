@@ -6,9 +6,6 @@ plugins {
 
 dependencies {
     compileOnly(project(":server"))
-    compileOnly("net.aechronis:grim-minestom:2.3.74-minestom.3") {
-        isTransitive = false
-    }
     compileOnly("net.minestom:minestom:2026.09.12-26.2")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     compileOnly(project(":modules:watchdog"))

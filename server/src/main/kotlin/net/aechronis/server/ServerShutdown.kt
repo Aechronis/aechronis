@@ -1,5 +1,6 @@
 package net.aechronis.server
 
+import net.aechronis.server.network.ServerNetwork
 import net.aechronis.server.resourcepack.ResourcePackServer
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -84,10 +85,23 @@ internal class ShutdownCoordinator(
 object ServerShutdown {
     private lateinit var coordinator: ShutdownCoordinator
 
+    @Volatile private var network: ServerNetwork? = null
+
+    fun registerNetwork(network: ServerNetwork) {
+        check(this.network == null) { "The server network is already installed" }
+        this.network = network
+    }
+
     fun install(resourcePackServer: ResourcePackServer) {
         check(!::coordinator.isInitialized) { "Server shutdown is already installed" }
         coordinator =
-            ShutdownCoordinator(resourcePackServer::close) { stage, error ->
+            ShutdownCoordinator({
+                try {
+                    network?.close()
+                } finally {
+                    resourcePackServer.close()
+                }
+            }) { stage, error ->
                 System.err.println("Failed to $stage during shutdown: ${error.message}")
                 error.printStackTrace()
             }
@@ -105,7 +119,10 @@ object ServerShutdown {
         closeModules: () -> Unit,
     ) {
         coordinator.configure(
-            beginShutdown,
+            {
+                network?.stopAccepting()
+                beginShutdown()
+            },
             stopWorldSaver,
             closeVotifier,
             prepareModules,

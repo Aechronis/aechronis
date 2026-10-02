@@ -9,6 +9,7 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
+        maven("https://repo.viaversion.com/")
         maven("https://jitpack.io")
         maven("https://maven.conceptmc.com/releases")
         maven("https://repo.hypera.dev/snapshots/")
@@ -38,6 +39,7 @@ include(
     ":modules:luckperms",
     ":modules:spark",
     ":modules:grimac",
+    ":modules:viaversion",
     ":modules:utils",
     ":modules:combat",
     ":modules:nodes",

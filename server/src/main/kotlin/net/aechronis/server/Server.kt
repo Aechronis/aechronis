@@ -10,6 +10,7 @@ import net.aechronis.server.modules.ModuleCommand
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleManager
 import net.aechronis.server.modules.PlayerAdmissionGate
+import net.aechronis.server.network.ServerNetwork
 import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.resourcepack.ResourcePackServer
 import net.aechronis.server.tasks.WorldSaver
@@ -137,6 +138,9 @@ private fun startMinecraftServer(
         closeModules = {},
     )
 
+    val network = ServerNetwork(InetSocketAddress("0.0.0.0", port))
+    ServerShutdown.registerNetwork(network)
+
     MinestomSupport.install()
 
     // register fullbright dimension
@@ -181,6 +185,7 @@ private fun startMinecraftServer(
             resourcePackServer = resourcePackServer,
             liveExecutor = { MinecraftServer.getSchedulerManager().scheduleNextTick(it) },
             liveExecutionAvailable = { MinecraftServer.process().isAlive },
+            network = network,
         )
 
     ServerShutdown.configure(
@@ -215,6 +220,6 @@ private fun startMinecraftServer(
     moduleManager.initialize(moduleContext)
     WorldSaver.start { moduleManager.saveCheckpoint(moduleContext) }
 
-    server.start("0.0.0.0", port)
+    network.start(server)
     devWatcher?.start()
 }
