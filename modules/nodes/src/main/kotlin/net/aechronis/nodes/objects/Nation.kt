@@ -221,6 +221,7 @@ class Nation(
             nation.flagUrl = value
             nation.needsUpdate()
             Nodes.markWorldDirty()
+            NationFlagPack.onFlagChanged(nation.uuid)
         }
 
         fun setRallyCap(nation: Nation, rallyCap: Int) {
