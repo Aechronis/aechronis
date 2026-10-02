@@ -4,6 +4,7 @@ import com.sk89q.worldedit.blocks.BaseItemStack
 import com.sk89q.worldedit.entity.BaseEntity
 import com.sk89q.worldedit.extension.platform.AbstractPlayerActor
 import com.sk89q.worldedit.extent.inventory.BlockBag
+import com.sk89q.worldedit.math.Vector3
 import com.sk89q.worldedit.session.SessionKey
 import com.sk89q.worldedit.util.HandSide
 import com.sk89q.worldedit.util.Location
@@ -70,6 +71,12 @@ class MinestomPlayer(
         player.teleport(MinestomAdapter.toPosition(location))
         return true
     }
+
+    override fun trySetPosition(
+        pos: Vector3,
+        pitch: Float,
+        yaw: Float,
+    ): Boolean = setLocation(Location(world, pos, yaw, pitch))
 
     override fun getState(): BaseEntity {
         val typeId = player.entityType.key().asString()
