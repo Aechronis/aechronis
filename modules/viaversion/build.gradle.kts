@@ -12,6 +12,6 @@ dependencies {
     add("moduleImplementation", "com.viaversion:viabackwards-common:5.11.0")
     compileOnly(platform("io.netty:netty-bom:4.2.18.Final"))
     compileOnly("io.netty:netty-handler")
-    add("moduleImplementation", "com.google.guava:guava:33.7.1-jre")
+    add("moduleImplementation", "com.google.guava:guava:33.7.2-jre")
     compileOnly("org.slf4j:slf4j-api:2.0.19")
 }
