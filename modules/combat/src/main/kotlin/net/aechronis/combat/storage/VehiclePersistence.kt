@@ -72,11 +72,13 @@ object VehiclePersistence {
         }
     }
 
-    fun saveForShutdown() {
+    /** Grounds planes and releases riders before player state is captured by other modules. */
+    fun prepareForShutdown() {
         if (!initialized) return
 
+        val vehicles = VehicleRegistry.all()
         val planes =
-            VehicleRegistry.all().mapNotNull { runtime ->
+            vehicles.mapNotNull { runtime ->
                 val entity = runtime.entity
                 val vehicle = runtime.vehicle
                 if (entity.instance === instance && vehicle is Plane) entity to vehicle else null
@@ -85,9 +87,8 @@ object VehiclePersistence {
         preloadChunks(planes.map { (entity, _) -> entity.position }, deadline, "active plane chunks")
         planes.forEach { (entity, vehicle) ->
             groundPlane(entity, vehicle, deadline)
-            vehicle.prepareForShutdown(entity)
         }
-        save()
+        vehicles.forEach { runtime -> runtime.vehicle.prepareForShutdown(runtime.entity) }
     }
 
     fun save() {

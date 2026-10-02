@@ -1,5 +1,6 @@
 package net.aechronis.combat
 
+import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.combat.utils.GunHandSkins
 import net.aechronis.server.modules.AechronisModule
@@ -16,7 +17,13 @@ class CombatModule : AechronisModule {
         measure("Vehicle persistence") { Combat.initializeVehiclePersistence(context) }
     }
 
-    override fun prepareForShutdown(context: ModuleContext) = BlockRestoreManager.shutdown()
+    override fun prepareForShutdown(context: ModuleContext) {
+        BlockRestoreManager.shutdown()
+        // All modules prepare before Vanilla captures player positions in its save hook.
+        VehiclePersistence.prepareForShutdown()
+    }
+
+    override fun saveState(context: ModuleContext) = VehiclePersistence.save()
 
     override fun shutdown(context: ModuleContext) {
         GunHandSkins.shutdown()

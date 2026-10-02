@@ -2,7 +2,6 @@ package net.aechronis.server
 
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
-import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.combat.utils.GunHandSkins
 import net.aechronis.nodes.NodesConfig
 import net.aechronis.nodes.NodesModule
@@ -137,17 +136,11 @@ class ANewMilleniumModule : AechronisModule {
         )
     }
 
-    override fun saveState(context: ModuleContext) {
-        VehiclePersistence.saveForShutdown()
-    }
-
     override fun shutdown(context: ModuleContext) {
         var failure: Throwable? = null
         listOf(
             TabManager::shutdown,
-            VehiclePersistence::shutdown,
             Drone::shutdownRuntimeState,
-            Item.registeredItems::clear,
         ).forEach { cleanup ->
             runCatching(cleanup).onFailure { error ->
                 failure?.addSuppressed(error) ?: run { failure = error }
