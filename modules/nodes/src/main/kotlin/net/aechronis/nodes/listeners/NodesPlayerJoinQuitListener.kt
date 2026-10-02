@@ -20,6 +20,7 @@ import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerDeathEvent
@@ -87,6 +88,7 @@ internal object RallyCapAdmission {
 
 object NodesPlayerJoinQuitListener {
     fun onPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
+        event.player.respawnPoint = respawnPoint(event.player)
         RallyCapAdmission.reserve(event.player.uuid)?.let { reason ->
             event.player.kick(Component.text(reason))
         }
@@ -129,7 +131,7 @@ object NodesPlayerJoinQuitListener {
 
     fun onPlayerRespawn(event: PlayerRespawnEvent) {
         val player = event.player
-        val respawnPoint = Resident.fromPlayer(player)?.town?.spawnpoint ?: Nodes.config.defaultRespawnPoint
+        val respawnPoint = respawnPoint(player)
         event.respawnPosition = respawnPoint
         player.respawnPoint = respawnPoint
         ModuleScheduler.scheduleNextTick {
@@ -180,6 +182,8 @@ object NodesPlayerJoinQuitListener {
             attack.cancel()
         }
     }
+
+    private fun respawnPoint(player: Player): Pos = Resident.fromPlayer(player)?.town?.spawnpoint ?: Nodes.config.defaultRespawnPoint
 
     fun init() {
         RallyCapAdmission.reset()
