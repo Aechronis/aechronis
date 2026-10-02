@@ -11,6 +11,6 @@ dependencies {
     compileOnly(project(":modules:vanilla"))
     compileOnly(project(":modules:worldedit"))
 
-    compileOnly("com.h2database:h2:2.5.250")
+    compileOnly("com.h2database:h2:2.5.252")
     compileOnly("com.zaxxer:HikariCP:7.1.0")
 }
