@@ -51,7 +51,6 @@ function targetProfile(root,target,model) {
     if (typeof gun!=='string' || gun.length>48 || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(gun)) fail('Choose a valid lowercase gun name.');
     if (!occupied) {
         if (profiles[gun]) fail('That gun name already uses another slot in this iteration. Select its slot or choose a different name.');
-        if (fs.existsSync(require('./combat-curve-assets.cjs').curveFile(root,target.pack,gun))) fail('Gun name conflicts with an existing animation snapshot: '+gun);
         for (const file of filesUnder(path.join(root,`modules/iterations/${target.pack}/resource-pack`))) {
             const stem=path.parse(file).name;
             if (stem===gun || stem.startsWith(gun+'-')) fail('Gun name conflicts with existing assets: '+gun);
@@ -182,9 +181,8 @@ function buildAssets(root,model,source,firstBuild,tracks) {
     const {assets,items} = firstBuild ? fallbackAssets(root,model,settings) : {assets:new Map(),items:{}};
     const plugin=require('./aechronis_combat_animation.js'), curveAssets=require('./combat-curve-assets.cjs');
     const curveData=plugin.extractCurveData(tracks);
-    assets.set(curveAssets.curveFile(root,settings.pack,gun),json(curveData));
     const baked=mesh.bakeAtlas(gun,source,curveData);
-    for (const [file,content] of curveAssets.iterationAssets(root,settings.pack,assets)) assets.set(file,content);
+    for (const [file,content] of curveAssets.iterationAssets(root,settings.pack,new Map([[gun,curveData]]))) assets.set(file,content);
     for (const [name,carrier] of Object.entries(baked.models)) {
         const {elements,...header}=carrier;
         const prefix=JSON.stringify(header,null,2).trimEnd().slice(0,-1).trimEnd();

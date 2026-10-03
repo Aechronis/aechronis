@@ -1250,7 +1250,7 @@
             const result = await bridge({action: 'build', model, target});
             message('Combat assets built', `${result.faces} faces; ${result.files.length} files updated.\n\nIteration: ${result.target.pack}\nGun: ${result.target.name}\nanimatedViewModelProfile: ${result.target.id}\nItem model: aechronis:${result.target.name}\nreloadTime: ${result.reload_ticks * 50} ms\nfireAnimationTicks: ${result.fire_ticks}\n\n` +
                 (result.warnings.length ? result.warnings.join('\n') + '\n\n' : '') +
-                'Register new guns in Kotlin. Save your project with File → Save.');
+                `Register new guns in Kotlin. Save your project with File → Save under modules/iterations/${result.target.pack}/models so later exports can rebuild its animation curves.`);
         } catch (error) { message('Combat build failed', error.message); }
         finally { building = false; }
     }

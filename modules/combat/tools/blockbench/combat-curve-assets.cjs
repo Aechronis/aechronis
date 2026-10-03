@@ -5,40 +5,67 @@ const path = require('node:path');
 const mesh = require('./combat-mesh.cjs');
 const curves = require('./combat-curves.cjs');
 const profiles = require('./combat-profiles.cjs');
+const plugin = require('./aechronis_combat_animation.js');
 
 const PAGE_Y = 192;
-const curveFile = (root, pack, gun) => path.join(root, 'modules/iterations', pack,
-    'animations', gun + '.json');
 
-// Each iteration owns its published curves. Never read another iteration's
-// editable projects or snapshots while rebuilding these atlases.
-function collect(root, pack, pending = new Map()) {
-    const entries = new Map();
-    const directory = path.dirname(curveFile(root, pack, 'placeholder'));
-    if (fs.existsSync(directory)) for (const file of fs.readdirSync(directory, {withFileTypes: true})) {
-        if (file.isFile() && file.name.endsWith('.json')) {
-            const destination = path.join(directory, file.name);
-            entries.set(destination, fs.readFileSync(destination));
+function* modelFiles(directory) {
+    if (!fs.existsSync(directory)) return;
+    for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
+        if (entry.name.startsWith('.')) continue;
+        const file = path.join(directory, entry.name);
+        if (entry.isDirectory()) yield* modelFiles(file);
+        else if (entry.isFile() && entry.name.endsWith('.bbmodel')) yield file;
+    }
+}
+
+// Rebuild from this iteration's saved projects, using the in-memory curves for
+// the gun currently being exported. Published content keys keep profile renames
+// independent of project filenames and prevent other draft edits from silently
+// replacing curves still referenced by the exported shaders.
+function collect(root, pack, pending = new Map(), guns = Object.keys(profiles.readProfiles(root, pack))) {
+    const required = new Map(), entries = [...pending.values()];
+    for (const gun of guns) {
+        if (pending.has(gun)) continue;
+        const name = gun.replaceAll('-', '_');
+        const file = path.join(profiles.includeDirectory(root, pack), `gun_animation_tracks_${name}.glsl`);
+        const shader = fs.readFileSync(file, 'utf8');
+        const key = Number(shader.match(new RegExp(`uint aechronis_curve_key_${name}\\(\\)\\s*\\{\\s*return (\\d+)u;\\s*\\}`))?.[1]);
+        if (!Number.isInteger(key) || key < 1 || key > 0xffffff) throw new Error(`Invalid published animation key: ${file}`);
+        required.set(gun, key);
+    }
+    const directory = path.join(root, 'modules/iterations', pack, 'models');
+    const wanted = new Set(required.values()), errors = [];
+    if (wanted.size) for (const file of modelFiles(directory)) {
+        try {
+            const model = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (model.meta?.model_format !== 'aechronis_combat_animation') continue;
+            const data = plugin.extractCurveData(plugin.extractProject(model));
+            if (wanted.has(data.key)) entries.push(data);
+        } catch (error) {
+            // Unpublished drafts need not be valid to build another gun. Report
+            // their errors if they leave a published profile without its source.
+            errors.push(`${path.relative(root, file)}: ${error.message}`);
         }
     }
-    for (const gun of Object.keys(profiles.readProfiles(root, pack))) {
-        const destination = curveFile(root, pack, gun);
-        if (entries.has(destination) || pending.has(destination)) continue;
-        throw new Error(`Build the saved project for ${pack}/${gun} before exporting texture curves.`);
+    const datasets = curves.normalize(entries), available = new Set(datasets.map(data => data.key));
+    for (const [gun, key] of required) {
+        if (available.has(key)) continue;
+        throw new Error(`No saved .bbmodel matches the published animation curves for ${pack}/${gun}. ` +
+            `Save the exported project under ${directory}, or rebuild that gun from its edited project first.` +
+            (errors.length ? '\n' + errors.join('\n') : ''));
     }
-    for (const [file, content] of pending) {
-        if (path.dirname(file) !== directory || !file.endsWith('.json')) continue;
-        if (content === null) entries.delete(file); else entries.set(file, content);
-    }
-    return curves.normalize([...entries.values()].map(value => JSON.parse(value)));
+    return datasets;
 }
 
 function page(datasets) {
-    return curves.encode(datasets, {width: 1024, maxHeight: 512 - PAGE_Y});
+    // The former JSON snapshots converted -0 to 0. Preserve those float32
+    // bytes in shared textures when deriving curves directly from projects.
+    return curves.encode(JSON.parse(JSON.stringify(datasets)), {width: 1024, maxHeight: 512 - PAGE_Y});
 }
 
-function iterationAssets(root, pack, pending = new Map()) {
-    const data = page(collect(root, pack, pending));
+function iterationAssets(root, pack, pending = new Map(), guns) {
+    const data = page(collect(root, pack, pending, guns));
     const resourcePack = path.join(root, 'modules/iterations', pack, 'resource-pack');
     const hands = mesh.png.read(mesh.bakeHandAtlas());
     mesh.paste(hands, data, 0, PAGE_Y);
@@ -56,4 +83,4 @@ function iterationAssets(root, pack, pending = new Map()) {
     ]);
 }
 
-module.exports = {PAGE_Y, curveFile, collect, page, iterationAssets};
+module.exports = {PAGE_Y, collect, page, iterationAssets};

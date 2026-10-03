@@ -52,15 +52,6 @@ function editAssets(root,input) {
             refs.set(prefix+match[2],prefix+stem);
         }
     }
-    // Published curve snapshots move with profiles but are not client assets.
-    for (const edit of edits) {
-        const file=curveAssets.curveFile(root,input.pack,edit.from);
-        if (!fs.existsSync(file)) mesh.fail('Missing animation snapshot: '+file);
-        if (fs.lstatSync(file).isSymbolicLink()) mesh.fail('Profile edits cannot follow symbolic links: '+file);
-        files.push(file);
-        if (edit.delete===true) deleted.add(file);
-        else moves.set(file,curveAssets.curveFile(root,input.pack,edit.name));
-    }
     const destinations=new Set();
     for(const [file,target] of moves){
         if(destinations.has(target) || (file!==target && fs.existsSync(target) && !moves.has(target) && !deleted.has(target))) mesh.fail('Asset name already exists: '+target);
@@ -129,7 +120,8 @@ function editAssets(root,input) {
     for(const edit of edits){const file=path.join(include,`gun_animation_tracks_${edit.from.replaceAll('-','_')}.glsl`);if(!tracks.has(file))assets.set(file,null);}
     for(const [file,content] of profiles.iterationAssets(root,input.pack,next))assets.set(file,content);
     for(const [file,content] of tracks)assets.set(file,content);
-    for(const [file,content] of curveAssets.iterationAssets(root,input.pack,assets))assets.set(file,content);
+    const retained=edits.filter(edit=>edit.delete!==true).map(edit=>edit.from);
+    for(const [file,content] of curveAssets.iterationAssets(root,input.pack,new Map(),retained))assets.set(file,content);
     return {assets,changes:changed.map(e=>({from:e.from,oldId:catalog[e.from].id,...(e.delete===true?{deleted:true}:{name:e.name,id:e.id})}))};
 }
 module.exports={editAssets};

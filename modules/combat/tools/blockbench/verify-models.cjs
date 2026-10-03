@@ -190,10 +190,8 @@ for (const pack of project.packs(root)) {
         assertAsset(path.join(profiles.includeDirectory(root, pack), `gun_animation_tracks_${gun.replaceAll('-', '_')}.glsl`), Buffer.from(plugin.compileShader(extracted)));
         const {assets} = project.buildAssets(root, model, source, false, extracted);
         for (const [destination, content] of assets) {
-            const allowed = ['resource-pack', 'animations'].some(directory => {
-                const relative = path.relative(path.join(iteration, directory), destination);
-                return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
-            });
+            const relative = path.relative(path.join(iteration, 'resource-pack'), destination);
+            const allowed = relative && !relative.startsWith('..') && !path.isAbsolute(relative);
             assert(allowed, `${gun}: build writes outside its iteration's exported assets: ${destination}`);
             assertAsset(destination, content); assetsChecked++;
         }
