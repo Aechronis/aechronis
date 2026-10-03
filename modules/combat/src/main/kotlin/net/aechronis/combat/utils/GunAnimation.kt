@@ -310,7 +310,7 @@ internal object GunAnimation {
         }
         val instance = player.instance ?: return null
         val age = instance.worldAge
-        val clock = ModelManager.shaderTimePacket(player, age, gun.getAmmo(finalItem) > 0) ?: return null
+        val clock = ModelManager.shaderTimePacket(player, age) ?: return null
         val current = ensureHeld(player, gun)
         if (isSettling(player, gun)) return null
         val fireItem =
@@ -318,7 +318,7 @@ internal object GunAnimation {
                 // Consecutive FIRE clips can leave no idle tick for updateAim.
                 // Accept input at the shot boundary, before capturing both the
                 // transition tint and its model direction for the tracer bundle.
-                val aiming = Combat.playerAiming[player] == true && gun.hasAmmo(player)
+                val aiming = Combat.playerAiming[player] == true
                 recordAimTarget(player, current, aiming)
                 gunItemModel(
                     finalItem,
