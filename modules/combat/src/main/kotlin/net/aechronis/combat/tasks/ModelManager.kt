@@ -4,6 +4,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.utils.GUN_ANIMATION_CLOCK_TICKS
 import net.aechronis.combat.utils.GunAnimation
 import net.aechronis.combat.utils.GunHandSkins
 import net.aechronis.combat.utils.gunAnimationPhase
@@ -20,6 +21,8 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.entity.attribute.AttributeModifier
 import net.minestom.server.entity.attribute.AttributeOperation
+import net.minestom.server.event.player.PlayerPacketOutEvent
+import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.network.packet.server.play.BlockChangePacket
@@ -38,6 +41,30 @@ object ModelManager {
     private const val SHADER_IDLE_TIME = 10000L
     private const val SHADER_COMBAT_TIME = 11000L
     private const val SHADER_AIMING_TIME = 11500L
+    private const val SHADER_CLOCK_REFRESH_TICKS = 100L
+
+    private data class ShaderClock(
+        val instance: Instance,
+        val band: Long,
+        val worldAge: Long,
+        val sentAtNanos: Long = System.nanoTime(),
+    ) {
+        fun needsRefresh(
+            instance: Instance,
+            band: Long,
+            worldAge: Long,
+        ): Boolean =
+            this.instance !== instance ||
+                this.band != band ||
+                worldAge - this.worldAge !in 0 until SHADER_CLOCK_REFRESH_TICKS ||
+                Math.floorDiv(worldAge, GUN_ANIMATION_CLOCK_TICKS) != Math.floorDiv(this.worldAge, GUN_ANIMATION_CLOCK_TICKS) ||
+                // The client keeps ticking during server lag. Do not let its HUD
+                // band expire while waiting for the server to reach the phase wrap.
+                System.nanoTime() - sentAtNanos >=
+                minOf(SHADER_CLOCK_REFRESH_TICKS, GUN_ANIMATION_CLOCK_TICKS - gunAnimationPhase(this.worldAge)) * 50_000_000L
+    }
+
+    private val shaderClocks = ConcurrentHashMap<Player, ShaderClock>()
 
     // X X X layer 1 A X A layer 2
     // X H X         X X X
@@ -96,6 +123,20 @@ object ModelManager {
             AttributeOperation.ADD_MULTIPLIED_TOTAL,
         )
 
+    internal fun initListeners() {
+        Combat.eventNode.addListener(PlayerSpawnEvent::class.java) { shaderClocks.remove(it.player) }
+        Combat.eventNode.addListener(PlayerPacketOutEvent::class.java) { event ->
+            val packet = event.packet as? SetTimePacket ?: return@addListener
+            if (event.isCancelled) return@addListener
+            val clock = shaderClocks[event.player] ?: return@addListener
+            // Respawns and world-time changes can replace our clock. Observe only:
+            // moving a packet here could split an atomic firing bundle.
+            if (packet.gameTime !in clock.band until clock.band + GUN_ANIMATION_CLOCK_TICKS) {
+                shaderClocks.remove(event.player, clock)
+            }
+        }
+    }
+
     // run scheduler for changing item models, animations etc.
     fun start() {
         ModuleScheduler
@@ -113,6 +154,7 @@ object ModelManager {
         enabled: Boolean,
     ) {
         if (enabled) customViewPlayers.add(player) else customViewPlayers.remove(player)
+        shaderClocks.remove(player)
     }
 
     fun hasCustomView(player: Player): Boolean = Vehicle.drivenBy(player)?.customDriverView == true || player in customViewPlayers
@@ -121,32 +163,41 @@ object ModelManager {
     internal fun syncShaderTime(
         player: Player,
         worldAge: Long,
+        force: Boolean = true,
     ): Boolean {
-        val packet = shaderTimePacket(player, worldAge) ?: return false
+        val instance = player.instance
+        if (instance == null || hasCustomView(player)) {
+            shaderClocks.remove(player)
+            return false
+        }
+        val band = shaderTimeBand(player)
+        if (!force && shaderClocks[player]?.needsRefresh(instance, band, worldAge) == false) return true
+        val packet = SetTimePacket(band + gunAnimationPhase(worldAge), instance.createTimePacket().clocks)
         player.sendPacket(packet)
+        shaderClocks[player] = ShaderClock(instance, band, worldAge)
         return true
     }
 
     internal fun shaderTimePacket(
         player: Player,
         worldAge: Long,
-        ammoAvailable: Boolean? = null,
     ): SetTimePacket? {
         val instance = player.instance ?: return null
         if (hasCustomView(player)) return null
+        return SetTimePacket(shaderTimeBand(player) + gunAnimationPhase(worldAge), instance.createTimePacket().clocks)
+    }
+
+    private fun shaderTimeBand(player: Player): Long {
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
         val hideCrosshair =
             gun != null &&
                 Combat.playerAiming[player] == true &&
-                Combat.reloadTasks[player] == null &&
-                (ammoAvailable ?: gun.hasAmmo(player))
-        val band =
-            when {
-                hideCrosshair -> SHADER_AIMING_TIME
-                gun != null || VehicleTickManager.playerLookingAtVehicle[player] != null -> SHADER_COMBAT_TIME
-                else -> SHADER_IDLE_TIME
-            }
-        return SetTimePacket(band + gunAnimationPhase(worldAge), instance.createTimePacket().clocks)
+                Combat.reloadTasks[player] == null
+        return when {
+            hideCrosshair -> SHADER_AIMING_TIME
+            gun != null || VehicleTickManager.playerLookingAtVehicle[player] != null -> SHADER_COMBAT_TIME
+            else -> SHADER_IDLE_TIME
+        }
     }
 
     fun updateModel(player: Player) {
@@ -157,8 +208,7 @@ object ModelManager {
         val showAim =
             gun != null &&
                 isAiming &&
-                Combat.reloadTasks[player] == null &&
-                gun.hasAmmo(player)
+                Combat.reloadTasks[player] == null
         val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
         val hasCustomDriverView = Vehicle.drivenBy(player)?.customDriverView == true
         val customViewOwnsShaderTime = hasCustomView(player)
@@ -166,9 +216,10 @@ object ModelManager {
         setHitAnimationDisabled(player, gun != null || isLookingAtVehicle || hasCustomDriverView, allowInstantBreaking = gun != null)
         updateFakeBlocks(player, instance, gun?.automatic == true || isLookingAtVehicle, automaticGun = gun?.automatic == true)
         if (gun == null) restoreSniperScope(player)
-        // Empty-handed players and late viewers need this same instance phase to
-        // see another player's ongoing animation. Only the HUD band is personal.
-        syncShaderTime(player, instance.worldAge)
+        // Let the client clock advance between state changes and occasional drift
+        // corrections. Refresh at phase wrap before the clock enters another HUD band.
+        // Action publications still force a matching clock alongside their start phase.
+        syncShaderTime(player, instance.worldAge, force = false)
         if (gun == null) return
 
         val hasAmmo = gun.hasAmmo(player)
@@ -192,8 +243,8 @@ object ModelManager {
         val model =
             when {
                 Combat.reloadTasks[player] != null -> gun.itemModelReloading
-                !hasAmmo -> gun.itemModelEmpty
                 showAim -> gun.itemModelAiming
+                !hasAmmo -> gun.itemModelEmpty
                 else -> gun.itemModel
             }
         // These first-person models implement pose interpolation in the
@@ -253,6 +304,7 @@ object ModelManager {
     }
 
     internal fun clearPlayer(player: Player) {
+        shaderClocks.remove(player)
         customViewPlayers.remove(player)
         GunAnimation.cancel(player)
         val previous = fakeBlocks.remove(player)
@@ -277,6 +329,7 @@ object ModelManager {
                 addAll(hitAnimationDisabledPlayers)
                 addAll(customViewPlayers)
                 addAll(fakeBlocks.keys)
+                addAll(shaderClocks.keys)
                 runCatching { MinecraftServer.getConnectionManager().onlinePlayers }
                     .getOrNull()
                     ?.let(::addAll)
@@ -303,6 +356,7 @@ object ModelManager {
 
         hitAnimationDisabledPlayers.clear()
         customViewPlayers.clear()
+        shaderClocks.clear()
         fakeBlocks.clear()
         GunAnimation.shutdown()
         try {
