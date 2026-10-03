@@ -85,6 +85,10 @@ class Gun(
     val animatedViewModelProfile: Int = 0,
     /** Must match the saved model's fire_ticks (manual actions can outlast recoil). */
     val fireAnimationTicks: Int = GUN_FIRE_ANIMATION_TICKS,
+    /** Rays fired per trigger pull; each takes its own spread and deals [damage]. Ammo, sound and recoil are spent once. */
+    val bulletsPerShot: Int = 1,
+    /** Scales [damage] by distance to an entity hit; null deals full damage out to [maxRange]. Vehicles ignore it. */
+    val damageFalloff: DamageFalloff? = null,
 ) : Item(
         name,
         itemName,
@@ -102,6 +106,8 @@ class Gun(
                 spreadMin = spreadMin,
                 spreadMax = spreadMax,
                 maxRange = maxRange,
+                bulletsPerShot = bulletsPerShot,
+                damageFalloff = damageFalloff,
             ),
         itemModel,
         Material.WARPED_FUNGUS_ON_A_STICK,
@@ -111,6 +117,8 @@ class Gun(
         require(animatedViewModelProfile in 0..15) { "Gun animation profile must fit the four-bit protocol" }
         require(fireAnimationTicks in 1..255) { "Gun fire animation must last 1–255 ticks" }
         require(maxRange.isFinite() && maxRange > 0.0) { "Gun maxRange must be a positive finite number" }
+        // Every bullet's trail shares the firing bundle, which is capped at 4096 packets.
+        require(bulletsPerShot in 1..32) { "Gun bulletsPerShot must be 1–32" }
     }
 
     override fun toItemStack(): ItemStack {
@@ -271,104 +279,50 @@ class Gun(
         Combat.playerLastActionTimes[player] = now
         if (!hasAmmo(player) && !ignoreAmmo) return false
 
-        // Calculate position to fire bullet (ray) from. ADS only affects handheld shots,
+        // Calculate position to fire bullets (rays) from. ADS only affects handheld shots,
         // matching the state which displays the aiming animation.
         val speed = Combat.playerSpeeds[player] ?: 0F
         val aimingMultiplier = aimingMultiplier(firePos == null && Combat.playerAiming[player] == true)
-        val offsetYaw = (firePos?.yaw ?: player.position.yaw) + spread(speed) * aimingMultiplier
-        val offsetPitch = (firePos?.pitch ?: player.position.pitch) + spread(speed) * aimingMultiplier
-
-        val offsetPos =
-            if (firePos != null) {
-                firePos.withView(offsetYaw, offsetPitch)
-            } else {
-                player.position
-                    .withView(offsetYaw, offsetPitch)
-                    .add(0.0, player.eyeHeight, 0.0)
-            }
+        val origin = firePos ?: player.position.add(0.0, player.eyeHeight, 0.0)
 
         // play fire sound
-        player.instance.playSound(soundFire, offsetPos.x, offsetPos.y, offsetPos.z)
+        player.instance.playSound(soundFire, origin.x, origin.y, origin.z)
 
-        // create ray with random offsets generated
-        val ray = Ray(offsetPos, offsetPos.direction().mul(maxRange))
-
-        val blockHit = ray.firstBlock(player.instance!!)
-        val entityHit =
-            if (lagCompensate) {
-                LagCompensation.firstEntityHit(ray, player, player.instance, firedAtNanos, ignoredEntities)
-            } else {
-                ray.firstEntity(
-                    player.instance.entities
-                        .filterIsInstance<LivingEntity>()
-                        .filter { it != player && it !in ignoredEntities },
-                )
+        // each bullet gets its own random offsets
+        val damagedVehicles = HashSet<Entity>()
+        val bullets =
+            List(bulletsPerShot) {
+                val offsetPos =
+                    origin.withView(
+                        origin.yaw + spread(speed) * aimingMultiplier,
+                        origin.pitch + spread(speed) * aimingMultiplier,
+                    )
+                offsetPos to resolveBullet(player, offsetPos, lagCompensate, firedAtNanos, ignoredEntities, damagedVehicles)
             }
-        val vehicleHit =
-            checkVehicleHit(player.instance, offsetPos, offsetPos.direction(), ray.distance, ignoredEntities = ignoredEntities)
 
-        val blockHitDistance = blockHit?.t ?: Double.POSITIVE_INFINITY
-        val entityHitDistance = entityHit?.t ?: Double.POSITIVE_INFINITY
-        val vehicleHitDistance = vehicleHit?.first ?: Double.POSITIVE_INFINITY
-
-        // determine which is hit first
-        val trailEndPoint: Pos
-        if (blockHit == null && entityHit == null && vehicleHit == null) { // no hit
-            trailEndPoint = offsetPos.add(ray.direction.mul(ray.distance))
-        } else if (vehicleHitDistance < blockHitDistance && vehicleHitDistance < entityHitDistance) { // vehicle hit
-            val vehicleEntity = vehicleHit!!.second
-            val vehicle = vehicleHit.third
-
-            // ding sound
+        // ding sound, once per shot however many bullets connect
+        if (bullets.any { (_, hit) -> hit.hitTarget }) {
             player.playSound(Sound.sound(Key.key("entity.experience_orb.pickup"), Sound.Source.PLAYER, 1.0f, 1.0f))
-
-            // dust particle
-            val hitPoint = offsetPos.add(offsetPos.direction().mul(vehicleHitDistance))
-            Particles.dustParticle(player.instance, hitPoint)
-
-            vehicle.takeDamage(vehicleEntity, ammo.ammoType, damage, player, itemName)
-            trailEndPoint = hitPoint
-        } else if (blockHitDistance > entityHitDistance) { // entity hit
-            val target = entityHit!!.obj
-
-            // ding sound
-            player.playSound(Sound.sound(Key.key("entity.experience_orb.pickup"), Sound.Source.PLAYER, 1.0f, 1.0f))
-
-            // blood
-            Particles.bloodParticle(player.instance, entityHit.point.asPos())
-
-            val damageSource =
-                Damage
-                    .fromProjectile(player, null, damage)
-                    .withCombatAttribution(CombatDamageKind.PROJECTILE, itemName)
-            Combat.applyDamageWithoutImmunity(target, damageSource)
-            trailEndPoint = entityHit.point.asPos()
-        } else { // block hit
-            Particles.dustParticle(player.instance, blockHit!!.point.asPos())
-            BlockRestoreManager.temporarilyBreakLeaf(
-                player.instance,
-                blockHit.point.asBlockVec(),
-                blockHit.obj,
-            )
-            trailEndPoint = blockHit.point.asPos()
         }
 
-        // Sample the authoritative trail once, retaining its existing range filtering.
-        val trail =
+        // Sample the authoritative trails once, retaining their existing range filtering.
+        val trails =
             bulletTrailParticle?.let { particle ->
-                val trailStart =
-                    if (firePos == null) {
-                        bulletTrailOrigin(
-                            offsetPos,
-                            player.settings.mainHand,
-                            bulletTrailOffset,
-                            Combat.playerAiming[player] == true,
-                        )
-                    } else {
-                        offsetPos
-                    }
-                Particles.prepareLine(player.instance, particle, trailStart, trailEndPoint)
-            }
+                bullets.map { (offsetPos, hit) ->
+                    val trailStart =
+                        if (firePos == null) {
+                            bulletTrailOrigin(
+                                offsetPos,
+                                player.settings.mainHand,
+                                bulletTrailOffset,
+                                Combat.playerAiming[player] == true,
+                            )
+                        } else {
+                            offsetPos
+                        }
+                    Particles.prepareLine(player.instance, particle, trailStart, hit.trailEndPoint)
+                }
+            } ?: emptyList()
 
         // Animated FIRE clips and their tracer share a fixed two-tick protocol;
         // the authoritative firing cooldown remains independent of that visual.
@@ -393,11 +347,18 @@ class Gun(
             }
         if (animation != null) {
             val instance = player.instance
-            val clientTrail =
-                gunClientTrail(this, animation.item, player.settings.mainHand, trailEndPoint, animation.worldAge)
-            val worldTrail = if (clientTrail != null) trail?.copy(viewers = trail.viewers.filter { it !== player }) else trail
+            val clientTrails =
+                bullets.mapNotNull { (_, hit) ->
+                    gunClientTrail(this, animation.item, player.settings.mainHand, hit.trailEndPoint, animation.worldAge)
+                }
+            val worldTrails =
+                if (clientTrails.isNotEmpty()) {
+                    trails.map { trail -> trail.copy(viewers = trail.viewers.filter { it !== player }) }
+                } else {
+                    trails
+                }
             val observers = player.viewers.filterTo(HashSet()) { it.isOnline && it.instance === instance && it !== player }
-            val trailViewers = worldTrail?.viewers?.toSet() ?: emptySet()
+            val trailViewers = worldTrails.flatMapTo(HashSet()) { it.viewers }
             val recipients = observers + trailViewers + player
             val kick = recoilPacket(aimingMultiplier)
             var published = false
@@ -419,12 +380,12 @@ class Gun(
                                         add(animation.ownerClock)
                                         add(SetPlayerInventorySlotPacket(animation.slot.toInt(), animation.item))
                                         add(kick)
-                                        clientTrail?.let(::add)
+                                        addAll(clientTrails)
                                     } else if (viewer in observers) {
                                         ModelManager.shaderTimePacket(viewer, animation.worldAge)?.let(::add)
                                         add(EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.MAIN_HAND to animation.item)))
                                     }
-                                    if (viewer in trailViewers) addAll(checkNotNull(worldTrail).packets)
+                                    for (trail in worldTrails) if (viewer in trail.viewers) addAll(trail.packets)
                                 }
                             val outbound: List<SendablePacket> =
                                 if (viewer.playerConnection is PlayerSocketConnection) {
@@ -444,12 +405,12 @@ class Gun(
                 MinecraftServer.getExceptionManager().handleException(exception)
                 ModelManager.syncShaderTime(player, animation.worldAge)
                 for (viewer in observers) ModelManager.syncShaderTime(viewer, animation.worldAge)
-                worldTrail?.send()
+                for (trail in worldTrails) trail.send()
                 player.sendPacket(kick)
                 if (player.playerConnection.serverState == ConnectionState.PLAY &&
                     player.playerConnection.clientState == ConnectionState.PLAY
                 ) {
-                    clientTrail?.let(player::sendPacket)
+                    for (clientTrail in clientTrails) player.sendPacket(clientTrail)
                 }
             } finally {
                 // Keep the normal equip events/attributes and item-change listener
@@ -457,13 +418,86 @@ class Gun(
                 player.inventory.setItemStack(animation.slot.toInt(), animation.item, !published)
             }
         } else {
-            trail?.send()
+            for (trail in trails) trail.send()
             recoil(player, aimingMultiplier)
             if (!ignoreAmmo) addAmmo(player, -1)
             if (firePos == null) GunAnimation.start(player, this, GunAnimationAction.FIRE, fireAnimationTicks)
         }
 
         return true
+    }
+
+    private class BulletHit(
+        val trailEndPoint: Pos,
+        val hitTarget: Boolean,
+    )
+
+    /** Resolves one bullet fired along [offsetPos]'s view, applying its damage to whatever it hits first. */
+    private fun resolveBullet(
+        player: Player,
+        offsetPos: Pos,
+        lagCompensate: Boolean,
+        firedAtNanos: Long,
+        ignoredEntities: Set<Entity>,
+        damagedVehicles: MutableSet<Entity>,
+    ): BulletHit {
+        val ray = Ray(offsetPos, offsetPos.direction().mul(maxRange))
+
+        val blockHit = ray.firstBlock(player.instance!!)
+        val entityHit =
+            if (lagCompensate) {
+                LagCompensation.firstEntityHit(ray, player, player.instance, firedAtNanos, ignoredEntities)
+            } else {
+                ray.firstEntity(
+                    player.instance.entities
+                        .filterIsInstance<LivingEntity>()
+                        .filter { it != player && !it.isDead && it !in ignoredEntities },
+                )
+            }
+        val vehicleHit =
+            checkVehicleHit(player.instance, offsetPos, offsetPos.direction(), ray.distance, ignoredEntities = ignoredEntities)
+
+        val blockHitDistance = blockHit?.t ?: Double.POSITIVE_INFINITY
+        val entityHitDistance = entityHit?.t ?: Double.POSITIVE_INFINITY
+        val vehicleHitDistance = vehicleHit?.first ?: Double.POSITIVE_INFINITY
+
+        // determine which is hit first
+        if (blockHit == null && entityHit == null && vehicleHit == null) { // no hit
+            return BulletHit(offsetPos.add(ray.direction.mul(ray.distance)), false)
+        } else if (vehicleHitDistance < blockHitDistance && vehicleHitDistance < entityHitDistance) { // vehicle hit
+            val vehicleEntity = vehicleHit!!.second
+            val vehicle = vehicleHit.third
+
+            // dust particle
+            val hitPoint = offsetPos.add(offsetPos.direction().mul(vehicleHitDistance))
+            Particles.dustParticle(player.instance, hitPoint)
+
+            // Vehicle health counts hits per ammo type, so only one bullet per shot counts.
+            if (damagedVehicles.add(vehicleEntity)) {
+                vehicle.takeDamage(vehicleEntity, ammo.ammoType, damageAt(vehicleHitDistance), player, itemName)
+            }
+            return BulletHit(hitPoint, true)
+        } else if (blockHitDistance > entityHitDistance) { // entity hit
+            val target = entityHit!!.obj
+
+            // blood
+            Particles.bloodParticle(player.instance, entityHit.point.asPos())
+
+            val damageSource =
+                Damage
+                    .fromProjectile(player, null, damageAt(offsetPos.distance(entityHit.point)))
+                    .withCombatAttribution(CombatDamageKind.PROJECTILE, itemName)
+            Combat.applyDamageWithoutImmunity(target, damageSource)
+            return BulletHit(entityHit.point.asPos(), true)
+        } else { // block hit
+            Particles.dustParticle(player.instance, blockHit!!.point.asPos())
+            BlockRestoreManager.temporarilyBreakLeaf(
+                player.instance,
+                blockHit.point.asBlockVec(),
+                blockHit.obj,
+            )
+            return BulletHit(blockHit.point.asPos(), false)
+        }
     }
 
     fun fireFromEntity(
@@ -476,71 +510,81 @@ class Gun(
 
         shooter.lookAt(targetPosition)
         val aimedOrigin = shooter.position.add(0.0, shooter.eyeHeight, 0.0).withLookAt(targetPosition)
-        val origin =
-            aimedOrigin.withView(
-                aimedOrigin.yaw + spread(),
-                aimedOrigin.pitch + spread(),
-            )
 
-        instance.playSound(soundFire, origin.x, origin.y, origin.z)
+        instance.playSound(soundFire, aimedOrigin.x, aimedOrigin.y, aimedOrigin.z)
 
-        val ray = Ray(origin, origin.direction().mul(maxRange))
-        val blockHit = ray.firstBlock(instance)
-        val entityHit =
-            ray.firstEntity(
-                validTargets.filter { target ->
-                    target !== shooter &&
-                        !target.isDead &&
-                        !target.isRemoved &&
-                        target.instance === instance
-                },
-            )
+        val liveTargets =
+            validTargets.filter { target ->
+                target !== shooter &&
+                    !target.isDead &&
+                    !target.isRemoved &&
+                    target.instance === instance
+            }
         val targetPlayers = validTargets.filterIsInstance<Player>().toSet()
         val targetVehicles =
             targetPlayers.mapNotNullTo(hashSetOf()) { player ->
                 VehicleRegistry.ride(player)?.entity
             }
-        val vehicleHit = checkVehicleHit(instance, origin, ray.direction, ray.distance, targetVehicles)
 
-        val hitTarget: LivingEntity?
-        val trailEndPoint: Pos
-        val blockHitDistance = blockHit?.t ?: Double.POSITIVE_INFINITY
-        val entityHitDistance = entityHit?.t ?: Double.POSITIVE_INFINITY
-        val vehicleHitDistance = vehicleHit?.first ?: Double.POSITIVE_INFINITY
-        if (vehicleHit != null && vehicleHitDistance < blockHitDistance && vehicleHitDistance < entityHitDistance) {
-            val vehicleEntity = vehicleHit.second
-            val vehicle = vehicleHit.third
-            val hitPoint = origin.add(ray.direction.mul(vehicleHitDistance))
-            Particles.dustParticle(instance, hitPoint)
-            vehicle.takeDamage(vehicleEntity, ammo.ammoType, damage, shooter as? Player, itemName)
-            hitTarget = null
-            trailEndPoint = hitPoint
-        } else if (entityHit != null && entityHitDistance < blockHitDistance) {
-            hitTarget = entityHit.obj
-            Particles.bloodParticle(instance, entityHit.point.asPos())
+        // The first living target any bullet hit.
+        var firstHitTarget: LivingEntity? = null
+        val damagedVehicles = HashSet<Entity>()
+        repeat(bulletsPerShot) {
+            val origin =
+                aimedOrigin.withView(
+                    aimedOrigin.yaw + spread(),
+                    aimedOrigin.pitch + spread(),
+                )
 
-            val damageSource =
-                Damage
-                    .fromProjectile(shooter, null, damage)
-                    .withCombatAttribution(CombatDamageKind.PROJECTILE, itemName)
-            Combat.applyDamageWithoutImmunity(hitTarget, damageSource)
-            trailEndPoint = entityHit.point.asPos()
-        } else {
-            hitTarget = null
-            if (blockHit != null) {
-                Particles.dustParticle(instance, blockHit.point.asPos())
-                trailEndPoint = blockHit.point.asPos()
+            val ray = Ray(origin, origin.direction().mul(maxRange))
+            val blockHit = ray.firstBlock(instance)
+            val entityHit = ray.firstEntity(liveTargets.filter { !it.isDead && !it.isRemoved })
+            val vehicleHit = checkVehicleHit(instance, origin, ray.direction, ray.distance, targetVehicles)
+
+            val trailEndPoint: Pos
+            val blockHitDistance = blockHit?.t ?: Double.POSITIVE_INFINITY
+            val entityHitDistance = entityHit?.t ?: Double.POSITIVE_INFINITY
+            val vehicleHitDistance = vehicleHit?.first ?: Double.POSITIVE_INFINITY
+            if (vehicleHit != null && vehicleHitDistance < blockHitDistance && vehicleHitDistance < entityHitDistance) {
+                val vehicleEntity = vehicleHit.second
+                val vehicle = vehicleHit.third
+                val hitPoint = origin.add(ray.direction.mul(vehicleHitDistance))
+                Particles.dustParticle(instance, hitPoint)
+                // Vehicle health counts hits per ammo type, so only one bullet per shot counts.
+                if (damagedVehicles.add(vehicleEntity)) {
+                    vehicle.takeDamage(vehicleEntity, ammo.ammoType, damageAt(vehicleHitDistance), shooter as? Player, itemName)
+                }
+                trailEndPoint = hitPoint
+            } else if (entityHit != null && entityHitDistance < blockHitDistance) {
+                val hitTarget = entityHit.obj
+                if (firstHitTarget == null) firstHitTarget = hitTarget
+                Particles.bloodParticle(instance, entityHit.point.asPos())
+
+                val damageSource =
+                    Damage
+                        .fromProjectile(shooter, null, damageAt(origin.distance(entityHit.point)))
+                        .withCombatAttribution(CombatDamageKind.PROJECTILE, itemName)
+                Combat.applyDamageWithoutImmunity(hitTarget, damageSource)
+                trailEndPoint = entityHit.point.asPos()
             } else {
-                trailEndPoint = origin.add(ray.direction.mul(ray.distance))
+                if (blockHit != null) {
+                    Particles.dustParticle(instance, blockHit.point.asPos())
+                    trailEndPoint = blockHit.point.asPos()
+                } else {
+                    trailEndPoint = origin.add(ray.direction.mul(ray.distance))
+                }
+            }
+
+            if (bulletTrailParticle != null) {
+                Particles.particleLine(instance, bulletTrailParticle, origin, trailEndPoint)
             }
         }
 
-        if (bulletTrailParticle != null) {
-            Particles.particleLine(instance, bulletTrailParticle, origin, trailEndPoint)
-        }
-
-        return hitTarget
+        return firstHitTarget
     }
+
+    /** The damage one bullet deals to a hit [distance] blocks from where it was fired. */
+    fun damageAt(distance: Double): Float = damage * (damageFalloff?.multiplier(distance) ?: 1F)
 
     fun spread(speed: Float = 0F): Float {
         val max = spreadMin + speed / 7 * (spreadMax - spreadMin)
@@ -615,9 +659,11 @@ private fun gunStatsLore(
     spreadMin: Float,
     spreadMax: Float,
     maxRange: Double,
+    bulletsPerShot: Int,
+    damageFalloff: DamageFalloff?,
 ): List<Component> =
-    listOf(
-        gunStat("Damage", damage.toStatString()),
+    listOfNotNull(
+        gunStat("Damage", if (bulletsPerShot == 1) damage.toStatString() else "$bulletsPerShot × ${damage.toStatString()}"),
         Component
             .text("Ammo: ", NamedTextColor.GRAY)
             .append(ammo.itemName)
@@ -629,6 +675,12 @@ private fun gunStatsLore(
         gunStat("Recoil", "${recoilMin.toStatString()}-${recoilMax.toStatString()}°"),
         gunStat("Spread", "${spreadMin.toStatString()}-${spreadMax.toStatString()}°"),
         gunStat("Range", "${maxRange.toStatString()} blocks"),
+        damageFalloff?.let {
+            gunStat(
+                "Falloff",
+                "${it.start.toStatString()}-${it.end.toStatString()} blocks, min ${(it.minMultiplier * 100).roundToInt()}%",
+            )
+        },
         gunStat("Scope", if (sniper) "Yes" else "No"),
     )
 
