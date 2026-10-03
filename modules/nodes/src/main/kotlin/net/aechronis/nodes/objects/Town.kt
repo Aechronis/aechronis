@@ -116,6 +116,7 @@ class Town(
             val spawnpoint = leader?.player()?.position ?: Territory.defaultSpawnLocation(territory)
             if (fromName(name) != null) return Result.failure(ErrorTownExists)
             if (territory.town != null) return Result.failure(ErrorTerritoryOwned)
+            if (Warzone.isRegistered(territory)) return Result.failure(ErrorTerritoryIsWarzone)
             if (leader?.town != null) return Result.failure(ErrorPlayerHasTown)
             val town = Town(UUID.randomUUID(), name, territory.id, leader, spawnpoint)
             territory.town = town
@@ -316,6 +317,7 @@ class Town(
 
         fun addTerritory(town: Town, territory: Territory): Result<Territory> {
             if (territory.town != null) return Result.failure(ErrorTerritoryOwned)
+            if (Warzone.isRegistered(territory)) return Result.failure(ErrorTerritoryIsWarzone)
             town.territories.add(territory.id)
             territory.town = town
             town.needsUpdate()

@@ -49,22 +49,20 @@ internal class WarAttacks(
 
         // run checks that chunk attack is valid
 
-        // check chunk has a town
-        if (territoryTown === null) {
+        if (mode == AttackMode.WARZONE) {
+            // Warzones may be on unclaimed territory; there the holder is whoever occupies it.
+            if (!Warzone.isActive(territory) || attackingTown.nation == null) return Result.failure(ErrorNotEnemy)
+            // The owner's side has nothing to retake while no enemy occupies the chunk or territory.
+            // areAllied covers the same town, the same nation and allied nations, and is false when unclaimed.
+            val ownerSide = Town.areAllied(attackingTown, territoryTown)
+            if (ownerSide && territory.occupier == null && chunk.occupier == null) return Result.failure(ErrorAlreadyCaptured)
+        } else if (territoryTown === null) {
+            // check chunk has a town
             return Result.failure(ErrorNotEnemy)
-        }
-
-        if (mode == AttackMode.COLONIZATION) {
+        } else if (mode == AttackMode.COLONIZATION) {
             if (!Colonization.isAuthorized(attacker, attackingTown, territoryTown)) {
                 return Result.failure(ErrorNotEnemy)
             }
-        } else if (mode == AttackMode.WARZONE) {
-            if (!Warzone.isActive(territory) || attackingTown.nation == null) return Result.failure(ErrorNotEnemy)
-            // The owner's side has nothing to retake while no enemy occupies the chunk or territory.
-            val ownerSide = attackingTown === territoryTown ||
-                (attackingTown.nation === territoryTown.nation) ||
-                Town.areAllied(attackingTown, territoryTown)
-            if (ownerSide && territory.occupier == null && chunk.occupier == null) return Result.failure(ErrorAlreadyCaptured)
         } else {
             // check if town blacklisted
             if (Nodes.config.warUseBlacklist && Nodes.config.warBlacklist.contains(territoryTown.uuid)) {

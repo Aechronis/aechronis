@@ -32,10 +32,11 @@ import java.nio.file.StandardCopyOption
 import java.util.UUID
 
 /**
- * Scheduled king-of-the-hill events on claimed territories.
+ * Scheduled king-of-the-hill events on any territory, claimed or not.
  *
  * Between a zone's start and end time, the nation holding the territory
  * (its occupier's nation, otherwise its owner's nation) accrues hold time.
+ * Unclaimed territory has no holder until a nation captures its core.
  * When the zone ends, the nation with the most hold time wins the territory.
  * Hold time only accrues while the server is running.
  */
@@ -88,8 +89,8 @@ object Warzone {
 
     /**
      * A scheduled or running warzone protects its territory from being
-     * unclaimed and its town from deletion and home annexation. Finished
-     * zones are removed, so the protection ends with the zone.
+     * claimed or unclaimed and its town from deletion and home annexation.
+     * Finished zones are removed, so the protection ends with the zone.
      */
     fun isRegistered(territory: Territory): Boolean = synchronized(this) {
         states.containsKey(territory.id)
@@ -109,8 +110,8 @@ object Warzone {
 
     /**
      * Schedule warzones on [territories] from [startMillis] to [endMillis].
-     * Fails without changing anything if a territory is unclaimed or
-     * already has a scheduled or running zone.
+     * Fails without changing anything if a territory already has a
+     * scheduled or running zone.
      */
     fun schedule(
         territories: Collection<Territory>,
@@ -121,12 +122,6 @@ object Warzone {
         if (territories.isEmpty()) return@synchronized Result.failure(IllegalArgumentException("No territories given"))
         if (endMillis <= startMillis) return@synchronized Result.failure(IllegalArgumentException("Warzone must end after it starts"))
         if (endMillis <= nowMillis) return@synchronized Result.failure(IllegalArgumentException("Warzone end time is in the past"))
-        val unclaimed = territories.filter { it.town == null }
-        if (unclaimed.isNotEmpty()) {
-            return@synchronized Result.failure(
-                IllegalArgumentException("Warzone territories must belong to a town: ${unclaimed.joinToString(", ") { it.id.toString() }}"),
-            )
-        }
         val existing = territories.filter { states.containsKey(it.id) }
         if (existing.isNotEmpty()) {
             return@synchronized Result.failure(
@@ -184,6 +179,8 @@ object Warzone {
             saveLocked()
         }
         FlagWar.cancelWarzoneAttacks(territory)
+        // Unclaimed land cannot stay occupied once its warzone is gone.
+        if (territory.town == null) Town.release(territory)
         return Result.success(Unit)
     }
 
@@ -208,8 +205,7 @@ object Warzone {
             zones.entries.forEach { (idText, value) ->
                 try {
                     val state = parseZone(TerritoryId(idText.toInt()), value.jsonObject, nowMillis) ?: return@forEach
-                    // Warzones require a territory that belongs to a town.
-                    if (Territory.fromId(state.territoryId)?.town != null) states[state.territoryId] = state
+                    if (Territory.fromId(state.territoryId) != null) states[state.territoryId] = state
                 } catch (error: Exception) {
                     throw IllegalArgumentException("Invalid warzone '$idText'", error)
                 }
