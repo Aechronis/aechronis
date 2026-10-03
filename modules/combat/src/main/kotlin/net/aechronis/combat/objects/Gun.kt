@@ -87,8 +87,11 @@ class Gun(
     val fireAnimationTicks: Int = GUN_FIRE_ANIMATION_TICKS,
     /** Rays fired per trigger pull; each takes its own spread and deals [damage]. Ammo, sound and recoil are spent once. */
     val bulletsPerShot: Int = 1,
-    /** Scales [damage] by distance to an entity hit; null deals full damage out to [maxRange]. Vehicles ignore it. */
-    val damageFalloff: DamageFalloff? = null,
+    /** Damage to entities falls linearly from full at [falloffStart] blocks to [falloffMinMultiplier] × [damage] at [falloffEnd]. Vehicles ignore it. */
+    val falloffStart: Double = maxRange,
+    val falloffEnd: Double = maxRange,
+    /** 1 disables falloff. */
+    val falloffMinMultiplier: Float = 1F,
 ) : Item(
         name,
         itemName,
@@ -107,7 +110,9 @@ class Gun(
                 spreadMax = spreadMax,
                 maxRange = maxRange,
                 bulletsPerShot = bulletsPerShot,
-                damageFalloff = damageFalloff,
+                falloffStart = falloffStart,
+                falloffEnd = falloffEnd,
+                falloffMinMultiplier = falloffMinMultiplier,
             ),
         itemModel,
         Material.WARPED_FUNGUS_ON_A_STICK,
@@ -119,6 +124,10 @@ class Gun(
         require(maxRange.isFinite() && maxRange > 0.0) { "Gun maxRange must be a positive finite number" }
         // Every bullet's trail shares the firing bundle, which is capped at 4096 packets.
         require(bulletsPerShot in 1..32) { "Gun bulletsPerShot must be 1–32" }
+        require(falloffStart >= 0.0 && falloffEnd.isFinite() && falloffEnd >= falloffStart) {
+            "Gun falloff must satisfy 0 <= falloffStart <= falloffEnd, both finite"
+        }
+        require(falloffMinMultiplier in 0F..1F) { "Gun falloffMinMultiplier must be 0–1" }
     }
 
     override fun toItemStack(): ItemStack {
@@ -584,7 +593,12 @@ class Gun(
     }
 
     /** The damage one bullet deals to a hit [distance] blocks from where it was fired. */
-    fun damageAt(distance: Double): Float = damage * (damageFalloff?.multiplier(distance) ?: 1F)
+    fun damageAt(distance: Double): Float {
+        if (falloffMinMultiplier == 1F || distance <= falloffStart) return damage
+        if (distance >= falloffEnd) return damage * falloffMinMultiplier
+        val progress = ((distance - falloffStart) / (falloffEnd - falloffStart)).toFloat()
+        return damage * (1F - progress * (1F - falloffMinMultiplier))
+    }
 
     fun spread(speed: Float = 0F): Float {
         val max = spreadMin + speed / 7 * (spreadMax - spreadMin)
@@ -660,7 +674,9 @@ private fun gunStatsLore(
     spreadMax: Float,
     maxRange: Double,
     bulletsPerShot: Int,
-    damageFalloff: DamageFalloff?,
+    falloffStart: Double,
+    falloffEnd: Double,
+    falloffMinMultiplier: Float,
 ): List<Component> =
     listOfNotNull(
         gunStat("Damage", if (bulletsPerShot == 1) damage.toStatString() else "$bulletsPerShot × ${damage.toStatString()}"),
@@ -675,11 +691,13 @@ private fun gunStatsLore(
         gunStat("Recoil", "${recoilMin.toStatString()}-${recoilMax.toStatString()}°"),
         gunStat("Spread", "${spreadMin.toStatString()}-${spreadMax.toStatString()}°"),
         gunStat("Range", "${maxRange.toStatString()} blocks"),
-        damageFalloff?.let {
+        if (falloffMinMultiplier < 1F) {
             gunStat(
                 "Falloff",
-                "${it.start.toStatString()}-${it.end.toStatString()} blocks, min ${(it.minMultiplier * 100).roundToInt()}%",
+                "${falloffStart.toStatString()}-${falloffEnd.toStatString()} blocks, min ${(falloffMinMultiplier * 100).roundToInt()}%",
             )
+        } else {
+            null
         },
         gunStat("Scope", if (sniper) "Yes" else "No"),
     )
