@@ -64,6 +64,7 @@ class Cannon(
     val moveSpeed: Double = 0.04,
     val turnSpeed: Float = 1f,
     animatedParts: List<AnimatedPart> = emptyList(),
+    val maxYaw: Float = 180f,
 ) : Vehicle(
         name,
         itemName,
@@ -93,6 +94,7 @@ class Cannon(
         require(moveSpeed.isFinite() && moveSpeed > 0.0 && moveSpeed <= 0.1) { "Cannon moveSpeed must be in (0, 0.1] blocks per tick" }
         require(turnSpeed.isFinite() && turnSpeed > 0f && turnSpeed <= 3f) { "Cannon turnSpeed must be in (0, 3] degrees per tick" }
         require(traverseSpeed.isFinite() && traverseSpeed > 0f) { "Cannon traverseSpeed must be positive and finite" }
+        require(maxYaw.isFinite() && maxYaw in 0f..180f) { "Cannon maxYaw must be within 0 to 180 degrees" }
         require(minPitch.isFinite() && maxPitch.isFinite() && minPitch >= -90f && maxPitch <= 90f && minPitch <= maxPitch) {
             "Cannon pitch limits must be ordered within -90 to 90 degrees"
         }
@@ -144,7 +146,15 @@ class Cannon(
         val runtime = runtimes[entity] ?: return
         val barrel = runtime.barrel
         val pos = entity.position
-        val newYaw = approachAngle(barrel.position.yaw, player.position.yaw, traverseSpeed)
+        val newYaw =
+            if (maxYaw == 180f) {
+                approachAngle(barrel.position.yaw, player.position.yaw, traverseSpeed)
+            } else {
+                // Clamp relative to the carriage, including when steering moves the current barrel beyond its limit.
+                val currentYaw = angleDifference(pos.yaw, barrel.position.yaw).coerceIn(-maxYaw, maxYaw)
+                val targetYaw = angleDifference(pos.yaw, player.position.yaw).coerceIn(-maxYaw, maxYaw)
+                pos.yaw + currentYaw + (targetYaw - currentYaw).coerceIn(-traverseSpeed, traverseSpeed)
+            }
         val targetPitch = player.position.pitch.coerceIn(minPitch, maxPitch)
         val newPitch = barrel.position.pitch + (targetPitch - barrel.position.pitch).coerceIn(-traverseSpeed, traverseSpeed)
         barrel.teleport(pos.withView(newYaw, newPitch))
@@ -356,13 +366,21 @@ class Cannon(
         target: Float,
         maxStep: Float,
     ): Float {
-        var delta = (target - current) % 360f
-        if (delta > 180f) delta -= 360f
-        if (delta < -180f) delta += 360f
+        val delta = angleDifference(current, target)
         return when {
             delta > maxStep -> current + maxStep
             delta < -maxStep -> current - maxStep
             else -> current + delta
         }
+    }
+
+    private fun angleDifference(
+        current: Float,
+        target: Float,
+    ): Float {
+        var delta = (target - current) % 360f
+        if (delta > 180f) delta -= 360f
+        if (delta < -180f) delta += 360f
+        return delta
     }
 }
