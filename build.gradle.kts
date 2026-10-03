@@ -101,7 +101,7 @@ val runtimeModuleProjects =
         ":modules:gems",
         ":modules:tebex",
         ":modules:votifier",
-        ":modules:iterations:a-new-millenium",
+        ":modules:iterations:victorian-era",
     )
 
 tasks.register<Sync>("assembleServerDistribution") {

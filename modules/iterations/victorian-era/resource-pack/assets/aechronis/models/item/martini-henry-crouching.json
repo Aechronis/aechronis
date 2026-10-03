@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/martini-henry",
+  "display": {
+    "thirdperson_righthand": {
+      "translation": [
+        -0.646693,
+        3.804139,
+        -2.956862
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        28.64789,
+        -17.188734,
+        0
+      ]
+    },
+    "thirdperson_lefthand": {
+      "translation": [
+        -0.646693,
+        3.804139,
+        -2.956862
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        28.64789,
+        -17.188734,
+        0
+      ]
+    }
+  }
+}

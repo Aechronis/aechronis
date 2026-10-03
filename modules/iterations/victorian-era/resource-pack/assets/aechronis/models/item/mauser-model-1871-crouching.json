@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/mauser-model-1871",
+  "display": {
+    "thirdperson_righthand": {
+      "translation": [
+        -0.982847,
+        3.28315,
+        -2.003197
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        28.64789,
+        -17.188734,
+        0
+      ]
+    },
+    "thirdperson_lefthand": {
+      "translation": [
+        -0.982847,
+        3.28315,
+        -2.003197
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        28.64789,
+        -17.188734,
+        0
+      ]
+    }
+  }
+}

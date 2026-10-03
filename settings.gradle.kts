@@ -54,4 +54,5 @@ include(
     ":modules:votifier",
     ":modules:guard",
     ":modules:iterations:a-new-millenium",
+    ":modules:iterations:victorian-era",
 )

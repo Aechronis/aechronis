@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/berdan-ii-rifle",
+  "display": {
+    "thirdperson_righthand": {
+      "translation": [
+        -0.598445,
+        1.572061,
+        -4.032124
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        5.729578,
+        -17.188734,
+        0
+      ]
+    },
+    "thirdperson_lefthand": {
+      "translation": [
+        -0.598445,
+        1.572061,
+        -4.032124
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        5.729578,
+        -17.188734,
+        0
+      ]
+    }
+  }
+}

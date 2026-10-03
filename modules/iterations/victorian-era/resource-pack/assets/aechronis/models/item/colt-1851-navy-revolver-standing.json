@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/colt-1851-navy-revolver",
+  "display": {
+    "thirdperson_righthand": {
+      "translation": [
+        -1.547361,
+        2.184203,
+        -0.887717
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        5.729578,
+        -17.188734,
+        0
+      ]
+    },
+    "thirdperson_lefthand": {
+      "translation": [
+        -1.547361,
+        2.184203,
+        -0.887717
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        5.729578,
+        -17.188734,
+        0
+      ]
+    }
+  }
+}

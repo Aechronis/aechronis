@@ -1,0 +1,12 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "minecraft:item/leather_chestplate",
+    "tints": [
+      {
+        "type": "minecraft:constant",
+        "value": 1977148
+      }
+    ]
+  }
+}

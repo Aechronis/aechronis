@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/m1867-werndl-holub",
+  "display": {
+    "thirdperson_righthand": {
+      "translation": [
+        -0.973017,
+        1.444707,
+        -2.827933
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        5.729578,
+        -17.188734,
+        0
+      ]
+    },
+    "thirdperson_lefthand": {
+      "translation": [
+        -0.973017,
+        1.444707,
+        -2.827933
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        5.729578,
+        -17.188734,
+        0
+      ]
+    }
+  }
+}

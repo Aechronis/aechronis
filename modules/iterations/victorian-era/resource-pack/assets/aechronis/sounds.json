@@ -1,0 +1,71 @@
+{
+  "dreyse-needle-gun.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "chassepot.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "martini-henry.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "m1867-werndl-holub.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "vetterli-model-1870.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "berdan-ii-rifle.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "mauser-model-1871-jaegerbuechse.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "mauser-model-1871-jaegerbuechse.reload": {
+    "sounds": [
+      {
+        "name": "minecraft:item.crossbow.loading_start",
+        "type": "event"
+      }
+    ]
+  },
+  "chassepot-carbine.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "chassepot-carbine.reload": {
+    "sounds": [
+      {
+        "name": "minecraft:item.crossbow.loading_start",
+        "type": "event"
+      }
+    ]
+  },
+  "mauser-model-1871.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "mauser-model-1871.reload": {
+    "sounds": [
+      {
+        "name": "minecraft:item.crossbow.loading_start",
+        "type": "event"
+      }
+    ]
+  }
+}

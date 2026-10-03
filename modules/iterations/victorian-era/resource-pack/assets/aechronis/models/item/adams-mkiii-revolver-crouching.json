@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/adams-mkiii-revolver",
+  "display": {
+    "thirdperson_righthand": {
+      "translation": [
+        -1.672444,
+        3.127063,
+        0.45178
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        28.64789,
+        -17.188734,
+        0
+      ]
+    },
+    "thirdperson_lefthand": {
+      "translation": [
+        -1.672444,
+        3.127063,
+        0.45178
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        28.64789,
+        -17.188734,
+        0
+      ]
+    }
+  }
+}
