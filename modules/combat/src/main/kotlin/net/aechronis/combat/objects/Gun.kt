@@ -260,6 +260,7 @@ class Gun(
         ignoreCooldown: Boolean = false,
         ignoreAmmo: Boolean = false,
         lagCompensate: Boolean = firePos == null,
+        ignoredEntities: Set<Entity> = emptySet(),
     ): Boolean {
         if (firePos == null && !GunAnimation.canUse(player, this)) return false
         val firedAtNanos = System.nanoTime()
@@ -295,15 +296,16 @@ class Gun(
         val blockHit = ray.firstBlock(player.instance!!)
         val entityHit =
             if (lagCompensate) {
-                LagCompensation.firstEntityHit(ray, player, player.instance, firedAtNanos)
+                LagCompensation.firstEntityHit(ray, player, player.instance, firedAtNanos, ignoredEntities)
             } else {
                 ray.firstEntity(
                     player.instance.entities
                         .filterIsInstance<LivingEntity>()
-                        .filter { it != player },
+                        .filter { it != player && it !in ignoredEntities },
                 )
             }
-        val vehicleHit = checkVehicleHit(player.instance, offsetPos, offsetPos.direction(), ray.distance)
+        val vehicleHit =
+            checkVehicleHit(player.instance, offsetPos, offsetPos.direction(), ray.distance, ignoredEntities = ignoredEntities)
 
         val blockHitDistance = blockHit?.t ?: Double.POSITIVE_INFINITY
         val entityHitDistance = entityHit?.t ?: Double.POSITIVE_INFINITY
@@ -568,6 +570,7 @@ class Gun(
         direction: Vec,
         maxDistance: Double,
         validVehicles: Set<Entity>? = null,
+        ignoredEntities: Set<Entity> = emptySet(),
     ): Triple<Double, Entity, Vehicle>? {
         if (maxDistance <= 0.0 || direction.lengthSquared() == 0.0) return null
         val vector = direction.normalize().mul(maxDistance)
@@ -575,7 +578,7 @@ class Gun(
         for (runtime in VehicleRegistry.all()) {
             val entity = runtime.entity
             val vehicle = runtime.vehicle
-            if (entity.instance != instance) continue
+            if (entity.instance != instance || entity in ignoredEntities) continue
             if (validVehicles != null && entity !in validVehicles) continue
             val vehiclePos = entity.position
             val distance =

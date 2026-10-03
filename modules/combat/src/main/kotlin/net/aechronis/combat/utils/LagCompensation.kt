@@ -1,6 +1,7 @@
 package net.aechronis.combat.utils
 
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.Entity
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
@@ -79,12 +80,13 @@ object LagCompensation {
         shooter: Player,
         instance: Instance,
         firedAtNanos: Long = System.nanoTime(),
+        ignoredEntities: Set<Entity> = emptySet(),
     ): Ray.Hit<LivingEntity>? {
         val targetTime = firedAtNanos - (rewindMillis(shooter) * NANOS_PER_MILLI).toLong()
         var best: Ray.Hit<LivingEntity>? = null
 
         for (target in instance.entities.filterIsInstance<LivingEntity>()) {
-            if (target === shooter || target.isDead) continue
+            if (target === shooter || target.isDead || target in ignoredEntities) continue
 
             val historicalHitbox =
                 if (target is Player) {
