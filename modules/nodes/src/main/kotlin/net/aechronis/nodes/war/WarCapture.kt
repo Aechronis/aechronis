@@ -108,14 +108,9 @@ internal class WarCapture(
                             attackerTown,
                             colonized = attack.mode == AttackMode.COLONIZATION,
                         )
-                        // Warzone scoring starts only when normal war mechanics
-                        // complete a core-chunk capture of this territory.
-                        if (attack.mode == AttackMode.WARZONE) {
-                            Warzone.onTerritoryOccupied(territory, attackerTown)
-                        }
                         presentation.capturedTerritory(attack.mode, attacker, territory, territoryTown)
-                        // Warzones do not trigger town-wide occupation or life loss,
-                        // including stopped warzones captured during normal war.
+                        // Scheduled or running warzones do not trigger town-wide
+                        // occupation or life loss; Warzone scores whoever holds the core.
                         if (territoryTown != null && !Warzone.isRegistered(territory) && rules.shouldAnnexTown(territoryTown, territory)) {
                             val defeatedTownName = territoryTown.name
                             val outcome = resolveTownDefeat(attackerTown, territoryTown, attack.mode)

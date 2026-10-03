@@ -254,11 +254,13 @@ object NodesWorldListener {
                                 else -> "[War]"
                             }
                             if (result.isSuccess) {
-                                // get town being attacked
-                                val attacked = townAttacked!!
-
+                                // get town being attacked; an unclaimed warzone has none
+                                val attacked = townAttacked
+                                if (attacked == null) {
+                                    Message.broadcast("${ChatColor.DARK_RED}$context ${event.player.username} is capturing warzone territory ${flagTerritoryChunk.territory.id} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
+                                }
                                 // reclaiming your town
-                                if (attacked === town) {
+                                else if (attacked === town) {
                                     Message.broadcast("${ChatColor.DARK_RED}$context ${event.player.username} is liberating ${attacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")
                                 } else if (isColonization) {
                                     Message.broadcast("${ChatColor.DARK_RED}$context ${event.player.username} started colonizing ${attacked.name} at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ})")

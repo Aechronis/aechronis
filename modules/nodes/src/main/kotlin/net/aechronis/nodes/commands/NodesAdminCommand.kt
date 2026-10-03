@@ -459,7 +459,7 @@ class NodesAdminTownRemoveTerritoryCommand : NodesCommand("removeterritory", "no
             val territories = context[territoriesArg]
             val warzones = territories.filter(Warzone::isRegistered)
             if (warzones.isNotEmpty()) {
-                Message.error(player, "Warzone territories must remain inside a town: ${warzones.joinToString(", ") { it.id.toString() }}")
+                Message.error(player, "Territories have a scheduled or running warzone: ${warzones.joinToString(", ") { it.id.toString() }}")
                 return@addSyntax
             }
             for (terr in territories) {
