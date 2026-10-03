@@ -60,7 +60,7 @@ dependencies {
     // NuVotifier probes Epoll availability even when it falls back to NIO.
     runtimeOnly("io.netty:netty-transport-classes-epoll")
 
-    implementation("com.h2database:h2:2.5.250")
+    implementation("com.h2database:h2:2.5.252")
     runtimeOnly("org.mariadb.jdbc:mariadb-java-client:3.5.10")
     implementation("com.zaxxer:HikariCP:7.1.0")
     implementation("org.slf4j:slf4j-simple:2.0.20")
