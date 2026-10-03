@@ -45,6 +45,7 @@ include(
     ":modules:hats",
     ":modules:nodes",
     ":modules:vanilla",
+    ":modules:recipes",
     ":modules:worldedit",
     ":modules:logger",
     ":modules:watchdog",

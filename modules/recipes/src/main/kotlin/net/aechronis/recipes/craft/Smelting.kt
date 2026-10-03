@@ -1,4 +1,4 @@
-package net.aechronis.server.craft
+package net.aechronis.recipes.craft
 
 import net.aechronis.vanilla.objects.Recipe
 import net.aechronis.vanilla.objects.RecipesIngredient

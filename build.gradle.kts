@@ -93,6 +93,7 @@ val runtimeModuleProjects =
         ":modules:combat",
         ":modules:hats",
         ":modules:vanilla",
+        ":modules:recipes",
         ":modules:worldedit",
         ":modules:nodes",
         ":modules:logger",
