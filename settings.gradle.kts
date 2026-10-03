@@ -45,6 +45,7 @@ include(
     ":modules:hats",
     ":modules:nodes",
     ":modules:vanilla",
+    ":modules:recipes",
     ":modules:worldedit",
     ":modules:logger",
     ":modules:watchdog",
@@ -53,4 +54,5 @@ include(
     ":modules:votifier",
     ":modules:guard",
     ":modules:iterations:a-new-millenium",
+    ":modules:iterations:victorian-era",
 )

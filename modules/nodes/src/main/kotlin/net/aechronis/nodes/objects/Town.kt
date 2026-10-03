@@ -116,6 +116,7 @@ class Town(
             val spawnpoint = leader?.player()?.position ?: Territory.defaultSpawnLocation(territory)
             if (fromName(name) != null) return Result.failure(ErrorTownExists)
             if (territory.town != null) return Result.failure(ErrorTerritoryOwned)
+            if (Warzone.isRegistered(territory)) return Result.failure(ErrorTerritoryIsWarzone)
             if (leader?.town != null) return Result.failure(ErrorPlayerHasTown)
             val town = Town(UUID.randomUUID(), name, territory.id, leader, spawnpoint)
             territory.town = town
@@ -316,6 +317,7 @@ class Town(
 
         fun addTerritory(town: Town, territory: Territory): Result<Territory> {
             if (territory.town != null) return Result.failure(ErrorTerritoryOwned)
+            if (Warzone.isRegistered(territory)) return Result.failure(ErrorTerritoryIsWarzone)
             town.territories.add(territory.id)
             territory.town = town
             town.needsUpdate()
@@ -397,6 +399,38 @@ class Town(
             Nodes.markWorldDirty()
             Resident.renderMinimaps()
             transferred.size
+        }
+
+        /**
+         * Transfers ownership of [territory] to [destination] as annexed land.
+         * If it was the previous owner's home, the home moves to another of its
+         * territories; a town left with no territory is destroyed.
+         */
+        internal fun annexTerritory(destination: Town, territory: Territory) = synchronized(Nodes.occupationPersistenceLock) {
+            val source = territory.town
+            require(source !== destination) { "${destination.name} already owns territory ${territory.id}" }
+            require(towns[destination.name] === destination) { "The annexing town must still exist" }
+
+            release(territory)
+            if (source != null) {
+                source.territories.remove(territory.id)
+                source.annexed.remove(territory.id)
+            }
+            destination.territories.add(territory.id)
+            destination.annexed.add(territory.id)
+            territory.town = destination
+            destination.needsUpdate()
+
+            if (source != null) {
+                val newHome = source.territories.firstNotNullOfOrNull(Territory::fromId)
+                when {
+                    newHome == null -> destroy(source)
+                    source.home == territory.id -> setHome(source, newHome)
+                    else -> source.needsUpdate()
+                }
+            }
+            Nodes.markWorldDirty()
+            Resident.renderMinimaps()
         }
 
         /**

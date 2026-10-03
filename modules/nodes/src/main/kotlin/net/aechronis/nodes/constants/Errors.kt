@@ -30,7 +30,7 @@ val ErrorChunkHasBuilding = Exception("This chunk already has a building")
 // claim/unclaim errors
 val ErrorTerritoryIsTownHome = Exception("Territory is town home")
 val ErrorTerritoryNotInTown = Exception("Territory does not belong to town")
-val ErrorTerritoryIsWarzone = Exception("Warzone territory must remain inside a town")
+val ErrorTerritoryIsWarzone = Exception("Territory has a scheduled or running warzone")
 
 // war
 val ErrorNoTerritory = Exception("[War] There is no territory here")

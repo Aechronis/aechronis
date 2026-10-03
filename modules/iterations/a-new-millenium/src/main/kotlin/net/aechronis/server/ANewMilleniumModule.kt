@@ -16,9 +16,6 @@ import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Melees
 import net.aechronis.server.constants.Planes
 import net.aechronis.server.constants.Tanks
-import net.aechronis.server.craft.Blocks
-import net.aechronis.server.craft.Smelting
-import net.aechronis.server.craft.Tools
 import net.aechronis.server.craft.Vehicles
 import net.aechronis.server.craft.Weapons
 import net.aechronis.server.listeners.DroneListener
@@ -30,7 +27,6 @@ import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.tasks.TabManager
 import net.aechronis.vanilla.VanillaConfig
 import net.aechronis.vanilla.VanillaModule
-import net.aechronis.vanilla.config.BlocksConfig
 import net.aechronis.vanilla.config.RecipesConfig
 import net.kyori.adventure.resource.ResourcePackInfo
 import net.minestom.server.item.Material
@@ -46,7 +42,7 @@ class ANewMilleniumModule : AechronisModule {
                 .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build(),
         )
-    override val dependencies = setOf("combat", "vanilla", "nodes")
+    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes")
     override val reloadTogether = setOf("combat", "vanilla", "nodes")
 
     override fun configure(context: ModuleContext) {
@@ -58,8 +54,7 @@ class ANewMilleniumModule : AechronisModule {
         measure("Vanilla configuration") {
             VanillaModule.configure(
                 VanillaConfig(
-                    recipesConfig = RecipesConfig(recpies = Blocks.list + Tools.list + Smelting.list + Weapons.list + Vehicles.list),
-                    blocksConfig = BlocksConfig(converterCycles = Blocks.converterCycles),
+                    recipesConfig = RecipesConfig(recpies = Weapons.list + Vehicles.list),
                     shopEnabled = false,
                 ),
             )

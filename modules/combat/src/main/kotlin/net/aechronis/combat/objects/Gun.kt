@@ -29,6 +29,7 @@ import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
+import net.minestom.server.adventure.audience.PacketGroupingAudience
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -294,8 +295,11 @@ class Gun(
         val aimingMultiplier = aimingMultiplier(firePos == null && Combat.playerAiming[player] == true)
         val origin = firePos ?: player.position.add(0.0, player.eyeHeight, 0.0)
 
-        // play fire sound
-        player.instance.playSound(soundFire, origin.x, origin.y, origin.z)
+        // Keep the shooter's sound with them, without also playing the positional copy.
+        player.playSound(soundFire, Sound.Emitter.self())
+        PacketGroupingAudience
+            .of(player.instance.players.filter { it !== player })
+            .playSound(soundFire, origin)
 
         // each bullet gets its own random offsets
         val damagedVehicles = HashSet<Entity>()

@@ -93,6 +93,7 @@ val runtimeModuleProjects =
         ":modules:combat",
         ":modules:hats",
         ":modules:vanilla",
+        ":modules:recipes",
         ":modules:worldedit",
         ":modules:nodes",
         ":modules:logger",
@@ -100,7 +101,7 @@ val runtimeModuleProjects =
         ":modules:gems",
         ":modules:tebex",
         ":modules:votifier",
-        ":modules:iterations:a-new-millenium",
+        ":modules:iterations:victorian-era",
     )
 
 tasks.register<Sync>("assembleServerDistribution") {

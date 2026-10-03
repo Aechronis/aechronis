@@ -16,20 +16,6 @@ import net.minestom.server.item.Material
 object Weapons {
     val list: List<Recipe> =
         buildList {
-            add(
-                shapeless(
-                    ItemStack.of(Material.GUNPOWDER, 2),
-                    Material.COAL_BLOCK to 1,
-                    Material.REDSTONE to 2,
-                    Material.BLAZE_POWDER to 2,
-                ),
-            )
-            add(
-                shapeless(
-                    ItemStack.of(Material.BREAD, 3),
-                    Material.WHEAT to 3,
-                ),
-            )
             add(shapeless(Ammo.ammo762x39mm.toItemStack().withAmount(8), Material.COPPER_INGOT to 3, Material.GUNPOWDER to 2))
             add(shapeless(Ammo.ammo9mm.toItemStack().withAmount(4), Material.COPPER_INGOT to 2, Material.GUNPOWDER to 1))
             add(

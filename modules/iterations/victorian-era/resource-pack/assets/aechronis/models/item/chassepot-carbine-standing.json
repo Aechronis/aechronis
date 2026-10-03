@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/chassepot-carbine",
+  "display": {
+    "thirdperson_righthand": {
+      "translation": [
+        -0.588841,
+        1.568693,
+        -4.063666
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        5.729578,
+        -17.188734,
+        0
+      ]
+    },
+    "thirdperson_lefthand": {
+      "translation": [
+        -0.588841,
+        1.568693,
+        -4.063666
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "rotation": [
+        5.729578,
+        -17.188734,
+        0
+      ]
+    }
+  }
+}
