@@ -331,7 +331,7 @@ object Warzone {
     }
 
     /**
-     * Must run without holding this object's lock: Town.capture takes the
+     * Must run without holding this object's lock: Town.annexTerritory takes the
      * occupation lock, which is acquired before this one elsewhere.
      */
     private fun award(outcome: Outcome) {
@@ -354,10 +354,10 @@ object Warzone {
                             "for ${formatDuration(outcome.millis)} and keeps it",
                     )
                 } else {
-                    Town.capture(winner.capital, territory)
+                    Town.annexTerritory(winner.capital, territory)
                     Message.broadcast(
                         "${ChatColor.DARK_RED}[Warzone] ${winner.name} held territory ${territory.id} " +
-                            "for ${formatDuration(outcome.millis)}; it has been awarded to ${winner.capital.name}",
+                            "for ${formatDuration(outcome.millis)}; it has been annexed by ${winner.capital.name}",
                     )
                 }
             }

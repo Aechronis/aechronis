@@ -400,6 +400,38 @@ class Town(
         }
 
         /**
+         * Transfers ownership of [territory] to [destination] as annexed land.
+         * If it was the previous owner's home, the home moves to another of its
+         * territories; a town left with no territory is destroyed.
+         */
+        internal fun annexTerritory(destination: Town, territory: Territory) = synchronized(Nodes.occupationPersistenceLock) {
+            val source = territory.town
+            require(source !== destination) { "${destination.name} already owns territory ${territory.id}" }
+            require(towns[destination.name] === destination) { "The annexing town must still exist" }
+
+            release(territory)
+            if (source != null) {
+                source.territories.remove(territory.id)
+                source.annexed.remove(territory.id)
+            }
+            destination.territories.add(territory.id)
+            destination.annexed.add(territory.id)
+            territory.town = destination
+            destination.needsUpdate()
+
+            if (source != null) {
+                val newHome = source.territories.firstNotNullOfOrNull(Territory::fromId)
+                when {
+                    newHome == null -> destroy(source)
+                    source.home == territory.id -> setHome(source, newHome)
+                    else -> source.needsUpdate()
+                }
+            }
+            Nodes.markWorldDirty()
+            Resident.renderMinimaps()
+        }
+
+        /**
          * Moves all residents from [source] to [destination] as regular residents.
          * Leadership and officer roles are deliberately not transferred.
          */
