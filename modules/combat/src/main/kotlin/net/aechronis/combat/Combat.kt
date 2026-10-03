@@ -216,6 +216,7 @@ object Combat {
                 HatListener.init()
                 LagCompensationListener.init()
                 WeaponLoreListener.init()
+                ModelManager.initListeners()
 
                 val globalEventHandler = MinecraftServer.getGlobalEventHandler()
                 ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)
