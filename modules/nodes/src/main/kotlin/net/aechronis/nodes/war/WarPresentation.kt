@@ -72,7 +72,7 @@ internal class WarPresentation(private val state: FlagWarState) {
             AttackMode.WARZONE -> "Capturing warzone"
             AttackMode.WAR -> "Attacking"
         }
-        return BossBar.bossBar(Component.text("$action ${territory.town!!.name} at ($flagBaseX, $flagBaseY, $flagBaseZ)"), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS)
+        return BossBar.bossBar(Component.text("$action ${territory.town?.name ?: "territory ${territory.id}"} at ($flagBaseX, $flagBaseY, $flagBaseZ)"), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS)
     }
 
     /**
@@ -180,7 +180,7 @@ internal class WarPresentation(private val state: FlagWarState) {
     fun capturedTerritory(mode: AttackMode, attacker: Resident?, territory: Territory, formerTown: Town?) {
         val messageContext = messageContext(mode)
         val action = if (mode == AttackMode.COLONIZATION) "colonized" else "captured"
-        Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} $action territory (id=${territory.id}) from ${formerTown?.name}!")
+        Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} $action territory (id=${territory.id}) from ${formerTown?.name ?: "the wilderness"}!")
     }
 
     fun townDefeated(
@@ -221,7 +221,7 @@ internal class WarPresentation(private val state: FlagWarState) {
 
     fun capturedChunk(mode: AttackMode, attacker: Resident?, chunk: TerritoryChunk) {
         val messageContext = messageContext(mode)
-        Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} captured chunk (${chunk.coord.x}, ${chunk.coord.z}) from ${chunk.territory.town?.name}!")
+        Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} captured chunk (${chunk.coord.x}, ${chunk.coord.z}) from ${chunk.territory.town?.name ?: "the wilderness"}!")
     }
 
     private fun messageContext(mode: AttackMode): String = when (mode) {
