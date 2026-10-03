@@ -334,9 +334,13 @@ object Warzone {
         val territory = outcome.territory
         FlagWar.cancelWarzoneAttacks(territory)
         when (outcome) {
-            is Outcome.NoWinner -> Message.broadcast(
-                "${ChatColor.DARK_RED}[Warzone] Territory ${territory.id} ended with no nation holding it",
-            )
+            is Outcome.NoWinner -> {
+                // Unclaimed land cannot stay occupied once its warzone is gone.
+                if (territory.town == null) Town.release(territory)
+                Message.broadcast(
+                    "${ChatColor.DARK_RED}[Warzone] Territory ${territory.id} ended with no nation holding it",
+                )
+            }
 
             is Outcome.Won -> {
                 val winner = outcome.winner
