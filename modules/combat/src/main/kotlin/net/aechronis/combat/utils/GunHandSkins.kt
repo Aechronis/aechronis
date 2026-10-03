@@ -17,7 +17,7 @@ object GunHandSkins {
     @Volatile private var readTemplate: (() -> ByteArray)? = null
     private const val RETRY_MILLIS = 30_000L
     private val packMetadata =
-        """{"pack":{"description":"           §6§lAechronis\n§7   Gun hands resource pack","min_format":[75,0],"max_format":[88,0]}}"""
+        """{"pack":{"description":"§6§lAechronis\n§7Gun hands","min_format":[75,0],"max_format":[88,0]}}"""
             .toByteArray()
 
     private class SkinRequest(

@@ -14,7 +14,7 @@ import java.util.concurrent.locks.ReentrantLock
  */
 object NationFlagPack {
     private val packMetadata =
-        """{"pack":{"description":"           §6§lAechronis\n§7   Nation flags resource pack","min_format":[75,0],"max_format":[88,0]}}"""
+        """{"pack":{"description":"§6§lAechronis\n§7Nation flags","min_format":[75,0],"max_format":[88,0]}}"""
             .toByteArray()
 
     private val poleTexture = readResourceBytes("/flag-textures/flag_pole.png")
