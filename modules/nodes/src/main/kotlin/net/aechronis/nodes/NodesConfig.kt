@@ -202,8 +202,11 @@ data class NodesConfig(
     // resource multiplier while a territory is an active warzone
     val warzoneRateMultiplier: Double = 2.0,
 
-    // Optional per-nation score cap. A cap never ends a warzone; an admin must stop it.
+    // Optional per-nation score cap. A cap never ends a warzone early; it still runs to its end time.
     val warzoneScoreCapMillis: Long? = null,
+
+    // Time zone for absolute warzone start times in /nda warzone create (e.g. "America/New_York")
+    val warzoneTimeZone: String = "UTC",
 
     // List of town UUIDs to allow building in occupied territory.
     // War whitelist often used to create AI towns that can be attacked

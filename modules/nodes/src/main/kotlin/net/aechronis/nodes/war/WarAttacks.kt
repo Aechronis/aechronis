@@ -60,6 +60,11 @@ internal class WarAttacks(
             }
         } else if (mode == AttackMode.WARZONE) {
             if (!Warzone.isActive(territory) || attackingTown.nation == null) return Result.failure(ErrorNotEnemy)
+            // The owner's side has nothing to retake while no enemy occupies the chunk or territory.
+            val ownerSide = attackingTown === territoryTown ||
+                (attackingTown.nation === territoryTown.nation) ||
+                Town.areAllied(attackingTown, territoryTown)
+            if (ownerSide && territory.occupier == null && chunk.occupier == null) return Result.failure(ErrorAlreadyCaptured)
         } else {
             // check if town blacklisted
             if (Nodes.config.warUseBlacklist && Nodes.config.warBlacklist.contains(territoryTown.uuid)) {
