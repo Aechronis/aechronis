@@ -5,6 +5,7 @@ import net.aechronis.nodes.Nodes
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
+import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.Player
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
@@ -12,6 +13,7 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import net.minestom.server.item.component.SwingAnimation
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -53,12 +55,10 @@ object FlagsMenu {
         sessions.clear()
     }
 
-    // Base material is SPEAR, not TURTLE_SCUTE: vanilla renders it in a fixed two-handed held
-    // pose instead of the normal one-handed swing/walk-bob, which is what was throwing the tall
-    // pole model around so hard in third person. CROSSBOW does the same trick but combat's gun
-    // system already keys aiming-state logic off Material.CROSSBOW, so flags use SPEAR instead
-    // to avoid colliding with that. withItemModel() still fully replaces the visible geometry.
+    // Disable the base spear's right-click use and attack swing animation on flag items.
     private fun flagItemStack(entry: FlagEntry): ItemStack = ItemStack.of(Material.WOODEN_SPEAR)
+        .with(DataComponents.SWING_ANIMATION, SwingAnimation(SwingAnimation.Type.NONE, 6))
+        .without(DataComponents.KINETIC_WEAPON)
         .withItemModel(NationFlagPack.flagModelId(entry.id))
         .withCustomName(Component.text("${entry.name} Flag", NamedTextColor.WHITE))
 
