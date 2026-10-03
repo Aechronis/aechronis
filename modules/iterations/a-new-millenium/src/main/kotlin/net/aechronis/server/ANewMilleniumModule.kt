@@ -1,6 +1,5 @@
 package net.aechronis.server
 
-import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.utils.GunHandSkins
 import net.aechronis.nodes.NodesConfig
@@ -14,7 +13,6 @@ import net.aechronis.server.constants.Drones
 import net.aechronis.server.constants.Factories
 import net.aechronis.server.constants.Grenades
 import net.aechronis.server.constants.Guns
-import net.aechronis.server.constants.Hats
 import net.aechronis.server.constants.Melees
 import net.aechronis.server.constants.Planes
 import net.aechronis.server.constants.Tanks
@@ -99,7 +97,6 @@ class ANewMilleniumModule : AechronisModule {
     }
 
     private fun registerItems() {
-        Hat.registerHats(Hats.gasMask)
         Item.registerItems(
             Ammo.ammo762x39mm,
             Ammo.ammo762x39mmExplosive,

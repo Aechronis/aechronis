@@ -91,6 +91,7 @@ val runtimeModuleProjects =
         ":modules:utils",
         ":modules:watchdog",
         ":modules:combat",
+        ":modules:hats",
         ":modules:vanilla",
         ":modules:worldedit",
         ":modules:nodes",

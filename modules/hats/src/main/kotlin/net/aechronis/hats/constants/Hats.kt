@@ -1,4 +1,4 @@
-package net.aechronis.server.constants
+package net.aechronis.hats.constants
 
 import net.aechronis.combat.objects.Hat
 import net.kyori.adventure.text.Component

@@ -42,6 +42,7 @@ include(
     ":modules:viaversion",
     ":modules:utils",
     ":modules:combat",
+    ":modules:hats",
     ":modules:nodes",
     ":modules:vanilla",
     ":modules:worldedit",
