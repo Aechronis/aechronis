@@ -164,6 +164,7 @@ for (const pack of project.packs(root)) {
     const catalog = profiles.readProfiles(root, pack), expectedCatalog = structuredClone(catalog), guns = kotlinGuns(iteration), names = new Set();
     for (const file of modelFiles) {
         const before = fs.readFileSync(file), model = JSON.parse(before), snapshot = JSON.stringify(model), config = model.aechronis_combat;
+        if (model.meta?.model_format !== 'aechronis_combat_animation') continue;
         const gun = config.profile, published = catalog[gun];
         assert(published, `${pack}/${gun}: no published profile`);
         assert(!names.has(gun), `${pack}: duplicate project for ${gun}`); names.add(gun);
