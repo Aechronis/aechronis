@@ -6,6 +6,7 @@ import net.aechronis.combat.events.VehicleSpawnEvent
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
+import net.aechronis.combat.utils.Mounts
 import net.aechronis.combat.utils.VehicleCameraDistance
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.VisibilityRules
@@ -103,6 +104,10 @@ open class Vehicle(
         pos: Pos,
     ): Boolean {
         if (Combat.placeTasks[player] != null) return false // already placing
+        if (Mounts.isMounted(player)) {
+            Mounts.showBlocked(player)
+            return false
+        }
         val instance = player.instance ?: return false
         val spawnEvent = VehicleSpawnEvent(player, this, instance, pos)
         MinecraftServer.getGlobalEventHandler().call(spawnEvent)

@@ -52,6 +52,7 @@ import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.EnvironmentalDamage
 import net.aechronis.vanilla.managers.Filter
 import net.aechronis.vanilla.managers.Food
+import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.ItemFrames
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.KillShop
@@ -69,6 +70,7 @@ import net.aechronis.vanilla.managers.VoteLinks
 import net.aechronis.vanilla.managers.Warps
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
+import net.minestom.server.instance.Instance
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import net.aechronis.vanilla.managers.Music as MusicManager
@@ -85,6 +87,7 @@ object Vanilla {
     fun init(
         c: VanillaConfig = VanillaConfig(),
         shutdownAction: () -> Unit = { MinecraftServer.stopCleanly() },
+        instance: Instance? = null,
     ) {
         config = c
         ShutdownManager.configure(shutdownAction)
@@ -173,6 +176,10 @@ object Vanilla {
         if (config.oresEnabled) measure("Ores") { Ores.init(Path.of(config.path, config.oresPath)) }
         measure("Vote Links") { VoteLinks.init(Path.of(config.path, config.votePath)) }
         measure("Warps") { Warps.init(Path.of(config.path, config.warpsPath)) }
+        if (config.horsesEnabled) {
+            val world = requireNotNull(instance) { "Horses need the world instance" }
+            measure("Horses") { Horses.init(Path.of(config.path, config.horsesPath), world) }
+        }
         val globalEventHandler = MinecraftServer.getGlobalEventHandler()
         ModuleEvents.addChild(globalEventHandler, eventNode)
         playerDataEventNode?.let { node -> ModuleEvents.addChild(globalEventHandler, node) }
@@ -186,6 +193,7 @@ object Vanilla {
             "ores" to { if (config.oresEnabled) Ores.saveAll() },
             "koth" to { if (config.kothEnabled) Koth.saveAll() },
             "warps" to Warps::saveAll,
+            "horses" to { if (config.horsesEnabled) Horses.save() },
         )
         println("Vanilla: data saved.")
     }
@@ -210,6 +218,7 @@ object Vanilla {
             "pending warps" to Warps::shutdown,
             "shop inventories" to KillShop::shutdown,
             "command inventories" to Commands::shutdown,
+            "horses" to { if (config.horsesEnabled) Horses.shutdown() },
         )
     }
 
@@ -221,6 +230,7 @@ object Vanilla {
                 runSaveStages(
                     "player data" to { if (config.playerDataEnabled) playerSave = PlayerData.saveAll() },
                     "storage" to { if (config.storageEnabled) Storage.flushToWorld() },
+                    "horses" to { if (config.horsesEnabled) Horses.save() },
                 )
             }.exceptionOrNull()
         // Even a failed container capture must not hide a still-running player write from unload.

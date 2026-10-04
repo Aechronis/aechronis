@@ -2,6 +2,7 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
+import net.aechronis.combat.utils.Mounts
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
@@ -39,6 +40,10 @@ class Grenade(
 
     fun use(player: Player): Boolean {
         val armed = Combat.armedGrenades[player]
+        if (armed == null && Mounts.isMounted(player)) {
+            Mounts.showBlocked(player)
+            return false
+        }
         return if (armed === this) {
             throwGrenade(player)
         } else if (armed == null && Item.getFromItemStack(player.itemInMainHand) === this) {
