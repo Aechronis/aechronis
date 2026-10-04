@@ -99,6 +99,7 @@ class Plane(
     invisibleWhileRiding: Boolean = true,
     invulnerableWhileRiding: Boolean = true,
     animatedParts: List<AnimatedPart> = emptyList(),
+    collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
 ) : Vehicle(
         name,
         itemName,
@@ -113,6 +114,7 @@ class Plane(
         invisibleWhileRiding,
         invulnerableWhileRiding,
         animatedParts,
+        collisionHitbox,
     ),
     ArmedVehicle {
     override val reloadTime: Long = bomb?.reloadTime ?: weapons.maxOfOrNull { it.gun.reloadTime } ?: 0L

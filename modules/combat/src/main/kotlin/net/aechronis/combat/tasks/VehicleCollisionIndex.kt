@@ -1,8 +1,7 @@
 package net.aechronis.combat.tasks
 
-import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.VehicleRegistry
-import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import kotlin.math.floor
@@ -92,16 +91,7 @@ internal class VehicleCollisionIndex {
     companion object {
         private const val CELL_SIZE = 16.0
 
-        fun sweptBounds(
-            vehicle: Vehicle,
-            position: Pos,
-            previousPosition: Pos?,
-            roll: Float,
-        ): Bounds {
-            if (vehicle.hitbox.parts.isEmpty()) {
-                return Bounds(position.x, position.y, position.z, position.x, position.y, position.z)
-            }
-
+        fun sweptBounds(shapes: List<ShulkerHitbox.Shape>): Bounds? {
             var minX = Double.MAX_VALUE
             var minY = Double.MAX_VALUE
             var minZ = Double.MAX_VALUE
@@ -109,22 +99,17 @@ internal class VehicleCollisionIndex {
             var maxY = -Double.MAX_VALUE
             var maxZ = -Double.MAX_VALUE
 
-            fun include(position: Pos) {
-                for (partCorners in vehicle.hitbox.getWorldCorners(position, position.yaw, position.pitch, roll)) {
-                    for (corner in partCorners) {
-                        minX = min(minX, corner.x)
-                        minY = min(minY, corner.y)
-                        minZ = min(minZ, corner.z)
-                        maxX = max(maxX, corner.x)
-                        maxY = max(maxY, corner.y)
-                        maxZ = max(maxZ, corner.z)
-                    }
+            for (shape in shapes) {
+                for (box in shape.boxes) {
+                    minX = min(minX, box.min.x)
+                    minY = min(minY, box.min.y)
+                    minZ = min(minZ, box.min.z)
+                    maxX = max(maxX, box.max.x)
+                    maxY = max(maxY, box.max.y)
+                    maxZ = max(maxZ, box.max.z)
                 }
             }
-
-            include(position)
-            if (previousPosition != null) include(previousPosition)
-
+            if (minX == Double.MAX_VALUE) return null
             return Bounds(minX - 0.05, minY - 0.05, minZ - 0.05, maxX + 0.05, maxY + 0.05, maxZ + 0.05)
         }
 

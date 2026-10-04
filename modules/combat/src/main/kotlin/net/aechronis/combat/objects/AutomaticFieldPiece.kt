@@ -50,6 +50,7 @@ class AutomaticFieldPiece(
     animatedParts: List<AnimatedPart> = emptyList(),
     val maxYaw: Float = 180f,
     val barrelPivotOffset: Vec = Vec.ZERO,
+    collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
 ) : FieldPiece(
         name = name,
         itemName = itemName,
@@ -66,6 +67,7 @@ class AutomaticFieldPiece(
         moveSpeed = moveSpeed,
         turnSpeed = turnSpeed,
         animatedParts = animatedParts,
+        collisionHitbox = collisionHitbox,
     ),
     ArmedVehicle {
     override val ammo: Ammo get() = gun.ammo

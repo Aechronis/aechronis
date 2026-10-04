@@ -49,6 +49,7 @@ open class Vehicle(
     // occupant takes no damage while they're riding
     val invulnerableWhileRiding: Boolean = true,
     animatedParts: List<AnimatedPart> = emptyList(),
+    val collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
 ) : Item(
         name,
         itemName,
@@ -216,7 +217,7 @@ open class Vehicle(
 
         entity.spawn()
 
-        VehicleRegistry.register(entity, this).spawnAnimatedParts()
+        VehicleRegistry.register(entity, this).spawnParts()
 
         return entity
     }
@@ -238,9 +239,8 @@ open class Vehicle(
         meta.isHasNoGravity = true
 
         seatEntity.spawn()
-        if (!standingDriver) seatEntity.addPassenger(player)
-
         VehicleRegistry.enter(player, entity, seatEntity, VehicleSeatRole.DRIVER)
+        if (!standingDriver) seatEntity.addPassenger(player)
         if (standingDriver) {
             standingControlFieldViews.putIfAbsent(player, player.fieldViewModifier)
             // A zero walking-speed baseline disables the client's speed-based FOV adjustment.
@@ -263,6 +263,7 @@ open class Vehicle(
         ride.seat.removePassenger(player)
         ride.seat.remove()
         if (!isForcedExit(player)) moveToSafeExit(player, ride.entity)
+        ride.runtime.refreshCollisionViewers()
 
         revealOccupant(player)
     }
@@ -354,9 +355,8 @@ open class Vehicle(
         meta.isHasNoGravity = true
 
         seatEntity.spawn()
-        seatEntity.addPassenger(player)
-
         VehicleRegistry.enter(player, entity, seatEntity, VehicleSeatRole.PASSENGER)
+        seatEntity.addPassenger(player)
         hideOccupant(player)
         LagCompensation.resetHistory(player)
     }
@@ -369,6 +369,7 @@ open class Vehicle(
         ride.seat.removePassenger(player)
         ride.seat.remove()
         if (!isForcedExit(player)) moveToSafeExit(player, ride.entity)
+        ride.runtime.refreshCollisionViewers()
 
         revealOccupant(player)
     }
@@ -435,7 +436,7 @@ open class Vehicle(
         val sourcePosition = source.position
         val box = player.boundingBox
         val clearance = max(box.width(), box.depth()) + 0.35
-        val baseRadius = hitbox.getMaxDistanceFrom(Vec.ZERO) + clearance
+        val baseRadius = max(hitbox.getMaxDistanceFrom(Vec.ZERO), collisionHitbox.radius) + clearance
         val yOffsets = listOf(0.0, 1.0, -1.0, 2.0)
         val candidates =
             buildList {
@@ -462,12 +463,9 @@ open class Vehicle(
             return
         }
 
-        hitbox
+        collisionHitbox
+            .at(sourcePosition, hitboxRoll(source))
             .resolveCollision(
-                sourcePosition,
-                sourcePosition.yaw,
-                sourcePosition.pitch,
-                hitboxRoll(source),
                 player.position,
                 box.relativeStart(),
                 box.relativeEnd(),
@@ -493,15 +491,9 @@ open class Vehicle(
             val entity = runtime.entity
             val vehicle = runtime.vehicle
             entity.instance === instance &&
-                vehicle.hitbox.resolveCollision(
-                    entity.position,
-                    entity.position.yaw,
-                    entity.position.pitch,
-                    vehicle.hitboxRoll(entity),
-                    position,
-                    start,
-                    end,
-                ) != null
+                vehicle.collisionHitbox
+                    .at(entity.position, vehicle.hitboxRoll(entity))
+                    .resolveCollision(position, start, end) != null
         }
     }
 
@@ -785,6 +777,7 @@ open class Vehicle(
                     VehicleRegistry.leave(player)
                     if (player.vehicle === ride.seat) ride.seat.removePassenger(player)
                     if (!ride.seat.isRemoved) ride.seat.remove()
+                    ride.runtime.refreshCollisionViewers()
                 } finally {
                     if (ride.role == VehicleSeatRole.DRIVER && ride.vehicle.standingDriver) restoreStandingControl(player)
                     forcedExitPlayers.remove(player)

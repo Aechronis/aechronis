@@ -56,6 +56,7 @@ class Tank(
     val projectileTrailMaxParticles: Int = 96,
     val projectileMaxRange: Double = 128.0,
     animatedParts: List<AnimatedPart> = emptyList(),
+    collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
 ) : Car(
         name,
         itemName,
@@ -76,6 +77,7 @@ class Tank(
         invisibleWhileRiding,
         invulnerableWhileRiding,
         animatedParts,
+        collisionHitbox,
     ),
     ArmedVehicle {
     init {

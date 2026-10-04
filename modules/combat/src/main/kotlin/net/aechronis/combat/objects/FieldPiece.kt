@@ -35,6 +35,7 @@ open class FieldPiece(
     val moveSpeed: Double = 0.04,
     val turnSpeed: Float = 1f,
     animatedParts: List<AnimatedPart> = emptyList(),
+    collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
 ) : Vehicle(
         name = name,
         itemName = itemName,
@@ -49,6 +50,7 @@ open class FieldPiece(
         invisibleWhileRiding = invisibleWhileRiding,
         invulnerableWhileRiding = invulnerableWhileRiding,
         animatedParts = animatedParts,
+        collisionHitbox = collisionHitbox,
     ) {
     override val standingDriver: Boolean = true
 

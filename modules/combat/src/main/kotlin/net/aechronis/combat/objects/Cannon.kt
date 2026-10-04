@@ -61,6 +61,7 @@ class Cannon(
     turnSpeed: Float = 1f,
     animatedParts: List<AnimatedPart> = emptyList(),
     val maxYaw: Float = 180f,
+    collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
 ) : FieldPiece(
         name = name,
         itemName = itemName,
@@ -77,6 +78,7 @@ class Cannon(
         moveSpeed = moveSpeed,
         turnSpeed = turnSpeed,
         animatedParts = animatedParts,
+        collisionHitbox = collisionHitbox,
     ),
     ArmedVehicle {
     private data class CannonRuntime(
