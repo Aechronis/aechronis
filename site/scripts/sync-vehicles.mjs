@@ -7,7 +7,8 @@ import { callArguments, definitions, displayName, namedArguments, number, splitA
 
 const site = fileURLToPath(new URL('../', import.meta.url))
 const modules = join(site, '../modules')
-const types = ['Car', 'Boat', 'Tank', 'Plane', 'Drone']
+const types = ['Car', 'Boat', 'Tank', 'Plane', 'Drone', 'Cannon', 'AutomaticFieldPiece']
+const fieldPieces = ['Cannon', 'AutomaticFieldPiece']
 const catalogues = {}
 const read = path => readFileSync(path, 'utf8')
 const format = value => Number(value.toFixed(3)).toString()
@@ -51,6 +52,11 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
   const ids = new Set()
   for (const { type, args, source } of vehicles) {
     const id = string(args.name, 'vehicle name')
+    // Field pieces may borrow a Gun declared beside them in the same object.
+    const localGuns = new Map(definitions(source, ['Gun']).map(({ key, args }) => [key, args]))
+    const mountedGun = type === 'AutomaticFieldPiece' ? localGuns.get(args.gun) ?? guns.get(args.gun) : null
+    if (type === 'AutomaticFieldPiece' && !mountedGun) throw new Error(`Unknown mounted gun: ${args.gun}`)
+    const itemName = args.itemName?.match(/^(\w+)\.itemName$/) ? localGuns.get(args.itemName.split('.')[0])?.itemName : args.itemName
     if (!/^[a-z0-9_-]+$/.test(id) || ids.has(id)) throw new Error(`Invalid or duplicate vehicle ID: ${iterationId}/${id}`)
     ids.add(id)
     const defaults = defaultsFor(type, source, iteration)
@@ -58,23 +64,32 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
     const stat = field => number(value(field), `${id}/${field}`)
     const stats = []
     const add = (label, value) => stats.push({ label, value: String(value) })
-    add('Type', type)
+    add('Type', fieldPieces.includes(type) ? 'Field piece' : type)
     const health = type === 'Drone' ? stat('health') : number(splitArguments(constructorArgs(args.health, 'Health'))[0], `${id}/health`)
     add('Health', health)
-    add('Top speed', `${format(stat(type === 'Plane' ? 'speed' : 'maxSpeed') * 20)} blocks/s`)
+    const speedField = type === 'Plane' ? 'speed' : fieldPieces.includes(type) ? 'moveSpeed' : 'maxSpeed'
+    add('Top speed', `${format(stat(speedField) * 20)} blocks/s`)
     if (type !== 'Drone') {
       const seats = value(type === 'Plane' ? 'seatOffset' : 'seatOffsets')
       const seatCount = splitArguments(constructorArgs(seats, 'listOf')).length
       if (seatCount > 1) add('Seats', seatCount)
     }
     if (type === 'Car' || type === 'Tank') add('Maximum climb', `${format(stat('maxClimbHeight'))} blocks`)
-    if (value('ammo')) {
+    if (mountedGun) {
+      const ammo = ammoNames.get(mountedGun.ammo)
+      if (!ammo) throw new Error(`Unknown ammunition: ${mountedGun.ammo}`)
+      add('Ammunition', ammo)
+      add('Capacity', number(args.maxAmmo ?? mountedGun.maxAmmo, `${id}/maxAmmo`))
+      add('Armament', displayName(mountedGun.itemName))
+      add('Gun damage', number(mountedGun.damage, `${id}/gun damage`))
+      add('Gun fire rate', `${Math.round(60_000 / number(mountedGun.cooldown, `${id}/gun cooldown`))} RPM`)
+    } else if (value('ammo')) {
       const ammo = ammoNames.get(value('ammo'))
       if (!ammo) throw new Error(`Unknown ammunition: ${value('ammo')}`)
       add('Ammunition', ammo)
       add('Capacity', stat('maxAmmo'))
     }
-    if (type === 'Tank' || args.bomb) {
+    if (type === 'Tank' || type === 'Cannon' || args.bomb) {
       let weapon = { ...defaults, ...args }
       if (args.bomb) {
         // Bomb defaults live alongside the Plane class.
@@ -85,7 +100,7 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
         weapon = { ...bombDefaults, ...namedArguments(constructorArgs(args.bomb, 'PlaneBombWeapon')) }
       }
       const n = field => number(weapon[field], `${id}/${field}`)
-      add('Armament', type === 'Tank' ? 'Cannon' : 'Bombs')
+      add('Armament', args.bomb ? 'Bombs' : 'Cannon')
       add('Explosion damage', n('projectileExplosionDamage'))
       add('Explosion radius', `${format(n('projectileExplosionRadius'))} blocks`)
       add('Firing cooldown', `${format(n('fireCooldown') / 1000)} s`)
@@ -125,7 +140,7 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
       }
       writeFileSync(join(output, `${id}.json`), JSON.stringify({ meshes }))
     }
-    catalogue.push({ id, name: displayName(args.itemName), stats, model: `/iterations/${iterationId}/vehicles/${id}.json` })
+    catalogue.push({ id, name: displayName(itemName), stats, model: `/iterations/${iterationId}/vehicles/${id}.json` })
   }
   catalogues[iterationId] = catalogue
   const pagePath = join(site, 'src/iterations', iterationId, 'vehicles.md')
