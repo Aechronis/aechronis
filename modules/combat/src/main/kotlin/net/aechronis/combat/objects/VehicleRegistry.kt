@@ -9,14 +9,15 @@ internal class VehicleRuntime(
     val vehicle: Vehicle,
 ) {
     private val animatedParts = ArrayList<AnimatedPartRuntime>()
+    private val collisionHitbox = VehicleCollisionHitbox(this)
     private var previousAnimationPosition = entity.position
     private var animationAgeTicks = 0L
 
-    fun spawnAnimatedParts() {
+    fun spawnParts() {
         try {
             vehicle.animatedParts.forEach { animatedParts.add(AnimatedPartRuntime(it, this)) }
+            collisionHitbox.update()
         } catch (exception: Exception) {
-            removeAnimatedParts()
             VehicleRegistry.remove(entity)
             entity.remove()
             throw exception
@@ -39,7 +40,14 @@ internal class VehicleRuntime(
         previousAnimationPosition = context.position
     }
 
-    fun removeAnimatedParts() {
+    fun updateCollisionHitbox() = collisionHitbox.update()
+
+    fun refreshCollisionViewers() = collisionHitbox.refreshViewers()
+
+    fun removeCollisionHitbox() = collisionHitbox.remove()
+
+    fun removeParts() {
+        collisionHitbox.remove()
         animatedParts.forEach { it.remove() }
         animatedParts.clear()
     }
@@ -50,6 +58,7 @@ internal class VehicleRuntime(
             require(it > 0) { "Vehicle maxAmmo must be greater than zero" }
         }
     private var currentAmmo: Int? = ammoCapacity
+    var reloadStartedAt: Long? = null
 
     val health: Float? get() = healthState?.health
     val maxHealth: Float? get() = healthState?.maxHealth
@@ -167,20 +176,21 @@ internal object VehicleRegistry {
         }
         val ride = VehicleRide(player, runtime, seat, role)
         playerRides[player] = ride
+        runtime.refreshCollisionViewers()
         return ride
     }
 
     /** Detach first so callbacks from subsequent seat removal cannot see an active ride. */
-    fun leave(player: Player): VehicleRide? = playerRides.remove(player)
+    fun leave(player: Player): VehicleRide? = playerRides.remove(player)?.also { it.runtime.refreshCollisionViewers() }
 
     fun remove(entity: Entity): VehicleRuntime? {
         require(playerRides.values.none { it.entity === entity }) { "Vehicle riders must leave before removal" }
-        return runtimes.remove(entity)?.also { it.removeAnimatedParts() }
+        return runtimes.remove(entity)?.also { it.removeParts() }
     }
 
     fun clear() {
         playerRides.clear()
-        runtimes.values.forEach { it.removeAnimatedParts() }
+        runtimes.values.forEach { it.removeParts() }
         runtimes.clear()
     }
 }

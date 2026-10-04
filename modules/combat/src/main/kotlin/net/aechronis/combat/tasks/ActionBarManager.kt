@@ -70,7 +70,8 @@ object ActionBarManager {
         val ammoText =
             (vehicle as? ArmedVehicle)?.let {
                 val currentAmmo = runtime.ammo ?: it.maxAmmo
-                "Ammo: [$currentAmmo/${it.maxAmmo}]"
+                val inventoryShots = it.ammo[player] * it.maxAmmo
+                "Ammo: $currentAmmo | $inventoryShots"
             }
         val text = listOfNotNull(movementTelemetry, healthText, ammoText).joinToString(" ")
         return Component.text(text, NamedTextColor.GRAY)

@@ -4,12 +4,16 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleCollisionEntity
 import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.entity.EntityDespawnEvent
 import net.minestom.server.event.instance.RemoveEntityFromInstanceEvent
+import net.minestom.server.event.player.PlayerEntityInteractEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.event.player.PlayerUseItemOnBlockEvent
 import net.minestom.server.instance.Instance
@@ -24,19 +28,7 @@ object VehicleListener {
         // check if player is already in a vehicle
         if (VehicleRegistry.ride(player) != null) return
 
-        // check if player is looking at a vehicle
-        val lookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player]
-        val lookingAtEntity = VehicleTickManager.playerLookingAtEntity[player]
-        if (lookingAtVehicle != null && lookingAtEntity != null) {
-            // check if vehicle already has a driver, if so, enter as passenger
-            val hasDriver = Vehicle.hasActiveDriver(lookingAtEntity)
-            if (hasDriver) {
-                lookingAtVehicle.onPassengerEnter(player, lookingAtEntity)
-            } else {
-                lookingAtVehicle.onEnter(player, lookingAtEntity)
-            }
-            return
-        }
+        if (enterLookedAtVehicle(player)) return
 
         // try to place a vehicle if holding one
         val vehicleItem = Item.getFromItemStack(player.itemInMainHand) as? Vehicle ?: return
@@ -61,6 +53,32 @@ object VehicleListener {
         if (boat.place(player, target)) event.isCancelled = true
     }
 
+    private fun onPlayerEntityInteract(event: PlayerEntityInteractEvent) {
+        if (event.hand != PlayerHand.MAIN || event.target !is VehicleCollisionEntity) return
+        Vehicle.reconcileOccupant(event.player)
+        if (VehicleRegistry.ride(event.player) == null) enterLookedAtVehicle(event.player)
+    }
+
+    private fun enterLookedAtVehicle(player: Player): Boolean {
+        val instance = player.instance ?: return false
+        val eye = player.position.add(0.0, player.eyeHeight, 0.0)
+        // A shulker may intercept the client's click. Selection still uses the original
+        // detailed hitbox and reach, including when the physical hull is larger.
+        val target =
+            VehicleTickManager.findLookedAtVehicle(
+                instance,
+                eye,
+                eye.direction().mul(3.0),
+                VehicleTickManager.prepareVehicleLookIndex(VehicleRegistry.all().map { it.entity to it.vehicle }),
+            ) ?: return false
+        if (Vehicle.hasActiveDriver(target.entity)) {
+            target.vehicle.onPassengerEnter(player, target.entity)
+        } else {
+            target.vehicle.onEnter(player, target.entity)
+        }
+        return true
+    }
+
     internal fun findWaterPlacementPosition(
         instance: Instance,
         eyePosition: Pos,
@@ -82,15 +100,18 @@ object VehicleListener {
 
     fun onEntityDespawn(event: EntityDespawnEvent) {
         Vehicle.invalidateEntity(event.entity)
+        VehicleRegistry.remove(event.entity)
     }
 
     fun onEntityRemovedFromInstance(event: RemoveEntityFromInstanceEvent) {
         Vehicle.invalidateEntity(event.entity)
+        VehicleRegistry.runtime(event.entity)?.removeCollisionHitbox()
     }
 
     fun init() {
         Combat.eventNode.addListener(PlayerUseItemOnBlockEvent::class.java, VehicleListener::onPlayerUseItemOnBlock)
         Combat.eventNode.addListener(PlayerUseItemEvent::class.java, VehicleListener::onPlayerUseItem)
+        Combat.eventNode.addListener(PlayerEntityInteractEvent::class.java, VehicleListener::onPlayerEntityInteract)
         Combat.eventNode.addListener(EntityDespawnEvent::class.java, VehicleListener::onEntityDespawn)
         Combat.eventNode.addListener(RemoveEntityFromInstanceEvent::class.java, VehicleListener::onEntityRemovedFromInstance)
     }

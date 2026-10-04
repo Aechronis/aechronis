@@ -50,6 +50,7 @@ class AutomaticFieldPiece(
     animatedParts: List<AnimatedPart> = emptyList(),
     val maxYaw: Float = 180f,
     val barrelPivotOffset: Vec = Vec.ZERO,
+    collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
 ) : FieldPiece(
         name = name,
         itemName = itemName,
@@ -66,9 +67,11 @@ class AutomaticFieldPiece(
         moveSpeed = moveSpeed,
         turnSpeed = turnSpeed,
         animatedParts = animatedParts,
+        collisionHitbox = collisionHitbox,
     ),
     ArmedVehicle {
     override val ammo: Ammo get() = gun.ammo
+    override val reloadTime: Long get() = gun.reloadTime
 
     private data class Runtime(
         val barrel: Entity,
@@ -78,6 +81,7 @@ class AutomaticFieldPiece(
     private val runtimes = HashMap<Entity, Runtime>()
 
     init {
+        require(reloadTime >= 0) { "AutomaticFieldPiece reloadTime must not be negative" }
         require(traverseSpeed.isFinite() && traverseSpeed > 0f) { "AutomaticFieldPiece traverseSpeed must be positive and finite" }
         require(maxYaw.isFinite() && maxYaw in 0f..180f) { "AutomaticFieldPiece maxYaw must be within 0 to 180 degrees" }
         require(minPitch.isFinite() && maxPitch.isFinite() && minPitch >= -90f && maxPitch <= 90f && minPitch <= maxPitch) {
@@ -146,10 +150,7 @@ class AutomaticFieldPiece(
         val now = System.currentTimeMillis()
         val last = runtime.lastFireTime
         if (last != null && now - last < gun.cooldown) return
-        if ((getAmmo(body) ?: 0) <= 0) {
-            reloadAmmoIfEmpty(player, body)
-            return
-        }
+        if (!hasReadyAmmo(player, body)) return
         val instance = body.instance ?: return
         val tip = rotatePoint(barrelTipOffset, barrelPos.yaw, barrelPos.pitch, 0f)
         val muzzle = barrelPos.add(tip).withView(barrelPos.yaw, barrelPos.pitch)

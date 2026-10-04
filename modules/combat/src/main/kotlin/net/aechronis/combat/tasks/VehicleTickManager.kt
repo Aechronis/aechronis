@@ -3,6 +3,7 @@ package net.aechronis.combat.tasks
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Hitbox
+import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.objects.VehicleSeatRole
@@ -20,6 +21,7 @@ import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.instance.Instance
 import net.minestom.server.particle.Particle
 import net.minestom.server.timer.TaskSchedule
+import kotlin.math.abs
 import kotlin.math.ceil
 
 object VehicleTickManager {
@@ -34,7 +36,13 @@ object VehicleTickManager {
         val player: Player,
     )
 
-    private val previousVehiclePositions = HashMap<Entity, Pos>()
+    private data class VehiclePose(
+        val position: Pos,
+        val roll: Float,
+        val instance: Instance?,
+    )
+
+    private val previousVehiclePoses = HashMap<Entity, VehiclePose>()
     private val lastImpacts = HashMap<ImpactKey, Long>()
     private val collisionIndex = VehicleCollisionIndex()
 
@@ -48,6 +56,7 @@ object VehicleTickManager {
 
                 // tick occupied vehicles
                 for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.DRIVER }) {
+                    ride.vehicle.updateAmmoReload(ride.player)
                     ride.vehicle.onTick(ride.player)
                 }
 
@@ -58,17 +67,25 @@ object VehicleTickManager {
                 }
 
                 val vehicles = VehicleRegistry.all()
-                vehicles.forEach { it.updateAnimatedParts() }
+                vehicles.forEach {
+                    it.updateAnimatedParts()
+                    it.updateCollisionHitbox()
+                }
                 val vehicleLookIndex = prepareVehicleLookIndex(vehicles.map { it.entity to it.vehicle })
                 val activeEntities = vehicles.map { it.entity }.toSet()
                 collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)
 
-                // Keep players outside every vehicle model and handle moving impacts.
+                // Clients collide with the shulkers. Resolve overlaps/moving impacts
+                // against those same cubes, independently of interaction/damage hitboxes.
                 for (runtime in vehicles) {
-                    handlePlayerCollisions(runtime.entity, runtime.vehicle, previousVehiclePositions[runtime.entity], collisionIndex)
+                    val previous = previousVehiclePoses[runtime.entity]?.takeIf { it.instance === runtime.entity.instance }
+                    handlePlayerCollisions(runtime.entity, runtime.vehicle, previous, collisionIndex)
                 }
-                previousVehiclePositions.keys.removeIf { it !in activeEntities }
-                for (runtime in vehicles) previousVehiclePositions[runtime.entity] = runtime.entity.position
+                previousVehiclePoses.keys.removeIf { it !in activeEntities }
+                for (runtime in vehicles) {
+                    previousVehiclePoses[runtime.entity] =
+                        VehiclePose(runtime.entity.position, runtime.vehicle.hitboxRoll(runtime.entity), runtime.entity.instance)
+                }
                 lastImpacts.keys.removeIf { it.vehicle !in activeEntities }
 
                 // render hitboxes for all vehicles
@@ -293,7 +310,7 @@ object VehicleTickManager {
     }
 
     fun shutdown() {
-        previousVehiclePositions.clear()
+        previousVehiclePoses.clear()
         lastImpacts.clear()
         playerLookingAtVehicle.clear()
         playerLookingAtEntity.clear()
@@ -303,11 +320,12 @@ object VehicleTickManager {
     private fun handlePlayerCollisions(
         entity: Entity,
         vehicle: Vehicle,
-        previousPosition: Pos?,
+        previousPose: VehiclePose?,
         collisionIndex: VehicleCollisionIndex,
     ) {
         val instance = entity.instance ?: return
         val position = entity.position
+        val previousPosition = previousPose?.position
         val movement =
             if (previousPosition == null) {
                 Vec.ZERO
@@ -321,42 +339,19 @@ object VehicleTickManager {
         val impactSpeed = movement.length()
         val roll = vehicle.hitboxRoll(entity)
         val now = System.currentTimeMillis()
-        val broadphaseBounds = VehicleCollisionIndex.sweptBounds(vehicle, position, previousPosition, roll)
+        val shapes = prepareCollisionSweep(vehicle.collisionHitbox, position, roll, previousPosition, previousPose?.roll ?: roll)
+        val broadphaseBounds = VehicleCollisionIndex.sweptBounds(shapes) ?: return
 
         collisionIndex.forEachCandidate(instance, broadphaseBounds) { player ->
-            fun collisionAt(checkPosition: Pos) =
-                vehicle.hitbox.resolveCollision(
-                    checkPosition,
-                    position.yaw,
-                    position.pitch,
-                    roll,
-                    player.position,
-                    player.boundingBox.relativeStart(),
-                    player.boundingBox.relativeEnd(),
-                )
-
-            // Fast vehicles can move through a player's current position in one
-            // tick, so sample the swept path when the final position is clear.
-            var collision = collisionAt(position)
-            if (collision == null && previousPosition != null) {
-                val samples = ceil(impactSpeed).toInt().coerceIn(1, 32)
-                for (sample in samples - 1 downTo 1) {
-                    val factor = sample.toDouble() / samples
-                    val samplePosition =
-                        Pos(
-                            previousPosition.x + movement.x * factor,
-                            previousPosition.y + movement.y * factor,
-                            previousPosition.z + movement.z * factor,
-                            position.yaw,
-                            position.pitch,
-                        )
-                    collision = collisionAt(samplePosition)
-                    if (collision != null) break
-                }
-            }
-            collision ?: return@forEachCandidate
+            val collision =
+                shapes.firstNotNullOfOrNull {
+                    it.resolveCollision(player.position, player.boundingBox.relativeStart(), player.boundingBox.relativeEnd())
+                } ?: return@forEachCandidate
 
             player.teleport(collision.position)
+            // The top is a walkable surface, not a side impact. Do not launch or
+            // damage someone landing on a vehicle or being lifted by its deck.
+            if (collision.normal.y > 0.5) return@forEachCandidate
             applyImpactVelocity(player, collision.normal, movement, position)
 
             if (vehicle is Car || impactSpeed < MIN_IMPACT_SPEED) return@forEachCandidate
@@ -378,6 +373,44 @@ object VehicleTickManager {
                 Damage(DamageType.CRAMMING, driver, driver, position, amount)
                     .withCombatAttribution(CombatDamageKind.VEHICLE)
             Combat.applyDamage(player, damage, now)
+        }
+    }
+
+    internal fun prepareCollisionSweep(
+        hitbox: ShulkerHitbox,
+        position: Pos,
+        roll: Float,
+        previousPosition: Pos?,
+        previousRoll: Float,
+    ): List<ShulkerHitbox.Shape> {
+        if (previousPosition == null) return listOf(hitbox.at(position, roll))
+
+        fun angleDelta(
+            current: Float,
+            previous: Float,
+        ): Float = ((current - previous + 180f) % 360f + 360f) % 360f - 180f
+        val yawDelta = angleDelta(position.yaw, previousPosition.yaw)
+        val pitchDelta = angleDelta(position.pitch, previousPosition.pitch)
+        val rollDelta = angleDelta(roll, previousRoll)
+        val travel =
+            position.distance(previousPosition) +
+                hitbox.radius * Math.toRadians((abs(yawDelta) + abs(pitchDelta) + abs(rollDelta)).toDouble())
+        val samples = ceil(travel / 0.25).toInt().coerceIn(1, 128)
+        return (samples downTo 1).map { sample ->
+            if (sample == samples) {
+                hitbox.at(position, roll)
+            } else {
+                val factor = sample.toDouble() / samples
+                val pose =
+                    Pos(
+                        previousPosition.x + (position.x - previousPosition.x) * factor,
+                        previousPosition.y + (position.y - previousPosition.y) * factor,
+                        previousPosition.z + (position.z - previousPosition.z) * factor,
+                        previousPosition.yaw + yawDelta * factor.toFloat(),
+                        previousPosition.pitch + pitchDelta * factor.toFloat(),
+                    )
+                hitbox.at(pose, previousRoll + rollDelta * factor.toFloat())
+            }
         }
     }
 

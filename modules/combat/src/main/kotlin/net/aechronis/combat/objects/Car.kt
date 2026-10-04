@@ -36,6 +36,7 @@ open class Car(
     invisibleWhileRiding: Boolean = false,
     invulnerableWhileRiding: Boolean = false,
     animatedParts: List<AnimatedPart> = emptyList(),
+    collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
 ) : Vehicle(
         name,
         itemName,
@@ -50,6 +51,7 @@ open class Car(
         invisibleWhileRiding,
         invulnerableWhileRiding,
         animatedParts,
+        collisionHitbox,
     ) {
     override fun onEnter(
         player: Player,

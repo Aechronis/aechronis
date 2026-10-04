@@ -6,6 +6,7 @@ import net.aechronis.combat.objects.AmmoTypes
 import net.aechronis.combat.objects.AnimatedPart
 import net.aechronis.combat.objects.Explosion
 import net.aechronis.combat.objects.Hitbox
+import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.utils.rotatePoint
@@ -78,6 +79,7 @@ class Drone(
     // replay length for buzz
     val buzzPeriodTicks: Int = 20,
     animatedParts: List<AnimatedPart> = emptyList(),
+    collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
 ) : Vehicle(
         name,
         itemName,
@@ -89,6 +91,7 @@ class Drone(
         null,
         placeTime,
         animatedParts = animatedParts,
+        collisionHitbox = collisionHitbox,
     ) {
     val rawHealth: Float = health
 

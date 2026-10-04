@@ -15,6 +15,7 @@ import net.aechronis.combat.listeners.HatListener
 import net.aechronis.combat.objects.Explosion
 import net.aechronis.combat.objects.HatMenu
 import net.aechronis.combat.objects.Hitbox
+import net.aechronis.combat.objects.VehicleCollisionEntity
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.utils.Message
 import net.aechronis.utils.Command
@@ -87,6 +88,11 @@ class CombatAdminHitboxCommand : Command("hitbox", "combat.admin") {
                 Hitbox.viewingHitboxes.add(player)
                 Message.print(player, "Hitbox visualization enabled")
             }
+            player.instance
+                ?.entities
+                ?.filterIsInstance<VehicleCollisionEntity>()
+                ?.filter { it.isViewer(player) }
+                ?.forEach { it.updateHitboxVisibility(player) }
         }
     }
 }
