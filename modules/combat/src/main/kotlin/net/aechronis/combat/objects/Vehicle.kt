@@ -508,23 +508,64 @@ open class Vehicle(
     /** Returns the current magazine size for an armed vehicle, or null for an unarmed vehicle. */
     fun getAmmo(entity: Entity): Int? = VehicleRegistry.runtime(entity)?.ammo
 
-    /**
-     * Refills an empty vehicle magazine from the driver's inventory.
-     * An empty attempt starts the reload but does not fire until the next tick.
-     */
-    protected fun reloadAmmoIfEmpty(
+    /** Advances reloading independently of fire input, consuming inventory ammo only on completion. */
+    internal fun updateAmmoReload(
         player: Player,
-        entity: Entity,
+        now: Long = System.currentTimeMillis(),
     ) {
         val armedVehicle = this as? ArmedVehicle ?: return
-        val runtime = VehicleRegistry.runtime(entity) ?: return
+        val ride = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this } ?: return
+        val runtime = ride.runtime
         val current = runtime.ammo ?: return
-        if (current > 0) return
+        if (current == 0 && armedVehicle.ammo[player] == 0) {
+            if (runtime.reloadStartedAt != null) player.clearTitle()
+            runtime.reloadStartedAt = null
+            return
+        }
+
+        val startedAt =
+            runtime.reloadStartedAt ?: run {
+                if (current > 0) return
+                runtime.reloadStartedAt = now
+                now
+            }
+        val elapsed = now - startedAt
+        if (elapsed >= armedVehicle.reloadTime) {
+            if (current == 0) {
+                armedVehicle.ammo[player] -= 1
+                runtime.refillAmmo()
+            }
+            runtime.reloadStartedAt = null
+            ride.clearEmptyAmmoFeedback()
+            player.clearTitle()
+            return
+        }
+
+        val progress = (elapsed.toDouble() / armedVehicle.reloadTime.toDouble()).coerceIn(0.0, 1.0)
+        player.showTitle(
+            Title.title(
+                Component.empty(),
+                Message.progressBar(progress).shadowColor(ShadowColor.none()),
+                0,
+                3,
+                10,
+            ),
+        )
+    }
+
+    protected fun hasReadyAmmo(
+        player: Player,
+        entity: Entity,
+    ): Boolean {
+        val armedVehicle = this as? ArmedVehicle ?: return false
+        val runtime = VehicleRegistry.runtime(entity) ?: return false
+        if (runtime.reloadStartedAt != null) return false
+        if ((runtime.ammo ?: 0) > 0) return true
 
         if (armedVehicle.ammo[player] == 0) {
             val now = System.currentTimeMillis()
-            val ride = VehicleRegistry.driver(player) ?: return
-            if (!ride.canReportEmptyAmmo(now)) return
+            val ride = VehicleRegistry.driver(player) ?: return false
+            if (!ride.canReportEmptyAmmo(now)) return false
             player.showTitle(
                 Title.title(
                     Component.empty(),
@@ -534,16 +575,26 @@ open class Vehicle(
                     10,
                 ),
             )
-            return
         }
-
-        VehicleRegistry.driver(player)?.clearEmptyAmmoFeedback()
-        armedVehicle.ammo[player] -= 1
-        runtime.refillAmmo()
+        return false
     }
 
-    /** Called after a successful shot to remove one round from the vehicle magazine. */
-    protected fun consumeAmmo(entity: Entity): Boolean = VehicleRegistry.runtime(entity)?.consumeAmmo() == true
+    /** Starts reloading after the last round, or after every shot for single-shot weapons. */
+    protected fun consumeAmmo(
+        entity: Entity,
+        reloadAfterShot: Boolean = false,
+    ): Boolean {
+        val runtime = VehicleRegistry.runtime(entity) ?: return false
+        if (!runtime.consumeAmmo()) return false
+        if (reloadAfterShot || runtime.ammo == 0) {
+            val armedVehicle = this as? ArmedVehicle ?: return true
+            val player = VehicleRegistry.driverOf(entity)?.player ?: return true
+            if ((runtime.ammo ?: 0) > 0 || armedVehicle.ammo[player] > 0) {
+                runtime.reloadStartedAt = System.currentTimeMillis()
+            }
+        }
+        return true
+    }
 
     // called when the vehicle takes damage
     open fun takeDamage(

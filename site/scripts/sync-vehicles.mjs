@@ -83,6 +83,7 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
       add('Armament', displayName(mountedGun.itemName))
       add('Gun damage', number(mountedGun.damage, `${id}/gun damage`))
       add('Gun fire rate', `${Math.round(60_000 / number(mountedGun.cooldown, `${id}/gun cooldown`))} RPM`)
+      add('Reload time', `${format(number(mountedGun.reloadTime, `${id}/reloadTime`) / 1000)} s`)
     } else if (value('ammo')) {
       const ammo = ammoNames.get(value('ammo'))
       if (!ammo) throw new Error(`Unknown ammunition: ${value('ammo')}`)
@@ -103,7 +104,7 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
       add('Armament', args.bomb ? 'Bombs' : 'Cannon')
       add('Explosion damage', n('projectileExplosionDamage'))
       add('Explosion radius', `${format(n('projectileExplosionRadius'))} blocks`)
-      add('Firing cooldown', `${format(n('fireCooldown') / 1000)} s`)
+      add('Reload time', `${format(n('reloadTime') / 1000)} s`)
       add('Projectile range', `${format(n('projectileMaxRange'))} blocks`)
     }
     if (args.weapons) {

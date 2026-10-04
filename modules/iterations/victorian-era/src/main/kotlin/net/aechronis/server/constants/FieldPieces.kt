@@ -50,7 +50,7 @@ object FieldPieces {
             projectileExplosionFire = 0.0,
             projectileExplosionDamage = 80F,
             barrelTipOffset = Vec(0.0, 1.0, 1.8),
-            fireCooldown = 10000,
+            reloadTime = 10000,
             projectileTrailParticle = Particle.SMOKE,
             projectileMaxRange = 256.0,
             moveSpeed = 0.035,

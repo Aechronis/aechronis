@@ -2,12 +2,9 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
-import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.rotatePoint
 import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.format.ShadowColor
-import net.kyori.adventure.title.Title
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -49,7 +46,7 @@ class Cannon(
     override val ammo: Ammo,
     override val maxAmmo: Int = 1,
     val barrelTipOffset: Vec = Vec(0.0, 0.0, 5.0),
-    val fireCooldown: Long = 20000,
+    override val reloadTime: Long = 20000,
     seatOffsets: List<Vec> =
         listOf(
             Vec(0.0, -hitbox.getGroundOffset(), (hitbox.parts.minOfOrNull { it.offset.z - it.size.z } ?: 0.0) - 0.5),
@@ -84,7 +81,6 @@ class Cannon(
     ArmedVehicle {
     private data class CannonRuntime(
         val barrel: Entity,
-        var lastFireTime: Long? = null,
     )
 
     private val runtimes = HashMap<Entity, CannonRuntime>()
@@ -95,7 +91,7 @@ class Cannon(
         require(minPitch.isFinite() && maxPitch.isFinite() && minPitch >= -90f && maxPitch <= 90f && minPitch <= maxPitch) {
             "Cannon pitch limits must be ordered within -90 to 90 degrees"
         }
-        require(fireCooldown >= 0) { "Cannon fireCooldown must not be negative" }
+        require(reloadTime >= 0) { "Cannon reloadTime must not be negative" }
         require(maxAmmo > 0) { "Cannon maxAmmo must be greater than zero" }
         require(projectileSpeed > 0.0 && projectileSpeed.isFinite()) {
             "Cannon projectileSpeed must be positive and finite"
@@ -156,24 +152,6 @@ class Cannon(
         if (inputEvent?.isHoldingJumpKey == true) {
             fire(player, entity, pos, newYaw, newPitch)
         }
-
-        // progress bar
-        val last = runtime.lastFireTime
-        if (last != null) {
-            val elapsed = System.currentTimeMillis() - last
-            if (elapsed < fireCooldown) {
-                val progress = (elapsed.toDouble() / fireCooldown.toDouble()).coerceIn(0.0, 1.0)
-                player.showTitle(
-                    Title.title(
-                        Component.empty(),
-                        Message.progressBar(progress).shadowColor(ShadowColor.none()),
-                        0,
-                        3,
-                        10,
-                    ),
-                )
-            }
-        }
     }
 
     private fun fire(
@@ -183,15 +161,7 @@ class Cannon(
         yaw: Float,
         pitch: Float,
     ) {
-        val now = System.currentTimeMillis()
-        val runtime = runtimes[body] ?: return
-        val last = runtime.lastFireTime
-        if (last != null && now - last < fireCooldown) return
-
-        if ((getAmmo(body) ?: 0) <= 0) {
-            reloadAmmoIfEmpty(player, body)
-            return
-        }
+        if (!hasReadyAmmo(player, body)) return
 
         val instance = body.instance ?: return
 
@@ -243,8 +213,7 @@ class Cannon(
             )
         }
 
-        consumeAmmo(body)
-        runtime.lastFireTime = now
+        consumeAmmo(body, reloadAfterShot = true)
     }
 
     override fun cleanupRuntime(entity: Entity) {

@@ -50,6 +50,7 @@ internal class VehicleRuntime(
             require(it > 0) { "Vehicle maxAmmo must be greater than zero" }
         }
     private var currentAmmo: Int? = ammoCapacity
+    var reloadStartedAt: Long? = null
 
     val health: Float? get() = healthState?.health
     val maxHealth: Float? get() = healthState?.maxHealth

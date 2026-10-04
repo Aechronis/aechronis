@@ -80,7 +80,7 @@ object Tanks {
             projectileName = Component.text("T-90 cannon"),
             projectileExplosionDamage = 200f,
             projectileExplosionRadius = 4,
-            fireCooldown = 5000,
+            reloadTime = 5000,
             barrelTipOffset = Vec(0.0, 0.0, 5.0),
         )
 }

@@ -2,12 +2,9 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
-import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.rotatePoint
 import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.format.ShadowColor
-import net.kyori.adventure.title.Title
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -50,7 +47,7 @@ class Tank(
     override val ammo: Ammo,
     override val maxAmmo: Int,
     val barrelTipOffset: Vec = Vec(0.0, 0.0, 5.0),
-    val fireCooldown: Long = 20000,
+    override val reloadTime: Long = 20000,
     seatOffsets: List<Vec> = listOf(Vec.ZERO),
     invisibleWhileRiding: Boolean = true,
     invulnerableWhileRiding: Boolean = true,
@@ -82,6 +79,7 @@ class Tank(
     ),
     ArmedVehicle {
     init {
+        require(reloadTime >= 0) { "Tank reloadTime must not be negative" }
         require(maxAmmo > 0) { "Tank maxAmmo must be greater than zero" }
         require(projectileSpeed > 0.0 && projectileSpeed.isFinite()) {
             "Tank projectileSpeed must be positive and finite"
@@ -166,24 +164,6 @@ class Tank(
         if (inputEvent?.isHoldingJumpKey == true) {
             fire(player, entity, pos, newYaw, newPitch)
         }
-
-        // progress bar
-        val last = lastFireTime[entity]
-        if (last != null) {
-            val elapsed = System.currentTimeMillis() - last
-            if (elapsed < fireCooldown) {
-                val progress = (elapsed.toDouble() / fireCooldown.toDouble()).coerceIn(0.0, 1.0)
-                player.showTitle(
-                    Title.title(
-                        Component.empty(),
-                        Message.progressBar(progress).shadowColor(ShadowColor.none()),
-                        0,
-                        3,
-                        10,
-                    ),
-                )
-            }
-        }
     }
 
     private fun fire(
@@ -193,14 +173,7 @@ class Tank(
         yaw: Float,
         pitch: Float,
     ) {
-        val now = System.currentTimeMillis()
-        val last = lastFireTime[body] ?: 0L
-        if (now - last < fireCooldown) return
-
-        if ((getAmmo(body) ?: 0) <= 0) {
-            reloadAmmoIfEmpty(player, body)
-            return
-        }
+        if (!hasReadyAmmo(player, body)) return
 
         val instance = body.instance ?: return
 
@@ -252,8 +225,7 @@ class Tank(
             )
         }
 
-        consumeAmmo(body)
-        lastFireTime[body] = now
+        consumeAmmo(body, reloadAfterShot = true)
     }
 
     override fun cleanupRuntime(entity: Entity) {
@@ -261,7 +233,6 @@ class Tank(
         entityBarrel.remove(entity)?.remove()
         yaw.remove(entity)
         pitch.remove(entity)
-        lastFireTime.remove(entity)
     }
 
     override fun destroy(
@@ -297,8 +268,6 @@ class Tank(
         val yaw = hashMapOf<Entity, Float>()
         val pitch = hashMapOf<Entity, Float>()
 
-        val lastFireTime = hashMapOf<Entity, Long>()
-
         internal fun shutdownRuntimeState() {
             entityTurret.values.toSet().forEach(Entity::remove)
             entityBarrel.values.toSet().forEach(Entity::remove)
@@ -306,7 +275,6 @@ class Tank(
             entityBarrel.clear()
             yaw.clear()
             pitch.clear()
-            lastFireTime.clear()
         }
     }
 }

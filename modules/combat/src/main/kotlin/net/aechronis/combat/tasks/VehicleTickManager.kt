@@ -48,6 +48,7 @@ object VehicleTickManager {
 
                 // tick occupied vehicles
                 for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.DRIVER }) {
+                    ride.vehicle.updateAmmoReload(ride.player)
                     ride.vehicle.onTick(ride.player)
                 }
 

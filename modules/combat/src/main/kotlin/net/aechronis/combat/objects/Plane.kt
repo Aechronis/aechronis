@@ -44,7 +44,7 @@ data class PlaneBombWeapon(
     val projectileExplosionRadius: Int = 4,
     val projectileExplosionFire: Double = 0.1,
     val projectileExplosionDamage: Float = 20f,
-    val fireCooldown: Long = 20_000,
+    val reloadTime: Long = 20_000,
     val projectileTrailParticle: Particle? = Particle.ELECTRIC_SPARK,
     val projectileTrailSpacing: Double = 1.0,
     val projectileTrailMaxParticles: Int = 96,
@@ -61,7 +61,7 @@ data class PlaneBombWeapon(
         require(projectileMaxRange > 0.0 && projectileMaxRange.isFinite()) {
             "Plane bomb projectileMaxRange must be positive and finite"
         }
-        require(fireCooldown >= 0) { "Plane bomb fireCooldown cannot be negative" }
+        require(reloadTime >= 0) { "Plane bomb reloadTime cannot be negative" }
     }
 }
 
@@ -115,7 +115,10 @@ class Plane(
         animatedParts,
     ),
     ArmedVehicle {
+    override val reloadTime: Long = bomb?.reloadTime ?: weapons.maxOfOrNull { it.gun.reloadTime } ?: 0L
+
     init {
+        require(reloadTime >= 0) { "Plane reloadTime must not be negative" }
         require(maxAmmo > 0) { "Plane maxAmmo must be greater than zero" }
         require(divePitch in 0f..90f) { "Plane divePitch must be between 0 and 90" }
         require(divePitchSpeed > 0f && divePitchSpeed.isFinite()) { "Plane divePitchSpeed must be positive and finite" }
@@ -190,7 +193,6 @@ class Plane(
     }
 
     override fun cleanupRuntime(entity: Entity) {
-        lastBombFireTime.remove(entity)
         entityDives.remove(entity)
         destroyingEntities.remove(entity)
     }
@@ -434,10 +436,7 @@ class Plane(
         if (weapons.isEmpty()) return
 
         val entity = VehicleRegistry.driver(player)?.entity ?: return
-        if ((getAmmo(entity) ?: 0) <= 0) {
-            reloadAmmoIfEmpty(player, entity)
-            return
-        }
+        if (!hasReadyAmmo(player, entity)) return
 
         val position = entity.position
         val roll = playerRoll[player] ?: 0f
@@ -471,13 +470,7 @@ class Plane(
     private fun fireBomb(player: Player) {
         val bomb = bomb ?: return
         val entity = VehicleRegistry.driver(player)?.entity ?: return
-        val now = System.currentTimeMillis()
-        if (now - (lastBombFireTime[entity] ?: 0L) < bomb.fireCooldown) return
-
-        if ((getAmmo(entity) ?: 0) <= 0) {
-            reloadAmmoIfEmpty(player, entity)
-            return
-        }
+        if (!hasReadyAmmo(player, entity)) return
 
         val instance = entity.instance ?: return
         val position = entity.position
@@ -528,8 +521,7 @@ class Plane(
             )
         }
 
-        consumeAmmo(entity)
-        lastBombFireTime[entity] = now
+        consumeAmmo(entity, reloadAfterShot = true)
     }
 
     companion object {
@@ -538,7 +530,6 @@ class Plane(
         var takeoffCounter = hashMapOf<Player, Int>()
         var playerThrottle = hashMapOf<Player, Float>()
         var playerBombFireHeld = hashMapOf<Player, Boolean>()
-        var lastBombFireTime = hashMapOf<Entity, Long>()
         private val entityDives = HashMap<Entity, DiveState>()
         private val destroyingEntities = HashSet<Entity>()
 
@@ -548,7 +539,6 @@ class Plane(
             takeoffCounter.clear()
             playerThrottle.clear()
             playerBombFireHeld.clear()
-            lastBombFireTime.clear()
             entityDives.clear()
             destroyingEntities.clear()
         }

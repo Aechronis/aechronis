@@ -4,4 +4,5 @@ package net.aechronis.combat.objects
 interface ArmedVehicle {
     val ammo: Ammo
     val maxAmmo: Int
+    val reloadTime: Long
 }
