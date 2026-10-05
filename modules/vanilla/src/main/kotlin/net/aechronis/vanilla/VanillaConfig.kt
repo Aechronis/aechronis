@@ -54,6 +54,7 @@ data class VanillaConfig(
     val kothsPath: String = "koth.json",
     val votePath: String = "vote.txt",
     val warpsPath: String = "warps.json",
+    val musicPath: String = "music",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),
     // Food
