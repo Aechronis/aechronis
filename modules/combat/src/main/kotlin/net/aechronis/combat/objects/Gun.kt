@@ -94,7 +94,7 @@ class Gun(
     val falloffEnd: Double = maxRange,
     /** 1 disables falloff. */
     val falloffMinMultiplier: Float = 1F,
-    /** Whether riders of living mounts may fire it; they do so with [Mounts.SPREAD_MULTIPLIER] × spread. */
+    /** Whether riders of living mounts may fire it. */
     val mountable: Boolean = false,
 ) : Item(
         name,
@@ -301,9 +301,7 @@ class Gun(
         // Calculate position to fire bullets (rays) from. ADS only affects handheld shots,
         // matching the state which displays the aiming animation.
         val speed = Combat.playerSpeeds[player] ?: 0F
-        val aimingMultiplier =
-            aimingMultiplier(firePos == null && Combat.playerAiming[player] == true) *
-                (if (mount != null) Mounts.SPREAD_MULTIPLIER else 1F)
+        val aimingMultiplier = aimingMultiplier(firePos == null && Combat.playerAiming[player] == true)
         // A rider's shots start above their own mount and must not hit it.
         val ignored = if (mount != null) ignoredEntities + mount else ignoredEntities
         val origin = firePos ?: player.position.add(0.0, player.eyeHeight, 0.0)

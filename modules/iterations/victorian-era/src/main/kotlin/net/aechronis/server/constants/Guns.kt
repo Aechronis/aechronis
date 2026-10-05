@@ -226,6 +226,7 @@ object Guns {
             maxRange = 192.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     val chassepotCarbine =

@@ -55,7 +55,7 @@ object HorseListener {
             when (held.material()) {
                 Material.GOLDEN_CARROT, Material.GOLDEN_APPLE -> Horses.feed(horse, held)
                 Material.SADDLE -> Horses.saddle(horse)
-                Material.SHEARS -> unsaddle(player, horse)
+                Material.SHEARS -> unsaddle(player, horse) || mount(player, horse)
                 else -> mount(player, horse)
             }
         if (used && held.material() in CONSUMED && player.gameMode != GameMode.CREATIVE) {
@@ -79,24 +79,25 @@ object HorseListener {
     ): Boolean {
         // Sneaking leaves room to interact with a horse without getting on it.
         if (player.isSneaking) return false
-        val result = Horses.mount(player, horse)
-        val cooldownSeconds = ceil(Horses.mountCooldownMillis(player) / 1000.0).toInt()
-        val error =
-            when (result) {
-                Horses.MountResult.MOUNTED, Horses.MountResult.OCCUPIED -> null
-                Horses.MountResult.FOAL -> "Foals are too young to ride."
-                Horses.MountResult.NO_SADDLE -> "This horse needs a saddle."
-                Horses.MountResult.COOLDOWN -> "You can mount a horse again in ${cooldownSeconds}s."
+        when (Horses.mount(player, horse)) {
+            Horses.MountResult.MOUNTED -> return true
+            Horses.MountResult.OCCUPIED -> {}
+            // Unsaddled horses show their stats instead.
+            Horses.MountResult.NO_SADDLE -> Horses.openStats(player, horse)
+            Horses.MountResult.COOLDOWN -> {
+                val cooldownSeconds = ceil(Horses.mountCooldownMillis(player) / 1000.0).toInt()
+                player.sendMessage(Component.text("You can mount a horse again in ${cooldownSeconds}s.", NamedTextColor.RED))
             }
-        error?.let { player.sendMessage(Component.text(it, NamedTextColor.RED)) }
-        return result == Horses.MountResult.MOUNTED
+        }
+        return false
     }
 
     // Riders' clients ask the server for the horse's inventory instead of opening their own.
     fun onPacket(event: PlayerPacketEvent) {
         val packet = event.packet as? ClientEntityActionPacket ?: return
         if (packet.action() != ClientEntityActionPacket.Action.OPEN_HORSE_INVENTORY) return
-        if (Horses.isHorse(event.player.vehicle)) Horses.openStats(event.player)
+        val horse = event.player.vehicle as? EntityCreature ?: return
+        if (Horses.isHorse(horse)) Horses.openStats(event.player, horse)
     }
 
     fun onPreClick(event: InventoryPreClickEvent) {

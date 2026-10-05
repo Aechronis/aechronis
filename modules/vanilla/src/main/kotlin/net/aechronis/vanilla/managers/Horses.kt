@@ -14,6 +14,7 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EntityCreature
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.EquipmentSlot
+import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.entity.metadata.animal.HorseMeta
@@ -31,8 +32,13 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.floor
+import kotlin.math.hypot
+import kotlin.math.sin
 import kotlin.random.Random
 
 /**
@@ -44,7 +50,6 @@ object Horses {
     private const val FORMAT_VERSION = 1
     private const val STAT_MULTIPLIER = 1.2
     private const val TICK_MS = 1_000L
-    private const val GROWTH_MS = 20 * 60_000L
     private const val LOVE_MS = 30_000L
     private const val BREED_COOLDOWN_MS = 5 * 60_000L
     private const val BREED_RANGE = 8.0
@@ -52,6 +57,12 @@ object Horses {
     private const val CROWD_LIMIT = 12
     private const val GOLDEN_CARROT_HEAL = 4f
     private const val GOLDEN_APPLE_HEAL = 10f
+
+    // Unridden horses are pushed apart from each other and from players walking into them.
+    private const val HORSE_SPACING = 1.4
+    private const val PLAYER_SPACING = 1.0
+    private const val PUSH_STRENGTH = 8.0
+    private const val MAX_PUSH_SPEED = 4.0
 
     // Minestom's default for horses, as in vanilla.
     private const val GRAVITY = 0.08
@@ -82,7 +93,6 @@ object Horses {
         val variant: String,
         val marking: String,
         val saddled: Boolean,
-        val growthRemainingMs: Long,
         val breedCooldownMs: Long,
     )
 
@@ -93,13 +103,10 @@ object Horses {
         val variant: HorseMeta.Variant,
         val marking: HorseMeta.Marking,
         var saddled: Boolean = false,
-        var growthRemainingMs: Long = 0,
         var breedCooldownMs: Long = 0,
         var loveRemainingMs: Long = 0,
         var rider: Player? = null,
-    ) {
-        val isFoal: Boolean get() = growthRemainingMs > 0
-    }
+    )
 
     private data class ChunkKey(
         val x: Int,
@@ -114,6 +121,7 @@ object Horses {
     private lateinit var file: Path
     private lateinit var world: Instance
     private var tickTask: Task? = null
+    private var pushTask: Task? = null
 
     fun init(
         path: Path,
@@ -129,6 +137,7 @@ object Horses {
                 .delay(TaskSchedule.millis(TICK_MS))
                 .repeat(TaskSchedule.millis(TICK_MS))
                 .schedule()
+        pushTask = ModuleScheduler.buildTask { pushApart() }.repeat(TaskSchedule.tick(1)).schedule()
     }
 
     fun isHorse(entity: Any?): Boolean = entity is EntityCreature && horses.containsKey(entity)
@@ -167,7 +176,6 @@ object Horses {
         horse.editEntityMeta(HorseMeta::class.java) { meta ->
             // Tamed horses can be steered by their rider once saddled.
             meta.isTamed = true
-            meta.isBaby = data.isFoal
             meta.setVariantAndMarking(data.variant, data.marking)
         }
         if (data.saddled) horse.setEquipment(EquipmentSlot.SADDLE, ItemStack.of(Material.SADDLE))
@@ -197,7 +205,7 @@ object Horses {
             horse.health = (horse.health + heal).coerceAtMost(data.maxHealth.toFloat())
             used = true
         }
-        if (!data.isFoal && data.breedCooldownMs <= 0 && data.loveRemainingMs <= 0) {
+        if (data.breedCooldownMs <= 0 && data.loveRemainingMs <= 0) {
             data.loveRemainingMs = LOVE_MS
             showHearts(horse)
             used = true
@@ -210,7 +218,7 @@ object Horses {
     /** Returns true when a saddle was put on the horse. */
     fun saddle(horse: EntityCreature): Boolean {
         val data = horses[horse] ?: return false
-        if (data.saddled || data.isFoal) return false
+        if (data.saddled) return false
         data.saddled = true
         horse.setEquipment(EquipmentSlot.SADDLE, ItemStack.of(Material.SADDLE))
         // Saved now so a crash can't separate the saddle from the player's saved inventory.
@@ -230,7 +238,6 @@ object Horses {
 
     enum class MountResult {
         MOUNTED,
-        FOAL,
         NO_SADDLE,
         OCCUPIED,
         COOLDOWN,
@@ -241,7 +248,6 @@ object Horses {
         horse: EntityCreature,
     ): MountResult {
         val data = horses[horse] ?: return MountResult.OCCUPIED
-        if (data.isFoal) return MountResult.FOAL
         if (!data.saddled) return MountResult.NO_SADDLE
         if (horse.hasPassenger() || player.vehicle != null) return MountResult.OCCUPIED
         if (mountCooldownMillis(player) > 0) return MountResult.COOLDOWN
@@ -311,7 +317,7 @@ object Horses {
         val position = horse.position
         if (data.saddled) Items.spawn(instance, position, ItemStack.of(Material.SADDLE))
         val leather = Random.nextInt(3)
-        if (leather > 0 && !data.isFoal) Items.spawn(instance, position, ItemStack.of(Material.LEATHER, leather))
+        if (leather > 0) Items.spawn(instance, position, ItemStack.of(Material.LEATHER, leather))
         // Saved now so a crash can't bring the horse back next to the saddle it dropped.
         save()
     }
@@ -324,9 +330,11 @@ object Horses {
 
     fun isStatsInventory(inventory: AbstractInventory): Boolean = inventory is StatsInventory
 
-    /** Shows the ridden horse's stats in a read-only row above the rider's own inventory. */
-    fun openStats(player: Player) {
-        val horse = player.vehicle as? EntityCreature ?: return
+    /** Shows a horse's stats in a read-only row above the player's own inventory. */
+    fun openStats(
+        player: Player,
+        horse: EntityCreature,
+    ) {
         val data = horses[horse] ?: return
         val inventory = StatsInventory()
         // Filling the row leaves shift-clicks nowhere to put the rider's items.
@@ -369,10 +377,6 @@ object Horses {
             // Riders can leave without dismount(), e.g. by entering a vehicle or dying.
             if (!horse.hasPassenger()) riderLeft(horse, data)
             if (data.breedCooldownMs > 0) data.breedCooldownMs = (data.breedCooldownMs - TICK_MS).coerceAtLeast(0)
-            if (data.isFoal) {
-                data.growthRemainingMs = (data.growthRemainingMs - TICK_MS).coerceAtLeast(0)
-                if (!data.isFoal) horse.editEntityMeta(HorseMeta::class.java) { it.isBaby = false }
-            }
             if (data.loveRemainingMs > 0) {
                 data.loveRemainingMs = (data.loveRemainingMs - TICK_MS).coerceAtLeast(0)
                 showHearts(horse)
@@ -412,17 +416,16 @@ object Horses {
             it.loveRemainingMs = 0
             it.breedCooldownMs = BREED_COOLDOWN_MS
         }
-        val foal =
+        val offspring =
             HorseData(
                 maxHealth = offspringStat(firstData.maxHealth, secondData.maxHealth, HEALTH_RANGE),
                 speed = offspringStat(firstData.speed, secondData.speed, SPEED_RANGE),
                 jump = offspringStat(firstData.jump, secondData.jump, JUMP_RANGE),
                 variant = inherit(firstData.variant, secondData.variant, HorseMeta.Variant.entries),
                 marking = inherit(firstData.marking, secondData.marking, HorseMeta.Marking.entries),
-                growthRemainingMs = GROWTH_MS,
             )
         // The midpoint between the parents can be inside a wall.
-        spawn(instance, first.position, foal, foal.maxHealth.toFloat())
+        spawn(instance, first.position, offspring, offspring.maxHealth.toFloat())
         showHearts(first)
         showHearts(second)
         save()
@@ -464,6 +467,41 @@ object Horses {
         val instance = horse.instance ?: return
         val position = horse.position.add(0.0, horse.eyeHeight + 0.5, 0.0)
         instance.sendGroupedPacket(ParticlePacket(Particle.HEART, position, Vec(0.4, 0.3, 0.4), 0f, 2))
+    }
+
+    // ================
+    // PUSHING
+    // ================
+
+    // Like vanilla mobs, so a newborn isn't stuck inside its parent and players can move horses aside.
+    private fun pushApart() {
+        horses.keys.forEach { horse ->
+            if (horse.hasPassenger() || horse.isRemoved) return@forEach
+            val instance = horse.instance ?: return@forEach
+            var pushX = 0.0
+            var pushZ = 0.0
+            instance.getNearbyEntities(horse.position, HORSE_SPACING).forEach { other ->
+                val spacing =
+                    when {
+                        other === horse -> return@forEach
+                        horses.containsKey(other) -> HORSE_SPACING
+                        other is Player && other.vehicle == null && other.gameMode != GameMode.SPECTATOR -> PLAYER_SPACING
+                        else -> return@forEach
+                    }
+                val dx = horse.position.x - other.position.x
+                val dz = horse.position.z - other.position.z
+                val distance = hypot(dx, dz)
+                if (distance >= spacing) return@forEach
+                // Exactly stacked horses, like a newborn on its parent, split in a random direction.
+                val angle = if (distance < 1e-3) Random.nextDouble(2 * PI) else atan2(dz, dx)
+                pushX += cos(angle) * (spacing - distance)
+                pushZ += sin(angle) * (spacing - distance)
+            }
+            if (pushX == 0.0 && pushZ == 0.0) return@forEach
+            val speed = hypot(pushX, pushZ) * PUSH_STRENGTH
+            val scale = speed.coerceAtMost(MAX_PUSH_SPEED) / speed * PUSH_STRENGTH
+            horse.velocity = Vec(pushX * scale, horse.velocity.y, pushZ * scale)
+        }
     }
 
     // ================
@@ -516,6 +554,8 @@ object Horses {
     fun shutdown() {
         tickTask?.cancel()
         tickTask = null
+        pushTask?.cancel()
+        pushTask = null
         horses.keys.forEach { horse ->
             horse.passengers.forEach(horse::removePassenger)
             horse.remove()
@@ -529,7 +569,8 @@ object Horses {
         if (!Files.exists(file)) return
         val saved =
             try {
-                Json.decodeFromString<SavedHorses>(Files.readString(file))
+                // Saves from older versions may still have fields that were removed since.
+                Json { ignoreUnknownKeys = true }.decodeFromString<SavedHorses>(Files.readString(file))
             } catch (exception: Exception) {
                 throw IllegalStateException("Failed to load horses from $file", exception)
             }
@@ -557,7 +598,6 @@ object Horses {
                 variant = HorseMeta.Variant.entries.firstOrNull { it.name == saved.variant } ?: HorseMeta.Variant.BROWN,
                 marking = HorseMeta.Marking.entries.firstOrNull { it.name == saved.marking } ?: HorseMeta.Marking.NONE,
                 saddled = saved.saddled,
-                growthRemainingMs = saved.growthRemainingMs.coerceIn(0, GROWTH_MS),
                 breedCooldownMs = saved.breedCooldownMs.coerceIn(0, BREED_COOLDOWN_MS),
             )
         spawn(world, Pos(saved.x, saved.y, saved.z, saved.yaw, 0f), data, saved.health)
@@ -580,7 +620,6 @@ object Horses {
             variant = data.variant.name,
             marking = data.marking.name,
             saddled = data.saddled,
-            growthRemainingMs = data.growthRemainingMs,
             breedCooldownMs = data.breedCooldownMs,
         )
     }
