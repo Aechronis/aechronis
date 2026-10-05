@@ -50,8 +50,6 @@ object Music {
         println("[Music] Loaded ${folderSongs.size} song(s) from $directory")
     }
 
-    fun disc(songName: String): MusicDisc? = discs.firstOrNull { it.songName == songName }
-
     /** Ships the music folder's audio; configured discs bring their own sounds in an external pack. */
     fun registerResourcePack(context: ModuleContext) {
         if (folderSongs.isEmpty()) return

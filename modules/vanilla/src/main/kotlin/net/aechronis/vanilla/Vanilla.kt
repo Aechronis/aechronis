@@ -21,7 +21,6 @@ import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.KothCommand
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Message
-import net.aechronis.vanilla.commands.Music
 import net.aechronis.vanilla.commands.Ore
 import net.aechronis.vanilla.commands.Recpies
 import net.aechronis.vanilla.commands.Reply
@@ -121,7 +120,7 @@ object Vanilla {
                         Vote(),
                         Warp(),
                     )
-                if (config.musicEnabled) commands += listOf(Music(), Disc())
+                if (config.musicEnabled) commands += Disc()
                 if (config.blocksEnabled) commands += Convert()
                 if (config.recipesEnabled) commands += Craft()
                 if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
