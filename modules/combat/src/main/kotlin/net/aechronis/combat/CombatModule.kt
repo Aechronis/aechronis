@@ -9,7 +9,7 @@ import net.aechronis.server.modules.ModuleStartupTimings.measure
 
 class CombatModule : AechronisModule {
     override val id = "combat"
-    override val dependencies = setOf("utils", "watchdog")
+    override val dependencies = setOf("utils")
 
     override fun initialize(context: ModuleContext) {
         Combat.initialize()

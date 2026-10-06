@@ -49,7 +49,6 @@ include(
     ":modules:recipes",
     ":modules:worldedit",
     ":modules:logger",
-    ":modules:watchdog",
     ":modules:gems",
     ":modules:tebex",
     ":modules:votifier",

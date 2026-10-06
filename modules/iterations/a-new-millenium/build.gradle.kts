@@ -10,7 +10,6 @@ base {
 dependencies {
     compileOnly(project(":server"))
     compileOnly(project(":modules:utils"))
-    compileOnly(project(":modules:watchdog"))
     compileOnly(project(":modules:combat"))
     compileOnly(project(":modules:vanilla"))
     compileOnly(project(":modules:worldedit"))

@@ -8,6 +8,5 @@ dependencies {
     compileOnly(project(":server"))
     compileOnly("net.minestom:minestom:2026.09.12-26.2")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-    compileOnly(project(":modules:watchdog"))
     compileOnly(project(":modules:utils"))
 }

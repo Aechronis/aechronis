@@ -89,7 +89,6 @@ val runtimeModuleProjects =
         ":modules:viaversion",
         ":modules:grimac",
         ":modules:utils",
-        ":modules:watchdog",
         ":modules:combat",
         ":modules:hats",
         ":modules:vanilla",
