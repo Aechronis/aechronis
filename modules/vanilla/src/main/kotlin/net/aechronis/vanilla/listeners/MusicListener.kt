@@ -18,7 +18,7 @@ object MusicListener {
         event.isBlockingItemUse = true
 
         val position = event.blockPosition
-        val inserted = Music.discIn(event.block)
+        val inserted = Music.songIn(event.block)
         if (inserted != null) {
             val recordItem = event.block.getTag(Music.RECORD_ITEM_TAG) ?: return
             if (event.block.getTag(Music.PLAYING_TAG) == true) {
@@ -35,14 +35,14 @@ object MusicListener {
         }
 
         val held = event.player.itemInMainHand
-        val disc = Music.discFor(held) ?: return
+        val song = Music.songFor(held) ?: return
         val item = held.withAmount(1)
         event.player.setItemInMainHand(if (held.amount() == 1) ItemStack.AIR else held.withAmount(held.amount() - 1))
         event.instance.setBlock(
             position,
             event.block.withTag(Music.RECORD_ITEM_TAG, item).withTag(Music.PLAYING_TAG, true),
         )
-        Music.play(event.instance, position, disc, item)
+        Music.play(event.instance, position, song, item)
     }
 
     fun onBreak(event: PlayerBlockBreakEvent) {
@@ -51,8 +51,8 @@ object MusicListener {
         event.isCancelled = true
         val instance = event.player.instance ?: return
         val position = event.blockPosition
-        val disc = Music.discIn(event.block)
-        if (disc != null) Music.stop(instance, position, disc)
+        val song = Music.songIn(event.block)
+        if (song != null) Music.stop(instance, position, song)
         instance.setBlock(position, Block.AIR)
 
         val dropPosition = position.add(0.5, 0.5, 0.5).asPos()
