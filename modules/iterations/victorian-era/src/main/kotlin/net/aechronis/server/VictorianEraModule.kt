@@ -85,6 +85,7 @@ class VictorianEraModule : AechronisModule {
             *Armor.all.toTypedArray(),
             FieldPieces.kruppC64,
             FieldPieces.gatlingGun,
+            FieldPieces.maximGun,
         )
     }
 

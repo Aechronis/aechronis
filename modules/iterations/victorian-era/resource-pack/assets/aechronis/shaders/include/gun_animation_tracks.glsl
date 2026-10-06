@@ -11,6 +11,10 @@
 #moj_import <aechronis:gun_animation_tracks_mauser_model_1871_jaegerbuechse.glsl>
 #moj_import <aechronis:gun_animation_tracks_chassepot_carbine.glsl>
 #moj_import <aechronis:gun_animation_tracks_mauser_model_1871.glsl>
+#moj_import <aechronis:gun_animation_tracks_winchester_model_1873.glsl>
+#moj_import <aechronis:gun_animation_tracks_spencer_model_1860.glsl>
+#moj_import <aechronis:gun_animation_tracks_colt_single_action_army.glsl>
+#moj_import <aechronis:gun_animation_tracks_enfield_pattern_1853.glsl>
 
 int aechronis_authored_key(int profile) {
     if (profile == 0) return int(aechronis_curve_key_dreyse_needle_gun());
@@ -25,6 +29,10 @@ int aechronis_authored_key(int profile) {
     if (profile == 10) return int(aechronis_curve_key_mauser_model_1871_jaegerbuechse());
     if (profile == 11) return int(aechronis_curve_key_chassepot_carbine());
     if (profile == 12) return int(aechronis_curve_key_mauser_model_1871());
+    if (profile == 9) return int(aechronis_curve_key_winchester_model_1873());
+    if (profile == 13) return int(aechronis_curve_key_spencer_model_1860());
+    if (profile == 14) return int(aechronis_curve_key_colt_single_action_army());
+    if (profile == 15) return int(aechronis_curve_key_enfield_pattern_1853());
     return 0;
 }
 
@@ -41,5 +49,9 @@ vec3 aechronis_authored_pivot(int profile, int bone) {
     if (profile == 10) return aechronis_authored_pivot_mauser_model_1871_jaegerbuechse(bone);
     if (profile == 11) return aechronis_authored_pivot_chassepot_carbine(bone);
     if (profile == 12) return aechronis_authored_pivot_mauser_model_1871(bone);
+    if (profile == 9) return aechronis_authored_pivot_winchester_model_1873(bone);
+    if (profile == 13) return aechronis_authored_pivot_spencer_model_1860(bone);
+    if (profile == 14) return aechronis_authored_pivot_colt_single_action_army(bone);
+    if (profile == 15) return aechronis_authored_pivot_enfield_pattern_1853(bone);
     return vec3(0.0);
 }

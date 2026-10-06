@@ -35,5 +35,13 @@ object Ammo {
             itemName = Component.text("Artillery Shell", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
         )
 
-    val all: List<Ammo> = listOf(rifleCartridge, revolverCartridge, shotgunShell, artilleryShell)
+    val maximAmmunitionBelt =
+        Ammo(
+            name = "maxim-ammunition-belt",
+            ammoType = AmmoTypes.NORMAL,
+            itemName = Component.text("Maxim Ammunition Belt", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            itemLore = listOf(Component.text("100 rounds", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)),
+        )
+
+    val all: List<Ammo> = listOf(rifleCartridge, revolverCartridge, shotgunShell, artilleryShell, maximAmmunitionBelt)
 }
