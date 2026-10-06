@@ -115,6 +115,9 @@ object Nodes {
     private val completedCleanupStages = mutableSetOf<CleanupStage>()
     private var commands: List<MinestomCommand> = emptyList()
 
+    /** The same command trees registered in-game, for integrations such as Discord. */
+    fun commandRoots(): List<MinestomCommand> = commands.toList()
+
     internal val occupationPersistenceLock = Any()
     private val saveQueue = SerialSaveQueue()
     private var saveRevision = 0L

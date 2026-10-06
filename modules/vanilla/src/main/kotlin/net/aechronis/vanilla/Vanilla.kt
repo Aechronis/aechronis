@@ -9,6 +9,7 @@ import net.aechronis.vanilla.commands.Broadcast
 import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.Convert
 import net.aechronis.vanilla.commands.Craft
+import net.aechronis.vanilla.commands.Disc
 import net.aechronis.vanilla.commands.EnderChest
 import net.aechronis.vanilla.commands.Fly
 import net.aechronis.vanilla.commands.GameMode
@@ -20,7 +21,6 @@ import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.KothCommand
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Message
-import net.aechronis.vanilla.commands.Music
 import net.aechronis.vanilla.commands.Ore
 import net.aechronis.vanilla.commands.Recpies
 import net.aechronis.vanilla.commands.Reply
@@ -123,7 +123,7 @@ object Vanilla {
                         Vote(),
                         Warp(),
                     )
-                if (config.musicEnabled) commands += Music()
+                if (config.musicEnabled) commands += Disc()
                 if (config.blocksEnabled) commands += Convert()
                 if (config.recipesEnabled) commands += Craft()
                 if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
@@ -171,7 +171,7 @@ object Vanilla {
         }
         if (config.serverLinksEnabled) measure("Server Links Listener") { ServerLinksListener.init() }
         if (config.combatEnabled) measure("Combat") { Combat.init() }
-        if (config.musicEnabled) measure("Music") { MusicManager.init() }
+        if (config.musicEnabled) measure("Music") { MusicManager.init(Path.of(config.path, config.musicPath)) }
         if (config.kothEnabled) measure("Koth") { Koth.init(Path.of(config.path, config.kothsPath)) }
         if (config.oresEnabled) measure("Ores") { Ores.init(Path.of(config.path, config.oresPath)) }
         measure("Vote Links") { VoteLinks.init(Path.of(config.path, config.votePath)) }
@@ -219,6 +219,7 @@ object Vanilla {
             "shop inventories" to KillShop::shutdown,
             "command inventories" to Commands::shutdown,
             "horses" to { if (config.horsesEnabled) Horses.shutdown() },
+            "music pack" to MusicManager::shutdown,
         )
     }
 

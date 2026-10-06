@@ -10,7 +10,6 @@ import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.withCombatAttribution
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.watchdog.Watchdog
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -441,6 +440,5 @@ object VehicleTickManager {
                 current.z * 0.2 + direction.z * horizontalStrength,
             )
         player.velocity = velocity
-        Watchdog.recordKnockback(player, velocity, "vehicle")
     }
 }

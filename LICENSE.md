@@ -7,7 +7,6 @@
 * `/modules/utils` - [AGPL-3.0](modules/utils/LICENSE)
 * `/modules/vanilla` - [AGPL-3.0](modules/vanilla/LICENSE)
 * `/modules/worldedit` - [GPL-3.0](modules/worldedit/LICENSE)
-* `/modules/watchdog` - [AGPL-3.0](modules/watchdog/LICENSE)
 * `/modules/tebex` - [AGPL-3.0](modules/tebex/LICENSE)
 * `/modules/iterations/a-new-millenium` - [AGPL-3.0](modules/iterations/a-new-millenium/LICENSE)
 * `/site` - [AGPL-3.0](site/LICENSE)

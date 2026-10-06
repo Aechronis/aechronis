@@ -9,6 +9,7 @@ import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.KillShop
 import net.aechronis.vanilla.managers.Koth
+import net.aechronis.vanilla.managers.Music
 import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Vanish
@@ -33,6 +34,7 @@ class VanillaModule : AechronisModule {
             // Vanish must restore first so KOTH remembers its glow as a pre-existing visibility state.
             if (Vanilla.config.kothEnabled) Koth.restoreTransientState(context.peekTransientState(KOTH_ACTIVE_STATE_KEY))
         }
+        if (Vanilla.config.musicEnabled) Music.registerResourcePack(context)
         if (Vanilla.config.whitelistEnabled) {
             context.addListener(AsyncPlayerPreLoginEvent::class.java, WhitelistListener::onPreLogin)
         }

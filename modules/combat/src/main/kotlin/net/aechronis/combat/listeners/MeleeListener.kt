@@ -5,7 +5,6 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.withCombatAttribution
-import net.aechronis.watchdog.Watchdog
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.minestom.server.coordinate.Vec
@@ -32,7 +31,6 @@ object MeleeListener {
 
         val currentTime = System.currentTimeMillis()
         val melee = Item.getFromItemStack(attacker.itemInMainHand) as? Melee ?: return
-        (target as? Player)?.let { Watchdog.recordAttackAttempt(attacker, it) }
         val cooldownMs = currentTime - (Combat.meleeLastAttackTimes[attacker] ?: 0L)
         Combat.meleeLastAttackTimes[attacker] = currentTime
 
@@ -71,7 +69,6 @@ object MeleeListener {
                 .withCombatAttribution(CombatDamageKind.MELEE, melee.itemName)
         val didDamage = Combat.applyDamage(target, damageSource, currentTime)
         if (!didDamage) return
-        (target as? Player)?.let { Watchdog.reportAttack(attacker, it) }
         if (isCritical) {
             playCriticalParticles(target)
         }
@@ -139,9 +136,6 @@ object MeleeListener {
             }
 
         target.velocity = Vec(newVelX, newVelY, newVelZ)
-        (target as? Player)?.let {
-            Watchdog.recordKnockback(it, Vec(newVelX, newVelY, newVelZ), "melee")
-        }
     }
 
     private fun performSweepingAttack(
