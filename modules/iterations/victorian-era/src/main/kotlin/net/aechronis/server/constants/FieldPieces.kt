@@ -76,7 +76,7 @@ object FieldPieces {
         Gun(
             name = "gatling-gun",
             itemName = Component.text("Gatling Gun", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            ammo = Ammo.rifleCartridge,
+            ammo = Ammo.gatlingFeedCase,
             maxAmmo = 40,
             damage = 14F,
             automatic = true,
