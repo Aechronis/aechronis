@@ -96,6 +96,7 @@ val runtimeModuleProjects =
         ":modules:recipes",
         ":modules:worldedit",
         ":modules:nodes",
+        ":modules:discord",
         ":modules:logger",
         ":modules:guard",
         ":modules:gems",

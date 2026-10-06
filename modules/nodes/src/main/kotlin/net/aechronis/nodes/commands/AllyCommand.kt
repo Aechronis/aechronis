@@ -43,10 +43,11 @@ class AllyCommand : NodesCommand("ally") {
                     // message that alliance is being requested
                     AllianceRequest.NEW -> {
                         val thisSideMsg = "You are offering an alliance to ${context[nationArg].name}"
+                        Message.print(player, thisSideMsg)
                         for (town in nation.towns) {
                             for (r in town.residents) {
                                 val p = r.player()
-                                if (p !== null) {
+                                if (p !== null && p.uuid != player.uuid) {
                                     Message.print(p, thisSideMsg)
                                 }
                             }

@@ -44,6 +44,7 @@ include(
     ":modules:combat",
     ":modules:hats",
     ":modules:nodes",
+    ":modules:discord",
     ":modules:vanilla",
     ":modules:recipes",
     ":modules:worldedit",
