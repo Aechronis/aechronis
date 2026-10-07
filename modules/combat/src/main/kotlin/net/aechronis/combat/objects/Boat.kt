@@ -31,6 +31,7 @@ open class Boat(
     val floatHeight: Double = 0.5,
     animatedParts: List<AnimatedPart> = emptyList(),
     collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
+    modelScale: Vec = Vec(scale),
 ) : Car(
         name,
         itemName,
@@ -52,6 +53,7 @@ open class Boat(
         invulnerableWhileRiding,
         animatedParts,
         collisionHitbox,
+        modelScale,
     ) {
     init {
         require(floatHeight in 0.0..1.0) { "floatHeight must be between 0.0 and 1.0" }

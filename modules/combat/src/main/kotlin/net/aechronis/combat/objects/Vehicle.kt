@@ -51,6 +51,7 @@ open class Vehicle(
     val invulnerableWhileRiding: Boolean = true,
     animatedParts: List<AnimatedPart> = emptyList(),
     val collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
+    val modelScale: Vec = Vec(scale),
 ) : Item(
         name,
         itemName,
@@ -58,6 +59,17 @@ open class Vehicle(
         itemModel,
     ) {
     val animatedParts: List<AnimatedPart> = animatedParts.toList()
+
+    init {
+        require(
+            modelScale.x.isFinite() &&
+                modelScale.x > 0.0 &&
+                modelScale.y.isFinite() &&
+                modelScale.y > 0.0 &&
+                modelScale.z.isFinite() &&
+                modelScale.z > 0.0,
+        ) { "Vehicle model scale must be positive and finite on every axis" }
+    }
 
     /** Whether live instances of this vehicle are included in vehicle saves. */
     open val persistent: Boolean = true
@@ -217,7 +229,7 @@ open class Vehicle(
         val meta = entity.entityMeta as ItemDisplayMeta
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(model)
         meta.posRotInterpolationDuration = 3
-        meta.scale = Vec(scale)
+        meta.scale = modelScale
         meta.isHasNoGravity = true
 
         entity.spawn()
