@@ -16,6 +16,7 @@ import net.aechronis.combat.objects.Explosion
 import net.aechronis.combat.objects.HatMenu
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.VehicleCollisionEntity
+import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.utils.Message
 import net.aechronis.utils.Command
@@ -88,6 +89,11 @@ class CombatAdminHitboxCommand : Command("hitbox", "combat.admin") {
                 Hitbox.viewingHitboxes.add(player)
                 Message.print(player, "Hitbox visualization enabled")
             }
+            // Reconcile distance-based streaming before exposing debug shulkers.
+            VehicleRegistry
+                .all()
+                .filter { it.entity.instance === player.instance }
+                .forEach { it.refreshCollisionViewers() }
             player.instance
                 ?.entities
                 ?.filterIsInstance<VehicleCollisionEntity>()

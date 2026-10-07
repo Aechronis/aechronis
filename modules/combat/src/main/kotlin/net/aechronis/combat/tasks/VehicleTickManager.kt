@@ -18,7 +18,6 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.instance.Instance
-import net.minestom.server.particle.Particle
 import net.minestom.server.timer.TaskSchedule
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -86,24 +85,6 @@ object VehicleTickManager {
                         VehiclePose(runtime.entity.position, runtime.vehicle.hitboxRoll(runtime.entity), runtime.entity.instance)
                 }
                 lastImpacts.keys.removeIf { it.vehicle !in activeEntities }
-
-                // render hitboxes for all vehicles
-                if (Hitbox.viewingHitboxes.isNotEmpty()) {
-                    for (runtime in vehicles) {
-                        val entity = runtime.entity
-                        val vehicle = runtime.vehicle
-                        val pos = entity.position
-                        vehicle.hitbox.render(
-                            entity.instance ?: continue,
-                            pos,
-                            pos.yaw,
-                            pos.pitch,
-                            0f,
-                            Particle.FLAME,
-                            0.3,
-                        )
-                    }
-                }
 
                 // check if players are looking at vehicles and spawn fake blocks around them
                 // see modelmanager
