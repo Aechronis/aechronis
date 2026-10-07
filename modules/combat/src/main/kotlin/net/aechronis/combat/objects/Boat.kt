@@ -31,6 +31,8 @@ open class Boat(
     val floatHeight: Double = 0.5,
     animatedParts: List<AnimatedPart> = emptyList(),
     collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
+    val waterlineOffset: Double? = null,
+    val waterHitbox: Hitbox = hitbox,
     modelScale: Vec = Vec(scale),
 ) : Car(
         name,
@@ -55,23 +57,30 @@ open class Boat(
         collisionHitbox,
         modelScale,
     ) {
+    private val solidHitboxes = hitbox.parts.map { Hitbox(listOf(it)) }
+
     init {
         require(floatHeight in 0.0..1.0) { "floatHeight must be between 0.0 and 1.0" }
+        require(waterlineOffset == null || waterlineOffset.isFinite()) { "Boat waterlineOffset must be finite" }
+        require(waterHitbox.parts.isNotEmpty()) { "Boat waterHitbox must contain a hull" }
     }
 
     override fun spawn(
         instance: Instance,
         pos: Pos,
     ): Entity {
-        val entity = super.spawn(instance, pos)
-        val instance = entity.instance ?: return entity
-        val surfaceY = findWaterSurfaceY(instance, entity.position.x, entity.position.z, getCurrentSurfaceY(entity.position))
-
-        if (surfaceY != null && hasWaterFootprint(instance, entity.position, getCurrentSurfaceY(entity.position))) {
-            entity.teleport(entity.position.withY(getVehicleY(surfaceY)))
+        var placement = pos
+        val groundedPosition = pos.add(0.0, hitbox.getGroundOffset(), 0.0)
+        val surfaceY = findWaterSurfaceY(instance, pos.x, pos.z, getCurrentSurfaceY(groundedPosition))
+        if (surfaceY != null) {
+            val floatedPosition = groundedPosition.withY(getVehicleY(surfaceY))
+            if (hasWaterFootprint(instance, floatedPosition, surfaceY)) {
+                // Vehicle.spawn adds the ground offset. Resolve flotation first so
+                // the body, animated parts and collision helpers spawn together.
+                placement = floatedPosition.add(0.0, -hitbox.getGroundOffset(), 0.0)
+            }
         }
-
-        return entity
+        return super.spawn(instance, placement)
     }
 
     override fun canStartMoving(
@@ -79,15 +88,23 @@ open class Boat(
         position: Pos,
     ): Boolean = isHitboxInWater(instance, position)
 
+    override fun canMoveTo(
+        instance: Instance,
+        entity: Entity,
+        position: Pos,
+    ): Boolean = hasSolidClearance(instance, position) && hasVehicleClearance(instance, position, entity)
+
     override fun canPlaceAt(
         instance: Instance,
         pos: Pos,
     ): Boolean {
-        if (!super.canPlaceAt(instance, pos)) return false
+        val floatedPosition = pos.withY(getVehicleY(pos.y))
         val waterBlockY = floor(pos.y - 1.0).toInt()
-        return footprintSamplePoints(pos).all { (x, z) ->
-            instance.getBlock(floor(x).toInt(), waterBlockY, floor(z).toInt()).compare(Block.WATER)
-        }
+        return footprintSamplePoints(floatedPosition).all { (x, z) ->
+            loadedBlock(instance, floor(x).toInt(), waterBlockY, floor(z).toInt())?.compare(Block.WATER) == true
+        } &&
+            hasSolidClearance(instance, floatedPosition) &&
+            hasVehicleClearance(instance, floatedPosition)
     }
 
     override fun findSurfaceY(
@@ -100,13 +117,14 @@ open class Boat(
         return if (hasWaterFootprint(instance, floatedPosition, surfaceY)) surfaceY else null
     }
 
-    override fun getCurrentSurfaceY(position: Pos): Double = position.y + getWaterlineOffset()
+    override fun getCurrentSurfaceY(position: Pos): Double = position.y + resolvedWaterlineOffset()
 
-    override fun getVehicleY(surfaceY: Double): Double = surfaceY - getWaterlineOffset()
+    override fun getVehicleY(surfaceY: Double): Double = surfaceY - resolvedWaterlineOffset()
 
-    private fun getWaterlineOffset(): Double {
-        val bottomOffset = hitbox.getBottomOffset()
-        val topOffset = hitbox.getTopOffset()
+    private fun resolvedWaterlineOffset(): Double {
+        waterlineOffset?.let { return it }
+        val bottomOffset = waterHitbox.getBottomOffset()
+        val topOffset = waterHitbox.getTopOffset()
         return topOffset - (topOffset - bottomOffset) * floatHeight
     }
 
@@ -116,7 +134,7 @@ open class Boat(
     ): Boolean {
         val currentSurfaceY = getCurrentSurfaceY(position)
         val waterSurfaceY = findWaterSurfaceY(instance, position.x, position.z, currentSurfaceY) ?: return false
-        val bottomY = position.y + hitbox.getBottomOffset()
+        val bottomY = position.y + waterHitbox.getBottomOffset()
         return waterSurfaceY >= bottomY && hasWaterFootprint(instance, position, currentSurfaceY)
     }
 
@@ -130,7 +148,7 @@ open class Boat(
         }
 
     private fun footprintSamplePoints(position: Pos): List<Pair<Double, Double>> =
-        hitbox
+        waterHitbox
             .getWorldCorners(position, position.yaw, position.pitch, 0f)
             .flatten()
             .map { point -> point.x to point.z }
@@ -143,14 +161,101 @@ open class Boat(
         z: Double,
         currentSurfaceY: Double,
     ): Double? {
-        val startY = floor(currentSurfaceY + maxClimbHeight + 1).toInt()
-        val endY = floor(currentSurfaceY - 10).toInt()
+        val dimension = instance.cachedDimensionType
+        val startY = floor(currentSurfaceY + maxClimbHeight + 1).toInt().coerceAtMost(dimension.maxY() - 1)
+        val endY = floor(currentSurfaceY - 10).toInt().coerceAtLeast(dimension.minY())
 
         for (y in startY downTo endY) {
-            val block = instance.getBlock(floor(x).toInt(), y, floor(z).toInt())
+            val block = loadedBlock(instance, floor(x).toInt(), y, floor(z).toInt()) ?: return null
             if (block.compare(Block.WATER)) return (y + 1).toDouble()
+            if (block.isSolid) return null
         }
 
         return null
+    }
+
+    private fun hasVehicleClearance(
+        instance: Instance,
+        position: Pos,
+        excludedEntity: Entity? = null,
+    ): Boolean =
+        VehicleRegistry.all().none { runtime ->
+            val other = runtime.entity
+            other !== excludedEntity &&
+                other.instance === instance &&
+                hitbox.intersects(
+                    runtime.vehicle.hitbox,
+                    position,
+                    position.yaw,
+                    position.pitch,
+                    0f,
+                    other.position,
+                    other.position.yaw,
+                    other.position.pitch,
+                    runtime.vehicle.hitboxRoll(other),
+                )
+        }
+
+    /** Check the whole hull and superstructure, including obstacles between the corners. */
+    private fun hasSolidClearance(
+        instance: Instance,
+        position: Pos,
+    ): Boolean {
+        val dimension = instance.cachedDimensionType
+        val corners = hitbox.getWorldCorners(position, position.yaw, position.pitch, 0f)
+        for ((index, partCorners) in corners.withIndex()) {
+            val minY = partCorners.minOf { it.y }
+            val maxY = partCorners.maxOf { it.y }
+            if (minY < dimension.minY() || maxY > dimension.maxY()) return false
+            val minX = floor(partCorners.minOf { it.x } + CLEARANCE_EPSILON).toInt()
+            val maxX = floor(partCorners.maxOf { it.x } - CLEARANCE_EPSILON).toInt()
+            val minZ = floor(partCorners.minOf { it.z } + CLEARANCE_EPSILON).toInt()
+            val maxZ = floor(partCorners.maxOf { it.z } - CLEARANCE_EPSILON).toInt()
+            for (x in minX..maxX) {
+                for (z in minZ..maxZ) {
+                    for (y in floor(minY + CLEARANCE_EPSILON).toInt()..floor(maxY - CLEARANCE_EPSILON).toInt()) {
+                        val block = loadedBlock(instance, x, y, z) ?: return false
+                        if (block.isSolid &&
+                            solidHitboxes[index].intersects(
+                                BLOCK_HITBOX,
+                                position,
+                                position.yaw,
+                                position.pitch,
+                                0f,
+                                Pos(x + 0.5, y + 0.5, z + 0.5),
+                                0f,
+                                0f,
+                                0f,
+                            )
+                        ) {
+                            return false
+                        }
+                    }
+                }
+            }
+        }
+        return true
+    }
+
+    private fun loadedBlock(
+        instance: Instance,
+        x: Int,
+        y: Int,
+        z: Int,
+    ): Block? {
+        val dimension = instance.cachedDimensionType
+        if (y < dimension.minY() || y >= dimension.maxY()) return null
+        val chunk = instance.getChunk(Math.floorDiv(x, 16), Math.floorDiv(z, 16)) ?: return null
+        chunk.lockReadLock()
+        return try {
+            if (chunk.isLoaded) chunk.getBlock(x, y, z) else null
+        } finally {
+            chunk.unlockReadLock()
+        }
+    }
+
+    companion object {
+        private const val CLEARANCE_EPSILON = 1.0e-7
+        private val BLOCK_HITBOX = Hitbox(listOf(HitboxPart(Vec.ZERO, Vec(0.5))))
     }
 }

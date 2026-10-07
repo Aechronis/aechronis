@@ -22,6 +22,7 @@ import kotlin.math.floor
 
 object VehicleListener {
     fun onPlayerUseItemOnBlock(event: PlayerUseItemOnBlockEvent) {
+        if (event.hand != PlayerHand.MAIN) return
         val player = event.player
         Vehicle.reconcileOccupant(player)
 
@@ -42,6 +43,7 @@ object VehicleListener {
     }
 
     fun onPlayerUseItem(event: PlayerUseItemEvent) {
+        if (event.hand != PlayerHand.MAIN) return
         val player = event.player
         Vehicle.reconcileOccupant(player)
 

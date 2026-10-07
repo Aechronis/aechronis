@@ -186,11 +186,25 @@ open class Vehicle(
 
                     // successful reload
                     if (time <= 0) {
-                        spawn(player, pos)
+                        // Another vehicle or obstacle may have entered the area during placement.
+                        val instance = player.instance
+                        if (instance != null && canPlaceAt(instance, pos)) {
+                            spawn(player, pos)
 
-                        val held = player.itemInMainHand
-                        player.itemInMainHand =
-                            if (held.amount() <= 1) ItemStack.AIR else held.withAmount(held.amount() - 1)
+                            val held = player.itemInMainHand
+                            player.itemInMainHand =
+                                if (held.amount() <= 1) ItemStack.AIR else held.withAmount(held.amount() - 1)
+                        } else {
+                            player.showTitle(
+                                Title.title(
+                                    Component.empty(),
+                                    Component.text("✕").color(TextColor.color(0.5F, 0F, 0F)).shadowColor(ShadowColor.none()),
+                                    0,
+                                    2,
+                                    10,
+                                ),
+                            )
+                        }
 
                         Combat.placeTasks[player]!!.cancel()
                         Combat.placeTasks.remove(player)
