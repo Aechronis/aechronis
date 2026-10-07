@@ -167,8 +167,8 @@ internal class VehicleCollisionHitbox(
     companion object {
         // Prefetch before contact, then keep a wider exit band to avoid spawn/despawn
         // churn when a player or moving hull hovers near the streaming boundary.
-        private const val SHOW_DISTANCE = 12.0
-        private const val HIDE_DISTANCE = 16.0
+        private const val SHOW_DISTANCE = 6.0
+        private const val HIDE_DISTANCE = 8.0
     }
 }
 
