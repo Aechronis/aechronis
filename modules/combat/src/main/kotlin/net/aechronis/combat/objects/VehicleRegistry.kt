@@ -231,6 +231,7 @@ internal class VehicleRuntime(
 internal enum class VehicleSeatRole {
     DRIVER,
     PASSENGER,
+    GUNNER,
 }
 
 internal class VehicleRide(
@@ -238,6 +239,7 @@ internal class VehicleRide(
     val runtime: VehicleRuntime,
     val seat: Entity,
     val role: VehicleSeatRole,
+    val stationIndex: Int? = null,
 ) {
     val vehicle: Vehicle get() = runtime.vehicle
     val entity: Entity get() = runtime.entity
@@ -286,6 +288,8 @@ internal object VehicleRegistry {
 
     fun passenger(player: Player): VehicleRide? = ride(player)?.takeIf { it.role == VehicleSeatRole.PASSENGER }
 
+    fun gunner(player: Player): VehicleRide? = ride(player)?.takeIf { it.role == VehicleSeatRole.GUNNER }
+
     fun rides(): List<VehicleRide> = playerRides.values.toList()
 
     fun driverOf(entity: Entity): VehicleRide? =
@@ -300,22 +304,40 @@ internal object VehicleRegistry {
 
     fun ridesOf(entity: Entity): List<VehicleRide> = playerRides.values.filter { it.entity === entity }
 
+    fun gunners(entity: Entity): List<VehicleRide> = playerRides.values.filter { it.entity === entity && it.role == VehicleSeatRole.GUNNER }
+
+    fun gunnerOf(
+        entity: Entity,
+        stationIndex: Int,
+    ): VehicleRide? =
+        playerRides.values.firstOrNull {
+            it.entity === entity && it.role == VehicleSeatRole.GUNNER && it.stationIndex == stationIndex
+        }
+
     fun enter(
         player: Player,
         entity: Entity,
         seat: Entity,
         role: VehicleSeatRole,
+        stationIndex: Int? = null,
     ): VehicleRide {
         val runtime = requireNotNull(runtimes[entity]) { "Vehicle entity must be registered before entering" }
         require(player !in playerRides) { "Player is already riding a vehicle" }
+        require(role == VehicleSeatRole.GUNNER || stationIndex == null) { "Only gunner rides have a weapon station" }
         when (role) {
             VehicleSeatRole.DRIVER -> require(driverOf(entity) == null) { "Vehicle already has a driver" }
             VehicleSeatRole.PASSENGER ->
                 require(passengers(entity).size < runtime.vehicle.seatOffsets.size - 1) {
                     "Vehicle has no free passenger seats"
                 }
+            VehicleSeatRole.GUNNER -> {
+                require(stationIndex != null && stationIndex in runtime.vehicle.gunnerSeatOffsets.indices) {
+                    "Vehicle has no such gunner station"
+                }
+                require(gunnerOf(entity, stationIndex) == null) { "Weapon station already has a gunner" }
+            }
         }
-        val ride = VehicleRide(player, runtime, seat, role)
+        val ride = VehicleRide(player, runtime, seat, role, stationIndex)
         playerRides[player] = ride
         runtime.refreshCollisionViewers()
         return ride

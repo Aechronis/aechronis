@@ -1,6 +1,7 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.ShulkerHitbox
@@ -9,6 +10,7 @@ import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.objects.VehicleRuntime
 import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.rotatePointInverse
 import net.aechronis.combat.utils.withCombatAttribution
@@ -58,6 +60,7 @@ object VehicleTickManager {
 
     val playerLookingAtVehicle = HashMap<Player, Vehicle>()
     val playerLookingAtEntity = HashMap<Player, Entity>()
+    val playerLookingAtStation = HashMap<Player, Int>()
 
     fun start() {
         ModuleScheduler
@@ -85,6 +88,11 @@ object VehicleTickManager {
                     if (VehicleRegistry.driverOf(runtime.entity) == null) {
                         runtime.vehicle.onUnoccupiedTick(runtime.entity)
                     }
+                }
+
+                // Weapon operators remain active without a helmsman and follow the final hull pose.
+                for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.GUNNER }) {
+                    ride.vehicle.onGunnerTick(ride.player)
                 }
 
                 val vehicles = VehicleRegistry.all()
@@ -116,9 +124,10 @@ object VehicleTickManager {
                 // see modelmanager
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
                     // skip players already in a vehicle
-                    if (VehicleRegistry.driver(player) != null) {
+                    if (VehicleRegistry.ride(player) != null) {
                         playerLookingAtVehicle.remove(player)
                         playerLookingAtEntity.remove(player)
+                        playerLookingAtStation.remove(player)
                         continue
                     }
 
@@ -126,6 +135,7 @@ object VehicleTickManager {
                     if (instance == null) {
                         playerLookingAtVehicle.remove(player)
                         playerLookingAtEntity.remove(player)
+                        playerLookingAtStation.remove(player)
                         continue
                     }
 
@@ -142,9 +152,15 @@ object VehicleTickManager {
                     if (target != null) {
                         playerLookingAtEntity[player] = target.entity
                         playerLookingAtVehicle[player] = target.vehicle
+                        if (target.stationIndex == null) {
+                            playerLookingAtStation.remove(player)
+                        } else {
+                            playerLookingAtStation[player] = target.stationIndex
+                        }
                     } else {
                         playerLookingAtVehicle.remove(player)
                         playerLookingAtEntity.remove(player)
+                        playerLookingAtStation.remove(player)
                     }
                 }
             }.repeat(TaskSchedule.tick(1))
@@ -157,6 +173,7 @@ object VehicleTickManager {
         val position: Pos,
         val boundingRadius: Double,
         val hitbox: Hitbox.Prepared,
+        val stationIndex: Int? = null,
     ) {
         var queryStamp = 0L
     }
@@ -204,6 +221,8 @@ object VehicleTickManager {
             var closest: VehicleLookCandidate? = null
             var closestDistance = Double.POSITIVE_INFINITY
             val vectorLength = vector.length()
+            val blockingDistance = Ray(origin, vector).firstBlock(instance)?.t ?: Double.POSITIVE_INFINITY
+            val stationHits = HashMap<Entity, Pair<VehicleLookCandidate, Double>>()
 
             forEachCandidate(instance, origin, vector) { candidate ->
                 if (candidate.entity.instance !== instance) return@forEachCandidate
@@ -220,13 +239,20 @@ object VehicleTickManager {
                         vector,
                         vectorLength,
                     ) ?: return@forEachCandidate
+                if (distance > blockingDistance + LOOK_BROAD_PHASE_MARGIN) return@forEachCandidate
+                if (candidate.stationIndex != null) {
+                    val previous = stationHits[candidate.entity]
+                    if (previous == null || distance < previous.second) stationHits[candidate.entity] = candidate to distance
+                }
                 if (distance < closestDistance) {
                     closest = candidate
                     closestDistance = distance
                 }
             }
 
-            return closest
+            // Coarse hull boxes can overlap a turret. Within the closest boat, a
+            // weapon actually intersected by the ray takes precedence over boarding.
+            return closest?.let { stationHits[it.entity]?.first ?: it }
         }
 
         internal fun candidateCount(
@@ -286,20 +312,38 @@ object VehicleTickManager {
 
     internal fun prepareVehicleLookIndex(vehicles: Iterable<Pair<Entity, Vehicle>>): VehicleLookIndex =
         VehicleLookIndex(
-            vehicles.map { (entity, vehicle) ->
+            vehicles.flatMap { (entity, vehicle) ->
                 val position = entity.position
-                VehicleLookCandidate(
-                    entity,
-                    vehicle,
-                    position,
-                    vehicle.hitbox.boundingRadius,
-                    vehicle.hitbox.prepare(
-                        position,
-                        position.yaw,
-                        position.pitch,
-                        vehicle.hitboxRoll(entity),
-                    ),
-                )
+                buildList {
+                    add(
+                        VehicleLookCandidate(
+                            entity,
+                            vehicle,
+                            position,
+                            vehicle.hitbox.boundingRadius,
+                            vehicle.hitbox.prepare(
+                                position,
+                                position.yaw,
+                                position.pitch,
+                                vehicle.hitboxRoll(entity),
+                            ),
+                        ),
+                    )
+                    if (vehicle is Boat) {
+                        for (target in vehicle.weaponInteractionTargets(entity)) {
+                            add(
+                                VehicleLookCandidate(
+                                    entity,
+                                    vehicle,
+                                    target.position,
+                                    target.hitbox.boundingRadius,
+                                    target.hitbox.prepare(target.position, target.position.yaw, target.position.pitch, 0f),
+                                    target.stationIndex,
+                                ),
+                            )
+                        }
+                    }
+                }
             },
         )
 
@@ -314,6 +358,7 @@ object VehicleTickManager {
         VehicleRegistry.all().forEach { it.removeCarriedPlayer(player) }
         playerLookingAtVehicle.remove(player)
         playerLookingAtEntity.remove(player)
+        playerLookingAtStation.remove(player)
         lastImpacts.keys.removeIf { it.player === player }
         collisionIndex.removePlayer(player)
     }
@@ -324,6 +369,7 @@ object VehicleTickManager {
         lastImpacts.clear()
         playerLookingAtVehicle.clear()
         playerLookingAtEntity.clear()
+        playerLookingAtStation.clear()
         collisionIndex.clear()
     }
 

@@ -47,8 +47,12 @@ object VehicleListener {
         val player = event.player
         Vehicle.reconcileOccupant(player)
 
-        val boat = Item.getFromItemStack(player.itemInMainHand) as? Boat ?: return
         if (VehicleRegistry.ride(player) != null) return
+        if (enterLookedAtVehicle(player)) {
+            event.isCancelled = true
+            return
+        }
+        val boat = Item.getFromItemStack(player.itemInMainHand) as? Boat ?: return
 
         val eyePosition = player.position.add(0.0, player.eyeHeight, 0.0)
         val target = findWaterPlacementPosition(player.instance, eyePosition, eyePosition.direction()) ?: return
@@ -73,7 +77,9 @@ object VehicleListener {
                 eye.direction().mul(3.0),
                 VehicleTickManager.prepareVehicleLookIndex(VehicleRegistry.all().map { it.entity to it.vehicle }),
             ) ?: return false
-        if (Vehicle.hasActiveDriver(target.entity)) {
+        if (target.stationIndex != null) {
+            target.vehicle.onGunnerEnter(player, target.entity, target.stationIndex)
+        } else if (Vehicle.hasActiveDriver(target.entity)) {
             target.vehicle.onPassengerEnter(player, target.entity)
         } else {
             target.vehicle.onEnter(player, target.entity)
