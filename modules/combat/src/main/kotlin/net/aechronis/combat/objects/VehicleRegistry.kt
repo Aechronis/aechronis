@@ -1,7 +1,19 @@
 package net.aechronis.combat.objects
 
+import net.aechronis.combat.utils.preparePacketBundle
+import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
+import net.minestom.server.entity.Metadata
+import net.minestom.server.entity.MetadataDef
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.RelativeFlags
+import net.minestom.server.entity.metadata.display.ItemDisplayMeta
+import net.minestom.server.network.packet.server.ServerPacket
+import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
+import net.minestom.server.network.packet.server.play.EntityPositionSyncPacket
+import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket
+import java.util.concurrent.ConcurrentHashMap
 
 /** Mutable state belonging to one spawned vehicle, separate from its item definition. */
 internal class VehicleRuntime(
@@ -9,6 +21,131 @@ internal class VehicleRuntime(
     val vehicle: Vehicle,
 ) {
     private val animatedParts = ArrayList<AnimatedPartRuntime>()
+    private val displays = linkedSetOf(entity)
+    private val pendingDisplayMovement = ConcurrentHashMap.newKeySet<Entity>()
+    private val carryOrigins = HashMap<Player, Pos>()
+
+    @Volatile
+    private var carriedPlayers: Set<Player> = emptySet()
+
+    fun addDisplay(display: VehicleDisplayEntity) {
+        displays.add(display)
+    }
+
+    fun removeDisplay(display: VehicleDisplayEntity) {
+        displays.remove(display)
+        pendingDisplayMovement.remove(display)
+    }
+
+    fun isCarrying(player: Player): Boolean = player in carriedPlayers
+
+    fun hasCarriedPlayers(): Boolean = carriedPlayers.isNotEmpty()
+
+    fun queueDisplayMovement(display: VehicleDisplayEntity) {
+        pendingDisplayMovement.add(display)
+    }
+
+    fun rememberCarryOrigin(player: Player) {
+        carryOrigins[player] = player.position
+    }
+
+    fun flushCarriedMovement() {
+        val movedDisplays = pendingDisplayMovement.toList()
+        pendingDisplayMovement.removeAll(movedDisplays.toSet())
+        val orderedDisplays = movedDisplays.sortedBy { it === entity }
+        try {
+            for (player in carriedPlayers) {
+                if (player.isRemoved || player.instance !== entity.instance) continue
+                val packets = ArrayList<ServerPacket>()
+                // Keep the visible hull with the camera in the final bundle even if
+                // an unusually large collision shape needs multiple protocol bundles.
+                for (display in orderedDisplays) {
+                    if (display.isRemoved || !display.isViewer(player)) continue
+                    val position = display.position
+                    packets.add(
+                        EntityPositionSyncPacket(display.entityId, position, Vec.ZERO, position.yaw, position.pitch, display.isOnGround),
+                    )
+                }
+                val origin = carryOrigins[player]
+                val delta = origin?.let { player.position.asVec().sub(it) }
+                if (delta != null && delta.lengthSquared() >= 1.0e-12) {
+                    packets.add(
+                        PlayerPositionAndLookPacket(
+                            -1,
+                            delta,
+                            Vec.ZERO,
+                            0f,
+                            0f,
+                            RelativeFlags.COORD or RelativeFlags.VIEW or RelativeFlags.DELTA_COORD,
+                        ),
+                    )
+                }
+                // Reserve room to keep the final hull and player updates together.
+                var start = 0
+                while (packets.size - start > 4096) {
+                    player.sendPacket(preparePacketBundle(player, packets.subList(start, start + 4095)))
+                    start += 4095
+                }
+                if (start < packets.size) {
+                    // One framed queue entry prevents other threads' packets from
+                    // splitting the bundle or exposing half of the movement to rendering.
+                    player.sendPacket(preparePacketBundle(player, packets.subList(start, packets.size)))
+                }
+            }
+        } finally {
+            carryOrigins.clear()
+        }
+    }
+
+    fun setCarriedPlayers(players: Set<Player>) {
+        val previous = carriedPlayers
+        if (previous == players) return
+        carriedPlayers = players.toSet()
+        carryOrigins.keys.retainAll(players)
+        // Send only on a transition, and only for displays already visible to this player.
+        for (player in (previous - players) + (players - previous)) {
+            if (player.isRemoved || player.instance !== entity.instance) continue
+            for (display in displays) {
+                if (!display.isRemoved && display.isViewer(player)) {
+                    updateDisplayInterpolation(display, player)
+                    if (player !in players && display in pendingDisplayMovement) {
+                        val position = display.position
+                        player.sendPacket(
+                            EntityPositionSyncPacket(
+                                display.entityId,
+                                position,
+                                Vec.ZERO,
+                                position.yaw,
+                                position.pitch,
+                                display.isOnGround,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun removeCarriedPlayer(player: Player) {
+        if (player in carriedPlayers) setCarriedPlayers(carriedPlayers - player)
+    }
+
+    fun updateDisplayInterpolation(
+        display: Entity,
+        player: Player,
+    ) {
+        val meta = display.entityMeta as ItemDisplayMeta
+        player.sendPacket(
+            EntityMetaDataPacket(
+                display.entityId,
+                mapOf(
+                    MetadataDef.Display.POSITION_ROTATION_INTERPOLATION_DURATION.index() to
+                        Metadata.VarInt(if (isCarrying(player)) 0 else meta.posRotInterpolationDuration),
+                ),
+            ),
+        )
+    }
+
     private val collisionHitbox = VehicleCollisionHitbox(this)
     private var previousAnimationPosition = entity.position
     private var animationAgeTicks = 0L
@@ -47,9 +184,13 @@ internal class VehicleRuntime(
     fun removeCollisionHitbox() = collisionHitbox.remove()
 
     fun removeParts() {
+        setCarriedPlayers(emptySet())
         collisionHitbox.remove()
         animatedParts.forEach { it.remove() }
         animatedParts.clear()
+        displays.clear()
+        pendingDisplayMovement.clear()
+        carryOrigins.clear()
     }
 
     private val healthState: Health? = vehicle.health?.fresh()

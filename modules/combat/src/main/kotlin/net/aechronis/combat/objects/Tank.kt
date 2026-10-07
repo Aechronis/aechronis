@@ -8,7 +8,6 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
-import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
@@ -103,7 +102,7 @@ class Tank(
         val body = super.spawn(instance, pos)
 
         // spawn the turret as a second item display
-        val turret = Entity(EntityType.ITEM_DISPLAY)
+        val turret = VehicleDisplayEntity(body)
         turret.setInstance(body.instance, body.position)
 
         val turretMeta = turret.entityMeta as ItemDisplayMeta
@@ -115,7 +114,7 @@ class Tank(
         turret.spawn()
 
         // spawn the barrel as a third item display
-        val barrel = Entity(EntityType.ITEM_DISPLAY)
+        val barrel = VehicleDisplayEntity(body)
         barrel.setInstance(body.instance, turret.position)
 
         val barrelMeta = barrel.entityMeta as ItemDisplayMeta

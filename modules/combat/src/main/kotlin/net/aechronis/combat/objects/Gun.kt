@@ -18,7 +18,7 @@ import net.aechronis.combat.utils.Mounts
 import net.aechronis.combat.utils.Particles
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.gunClientTrail
-import net.aechronis.combat.utils.prepareGunPacketBundle
+import net.aechronis.combat.utils.preparePacketBundle
 import net.aechronis.combat.utils.withCombatAttribution
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.key.Key
@@ -414,7 +414,7 @@ class Gun(
                             val outbound: List<SendablePacket> =
                                 if (viewer.playerConnection is PlayerSocketConnection) {
                                     listOf(
-                                        prepareGunPacketBundle(viewer, packets),
+                                        preparePacketBundle(viewer, packets),
                                     )
                                 } else {
                                     packets

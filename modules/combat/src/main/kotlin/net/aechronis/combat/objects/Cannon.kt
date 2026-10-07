@@ -8,7 +8,6 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
-import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
@@ -114,7 +113,7 @@ class Cannon(
         // spawn the body via the normal vehicle spawn
         val body = super.spawn(instance, pos)
 
-        val barrel = Entity(EntityType.ITEM_DISPLAY)
+        val barrel = VehicleDisplayEntity(body)
         barrel.setInstance(body.instance, body.position.withView(body.position.yaw, 0f.coerceIn(minPitch, maxPitch)))
 
         val barrelMeta = barrel.entityMeta as ItemDisplayMeta

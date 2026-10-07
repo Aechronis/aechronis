@@ -6,7 +6,6 @@ import net.aechronis.combat.utils.setRoll
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
-import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.item.ItemStack
@@ -126,7 +125,7 @@ internal class AnimatedPartRuntime(
     private val part: AnimatedPart,
     private val owner: VehicleRuntime,
 ) {
-    private val display = Entity(EntityType.ITEM_DISPLAY)
+    private val display = VehicleDisplayEntity(owner.entity)
     private var pose = part.initialPose
     private var appliedRoll = Float.NaN
     private val nonUniformScale = owner.vehicle.modelScale.run { x != y || y != z }

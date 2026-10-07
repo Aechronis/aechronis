@@ -234,7 +234,7 @@ open class Vehicle(
         instance: Instance,
         pos: Pos,
     ): Entity {
-        val entity = Entity(EntityType.ITEM_DISPLAY)
+        val entity = VehicleDisplayEntity()
 
         // offset y so the bottom of the hitbox sits on the ground
         val adjustedPos = pos.add(0.0, hitbox.getGroundOffset(), 0.0)

@@ -119,7 +119,7 @@ internal class VehicleCollisionHitbox(
             instance = targetInstance
             try {
                 shape.boxes.forEachIndexed { index, box ->
-                    val carrier = Entity(EntityType.ITEM_DISPLAY)
+                    val carrier = VehicleDisplayEntity(owner.entity)
                     val definition = owner.vehicle.collisionHitbox.parts[index]
                     val shulker = VehicleCollisionEntity(owner.entity, definition.scale)
                     val part = Part(carrier, shulker)

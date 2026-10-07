@@ -53,6 +53,25 @@ class ShulkerHitbox(
     internal class Shape(
         val boxes: List<Box>,
     ) {
+        /** Nearest surface with any part of the player's box in the space above it. */
+        fun supportDistance(
+            position: Pos,
+            relativeStart: Point,
+            relativeEnd: Point,
+            maxDistance: Double,
+        ): Double? {
+            val start = position.asVec().add(relativeStart)
+            val end = position.asVec().add(relativeEnd)
+            var nearest = Double.POSITIVE_INFINITY
+            for (box in boxes) {
+                if (start.x >= box.max.x || end.x <= box.min.x || start.z >= box.max.z || end.z <= box.min.z) continue
+                if (end.y <= box.max.y) continue
+                val distance = max(0.0, start.y - box.max.y)
+                if (distance < maxDistance && distance < nearest) nearest = distance
+            }
+            return nearest.takeIf { it.isFinite() }
+        }
+
         /**
          * Resolve against the union, not one cube at a time: adjacent shulkers overlap,
          * and pushing into a neighboring cube would make players oscillate at seams.

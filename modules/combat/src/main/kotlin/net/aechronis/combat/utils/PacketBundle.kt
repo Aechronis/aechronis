@@ -23,17 +23,17 @@ import net.minestom.server.network.packet.server.play.BundlePacket
  * while retaining the atomic bundle, including while Grim is disabled.
  * Otherwise perform that sequence here before framing. No delimiter is published
  * around callbacks or inventory changes.
- * Used only for already-PLAY socket connections: ConnectionManager enables the
- * configured compression threshold before login enters configuration. Other
- * connection implementations retain their ordinary packet path.
+ * Requires an already-PLAY connection accepting framed BufferedPackets.
+ * ConnectionManager enables the configured compression threshold before login
+ * enters configuration; the Via transport also supports this framing.
  */
-internal fun prepareGunPacketBundle(
+internal fun preparePacketBundle(
     player: Player,
     packets: List<ServerPacket>,
     compressionThreshold: Int = MinecraftServer.getCompressionThreshold(),
 ): BufferedPacket {
-    require(packets.size <= 4096) { "Gun bundle exceeds the client packet limit" }
-    require(packets.none { it is BundlePacket }) { "Gun bundles cannot contain delimiters" }
+    require(packets.size <= 4096) { "Bundle exceeds the client packet limit" }
+    require(packets.none { it is BundlePacket }) { "Bundles cannot contain delimiters" }
     val deferredEvents = player.playerConnection is BufferedPacketEventConnection
     val outgoing = EventDispatcher.getHandle(PlayerPacketOutEvent::class.java)
     val translated =
@@ -55,7 +55,7 @@ internal fun prepareGunPacketBundle(
     val delimiter = BundlePacket()
     for (packet in listOf(delimiter) + translated + delimiter) {
         PacketWriting.writeFramedPacket(buffer, ConnectionState.PLAY, packet, compressionThreshold)
-        require(buffer.writeIndex() < ServerFlag.MAX_PACKET_SIZE) { "Gun bundle exceeds the socket buffer limit" }
+        require(buffer.writeIndex() < ServerFlag.MAX_PACKET_SIZE) { "Bundle exceeds the socket buffer limit" }
     }
     return BufferedPacket(buffer, 0, buffer.writeIndex())
 }
