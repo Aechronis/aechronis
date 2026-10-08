@@ -1,5 +1,6 @@
 package net.aechronis.combat.objects
 
+import net.aechronis.combat.utils.preparePacketBundle
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
@@ -11,6 +12,7 @@ import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.entity.metadata.golem.ShulkerMeta
 import net.minestom.server.instance.Instance
 import net.minestom.server.network.packet.server.play.EntityAttributesPacket
+import net.minestom.server.network.packet.server.play.EntityHeadLookPacket
 import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
 import net.minestom.server.network.packet.server.play.SetPassengersPacket
 import java.util.concurrent.CompletableFuture
@@ -75,11 +77,10 @@ internal class VehicleCollisionHitbox(
                 val nearby = dx * dx + dy * dy + dz * dz <= distance * distance
                 if (nearby == wasViewing) continue
                 if (nearby) {
-                    // Manual viewers do not inherit passengers. Publish both entities
-                    // and the scale metadata before attaching the shulker on the client.
+                    // Spawn the carrier first; the shulker bundles its spawn, metadata,
+                    // scale, and passenger attachment for this manual viewer.
                     carrier.addViewer(player)
                     shulker.addViewer(player)
-                    player.sendPacket(SetPassengersPacket(carrier.entityId, listOf(shulker.entityId)))
                     viewers.add(player)
                 } else {
                     hide(player)
@@ -193,25 +194,45 @@ internal class VehicleCollisionEntity(
     }
 
     override fun updateNewViewer(player: Player) {
-        super.updateNewViewer(player)
+        // Entity.updateNewViewer sends spawn and metadata separately, exposing a
+        // default-visible shulker if the client ticks between them during streaming.
         player.sendPacket(
-            EntityAttributesPacket(
-                entityId,
-                listOf(EntityAttributesPacket.Property(Attribute.SCALE, scale, emptyList())),
+            preparePacketBundle(
+                player,
+                buildList {
+                    add(spawnPacket)
+                    if (hasVelocity()) add(velocityPacket)
+                    add(
+                        EntityMetaDataPacket(
+                            entityId,
+                            metadataPacket.entries + (MetadataDef.ENTITY_FLAGS.index() to Metadata.Byte(viewerFlags(player))),
+                        ),
+                    )
+                    add(
+                        EntityAttributesPacket(
+                            entityId,
+                            listOf(EntityAttributesPacket.Property(Attribute.SCALE, scale, emptyList())),
+                        ),
+                    )
+                    add(EntityHeadLookPacket(entityId, headRotation))
+                    vehicle?.let { add(SetPassengersPacket(it.entityId, listOf(entityId))) }
+                },
             ),
         )
-        if (player in Hitbox.viewingHitboxes) updateHitboxVisibility(player)
     }
 
     fun updateHitboxVisibility(player: Player) {
-        val flags = metadata.get(MetadataDef.ENTITY_FLAGS).toInt()
-        // Change only this viewer's invisibility bit; shared metadata stays invisible.
-        val viewerFlags = if (player in Hitbox.viewingHitboxes) flags and 0x20.inv() else flags
         player.sendPacket(
             EntityMetaDataPacket(
                 entityId,
-                mapOf(MetadataDef.ENTITY_FLAGS.index() to Metadata.Byte(viewerFlags.toByte())),
+                mapOf(MetadataDef.ENTITY_FLAGS.index() to Metadata.Byte(viewerFlags(player))),
             ),
         )
+    }
+
+    private fun viewerFlags(player: Player): Byte {
+        val flags = metadata.get(MetadataDef.ENTITY_FLAGS).toInt()
+        // Change only this viewer's invisibility bit; shared metadata stays invisible.
+        return (if (player in Hitbox.viewingHitboxes) flags and 0x20.inv() else flags).toByte()
     }
 }
