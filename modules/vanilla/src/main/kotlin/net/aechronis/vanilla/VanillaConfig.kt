@@ -42,6 +42,7 @@ data class VanillaConfig(
     val spawnEnabled: Boolean = true,
     val kothEnabled: Boolean = true,
     val oresEnabled: Boolean = true,
+    val horsesEnabled: Boolean = false,
     // Player defaults
     val defaultGameMode: GameMode = GameMode.SURVIVAL,
     // Paths
@@ -54,6 +55,7 @@ data class VanillaConfig(
     val kothsPath: String = "koth.json",
     val votePath: String = "vote.txt",
     val warpsPath: String = "warps.json",
+    val horsesPath: String = "horses.json",
     val musicPath: String = "music",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),
@@ -112,6 +114,8 @@ data class VanillaConfig(
         ),
     // Warps
     val warpCooldownSeconds: Long = 15L,
+    // Horses
+    val horseMountCooldownMs: Long = 3_000L,
     // Combat
     val combatDurationSeconds: Long = 10L,
     val combatTickSeconds: Long = 1L,

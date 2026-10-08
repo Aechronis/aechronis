@@ -11,6 +11,7 @@ import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.FieldPieces
 import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Melees
+import net.aechronis.server.craft.HorseRecipes
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleStartupTimings.measure
@@ -18,6 +19,7 @@ import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.tasks.TabManager
 import net.aechronis.vanilla.VanillaConfig
 import net.aechronis.vanilla.VanillaModule
+import net.aechronis.vanilla.config.RecipesConfig
 import net.kyori.adventure.resource.ResourcePackInfo
 import net.minestom.server.item.Material
 import java.net.URI
@@ -45,6 +47,8 @@ class VictorianEraModule : AechronisModule {
             VanillaModule.configure(
                 VanillaConfig(
                     shopEnabled = false,
+                    horsesEnabled = true,
+                    recipesConfig = RecipesConfig(recpies = HorseRecipes.list),
                 ),
             )
         }

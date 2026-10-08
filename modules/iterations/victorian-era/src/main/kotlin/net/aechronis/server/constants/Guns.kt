@@ -158,6 +158,7 @@ object Guns {
             maxRange = 64.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     val colt1851 =
@@ -179,6 +180,7 @@ object Guns {
             maxRange = 72.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     // Two shots per reload; uses the existing single-projectile Gun behavior.
@@ -201,6 +203,7 @@ object Guns {
             maxRange = 32.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     val mauserModel1871Jaegerbuechse =
@@ -223,6 +226,7 @@ object Guns {
             maxRange = 192.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     val chassepotCarbine =
@@ -245,6 +249,7 @@ object Guns {
             maxRange = 176.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     val mauserModel1871 =

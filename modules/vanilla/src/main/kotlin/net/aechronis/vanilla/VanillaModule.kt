@@ -6,6 +6,7 @@ import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.vanilla.listeners.WhitelistListener
 import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Crops
+import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.KillShop
 import net.aechronis.vanilla.managers.Koth
 import net.aechronis.vanilla.managers.Music
@@ -22,7 +23,7 @@ class VanillaModule : AechronisModule {
     override val dependencies = setOf("utils", "combat")
 
     override fun initialize(context: ModuleContext) {
-        Vanilla.init(c = takeConfiguration(), shutdownAction = context::shutdownServer)
+        Vanilla.init(c = takeConfiguration(), shutdownAction = context::shutdownServer, instance = context.instance)
         measure("Restore transient state") {
             if (Vanilla.config.cropsEnabled) Crops.restoreTransientState(context.peekTransientState(CROPS_STATE_KEY))
             if (Vanilla.config.saplingsEnabled) Saplings.restoreTransientState(context.peekTransientState(SAPLINGS_STATE_KEY))
@@ -37,6 +38,11 @@ class VanillaModule : AechronisModule {
         if (Vanilla.config.whitelistEnabled) {
             context.addListener(AsyncPlayerPreLoginEvent::class.java, WhitelistListener::onPreLogin)
         }
+    }
+
+    override fun prepareForShutdown(context: ModuleContext) {
+        // Riders are released before player positions are saved.
+        Horses.prepareForShutdown()
     }
 
     override fun saveCheckpoint(context: ModuleContext): CompletableFuture<Void> = context.captureLive(Vanilla::saveCheckpoint)
