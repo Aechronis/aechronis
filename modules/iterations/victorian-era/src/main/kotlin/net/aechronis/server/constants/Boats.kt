@@ -1,13 +1,433 @@
 package net.aechronis.server.constants
 
+import net.aechronis.combat.objects.AmmoTypes
+import net.aechronis.combat.objects.AnimatedPart
+import net.aechronis.combat.objects.Boat
+import net.aechronis.combat.objects.BoatArmament
+import net.aechronis.combat.objects.BoatWeapon
 import net.aechronis.combat.objects.CollisionBuilder
+import net.aechronis.combat.objects.Health
+import net.aechronis.combat.objects.Hitbox
+import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.ShulkerHitbox
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
 object Boats {
+    // Weapon selection boxes enclose the scaled, rotated component geometry with 0.1 m padding.
+    // One world block is one metre. Bounds include every rotated model element,
+    // including the stem and rudder; per-axis scaling preserves the historical beam.
+    // Dolly: 12.50 m overall, 1.98 m beam. Its recorded depth is not its draught.
+    // https://www.nationalhistoricships.org.uk/register/19/dolly
+    // Raw beam/length: 7.537130392999 / 45.822939290557. Scale = metres * 16 / raw extent; Y follows Z.
+    private val dollyScale = Vec(4.203191181279, 4.364626169697, 4.364626169697)
+
+    // The 1884 Pillnitz II (now Diesbar), not the later ship renamed Pillnitz:
+    // 52.72 m overall and 10.25 m across paddle boxes (5.07 m hull beam).
+    // https://urn.dsm.museum/DSA/DSA03_1980_069114_Rindt.pdf (printed page 91)
+    // Raw beam/length: 9.07365 / 46.578731517043. Scale = metres * 16 / raw extent; Y follows Z.
+    private val pillnitzScale = Vec(18.074314085291, 18.109552847985, 18.109552847985)
+
+    // Tempete: 76 m overall and 17.6 m beam; 73.6 m is between perpendiculars.
+    // https://navypedia.org/ships/france/fr_bb_tempete.htm
+    // Rounded trial draught of 5.4 m; draught at maximum load varies.
+    // https://cnum.cnam.fr/pgi/sresrech.php?PTFSA2.2/0061= (trial table: 5.32-5.38 m)
+    // Raw beam/draught/length: 10.700001108395 / 3.25 / 47.621556445726. Scale = metres * 16 / raw extent.
+    private val tempeteScale = Vec(26.317754283134, 26.584615384615, 25.534654697518)
+
+    // Hulls follow the model's changing beam; spars and rigging do not obstruct water travel.
+    private val dollyHull =
+        listOf(
+            box(dollyScale, 7.6, -2.65, -14.3, 8.4, 2.3, -12.0),
+            box(dollyScale, 6.1, -2.65, -12.0, 9.9, 2.3, -3.0),
+            box(dollyScale, 4.65, -2.65, -3.0, 11.35, 2.0, 23.0),
+            box(dollyScale, 6.1, -2.65, 23.0, 9.9, 2.1, 28.5),
+            box(dollyScale, 7.6, -1.0, 28.5, 8.4, 2.1, 31.0),
+        )
+
+    private val pillnitzHull =
+        listOf(
+            box(pillnitzScale, 7.65, -0.9, -15.2, 8.35, 1.18, -12.0),
+            box(pillnitzScale, 6.65, -0.9, -12.0, 9.35, 1.18, -7.0),
+            box(pillnitzScale, 5.85, -0.9, -7.0, 10.15, 1.18, 26.0),
+            box(pillnitzScale, 6.5, -0.9, 26.0, 9.5, 1.18, 29.0),
+            box(pillnitzScale, 7.5, -0.6, 29.0, 8.5, 1.18, 31.2),
+            box(pillnitzScale, 7.91, -0.91, -11.0, 8.09, -0.79, 28.8),
+            box(pillnitzScale, 7.96, -0.91, 30.05, 8.04, 0.58, 31.45),
+        )
+
+    private val tempeteHull =
+        listOf(
+            box(tempeteScale, 7.5, -2.7, -15.2, 8.5, 0.9, -11.5),
+            box(tempeteScale, 5.4, -2.7, -11.5, 10.6, 0.9, -5.4),
+            box(tempeteScale, 3.7, -2.7, -5.4, 12.3, 0.9, 2.2),
+            box(tempeteScale, 2.7, -2.7, 2.2, 13.3, 0.9, 20.0),
+            box(tempeteScale, 3.5, -2.7, 20.0, 12.5, 0.9, 25.0),
+            box(tempeteScale, 5.5, -2.7, 25.0, 10.5, 0.9, 28.5),
+            box(tempeteScale, 7.3, -2.7, 28.5, 8.7, 0.9, 31.0),
+            // The lower bilge reaches the full draught and tapers inside the wider upper hull.
+            box(tempeteScale, 7.856, -3.25, -12.7, 8.144, -2.62, -9.64),
+            box(tempeteScale, 6.488, -3.25, -9.64, 9.512, -2.62, -4.06),
+            box(tempeteScale, 5.084, -3.25, -4.06, 10.916, -2.62, 2.78),
+            box(tempeteScale, 4.148, -3.25, 2.78, 11.852, -2.62, 18.8),
+            box(tempeteScale, 4.616, -3.25, 18.8, 11.384, -2.62, 23.21),
+            box(tempeteScale, 5.912, -3.25, 23.21, 10.088, -2.62, 26.45),
+            box(tempeteScale, 7.496, -3.25, 26.45, 8.504, -2.62, 28.52),
+            // Rotated ram bounds and the narrow rudder contribute to overall length.
+            box(tempeteScale, 7.86, -1.357440219327, -15.691556445726, 8.14, 0.757440219327, -14.708443554274),
+            box(tempeteScale, 7.92, -2.85, 31.46, 8.08, -0.35, 31.93),
+        )
+
+    val dolly =
+        Boat(
+            name = "dolly",
+            itemName = Component.text("SL Dolly", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            itemLore = listOf(Component.text("Steam launch · 4 seats", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)),
+            model = "aechronis:dolly-body",
+            scale = dollyScale.z,
+            modelScale = dollyScale,
+            hitbox =
+                Hitbox(
+                    dollyHull +
+                        listOf(
+                            box(dollyScale, 5.4, 2.0, -2.7, 10.6, 5.8, 7.7),
+                            box(dollyScale, 7.5, 2.0, 11.4, 8.5, 9.7, 12.7),
+                        ),
+                ),
+            waterHitbox = Hitbox(dollyHull),
+            waterlineOffset = -dollyScale.y / 2,
+            health =
+                Health(
+                    250F,
+                    mapOf(
+                        AmmoTypes.NORMAL to 3F,
+                        AmmoTypes.EXPLOSIVE to 75F,
+                        AmmoTypes.BOMB to 150F,
+                        AmmoTypes.MISSILE to 150F,
+                    ),
+                ),
+            placeTime = 2000,
+            maxSpeed = 0.33528F,
+            acceleration = 0.008F,
+            braking = 0.015F,
+            friction = 0.98F,
+            turnSpeed = 2.0F,
+            maxClimbHeight = 0.5F,
+            seatOffsets =
+                listOf(
+                    point(dollyScale, 9.8, 0.7, 15.4),
+                    point(dollyScale, 6.4, 1.13, -6.0),
+                    point(dollyScale, 9.6, 1.13, -6.0),
+                    point(dollyScale, 8.0, 0.62, 22.1),
+                ),
+            invisibleWhileRiding = false,
+            invulnerableWhileRiding = false,
+            animatedParts =
+                listOf(
+                    AnimatedPart.propeller(
+                        model = "aechronis:dolly-propeller",
+                        offset = point(dollyScale, 8.0, -1.5, 27.0),
+                        radius = 0.88 * dollyScale.y / 16,
+                    ),
+                ),
+            collisionHitbox = dollyCollision(dollyScale),
+        )
+
+    val pillnitz =
+        Boat(
+            name = "pillnitz",
+            itemName = Component.text("PS Pillnitz", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            itemLore =
+                listOf(
+                    Component
+                        .text(
+                            "Armed paddle transport · 12 seats · 1 gun station",
+                            NamedTextColor.GRAY,
+                        ).decoration(TextDecoration.ITALIC, false),
+                    Component.text("1 × 37 mm Hotchkiss", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
+                ),
+            model = "aechronis:pillnitz-body",
+            scale = pillnitzScale.z,
+            modelScale = pillnitzScale,
+            hitbox =
+                Hitbox(
+                    pillnitzHull +
+                        listOf(
+                            box(pillnitzScale, 3.5, -0.7, 9.5, 12.5, 2.7, 14.0),
+                            box(pillnitzScale, 6.5, 1.18, 7.4, 9.5, 3.15, 11.8),
+                            box(pillnitzScale, 7.5, 2.6, 11.0, 8.5, 8.8, 12.5),
+                        ),
+                ),
+            waterHitbox = Hitbox(pillnitzHull),
+            waterlineOffset = -pillnitzScale.y / 2,
+            health =
+                Health(
+                    700F,
+                    mapOf(
+                        AmmoTypes.NORMAL to 2F,
+                        AmmoTypes.EXPLOSIVE to 75F,
+                        AmmoTypes.BOMB to 150F,
+                        AmmoTypes.MISSILE to 150F,
+                    ),
+                ),
+            placeTime = 4000,
+            maxSpeed = 0.54166668F,
+            acceleration = 0.004F,
+            braking = 0.008F,
+            friction = 0.99F,
+            turnSpeed = 0.9F,
+            maxClimbHeight = 0.5F,
+            seatOffsets =
+                listOf(
+                    point(pillnitzScale, 8.0, 1.22, 29.6),
+                    point(pillnitzScale, 6.71, 1.65, -5.08),
+                    point(pillnitzScale, 9.29, 1.65, -5.08),
+                    point(pillnitzScale, 6.71, 1.65, -0.98),
+                    point(pillnitzScale, 9.29, 1.65, -0.98),
+                    point(pillnitzScale, 6.71, 1.65, 3.12),
+                    point(pillnitzScale, 9.29, 1.65, 3.12),
+                    point(pillnitzScale, 6.71, 1.65, 16.18),
+                    point(pillnitzScale, 9.29, 1.65, 16.18),
+                    point(pillnitzScale, 6.71, 1.65, 20.08),
+                    point(pillnitzScale, 9.29, 1.65, 20.08),
+                    point(pillnitzScale, 6.71, 1.65, 23.98),
+                ),
+            invisibleWhileRiding = false,
+            invulnerableWhileRiding = false,
+            armament =
+                BoatArmament(
+                    ammo = Ammo.artilleryShell,
+                    weapons =
+                        listOf(
+                            BoatWeapon(
+                                name = "37 mm deck gun",
+                                model = "aechronis:pillnitz-deck-gun",
+                                pivotOffset = point(pillnitzScale, 8.55, 1.98, -7.2),
+                                muzzleOffsets = listOf(vector(pillnitzScale, 0.0, 0.705, 1.08)),
+                                operatorOffset = point(pillnitzScale, 8.55, 1.3, -5.6),
+                                interactionHitbox = Hitbox(listOf(HitboxPart(Vec(-0.154, 0.505, 0.103), Vec(0.67, 0.62, 1.21)))),
+                                maxYaw = 55F,
+                                traverseSpeed = 3F,
+                                reloadTime = 1500,
+                                projectileSpeed = 4.0,
+                                projectileExplosionRadius = 1,
+                                projectileExplosionDamage = 24F,
+                                projectileMaxRange = 192.0,
+                            ),
+                        ),
+                ),
+            animatedParts =
+                listOf(
+                    AnimatedPart.rollingWheel(
+                        model = "aechronis:pillnitz-paddle-left",
+                        offset = point(pillnitzScale, 4.61, 0.7, 11.8),
+                        radius = 1.8 * pillnitzScale.y / 16,
+                        rotationDirection = -1.0,
+                    ),
+                    AnimatedPart.rollingWheel(
+                        model = "aechronis:pillnitz-paddle-right",
+                        offset = point(pillnitzScale, 11.39, 0.7, 11.8),
+                        radius = 1.8 * pillnitzScale.y / 16,
+                        rotationDirection = -1.0,
+                    ),
+                ),
+            collisionHitbox = pillnitzCollision(pillnitzScale),
+        )
+
+    val tempete =
+        Boat(
+            name = "tempete",
+            itemName = Component.text("Tempête", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            itemLore =
+                listOf(
+                    Component
+                        .text(
+                            "Coastal ironclad · 6 seats · 5 gun stations",
+                            NamedTextColor.GRAY,
+                        ).decoration(TextDecoration.ITALIC, false),
+                    Component.text("2 × 274 mm · 4 × 37 mm", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
+                ),
+            model = "aechronis:tempete-body",
+            scale = tempeteScale.z,
+            modelScale = tempeteScale,
+            hitbox =
+                Hitbox(
+                    tempeteHull +
+                        listOf(
+                            box(tempeteScale, 4.4, 0.9, -1.4, 11.6, 1.96, 20.1),
+                            box(tempeteScale, 4.7, 1.96, -2.8, 11.3, 4.425, 3.8),
+                            box(tempeteScale, 7.25, 1.96, 5.1, 8.75, 4.68, 20.3),
+                            box(tempeteScale, 5.0, 4.52, 4.4, 11.0, 4.74, 21.4),
+                            box(tempeteScale, 7.3, 4.74, 6.0, 8.7, 8.1, 7.2),
+                        ),
+                ),
+            waterHitbox = Hitbox(tempeteHull),
+            waterlineOffset = -tempeteScale.y / 2,
+            health =
+                Health(
+                    1800F,
+                    mapOf(
+                        AmmoTypes.NORMAL to 1F,
+                        AmmoTypes.EXPLOSIVE to 75F,
+                        AmmoTypes.BOMB to 150F,
+                        AmmoTypes.MISSILE to 150F,
+                    ),
+                ),
+            placeTime = 6000,
+            maxSpeed = 0.90285F,
+            acceleration = 0.002F,
+            braking = 0.005F,
+            friction = 0.992F,
+            turnSpeed = 0.5F,
+            maxClimbHeight = 0.5F,
+            seatOffsets =
+                listOf(
+                    point(tempeteScale, 8.0, 4.74, 10.0),
+                    point(tempeteScale, 6.3, 4.74, 12.0),
+                    point(tempeteScale, 9.7, 4.74, 12.0),
+                    point(tempeteScale, 6.3, 4.74, 17.0),
+                    point(tempeteScale, 9.7, 4.74, 17.0),
+                    point(tempeteScale, 8.0, 4.74, 19.5),
+                ),
+            invisibleWhileRiding = false,
+            invulnerableWhileRiding = false,
+            armament =
+                BoatArmament(
+                    ammo = Ammo.artilleryShell,
+                    weapons =
+                        listOf(
+                            BoatWeapon(
+                                name = "Twin 274 mm turret",
+                                model = "aechronis:tempete-turret",
+                                pivotOffset = point(tempeteScale, 8.0, 1.96, 0.5),
+                                // Both barrels share one central firing point so the optical seat stays steady between shots.
+                                muzzleOffsets = listOf(vector(tempeteScale, 0.0, 0.76, 4.032), vector(tempeteScale, 0.0, 0.76, 4.032)),
+                                operatorOffset = point(tempeteScale, 8.0, 1.5, 0.5),
+                                interactionHitbox = Hitbox(listOf(HitboxPart(Vec(0.0, 2.098, 0.571), Vec(5.53, 2.1, 5.94)))),
+                                maxYaw = 180F,
+                                scopeEyeDistance = 3.5,
+                                traverseSpeed = 0.8F,
+                                reloadTime = 10000,
+                                projectileSpeed = 4.0,
+                                projectileExplosionRadius = 4,
+                                projectileExplosionDamage = 100F,
+                                projectileMaxRange = 256.0,
+                            ),
+                            BoatWeapon(
+                                name = "Port forward 37 mm gun",
+                                model = "aechronis:tempete-light-gun-port-fore",
+                                pivotOffset = point(tempeteScale, 5.7, 5.49, 8.3),
+                                muzzleOffsets = listOf(vector(tempeteScale, 0.704, 0.3, 0.0)),
+                                operatorOffset = point(tempeteScale, 6.6, 4.8, 8.3),
+                                interactionHitbox = Hitbox(listOf(HitboxPart(Vec(0.274, 0.328, 0.114), Vec(0.97, 0.44, 0.5)))),
+                                neutralYaw = -90F,
+                                maxYaw = 45F,
+                                traverseSpeed = 3F,
+                                reloadTime = 1800,
+                                projectileSpeed = 4.0,
+                                projectileExplosionRadius = 1,
+                                projectileExplosionDamage = 24F,
+                                projectileMaxRange = 192.0,
+                            ),
+                            BoatWeapon(
+                                name = "Port aft 37 mm gun",
+                                model = "aechronis:tempete-light-gun-port-aft",
+                                pivotOffset = point(tempeteScale, 5.7, 5.49, 20.7),
+                                muzzleOffsets = listOf(vector(tempeteScale, 0.704, 0.3, 0.0)),
+                                operatorOffset = point(tempeteScale, 6.6, 4.8, 20.7),
+                                interactionHitbox = Hitbox(listOf(HitboxPart(Vec(0.274, 0.328, 0.114), Vec(0.97, 0.44, 0.5)))),
+                                neutralYaw = -90F,
+                                maxYaw = 45F,
+                                traverseSpeed = 3F,
+                                reloadTime = 1800,
+                                projectileSpeed = 4.0,
+                                projectileExplosionRadius = 1,
+                                projectileExplosionDamage = 24F,
+                                projectileMaxRange = 192.0,
+                            ),
+                            BoatWeapon(
+                                name = "Starboard forward 37 mm gun",
+                                model = "aechronis:tempete-light-gun-starboard-fore",
+                                pivotOffset = point(tempeteScale, 10.3, 5.49, 8.3),
+                                muzzleOffsets = listOf(vector(tempeteScale, -0.704, 0.3, 0.0)),
+                                operatorOffset = point(tempeteScale, 9.4, 4.8, 8.3),
+                                interactionHitbox = Hitbox(listOf(HitboxPart(Vec(-0.274, 0.328, -0.114), Vec(0.97, 0.44, 0.5)))),
+                                neutralYaw = 90F,
+                                maxYaw = 45F,
+                                traverseSpeed = 3F,
+                                reloadTime = 1800,
+                                projectileSpeed = 4.0,
+                                projectileExplosionRadius = 1,
+                                projectileExplosionDamage = 24F,
+                                projectileMaxRange = 192.0,
+                            ),
+                            BoatWeapon(
+                                name = "Starboard aft 37 mm gun",
+                                model = "aechronis:tempete-light-gun-starboard-aft",
+                                pivotOffset = point(tempeteScale, 10.3, 5.49, 20.7),
+                                muzzleOffsets = listOf(vector(tempeteScale, -0.704, 0.3, 0.0)),
+                                operatorOffset = point(tempeteScale, 9.4, 4.8, 20.7),
+                                interactionHitbox = Hitbox(listOf(HitboxPart(Vec(-0.274, 0.328, -0.114), Vec(0.97, 0.44, 0.5)))),
+                                neutralYaw = 90F,
+                                maxYaw = 45F,
+                                traverseSpeed = 3F,
+                                reloadTime = 1800,
+                                projectileSpeed = 4.0,
+                                projectileExplosionRadius = 1,
+                                projectileExplosionDamage = 24F,
+                                projectileMaxRange = 192.0,
+                            ),
+                        ),
+                ),
+            animatedParts =
+                listOf(
+                    AnimatedPart.propeller(
+                        model = "aechronis:tempete-propeller",
+                        offset = point(tempeteScale, 8.0, -1.75, 31.08),
+                        radius = 1.33 * tempeteScale.y / 16,
+                    ),
+                ),
+            collisionHitbox = tempeteCollision(tempeteScale),
+        )
+
+    val all: List<Boat> = listOf(dolly, pillnitz, tempete)
+
+    // Item displays turn the model's -Z bow toward vehicle-local +Z and mirror X.
+    // All editable asset coordinates have their waterline at Y=0 and model center at (8, 8, 8).
+    private fun point(
+        scale: Vec,
+        x: Double,
+        y: Double,
+        z: Double,
+    ): Vec = vector(scale, 8.0 - x, y - 8.0, 8.0 - z)
+
+    /** Scale a vehicle-local displacement, already oriented with +Z toward the bow. */
+    private fun vector(
+        scale: Vec,
+        x: Double,
+        y: Double,
+        z: Double,
+    ): Vec = Vec(x * scale.x / 16, y * scale.y / 16, z * scale.z / 16)
+
+    private fun box(
+        scale: Vec,
+        minX: Double,
+        minY: Double,
+        minZ: Double,
+        maxX: Double,
+        maxY: Double,
+        maxZ: Double,
+    ): HitboxPart =
+        HitboxPart(
+            point(scale, (minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2),
+            vector(scale, (maxX - minX) / 2, (maxY - minY) / 2, (maxZ - minZ) / 2),
+        )
+
     private fun dollyCollision(scale: Vec): ShulkerHitbox =
         CollisionBuilder(scale)
             .apply {

@@ -8,6 +8,7 @@ import net.aechronis.nodes.objects.OreDeposit
 import net.aechronis.nodes.objects.TerritoryResources
 import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
+import net.aechronis.server.constants.Boats
 import net.aechronis.server.constants.FieldPieces
 import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Melees
@@ -87,6 +88,7 @@ class VictorianEraModule : AechronisModule {
             *Guns.all.toTypedArray(),
             *Melees.all.toTypedArray(),
             *Armor.all.toTypedArray(),
+            *Boats.all.toTypedArray(),
             FieldPieces.kruppC64,
             FieldPieces.gatlingGun,
             FieldPieces.maximGun,
