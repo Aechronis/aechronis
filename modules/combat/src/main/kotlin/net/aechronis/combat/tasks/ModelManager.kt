@@ -287,7 +287,7 @@ object ModelManager {
             if (enabled) {
                 (if (automaticGun) automaticGunFakeBlockOffsets else fakeBlockOffsets)
                     .map { player.position.add(it).asBlockVec() }
-                    .filter { instance.isChunkLoaded(it) && instance.getBlock(it).isAir }
+                    .filter { instance.isChunkLoaded(it) && instance.getBlock(it).air() }
                     .toSet()
             } else {
                 emptySet()

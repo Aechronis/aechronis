@@ -626,7 +626,7 @@ open class Vehicle(
         for (x in floor(position.x + start.x).toInt()..floor(position.x + end.x).toInt()) {
             for (y in floor(position.y + start.y).toInt()..floor(position.y + end.y).toInt()) {
                 for (z in floor(position.z + start.z).toInt()..floor(position.z + end.z).toInt()) {
-                    if (instance.getBlock(x, y, z).isSolid) return false
+                    if (instance.getBlock(x, y, z).solid()) return false
                 }
             }
         }

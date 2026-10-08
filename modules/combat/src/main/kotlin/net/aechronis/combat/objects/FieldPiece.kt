@@ -127,7 +127,7 @@ open class FieldPiece(
         z: Double,
     ): Boolean {
         val point = Pos(x, y - 0.01, z)
-        return instance.isChunkLoaded(point) && instance.getBlock(point).isSolid
+        return instance.isChunkLoaded(point) && instance.getBlock(point).solid()
     }
 
     private fun overlaps(
@@ -160,7 +160,7 @@ open class FieldPiece(
                 for (z in floor(corners.minOf { it.z }).toInt()..floor(corners.maxOf { it.z }).toInt()) {
                     val blockPos = Pos(x + 0.5, y + 0.5, z + 0.5)
                     if (!instance.isChunkLoaded(blockPos)) return true
-                    if (instance.getBlock(x, y, z).isSolid &&
+                    if (instance.getBlock(x, y, z).solid() &&
                         box.intersects(blockBox, position, position.yaw, 0f, 0f, blockPos, 0f, 0f, 0f)
                     ) {
                         return true

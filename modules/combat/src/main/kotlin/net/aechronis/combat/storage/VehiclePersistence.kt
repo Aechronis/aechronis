@@ -238,7 +238,7 @@ object VehiclePersistence {
         val dimension = instance.cachedDimensionType
         val topY = floor(position.y).toInt().coerceAtMost(dimension.maxY() - 1)
         for (blockY in topY downTo dimension.minY()) {
-            if (instance.getBlock(blockX, blockY, blockZ).isSolid) {
+            if (instance.getBlock(blockX, blockY, blockZ).solid()) {
                 return Pos(
                     position.x,
                     blockY + 1.0 + vehicle.hitbox.getGroundOffset(),
