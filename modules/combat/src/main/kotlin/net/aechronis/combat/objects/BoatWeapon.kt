@@ -26,6 +26,8 @@ data class BoatWeapon(
     val projectileExplosionRadius: Int = 1,
     val projectileExplosionDamage: Float = 20f,
     val projectileMaxRange: Double = 192.0,
+    /** Places the operator's eye this far behind the active muzzle, on its bore line. */
+    val scopeEyeDistance: Double? = null,
 ) {
     init {
         require(name.isNotBlank() && model.isNotBlank())
@@ -39,6 +41,7 @@ data class BoatWeapon(
         require(reloadTime > 0 && projectileSpeed.isFinite() && projectileSpeed > 0.0)
         require(projectileExplosionRadius >= 0 && projectileExplosionDamage.isFinite() && projectileExplosionDamage >= 0f)
         require(projectileMaxRange.isFinite() && projectileMaxRange > 0.0)
+        require(scopeEyeDistance == null || (scopeEyeDistance.isFinite() && scopeEyeDistance > 0.0))
     }
 
     private fun Vec.finite() = x.isFinite() && y.isFinite() && z.isFinite()

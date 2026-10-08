@@ -3,6 +3,7 @@ package net.aechronis.combat.tasks
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
+import net.aechronis.combat.objects.TurretScope
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.utils.GUN_ANIMATION_CLOCK_TICKS
 import net.aechronis.combat.utils.GunAnimation
@@ -194,7 +195,7 @@ object ModelManager {
                 Combat.playerAiming[player] == true &&
                 Combat.reloadTasks[player] == null
         return when {
-            hideCrosshair -> SHADER_AIMING_TIME
+            TurretScope.isActive(player) || hideCrosshair -> SHADER_AIMING_TIME
             gun != null || VehicleTickManager.playerLookingAtVehicle[player] != null -> SHADER_COMBAT_TIME
             else -> SHADER_IDLE_TIME
         }
@@ -212,15 +213,27 @@ object ModelManager {
         val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
         val hasCustomDriverView = Vehicle.drivenBy(player)?.customDriverView == true
         val customViewOwnsShaderTime = hasCustomView(player)
-        GunAnimation.update(player, gun, viewModelVisible = !customViewOwnsShaderTime)
-        setHitAnimationDisabled(player, gun != null || isLookingAtVehicle || hasCustomDriverView, allowInstantBreaking = gun != null)
-        updateFakeBlocks(player, instance, gun?.automatic == true || isLookingAtVehicle, automaticGun = gun?.automatic == true)
-        if (gun == null) restoreSniperScope(player)
+        val turretScopeActive = TurretScope.isActive(player)
+        GunAnimation.update(player, gun, viewModelVisible = !customViewOwnsShaderTime && !turretScopeActive)
+        setHitAnimationDisabled(
+            player,
+            gun != null || isLookingAtVehicle || hasCustomDriverView || turretScopeActive,
+            allowInstantBreaking = gun != null && !turretScopeActive,
+        )
+        updateFakeBlocks(
+            player,
+            instance,
+            !turretScopeActive && (gun?.automatic == true || isLookingAtVehicle),
+            automaticGun = gun?.automatic == true,
+        )
+        if (gun == null || turretScopeActive) restoreSniperScope(player)
         // Let the client clock advance between state changes and occasional drift
         // corrections. Refresh at phase wrap before the clock enters another HUD band.
         // Action publications still force a matching clock alongside their start phase.
         syncShaderTime(player, instance.worldAge, force = false)
-        if (gun == null) return
+        // The turret uses the native camera and the normal shader clock, but owns
+        // the sight and hand visibility instead of the handheld gun's models.
+        if (gun == null || turretScopeActive) return
 
         val hasAmmo = gun.hasAmmo(player)
         val preserveAction = customViewOwnsShaderTime || GunAnimation.isSettling(player, gun) || GunAnimation.isFiring(player, gun)

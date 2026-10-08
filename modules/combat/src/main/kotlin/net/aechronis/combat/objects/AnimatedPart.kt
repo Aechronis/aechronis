@@ -205,5 +205,11 @@ internal class AnimatedPartRuntime(
         appliedRoll = roll
     }
 
+    fun refreshViewers(hiddenForSomeViewers: Boolean) {
+        if (!display.isRemoved) {
+            display.updateViewableRule(if (hiddenForSomeViewers) { player -> owner.isPartVisibleTo(player, part.model) } else null)
+        }
+    }
+
     fun remove() = display.remove()
 }

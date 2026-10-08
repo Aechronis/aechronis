@@ -300,14 +300,29 @@ open class Boat(
             return
         }
         if (!canEnterAsGunner(player, entity, stationIndex)) return
-        super.onGunnerEnter(player, entity, stationIndex)
+        val vehicleRuntime = VehicleRegistry.runtime(entity) ?: return
+        // Minestom skips already-mounted players when refreshing an entity's viewers.
+        // Hide only the operated housing while this operator is tracked independently.
+        if (weapon.scopeEyeDistance != null) vehicleRuntime.setPartHidden(player, weapon.model, true)
+        try {
+            super.onGunnerEnter(player, entity, stationIndex)
+        } catch (failure: Exception) {
+            vehicleRuntime.setPartHidden(player, weapon.model, false)
+            throw failure
+        }
         val ride = VehicleRegistry.gunner(player)
         if (ride == null || ride.entity !== entity || ride.vehicle !== this || ride.stationIndex != stationIndex) {
+            if (weapon.scopeEyeDistance != null) vehicleRuntime.setPartHidden(player, weapon.model, false)
             return
+        }
+        if (weapon.scopeEyeDistance != null) {
+            TurretScope.open(player, ride, weapon.model)
+            updateScope(player, ride)
         }
     }
 
     override fun onGunnerExit(player: Player) {
+        TurretScope.close(player)
         val ride = VehicleRegistry.gunner(player)?.takeIf { it.vehicle === this }
         ride?.stationIndex?.let { index ->
             runtimes
@@ -323,8 +338,12 @@ open class Boat(
     override fun onGunnerTick(player: Player) {
         val ride = VehicleRegistry.gunner(player)?.takeIf { it.vehicle === this } ?: return
         val index = ride.stationIndex ?: return
-        super.onGunnerTick(player)
-        if (VehicleRegistry.gunner(player) !== ride) return
+        // The optical seat moves once, after traversing and selecting the next barrel.
+        // Ordinary stations still use the base seat update and dismount handling.
+        if (weapons[index].scopeEyeDistance == null || KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
+            super.onGunnerTick(player)
+            if (VehicleRegistry.gunner(player) !== ride) return
+        }
         val body = ride.entity
         val runtime = runtimes?.get(body) ?: return
         val weapon = weapons[index]
@@ -337,13 +356,15 @@ open class Boat(
         state.yaw += delta.coerceIn(-weapon.traverseSpeed, weapon.traverseSpeed)
         if (weapon.maxYaw == 180f) state.yaw = angleDifference(0f, state.yaw)
         state.pitch = player.position.pitch.coerceIn(weapon.minPitch, weapon.maxPitch)
-        val canFire = abs(aim) <= weapon.maxYaw && abs(target - state.yaw) <= 3f
+        // A scoped gun fires along its actual bore, even while the operator looks elsewhere.
+        val canFire = weapon.scopeEyeDistance != null || (abs(aim) <= weapon.maxYaw && abs(target - state.yaw) <= 3f)
         if (KeyPressListener.playerInputEvent[player]?.isHoldingJumpKey == true && canFire) {
             fire(player, body, runtime, index)
         }
+        if (VehicleRegistry.gunner(player) === ride && weapon.scopeEyeDistance != null) updateScope(player, ride)
     }
 
-    /** Projectile origin and direction, including the alternating barrel. */
+    /** Shared by the optical sight and projectile creation, including the alternating barrel. */
     internal fun firingPose(
         entity: Entity,
         index: Int,
@@ -354,6 +375,29 @@ open class Boat(
         val origin = body.add(rotatePoint(weapon.pivotOffset, body.yaw, 0f, 0f))
         val tip = rotatePoint(weapon.muzzleOffsets[state.nextMuzzle], body.yaw + state.yaw, 0f, 0f)
         return origin.add(tip).withView(body.yaw + weapon.neutralYaw + state.yaw, state.pitch)
+    }
+
+    override fun getGunnerSeatWorldPos(
+        entity: Entity,
+        stationIndex: Int,
+    ): Pos {
+        val distance = weapons.getOrNull(stationIndex)?.scopeEyeDistance
+        val muzzle = firingPose(entity, stationIndex)
+        if (distance == null || muzzle == null) return super.getGunnerSeatWorldPos(entity, stationIndex)
+        val player = VehicleRegistry.gunnerOf(entity, stationIndex)?.player
+        val eyeHeight = player?.let(TurretScope::eyeHeight) ?: TurretScope.DEFAULT_EYE_HEIGHT
+        return muzzle.sub(muzzle.direction().mul(distance)).sub(0.0, eyeHeight, 0.0)
+    }
+
+    private fun updateScope(
+        player: Player,
+        ride: VehicleRide,
+    ) {
+        val index = requireNotNull(ride.stationIndex)
+        val muzzle = firingPose(ride.entity, index) ?: return
+        val view = player.position
+        ride.seat.teleport(getGunnerSeatWorldPos(ride.entity, index).withView(view.yaw, view.pitch))
+        if (!TurretScope.update(player, muzzle)) onGunnerExit(player)
     }
 
     internal fun weaponStatus(player: Player): Pair<BoatWeapon, Int>? {
@@ -517,6 +561,7 @@ open class Boat(
     }
 
     override fun cleanupRuntime(entity: Entity) {
+        VehicleRegistry.gunners(entity).forEach { TurretScope.close(it.player) }
         runtimes?.remove(entity)
         super.cleanupRuntime(entity)
     }

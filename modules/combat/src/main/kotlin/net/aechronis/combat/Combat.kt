@@ -24,6 +24,7 @@ import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Projectile
+import net.aechronis.combat.objects.TurretScope
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.combat.tasks.ActionBarManager
@@ -271,6 +272,7 @@ object Combat {
         }
         cleanup(failures, "projectile removal") { Projectile.shutdown() }
         cleanup(failures, "vehicle removal") { VehiclePersistence.shutdown() }
+        cleanup(failures, "turret scope restoration") { TurretScope.shutdown() }
         cleanup(failures, "player model restoration") { ModelManager.shutdown() }
         cleanup(failures, "temporary block restoration") { BlockRestoreManager.shutdown() }
         cleanup(failures, "hat cosmetics") { HatListener.shutdown() }

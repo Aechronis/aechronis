@@ -21,6 +21,7 @@ internal class VehicleRuntime(
     val vehicle: Vehicle,
 ) {
     private val animatedParts = ArrayList<AnimatedPartRuntime>()
+    private val hiddenParts = HashMap<Player, String>()
     private val displays = linkedSetOf(entity)
     private val pendingDisplayMovement = ConcurrentHashMap.newKeySet<Entity>()
     private val carryOrigins = HashMap<Player, Pos>()
@@ -146,6 +147,23 @@ internal class VehicleRuntime(
         )
     }
 
+    fun isPartVisibleTo(
+        player: Player,
+        model: String,
+    ): Boolean = hiddenParts[player] != model
+
+    /** Hide the operated gun housing without hiding the hull or other animated parts. */
+    fun setPartHidden(
+        player: Player,
+        model: String,
+        hidden: Boolean,
+    ) {
+        if (hidden) hiddenParts[player] = model else hiddenParts.remove(player, model)
+        animatedParts.forEach { it.refreshViewers(hiddenParts.isNotEmpty()) }
+        // Restoring from the viewer side also works while the operator is mounted.
+        if (!hidden && player.instance != null) player.updateViewerRule()
+    }
+
     private val collisionHitbox = VehicleCollisionHitbox(this)
     private var previousAnimationPosition = entity.position
     private var animationAgeTicks = 0L
@@ -188,6 +206,7 @@ internal class VehicleRuntime(
         collisionHitbox.remove()
         animatedParts.forEach { it.remove() }
         animatedParts.clear()
+        hiddenParts.clear()
         displays.clear()
         pendingDisplayMovement.clear()
         carryOrigins.clear()
