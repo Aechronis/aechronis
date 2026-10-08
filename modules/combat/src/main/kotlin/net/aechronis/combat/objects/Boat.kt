@@ -407,6 +407,28 @@ open class Boat(
         return weapons[index] to mount.ammo
     }
 
+    internal fun snapshotWeaponAmmo(entity: Entity): Map<String, Int> =
+        runtimes
+            ?.get(entity)
+            ?.mounts
+            ?.mapIndexed { index, state -> weapons[index].model to state.ammo }
+            ?.toMap() ?: emptyMap()
+
+    internal fun restoreWeaponAmmo(
+        entity: Entity,
+        saved: Map<String, Int>?,
+        legacyAmmo: Int?,
+    ) {
+        val armament = armament ?: return
+        val runtime = runtimes?.get(entity) ?: return
+        runtime.mounts.forEachIndexed { index, state ->
+            // A legacy shared breech represents at most one round, not one per new station.
+            state.ammo =
+                (saved?.get(weapons[index].model) ?: if (saved == null && index == 0) legacyAmmo ?: 0 else 0).coerceIn(0, armament.maxAmmo)
+            state.reloadStartedAt = null
+        }
+    }
+
     internal fun weaponInteractionTargets(entity: Entity): List<WeaponInteractionTarget> =
         weapons.mapIndexed { index, weapon ->
             val pose = entity.position

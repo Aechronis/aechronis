@@ -3,6 +3,7 @@ package net.aechronis.combat.storage
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.Vehicle
@@ -45,6 +46,7 @@ object VehiclePersistence {
         val pitch: Float,
         val health: Float? = null,
         val ammo: Int? = null,
+        val weaponAmmo: Map<String, Int>? = null,
     )
 
     @Synchronized
@@ -108,6 +110,7 @@ object VehiclePersistence {
                     pitch = position.pitch,
                     health = runtime.health,
                     ammo = runtime.ammo,
+                    weaponAmmo = (vehicle as? Boat)?.takeIf { it.armament != null }?.snapshotWeaponAmmo(entity),
                 )
             }
         write(PersistedVehicles(version = FORMAT_VERSION, vehicles = vehicles))
@@ -127,12 +130,38 @@ object VehiclePersistence {
             "Unsupported vehicle save version ${saved.version} in $path"
         }
 
-        val planePositions =
-            saved.vehicles.mapNotNull { vehicle ->
-                if (!vehicle.hasFinitePosition() || Item.getFromName(vehicle.type) !is Plane) return@mapNotNull null
-                Pos(vehicle.x, vehicle.y, vehicle.z, vehicle.yaw, vehicle.pitch)
+        val terrainPositions =
+            saved.vehicles.flatMap { savedVehicle ->
+                if (!savedVehicle.hasFinitePosition()) return@flatMap emptyList()
+                val vehicle = Item.getFromName(savedVehicle.type)
+                val position = Pos(savedVehicle.x, savedVehicle.y, savedVehicle.z, savedVehicle.yaw, savedVehicle.pitch)
+                when (vehicle) {
+                    is Plane -> listOf(position)
+                    is Boat -> {
+                        // Boat.spawn queries water across its hull before creating the
+                        // entity. Long ships can span chunks beyond their center chunk.
+                        val corners =
+                            (
+                                vehicle.hitbox.getWorldCorners(position, position.yaw, position.pitch, 0f) +
+                                    vehicle.waterHitbox.getWorldCorners(position, position.yaw, position.pitch, 0f)
+                            ).flatten()
+                                .plus(position.asVec())
+                        val minChunkX = Math.floorDiv(floor(corners.minOf { it.x }).toInt(), 16)
+                        val maxChunkX = Math.floorDiv(floor(corners.maxOf { it.x }).toInt(), 16)
+                        val minChunkZ = Math.floorDiv(floor(corners.minOf { it.z }).toInt(), 16)
+                        val maxChunkZ = Math.floorDiv(floor(corners.maxOf { it.z }).toInt(), 16)
+                        buildList {
+                            for (chunkX in minChunkX..maxChunkX) {
+                                for (chunkZ in minChunkZ..maxChunkZ) {
+                                    add(Pos(chunkX * 16.0 + 8.0, position.y, chunkZ * 16.0 + 8.0))
+                                }
+                            }
+                        }
+                    }
+                    else -> emptyList()
+                }
             }
-        preloadChunks(planePositions, deadline, "saved plane chunks")
+        preloadChunks(terrainPositions, deadline, "saved vehicle chunks")
         saved.vehicles.forEach { restore(it, deadline) }
     }
 
@@ -166,6 +195,7 @@ object VehiclePersistence {
         val entity = vehicle.spawn(instance, placementPosition)
 
         VehicleRegistry.runtime(entity)?.restore(saved.health, saved.ammo)
+        (vehicle as? Boat)?.restoreWeaponAmmo(entity, saved.weaponAmmo, saved.ammo)
     }
 
     private fun groundPlane(
