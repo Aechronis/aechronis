@@ -85,9 +85,17 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
     const speedField = type === 'Plane' ? 'speed' : fieldPieces.includes(type) ? 'moveSpeed' : 'maxSpeed'
     add('Top speed', `${format(stat(speedField) * 20)} blocks/s`)
     if (type !== 'Drone') {
-      const seats = value(type === 'Plane' ? 'seatOffset' : 'seatOffsets')
-      const seatCount = splitArguments(constructorArgs(seats, 'listOf')).length
-      if (seatCount > 1) add('Seats', seatCount)
+      const crew = type === 'Boat'
+        ? [value('helmSeat'), ...(armament ? splitArguments(constructorArgs(armament.weapons, 'listOf')) : [])]
+        : splitArguments(constructorArgs(value('seats'), 'listOf'))
+      const roles = crew.map(expression => {
+        if (expression.startsWith('BoatWeapon')) return string(namedArguments(constructorArgs(expression, 'BoatWeapon')).name, `${id}/crew`)
+        const fields = splitArguments(constructorArgs(expression, 'VehicleSeat'))
+        const named = namedArguments(constructorArgs(expression, 'VehicleSeat'))
+        return string(named.name ?? fields[1], `${id}/crew`)
+      })
+      add('Crew seats', crew.length)
+      add('Crew positions', roles.join(', '))
     }
     if (type === 'Car' || type === 'Tank') add('Maximum climb', `${format(stat('maxClimbHeight'))} blocks`)
     if (mountedGun) {
@@ -217,6 +225,12 @@ import VehicleCatalogue from '../../../.vitepress/theme/VehicleCatalogue.vue'
 </script>
 
 # Vehicles
+
+Right-click a vehicle to take a free crew seat. Your hotbar shows its crew positions:
+press **1–9** to switch to an available seat, and **Shift** to leave. Drivers steer;
+gunners operate their assigned weapons. Other riders can stand on the vehicle and move with it.
+
+Remote drones retain their own control display and scrolling throttle.
 
 <VehicleCatalogue iteration="${iterationId}" />
 `)

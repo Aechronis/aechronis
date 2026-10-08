@@ -10,6 +10,8 @@ import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.ShulkerHitbox
+import net.aechronis.combat.objects.VehicleSeat
+import net.aechronis.combat.objects.VehicleSeatRole
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -87,7 +89,7 @@ object Boats {
         Boat(
             name = "dolly",
             itemName = Component.text("SL Dolly", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            itemLore = listOf(Component.text("Steam launch · 4 seats", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)),
+            itemLore = listOf(Component.text("Steam launch · 1 crew seat", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)),
             model = "aechronis:dolly-body",
             scale = dollyScale.z,
             modelScale = dollyScale,
@@ -118,13 +120,7 @@ object Boats {
             friction = 0.98F,
             turnSpeed = 2.0F,
             maxClimbHeight = 0.5F,
-            seatOffsets =
-                listOf(
-                    point(dollyScale, 9.8, 0.7, 15.4),
-                    point(dollyScale, 6.4, 1.13, -6.0),
-                    point(dollyScale, 9.6, 1.13, -6.0),
-                    point(dollyScale, 8.0, 0.62, 22.1),
-                ),
+            helmSeat = VehicleSeat("helm", "Helmsman", VehicleSeatRole.DRIVER, point(dollyScale, 9.8, 0.7, 15.4)),
             invisibleWhileRiding = false,
             invulnerableWhileRiding = false,
             animatedParts =
@@ -146,7 +142,7 @@ object Boats {
                 listOf(
                     Component
                         .text(
-                            "Armed paddle transport · 12 seats · 1 gun station",
+                            "Armed paddle transport · 2 crew seats · 1 gun station",
                             NamedTextColor.GRAY,
                         ).decoration(TextDecoration.ITALIC, false),
                     Component.text("1 × 37 mm Hotchkiss", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
@@ -182,21 +178,7 @@ object Boats {
             friction = 0.99F,
             turnSpeed = 0.9F,
             maxClimbHeight = 0.5F,
-            seatOffsets =
-                listOf(
-                    point(pillnitzScale, 8.0, 1.22, 29.6),
-                    point(pillnitzScale, 6.71, 1.65, -5.08),
-                    point(pillnitzScale, 9.29, 1.65, -5.08),
-                    point(pillnitzScale, 6.71, 1.65, -0.98),
-                    point(pillnitzScale, 9.29, 1.65, -0.98),
-                    point(pillnitzScale, 6.71, 1.65, 3.12),
-                    point(pillnitzScale, 9.29, 1.65, 3.12),
-                    point(pillnitzScale, 6.71, 1.65, 16.18),
-                    point(pillnitzScale, 9.29, 1.65, 16.18),
-                    point(pillnitzScale, 6.71, 1.65, 20.08),
-                    point(pillnitzScale, 9.29, 1.65, 20.08),
-                    point(pillnitzScale, 6.71, 1.65, 23.98),
-                ),
+            helmSeat = VehicleSeat("helm", "Helmsman", VehicleSeatRole.DRIVER, point(pillnitzScale, 8.0, 1.22, 29.6)),
             invisibleWhileRiding = false,
             invulnerableWhileRiding = false,
             armament =
@@ -206,6 +188,7 @@ object Boats {
                         listOf(
                             BoatWeapon(
                                 name = "37 mm deck gun",
+                                id = "deck-gun",
                                 model = "aechronis:pillnitz-deck-gun",
                                 pivotOffset = point(pillnitzScale, 8.55, 1.98, -7.2),
                                 muzzleOffsets = listOf(vector(pillnitzScale, 0.0, 0.705, 1.08)),
@@ -247,7 +230,7 @@ object Boats {
                 listOf(
                     Component
                         .text(
-                            "Coastal ironclad · 6 seats · 5 gun stations",
+                            "Coastal ironclad · 6 crew seats · 5 gun stations",
                             NamedTextColor.GRAY,
                         ).decoration(TextDecoration.ITALIC, false),
                     Component.text("2 × 274 mm · 4 × 37 mm", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
@@ -285,15 +268,7 @@ object Boats {
             friction = 0.992F,
             turnSpeed = 0.5F,
             maxClimbHeight = 0.5F,
-            seatOffsets =
-                listOf(
-                    point(tempeteScale, 8.0, 4.74, 10.0),
-                    point(tempeteScale, 6.3, 4.74, 12.0),
-                    point(tempeteScale, 9.7, 4.74, 12.0),
-                    point(tempeteScale, 6.3, 4.74, 17.0),
-                    point(tempeteScale, 9.7, 4.74, 17.0),
-                    point(tempeteScale, 8.0, 4.74, 19.5),
-                ),
+            helmSeat = VehicleSeat("helm", "Helmsman", VehicleSeatRole.DRIVER, point(tempeteScale, 8.0, 4.74, 10.0)),
             invisibleWhileRiding = false,
             invulnerableWhileRiding = false,
             armament =
@@ -303,6 +278,7 @@ object Boats {
                         listOf(
                             BoatWeapon(
                                 name = "Twin 274 mm turret",
+                                id = "main-turret",
                                 model = "aechronis:tempete-turret",
                                 pivotOffset = point(tempeteScale, 8.0, 1.96, 0.5),
                                 // Both barrels share one central firing point so the optical seat stays steady between shots.
@@ -320,6 +296,7 @@ object Boats {
                             ),
                             BoatWeapon(
                                 name = "Port forward 37 mm gun",
+                                id = "port-forward",
                                 model = "aechronis:tempete-light-gun-port-fore",
                                 pivotOffset = point(tempeteScale, 5.7, 5.49, 8.3),
                                 muzzleOffsets = listOf(vector(tempeteScale, 0.704, 0.3, 0.0)),
@@ -336,6 +313,7 @@ object Boats {
                             ),
                             BoatWeapon(
                                 name = "Port aft 37 mm gun",
+                                id = "port-aft",
                                 model = "aechronis:tempete-light-gun-port-aft",
                                 pivotOffset = point(tempeteScale, 5.7, 5.49, 20.7),
                                 muzzleOffsets = listOf(vector(tempeteScale, 0.704, 0.3, 0.0)),
@@ -352,6 +330,7 @@ object Boats {
                             ),
                             BoatWeapon(
                                 name = "Starboard forward 37 mm gun",
+                                id = "starboard-forward",
                                 model = "aechronis:tempete-light-gun-starboard-fore",
                                 pivotOffset = point(tempeteScale, 10.3, 5.49, 8.3),
                                 muzzleOffsets = listOf(vector(tempeteScale, -0.704, 0.3, 0.0)),
@@ -368,6 +347,7 @@ object Boats {
                             ),
                             BoatWeapon(
                                 name = "Starboard aft 37 mm gun",
+                                id = "starboard-aft",
                                 model = "aechronis:tempete-light-gun-starboard-aft",
                                 pivotOffset = point(tempeteScale, 10.3, 5.49, 20.7),
                                 muzzleOffsets = listOf(vector(tempeteScale, -0.704, 0.3, 0.0)),

@@ -5,6 +5,7 @@ import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.TurretScope
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleSeatHotbar
 import net.aechronis.combat.utils.GUN_ANIMATION_CLOCK_TICKS
 import net.aechronis.combat.utils.GunAnimation
 import net.aechronis.combat.utils.GunHandSkins
@@ -189,14 +190,18 @@ object ModelManager {
     }
 
     private fun shaderTimeBand(player: Player): Long {
-        val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
+        val gun = if (VehicleSeatHotbar.isActive(player)) null else Item.getFromItemStack(player.itemInMainHand) as? Gun
         val hideCrosshair =
             gun != null &&
                 Combat.playerAiming[player] == true &&
                 Combat.reloadTasks[player] == null
         return when {
             TurretScope.isActive(player) || hideCrosshair -> SHADER_AIMING_TIME
-            gun != null || VehicleTickManager.playerLookingAtVehicle[player] != null -> SHADER_COMBAT_TIME
+            gun != null ||
+                VehicleSeatHotbar.isActive(
+                    player,
+                ) ||
+                VehicleTickManager.playerLookingAtVehicle[player] != null -> SHADER_COMBAT_TIME
             else -> SHADER_IDLE_TIME
         }
     }
@@ -204,7 +209,7 @@ object ModelManager {
     fun updateModel(player: Player) {
         val instance = player.instance ?: return
         restoreStowedGuns(player)
-        val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
+        val gun = if (VehicleSeatHotbar.isActive(player)) null else Item.getFromItemStack(player.itemInMainHand) as? Gun
         val isAiming = gun != null && Combat.playerAiming[player] == true
         val showAim =
             gun != null &&
@@ -217,7 +222,7 @@ object ModelManager {
         GunAnimation.update(player, gun, viewModelVisible = !customViewOwnsShaderTime && !turretScopeActive)
         setHitAnimationDisabled(
             player,
-            gun != null || isLookingAtVehicle || hasCustomDriverView || turretScopeActive,
+            gun != null || isLookingAtVehicle || hasCustomDriverView || turretScopeActive || VehicleSeatHotbar.isActive(player),
             allowInstantBreaking = gun != null && !turretScopeActive,
         )
         updateFakeBlocks(

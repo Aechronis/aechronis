@@ -219,6 +219,7 @@ internal class VehicleRuntime(
         }
     private var currentAmmo: Int? = ammoCapacity
     var reloadStartedAt: Long? = null
+    var nextShotAt: Long = 0L
 
     val health: Float? get() = healthState?.health
     val maxHealth: Float? get() = healthState?.maxHealth
@@ -247,21 +248,18 @@ internal class VehicleRuntime(
     }
 }
 
-internal enum class VehicleSeatRole {
-    DRIVER,
-    PASSENGER,
-    GUNNER,
-}
-
 internal class VehicleRide(
     val player: Player,
     val runtime: VehicleRuntime,
     val seat: Entity,
-    val role: VehicleSeatRole,
-    val stationIndex: Int? = null,
+    val definition: VehicleSeat,
 ) {
     val vehicle: Vehicle get() = runtime.vehicle
     val entity: Entity get() = runtime.entity
+    val role: VehicleSeatRole get() = definition.role
+    val seatIndex: Int get() = vehicle.seats.indexOf(definition)
+    val stationIndex: Int? get() = vehicle.gunnerSeats.indexOf(definition).takeIf { it >= 0 }
+    val isProtected: Boolean get() = definition.protected ?: vehicle.invulnerableWhileRiding
 
     private var emptyAmmoFeedbackAt: Long? = null
 
@@ -279,7 +277,7 @@ internal class VehicleRide(
 
 /**
  * Owns vehicle and ride records; callers handle entity spawning, movement, and removal.
- * Each rider has one authoritative record. Driver and ordered passenger views are derived
+ * Each rider has one authoritative record. Seat and control views are derived
  * from it, so no parallel occupancy indexes need to be kept in sync. As with the entity
  * mutations they accompany, writes run on the gameplay thread or during paused teardown.
  */
@@ -303,9 +301,7 @@ internal object VehicleRegistry {
 
     fun ride(player: Player): VehicleRide? = playerRides[player]
 
-    fun driver(player: Player): VehicleRide? = ride(player)?.takeIf { it.role == VehicleSeatRole.DRIVER }
-
-    fun passenger(player: Player): VehicleRide? = ride(player)?.takeIf { it.role == VehicleSeatRole.PASSENGER }
+    fun driver(player: Player): VehicleRide? = ride(player)?.takeIf { it.role.drives }
 
     fun gunner(player: Player): VehicleRide? = ride(player)?.takeIf { it.role == VehicleSeatRole.GUNNER }
 
@@ -313,12 +309,7 @@ internal object VehicleRegistry {
 
     fun driverOf(entity: Entity): VehicleRide? =
         playerRides.values.firstOrNull {
-            it.entity === entity && it.role == VehicleSeatRole.DRIVER
-        }
-
-    fun passengers(entity: Entity): List<VehicleRide> =
-        playerRides.values.filter {
-            it.entity === entity && it.role == VehicleSeatRole.PASSENGER
+            it.entity === entity && it.role.drives
         }
 
     fun ridesOf(entity: Entity): List<VehicleRide> = playerRides.values.filter { it.entity === entity }
@@ -333,31 +324,26 @@ internal object VehicleRegistry {
             it.entity === entity && it.role == VehicleSeatRole.GUNNER && it.stationIndex == stationIndex
         }
 
+    fun occupant(
+        entity: Entity,
+        seatId: String,
+    ): VehicleRide? = playerRides.values.firstOrNull { it.entity === entity && it.definition.id == seatId }
+
+    fun weaponOperator(entity: Entity): VehicleRide? = ridesOf(entity).firstOrNull { it.role.usesWeapon }
+
     fun enter(
         player: Player,
         entity: Entity,
         seat: Entity,
-        role: VehicleSeatRole,
-        stationIndex: Int? = null,
+        definition: VehicleSeat,
     ): VehicleRide {
         val runtime = requireNotNull(runtimes[entity]) { "Vehicle entity must be registered before entering" }
         require(player !in playerRides) { "Player is already riding a vehicle" }
-        require(role == VehicleSeatRole.GUNNER || stationIndex == null) { "Only gunner rides have a weapon station" }
-        when (role) {
-            VehicleSeatRole.DRIVER -> require(driverOf(entity) == null) { "Vehicle already has a driver" }
-            VehicleSeatRole.PASSENGER ->
-                require(passengers(entity).size < runtime.vehicle.seatOffsets.size - 1) {
-                    "Vehicle has no free passenger seats"
-                }
-            VehicleSeatRole.GUNNER -> {
-                require(stationIndex != null && stationIndex in runtime.vehicle.gunnerSeatOffsets.indices) {
-                    "Vehicle has no such gunner station"
-                }
-                require(gunnerOf(entity, stationIndex) == null) { "Weapon station already has a gunner" }
-            }
-        }
-        val ride = VehicleRide(player, runtime, seat, role, stationIndex)
+        require(definition in runtime.vehicle.seats) { "Unknown crew seat" }
+        require(occupant(entity, definition.id) == null) { "Crew seat is occupied" }
+        val ride = VehicleRide(player, runtime, seat, definition)
         playerRides[player] = ride
+        runtime.removeCarriedPlayer(player)
         runtime.refreshCollisionViewers()
         return ride
     }

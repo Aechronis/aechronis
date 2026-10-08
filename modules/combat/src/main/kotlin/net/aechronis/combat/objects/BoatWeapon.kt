@@ -28,6 +28,7 @@ data class BoatWeapon(
     val projectileMaxRange: Double = 192.0,
     /** Places the operator's eye this far behind the active muzzle, on its bore line. */
     val scopeEyeDistance: Double? = null,
+    val id: String = model.substringAfter(':'),
 ) {
     init {
         require(name.isNotBlank() && model.isNotBlank())

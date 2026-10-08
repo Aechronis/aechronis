@@ -6,7 +6,9 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.TurretScope
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.VehicleCollisionEntity
+import net.aechronis.combat.objects.VehicleDisplayEntity
 import net.aechronis.combat.objects.VehicleRegistry
+import net.aechronis.combat.objects.VehicleSeatHotbar
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -61,7 +63,7 @@ object VehicleListener {
     }
 
     private fun onPlayerEntityInteract(event: PlayerEntityInteractEvent) {
-        if (event.hand != PlayerHand.MAIN || event.target !is VehicleCollisionEntity) return
+        if (event.hand != PlayerHand.MAIN || (event.target !is VehicleCollisionEntity && event.target !is VehicleDisplayEntity)) return
         Vehicle.reconcileOccupant(event.player)
         if (VehicleRegistry.ride(event.player) == null) enterLookedAtVehicle(event.player)
     }
@@ -78,13 +80,7 @@ object VehicleListener {
                 eye.direction().mul(3.0),
                 VehicleTickManager.prepareVehicleLookIndex(VehicleRegistry.all().map { it.entity to it.vehicle }),
             ) ?: return false
-        if (target.stationIndex != null) {
-            target.vehicle.onGunnerEnter(player, target.entity, target.stationIndex)
-        } else if (Vehicle.hasActiveDriver(target.entity)) {
-            target.vehicle.onPassengerEnter(player, target.entity)
-        } else {
-            target.vehicle.onEnter(player, target.entity)
-        }
+        target.vehicle.board(player, target.entity)
         return true
     }
 
@@ -118,6 +114,7 @@ object VehicleListener {
     }
 
     fun init() {
+        VehicleSeatHotbar.initListeners()
         TurretScope.initListeners()
         Combat.eventNode.addListener(PlayerUseItemOnBlockEvent::class.java, VehicleListener::onPlayerUseItemOnBlock)
         Combat.eventNode.addListener(PlayerUseItemEvent::class.java, VehicleListener::onPlayerUseItem)

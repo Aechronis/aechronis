@@ -79,8 +79,8 @@ object VehicleTickManager {
                 val playerSupports = findPlayerSupports(VehicleRegistry.all())
 
                 // tick occupied vehicles
-                for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.DRIVER }) {
-                    ride.vehicle.updateAmmoReload(ride.player)
+                for (ride in VehicleRegistry.rides().filter { it.role.drives }) {
+                    if (ride.role.usesWeapon) ride.vehicle.updateAmmoReload(ride.player)
                     ride.vehicle.onTick(ride.player)
                 }
 
@@ -92,6 +92,7 @@ object VehicleTickManager {
 
                 // Weapon operators remain active without a helmsman and follow the final hull pose.
                 for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.GUNNER }) {
+                    ride.vehicle.updateAmmoReload(ride.player)
                     ride.vehicle.onGunnerTick(ride.player)
                 }
 

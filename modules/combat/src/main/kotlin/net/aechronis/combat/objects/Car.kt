@@ -32,7 +32,7 @@ open class Car(
     val friction: Float = 0.98f,
     val turnSpeed: Float = 4.0f,
     val maxClimbHeight: Float = 0.5f,
-    seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    seats: List<VehicleSeat> = listOf(VehicleSeat("driver", "Driver", VehicleSeatRole.DRIVER)),
     invisibleWhileRiding: Boolean = false,
     invulnerableWhileRiding: Boolean = false,
     animatedParts: List<AnimatedPart> = emptyList(),
@@ -48,7 +48,7 @@ open class Car(
         hitbox,
         health,
         placeTime,
-        seatOffsets,
+        seats,
         invisibleWhileRiding,
         invulnerableWhileRiding,
         animatedParts,
@@ -64,7 +64,7 @@ open class Car(
 
         super.onEnter(player, entity)
         if (VehicleRegistry.driver(player)?.entity === entity) {
-            VehicleCameraDistance.apply(player, hitbox, seatOffsets.firstOrNull() ?: Vec.ZERO)
+            VehicleCameraDistance.apply(player, hitbox, seats.first { it.role.drives }.offset)
         }
         playerSpeed[player] = 0f
     }

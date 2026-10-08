@@ -9,6 +9,7 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.objects.VehicleRide
+import net.aechronis.combat.objects.VehicleSeatHotbar
 import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
@@ -35,7 +36,7 @@ object ActionBarManager {
         val ride = VehicleRegistry.driver(player) ?: VehicleRegistry.gunner(player)
         val vehicleTelemetry = ride?.let(::vehicleTelemetry)
         val vehicle = ride?.vehicle
-        val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
+        val gun = if (VehicleSeatHotbar.isActive(player)) null else Item.getFromItemStack(player.itemInMainHand) as? Gun
         val ammo =
             gun
                 ?.takeIf {
@@ -61,7 +62,7 @@ object ActionBarManager {
         val armament = (vehicle as? Boat)?.armament
         val station = (vehicle as? Boat)?.weaponStatus(player)
         val movementTelemetry =
-            if (ride.role == VehicleSeatRole.DRIVER) {
+            if (ride.role.drives) {
                 when (vehicle) {
                     is Plane ->
                         formatPlaneTelemetry(
@@ -82,14 +83,14 @@ object ActionBarManager {
                     val inventoryShots = armament.ammo[player] * armament.maxAmmo
                     "Ammo: ${station.second} | $inventoryShots"
                 }
-                vehicle is ArmedVehicle -> {
+                vehicle is ArmedVehicle && ride.role.usesWeapon -> {
                     val currentAmmo = runtime.ammo ?: vehicle.maxAmmo
                     val inventoryShots = vehicle.ammo[player] * vehicle.maxAmmo
                     "Ammo: $currentAmmo | $inventoryShots"
                 }
                 else -> null
             }
-        val text = listOfNotNull(station?.first?.name, movementTelemetry, healthText, ammoText).joinToString(" ")
+        val text = listOfNotNull(ride.definition.name, movementTelemetry, healthText, ammoText).joinToString(" ")
         return Component.text(text, NamedTextColor.GRAY)
     }
 

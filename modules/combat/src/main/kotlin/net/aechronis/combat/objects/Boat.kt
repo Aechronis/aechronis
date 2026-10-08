@@ -38,7 +38,7 @@ open class Boat(
     friction: Float = 0.98f,
     turnSpeed: Float = 4.0f,
     maxClimbHeight: Float = 0.5f,
-    seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    helmSeat: VehicleSeat = VehicleSeat("helm", "Helmsman", VehicleSeatRole.DRIVER),
     invisibleWhileRiding: Boolean = true,
     invulnerableWhileRiding: Boolean = true,
     val floatHeight: Double = 0.5,
@@ -64,7 +64,10 @@ open class Boat(
         friction,
         turnSpeed,
         maxClimbHeight,
-        seatOffsets,
+        listOf(helmSeat) +
+            armament?.weapons.orEmpty().map {
+                VehicleSeat(it.id, it.name, VehicleSeatRole.GUNNER, it.operatorOffset, weaponId = it.id)
+            },
         invisibleWhileRiding,
         invulnerableWhileRiding,
         animatedParts + weaponParts(armament?.weapons.orEmpty()),
@@ -72,7 +75,6 @@ open class Boat(
         modelScale,
     ) {
     val weapons: List<BoatWeapon> = armament?.weapons.orEmpty()
-    override val gunnerSeatOffsets: List<Vec> = this.weapons.map { it.operatorOffset }
 
     private class MountState {
         var yaw = 0f
@@ -92,6 +94,7 @@ open class Boat(
     private val solidHitboxes = hitbox.parts.map { Hitbox(listOf(it)) }
 
     init {
+        require(helmSeat.role == VehicleSeatRole.DRIVER) { "Boat helm must be a driver seat" }
         require(floatHeight in 0.0..1.0) { "floatHeight must be between 0.0 and 1.0" }
         require(waterlineOffset == null || waterlineOffset.isFinite()) { "Boat waterlineOffset must be finite" }
         require(waterHitbox.parts.isNotEmpty()) { "Boat waterHitbox must contain a hull" }
@@ -407,14 +410,14 @@ open class Boat(
         return weapons[index] to mount.ammo
     }
 
-    internal fun snapshotWeaponAmmo(entity: Entity): Map<String, Int> =
+    override fun snapshotWeaponAmmo(entity: Entity): Map<String, Int> =
         runtimes
             ?.get(entity)
             ?.mounts
-            ?.mapIndexed { index, state -> weapons[index].model to state.ammo }
+            ?.mapIndexed { index, state -> weapons[index].id to state.ammo }
             ?.toMap() ?: emptyMap()
 
-    internal fun restoreWeaponAmmo(
+    override fun restoreWeaponAmmo(
         entity: Entity,
         saved: Map<String, Int>?,
         legacyAmmo: Int?,
@@ -424,7 +427,10 @@ open class Boat(
         runtime.mounts.forEachIndexed { index, state ->
             // A legacy shared breech represents at most one round, not one per new station.
             state.ammo =
-                (saved?.get(weapons[index].model) ?: if (saved == null && index == 0) legacyAmmo ?: 0 else 0).coerceIn(0, armament.maxAmmo)
+                (
+                    (saved?.get(weapons[index].id) ?: saved?.get(weapons[index].model))
+                        ?: if (saved == null && index == 0) legacyAmmo ?: 0 else 0
+                ).coerceIn(0, armament.maxAmmo)
             state.reloadStartedAt = null
         }
     }

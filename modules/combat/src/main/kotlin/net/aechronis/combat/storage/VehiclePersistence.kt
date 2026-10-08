@@ -23,7 +23,7 @@ import java.util.concurrent.TimeoutException
 import kotlin.math.floor
 
 object VehiclePersistence {
-    private const val FORMAT_VERSION = 1
+    private const val FORMAT_VERSION = 2
     private val LIFECYCLE_TIMEOUT = Duration.ofSeconds(10)
 
     private lateinit var path: Path
@@ -110,7 +110,7 @@ object VehiclePersistence {
                     pitch = position.pitch,
                     health = runtime.health,
                     ammo = runtime.ammo,
-                    weaponAmmo = (vehicle as? Boat)?.takeIf { it.armament != null }?.snapshotWeaponAmmo(entity),
+                    weaponAmmo = vehicle.snapshotWeaponAmmo(entity).takeIf { it.isNotEmpty() },
                 )
             }
         write(PersistedVehicles(version = FORMAT_VERSION, vehicles = vehicles))
@@ -126,7 +126,7 @@ object VehiclePersistence {
                 throw IllegalStateException("Failed to load vehicles from $path", exception)
             }
 
-        require(saved.version == FORMAT_VERSION) {
+        require(saved.version in 1..FORMAT_VERSION) {
             "Unsupported vehicle save version ${saved.version} in $path"
         }
 
@@ -195,7 +195,7 @@ object VehiclePersistence {
         val entity = vehicle.spawn(instance, placementPosition)
 
         VehicleRegistry.runtime(entity)?.restore(saved.health, saved.ammo)
-        (vehicle as? Boat)?.restoreWeaponAmmo(entity, saved.weaponAmmo, saved.ammo)
+        vehicle.restoreWeaponAmmo(entity, saved.weaponAmmo, saved.ammo)
     }
 
     private fun groundPlane(

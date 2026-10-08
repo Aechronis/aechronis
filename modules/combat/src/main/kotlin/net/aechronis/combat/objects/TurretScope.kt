@@ -7,13 +7,20 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
+import net.minestom.server.entity.EquipmentSlot
+import net.minestom.server.entity.Metadata
+import net.minestom.server.entity.MetadataDef
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.attribute.Attribute
+import net.minestom.server.entity.attribute.AttributeModifier
+import net.minestom.server.entity.attribute.AttributeOperation
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.event.player.PlayerPacketOutEvent
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.ServerPacket
+import net.minestom.server.network.packet.server.play.EntityEquipmentPacket
+import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
 import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
 import net.minestom.server.network.packet.server.play.SetSlotPacket
 import net.minestom.server.network.packet.server.play.WindowItemsPacket
@@ -54,8 +61,19 @@ internal object TurretScope {
     )
 
     private val sessions = ConcurrentHashMap<Player, Session>()
+
+    // Keep the rear third-person camera at the scope eye without replacing existing camera settings.
+    private val cameraDistanceModifier =
+        AttributeModifier("aechronis:turret_scope_camera", -1.0, AttributeOperation.ADD_MULTIPLIED_TOTAL)
     private val hiddenHand = ItemStack.of(Material.SCULK_VEIN).withItemModel("aechronis:invisible").withCustomName(Component.empty())
     private val handSlots = (0..8).toList() + PlayerInventoryUtils.OFFHAND_SLOT
+    private val armorPlayerSlots =
+        EquipmentSlot.armors().map {
+            PlayerInventoryUtils.convertMinestomSlotToPlayerInventorySlot(
+                it.armorSlot(),
+            )
+        }
+    private val armorWindowSlots = EquipmentSlot.armors().map { PlayerInventoryUtils.convertMinestomSlotToWindowSlot(it.armorSlot()) }
 
     fun isActive(player: Player): Boolean = sessions.containsKey(player)
 
@@ -84,6 +102,8 @@ internal object TurretScope {
         meta.setBrightness(15, 15)
         sessions[player] = Session(ride, display, weaponModel)
         try {
+            sendSelfAppearance(player)
+            player.getAttribute(Attribute.CAMERA_DISTANCE).addModifier(cameraDistanceModifier)
             display.setInstance(instance, ride.seat.position.withView(0f, 0f))
             display.addViewer(player)
             // Siblings share the seat's interpolated translation, preventing the mask
@@ -136,12 +156,91 @@ internal object TurretScope {
         try {
             if (!session.display.isRemoved) session.display.remove()
         } finally {
+            player.getAttribute(Attribute.CAMERA_DISTANCE).removeModifier(cameraDistanceModifier)
+            sendSelfAppearance(player)
             session.ride.runtime.setPartHidden(player, session.weaponModel, false)
             // Restore current authoritative stacks, including ammunition used while scoped.
             sendHandItems(player, masked = false)
             player.instance?.let { ModelManager.syncShaderTime(player, it.worldAge) }
         }
     }
+
+    private fun sendSelfAppearance(player: Player) {
+        val index = MetadataDef.ENTITY_FLAGS.index()
+        player.sendPacket(
+            EntityMetaDataPacket(
+                player.entityId,
+                mapOf(index to (player.metadataPacket.entries[index] ?: Metadata.Byte(0))),
+            ),
+        )
+        player.sendPacket(EntityEquipmentPacket(player.entityId, EquipmentSlot.armors().associateWith(player::getEquipment)))
+    }
+
+    /** F5 still renders the local avatar at zero camera distance. Hide only this player's own view. */
+    internal fun maskSelfPacket(
+        player: Player,
+        packet: ServerPacket,
+    ): ServerPacket =
+        when (packet) {
+            is EntityMetaDataPacket -> {
+                val index = MetadataDef.ENTITY_FLAGS.index()
+                val flags = packet.entries[index]?.value() as? Byte
+                if (packet.entityId != player.entityId || flags == null) {
+                    packet
+                } else {
+                    // Invisibility suppresses the skin; clearing glow also suppresses its outline.
+                    val hidden = ((flags.toInt() or 0x20) and 0x40.inv()).toByte()
+                    if (hidden ==
+                        flags
+                    ) {
+                        packet
+                    } else {
+                        EntityMetaDataPacket(packet.entityId, packet.entries + (index to Metadata.Byte(hidden)))
+                    }
+                }
+            }
+            is EntityEquipmentPacket -> {
+                if (packet.entityId != player.entityId || packet.equipments.none { it.key.isArmor && !it.value.isAir }) {
+                    packet
+                } else {
+                    EntityEquipmentPacket(
+                        packet.entityId,
+                        packet.equipments.mapValues { (slot, item) ->
+                            if (slot.isArmor) ItemStack.AIR else item
+                        },
+                    )
+                }
+            }
+            is SetPlayerInventorySlotPacket -> {
+                if (packet.slot in armorPlayerSlots &&
+                    !packet.itemStack.isAir
+                ) {
+                    SetPlayerInventorySlotPacket(packet.slot, ItemStack.AIR)
+                } else {
+                    packet
+                }
+            }
+            is SetSlotPacket -> {
+                if (packet.windowId == 0 && packet.slot.toInt() in armorWindowSlots && !packet.itemStack.isAir) {
+                    SetSlotPacket(packet.windowId, packet.stateId, packet.slot, ItemStack.AIR)
+                } else {
+                    packet
+                }
+            }
+            is WindowItemsPacket -> {
+                if (packet.windowId == 0 && armorWindowSlots.any { packet.items.getOrNull(it)?.isAir == false }) {
+                    WindowItemsPacket(
+                        packet.windowId,
+                        packet.stateId,
+                        packet.items.mapIndexed { slot, item -> if (slot in armorWindowSlots) ItemStack.AIR else item },
+                        packet.carriedItem,
+                    )
+                } else {
+                    packet
+                }
+            }
+            else -> packet
+        }
 
     private fun sendHandItems(
         player: Player,
@@ -194,7 +293,8 @@ internal object TurretScope {
     fun initListeners() {
         Combat.eventNode.addListener(PlayerPacketOutEvent::class.java) { event ->
             if (event.isCancelled || !isActive(event.player)) return@addListener
-            val replacement = maskHandPacket(event.packet)
+            val appearance = maskSelfPacket(event.player, event.packet)
+            val replacement = if (VehicleSeatHotbar.isActive(event.player)) appearance else maskHandPacket(appearance)
             if (replacement === event.packet) return@addListener
             event.isCancelled = true
             event.player.sendPacket(replacement)
