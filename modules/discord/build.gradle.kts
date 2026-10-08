@@ -25,5 +25,5 @@ dependencies {
     compileOnly("net.luckperms:api:5.5")
     compileOnly("net.minestom:minestom:2026.09.12-26.2")
     add("moduleImplementation", "dev.kord:kord-core:0.18.1")
-    add("moduleImplementation", "io.ktor:ktor-client-okhttp:3.4.0")
+    add("moduleImplementation", "io.ktor:ktor-client-okhttp:3.6.0")
 }
