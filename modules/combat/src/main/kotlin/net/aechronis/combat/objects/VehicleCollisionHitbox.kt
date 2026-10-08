@@ -131,6 +131,7 @@ internal class VehicleCollisionHitbox(
                     shulker.isAutoViewable = false
                     carrier.setNoGravity(true)
                     carrier.setHasPhysics(false)
+                    carrier.entityMeta.isInvisible = true
                     (carrier.entityMeta as ItemDisplayMeta).posRotInterpolationDuration = 3
                     // Passenger positioning bypasses the client's shulker block-grid snapping.
                     part.spawn(targetInstance, box.bottomCenter)
