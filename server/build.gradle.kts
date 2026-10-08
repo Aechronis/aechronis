@@ -69,5 +69,5 @@ dependencies {
     implementation("org.everbuild.blocksandstuff:blocksandstuff-fluids:1.10.2-SNAPSHOT")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     // Shared coroutine worker pools must not retain a reloadable module classloader.
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 }
