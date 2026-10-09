@@ -75,6 +75,21 @@ open class Vehicle(
 
     protected fun driverEntity(player: Player): Entity? = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this }?.entity
 
+    /** Right-click with an item on this vehicle; return true to consume the click instead of boarding. */
+    open fun onInteract(
+        player: Player,
+        entity: Entity,
+    ): Boolean = false
+
+    /** Extra action-bar text (e.g. fuel) for the driver; null shows nothing. */
+    open fun telemetryText(entity: Entity): String? = null
+
+    /** Everyone riding [entity], driver included. */
+    protected fun occupants(entity: Entity): List<Player> = VehicleRegistry.ridesOf(entity).map { it.player }
+
+    /** Passengers of [entity] in boarding order, excluding the driver. */
+    protected fun passengerPlayers(entity: Entity): List<Player> = VehicleRegistry.passengers(entity).map { it.player }
+
     protected fun driverSeat(player: Player): Entity? = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this }?.seat
 
     /** Checks live vehicle hitboxes, including their current roll, for a movement collision. */

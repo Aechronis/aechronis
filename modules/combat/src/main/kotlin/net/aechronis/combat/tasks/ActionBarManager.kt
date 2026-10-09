@@ -64,7 +64,7 @@ object ActionBarManager {
                         vehicle.maxThrottle,
                     )
                 is Car -> formatCarTelemetry(Car.playerSpeed[player] ?: 0f)
-                else -> null
+                else -> vehicle.telemetryText(entity)
             }
         val healthText = String.format(Locale.ROOT, "Health: [%.0f/%.0f]", health.first, health.second)
         val ammoText =

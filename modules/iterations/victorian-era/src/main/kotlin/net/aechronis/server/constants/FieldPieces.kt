@@ -72,7 +72,7 @@ object FieldPieces {
         )
 
     // Supplies firing behavior only; the registered item is the wheeled field piece below.
-    private val gatlingGunWeapon =
+    val gatlingGunWeapon =
         Gun(
             name = "gatling-gun",
             itemName = Component.text("Gatling Gun", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
