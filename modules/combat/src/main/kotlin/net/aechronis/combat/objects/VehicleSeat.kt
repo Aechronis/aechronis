@@ -13,6 +13,8 @@ data class VehicleSeat(
     val invisible: Boolean? = null,
     val protected: Boolean? = null,
     val exitOffset: Vec? = null,
+    /** The rider keeps their own hotbar and can fire handheld guns; no seat-switching overlay. */
+    val handheld: Boolean = false,
 ) {
     init {
         require(id.matches(Regex("[a-z0-9_-]+"))) { "Invalid crew seat ID: $id" }

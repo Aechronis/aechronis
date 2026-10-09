@@ -20,7 +20,8 @@ import net.minestom.server.coordinate.Vec
 object Airships {
     private fun title(name: String) = Component.text(name, NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false)
 
-    private fun gunnerSeats(
+    /** Gunner seats with a mounted Maxim, one per side: starboard (right) first, then port (left). */
+    private fun mountedGunners(
         x: Double,
         y: Double,
         z: Double,
@@ -29,6 +30,21 @@ object Airships {
         VehicleSeat("gun-starboard", "Starboard gunner", VehicleSeatRole.GUNNER, Vec(x, y, z), weaponId = "maxim-starboard"),
         VehicleSeat("gun-port", "Port gunner", VehicleSeatRole.GUNNER, Vec(-x, y, z), weaponId = "maxim-port"),
     ).take(count)
+
+    /** Seated riders with no mounted gun; they shoot whatever they hold. */
+    private fun riders(
+        y: Double,
+        spots: List<Pair<Double, Double>>,
+    ) = spots.mapIndexed { index, (x, z) ->
+        VehicleSeat(
+            "rider-${index + 1}",
+            "Rider ${index + 1}",
+            VehicleSeatRole.GUNNER,
+            Vec(x, y, z),
+            weaponId = "hand-${index + 1}",
+            handheld = true,
+        )
+    }
 
     // Model "lz1": 1 unit = 1 block. A 44 block long, 5 wide, 7 tall hull with a keel walkway.
     val zeppelin =
@@ -47,7 +63,8 @@ object Airships {
                 ),
             seats =
                 listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -2.2, 6.0))) +
-                    gunnerSeats(x = 1.2, y = -2.2, z = 0.0, count = 2),
+                    mountedGunners(x = 1.2, y = -2.2, z = 0.0, count = 2) +
+                    riders(-2.2, listOf(0.9 to -5.0, -0.9 to -5.0, 0.9 to -9.0, -0.9 to -9.0, 0.0 to 3.0)),
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.2,
             maxFuel = 20 * COAL_FUEL,
@@ -76,8 +93,9 @@ object Airships {
                     },
                 ),
             seats =
-                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -11.8, 1.8))) +
-                    gunnerSeats(x = 1.3, y = -11.8, z = -1.2, count = 1),
+                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -11.8, 2.4))) +
+                    mountedGunners(x = 1.3, y = -11.8, z = -1.0, count = 1) +
+                    riders(-11.8, listOf(-1.3 to -1.0, 0.0 to -2.8)),
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.25,
             maxFuel = 10 * COAL_FUEL,

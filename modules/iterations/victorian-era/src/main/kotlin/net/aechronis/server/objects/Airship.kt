@@ -10,8 +10,8 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 
 /**
- * Big turning balloon with a walkable deck. Anyone can stand on the deck; the gunner seats
- * fire [gun] (jump key) wherever the gunner looks.
+ * Big turning balloon with a walkable deck. Anyone can stand on the deck. Gunner seats with a mounted
+ * gun fire [gun] (jump key) wherever the gunner looks; handheld seats keep the rider's own hotbar and guns.
  */
 class Airship(
     name: String,
@@ -47,6 +47,8 @@ class Airship(
     ) {
     override fun onGunnerTick(player: Player) {
         super.onGunnerTick(player)
+        // handheld riders shoot their own guns; only the mounted seats fire the ship's Maxim
+        if (seatOf(player)?.handheld != false) return
         if (KeyPressListener.playerInputEvent[player]?.isHoldingJumpKey != true) return
         gun.fire(player, player.position.add(0.0, player.eyeHeight, 0.0), ignoreAmmo = true, lagCompensate = false)
     }

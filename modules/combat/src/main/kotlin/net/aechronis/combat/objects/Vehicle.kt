@@ -111,6 +111,9 @@ open class Vehicle(
     /** Everyone riding [entity], driver included. */
     protected fun occupants(entity: Entity): List<Player> = VehicleRegistry.ridesOf(entity).map { it.player }
 
+    /** The crew seat [player] occupies on this vehicle, if any. */
+    protected fun seatOf(player: Player): VehicleSeat? = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this }?.definition
+
     protected fun driverSeat(player: Player): Entity? = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this }?.seat
 
     /** Checks live vehicle hitboxes, including their current roll, for a movement collision. */
