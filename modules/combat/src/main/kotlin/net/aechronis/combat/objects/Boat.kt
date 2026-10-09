@@ -16,6 +16,7 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.network.packet.server.play.PlayerRotationPacket
 import net.minestom.server.particle.Particle
 import java.util.WeakHashMap
 import kotlin.math.abs
@@ -317,6 +318,11 @@ open class Boat(
         if (ride == null || ride.entity !== entity || ride.vehicle !== this || ride.stationIndex != stationIndex) {
             if (weapon.scopeEyeDistance != null) vehicleRuntime.setPartHidden(player, weapon.model, false)
             return
+        }
+        firingPose(entity, stationIndex)?.let { pose ->
+            // The three-argument overload updates server view without a teleport, which mounted clients ignore.
+            player.setView(pose.yaw, pose.pitch, pose.yaw)
+            player.sendPacket(PlayerRotationPacket(pose.yaw, false, pose.pitch, false))
         }
         if (weapon.scopeEyeDistance != null) {
             TurretScope.open(player, ride, weapon.model)
