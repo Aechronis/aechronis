@@ -11,7 +11,6 @@ dependencyResolutionManagement {
         mavenCentral()
         maven("https://repo.viaversion.com/")
         maven("https://jitpack.io")
-        maven("https://maven.conceptmc.com/releases")
         maven("https://repo.lucko.me/")
         maven("https://repo.smolder.fr/public/")
         maven("https://mvn.everbuild.org/public")
