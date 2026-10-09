@@ -70,9 +70,9 @@ internal fun isSafeDefenderStandingPosition(
     val feet = instance.getBlock(x, y, z)
     val head = instance.getBlock(x, y + 1, z)
     return floor.blocksMotion() &&
-        !floor.isLiquid &&
-        !feet.isLiquid &&
-        !head.isLiquid
+        !floor.liquid() &&
+        !feet.liquid() &&
+        !head.liquid()
 }
 
 // chooses one nearby terrain edit that opens the direct route from [start] toward [target]
@@ -146,7 +146,7 @@ internal fun aiTerrainEdit(
                 elevatedStepPlacement(x, start.blockY(), z, blockAt, canEdit)?.let { return it }
             }
             val belowFloor = blockAt(belowFloorPosition)
-            val isWalkableDrop = !floorBlock.isLiquid && belowFloor.blocksMotion() && !belowFloor.isLiquid
+            val isWalkableDrop = !floorBlock.liquid() && belowFloor.blocksMotion() && !belowFloor.liquid()
             if (!isWalkableDrop) {
                 if (canEdit(floorPosition)) return AiTerrainEdit(AiTerrainEditKind.PLACE, floorPosition)
                 return null

@@ -67,5 +67,70 @@
         "type": "event"
       }
     ]
+  },
+  "winchester-model-1873.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "winchester-model-1873.reload": {
+    "sounds": [
+      {
+        "name": "minecraft:item.crossbow.loading_start",
+        "type": "event"
+      }
+    ]
+  },
+  "spencer-model-1860.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "spencer-model-1860.reload": {
+    "sounds": [
+      {
+        "name": "minecraft:item.crossbow.loading_start",
+        "type": "event"
+      }
+    ]
+  },
+  "colt-single-action-army.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "colt-single-action-army.reload": {
+    "sounds": [
+      {
+        "name": "minecraft:item.crossbow.loading_start",
+        "type": "event"
+      }
+    ]
+  },
+  "enfield-pattern-1853.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "enfield-pattern-1853.reload": {
+    "sounds": [
+      {
+        "name": "minecraft:item.crossbow.loading_start",
+        "type": "event"
+      }
+    ]
+  },
+  "maxim-gun.fire": {
+    "sounds": [
+      "aechronis:rifle-fire"
+    ]
+  },
+  "maxim-gun.reload": {
+    "sounds": [
+      {
+        "name": "minecraft:item.crossbow.loading_start",
+        "type": "event"
+      }
+    ]
   }
 }

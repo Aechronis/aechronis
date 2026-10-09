@@ -99,7 +99,7 @@ internal class ColonizationDefenseDirector(
         val instance = MinecraftServer.getInstanceManager().instances.firstOrNull()
             ?: return Result.failure(IllegalStateException("The colonization world is unavailable"))
 
-        val slots = List(configSnapshot.enemyCount) { index -> AiDefenderSlot(guns[index % guns.size]) }
+        val slots = List(configSnapshot.enemyCount) { index -> AiDefenderSlot(guns[index % guns.size].name) }
         val session = DefenseSession(
             instance = instance,
             targetTown = targetTown,

@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap
 object Food {
     val foodItems = mutableMapOf<Material, FoodItem>()
     private val exhaustion = ConcurrentHashMap<UUID, Float>()
-    private val STARVE: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:starve")
+    private val STARVE: RegistryKey<DamageType> = DamageType.STARVE
 
     fun init() {
         val config = Vanilla.config

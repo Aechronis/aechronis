@@ -30,6 +30,25 @@ internal class ModuleResourceScope(
 
     val commands = ConcurrentHashMap.newKeySet<net.minestom.server.command.builder.Command>()
     val recipes = ConcurrentHashMap.newKeySet<net.minestom.server.recipe.Recipe>()
+    private val resources = mutableListOf<AutoCloseable>()
+
+    fun own(resource: AutoCloseable) {
+        synchronized(lifecycleLock) {
+            check(acceptingTasks) { "Module generation is unloading" }
+            resources += resource
+        }
+    }
+
+    fun closeResources() {
+        val owned = synchronized(lifecycleLock) { resources.toList().asReversed().also { resources.clear() } }
+        var failure: Throwable? = null
+        owned.forEach { resource ->
+            runCatching(resource::close).onFailure { error ->
+                failure?.addSuppressed(error) ?: run { failure = error }
+            }
+        }
+        failure?.let { throw it }
+    }
 
     fun detachInputs() {
         commands.forEach(ModuleCommands::unregister)
@@ -53,6 +72,7 @@ internal class ModuleResourceScope(
 
     private var acceptingTasks = true
     private var acceptingEvents = true
+    private var callbacksPaused = false
     private var activeEvents = 0
 
     fun <E : Event> addListener(
@@ -116,7 +136,7 @@ internal class ModuleResourceScope(
      */
     fun runAsync(callback: Runnable): CompletableFuture<Void> {
         eventLock.withLock {
-            if (!acceptingEvents) {
+            if (!acceptingEvents || (callbacksPaused && !ModuleRuntime.isLifecycleCallback())) {
                 return CompletableFuture.failedFuture(
                     RejectedExecutionException("Module generation is unloading"),
                 )
@@ -154,6 +174,32 @@ internal class ModuleResourceScope(
 
     fun rejectCallbacks() {
         eventLock.withLock { acceptingEvents = false }
+    }
+
+    /** Temporarily drain a surviving dependency while its contributed registrations change. */
+    fun pauseCallbacks(): AutoCloseable {
+        eventLock.withLock {
+            check(acceptingEvents && published) { "Module callbacks cannot be paused in this state" }
+            published = false
+            callbacksPaused = true
+            try {
+                var remaining = EVENT_QUIESCE_TIMEOUT.toNanos()
+                while (activeEvents != 0) {
+                    if (remaining <= 0L) throw TimeoutException("Module callbacks did not pause within $EVENT_QUIESCE_TIMEOUT")
+                    remaining = eventsIdle.awaitNanos(remaining)
+                }
+            } catch (error: Throwable) {
+                published = true
+                callbacksPaused = false
+                throw error
+            }
+        }
+        return AutoCloseable {
+            eventLock.withLock {
+                callbacksPaused = false
+                if (acceptingEvents) published = true
+            }
+        }
     }
 
     fun quiesceEvents(timeout: Duration = EVENT_QUIESCE_TIMEOUT) {
@@ -218,6 +264,15 @@ internal class ModuleResourceScope(
             }
         }
         return failures
+    }
+
+    fun releaseCancelledTasks() {
+        val cancelled = mutableListOf<TrackedTask>()
+        synchronized(lifecycleLock) {
+            tasks.filterTo(cancelled) { !it.task.isAlive }
+            tasks.removeAll(cancelled.toSet())
+        }
+        cancelled.forEach { it.callback.detach() }
     }
 
     private data class TrackedTask(
@@ -339,6 +394,8 @@ internal object ModuleRuntime {
     }
 
     fun isManagedRuntime(): Boolean = managedRuntime
+
+    fun releaseCancelledTasks() = scopesByClassLoader.values.forEach(ModuleResourceScope::releaseCancelledTasks)
 }
 
 internal class DetachableSchedule(
@@ -379,6 +436,9 @@ internal class DetachableSchedule(
  * cancelling a Minestom task does not remove its callback from delayed scheduler queues.
  */
 object ModuleScheduler {
+    /** Release cancelled native-task callbacks after replacing a surviving module's contributed data. */
+    fun releaseCancelledTasks() = ModuleRuntime.releaseCancelledTasks()
+
     fun submitTask(task: Supplier<TaskSchedule>): Task = submitTask(task, ModuleRuntime.captureScope())
 
     fun buildTask(task: Runnable): ModuleTaskBuilder = ModuleTaskBuilder(task, ModuleRuntime.captureScope())
@@ -409,6 +469,27 @@ object ModuleScheduler {
 /** Runs module-owned background work while keeping it inside generation quiescence. */
 object ModuleAsync {
     fun runAsync(callback: Runnable): CompletableFuture<Void> = ModuleRuntime.runAsync(callback)
+}
+
+/** Contributions to a surviving dependency are removed even if configuration/startup fails. */
+object ModuleResources {
+    fun <T : AutoCloseable> own(resource: T): T {
+        val owner = ModuleRuntime.captureScope(preferContext = true)
+        if (owner != null) {
+            try {
+                owner.own(resource)
+            } catch (error: Throwable) {
+                runCatching(resource::close).onFailure(error::addSuppressed)
+                throw error
+            }
+        } else {
+            if (ModuleRuntime.isManagedRuntime()) {
+                resource.close()
+                error("No module generation is active")
+            }
+        }
+        return resource
+    }
 }
 
 class ModuleTaskBuilder internal constructor(

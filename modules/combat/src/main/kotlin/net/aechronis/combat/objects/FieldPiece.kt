@@ -26,9 +26,19 @@ open class FieldPiece(
     hitbox: Hitbox,
     health: Health?,
     placeTime: Long = 1000,
-    seatOffsets: List<Vec> =
+    seats: List<VehicleSeat> =
         listOf(
-            Vec(0.0, -hitbox.getGroundOffset(), (hitbox.parts.minOfOrNull { it.offset.z - it.size.z } ?: 0.0) - 0.5),
+            VehicleSeat(
+                "operator",
+                "Artillery operator",
+                VehicleSeatRole.OPERATOR,
+                Vec(
+                    0.0,
+                    -hitbox.getGroundOffset(),
+                    (hitbox.parts.minOfOrNull { it.offset.z - it.size.z } ?: 0.0) - 0.5,
+                ),
+                standing = true,
+            ),
         ),
     invisibleWhileRiding: Boolean = false,
     invulnerableWhileRiding: Boolean = false,
@@ -46,14 +56,12 @@ open class FieldPiece(
         hitbox = hitbox,
         health = health,
         placeTime = placeTime,
-        seatOffsets = seatOffsets,
+        seats = seats,
         invisibleWhileRiding = invisibleWhileRiding,
         invulnerableWhileRiding = invulnerableWhileRiding,
         animatedParts = animatedParts,
         collisionHitbox = collisionHitbox,
     ) {
-    override val standingDriver: Boolean = true
-
     init {
         require(moveSpeed.isFinite() && moveSpeed > 0.0 && moveSpeed <= 0.1) {
             "FieldPiece moveSpeed must be in (0, 0.1] blocks per tick"
@@ -85,7 +93,7 @@ open class FieldPiece(
         val yaw = position.yaw + turn * turnSpeed
         val movement = rotatePoint(Vec(0.0, 0.0, forward * moveSpeed), yaw, 0f, 0f)
         val candidate = position.add(movement).withView(yaw, 0f)
-        val operator = candidate.add(rotatePoint(seatOffsets.firstOrNull() ?: Vec.ZERO, yaw, 0f, 0f))
+        val operator = candidate.add(rotatePoint(seats.first { it.role.drives }.offset, yaw, 0f, 0f))
         val operatorBox =
             Hitbox(
                 listOf(
@@ -119,7 +127,7 @@ open class FieldPiece(
         z: Double,
     ): Boolean {
         val point = Pos(x, y - 0.01, z)
-        return instance.isChunkLoaded(point) && instance.getBlock(point).isSolid
+        return instance.isChunkLoaded(point) && instance.getBlock(point).solid()
     }
 
     private fun overlaps(
@@ -152,7 +160,7 @@ open class FieldPiece(
                 for (z in floor(corners.minOf { it.z }).toInt()..floor(corners.maxOf { it.z }).toInt()) {
                     val blockPos = Pos(x + 0.5, y + 0.5, z + 0.5)
                     if (!instance.isChunkLoaded(blockPos)) return true
-                    if (instance.getBlock(x, y, z).isSolid &&
+                    if (instance.getBlock(x, y, z).solid() &&
                         box.intersects(blockBox, position, position.yaw, 0f, 0f, blockPos, 0f, 0f, 0f)
                     ) {
                         return true

@@ -4,6 +4,10 @@ import net.aechronis.combat.objects.AmmoTypes
 import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
+import net.aechronis.combat.objects.ShulkerHitbox
+import net.aechronis.combat.objects.ShulkerHitboxPart
+import net.aechronis.combat.objects.VehicleSeat
+import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.server.objects.Balloon
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -12,13 +16,11 @@ import net.minestom.server.coordinate.Vec
 
 object Balloons {
     // Placeholder model is 16 pixels tall at scale 6.0: envelope above, basket below, origin at the model centre.
-    private val hotAirBalloonHitbox =
-        Hitbox(
-            listOf(
-                HitboxPart(offset = Vec(0.0, 1.5, 0.0), size = Vec(2.2, 1.5, 2.2)),
-                HitboxPart(offset = Vec(0.0, -2.25, 0.0), size = Vec(1.1, 0.75, 1.1)),
-            ),
-        )
+    private val envelope = HitboxPart(offset = Vec(0.0, 1.5, 0.0), size = Vec(2.2, 1.5, 2.2))
+    private val basket = HitboxPart(offset = Vec(0.0, -2.25, 0.0), size = Vec(1.1, 0.75, 1.1))
+    private val hotAirBalloonHitbox = Hitbox(listOf(envelope, basket))
+    private val basketFloor =
+        (-2..2).flatMap { x -> (-2..2).map { z -> ShulkerHitboxPart(Vec(x * 0.5, -2.75, z * 0.5), 0.5) } }
 
     val hotAirBalloon =
         Balloon(
@@ -39,13 +41,9 @@ object Balloons {
                 ),
             // holds 10 coal, 45 seconds each
             maxFuel = 9_000,
-            // driver + 3 passengers in the basket corners
-            seatOffsets =
-                listOf(
-                    Vec(0.6, -2.7, 0.6),
-                    Vec(-0.6, -2.7, 0.6),
-                    Vec(0.6, -2.7, -0.6),
-                    Vec(-0.6, -2.7, -0.6),
-                ),
+            // the pilot stands by the burner; up to three more people stand in the basket
+            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.6, -2.95, 0.6), standing = true)),
+            // solid envelope and a thin basket floor; the basket itself stays open to stand in
+            collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(envelope))).parts + basketFloor),
         )
 }

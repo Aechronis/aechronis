@@ -87,7 +87,7 @@ internal object ActiveBuildingPresentation {
         val x = building.position.blockX()
         val z = building.position.blockZ()
         for (y in startY downTo minY + 1) {
-            if (instance.getBlock(x, y, z).isSolid) {
+            if (instance.getBlock(x, y, z).solid()) {
                 // Bury the client-only block below the surface so the beam emerges from the ground.
                 return BlockVec(x, y - 1, z)
             }

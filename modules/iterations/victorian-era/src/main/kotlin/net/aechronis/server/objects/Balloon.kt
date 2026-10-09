@@ -9,8 +9,9 @@ import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleSeat
+import net.aechronis.combat.objects.VehicleSeatRole
 import net.kyori.adventure.text.Component
-import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
@@ -63,7 +64,7 @@ open class Balloon(
     val crashPlayerDamage: Float = 6f,
     /** Blocks per tick a destroyed balloon sinks. */
     val sinkSpeed: Double = 0.08,
-    seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    seats: List<VehicleSeat> = listOf(VehicleSeat("driver", "Pilot", VehicleSeatRole.DRIVER)),
     invisibleWhileRiding: Boolean = true,
     invulnerableWhileRiding: Boolean = true,
     animatedParts: List<AnimatedPart> = emptyList(),
@@ -78,7 +79,7 @@ open class Balloon(
         hitbox,
         health,
         placeTime,
-        seatOffsets,
+        seats,
         invisibleWhileRiding,
         invulnerableWhileRiding,
         animatedParts,
@@ -104,12 +105,10 @@ open class Balloon(
     override fun onUnoccupiedTick(entity: Entity) {
         when {
             entity in sinking -> sink(entity)
-            !hasFuel -> return
-            passengerPlayers(entity).isEmpty() -> drift(entity)
+            !hasFuel -> Unit
+            occupants(entity).isEmpty() -> drift(entity)
             isOutOfFuel(entity) -> plummet(entity)
-            else -> return
         }
-        updatePassengerSeats(entity)
     }
 
     // ===== Flight =====
@@ -138,10 +137,9 @@ open class Balloon(
         player: Player,
         entity: Entity,
     ) {
-        val from = entity.position
-        val delta = ((player.position.yaw - from.yaw + 540f) % 360f) - 180f
-        entity.setView(from.yaw + delta.coerceIn(-turnSpeed, turnSpeed), 0f)
-        onMoved(entity, from, entity.position)
+        val yaw = entity.position.yaw
+        val delta = ((player.position.yaw - yaw + 540f) % 360f) - 180f
+        entity.setView(yaw + delta.coerceIn(-turnSpeed, turnSpeed), 0f)
     }
 
     /** Moves one axis at a time so the balloon slides along walls; blocked axes lose their velocity. */
@@ -167,25 +165,8 @@ open class Balloon(
             }
         }
         velocities[entity] = remaining
-        if (position != entity.position) moveTo(entity, position)
+        if (position != entity.position) entity.teleport(position)
     }
-
-    /** Teleports the hull, then lets subclasses carry anything standing on it. */
-    private fun moveTo(
-        entity: Entity,
-        to: Pos,
-    ) {
-        val from = entity.position
-        entity.teleport(to)
-        onMoved(entity, from, to)
-    }
-
-    /** Called after the hull moved or turned from [from] to [to]. */
-    protected open fun onMoved(
-        entity: Entity,
-        from: Pos,
-        to: Pos,
-    ) {}
 
     // ===== Fuel =====
 
@@ -267,7 +248,7 @@ open class Balloon(
         if (hitbox.checkGroundCollision(instance, next, next.yaw, next.pitch, 0f)) {
             destroy(entity)
         } else {
-            moveTo(entity, next)
+            entity.teleport(next)
         }
     }
 

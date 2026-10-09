@@ -11,8 +11,6 @@ dependencyResolutionManagement {
         mavenCentral()
         maven("https://repo.viaversion.com/")
         maven("https://jitpack.io")
-        maven("https://maven.conceptmc.com/releases")
-        maven("https://repo.hypera.dev/snapshots/")
         maven("https://repo.lucko.me/")
         maven("https://repo.smolder.fr/public/")
         maven("https://mvn.everbuild.org/public")
@@ -44,11 +42,11 @@ include(
     ":modules:combat",
     ":modules:hats",
     ":modules:nodes",
+    ":modules:discord",
     ":modules:vanilla",
     ":modules:recipes",
     ":modules:worldedit",
     ":modules:logger",
-    ":modules:watchdog",
     ":modules:gems",
     ":modules:tebex",
     ":modules:votifier",

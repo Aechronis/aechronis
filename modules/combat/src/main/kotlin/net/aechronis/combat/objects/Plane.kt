@@ -95,7 +95,7 @@ class Plane(
     val weapons: List<PlaneWeapon> = emptyList(),
     val bomb: PlaneBombWeapon? = null,
     val explosionDamage: Float = 20f,
-    val seatOffset: List<Vec> = listOf(Vec.ZERO),
+    seats: List<VehicleSeat> = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.PILOT)),
     invisibleWhileRiding: Boolean = true,
     invulnerableWhileRiding: Boolean = true,
     animatedParts: List<AnimatedPart> = emptyList(),
@@ -110,7 +110,7 @@ class Plane(
         hitbox,
         health,
         placeTime,
-        seatOffset,
+        seats,
         invisibleWhileRiding,
         invulnerableWhileRiding,
         animatedParts,
@@ -143,7 +143,7 @@ class Plane(
         takeoffCounter[player] = 0
         playerThrottle[player] = 0f
         if (VehicleRegistry.driver(player)?.entity === entity) {
-            VehicleCameraDistance.apply(player, hitbox, seatOffsets.firstOrNull() ?: Vec.ZERO)
+            VehicleCameraDistance.apply(player, hitbox, seats.first { it.role.drives }.offset)
         }
     }
 
@@ -246,7 +246,6 @@ class Plane(
 
         entity.teleport(target)
         (entity.entityMeta as ItemDisplayMeta).leftRotation = setRoll(dive.roll / 55)
-        updatePassengerSeats(entity)
     }
 
     override fun onTick(player: Player) {
@@ -482,7 +481,7 @@ class Plane(
             buildSet<Entity> {
                 add(entity)
                 add(player)
-                addAll(VehicleRegistry.passengers(entity).map { it.player })
+                addAll(VehicleRegistry.ridesOf(entity).map { it.player })
             }
         val obstruction =
             firstProjectileImpact(

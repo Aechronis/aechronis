@@ -12,9 +12,6 @@ class NodesModule : AechronisModule {
     override val id = "nodes"
     override val dependencies = setOf("utils", "combat", "vanilla", "worldedit")
 
-    // Quiescence shuts down Combat's temporary-block restore manager before removing war structures.
-    override val reloadTogether = setOf("combat")
-
     override fun initialize(context: ModuleContext) {
         ModulePermissions.register("nodes.bypass", "*")
         Nodes.initialize(takeConfiguration(context))
@@ -29,7 +26,7 @@ class NodesModule : AechronisModule {
     override fun prepareForShutdown(context: ModuleContext) {
         // Combat is a dependency and normally prepares after Nodes. Restore its temporary block
         // replacements first so clearing a war flag remains authoritative in the core checkpoint.
-        BlockRestoreManager.shutdown()
+        BlockRestoreManager.flush()
         Nodes.prepareForShutdown()
         // Nodes teardown removes temporary war structures and performs its final durable save.
         // Run it before the core world checkpoint so shutdown/reload cannot persist ghost flags.

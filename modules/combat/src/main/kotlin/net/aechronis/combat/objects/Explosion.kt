@@ -143,7 +143,7 @@ class Explosion private constructor(
 
         val affectedBlocks =
             blocks
-                .filterValues { block -> !block.isAir && !isExplosionProof(block) }
+                .filterValues { block -> !block.air() && !isExplosionProof(block) }
                 .keys
                 .toCollection(LinkedHashSet())
         val changes =
@@ -164,7 +164,7 @@ class Explosion private constructor(
 
                 val below = BlockVec(block.blockX(), block.blockY() - 1, block.blockZ())
                 val blockBelow = if (below in blocks) Block.AIR else instance.getBlock(below)
-                if (Random.nextDouble() < fire && blockBelow != Block.AIR && blockBelow.isSolid) {
+                if (Random.nextDouble() < fire && blockBelow != Block.AIR && blockBelow.solid()) {
                     firePositions += block
                     changes +=
                         ExplosionBlockChange(

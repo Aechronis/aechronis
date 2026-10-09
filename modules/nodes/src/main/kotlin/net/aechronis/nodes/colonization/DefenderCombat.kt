@@ -58,7 +58,7 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
                 return FlagBreakingOutcome.ATTACK_CANCELLED
             }
             DefenderBlockBreakTickResult.INVALID -> {
-                if (session.instance.getBlock(attack.flagBlock).isAir) {
+                if (session.instance.getBlock(attack.flagBlock).air()) {
                     attack.cancel()
                     return FlagBreakingOutcome.ATTACK_CANCELLED
                 }
@@ -81,7 +81,7 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
         if (reloadWasPending || targetPlayer == null || !decision.wantsToFire) return
         if (!defender.weapon.canFire(now)) return
         val entity = defender.entity
-        val gun = defender.weapon.gun
+        val gun = defender.weapon.gun ?: return
         val targetsInRange = targets.filter { entity.getDistanceSquared(it) <= gun.maxRange * gun.maxRange }
         if (targetPlayer !in targetsInRange) return
         val targetPosition = Vehicle.protectedVehicleAimPosition(targetPlayer)
@@ -140,7 +140,7 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
                     visible = hasClearShot(defender.entity, aimPosition, session.instance),
                 )
             },
-            weaponRange = defender.weapon.gun.maxRange,
+            weaponRange = defender.weapon.gun?.maxRange ?: 0.0,
             canMineObjective = attack != null &&
                 defender.entity.position.add(0.0, defender.entity.eyeHeight, 0.0)
                     .distanceSquared(objective) <= FLAG_REACH * FLAG_REACH &&

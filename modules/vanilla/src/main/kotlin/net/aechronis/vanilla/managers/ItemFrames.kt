@@ -82,7 +82,7 @@ object ItemFrames {
         val instance = event.player.instance ?: return
         if (event.player.gameMode == GameMode.SPECTATOR) return
         val support = BlockVec(event.position)
-        if (!instance.getBlock(support).isSolid) return
+        if (!instance.getBlock(support).solid()) return
         val key = FrameKey(instance, support, event.blockFace)
         if (framesByAnchor.containsKey(key)) return
 
@@ -163,7 +163,7 @@ object ItemFrames {
 
     private fun saveAnchor(frame: Frame) {
         val block = frame.instance.getBlock(frame.support)
-        if (block.isAir) return
+        if (block.air()) return
         val anchored =
             frames.entries.filter { (_, value) ->
                 value.instance === frame.instance && value.support == frame.support

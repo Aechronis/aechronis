@@ -3,9 +3,12 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Item
+import net.aechronis.combat.objects.TurretScope
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.VehicleCollisionEntity
+import net.aechronis.combat.objects.VehicleDisplayEntity
 import net.aechronis.combat.objects.VehicleRegistry
+import net.aechronis.combat.objects.VehicleSeatHotbar
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -22,6 +25,7 @@ import kotlin.math.floor
 
 object VehicleListener {
     fun onPlayerUseItemOnBlock(event: PlayerUseItemOnBlockEvent) {
+        if (event.hand != PlayerHand.MAIN) return
         val player = event.player
         Vehicle.reconcileOccupant(player)
 
@@ -45,6 +49,7 @@ object VehicleListener {
     }
 
     fun onPlayerUseItem(event: PlayerUseItemEvent) {
+        if (event.hand != PlayerHand.MAIN) return
         val player = event.player
         Vehicle.reconcileOccupant(player)
 
@@ -52,9 +57,12 @@ object VehicleListener {
             event.isCancelled = true
             return
         }
-
-        val boat = Item.getFromItemStack(player.itemInMainHand) as? Boat ?: return
         if (VehicleRegistry.ride(player) != null) return
+        if (enterLookedAtVehicle(player)) {
+            event.isCancelled = true
+            return
+        }
+        val boat = Item.getFromItemStack(player.itemInMainHand) as? Boat ?: return
 
         val eyePosition = player.position.add(0.0, player.eyeHeight, 0.0)
         val target = findWaterPlacementPosition(player.instance, eyePosition, eyePosition.direction()) ?: return
@@ -68,7 +76,7 @@ object VehicleListener {
     }
 
     private fun onPlayerEntityInteract(event: PlayerEntityInteractEvent) {
-        if (event.hand != PlayerHand.MAIN || event.target !is VehicleCollisionEntity) return
+        if (event.hand != PlayerHand.MAIN || (event.target !is VehicleCollisionEntity && event.target !is VehicleDisplayEntity)) return
         Vehicle.reconcileOccupant(event.player)
         if (VehicleRegistry.ride(event.player) == null) enterLookedAtVehicle(event.player)
     }
@@ -86,11 +94,7 @@ object VehicleListener {
                 VehicleTickManager.prepareVehicleLookIndex(VehicleRegistry.all().map { it.entity to it.vehicle }),
             ) ?: return false
         if (target.vehicle.onInteract(player, target.entity)) return true
-        if (Vehicle.hasActiveDriver(target.entity)) {
-            target.vehicle.onPassengerEnter(player, target.entity)
-        } else {
-            target.vehicle.onEnter(player, target.entity)
-        }
+        target.vehicle.board(player, target.entity)
         return true
     }
 
@@ -124,6 +128,8 @@ object VehicleListener {
     }
 
     fun init() {
+        VehicleSeatHotbar.initListeners()
+        TurretScope.initListeners()
         Combat.eventNode.addListener(PlayerUseItemOnBlockEvent::class.java, VehicleListener::onPlayerUseItemOnBlock)
         Combat.eventNode.addListener(PlayerUseItemEvent::class.java, VehicleListener::onPlayerUseItem)
         Combat.eventNode.addListener(PlayerEntityInteractEvent::class.java, VehicleListener::onPlayerEntityInteract)

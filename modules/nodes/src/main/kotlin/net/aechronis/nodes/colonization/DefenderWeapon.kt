@@ -1,22 +1,26 @@
 package net.aechronis.nodes.colonization
 
 import net.aechronis.combat.objects.Gun
+import net.aechronis.combat.objects.Item
 import kotlin.random.Random
 
 internal class DefenderWeapon(
-    val gun: Gun,
+    gun: Gun,
     private val random: Random = Random.Default,
 ) {
+    private val gunName = gun.name
+    val gun: Gun? get() = (Item.getFromName(gunName) as? Gun)?.takeIf { it.maxAmmo > 0 }
     private var ammunition: Int = gun.maxAmmo
     private var reloadFinishedAtMillis: Long = 0
     private var shotsRemainingInBurst: Int = 0
     private var nextFireAtMillis: Long = 0
 
-    val reloadPending: Boolean get() = ammunition == 0 || reloadFinishedAtMillis != 0L
+    val reloadPending: Boolean get() = gun == null || ammunition == 0 || reloadFinishedAtMillis != 0L
 
     fun updateReload(nowMillis: Long) {
         require(nowMillis >= 0)
-        require(gun.maxAmmo > 0)
+        val gun = gun ?: return
+        ammunition = ammunition.coerceAtMost(gun.maxAmmo)
         if (ammunition > 0) return
 
         if (reloadFinishedAtMillis == 0L) {
@@ -29,12 +33,14 @@ internal class DefenderWeapon(
         }
     }
 
-    fun canFire(nowMillis: Long): Boolean = ammunition > 0 &&
+    fun canFire(nowMillis: Long): Boolean = gun != null &&
+        ammunition > 0 &&
         reloadFinishedAtMillis == 0L &&
         nowMillis >= nextFireAtMillis
 
     fun recordShot(nowMillis: Long) {
         require(canFire(nowMillis)) { "The defender weapon is not ready to fire" }
+        val gun = checkNotNull(gun)
         val burstRemaining = if (shotsRemainingInBurst > 0) {
             shotsRemainingInBurst
         } else {

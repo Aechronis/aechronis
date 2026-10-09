@@ -6,10 +6,13 @@ import net.aechronis.combat.events.VehicleSpawnEvent
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
+import net.aechronis.combat.utils.Mounts
 import net.aechronis.combat.utils.VehicleCameraDistance
+import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.VisibilityRules
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.title.Title
@@ -28,6 +31,7 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.timer.TaskSchedule
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
@@ -43,13 +47,14 @@ open class Vehicle(
     val hitbox: Hitbox,
     val health: Health?,
     val placeTime: Long = 3000,
-    val seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    seats: List<VehicleSeat> = listOf(VehicleSeat("driver", "Driver", VehicleSeatRole.DRIVER)),
     // hide the occupant from other players while they're riding
     val invisibleWhileRiding: Boolean = true,
     // occupant takes no damage while they're riding
     val invulnerableWhileRiding: Boolean = true,
     animatedParts: List<AnimatedPart> = emptyList(),
     val collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
+    val modelScale: Vec = Vec(scale),
 ) : Item(
         name,
         itemName,
@@ -57,15 +62,34 @@ open class Vehicle(
         itemModel,
     ) {
     val animatedParts: List<AnimatedPart> = animatedParts.toList()
+    val seats: List<VehicleSeat> = seats.toList()
+    internal val gunnerSeats: List<VehicleSeat> = this.seats.filter { it.role == VehicleSeatRole.GUNNER }
+
+    init {
+        require(this.seats.size in 1..9) { "Vehicles need between one and nine crew seats" }
+        require(
+            this.seats
+                .map { it.id }
+                .distinct()
+                .size == this.seats.size,
+        ) { "Crew seat IDs must be unique" }
+        require(this.seats.count { it.role.drives } == 1) { "Vehicles need exactly one driving position" }
+        require(gunnerSeats.map { it.weaponId }.distinct().size == gunnerSeats.size) { "Each gunner must control a different weapon" }
+        require(
+            modelScale.x.isFinite() &&
+                modelScale.x > 0.0 &&
+                modelScale.y.isFinite() &&
+                modelScale.y > 0.0 &&
+                modelScale.z.isFinite() &&
+                modelScale.z > 0.0,
+        ) { "Vehicle model scale must be positive and finite on every axis" }
+    }
 
     /** Whether live instances of this vehicle are included in vehicle saves. */
     open val persistent: Boolean = true
 
     /** Whether the driver uses a vehicle-owned camera, viewmodel, and shader clock. */
     open val customDriverView: Boolean = false
-
-    /** Controls from an unmounted standing position instead of a passenger seat. */
-    open val standingDriver: Boolean = false
 
     /** Current and maximum health for vehicle telemetry. */
     open fun healthStatus(entity: Entity): Pair<Float, Float>? {
@@ -86,9 +110,6 @@ open class Vehicle(
 
     /** Everyone riding [entity], driver included. */
     protected fun occupants(entity: Entity): List<Player> = VehicleRegistry.ridesOf(entity).map { it.player }
-
-    /** Passengers of [entity] in boarding order, excluding the driver. */
-    protected fun passengerPlayers(entity: Entity): List<Player> = VehicleRegistry.passengers(entity).map { it.player }
 
     protected fun driverSeat(player: Player): Entity? = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this }?.seat
 
@@ -119,6 +140,10 @@ open class Vehicle(
         pos: Pos,
     ): Boolean {
         if (Combat.placeTasks[player] != null) return false // already placing
+        if (Mounts.isMounted(player)) {
+            Mounts.showBlocked(player)
+            return false
+        }
         val instance = player.instance ?: return false
         val spawnEvent = VehicleSpawnEvent(player, this, instance, pos)
         MinecraftServer.getGlobalEventHandler().call(spawnEvent)
@@ -184,11 +209,25 @@ open class Vehicle(
 
                     // successful reload
                     if (time <= 0) {
-                        spawn(player, pos)
+                        // Another vehicle or obstacle may have entered the area during placement.
+                        val instance = player.instance
+                        if (instance != null && canPlaceAt(instance, pos)) {
+                            spawn(player, pos)
 
-                        val held = player.itemInMainHand
-                        player.itemInMainHand =
-                            if (held.amount() <= 1) ItemStack.AIR else held.withAmount(held.amount() - 1)
+                            val held = player.itemInMainHand
+                            player.itemInMainHand =
+                                if (held.amount() <= 1) ItemStack.AIR else held.withAmount(held.amount() - 1)
+                        } else {
+                            player.showTitle(
+                                Title.title(
+                                    Component.empty(),
+                                    Component.text("✕").color(TextColor.color(0.5F, 0F, 0F)).shadowColor(ShadowColor.none()),
+                                    0,
+                                    2,
+                                    10,
+                                ),
+                            )
+                        }
 
                         Combat.placeTasks[player]!!.cancel()
                         Combat.placeTasks.remove(player)
@@ -218,7 +257,7 @@ open class Vehicle(
         instance: Instance,
         pos: Pos,
     ): Entity {
-        val entity = Entity(EntityType.ITEM_DISPLAY)
+        val entity = VehicleDisplayEntity()
 
         // offset y so the bottom of the hitbox sits on the ground
         val adjustedPos = pos.add(0.0, hitbox.getGroundOffset(), 0.0)
@@ -227,7 +266,7 @@ open class Vehicle(
         val meta = entity.entityMeta as ItemDisplayMeta
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(model)
         meta.posRotInterpolationDuration = 3
-        meta.scale = Vec(scale)
+        meta.scale = modelScale
         meta.isHasNoGravity = true
 
         entity.spawn()
@@ -237,181 +276,227 @@ open class Vehicle(
         return entity
     }
 
-    // called when a player enters this vehicle
+    /** Right-click boarding always chooses the first free crew seat in definition order. */
+    fun board(
+        player: Player,
+        entity: Entity,
+    ): Boolean {
+        reconcileOccupant(player)
+        VehicleRegistry.ridesOf(entity).forEach { reconcileOccupant(it.player) }
+        if (!canEnter(player, entity)) return false
+        val definition = seats.firstOrNull { VehicleRegistry.occupant(entity, it.id) == null }
+        if (definition == null) {
+            player.sendMessage(
+                Component.text("All crew seats are occupied. You can still ride by standing on the vehicle.", NamedTextColor.RED),
+            )
+            return false
+        }
+        try {
+            enterSeat(player, entity, definition)
+        } catch (failure: Exception) {
+            try {
+                forceExit(player)
+            } catch (cleanupFailure: Exception) {
+                failure.addSuppressed(cleanupFailure)
+            }
+            throw failure
+        }
+        return VehicleRegistry.ride(player)?.entity === entity
+    }
+
+    private fun enterSeat(
+        player: Player,
+        entity: Entity,
+        definition: VehicleSeat,
+    ) {
+        if (definition.role.drives) onEnter(player, entity) else onGunnerEnter(player, entity, gunnerSeats.indexOf(definition))
+    }
+
+    /** A seat transfer runs on the gameplay thread; an occupied target never releases the old seat. */
+    internal fun switchSeat(
+        player: Player,
+        index: Int,
+    ): Boolean {
+        val original = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this } ?: return false
+        val destination = seats.getOrNull(index) ?: return false
+        if (original.definition == destination) return true
+        VehicleRegistry.occupant(original.entity, destination.id)?.let { reconcileOccupant(it.player) }
+        if (VehicleRegistry.occupant(original.entity, destination.id) != null) {
+            player.sendMessage(Component.text("${destination.name} is occupied.", NamedTextColor.RED))
+            return false
+        }
+        if (!switchingPlayers.add(player)) return false
+        try {
+            exit(player)
+            enterSeat(player, original.entity, destination)
+            if (VehicleRegistry.ride(player)?.definition == destination) return true
+            enterSeat(player, original.entity, original.definition)
+            return false
+        } catch (failure: Exception) {
+            try {
+                forceExit(player)
+                enterSeat(player, original.entity, original.definition)
+            } catch (restoreFailure: Exception) {
+                failure.addSuppressed(restoreFailure)
+            }
+            throw failure
+        } finally {
+            switchingPlayers.remove(player)
+            if (VehicleRegistry.ride(player) == null) VehicleSeatHotbar.close(player)
+            VehicleSeatHotbar.refresh(original.entity)
+        }
+    }
+
     open fun onEnter(
         player: Player,
         entity: Entity,
     ) {
         if (!canEnterAsDriver(player, entity)) return
-        val instance = entity.instance ?: return
-        val seatPos = getSeatWorldPos(entity, 0)
-        val seatEntity = Entity(EntityType.ITEM_DISPLAY)
-        seatEntity.setInstance(instance, seatPos)
+        mountSeat(player, entity, seats.first { it.role.drives })
+    }
 
-        val meta = seatEntity.entityMeta as ItemDisplayMeta
+    open fun onExit(player: Player) {
+        val ride = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this } ?: return
+        leaveSeat(ride)
+    }
+
+    private fun mountSeat(
+        player: Player,
+        entity: Entity,
+        definition: VehicleSeat,
+    ) {
+        val instance = entity.instance ?: return
+        val index = seats.indexOf(definition)
+        val gunnerIndex = gunnerSeats.indexOf(definition)
+        val position = if (gunnerIndex >= 0) getGunnerSeatWorldPos(entity, gunnerIndex) else getSeatWorldPos(entity, index)
+        val seat = Entity(EntityType.ITEM_DISPLAY)
+        seat.setInstance(instance, position.withView(player.position.yaw, player.position.pitch))
+        val meta = seat.entityMeta as ItemDisplayMeta
         meta.itemStack = ItemStack.AIR
         meta.posRotInterpolationDuration = 3
         meta.isHasNoGravity = true
-
-        seatEntity.spawn()
-        VehicleRegistry.enter(player, entity, seatEntity, VehicleSeatRole.DRIVER)
-        if (!standingDriver) seatEntity.addPassenger(player)
-        if (standingDriver) {
-            standingControlFieldViews.putIfAbsent(player, player.fieldViewModifier)
-            // A zero walking-speed baseline disables the client's speed-based FOV adjustment.
-            player.fieldViewModifier = 0f
-            standingControlAttributes.forEach { player.getAttribute(it).addModifier(standingControlModifier) }
-            player.velocity = Vec.ZERO
-            moveStandingDriver(player, seatPos)
+        seat.spawn()
+        try {
+            VehicleRegistry.enter(player, entity, seat, definition)
+            if (definition.standing) {
+                standingControlFieldViews.putIfAbsent(player, player.fieldViewModifier)
+                player.fieldViewModifier = 0f
+                standingControlAttributes.forEach { player.getAttribute(it).addModifier(standingControlModifier) }
+                player.velocity = Vec.ZERO
+                moveStandingDriver(player, position)
+            } else {
+                seat.addPassenger(player)
+            }
+            hideOccupant(player)
+            LagCompensation.resetHistory(player)
+            VehicleSeatHotbar.open(player)
+            VehicleSeatHotbar.refresh(entity)
+        } catch (failure: Exception) {
+            forceExit(player)
+            if (!seat.isRemoved) seat.remove()
+            throw failure
         }
-        hideOccupant(player)
-        LagCompensation.resetHistory(player)
     }
 
-    // called when a player exits this vehicle
-    open fun onExit(player: Player) {
-        val ride = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this } ?: return
-        // Detach before removing the seat: Minestom removal events reenter invalidation.
+    private fun leaveSeat(ride: VehicleRide) {
+        val player = ride.player
+        // Detach first: removing the entity can reenter lifecycle listeners.
         VehicleRegistry.leave(player)
-        if (standingDriver) restoreStandingControl(player)
-        LagCompensation.resetHistory(player)
-        ride.seat.removePassenger(player)
-        ride.seat.remove()
-        if (!isForcedExit(player)) moveToSafeExit(player, ride.entity)
-        ride.runtime.refreshCollisionViewers()
-
-        revealOccupant(player)
+        try {
+            if (ride.definition.standing) restoreStandingControl(player)
+            if (ride.role.usesWeapon) {
+                ride.runtime.reloadStartedAt = null
+                player.clearTitle()
+            }
+            LagCompensation.resetHistory(player)
+            if (player.vehicle === ride.seat && ride.seat.instance != null) ride.seat.removePassenger(player)
+            if (!ride.seat.isRemoved) ride.seat.remove()
+            if (!isForcedExit(player) && player !in switchingPlayers) moveSeatToExit(player, ride.entity, ride.definition)
+        } finally {
+            revealOccupant(player)
+            if (player !in switchingPlayers) VehicleSeatHotbar.close(player)
+            ride.runtime.refreshCollisionViewers()
+            VehicleSeatHotbar.refresh(ride.entity)
+        }
     }
 
-    // called every tick while a driver occupies the vehicle
+    // Called after the driving controller has moved the hull.
     open fun onTick(player: Player) {
         val ride = VehicleRegistry.driver(player) ?: return
-        val entity = ride.entity
-        val inputEvent = KeyPressListener.playerInputEvent[player]
-        if (inputEvent?.isHoldingShiftKey == true) {
+        if (KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
             onExit(player)
             return
         }
-
-        val playerView = player.position
-        val controlPosition = getSeatWorldPos(entity, 0).withView(playerView.yaw, playerView.pitch)
-        ride.seat.teleport(controlPosition)
-        if (standingDriver) {
-            player.velocity = Vec.ZERO
-            if (player.position.distanceSquared(controlPosition) > 1.0e-8) moveStandingDriver(player, controlPosition)
+        val view = player.position
+        val position = getSeatWorldPos(ride.entity, ride.seatIndex).withView(view.yaw, view.pitch)
+        ride.seat.teleport(position)
+        if (ride.definition.standing) {
+            if (player.velocity != Vec.ZERO) player.velocity = Vec.ZERO
+            if (player.position.distanceSquared(position) > 1.0e-8) moveStandingDriver(player, position)
         }
-
-        updatePassengerSeats(entity)
     }
 
-    open fun onUnoccupiedTick(entity: Entity) {}
+    open fun onUnoccupiedTick(entity: Entity) = Unit
 
-    /**
-     * Removes riders and their temporary seat entities before a server shutdown.
-     * Subclasses can reset transient movement state before the normal exit logic runs.
-     */
+    /** Weapon operators tick after hull movement, including without a driver. */
+    open fun onGunnerTick(player: Player) {
+        val ride = VehicleRegistry.gunner(player)?.takeIf { it.vehicle === this } ?: return
+        if (KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
+            onGunnerExit(player)
+            return
+        }
+        val view = player.position
+        ride.seat.teleport(getGunnerSeatWorldPos(ride.entity, requireNotNull(ride.stationIndex)).withView(view.yaw, view.pitch))
+    }
+
     open fun prepareForShutdown(entity: Entity) {
-        VehicleRegistry.driverOf(entity)?.let { ride ->
-            val seatPosition = getSeatWorldPos(entity, 0)
-            ride.seat.teleport(seatPosition)
-            if (standingDriver) {
-                moveStandingDriver(ride.player, seatPosition)
-            } else {
-                ride.player.teleport(seatPosition)
-            }
+        VehicleRegistry.ridesOf(entity).forEach { ride ->
+            // Use the physical crew position, not a scoped camera outside the hull.
+            val position = getSeatWorldPos(entity, ride.seatIndex)
+            ride.seat.teleport(position)
+            if (ride.definition.standing) moveStandingDriver(ride.player, position) else ride.player.teleport(position)
         }
-        VehicleRegistry.passengers(entity).forEachIndexed { index, ride ->
-            val seatPosition = getSeatWorldPos(entity, index + 1)
-            ride.seat.teleport(seatPosition)
-            ride.player.teleport(seatPosition)
-        }
-
-        VehicleRegistry.passengers(entity).forEach { onPassengerExit(it.player) }
-        VehicleRegistry.driverOf(entity)?.let { onExit(it.player) }
-    }
-
-    protected fun updatePassengerSeats(entity: Entity) {
-        VehicleRegistry.passengers(entity).forEachIndexed { index, ride ->
-            val passenger = ride.player
-            val passengerInput = KeyPressListener.playerInputEvent[passenger]
-            if (passengerInput?.isHoldingShiftKey == true) {
-                onPassengerExit(passenger)
-            } else {
-                val seatPos = getSeatWorldPos(entity, index + 1)
-                ride.seat.teleport(seatPos.withYaw(entity.position.yaw))
-            }
-        }
+        VehicleRegistry.ridesOf(entity).forEach { exit(it.player) }
     }
 
     internal open fun hitboxRoll(entity: Entity): Float = 0f
 
-    // called when a player enters as a passenger
-    open fun onPassengerEnter(
+    open fun onGunnerEnter(
         player: Player,
         entity: Entity,
+        stationIndex: Int,
     ) {
-        if (!canEnterAsPassenger(player, entity)) return
-
-        val passengerCount = VehicleRegistry.passengers(entity).size
-
-        // seatOffsets[0] is driver seat, remaining are passengers
-        if (passengerCount >= seatOffsets.size - 1) return
-
-        val seatIndex = passengerCount + 1
-        val seatPos = getSeatWorldPos(entity, seatIndex)
-        val seatEntity = Entity(EntityType.ITEM_DISPLAY)
-
-        val instance = entity.instance ?: return
-        seatEntity.setInstance(instance, seatPos)
-
-        val meta = seatEntity.entityMeta as ItemDisplayMeta
-        meta.itemStack = ItemStack.AIR
-        meta.posRotInterpolationDuration = 3
-        meta.isHasNoGravity = true
-
-        seatEntity.spawn()
-        VehicleRegistry.enter(player, entity, seatEntity, VehicleSeatRole.PASSENGER)
-        seatEntity.addPassenger(player)
-        hideOccupant(player)
-        LagCompensation.resetHistory(player)
+        if (!canEnterAsGunner(player, entity, stationIndex)) return
+        mountSeat(player, entity, gunnerSeats[stationIndex])
     }
 
-    // called when a passenger exits vehicle
-    open fun onPassengerExit(player: Player) {
-        val ride = VehicleRegistry.passenger(player)?.takeIf { it.vehicle === this } ?: return
-        VehicleRegistry.leave(player)
-        LagCompensation.resetHistory(player)
-        ride.seat.removePassenger(player)
-        ride.seat.remove()
-        if (!isForcedExit(player)) moveToSafeExit(player, ride.entity)
-        ride.runtime.refreshCollisionViewers()
-
-        revealOccupant(player)
+    open fun onGunnerExit(player: Player) {
+        val ride = VehicleRegistry.gunner(player)?.takeIf { it.vehicle === this } ?: return
+        leaveSeat(ride)
     }
 
-    /** True when this vehicle can create a new driver seat for [player]. */
+    protected fun canEnterAsGunner(
+        player: Player,
+        entity: Entity,
+        stationIndex: Int,
+    ): Boolean {
+        val definition = gunnerSeats.getOrNull(stationIndex) ?: return false
+        VehicleRegistry.occupant(entity, definition.id)?.let { reconcileOccupant(it.player) }
+        return canEnter(player, entity) && VehicleRegistry.occupant(entity, definition.id) == null
+    }
+
     protected fun canEnterAsDriver(
         player: Player,
         entity: Entity,
-    ): Boolean {
-        reconcileOccupant(player)
-        return !isForcedExit(player) &&
-            VehicleRegistry.ride(player) == null &&
-            VehicleRegistry.runtime(entity)?.vehicle === this &&
-            !entity.isRemoved &&
-            entity.instance != null &&
-            entity.instance === player.instance &&
-            player.vehicle == null &&
-            !hasActiveDriver(entity)
-    }
+    ): Boolean = canEnter(player, entity) && !hasActiveDriver(entity)
 
-    /** True when this vehicle can create a new passenger seat for [player]. */
-    protected fun canEnterAsPassenger(
+    private fun canEnter(
         player: Player,
         entity: Entity,
     ): Boolean {
         reconcileOccupant(player)
         return !isForcedExit(player) &&
+            !player.isDead &&
             VehicleRegistry.ride(player) == null &&
             VehicleRegistry.runtime(entity)?.vehicle === this &&
             !entity.isRemoved &&
@@ -421,7 +506,7 @@ open class Vehicle(
     }
 
     private fun hideOccupant(player: Player) {
-        if (!invisibleWhileRiding) return
+        if (!(VehicleRegistry.ride(player)?.definition?.invisible ?: invisibleWhileRiding)) return
         hiddenOccupants.add(player)
         VisibilityRules.set(player, VISIBILITY_RULE_OWNER) { false }
     }
@@ -430,17 +515,72 @@ open class Vehicle(
         if (hiddenOccupants.remove(player)) VisibilityRules.remove(player, VISIBILITY_RULE_OWNER)
     }
 
-    // get world position for a seat
-    protected fun getSeatWorldPos(
+    protected open fun getSeatWorldPos(
         entity: Entity,
         seatIndex: Int,
     ): Pos {
-        val vehiclePos = entity.position
-        val localOffset = seatOffsets.getOrElse(seatIndex) { Vec.ZERO }
-        val yawRad = Math.toRadians(vehiclePos.yaw.toDouble())
-        val rotatedX = localOffset.x * cos(yawRad) - localOffset.z * sin(yawRad)
-        val rotatedZ = localOffset.x * sin(yawRad) + localOffset.z * cos(yawRad)
-        return vehiclePos.add(rotatedX, localOffset.y, rotatedZ)
+        val position = entity.position
+        return position.add(rotatePoint(seats[seatIndex].offset, position.yaw, position.pitch, hitboxRoll(entity)))
+    }
+
+    protected open fun getGunnerSeatWorldPos(
+        entity: Entity,
+        stationIndex: Int,
+    ): Pos = getSeatWorldPos(entity, seats.indexOf(gunnerSeats[stationIndex]))
+
+    /** Prefer a nearby physical deck surface before the hull-wide fallback. */
+    private fun moveSeatToExit(
+        player: Player,
+        entity: Entity,
+        definition: VehicleSeat,
+    ) {
+        val instance = entity.instance ?: return
+        definition.exitOffset?.let { offset ->
+            val position = entity.position.add(rotatePoint(offset, entity.position.yaw, entity.position.pitch, hitboxRoll(entity)))
+            if (isSafeExitPosition(player, position, instance)) {
+                player.teleport(position.withView(player.position.yaw, player.position.pitch))
+                return
+            }
+        }
+        val station = getSeatWorldPos(entity, seats.indexOf(definition))
+        val clearance = max(player.boundingBox.width(), player.boundingBox.depth()) / 2 + 0.05
+        val candidates =
+            collisionHitbox
+                .at(entity.position, hitboxRoll(entity))
+                .boxes
+                .map { box ->
+                    val centerX = (box.min.x + box.max.x) / 2
+                    val centerZ = (box.min.z + box.max.z) / 2
+                    // A narrow platform collapses to one shared midpoint; deriving
+                    // both ends separately can invert the range through rounding.
+                    val xRadius = ((box.max.x - box.min.x) / 2 - clearance).coerceAtLeast(0.0)
+                    val zRadius = ((box.max.z - box.min.z) / 2 - clearance).coerceAtLeast(0.0)
+                    Pos(
+                        station.x.coerceIn(centerX - xRadius, centerX + xRadius),
+                        box.max.y + 0.001,
+                        station.z.coerceIn(centerZ - zRadius, centerZ + zRadius),
+                        player.position.yaw,
+                        player.position.pitch,
+                    )
+                }.filter { candidate ->
+                    val dx = candidate.x - station.x
+                    val dz = candidate.z - station.z
+                    dx * dx + dz * dz <= 64.0 && abs(candidate.y - station.y) <= 6.0
+                }.sortedBy { it.distanceSquared(station) }
+        val safe =
+            candidates.firstOrNull { candidate ->
+                isSafeExitPosition(player, candidate, instance) &&
+                    hitbox.resolveCollision(
+                        entity.position,
+                        entity.position.yaw,
+                        entity.position.pitch,
+                        hitboxRoll(entity),
+                        candidate,
+                        player.boundingBox.relativeStart(),
+                        player.boundingBox.relativeEnd(),
+                    ) == null
+            }
+        if (safe != null) player.teleport(safe) else moveToSafeExit(player, entity)
     }
 
     private fun moveToSafeExit(
@@ -498,7 +638,7 @@ open class Vehicle(
         for (x in floor(position.x + start.x).toInt()..floor(position.x + end.x).toInt()) {
             for (y in floor(position.y + start.y).toInt()..floor(position.y + end.y).toInt()) {
                 for (z in floor(position.z + start.z).toInt()..floor(position.z + end.z).toInt()) {
-                    if (instance.getBlock(x, y, z).isSolid) return false
+                    if (instance.getBlock(x, y, z).solid()) return false
                 }
             }
         }
@@ -515,49 +655,50 @@ open class Vehicle(
     /** Returns the current magazine size for an armed vehicle, or null for an unarmed vehicle. */
     fun getAmmo(entity: Entity): Int? = VehicleRegistry.runtime(entity)?.ammo
 
-    /** Advances reloading independently of fire input, consuming inventory ammo only on completion. */
+    /** Allows a vehicle's active weapon to set the shared magazine's reload duration. */
+    protected open fun ammoReloadTime(entity: Entity): Long = (this as? ArmedVehicle)?.reloadTime ?: 0L
+
+    /** Weapon state survives crew changes; only the active operator supplies reserve ammunition. */
     internal fun updateAmmoReload(
         player: Player,
         now: Long = System.currentTimeMillis(),
     ) {
         val armedVehicle = this as? ArmedVehicle ?: return
-        val ride = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this } ?: return
+        val ride = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this && it.role.usesWeapon } ?: return
         val runtime = ride.runtime
         val current = runtime.ammo ?: return
-        if (current == 0 && armedVehicle.ammo[player] == 0) {
+        val duration = ammoReloadTime(ride.entity).coerceAtLeast(0L)
+        if (current > 0) {
+            if (runtime.nextShotAt >
+                now
+            ) {
+                showReloadProgress(player, (1.0 - (runtime.nextShotAt - now).toDouble() / duration.coerceAtLeast(1)).coerceIn(0.0, 1.0))
+            }
+            return
+        }
+        if (armedVehicle.ammo[player] == 0) {
             if (runtime.reloadStartedAt != null) player.clearTitle()
             runtime.reloadStartedAt = null
             return
         }
-
-        val startedAt =
-            runtime.reloadStartedAt ?: run {
-                if (current > 0) return
-                runtime.reloadStartedAt = now
-                now
-            }
+        val startedAt = runtime.reloadStartedAt ?: now.also { runtime.reloadStartedAt = it }
         val elapsed = now - startedAt
-        if (elapsed >= armedVehicle.reloadTime) {
-            if (current == 0) {
-                armedVehicle.ammo[player] -= 1
-                runtime.refillAmmo()
-            }
+        if (elapsed >= duration) {
+            armedVehicle.ammo[player] -= 1
+            runtime.refillAmmo()
             runtime.reloadStartedAt = null
             ride.clearEmptyAmmoFeedback()
             player.clearTitle()
-            return
+        } else {
+            showReloadProgress(player, (elapsed.toDouble() / duration).coerceIn(0.0, 1.0))
         }
+    }
 
-        val progress = (elapsed.toDouble() / armedVehicle.reloadTime.toDouble()).coerceIn(0.0, 1.0)
-        player.showTitle(
-            Title.title(
-                Component.empty(),
-                Message.progressBar(progress).shadowColor(ShadowColor.none()),
-                0,
-                3,
-                10,
-            ),
-        )
+    private fun showReloadProgress(
+        player: Player,
+        progress: Double,
+    ) {
+        player.showTitle(Title.title(Component.empty(), Message.progressBar(progress).shadowColor(ShadowColor.none()), 0, 3, 10))
     }
 
     protected fun hasReadyAmmo(
@@ -566,13 +707,13 @@ open class Vehicle(
     ): Boolean {
         val armedVehicle = this as? ArmedVehicle ?: return false
         val runtime = VehicleRegistry.runtime(entity) ?: return false
-        if (runtime.reloadStartedAt != null) return false
+        val operator = VehicleRegistry.ride(player)?.takeIf { it.entity === entity && it.role.usesWeapon } ?: return false
+        if (runtime.reloadStartedAt != null || runtime.nextShotAt > System.currentTimeMillis()) return false
         if ((runtime.ammo ?: 0) > 0) return true
 
         if (armedVehicle.ammo[player] == 0) {
             val now = System.currentTimeMillis()
-            val ride = VehicleRegistry.driver(player) ?: return false
-            if (!ride.canReportEmptyAmmo(now)) return false
+            if (!operator.canReportEmptyAmmo(now)) return false
             player.showTitle(
                 Title.title(
                     Component.empty(),
@@ -593,14 +734,29 @@ open class Vehicle(
     ): Boolean {
         val runtime = VehicleRegistry.runtime(entity) ?: return false
         if (!runtime.consumeAmmo()) return false
-        if (reloadAfterShot || runtime.ammo == 0) {
+        val now = System.currentTimeMillis()
+        if (reloadAfterShot) runtime.nextShotAt = now + ammoReloadTime(entity)
+        if (runtime.ammo == 0) {
             val armedVehicle = this as? ArmedVehicle ?: return true
-            val player = VehicleRegistry.driverOf(entity)?.player ?: return true
-            if ((runtime.ammo ?: 0) > 0 || armedVehicle.ammo[player] > 0) {
-                runtime.reloadStartedAt = System.currentTimeMillis()
-            }
+            val player = VehicleRegistry.weaponOperator(entity)?.player ?: return true
+            if (armedVehicle.ammo[player] > 0) runtime.reloadStartedAt = now
         }
         return true
+    }
+
+    /** Stable weapon IDs allow saved ammunition to survive seat reordering or model changes. */
+    internal open fun snapshotWeaponAmmo(entity: Entity): Map<String, Int> {
+        val ammo = VehicleRegistry.runtime(entity)?.ammo ?: return emptyMap()
+        return mapOf((seats.firstOrNull { it.role.usesWeapon }?.weaponId ?: "main") to ammo)
+    }
+
+    internal open fun restoreWeaponAmmo(
+        entity: Entity,
+        saved: Map<String, Int>?,
+        legacyAmmo: Int?,
+    ) {
+        val id = seats.firstOrNull { it.role.usesWeapon }?.weaponId ?: "main"
+        VehicleRegistry.runtime(entity)?.restore(null, saved?.get(id) ?: legacyAmmo)
     }
 
     // called when the vehicle takes damage
@@ -635,8 +791,7 @@ open class Vehicle(
     protected open fun cleanupRuntime(entity: Entity) = Unit
 
     protected fun removeRuntimeEntity(entity: Entity) {
-        VehicleRegistry.passengers(entity).forEach { onPassengerExit(it.player) }
-        VehicleRegistry.driverOf(entity)?.let { onExit(it.player) }
+        VehicleRegistry.ridesOf(entity).forEach { exit(it.player) }
         VehicleRegistry.remove(entity)
 
         // remove the displayentity
@@ -668,6 +823,7 @@ open class Vehicle(
         private const val VISIBILITY_RULE_OWNER = "combat:vehicle-occupant"
         private val hiddenOccupants = HashSet<Player>()
         private val forcedExitPlayers = HashSet<Player>()
+        private val switchingPlayers = HashSet<Player>()
 
         /** Ejects riders and removes every vehicle entity without triggering explosions. */
         @Synchronized
@@ -698,6 +854,8 @@ open class Vehicle(
             VehicleRegistry.clear()
             hiddenOccupants.clear()
             forcedExitPlayers.clear()
+            switchingPlayers.clear()
+            VehicleSeatHotbar.shutdown()
 
             if (failures.isNotEmpty()) {
                 throw IllegalStateException("Vehicle shutdown completed with ${failures.size} cleanup failure(s)").apply {
@@ -706,13 +864,10 @@ open class Vehicle(
             }
         }
 
-        /** Routes a normal exit through the vehicle's driver or passenger hook. */
+        /** Routes a normal exit through the vehicle's occupied station hook. */
         internal fun exit(player: Player) {
             val ride = VehicleRegistry.ride(player) ?: return
-            when (ride.role) {
-                VehicleSeatRole.DRIVER -> ride.vehicle.onExit(player)
-                VehicleSeatRole.PASSENGER -> ride.vehicle.onPassengerExit(player)
-            }
+            if (ride.role.drives) ride.vehicle.onExit(player) else ride.vehicle.onGunnerExit(player)
         }
 
         fun isVehicleOccupant(player: Player): Boolean = activeRide(player) != null
@@ -720,13 +875,13 @@ open class Vehicle(
         fun drivenBy(player: Player): Vehicle? = VehicleRegistry.driver(player)?.vehicle
 
         // true while the player rides a vehicle that protects its occupants from damage
-        fun isProtectedOccupant(player: Player): Boolean = activeRide(player)?.vehicle?.invulnerableWhileRiding == true
+        fun isProtectedOccupant(player: Player): Boolean = activeRide(player)?.isProtected == true
 
         // center of the protecting vehicle hitbox to use when AI aims at it
         fun protectedVehicleAimPosition(player: Player): Pos? {
             val ride = activeRide(player) ?: return null
             val vehicle = ride.vehicle
-            if (!vehicle.invulnerableWhileRiding) return null
+            if (!ride.isProtected) return null
             val position = ride.entity.position
             return vehicle.hitbox.getWorldCenter(
                 position,
@@ -772,7 +927,7 @@ open class Vehicle(
                     entity.instance != null &&
                     entity.instance === player.instance &&
                     seat.instance === player.instance &&
-                    if (ride.role == VehicleSeatRole.DRIVER && ride.vehicle.standingDriver) {
+                    if (ride.definition.standing) {
                         player.vehicle == null && player.position.distanceSquared(seat.position) < 16.0
                     } else {
                         player.vehicle === seat && player in seat.passengers
@@ -790,12 +945,13 @@ open class Vehicle(
                 try {
                     // A subclass may fail before reaching the base exit. Detach before seat removal.
                     VehicleRegistry.leave(player)
-                    if (player.vehicle === ride.seat) ride.seat.removePassenger(player)
+                    if (player.vehicle === ride.seat && ride.seat.instance != null) ride.seat.removePassenger(player)
                     if (!ride.seat.isRemoved) ride.seat.remove()
                     ride.runtime.refreshCollisionViewers()
                 } finally {
-                    if (ride.role == VehicleSeatRole.DRIVER && ride.vehicle.standingDriver) restoreStandingControl(player)
+                    if (ride.definition.standing) restoreStandingControl(player)
                     forcedExitPlayers.remove(player)
+                    if (player !in switchingPlayers) VehicleSeatHotbar.close(player)
                     if (hiddenOccupants.remove(player)) VisibilityRules.remove(player, VISIBILITY_RULE_OWNER)
                 }
             }

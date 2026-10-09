@@ -6,6 +6,8 @@ import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.ShulkerHitboxPart
+import net.aechronis.combat.objects.VehicleSeat
+import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.server.objects.Airship
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -28,7 +30,6 @@ object Airships {
         title: String,
         scale: Double,
         hp: Float,
-        seats: Int,
         gunners: Int,
         speed: Double,
         coal: Int,
@@ -40,7 +41,6 @@ object Airships {
         // envelope sits 4 blocks above the deck so jumping on it never hits the hull; solid envelope plus a one-cube-thick floor the crew walks on
         val floor =
             (-2..2).flatMap { x -> (-5..5).map { z -> ShulkerHitboxPart(Vec(x * s, -4.5 * s, z * s), s) } }
-        val y = -3.7 * s
         return Airship(
             name = name,
             itemName = Component.text(title, NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
@@ -57,31 +57,36 @@ object Airships {
                     ),
                 ),
             collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(envelope))).parts + floor),
-            // pilot, two gunner positions, then passengers
-            seatOffsets =
-                listOf(
-                    Vec(0.0, y, 5.0 * s),
-                    Vec(2.0 * s, y, 0.0),
-                    Vec(-2.0 * s, y, 0.0),
-                    Vec(s, y, -2.0 * s),
-                    Vec(-s, y, -2.0 * s),
-                    Vec(s, y, -4.0 * s),
-                    Vec(-s, y, -4.0 * s),
-                    Vec(0.0, y, 3.0 * s),
-                ).take(seats),
-            gun = FieldPieces.gatlingGunWeapon,
-            gunnerCount = gunners,
+            seats = seats(s, gunners),
+            gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = speed,
             maxFuel = coal * COAL_FUEL,
             crashHits = crashHits,
         )
     }
 
+    /** A standing pilot at the bow and Maxim gunners at the sides; everyone else just stands on the deck. */
+    private fun seats(
+        s: Double,
+        gunners: Int,
+    ): List<VehicleSeat> =
+        listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -3.95 * s, 5.0 * s), standing = true)) +
+            listOf(
+                VehicleSeat(
+                    "gun-starboard",
+                    "Starboard gunner",
+                    VehicleSeatRole.GUNNER,
+                    Vec(2.0 * s, -3.7 * s, 0.0),
+                    weaponId = "maxim-starboard",
+                ),
+                VehicleSeat("gun-port", "Port gunner", VehicleSeatRole.GUNNER, Vec(-2.0 * s, -3.7 * s, 0.0), weaponId = "maxim-port"),
+            ).take(gunners)
+
     // 200 rifle shots
     val zeppelin =
-        build("zeppelin", "Zeppelin", scale = 16.0, hp = 200 * RIFLE_HIT, seats = 8, gunners = 2, speed = 0.2, coal = 20, crashHits = 30)
+        build("zeppelin", "Zeppelin", scale = 16.0, hp = 200 * RIFLE_HIT, gunners = 2, speed = 0.2, coal = 20, crashHits = 30)
 
     // small cheaper cousin: 80 rifle shots, one gunner
     val airship =
-        build("airship", "Airship", scale = 10.0, hp = 80 * RIFLE_HIT, seats = 4, gunners = 1, speed = 0.25, coal = 10, crashHits = 12)
+        build("airship", "Airship", scale = 10.0, hp = 80 * RIFLE_HIT, gunners = 1, speed = 0.25, coal = 10, crashHits = 12)
 }

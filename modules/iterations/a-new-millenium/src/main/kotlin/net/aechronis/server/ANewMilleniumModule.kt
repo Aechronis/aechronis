@@ -91,6 +91,12 @@ class ANewMilleniumModule : AechronisModule {
         measure("Drone listeners") { DroneListener.init(context) }
     }
 
+    override fun resourcePackChanged(context: ModuleContext) {
+        GunHandSkins.replaceTemplate(
+            checkNotNull(context.readResourcePackAsset(id, GunHandSkins.HAND_TEXTURE)) { "Missing iteration hand atlas" },
+        )
+    }
+
     private fun registerItems() {
         Item.registerItems(
             Ammo.ammo762x39mm,

@@ -494,7 +494,7 @@ class Hitbox(
         for (partCorners in allCorners) {
             for (corner in partCorners) {
                 val block = instance.getBlock(corner)
-                if (!block.isAir) {
+                if (!block.air()) {
                     return true
                 }
             }

@@ -1,26 +1,31 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.VehicleRegistry
+import net.aechronis.combat.objects.VehicleRuntime
 import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.combat.utils.CombatDamageKind
+import net.aechronis.combat.utils.Ray
+import net.aechronis.combat.utils.rotatePoint
+import net.aechronis.combat.utils.rotatePointInverse
 import net.aechronis.combat.utils.withCombatAttribution
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.watchdog.Watchdog
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.RelativeFlags
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.instance.Instance
-import net.minestom.server.particle.Particle
 import net.minestom.server.timer.TaskSchedule
+import net.minestom.server.utils.chunk.ChunkUtils
 import kotlin.math.abs
 import kotlin.math.ceil
 
@@ -30,6 +35,7 @@ object VehicleTickManager {
     private const val MAX_IMPACT_DAMAGE = 8F
     private const val VEHICLE_INTERACTION_DISTANCE = 3.0
     private const val LOOK_BROAD_PHASE_MARGIN = 1.0e-9
+    private const val MAX_CARRY_HEIGHT = 5.0
 
     private data class ImpactKey(
         val vehicle: Entity,
@@ -42,21 +48,39 @@ object VehicleTickManager {
         val instance: Instance?,
     )
 
+    private data class PlayerSupport(
+        val entity: Entity,
+        val previous: VehiclePose,
+        val distance: Double,
+    )
+
     private val previousVehiclePoses = HashMap<Entity, VehiclePose>()
     private val lastImpacts = HashMap<ImpactKey, Long>()
     private val collisionIndex = VehicleCollisionIndex()
 
     val playerLookingAtVehicle = HashMap<Player, Vehicle>()
     val playerLookingAtEntity = HashMap<Player, Entity>()
+    val playerLookingAtStation = HashMap<Player, Int>()
 
     fun start() {
         ModuleScheduler
             .buildTask {
                 Vehicle.reconcileOccupants()
+                // Newly spawned vehicles need a baseline before their first movement.
+                for (runtime in VehicleRegistry.all()) {
+                    previousVehiclePoses.putIfAbsent(
+                        runtime.entity,
+                        VehiclePose(runtime.entity.position, runtime.vehicle.hitboxRoll(runtime.entity), runtime.entity.instance),
+                    )
+                }
+
+                // Select the carried viewers before any hull or part sends movement.
+                collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)
+                val playerSupports = findPlayerSupports(VehicleRegistry.all())
 
                 // tick occupied vehicles
-                for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.DRIVER }) {
-                    ride.vehicle.updateAmmoReload(ride.player)
+                for (ride in VehicleRegistry.rides().filter { it.role.drives }) {
+                    if (ride.role.usesWeapon) ride.vehicle.updateAmmoReload(ride.player)
                     ride.vehicle.onTick(ride.player)
                 }
 
@@ -66,6 +90,12 @@ object VehicleTickManager {
                     }
                 }
 
+                // Weapon operators remain active without a helmsman and follow the final hull pose.
+                for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.GUNNER }) {
+                    ride.vehicle.updateAmmoReload(ride.player)
+                    ride.vehicle.onGunnerTick(ride.player)
+                }
+
                 val vehicles = VehicleRegistry.all()
                 vehicles.forEach {
                     it.updateAnimatedParts()
@@ -73,14 +103,17 @@ object VehicleTickManager {
                 }
                 val vehicleLookIndex = prepareVehicleLookIndex(vehicles.map { it.entity to it.vehicle })
                 val activeEntities = vehicles.map { it.entity }.toSet()
+                val supports = carryStandingPlayers(vehicles, playerSupports)
+                // Carrying may move a player into another collision-index cell.
                 collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)
 
                 // Clients collide with the shulkers. Resolve overlaps/moving impacts
                 // against those same cubes, independently of interaction/damage hitboxes.
                 for (runtime in vehicles) {
                     val previous = previousVehiclePoses[runtime.entity]?.takeIf { it.instance === runtime.entity.instance }
-                    handlePlayerCollisions(runtime.entity, runtime.vehicle, previous, collisionIndex)
+                    handlePlayerCollisions(runtime.entity, runtime.vehicle, previous, collisionIndex, supports)
                 }
+                vehicles.forEach { it.flushCarriedMovement() }
                 previousVehiclePoses.keys.removeIf { it !in activeEntities }
                 for (runtime in vehicles) {
                     previousVehiclePoses[runtime.entity] =
@@ -88,31 +121,14 @@ object VehicleTickManager {
                 }
                 lastImpacts.keys.removeIf { it.vehicle !in activeEntities }
 
-                // render hitboxes for all vehicles
-                if (Hitbox.viewingHitboxes.isNotEmpty()) {
-                    for (runtime in vehicles) {
-                        val entity = runtime.entity
-                        val vehicle = runtime.vehicle
-                        val pos = entity.position
-                        vehicle.hitbox.render(
-                            entity.instance ?: continue,
-                            pos,
-                            pos.yaw,
-                            pos.pitch,
-                            0f,
-                            Particle.FLAME,
-                            0.3,
-                        )
-                    }
-                }
-
                 // check if players are looking at vehicles and spawn fake blocks around them
                 // see modelmanager
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
                     // skip players already in a vehicle
-                    if (VehicleRegistry.driver(player) != null) {
+                    if (VehicleRegistry.ride(player) != null) {
                         playerLookingAtVehicle.remove(player)
                         playerLookingAtEntity.remove(player)
+                        playerLookingAtStation.remove(player)
                         continue
                     }
 
@@ -120,6 +136,7 @@ object VehicleTickManager {
                     if (instance == null) {
                         playerLookingAtVehicle.remove(player)
                         playerLookingAtEntity.remove(player)
+                        playerLookingAtStation.remove(player)
                         continue
                     }
 
@@ -136,9 +153,15 @@ object VehicleTickManager {
                     if (target != null) {
                         playerLookingAtEntity[player] = target.entity
                         playerLookingAtVehicle[player] = target.vehicle
+                        if (target.stationIndex == null) {
+                            playerLookingAtStation.remove(player)
+                        } else {
+                            playerLookingAtStation[player] = target.stationIndex
+                        }
                     } else {
                         playerLookingAtVehicle.remove(player)
                         playerLookingAtEntity.remove(player)
+                        playerLookingAtStation.remove(player)
                     }
                 }
             }.repeat(TaskSchedule.tick(1))
@@ -151,6 +174,7 @@ object VehicleTickManager {
         val position: Pos,
         val boundingRadius: Double,
         val hitbox: Hitbox.Prepared,
+        val stationIndex: Int? = null,
     ) {
         var queryStamp = 0L
     }
@@ -198,6 +222,8 @@ object VehicleTickManager {
             var closest: VehicleLookCandidate? = null
             var closestDistance = Double.POSITIVE_INFINITY
             val vectorLength = vector.length()
+            val blockingDistance = Ray(origin, vector).firstBlock(instance)?.t ?: Double.POSITIVE_INFINITY
+            val stationHits = HashMap<Entity, Pair<VehicleLookCandidate, Double>>()
 
             forEachCandidate(instance, origin, vector) { candidate ->
                 if (candidate.entity.instance !== instance) return@forEachCandidate
@@ -214,13 +240,20 @@ object VehicleTickManager {
                         vector,
                         vectorLength,
                     ) ?: return@forEachCandidate
+                if (distance > blockingDistance + LOOK_BROAD_PHASE_MARGIN) return@forEachCandidate
+                if (candidate.stationIndex != null) {
+                    val previous = stationHits[candidate.entity]
+                    if (previous == null || distance < previous.second) stationHits[candidate.entity] = candidate to distance
+                }
                 if (distance < closestDistance) {
                     closest = candidate
                     closestDistance = distance
                 }
             }
 
-            return closest
+            // Coarse hull boxes can overlap a turret. Within the closest boat, a
+            // weapon actually intersected by the ray takes precedence over boarding.
+            return closest?.let { stationHits[it.entity]?.first ?: it }
         }
 
         internal fun candidateCount(
@@ -280,20 +313,38 @@ object VehicleTickManager {
 
     internal fun prepareVehicleLookIndex(vehicles: Iterable<Pair<Entity, Vehicle>>): VehicleLookIndex =
         VehicleLookIndex(
-            vehicles.map { (entity, vehicle) ->
+            vehicles.flatMap { (entity, vehicle) ->
                 val position = entity.position
-                VehicleLookCandidate(
-                    entity,
-                    vehicle,
-                    position,
-                    vehicle.hitbox.boundingRadius,
-                    vehicle.hitbox.prepare(
-                        position,
-                        position.yaw,
-                        position.pitch,
-                        vehicle.hitboxRoll(entity),
-                    ),
-                )
+                buildList {
+                    add(
+                        VehicleLookCandidate(
+                            entity,
+                            vehicle,
+                            position,
+                            vehicle.hitbox.boundingRadius,
+                            vehicle.hitbox.prepare(
+                                position,
+                                position.yaw,
+                                position.pitch,
+                                vehicle.hitboxRoll(entity),
+                            ),
+                        ),
+                    )
+                    if (vehicle is Boat) {
+                        for (target in vehicle.weaponInteractionTargets(entity)) {
+                            add(
+                                VehicleLookCandidate(
+                                    entity,
+                                    vehicle,
+                                    target.position,
+                                    target.hitbox.boundingRadius,
+                                    target.hitbox.prepare(target.position, target.position.yaw, target.position.pitch, 0f),
+                                    target.stationIndex,
+                                ),
+                            )
+                        }
+                    }
+                }
             },
         )
 
@@ -305,16 +356,119 @@ object VehicleTickManager {
     ): VehicleLookCandidate? = vehicles.findClosest(instance, origin, vector)
 
     fun removePlayer(player: Player) {
+        VehicleRegistry.all().forEach { it.removeCarriedPlayer(player) }
+        playerLookingAtVehicle.remove(player)
+        playerLookingAtEntity.remove(player)
+        playerLookingAtStation.remove(player)
         lastImpacts.keys.removeIf { it.player === player }
         collisionIndex.removePlayer(player)
     }
 
     fun shutdown() {
+        VehicleRegistry.all().forEach { it.setCarriedPlayers(emptySet()) }
         previousVehiclePoses.clear()
         lastImpacts.clear()
         playerLookingAtVehicle.clear()
         playerLookingAtEntity.clear()
+        playerLookingAtStation.clear()
         collisionIndex.clear()
+    }
+
+    private fun findPlayerSupports(vehicles: List<VehicleRuntime>): Map<Player, PlayerSupport> {
+        val supports = HashMap<Player, PlayerSupport>()
+        for (runtime in vehicles) {
+            val entity = runtime.entity
+            val instance = entity.instance ?: continue
+            if (entity.isRemoved) continue
+            val current = VehiclePose(entity.position, runtime.vehicle.hitboxRoll(entity), instance)
+            val previous = previousVehiclePoses[entity]?.takeIf { it.instance === instance } ?: current
+            // Check the hull before it moved, including when it travels past the player in one tick.
+            val shape = runtime.vehicle.collisionHitbox.at(previous.position, previous.roll)
+            val bounds = VehicleCollisionIndex.sweptBounds(listOf(shape)) ?: continue
+            collisionIndex.forEachCandidate(instance, bounds.copy(maxY = bounds.maxY + MAX_CARRY_HEIGHT)) { player ->
+                if (player.isRemoved || player.vehicle != null || VehicleRegistry.ride(player) != null) return@forEachCandidate
+                val distance =
+                    shape.supportDistance(
+                        player.position,
+                        player.boundingBox.relativeStart(),
+                        player.boundingBox.relativeEnd(),
+                        MAX_CARRY_HEIGHT,
+                    ) ?: return@forEachCandidate
+                // Choose one nearest support before moving anyone; overlapping hulls must not carry twice.
+                if (distance < (supports[player]?.distance ?: Double.POSITIVE_INFINITY)) {
+                    supports[player] = PlayerSupport(entity, previous, distance)
+                }
+            }
+        }
+
+        val carriedPlayers = supports.entries.groupBy({ it.value.entity }, { it.key })
+        vehicles.forEach { it.setCarriedPlayers(carriedPlayers[it.entity]?.toSet().orEmpty()) }
+        return supports
+    }
+
+    private fun carryStandingPlayers(
+        vehicles: List<VehicleRuntime>,
+        supports: Map<Player, PlayerSupport>,
+    ): Map<Player, Entity> {
+        val active = vehicles.associateBy { it.entity }
+        val carried = HashMap<Player, Entity>()
+        for ((player, support) in supports) {
+            val runtime = active[support.entity] ?: continue
+            val entity = runtime.entity
+            if (
+                entity.isRemoved ||
+                player.isRemoved ||
+                entity.instance !== player.instance ||
+                player.vehicle != null ||
+                VehicleRegistry.ride(player) != null
+            ) {
+                runtime.removeCarriedPlayer(player)
+                continue
+            }
+            runtime.rememberCarryOrigin(player)
+            carried[player] = entity
+            val current = VehiclePose(entity.position, runtime.vehicle.hitboxRoll(entity), entity.instance)
+            if (support.previous == current) continue
+            val target =
+                carriedPosition(
+                    player.position,
+                    support.previous.position,
+                    support.previous.roll,
+                    current.position,
+                    current.roll,
+                )
+            val delta = target.asVec().sub(player.position)
+            if (delta.lengthSquared() < 1.0e-12) continue
+            if (ChunkUtils.isLoaded(player.instance, target)) {
+                // Publish the player's final displacement with the hull after collision
+                // resolution. Continuous carrying must not send an earlier standalone teleport.
+                player.refreshPosition(target)
+            } else {
+                // A discontinuous move into an unloaded chunk still needs Minestom's loader.
+                runtime.removeCarriedPlayer(player)
+                carried.remove(player)
+                player.teleport(target.withView(0f, 0f), null, RelativeFlags.VIEW, false)
+            }
+        }
+        return carried
+    }
+
+    internal fun carriedPosition(
+        playerPosition: Pos,
+        previousPosition: Pos,
+        previousRoll: Float,
+        position: Pos,
+        roll: Float,
+    ): Pos {
+        val local =
+            rotatePointInverse(
+                playerPosition.asVec().sub(previousPosition),
+                previousPosition.yaw,
+                previousPosition.pitch,
+                previousRoll,
+            )
+        val carried = position.add(rotatePoint(local, position.yaw, position.pitch, roll))
+        return carried.withView(playerPosition.yaw, playerPosition.pitch)
     }
 
     private fun handlePlayerCollisions(
@@ -322,6 +476,7 @@ object VehicleTickManager {
         vehicle: Vehicle,
         previousPose: VehiclePose?,
         collisionIndex: VehicleCollisionIndex,
+        supports: Map<Player, Entity>,
     ) {
         val instance = entity.instance ?: return
         val position = entity.position
@@ -343,12 +498,15 @@ object VehicleTickManager {
         val broadphaseBounds = VehicleCollisionIndex.sweptBounds(shapes) ?: return
 
         collisionIndex.forEachCandidate(instance, broadphaseBounds) { player ->
+            val supported = supports[player] === entity
+            // A carried player already followed this hull's sweep. Only its final shape can obstruct them.
             val collision =
-                shapes.firstNotNullOfOrNull {
+                (if (supported) shapes.take(1) else shapes).firstNotNullOfOrNull {
                     it.resolveCollision(player.position, player.boundingBox.relativeStart(), player.boundingBox.relativeEnd())
                 } ?: return@forEachCandidate
 
-            player.teleport(collision.position)
+            if (player in supports) player.refreshPosition(collision.position) else player.teleport(collision.position)
+            if (supported) return@forEachCandidate
             // The top is a walkable surface, not a side impact. Do not launch or
             // damage someone landing on a vehicle or being lifted by its deck.
             if (collision.normal.y > 0.5) return@forEachCandidate
@@ -441,6 +599,5 @@ object VehicleTickManager {
                 current.z * 0.2 + direction.z * horizontalStrength,
             )
         player.velocity = velocity
-        Watchdog.recordKnockback(player, velocity, "vehicle")
     }
 }

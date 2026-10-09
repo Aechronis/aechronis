@@ -75,7 +75,7 @@ internal class DefenderBlockBreaker(
     ): DefenderBlockBreakTickResult {
         var current = action ?: return DefenderBlockBreakTickResult.INVALID
         val block = instance.getBlock(current.position)
-        if (block.isAir || !canContinue(current.position, block)) {
+        if (block.air() || !canContinue(current.position, block)) {
             stop(instance)
             return DefenderBlockBreakTickResult.INVALID
         }
@@ -127,7 +127,7 @@ internal class DefenderBlockBreaker(
     fun stop(instance: Instance) {
         clearAnimation(instance)
         action = null
-        if (!entity.isRemoved) entity.setEquipment(EquipmentSlot.MAIN_HAND, weapon.gun.toItemStack())
+        if (!entity.isRemoved) entity.setEquipment(EquipmentSlot.MAIN_HAND, weapon.gun?.toItemStack() ?: ItemStack.AIR)
     }
 
     private fun setAnimation(

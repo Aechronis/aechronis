@@ -7,11 +7,15 @@ plugins {
 
 dependencies {
     compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.09.12-26.2")
-    add("moduleImplementation", "com.conceptmc:luckperms-minestom:5.5-SNAPSHOT")
+    compileOnly("net.minestom:minestom:2026.10.05-26.2")
+    add("moduleImplementation", "net.aechronis:luckperms-minestom:5.5.87-minestom.1")
 }
 
 tasks.named<ShadowJar>("shadowJar") {
-    // Use the server's Adventure version instead of the older bundled classes.
-    exclude("net/kyori/adventure/**")
+    // Share Adventure with the server, but retain MiniMessage, which it does not provide.
+    exclude {
+        !it.isDirectory &&
+            it.path.startsWith("net/kyori/adventure/") &&
+            !it.path.startsWith("net/kyori/adventure/text/minimessage/")
+    }
 }

@@ -1,6 +1,7 @@
 package net.aechronis.nodes
 
 import net.aechronis.nodes.utils.ChatColor
+import net.aechronis.server.CommandOutput
 import net.kyori.adventure.text.Component
 import net.minestom.server.adventure.audience.Audiences
 import net.minestom.server.command.CommandSender
@@ -26,7 +27,7 @@ object Message {
         }
 
         val msg = Component.text("${COL_MSG}$s")
-        sender.sendMessage(msg)
+        CommandOutput.send(sender, msg)
     }
 
     /**
@@ -39,7 +40,7 @@ object Message {
         }
 
         val msg = Component.text("${COL_ERROR}$s")
-        sender.sendMessage(msg)
+        CommandOutput.send(sender, msg)
     }
 
     /**
@@ -48,6 +49,7 @@ object Message {
      */
     fun broadcast(s: String) {
         val msg = Component.text("${COL_MSG}$s")
+        CommandOutput.broadcast(msg)
         Audiences.all().sendMessage(msg)
     }
 

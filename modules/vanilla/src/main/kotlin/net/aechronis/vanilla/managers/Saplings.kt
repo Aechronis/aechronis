@@ -246,7 +246,7 @@ object Saplings {
                         } else {
                             dx == 0 && dz == 0 && block.compare(type.saplingBlock)
                         }
-                block.isAir || replacesSourceSapling
+                block.air() || replacesSourceSapling
             }
 
         if (giant) {
@@ -328,7 +328,7 @@ object Saplings {
             overwriteSolid: Boolean,
         ) {
             val current = instance.getBlock(x, y, z)
-            if (!overwriteSolid && !current.isAir && !isLeaf(current)) return
+            if (!overwriteSolid && !current.air() && !isLeaf(current)) return
             instance.setBlock(x, y, z, block)
             val chunk = instance.getChunk(x shr 4, z shr 4) ?: return
             chunk.sendPacketToViewers(BlockChangePacket(BlockVec(x, y, z), block.stateId()))

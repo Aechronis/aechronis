@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.floor
 
 object FallDamageListener {
-    private val FALL: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:fall")
+    private val FALL: RegistryKey<DamageType> = DamageType.FALL
     private const val SUPPORT_PROBE = 1.0E-5
     private const val VANILLA_DAMAGE_EPSILON = 1.0E-6
 

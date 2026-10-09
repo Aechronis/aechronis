@@ -14,10 +14,11 @@ import net.aechronis.combat.utils.GunAnimation
 import net.aechronis.combat.utils.GunAnimationAction
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
+import net.aechronis.combat.utils.Mounts
 import net.aechronis.combat.utils.Particles
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.gunClientTrail
-import net.aechronis.combat.utils.prepareGunPacketBundle
+import net.aechronis.combat.utils.preparePacketBundle
 import net.aechronis.combat.utils.withCombatAttribution
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.key.Key
@@ -93,6 +94,8 @@ class Gun(
     val falloffEnd: Double = maxRange,
     /** 1 disables falloff. */
     val falloffMinMultiplier: Float = 1F,
+    /** Whether riders of living mounts may fire it. */
+    val mountable: Boolean = false,
 ) : Item(
         name,
         itemName,
@@ -281,6 +284,12 @@ class Gun(
         ignoredEntities: Set<Entity> = emptySet(),
     ): Boolean {
         if (firePos == null && !GunAnimation.canUse(player, this)) return false
+        // Fixed-position fire (vehicle guns) ignores whatever the player is riding.
+        val mount = if (firePos == null) Mounts.mount(player) else null
+        if (mount != null && !mountable) {
+            Mounts.showBlocked(player)
+            return false
+        }
         val firedAtNanos = System.nanoTime()
         val now = System.currentTimeMillis()
         val lastAction = Combat.playerLastActionTimes[player] ?: 0L
@@ -293,6 +302,8 @@ class Gun(
         // matching the state which displays the aiming animation.
         val speed = Combat.playerSpeeds[player] ?: 0F
         val aimingMultiplier = aimingMultiplier(firePos == null && Combat.playerAiming[player] == true)
+        // A rider's shots start above their own mount and must not hit it.
+        val ignored = if (mount != null) ignoredEntities + mount else ignoredEntities
         val origin = firePos ?: player.position.add(0.0, player.eyeHeight, 0.0)
 
         // Keep the shooter's sound with them, without also playing the positional copy.
@@ -310,7 +321,7 @@ class Gun(
                         origin.yaw + spread(speed) * aimingMultiplier,
                         origin.pitch + spread(speed) * aimingMultiplier,
                     )
-                offsetPos to resolveBullet(player, offsetPos, lagCompensate, firedAtNanos, ignoredEntities, damagedVehicles)
+                offsetPos to resolveBullet(player, offsetPos, lagCompensate, firedAtNanos, ignored, damagedVehicles)
             }
 
         // ding sound, once per shot however many bullets connect
@@ -403,7 +414,7 @@ class Gun(
                             val outbound: List<SendablePacket> =
                                 if (viewer.playerConnection is PlayerSocketConnection) {
                                     listOf(
-                                        prepareGunPacketBundle(viewer, packets),
+                                        preparePacketBundle(viewer, packets),
                                     )
                                 } else {
                                     packets

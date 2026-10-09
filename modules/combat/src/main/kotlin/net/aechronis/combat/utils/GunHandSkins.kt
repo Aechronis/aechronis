@@ -1,6 +1,7 @@
 package net.aechronis.combat.utils
 
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.modules.ModuleResources
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerSkin
 import net.minestom.server.event.player.PlayerDisconnectEvent
@@ -14,7 +15,7 @@ import javax.imageio.ImageIO
 object GunHandSkins {
     const val HAND_TEXTURE = "assets/aechronis/textures/item/hands.png"
 
-    @Volatile private var readTemplate: (() -> ByteArray)? = null
+    @Volatile private var template: ByteArray? = null
     private const val RETRY_MILLIS = 30_000L
     private val packMetadata =
         """{"pack":{"description":"§6§lAechronis\n§7Gun hands","min_format":[75,0],"max_format":[88,0]}}"""
@@ -34,9 +35,16 @@ object GunHandSkins {
 
     /** The active iteration registers its own atlas during configure, before combat starts. */
     fun registerTemplate(readTemplate: () -> ByteArray) {
-        check(context == null) { "Register the hand atlas before combat initialization" }
-        check(this.readTemplate == null) { "A gun hand atlas is already registered" }
-        this.readTemplate = readTemplate
+        check(template == null) { "A gun hand atlas is already registered" }
+        // Retain bytes, never a callback into an iteration's retiring classloader.
+        replaceTemplate(readTemplate())
+        ModuleResources.own(AutoCloseable { template = null })
+    }
+
+    fun replaceTemplate(bytes: ByteArray) {
+        if (template?.contentEquals(bytes) == true) return
+        template = bytes.copyOf()
+        requests.values.forEach { it.retryAfter = 0L }
     }
 
     fun initialize(context: ModuleContext) {
@@ -72,7 +80,7 @@ object GunHandSkins {
 
     private fun pack(player: Player): Map<String, ByteArray>? {
         if (context == null) return null
-        val readTemplate = readTemplate ?: return null
+        val template = template ?: return null
         val request = requests[player] ?: return null
         var prepared = false
         try {
@@ -80,7 +88,7 @@ object GunHandSkins {
             val assets =
                 mapOf(
                     "pack.mcmeta" to packMetadata,
-                    HAND_TEXTURE to personalize(readTemplate(), resolved.image, resolved.slim, request.sleeves),
+                    HAND_TEXTURE to personalize(template, resolved.image, resolved.slim, request.sleeves),
                 )
             if (requests[player] !== request) return null
             prepared = true
@@ -123,7 +131,7 @@ object GunHandSkins {
 
     fun shutdown() {
         context = null
-        readTemplate = null
+        template = null
         registration?.close()
         registration = null
         requests.clear()

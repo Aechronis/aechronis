@@ -1,5 +1,6 @@
 package net.aechronis.combat.objects
 
+import net.aechronis.combat.utils.preparePacketBundle
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
@@ -11,7 +12,9 @@ import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.entity.metadata.golem.ShulkerMeta
 import net.minestom.server.instance.Instance
 import net.minestom.server.network.packet.server.play.EntityAttributesPacket
+import net.minestom.server.network.packet.server.play.EntityHeadLookPacket
 import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
+import net.minestom.server.network.packet.server.play.SetPassengersPacket
 import java.util.concurrent.CompletableFuture
 
 /** Spawned collision entities belong to one runtime and are never damage targets. */
@@ -22,6 +25,8 @@ internal class VehicleCollisionHitbox(
         val carrier: Entity,
         val shulker: VehicleCollisionEntity,
     ) {
+        private val viewers = HashSet<Player>()
+
         @Volatile
         private var removed = false
         private var spawnFuture = CompletableFuture.completedFuture<Void>(null)
@@ -35,10 +40,7 @@ internal class VehicleCollisionHitbox(
             spawnFuture = CompletableFuture.allOf(carrier.setInstance(instance, position), shulker.setInstance(instance, position))
             spawnFuture =
                 spawnFuture.thenRun {
-                    if (!removed) {
-                        carrier.addPassenger(shulker)
-                        carrier.isAutoViewable = true
-                    }
+                    if (!removed) carrier.addPassenger(shulker)
                 }
         }
 
@@ -48,8 +50,53 @@ internal class VehicleCollisionHitbox(
             if (carrier.position != position) carrier.teleport(position)
         }
 
+        fun refreshViewers(candidates: Map<Player, ShulkerHitbox.Box>) {
+            if (!spawnFuture.isDone || removed) return
+            spawnFuture.join()
+
+            val iterator = viewers.iterator()
+            while (iterator.hasNext()) {
+                val player = iterator.next()
+                if (player !in candidates) {
+                    hide(player)
+                    iterator.remove()
+                }
+            }
+
+            val position = carrier.position.asVec()
+            val box = shulker.boundingBox
+            val min = position.add(box.relativeStart())
+            val max = position.add(box.relativeEnd())
+            for ((player, bounds) in candidates) {
+                val wasViewing = player in viewers
+                val distance = if (wasViewing) HIDE_DISTANCE else SHOW_DISTANCE
+                // Measure from the collision surfaces, including the player's height.
+                val dx = maxOf(0.0, min.x - bounds.max.x, bounds.min.x - max.x)
+                val dy = maxOf(0.0, min.y - bounds.max.y, bounds.min.y - max.y)
+                val dz = maxOf(0.0, min.z - bounds.max.z, bounds.min.z - max.z)
+                val nearby = dx * dx + dy * dy + dz * dz <= distance * distance
+                if (nearby == wasViewing) continue
+                if (nearby) {
+                    // Spawn the carrier first; the shulker bundles its spawn, metadata,
+                    // scale, and passenger attachment for this manual viewer.
+                    carrier.addViewer(player)
+                    shulker.addViewer(player)
+                    viewers.add(player)
+                } else {
+                    hide(player)
+                    viewers.remove(player)
+                }
+            }
+        }
+
+        private fun hide(player: Player) {
+            shulker.removeViewer(player)
+            carrier.removeViewer(player)
+        }
+
         fun remove() {
             removed = true
+            viewers.clear()
             spawnFuture.whenComplete { _, _ ->
                 shulker.remove()
                 carrier.remove()
@@ -73,20 +120,19 @@ internal class VehicleCollisionHitbox(
             instance = targetInstance
             try {
                 shape.boxes.forEachIndexed { index, box ->
-                    val carrier = Entity(EntityType.ITEM_DISPLAY)
+                    val carrier = VehicleDisplayEntity(owner.entity)
                     val definition = owner.vehicle.collisionHitbox.parts[index]
                     val shulker = VehicleCollisionEntity(owner.entity, definition.scale)
                     val part = Part(carrier, shulker)
                     parts.add(part)
-                    // Spawn the complete mount chain together. An independently tracked
-                    // passenger can otherwise arrive before its carrier for late viewers.
+                    // Stream complete pairs explicitly; automatic chunk tracking would
+                    // expose distant helpers and does not refresh on every player step.
                     carrier.isAutoViewable = false
                     shulker.isAutoViewable = false
                     carrier.setNoGravity(true)
                     carrier.setHasPhysics(false)
+                    carrier.entityMeta.isInvisible = true
                     (carrier.entityMeta as ItemDisplayMeta).posRotInterpolationDuration = 3
-                    carrier.updateViewableRule { VehicleRegistry.ride(it)?.runtime !== owner }
-                    shulker.updateViewableRule { VehicleRegistry.ride(it)?.runtime !== owner }
                     // Passenger positioning bypasses the client's shulker block-grid snapping.
                     part.spawn(targetInstance, box.bottomCenter)
                 }
@@ -99,12 +145,18 @@ internal class VehicleCollisionHitbox(
                 part.move(shape.boxes[index].bottomCenter)
             }
         }
+        refreshViewers()
     }
 
     fun refreshViewers() {
-        parts.forEach {
-            it.carrier.updateViewableRule()
+        val candidates = HashMap<Player, ShulkerHitbox.Box>()
+        for (player in instance?.players.orEmpty()) {
+            if (player.isRemoved || !player.autoViewEntities() || VehicleRegistry.ride(player)?.runtime === owner) continue
+            val position = player.position.asVec()
+            val box = player.boundingBox
+            candidates[player] = ShulkerHitbox.Box(position.add(box.relativeStart()), position.add(box.relativeEnd()))
         }
+        parts.forEach { it.refreshViewers(candidates) }
     }
 
     fun remove() {
@@ -112,6 +164,13 @@ internal class VehicleCollisionHitbox(
         parts.clear()
         instance = null
         removed.forEach { it.remove() }
+    }
+
+    companion object {
+        // Prefetch before contact, then keep a wider exit band to avoid spawn/despawn
+        // churn when a player or moving hull hovers near the streaming boundary.
+        private const val SHOW_DISTANCE = 6.0
+        private const val HIDE_DISTANCE = 8.0
     }
 }
 
@@ -136,25 +195,45 @@ internal class VehicleCollisionEntity(
     }
 
     override fun updateNewViewer(player: Player) {
-        super.updateNewViewer(player)
+        // Entity.updateNewViewer sends spawn and metadata separately, exposing a
+        // default-visible shulker if the client ticks between them during streaming.
         player.sendPacket(
-            EntityAttributesPacket(
-                entityId,
-                listOf(EntityAttributesPacket.Property(Attribute.SCALE, scale, emptyList())),
+            preparePacketBundle(
+                player,
+                buildList {
+                    add(spawnPacket)
+                    if (hasVelocity()) add(velocityPacket)
+                    add(
+                        EntityMetaDataPacket(
+                            entityId,
+                            metadataPacket.entries + (MetadataDef.ENTITY_FLAGS.index() to Metadata.Byte(viewerFlags(player))),
+                        ),
+                    )
+                    add(
+                        EntityAttributesPacket(
+                            entityId,
+                            listOf(EntityAttributesPacket.Property(Attribute.SCALE, scale, emptyList())),
+                        ),
+                    )
+                    add(EntityHeadLookPacket(entityId, headRotation))
+                    vehicle?.let { add(SetPassengersPacket(it.entityId, listOf(entityId))) }
+                },
             ),
         )
-        if (player in Hitbox.viewingHitboxes) updateHitboxVisibility(player)
     }
 
     fun updateHitboxVisibility(player: Player) {
-        val flags = metadata.get(MetadataDef.ENTITY_FLAGS).toInt()
-        // Change only this viewer's invisibility bit; shared metadata stays invisible.
-        val viewerFlags = if (player in Hitbox.viewingHitboxes) flags and 0x20.inv() else flags
         player.sendPacket(
             EntityMetaDataPacket(
                 entityId,
-                mapOf(MetadataDef.ENTITY_FLAGS.index() to Metadata.Byte(viewerFlags.toByte())),
+                mapOf(MetadataDef.ENTITY_FLAGS.index() to Metadata.Byte(viewerFlags(player))),
             ),
         )
+    }
+
+    private fun viewerFlags(player: Player): Byte {
+        val flags = metadata.get(MetadataDef.ENTITY_FLAGS).toInt()
+        // Change only this viewer's invisibility bit; shared metadata stays invisible.
+        return (if (player in Hitbox.viewingHitboxes) flags and 0x20.inv() else flags).toByte()
     }
 }

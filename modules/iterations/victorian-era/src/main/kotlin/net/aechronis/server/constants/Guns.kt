@@ -158,6 +158,7 @@ object Guns {
             maxRange = 64.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     val colt1851 =
@@ -179,6 +180,7 @@ object Guns {
             maxRange = 72.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     // Two shots per reload; uses the existing single-projectile Gun behavior.
@@ -201,6 +203,7 @@ object Guns {
             maxRange = 32.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     val mauserModel1871Jaegerbuechse =
@@ -223,6 +226,7 @@ object Guns {
             maxRange = 192.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     val chassepotCarbine =
@@ -245,6 +249,7 @@ object Guns {
             maxRange = 176.0,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+            mountable = true,
         )
 
     val mauserModel1871 =
@@ -269,6 +274,94 @@ object Guns {
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
         )
 
+    val winchesterModel1873 =
+        Gun(
+            name = "winchester-model-1873",
+            animatedViewModelProfile = 9,
+            fireAnimationTicks = 12,
+            itemName = Component.text("Winchester Model 1873", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            ammo = Ammo.rifleCartridge,
+            maxAmmo = 10,
+            damage = 30F,
+            automatic = false,
+            sniper = false,
+            cooldown = 650,
+            reloadTime = 5000,
+            recoilMin = 1.5F,
+            recoilMax = 3F,
+            spreadMin = 0.35F,
+            spreadMax = 2F,
+            maxRange = 128.0,
+            bulletTrailParticle = Particle.SMOKE,
+            bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+        )
+
+    val spencerModel1860 =
+        Gun(
+            name = "spencer-model-1860",
+            animatedViewModelProfile = 13,
+            fireAnimationTicks = 12,
+            itemName = Component.text("Spencer Model 1860", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            ammo = Ammo.rifleCartridge,
+            maxAmmo = 7,
+            damage = 34F,
+            automatic = false,
+            sniper = false,
+            cooldown = 850,
+            reloadTime = 4200,
+            recoilMin = 2F,
+            recoilMax = 4F,
+            spreadMin = 0.4F,
+            spreadMax = 2.25F,
+            maxRange = 144.0,
+            bulletTrailParticle = Particle.SMOKE,
+            bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+        )
+
+    val coltSingleActionArmy =
+        Gun(
+            name = "colt-single-action-army",
+            animatedViewModelProfile = 14,
+            fireAnimationTicks = 6,
+            itemName = Component.text("Colt Single Action Army", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            ammo = Ammo.revolverCartridge,
+            maxAmmo = 6,
+            damage = 23F,
+            automatic = false,
+            sniper = false,
+            cooldown = 550,
+            reloadTime = 6000,
+            recoilMin = 1.5F,
+            recoilMax = 3F,
+            spreadMin = 0.35F,
+            spreadMax = 2.5F,
+            maxRange = 80.0,
+            bulletTrailParticle = Particle.SMOKE,
+            bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+        )
+
+    val enfieldPattern1853 =
+        Gun(
+            name = "enfield-pattern-1853",
+            animatedViewModelProfile = 15,
+            fireAnimationTicks = 6,
+            itemName = Component.text("Enfield Pattern 1853", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            ammo = Ammo.rifleCartridge,
+            maxAmmo = 1,
+            damage = 48F,
+            automatic = false,
+            sniper = false,
+            cooldown = 1000,
+            reloadTime = 6000,
+            recoilMin = 3F,
+            recoilMax = 5.5F,
+            spreadMin = 0.3F,
+            spreadMax = 2.5F,
+            maxRange = 192.0,
+            bulletTrailParticle = Particle.SMOKE,
+            bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
+        )
+
     val all: List<Gun> =
         listOf(
             dreyseNeedleGun,
@@ -283,5 +376,9 @@ object Guns {
             mauserModel1871Jaegerbuechse,
             chassepotCarbine,
             mauserModel1871,
+            winchesterModel1873,
+            spencerModel1860,
+            coltSingleActionArmy,
+            enfieldPattern1853,
         )
 }

@@ -6,7 +6,6 @@ import net.aechronis.combat.utils.setRoll
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
-import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.item.ItemStack
@@ -67,8 +66,10 @@ class AnimatedPart(
             model: String,
             offset: Vec,
             radius: Double,
+            rotationDirection: Double = 1.0,
         ): AnimatedPart {
             require(radius.isFinite() && radius > 0.0) { "Wheel radius must be positive and finite" }
+            require(rotationDirection == 1.0 || rotationDirection == -1.0) { "Wheel rotation direction must be 1 or -1" }
             return AnimatedPart(
                 model,
                 offset,
@@ -78,8 +79,28 @@ class AnimatedPart(
                     val yawDelta = ((context.position.yaw - context.previousPosition.yaw + 540f) % 360f + 360f) % 360f - 180f
                     val distance = local.z + Math.toRadians(yawDelta.toDouble()) * offset.x
                     // A 4-pi period preserves quaternion signs through a full revolution.
-                    previous.copy(angle = (previous.angle + distance / radius) % (4.0 * PI))
+                    previous.copy(angle = (previous.angle + rotationDirection * distance / radius) % (4.0 * PI))
                 },
+            )
+        }
+
+        /** A screw driven by signed travel; it stops with the boat and reverses when backing. */
+        fun propeller(
+            model: String,
+            offset: Vec,
+            radius: Double,
+        ): AnimatedPart {
+            require(radius.isFinite() && radius > 0.0) { "Propeller radius must be positive and finite" }
+            return AnimatedPart(
+                model = model,
+                offset = offset,
+                initialPose = Pose(axis = Vec(0.0, 0.0, 1.0)),
+                motion =
+                    Motion { context, previous ->
+                        val movement = context.position.asVec().sub(context.previousPosition)
+                        val local = rotatePointInverse(movement, context.position.yaw, context.position.pitch, context.roll)
+                        previous.copy(angle = (previous.angle + local.z / radius) % (4.0 * PI))
+                    },
             )
         }
 
@@ -104,8 +125,10 @@ internal class AnimatedPartRuntime(
     private val part: AnimatedPart,
     private val owner: VehicleRuntime,
 ) {
-    private val display = Entity(EntityType.ITEM_DISPLAY)
+    private val display = VehicleDisplayEntity(owner.entity)
     private var pose = part.initialPose
+    private var appliedRoll = Float.NaN
+    private val nonUniformScale = owner.vehicle.modelScale.run { x != y || y != z }
 
     init {
         val body = owner.entity
@@ -115,7 +138,7 @@ internal class AnimatedPartRuntime(
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(part.model)
         meta.posRotInterpolationDuration = 3
         meta.transformationInterpolationDuration = 1
-        meta.scale = Vec(owner.vehicle.scale)
+        meta.scale = owner.vehicle.modelScale
         meta.isHasNoGravity = true
         applyRotation(meta, roll)
         display.spawn()
@@ -132,8 +155,7 @@ internal class AnimatedPartRuntime(
             display.teleport(target)
         }
         val meta = display.entityMeta as ItemDisplayMeta
-        val roll = setRoll(Math.toRadians(context.roll.toDouble()).toFloat())
-        if (pose != previous || !meta.leftRotation.contentEquals(roll)) {
+        if (pose != previous || context.roll != appliedRoll) {
             meta.setNotifyAboutChanges(false)
             try {
                 applyRotation(meta, context.roll)
@@ -153,16 +175,40 @@ internal class AnimatedPartRuntime(
         meta: ItemDisplayMeta,
         roll: Float,
     ) {
-        meta.leftRotation = setRoll(Math.toRadians(roll.toDouble()).toFloat())
+        val rollRotation = setRoll(Math.toRadians(roll.toDouble()).toFloat())
         val axis = pose.axis.normalize()
         val sine = sin(pose.angle / 2.0)
-        meta.rightRotation =
+        val partRotation =
             floatArrayOf(
                 (axis.x * sine).toFloat(),
                 (axis.y * sine).toFloat(),
                 (axis.z * sine).toFloat(),
                 cos(pose.angle / 2.0).toFloat(),
             )
+        if (nonUniformScale) {
+            // Display transforms apply left * scale * right. Scale the geometry
+            // before turning it, matching the already-scaled muzzle offsets.
+            val z = rollRotation[2]
+            val w = rollRotation[3]
+            meta.leftRotation =
+                floatArrayOf(
+                    w * partRotation[0] - z * partRotation[1],
+                    w * partRotation[1] + z * partRotation[0],
+                    w * partRotation[2] + z * partRotation[3],
+                    w * partRotation[3] - z * partRotation[2],
+                )
+            meta.rightRotation = floatArrayOf(0f, 0f, 0f, 1f)
+        } else {
+            meta.leftRotation = rollRotation
+            meta.rightRotation = partRotation
+        }
+        appliedRoll = roll
+    }
+
+    fun refreshViewers(hiddenForSomeViewers: Boolean) {
+        if (!display.isRemoved) {
+            display.updateViewableRule(if (hiddenForSomeViewers) { player -> owner.isPartVisibleTo(player, part.model) } else null)
+        }
     }
 
     fun remove() = display.remove()

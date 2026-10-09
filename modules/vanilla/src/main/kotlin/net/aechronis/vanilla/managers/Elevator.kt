@@ -58,8 +58,8 @@ object Elevator {
         val targetY = if (step > 0) col.higher(floorY) else col.lower(floorY)
         if (targetY == null || abs(targetY - floorY) > Vanilla.config.elevatorMaxSearch) return
 
-        if (instance.getBlock(bx, targetY + 1, bz, TYPE)?.isAir == true &&
-            instance.getBlock(bx, targetY + 2, bz, TYPE)?.isAir == true
+        if (instance.getBlock(bx, targetY + 1, bz, TYPE)?.air() == true &&
+            instance.getBlock(bx, targetY + 2, bz, TYPE)?.air() == true
         ) {
             FallDamageListener.reset(player)
             player.teleport(Pos(pos.x(), (targetY + 1).toDouble(), pos.z(), pos.yaw(), pos.pitch()))

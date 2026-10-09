@@ -8,15 +8,12 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
-import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.particle.Particle
-import kotlin.math.max
-import kotlin.math.min
 
 class Tank(
     name: String,
@@ -48,7 +45,11 @@ class Tank(
     override val maxAmmo: Int,
     val barrelTipOffset: Vec = Vec(0.0, 0.0, 5.0),
     override val reloadTime: Long = 20000,
-    seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    seats: List<VehicleSeat> =
+        listOf(
+            VehicleSeat("driver", "Driver", VehicleSeatRole.DRIVER, Vec(0.0, 0.0, 1.0)),
+            VehicleSeat("gunner", "Main gunner", VehicleSeatRole.GUNNER, Vec(0.0, 0.0, -0.5), weaponId = "main"),
+        ),
     invisibleWhileRiding: Boolean = true,
     invulnerableWhileRiding: Boolean = true,
     val projectileTrailParticle: Particle? = Particle.ELECTRIC_SPARK,
@@ -73,7 +74,7 @@ class Tank(
         friction,
         turnSpeed,
         maxClimbHeight,
-        seatOffsets,
+        seats,
         invisibleWhileRiding,
         invulnerableWhileRiding,
         animatedParts,
@@ -81,6 +82,7 @@ class Tank(
     ),
     ArmedVehicle {
     init {
+        require(this.seats.count { it.role == VehicleSeatRole.GUNNER } == 1) { "Tanks need one main gunner" }
         require(reloadTime >= 0) { "Tank reloadTime must not be negative" }
         require(maxAmmo > 0) { "Tank maxAmmo must be greater than zero" }
         require(projectileSpeed > 0.0 && projectileSpeed.isFinite()) {
@@ -103,7 +105,7 @@ class Tank(
         val body = super.spawn(instance, pos)
 
         // spawn the turret as a second item display
-        val turret = Entity(EntityType.ITEM_DISPLAY)
+        val turret = VehicleDisplayEntity(body)
         turret.setInstance(body.instance, body.position)
 
         val turretMeta = turret.entityMeta as ItemDisplayMeta
@@ -115,7 +117,7 @@ class Tank(
         turret.spawn()
 
         // spawn the barrel as a third item display
-        val barrel = Entity(EntityType.ITEM_DISPLAY)
+        val barrel = VehicleDisplayEntity(body)
         barrel.setInstance(body.instance, turret.position)
 
         val barrelMeta = barrel.entityMeta as ItemDisplayMeta
@@ -129,43 +131,53 @@ class Tank(
         entityTurret[body] = turret
         entityBarrel[body] = barrel
 
-        yaw[body] = body.position.yaw
+        yaw[body] = 0f
         pitch[body] = 0f
 
         return body
     }
 
     override fun onTick(player: Player) {
-        val targetYaw = player.position.yaw
-        val targetPitch = max(-25F, min(5F, player.position.pitch))
-
-        // body movement
         super.onTick(player)
+        driverEntity(player)?.let(::updateTurret)
+    }
 
-        val entity = VehicleRegistry.driver(player)?.entity ?: return
+    override fun onUnoccupiedTick(entity: Entity) {
+        super.onUnoccupiedTick(entity)
+        updateTurret(entity)
+    }
 
-        val turret = entityTurret[entity] ?: return
-        val barrel = entityBarrel[entity] ?: return
-        val pos = entity.position
-
-        // turret
-        val currentYaw = yaw[entity] ?: pos.yaw
-        val currentPitch = pitch[entity] ?: 0f
-        val newYaw = approachAngle(currentYaw, targetYaw, turretTraverseSpeed)
-        val newPitch = approachAngle(currentPitch, targetPitch, turretTraverseSpeed)
-        yaw[entity] = newYaw
-        pitch[entity] = newPitch
-
-        turret.teleport(pos.withView(newYaw, 0f))
-
-        // barrel
-        barrel.teleport(pos.withView(newYaw, newPitch))
-
-        // fire
-        val inputEvent = KeyPressListener.playerInputEvent[player]
-        if (inputEvent?.isHoldingJumpKey == true) {
-            fire(player, entity, pos, newYaw, newPitch)
+    override fun onGunnerTick(player: Player) {
+        val ride = VehicleRegistry.gunner(player)?.takeIf { it.vehicle === this } ?: return
+        if (KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
+            super.onGunnerTick(player)
+            return
         }
+        val entity = ride.entity
+        yaw[entity] = approachAngle(yaw[entity] ?: 0f, player.position.yaw - entity.position.yaw, turretTraverseSpeed)
+        pitch[entity] = approachAngle(pitch[entity] ?: 0f, player.position.pitch.coerceIn(-25f, 5f), turretTraverseSpeed)
+        updateTurret(entity)
+        super.onGunnerTick(player)
+        if (KeyPressListener.playerInputEvent[player]?.isHoldingJumpKey == true) {
+            fire(player, entity, entity.position, entity.position.yaw + (yaw[entity] ?: 0f), pitch[entity] ?: 0f)
+        }
+    }
+
+    override fun getSeatWorldPos(
+        entity: Entity,
+        seatIndex: Int,
+    ): Pos {
+        val definition = seats[seatIndex]
+        if (definition.role != VehicleSeatRole.GUNNER) return super.getSeatWorldPos(entity, seatIndex)
+        // The crew position follows the turret; barrel elevation does not pitch the occupant.
+        return entity.position.add(rotatePoint(definition.offset, entity.position.yaw + (yaw[entity] ?: 0f), 0f, 0f))
+    }
+
+    private fun updateTurret(entity: Entity) {
+        val position = entity.position
+        val turretYaw = position.yaw + (yaw[entity] ?: 0f)
+        entityTurret[entity]?.teleport(position.withView(turretYaw, 0f))
+        entityBarrel[entity]?.teleport(position.withView(turretYaw, pitch[entity] ?: 0f))
     }
 
     private fun fire(
@@ -186,7 +198,7 @@ class Tank(
             buildSet<Entity> {
                 add(body)
                 add(player)
-                addAll(VehicleRegistry.passengers(body).map { it.player })
+                addAll(VehicleRegistry.ridesOf(body).map { it.player })
             }
         val obstruction =
             firstProjectileImpact(

@@ -1,5 +1,6 @@
 package net.aechronis.utils
 
+import net.aechronis.server.CommandOutput
 import net.aechronis.server.hasPermission
 import net.aechronis.server.modules.ModulePermissions
 import net.kyori.adventure.text.Component
@@ -128,7 +129,7 @@ open class Command(
     ): Boolean {
         if (sender !is Player) return true
         if (!hasPermission(sender, permission)) {
-            sender.sendMessage(Component.text(PERMISSION_DENIED_MESSAGE, NamedTextColor.RED))
+            CommandOutput.send(sender, Component.text(PERMISSION_DENIED_MESSAGE, NamedTextColor.RED))
             return false
         }
         return canExecute(sender)
@@ -140,12 +141,12 @@ open class Command(
     ): Player? {
         if (sender !is Player) {
             if (sender is ServerSender) throw IllegalStateException(PLAYER_ONLY_MESSAGE)
-            sender.sendMessage(Component.text(PLAYER_ONLY_MESSAGE, NamedTextColor.RED))
+            CommandOutput.send(sender, Component.text(PLAYER_ONLY_MESSAGE, NamedTextColor.RED))
             return null
         }
 
         if (!hasPermission(sender, permission)) {
-            sender.sendMessage(Component.text(PERMISSION_DENIED_MESSAGE, NamedTextColor.RED))
+            CommandOutput.send(sender, Component.text(PERMISSION_DENIED_MESSAGE, NamedTextColor.RED))
             return null
         }
 

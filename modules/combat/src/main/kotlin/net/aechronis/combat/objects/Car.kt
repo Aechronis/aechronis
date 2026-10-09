@@ -32,11 +32,12 @@ open class Car(
     val friction: Float = 0.98f,
     val turnSpeed: Float = 4.0f,
     val maxClimbHeight: Float = 0.5f,
-    seatOffsets: List<Vec> = listOf(Vec.ZERO),
+    seats: List<VehicleSeat> = listOf(VehicleSeat("driver", "Driver", VehicleSeatRole.DRIVER)),
     invisibleWhileRiding: Boolean = false,
     invulnerableWhileRiding: Boolean = false,
     animatedParts: List<AnimatedPart> = emptyList(),
     collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
+    modelScale: Vec = Vec(scale),
 ) : Vehicle(
         name,
         itemName,
@@ -47,11 +48,12 @@ open class Car(
         hitbox,
         health,
         placeTime,
-        seatOffsets,
+        seats,
         invisibleWhileRiding,
         invulnerableWhileRiding,
         animatedParts,
         collisionHitbox,
+        modelScale,
     ) {
     override fun onEnter(
         player: Player,
@@ -62,7 +64,7 @@ open class Car(
 
         super.onEnter(player, entity)
         if (VehicleRegistry.driver(player)?.entity === entity) {
-            VehicleCameraDistance.apply(player, hitbox, seatOffsets.firstOrNull() ?: Vec.ZERO)
+            VehicleCameraDistance.apply(player, hitbox, seats.first { it.role.drives }.offset)
         }
         playerSpeed[player] = 0f
     }
@@ -85,26 +87,27 @@ open class Car(
         when {
             inputEvent?.isHoldingForwardKey == true -> currentSpeed = min(currentSpeed + acceleration, maxSpeed)
             inputEvent?.isHoldingBackwardKey == true -> currentSpeed = max(currentSpeed - braking, -maxSpeed * 0.5f)
-            else -> currentSpeed *= friction
-        }
-
-        // handle turning (only when moving)
-        if (inputEvent != null && abs(currentSpeed) > 0.01f) {
-            val speedFactor = abs(currentSpeed) / maxSpeed
-            val currentYaw = entity.position.yaw
-            when {
-                inputEvent.isHoldingLeftKey -> entity.setView(currentYaw - turnSpeed * speedFactor, 0f)
-                inputEvent.isHoldingRightKey -> entity.setView(currentYaw + turnSpeed * speedFactor, 0f)
+            else -> {
+                currentSpeed *= friction
+                // Stop residual coasting without cancelling small throttle inputs.
+                if (abs(currentSpeed) < 0.005f) currentSpeed = 0f
             }
         }
 
-        // stop if very slow
-        if (abs(currentSpeed) < 0.005f) currentSpeed = 0f
+        val position = entity.position
+        // Validate movement and turning together before changing the live pose.
+        var targetYaw = position.yaw
+        if (inputEvent != null && abs(currentSpeed) > 0.01f) {
+            val speedFactor = abs(currentSpeed) / maxSpeed
+            when {
+                inputEvent.isHoldingLeftKey -> targetYaw -= turnSpeed * speedFactor
+                inputEvent.isHoldingRightKey -> targetYaw += turnSpeed * speedFactor
+            }
+        }
+
         playerSpeed[player] = currentSpeed
 
-        val position = entity.position
-
-        val yawRad = Math.toRadians(position.yaw.toDouble())
+        val yawRad = Math.toRadians(targetYaw.toDouble())
         val dx = -sin(yawRad) * currentSpeed
         val dz = cos(yawRad) * currentSpeed
         val newX = position.x + dx
@@ -118,7 +121,7 @@ open class Car(
         }
 
         val currentSurfaceY = getCurrentSurfaceY(position)
-        val targetPosition = position.withX(newX).withZ(newZ)
+        val targetPosition = position.withX(newX).withZ(newZ).withYaw(targetYaw)
         val newSurfaceY = findSurfaceY(instance, targetPosition, currentSurfaceY)
         if (newSurfaceY == null) {
             playerSpeed[player] = 0f
@@ -129,21 +132,24 @@ open class Car(
         val newY = getVehicleY(newSurfaceY)
         val heightDelta = newY - position.y
 
-        // checks if we can climb/drop
-        val newPos =
-            if (heightDelta <= maxClimbHeight) {
-                position.withX(newX).withZ(newZ).withY(newY)
-            } else {
-                position
-            }
-
-        entity.teleport(newPos)
+        val newPos = targetPosition.withY(newY)
+        if (heightDelta > maxClimbHeight || (newPos != position && !canMoveTo(instance, entity, newPos))) {
+            playerSpeed[player] = 0f
+        } else if (newPos != position) {
+            entity.teleport(newPos)
+        }
 
         super.onTick(player)
     }
 
     protected open fun canStartMoving(
         instance: Instance,
+        position: Pos,
+    ): Boolean = true
+
+    protected open fun canMoveTo(
+        instance: Instance,
+        entity: Entity,
         position: Pos,
     ): Boolean = true
 
@@ -160,7 +166,7 @@ open class Car(
         val endY = floor(currentSurfaceY - 10).toInt()
         for (y in startY downTo endY) {
             val block = instance.getBlock(position.blockX(), y, position.blockZ())
-            if (block.isSolid) {
+            if (block.solid()) {
                 return (y + 1).toDouble()
             }
         }

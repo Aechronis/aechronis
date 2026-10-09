@@ -357,7 +357,7 @@ object Gems {
     ) {
         val instance = player.instance ?: return
         val position = player.position.asBlockVec()
-        if (!instance.getBlock(position).isAir) {
+        if (!instance.getBlock(position).air()) {
             player.sendMessage(Component.text("Move so there is empty space at your feet to place the barrel.", NamedTextColor.RED))
             return
         }
@@ -403,7 +403,7 @@ object Gems {
     private val nonOreBlocks: List<Material> by lazy {
         Material
             .values()
-            .filter(Material::isBlock)
+            .filter { it.block() != null }
             .filter(::isSurvivalObtainableBlock)
             .sortedBy { it.key().asString() }
     }

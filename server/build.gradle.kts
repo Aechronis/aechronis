@@ -52,7 +52,7 @@ dependencies {
     grimMinestom("net.aechronis:grim-minestom:2.3.74-minestom.4") {
         isTransitive = false
     }
-    implementation("net.minestom:minestom:2026.09.12-26.2")
+    implementation("net.minestom:minestom:2026.10.05-26.2")
     // Shared socket types also serve Votifier and PacketEvents. Keep one compatible Netty
     // runtime in core while the protocol engines and all Via state live in their module.
     implementation(platform("io.netty:netty-bom:4.2.18.Final"))
@@ -68,4 +68,6 @@ dependencies {
     implementation("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
     implementation("org.everbuild.blocksandstuff:blocksandstuff-fluids:1.10.2-SNAPSHOT")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+    // Shared coroutine worker pools must not retain a reloadable module classloader.
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 }

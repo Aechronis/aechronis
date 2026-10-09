@@ -143,8 +143,6 @@ class Minimap(
     private var lastRasterZ = Int.MIN_VALUE
     private var lastInstanceId: UUID? = null
     private var ticksSinceRender = MIN_RENDER_INTERVAL_TICKS
-    private var pendingCenterX: Int? = null
-    private var pendingCenterZ: Int? = null
 
     init {
         spawnEntities()
@@ -164,11 +162,9 @@ class Minimap(
                 waypointDisplays.updateTransforms(player.position)
 
                 if (ticksSinceRender < MIN_RENDER_INTERVAL_TICKS) ticksSinceRender++
-                val pendingX = pendingCenterX
-                val pendingZ = pendingCenterZ
-                if (pendingX != null && pendingZ != null && ticksSinceRender >= MIN_RENDER_INTERVAL_TICKS) {
-                    render(pendingX, pendingZ)
-                }
+                // Riding updates player coordinates without firing PlayerMoveEvent.
+                // The chunk cache and render cooldown make unchanged positions cheap to check.
+                renderCurrent()
             }
             .repeat(TaskSchedule.tick(1))
             .schedule()
@@ -191,16 +187,12 @@ class Minimap(
 
         // Frequent chunk crossings (e.g. fast vehicles) would otherwise trigger a full async
         // scan + Component rebuild + packet send almost every tick. Coalesce those into at most
-        // one render per MIN_RENDER_INTERVAL_TICKS, deferring to the latest requested position
-        // once the cooldown elapses instead of dropping it.
+        // one render per MIN_RENDER_INTERVAL_TICKS. The tick task retries at the player's current
+        // position once the cooldown elapses, including when they stop or turn back.
         if (!force && ticksSinceRender < MIN_RENDER_INTERVAL_TICKS) {
-            pendingCenterX = centerX
-            pendingCenterZ = centerZ
             return
         }
         ticksSinceRender = 0
-        pendingCenterX = null
-        pendingCenterZ = null
 
         waypointDisplays.refresh()
         val viewerSnapshot = MinimapViewerSnapshot.capture(resident)

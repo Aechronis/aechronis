@@ -8,6 +8,8 @@ import net.aechronis.combat.objects.Explosion
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleSeat
+import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.combat.tasks.ModelManager
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.setRoll
@@ -90,6 +92,7 @@ class Drone(
         hitbox,
         null,
         placeTime,
+        seats = listOf(VehicleSeat("pilot", "Remote pilot", VehicleSeatRole.PILOT)),
         animatedParts = animatedParts,
         collisionHitbox = collisionHitbox,
     ) {
@@ -377,7 +380,7 @@ class Drone(
         pilot: Player,
         droneEntity: Entity,
     ): Boolean {
-        if (instance.getBlock(p).isSolid) return true
+        if (instance.getBlock(p).solid()) return true
 
         if (intersectsVehicle(instance, p.asVec(), droneEntity)) return true
 

@@ -7,6 +7,8 @@ import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.PlaneBombWeapon
 import net.aechronis.combat.objects.PlaneWeapon
+import net.aechronis.combat.objects.VehicleSeat
+import net.aechronis.combat.objects.VehicleSeatRole
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -57,7 +59,7 @@ object Planes {
             turnSpeed = 0.045f,
             ammo = Ammo.tankShell,
             maxAmmo = 5,
-            seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
+            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.PILOT, Vec(0.0, 1.5, 0.0))),
         )
 
     val f16 =
@@ -104,7 +106,7 @@ object Planes {
             turnSpeed = 0.14f,
             ammo = Ammo.ammo762x39mmExplosive,
             maxAmmo = 200,
-            seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
+            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.PILOT, Vec(0.0, 1.5, 0.0))),
         )
 
     val j20 =
@@ -151,7 +153,7 @@ object Planes {
             turnSpeed = 0.11f,
             ammo = Ammo.ammo762x39mmExplosive,
             maxAmmo = 200,
-            seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
+            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.PILOT, Vec(0.0, 1.5, 0.0))),
         )
 
     val su34 =
@@ -202,7 +204,7 @@ object Planes {
             turnSpeed = 0.065f,
             ammo = Ammo.tankShell,
             maxAmmo = 5,
-            seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
+            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.PILOT, Vec(0.0, 1.5, 0.0))),
         )
 
     val su57 =
@@ -249,6 +251,6 @@ object Planes {
             turnSpeed = 0.15f,
             ammo = Ammo.ammo762x39mmExplosive,
             maxAmmo = 200,
-            seatOffset = listOf(Vec(0.0, 1.5, 0.0)),
+            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.PILOT, Vec(0.0, 1.5, 0.0))),
         )
 }

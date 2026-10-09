@@ -10,7 +10,6 @@ base {
 dependencies {
     compileOnly(project(":server"))
     compileOnly(project(":modules:utils"))
-    compileOnly(project(":modules:watchdog"))
     compileOnly(project(":modules:combat"))
     compileOnly(project(":modules:vanilla"))
     compileOnly(project(":modules:worldedit"))
@@ -18,5 +17,5 @@ dependencies {
     compileOnly(project(":modules:logger"))
     compileOnly(project(":modules:guard"))
     compileOnly(project(":modules:gems"))
-    compileOnly("net.minestom:minestom:2026.09.12-26.2")
+    compileOnly("net.minestom:minestom:2026.10.05-26.2")
 }

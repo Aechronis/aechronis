@@ -5,6 +5,8 @@ import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.Tank
+import net.aechronis.combat.objects.VehicleSeat
+import net.aechronis.combat.objects.VehicleSeatRole
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -28,6 +30,11 @@ object Tanks {
             model = "aechronis:m1a1-abrams",
             hitbox = m1a1AbramsHitbox,
             scale = 3.0,
+            seats =
+                listOf(
+                    VehicleSeat("driver", "Driver", VehicleSeatRole.DRIVER, Vec(0.0, 0.0, 1.0)),
+                    VehicleSeat("gunner", "Main gunner", VehicleSeatRole.GUNNER, Vec(0.0, 0.0, -0.5), weaponId = "main"),
+                ),
             maxSpeed = 0.4f,
             ammo = Ammo.tankShell,
             maxAmmo = 3,
@@ -63,6 +70,11 @@ object Tanks {
                     ),
                 ),
             scale = 6.0,
+            seats =
+                listOf(
+                    VehicleSeat("driver", "Driver", VehicleSeatRole.DRIVER, Vec(0.0, -1.4, 1.0)),
+                    VehicleSeat("gunner", "Main gunner", VehicleSeatRole.GUNNER, Vec(0.0, 0.0, -0.5), weaponId = "main"),
+                ),
             maxSpeed = 0.6f,
             ammo = Ammo.tankShell,
             maxAmmo = 2,

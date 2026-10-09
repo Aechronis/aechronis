@@ -3,6 +3,7 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.HatMenu
+import net.aechronis.combat.objects.TurretScope
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.MinecraftServer
@@ -104,10 +105,11 @@ object HatListener {
     }
 
     private fun onPacketOut(event: PlayerPacketOutEvent) {
-        if (!active) return
+        if (!active || event.isCancelled) return
+        val scoped = TurretScope.isActive(event.player)
         // Keep the visual helmet in every inventory resync, including rejected clicks.
         // Sending the real slot first would make the cosmetic disappear until the next tick.
-        HatCollection.equipped(event.player.uuid)?.let { hat ->
+        HatCollection.equipped(event.player.uuid)?.takeUnless { scoped }?.let { hat ->
             val replacement = cosmeticInventoryPacket(event.packet, hat.appearance)
             if (replacement !== event.packet) {
                 event.isCancelled = true
@@ -116,6 +118,8 @@ object HatListener {
             }
         }
         val packet = event.packet as? EntityEquipmentPacket ?: return
+        // The turret hides the wearer's own head and equipment, including cosmetic hats.
+        if (scoped && packet.entityId == event.player.entityId) return
         val helmet = packet.equipments[EquipmentSlot.HELMET] ?: return
         val target =
             if (packet.entityId == event.player.entityId) {

@@ -5,6 +5,8 @@ import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
+import net.aechronis.combat.objects.VehicleSeat
+import net.aechronis.combat.objects.VehicleSeatRole
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -42,10 +44,6 @@ object Cars {
             maxSpeed = 0.8f,
             turnSpeed = 2.0f,
             maxClimbHeight = 1.5f,
-            seatOffsets =
-                listOf(
-                    Vec.ZERO,
-                    Vec(1.0, 0.0, 0.0),
-                ),
+            seats = listOf(VehicleSeat("driver", "Driver", VehicleSeatRole.DRIVER)),
         )
 }

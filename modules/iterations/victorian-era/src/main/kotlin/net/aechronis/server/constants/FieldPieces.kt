@@ -72,11 +72,11 @@ object FieldPieces {
         )
 
     // Supplies firing behavior only; the registered item is the wheeled field piece below.
-    val gatlingGunWeapon =
+    private val gatlingGunWeapon =
         Gun(
             name = "gatling-gun",
             itemName = Component.text("Gatling Gun", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            ammo = Ammo.rifleCartridge,
+            ammo = Ammo.gatlingFeedCase,
             maxAmmo = 40,
             damage = 14F,
             automatic = true,
@@ -134,6 +134,75 @@ object FieldPieces {
                     ),
                     AnimatedPart.rollingWheel(
                         model = "aechronis:gatling-gun-wheel-right",
+                        offset = Vec(0.6875, 0.65, 0.04375),
+                        radius = 0.65,
+                    ),
+                ),
+        )
+
+    // Late-1880s belt-fed Maxim; the field piece owns the magazine and reload state.
+    val maximGunWeapon =
+        Gun(
+            name = "maxim-gun",
+            itemName = Component.text("Maxim Gun", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            ammo = Ammo.maximAmmunitionBelt,
+            maxAmmo = 100,
+            damage = 13F,
+            automatic = true,
+            sniper = false,
+            cooldown = 100,
+            reloadTime = 8000,
+            recoilMin = 0.5F,
+            recoilMax = 1.5F,
+            spreadMin = 1F,
+            spreadMax = 3F,
+            maxRange = 144.0,
+            bulletTrailParticle = Particle.SMOKE,
+        )
+
+    val maximGun =
+        AutomaticFieldPiece(
+            name = "maxim-gun",
+            itemName = maximGunWeapon.itemName,
+            // Matches the established Victorian carriage scale and wheel pivots.
+            scale = 1.25,
+            hitbox =
+                Hitbox(
+                    listOf(
+                        HitboxPart(
+                            offset = Vec(0.0, 0.85, 0.0),
+                            size = Vec(0.85, 0.85, 1.75),
+                        ),
+                    ),
+                ),
+            health =
+                Health(
+                    300F,
+                    mapOf(
+                        AmmoTypes.NORMAL to 3F,
+                        AmmoTypes.EXPLOSIVE to 75F,
+                        AmmoTypes.BOMB to 150F,
+                        AmmoTypes.MISSILE to 150F,
+                    ),
+                ),
+            gun = maximGunWeapon,
+            placeTime = 3000,
+            barrelPivotOffset = Vec(0.0, 1.2109375, -0.021875),
+            barrelTipOffset = Vec(0.0, 0.0, 1.371875),
+            minPitch = -20F,
+            maxPitch = 10F,
+            moveSpeed = 0.035,
+            turnSpeed = 1F,
+            maxYaw = 12F,
+            animatedParts =
+                listOf(
+                    AnimatedPart.rollingWheel(
+                        model = "aechronis:maxim-gun-wheel-left",
+                        offset = Vec(-0.6875, 0.65, 0.04375),
+                        radius = 0.65,
+                    ),
+                    AnimatedPart.rollingWheel(
+                        model = "aechronis:maxim-gun-wheel-right",
                         offset = Vec(0.6875, 0.65, 0.04375),
                         radius = 0.65,
                     ),

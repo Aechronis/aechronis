@@ -20,7 +20,7 @@ object NodesBlockPlacementCooldownListener {
         val cooldownGroups = mutableSetOf<String>()
         for (slot in 0 until HOTBAR_SIZE) {
             val item = player.inventory.getItemStack(slot)
-            if (!item.material().isBlock()) continue
+            if (item.material().block() == null) continue
 
             val group = item.cooldownGroup()
             if (cooldownGroups.add(group)) {

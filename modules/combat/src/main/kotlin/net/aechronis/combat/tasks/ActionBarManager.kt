@@ -2,12 +2,15 @@ package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.ArmedVehicle
+import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Car
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.objects.VehicleRide
+import net.aechronis.combat.objects.VehicleSeatHotbar
+import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -30,14 +33,15 @@ object ActionBarManager {
     }
 
     fun updateActionBar(player: Player) {
-        val ride = VehicleRegistry.driver(player)
+        val ride = VehicleRegistry.driver(player) ?: VehicleRegistry.gunner(player)
         val vehicleTelemetry = ride?.let(::vehicleTelemetry)
         val vehicle = ride?.vehicle
-        val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun
+        val gun = if (VehicleSeatHotbar.isActive(player)) null else Item.getFromItemStack(player.itemInMainHand) as? Gun
         val ammo =
             gun
-                ?.takeIf { vehicle !is ArmedVehicle && Combat.reloadTasks[player] == null }
-                ?.ammoText(player)
+                ?.takeIf {
+                    vehicle !is ArmedVehicle && ride?.role != VehicleSeatRole.GUNNER && Combat.reloadTasks[player] == null
+                }?.ammoText(player)
 
         val actionBar =
             when {
@@ -55,25 +59,38 @@ object ActionBarManager {
         val entity = ride.entity
         val runtime = ride.runtime
         val health = vehicle.healthStatus(entity) ?: return null
+        val armament = (vehicle as? Boat)?.armament
+        val station = (vehicle as? Boat)?.weaponStatus(player)
         val movementTelemetry =
-            when (vehicle) {
-                is Plane ->
-                    formatPlaneTelemetry(
-                        vehicle.speed,
-                        Plane.playerThrottle[player] ?: 0f,
-                        vehicle.maxThrottle,
-                    )
-                is Car -> formatCarTelemetry(Car.playerSpeed[player] ?: 0f)
-                else -> vehicle.telemetryText(entity)
+            if (ride.role.drives) {
+                when (vehicle) {
+                    is Plane ->
+                        formatPlaneTelemetry(
+                            vehicle.speed,
+                            Plane.playerThrottle[player] ?: 0f,
+                            vehicle.maxThrottle,
+                        )
+                    is Car -> formatCarTelemetry(Car.playerSpeed[player] ?: 0f)
+                    else -> vehicle.telemetryText(entity)
+                }
+            } else {
+                null
             }
         val healthText = String.format(Locale.ROOT, "Health: [%.0f/%.0f]", health.first, health.second)
         val ammoText =
-            (vehicle as? ArmedVehicle)?.let {
-                val currentAmmo = runtime.ammo ?: it.maxAmmo
-                val inventoryShots = it.ammo[player] * it.maxAmmo
-                "Ammo: $currentAmmo | $inventoryShots"
+            when {
+                armament != null && station != null -> {
+                    val inventoryShots = armament.ammo[player] * armament.maxAmmo
+                    "Ammo: ${station.second} | $inventoryShots"
+                }
+                vehicle is ArmedVehicle && ride.role.usesWeapon -> {
+                    val currentAmmo = runtime.ammo ?: vehicle.maxAmmo
+                    val inventoryShots = vehicle.ammo[player] * vehicle.maxAmmo
+                    "Ammo: $currentAmmo | $inventoryShots"
+                }
+                else -> null
             }
-        val text = listOfNotNull(movementTelemetry, healthText, ammoText).joinToString(" ")
+        val text = listOfNotNull(ride.definition.name, movementTelemetry, healthText, ammoText).joinToString(" ")
         return Component.text(text, NamedTextColor.GRAY)
     }
 

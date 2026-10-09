@@ -305,7 +305,7 @@ object Signs {
         sneaking: Boolean,
     ): Block? {
         val family = family(type) ?: return null
-        val waterlogged = instance.getBlock(position).isLiquid.toString()
+        val waterlogged = instance.getBlock(position).liquid().toString()
         val directions = nearestLookingDirections(playerPosition, clickedFace)
         return when (kind(type)) {
             SignKind.STANDING, SignKind.WALL -> {
@@ -431,10 +431,10 @@ object Signs {
         position: Point,
     ): Boolean =
         when (kind(block)) {
-            SignKind.STANDING -> instance.getBlock(position.relative(BlockFace.BOTTOM)).isSolid
+            SignKind.STANDING -> instance.getBlock(position.relative(BlockFace.BOTTOM)).solid()
             SignKind.WALL -> {
                 val facing = block.getProperty("facing")?.let(::face) ?: return false
-                instance.getBlock(position.relative(facing.toDirection().opposite().toBlockFace())).isSolid
+                instance.getBlock(position.relative(facing.toDirection().opposite().toBlockFace())).solid()
             }
 
             SignKind.CEILING_HANGING -> isCenterSupported(instance.getBlock(position.relative(BlockFace.TOP)), BlockFace.BOTTOM)

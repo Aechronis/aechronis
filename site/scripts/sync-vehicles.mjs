@@ -31,6 +31,18 @@ function constructorArgs(expression, type) {
   return callArguments(expression, match[0].length - 1)
 }
 
+function modelScale(expression, source, label) {
+  if (/^\w+$/.test(expression)) {
+    const code = stripComments(source)
+    const match = code.match(new RegExp(`\\bval\\s+${expression}\\s*=\\s*Vec\\s*\\(`))
+    if (!match) throw new Error(`Missing model scale: ${expression}`)
+    expression = `Vec(${callArguments(code, match.index + match[0].length - 1)})`
+  }
+  const axes = splitArguments(constructorArgs(expression, 'Vec')).map(value => number(value, label))
+  if (axes.length !== 3 || axes.some(value => value <= 0)) throw new Error(`Invalid model scale: ${label}`)
+  return axes
+}
+
 for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
   if (!entry.isDirectory() || entry.name.startsWith('.')) continue
   const iterationId = entry.name
@@ -62,17 +74,28 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
     const defaults = defaultsFor(type, source, iteration)
     const value = field => args[field] ?? defaults[field]
     const stat = field => number(value(field), `${id}/${field}`)
+    const armament = type === 'Boat' && args.armament && args.armament !== 'null'
+      ? { ...defaultsFor('BoatArmament', source, iteration), ...namedArguments(constructorArgs(args.armament, 'BoatArmament')) }
+      : null
     const stats = []
     const add = (label, value) => stats.push({ label, value: String(value) })
-    add('Type', fieldPieces.includes(type) ? 'Field piece' : type)
+    add('Type', fieldPieces.includes(type) ? 'Field piece' : armament ? 'Armed boat' : type)
     const health = type === 'Drone' ? stat('health') : number(splitArguments(constructorArgs(args.health, 'Health'))[0], `${id}/health`)
     add('Health', health)
     const speedField = type === 'Plane' ? 'speed' : fieldPieces.includes(type) ? 'moveSpeed' : 'maxSpeed'
     add('Top speed', `${format(stat(speedField) * 20)} blocks/s`)
     if (type !== 'Drone') {
-      const seats = value(type === 'Plane' ? 'seatOffset' : 'seatOffsets')
-      const seatCount = splitArguments(constructorArgs(seats, 'listOf')).length
-      if (seatCount > 1) add('Seats', seatCount)
+      const crew = type === 'Boat'
+        ? [value('helmSeat'), ...(armament ? splitArguments(constructorArgs(armament.weapons, 'listOf')) : [])]
+        : splitArguments(constructorArgs(value('seats'), 'listOf'))
+      const roles = crew.map(expression => {
+        if (expression.startsWith('BoatWeapon')) return string(namedArguments(constructorArgs(expression, 'BoatWeapon')).name, `${id}/crew`)
+        const fields = splitArguments(constructorArgs(expression, 'VehicleSeat'))
+        const named = namedArguments(constructorArgs(expression, 'VehicleSeat'))
+        return string(named.name ?? fields[1], `${id}/crew`)
+      })
+      add('Crew seats', crew.length)
+      add('Crew positions', roles.join(', '))
     }
     if (type === 'Car' || type === 'Tank') add('Maximum climb', `${format(stat('maxClimbHeight'))} blocks`)
     if (mountedGun) {
@@ -84,6 +107,11 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
       add('Gun damage', number(mountedGun.damage, `${id}/gun damage`))
       add('Gun fire rate', `${Math.round(60_000 / number(mountedGun.cooldown, `${id}/gun cooldown`))} RPM`)
       add('Reload time', `${format(number(mountedGun.reloadTime, `${id}/reloadTime`) / 1000)} s`)
+    } else if (armament) {
+      const ammo = ammoNames.get(armament.ammo)
+      if (!ammo) throw new Error(`Unknown ammunition: ${armament.ammo}`)
+      add('Ammunition', ammo)
+      add('Capacity per gun station', number(armament.maxAmmo, `${id}/maxAmmo`))
     } else if (value('ammo')) {
       const ammo = ammoNames.get(value('ammo'))
       if (!ammo) throw new Error(`Unknown ammunition: ${value('ammo')}`)
@@ -107,7 +135,32 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
       add('Reload time', `${format(n('reloadTime') / 1000)} s`)
       add('Projectile range', `${format(n('projectileMaxRange'))} blocks`)
     }
-    if (args.weapons) {
+    if (armament) {
+      const weapons = splitArguments(constructorArgs(armament.weapons, 'listOf')).map(expression => {
+        const weapon = namedArguments(constructorArgs(expression, 'BoatWeapon'))
+        return { ...weapon, count: splitArguments(constructorArgs(weapon.muzzleOffsets, 'listOf')).length }
+      })
+      add('Gun stations', weapons.length)
+      const batteries = new Map()
+      for (const weapon of weapons) {
+        const kind = string(weapon.model, `${id}/weapon model`).endsWith('-turret') ? 'Main' : 'Light'
+        const values = ['projectileExplosionDamage', 'projectileExplosionRadius', 'reloadTime', 'projectileMaxRange']
+          .map(field => number(weapon[field], `${id}/${field}`))
+        const key = JSON.stringify([kind, ...values])
+        const battery = batteries.get(key) ?? { kind, values, count: 0 }
+        battery.count += weapon.count
+        batteries.set(key, battery)
+      }
+      add('Armament', [...batteries.values()].map(({ kind, count }) => `${count} ${kind.toLowerCase()} ${count === 1 ? 'gun' : 'guns'}`).join(' + '))
+      for (const { kind, values: [damage, radius, reloadTime, range] } of batteries.values()) {
+        const prefix = batteries.size > 1 ? `${kind} gun ` : ''
+        const label = text => prefix ? prefix + text.toLowerCase() : text
+        add(label('Explosion damage'), damage)
+        add(label('Explosion radius'), `${format(radius)} ${radius === 1 ? 'block' : 'blocks'}`)
+        add(label('Reload time'), `${format(reloadTime / 1000)} s`)
+        add(label('Projectile range'), `${format(range)} blocks`)
+      }
+    } else if (args.weapons) {
       for (const expression of splitArguments(constructorArgs(args.weapons, 'listOf'))) {
         const weapon = namedArguments(constructorArgs(expression, 'PlaneWeapon'))
         const gun = guns.get(weapon.gun)
@@ -126,10 +179,30 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
         add('Explosion radius', `${format(stat('explosionRadius'))} blocks`)
       }
     }
-    const model = args.model ? string(args.model, `${id}/model`) : `aechronis:${id}`
+    // Boats use separate moving displays in game. Their inventory model retains
+    // the assembled ship so catalogue previews include every paddle and gun.
+    const previewModel = type === 'Boat' ? args.itemModel : args.model
+    const model = previewModel ? string(previewModel, `${id}/model`) : `aechronis:${id}`
     const [namespace, modelId] = model.split(':')
     const pack = join(iteration, 'resource-pack/assets', namespace)
     const meshes = exportItemModel(pack, modelId, output, id)
+    if (type === 'Boat' && args.modelScale) {
+      const axes = modelScale(args.modelScale, source, `${id}/modelScale`)
+      const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity]
+      for (const mesh of meshes) {
+        mesh.positions = mesh.positions.map((value, i) => {
+          const axis = i % 3
+          const metres = (value - 8) * axes[axis] / 16
+          min[axis] = Math.min(min[axis], metres)
+          max[axis] = Math.max(max[axis], metres)
+          // The viewer fits each model to its frame; retain the actual proportions.
+          return (value - 8) * axes[axis] / axes[2] + 8
+        })
+      }
+      add('Length', `${format(max[2] - min[2])} blocks`)
+      add('Overall width', `${format(max[0] - min[0])} blocks`)
+      writeFileSync(join(output, `${id}.json`), JSON.stringify({ meshes }))
+    }
     if (type === 'Drone' && args.projectileModel && args.projectileModel !== 'null') {
       const [payloadNamespace, payloadId] = string(args.projectileModel, `${id}/payload`).split(':')
       const payload = exportItemModel(join(iteration, 'resource-pack/assets', payloadNamespace), payloadId, output, `${id}-payload`)
@@ -152,6 +225,12 @@ import VehicleCatalogue from '../../../.vitepress/theme/VehicleCatalogue.vue'
 </script>
 
 # Vehicles
+
+Right-click a vehicle to take a free crew seat. Your hotbar shows its crew positions:
+press **1–9** to switch to an available seat, and **Shift** to leave. Drivers steer;
+gunners operate their assigned weapons. Other riders can stand on the vehicle and move with it.
+
+Remote drones retain their own control display and scrolling throttle.
 
 <VehicleCatalogue iteration="${iterationId}" />
 `)

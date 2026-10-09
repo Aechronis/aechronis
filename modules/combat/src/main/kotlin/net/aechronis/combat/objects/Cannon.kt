@@ -8,7 +8,6 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
-import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
@@ -47,9 +46,19 @@ class Cannon(
     override val maxAmmo: Int = 1,
     val barrelTipOffset: Vec = Vec(0.0, 0.0, 5.0),
     override val reloadTime: Long = 20000,
-    seatOffsets: List<Vec> =
+    seats: List<VehicleSeat> =
         listOf(
-            Vec(0.0, -hitbox.getGroundOffset(), (hitbox.parts.minOfOrNull { it.offset.z - it.size.z } ?: 0.0) - 0.5),
+            VehicleSeat(
+                "operator",
+                "Artillery operator",
+                VehicleSeatRole.OPERATOR,
+                Vec(
+                    0.0,
+                    -hitbox.getGroundOffset(),
+                    (hitbox.parts.minOfOrNull { it.offset.z - it.size.z } ?: 0.0) - 0.5,
+                ),
+                standing = true,
+            ),
         ),
     invisibleWhileRiding: Boolean = false,
     invulnerableWhileRiding: Boolean = false,
@@ -72,7 +81,7 @@ class Cannon(
         hitbox = hitbox,
         health = health,
         placeTime = placeTime,
-        seatOffsets = seatOffsets,
+        seats = seats,
         invisibleWhileRiding = invisibleWhileRiding,
         invulnerableWhileRiding = invulnerableWhileRiding,
         moveSpeed = moveSpeed,
@@ -114,7 +123,7 @@ class Cannon(
         // spawn the body via the normal vehicle spawn
         val body = super.spawn(instance, pos)
 
-        val barrel = Entity(EntityType.ITEM_DISPLAY)
+        val barrel = VehicleDisplayEntity(body)
         barrel.setInstance(body.instance, body.position.withView(body.position.yaw, 0f.coerceIn(minPitch, maxPitch)))
 
         val barrelMeta = barrel.entityMeta as ItemDisplayMeta
@@ -174,7 +183,7 @@ class Cannon(
             buildSet<Entity> {
                 add(body)
                 add(player)
-                addAll(VehicleRegistry.passengers(body).map { it.player })
+                addAll(VehicleRegistry.ridesOf(body).map { it.player })
             }
         val obstruction =
             firstProjectileImpact(
