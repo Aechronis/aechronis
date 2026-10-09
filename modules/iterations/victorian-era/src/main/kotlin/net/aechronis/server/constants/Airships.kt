@@ -15,12 +15,6 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
 
 object Airships {
-    // vehicle damage is flat per hit by ammo type; Victorian rifles do 44-50, so 47 on average
-    private const val RIFLE_HIT = 47F
-
-    // ticks of flight per piece of coal (45 seconds), matching Balloon.coalFuel
-    private const val COAL_FUEL = 900
-
     /**
      * Both use the placeholder "zeppelin" model: 16 pixels long at scale 16 = 16 blocks, envelope above,
      * a flat deck below. Layout numbers are in blocks at scale 16 and shrink with [scale].
@@ -38,7 +32,7 @@ object Airships {
         val s = scale / 16.0
         val envelope = HitboxPart(offset = Vec(0.0, 3.5 * s, 0.0), size = Vec(3.0 * s, 3.5 * s, 8.0 * s))
         val deck = HitboxPart(offset = Vec(0.0, -4.5 * s, 0.0), size = Vec(2.5 * s, 0.5 * s, 6.0 * s))
-        // envelope sits 4 blocks above the deck so jumping on it never hits the hull; solid envelope plus a one-cube-thick floor the crew walks on
+        // The envelope sits 4 blocks above the deck so jumping never hits it; the crew walks on a one-cube floor.
         val floor =
             (-2..2).flatMap { x -> (-5..5).map { z -> ShulkerHitboxPart(Vec(x * s, -4.5 * s, z * s), s) } }
         return Airship(
