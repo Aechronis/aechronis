@@ -19,6 +19,8 @@ import net.minestom.server.entity.damage.Damage
 import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import java.util.Collections
+import java.util.WeakHashMap
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -198,7 +200,10 @@ open class Balloon(
     // ===== Falling =====
 
     /** Abandoned: lower gently until the ground, with no damage. */
-    private fun drift(entity: Entity) = move(entity, Vec(0.0, -driftSpeed, 0.0))
+    private fun drift(entity: Entity) {
+        falling.remove(entity)
+        move(entity, Vec(0.0, -driftSpeed, 0.0))
+    }
 
     /** Occupied and out of fuel: fall fast, then hurt the hull and everyone aboard once on the ground. */
     private fun plummet(entity: Entity) {
@@ -239,6 +244,7 @@ open class Balloon(
             velocities.remove(entity)
             return
         }
+        cleanupRuntime(entity)
         super.destroy(entity, attacker, weapon)
     }
 
@@ -262,10 +268,10 @@ open class Balloon(
     private companion object {
         const val BAR_SEGMENTS = 10
 
-        // per-hull state, cleared in cleanupRuntime
-        val velocities = HashMap<Entity, Vec>()
-        val fuels = HashMap<Entity, Int>()
-        val sinking = HashSet<Entity>()
-        val falling = HashSet<Entity>()
+        // per-hull state, cleared in cleanupRuntime; weak so a hull removed another way cannot leak
+        val velocities = WeakHashMap<Entity, Vec>()
+        val fuels = WeakHashMap<Entity, Int>()
+        val sinking: MutableSet<Entity> = Collections.newSetFromMap(WeakHashMap())
+        val falling: MutableSet<Entity> = Collections.newSetFromMap(WeakHashMap())
     }
 }
