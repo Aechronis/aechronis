@@ -15,7 +15,7 @@ import net.minestom.server.coordinate.Vec
 /**
  * Both ships are walkable: the crew stands on a one-cube floor and the hull is not solid, since a
  * solid hull this size exceeds the shulker limit. Numbers are blocks relative to the model centre,
- * with +z as the bow; flip the signs of z if a model faces the other way.
+ * with +z as the bow. Seats sit in the middle of the hull, where it is wide enough to sit; flip the signs of z if a model faces the other way.
  */
 object Airships {
     private fun title(name: String) = Component.text(name, NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false)
@@ -23,10 +23,11 @@ object Airships {
     private fun gunnerSeats(
         x: Double,
         y: Double,
+        z: Double,
         count: Int,
     ) = listOf(
-        VehicleSeat("gun-starboard", "Starboard gunner", VehicleSeatRole.GUNNER, Vec(x, y, 0.0), weaponId = "maxim-starboard"),
-        VehicleSeat("gun-port", "Port gunner", VehicleSeatRole.GUNNER, Vec(-x, y, 0.0), weaponId = "maxim-port"),
+        VehicleSeat("gun-starboard", "Starboard gunner", VehicleSeatRole.GUNNER, Vec(x, y, z), weaponId = "maxim-starboard"),
+        VehicleSeat("gun-port", "Port gunner", VehicleSeatRole.GUNNER, Vec(-x, y, z), weaponId = "maxim-port"),
     ).take(count)
 
     // Model "lz1": 1 unit = 1 block. A 44 block long, 5 wide, 7 tall hull with a keel walkway.
@@ -45,8 +46,8 @@ object Airships {
                     },
                 ),
             seats =
-                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -2.2, 18.0))) +
-                    gunnerSeats(x = 1.2, y = -2.2, count = 2),
+                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -2.2, 6.0))) +
+                    gunnerSeats(x = 1.2, y = -2.2, z = 0.0, count = 2),
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.2,
             maxFuel = 20 * COAL_FUEL,
@@ -69,10 +70,14 @@ object Airships {
                 ),
             health = vehicleHealth(rifleShots = 80, shells = 20, bombs = 10),
             collisionHitbox =
-                ShulkerHitbox((-2..2).flatMap { x -> (-7..8).map { z -> ShulkerHitboxPart(Vec(x * 0.75, -12.475, z * 0.75), 0.75) } }),
+                ShulkerHitbox(
+                    (-2..2).flatMap { x ->
+                        (-4..4).map { z -> ShulkerHitboxPart(Vec(x * 0.75, -12.475, z * 0.75 + 0.4), 0.75) }
+                    },
+                ),
             seats =
-                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -11.8, 5.0))) +
-                    gunnerSeats(x = 1.4, y = -11.8, count = 1),
+                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -11.8, 1.8))) +
+                    gunnerSeats(x = 1.3, y = -11.8, z = -1.2, count = 1),
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.25,
             maxFuel = 10 * COAL_FUEL,
