@@ -36,7 +36,7 @@ object HorseListener {
 
         val instance = player.instance ?: return
         val target = event.position.add(event.blockFace.toDirection().vec())
-        if (instance.getBlock(target).isSolid) return
+        if (instance.getBlock(target).solid()) return
 
         val yaw = player.position.yaw + 180f
         Horses.spawnFromEgg(instance, Pos(target.blockX() + 0.5, target.blockY().toDouble(), target.blockZ() + 0.5, yaw, 0f))

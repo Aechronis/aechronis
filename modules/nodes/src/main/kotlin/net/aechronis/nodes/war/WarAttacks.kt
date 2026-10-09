@@ -132,7 +132,7 @@ internal class WarAttacks(
             // check flag has vision to sky
             val instance = MinecraftServer.getInstanceManager().instances.first()
             for (y in flagBaseY + 1..255) {
-                if (!instance.getBlock(flagBaseX, y, flagBaseZ).isAir) {
+                if (!instance.getBlock(flagBaseX, y, flagBaseZ).air()) {
                     return Result.failure(ErrorSkyBlocked)
                 }
             }

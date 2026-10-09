@@ -58,7 +58,7 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
                 return FlagBreakingOutcome.ATTACK_CANCELLED
             }
             DefenderBlockBreakTickResult.INVALID -> {
-                if (session.instance.getBlock(attack.flagBlock).isAir) {
+                if (session.instance.getBlock(attack.flagBlock).air()) {
                     attack.cancel()
                     return FlagBreakingOutcome.ATTACK_CANCELLED
                 }

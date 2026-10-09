@@ -75,7 +75,7 @@ internal class DefenderBlockBreaker(
     ): DefenderBlockBreakTickResult {
         var current = action ?: return DefenderBlockBreakTickResult.INVALID
         val block = instance.getBlock(current.position)
-        if (block.isAir || !canContinue(current.position, block)) {
+        if (block.air() || !canContinue(current.position, block)) {
             stop(instance)
             return DefenderBlockBreakTickResult.INVALID
         }

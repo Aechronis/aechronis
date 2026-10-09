@@ -380,7 +380,7 @@ class Drone(
         pilot: Player,
         droneEntity: Entity,
     ): Boolean {
-        if (instance.getBlock(p).isSolid) return true
+        if (instance.getBlock(p).solid()) return true
 
         if (intersectsVehicle(instance, p.asVec(), droneEntity)) return true
 

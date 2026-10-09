@@ -365,7 +365,7 @@ data class Territory(
             val dimensionType = instance.cachedDimensionType
             var y = dimensionType.maxY() - 1
             try {
-                while (y >= dimensionType.minY() && instance.getBlock(x, y, z).isAir) {
+                while (y >= dimensionType.minY() && instance.getBlock(x, y, z).air()) {
                     y -= 1
                 }
                 y += 1

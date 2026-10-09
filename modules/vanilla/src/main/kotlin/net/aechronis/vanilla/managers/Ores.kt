@@ -389,7 +389,7 @@ object Ores {
         repeat(128) {
             if (minOf(maxX, maxY, maxZ) > MAX_REACH) return null
             val block = instance.getBlock(x, y, z)
-            if (!block.isAir) return if (isOre(block)) BlockVec(x, y, z) else null
+            if (!block.air()) return if (isOre(block)) BlockVec(x, y, z) else null
             when (minOf(maxX, maxY, maxZ)) {
                 maxX -> {
                     x += stepX

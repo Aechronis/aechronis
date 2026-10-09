@@ -39,7 +39,7 @@ object CropsPlantListener {
 
         val instance = player.instance ?: return
         val cropPos: BlockVec = event.blockPosition.add(0, 1, 0)
-        if (!instance.getBlock(cropPos).isAir) return
+        if (!instance.getBlock(cropPos).air()) return
         event.isCancelled = true
 
         instance.setBlock(cropPos, cropType.cropBlock.withProperty("age", "0"))
@@ -81,7 +81,7 @@ object CropsPlantListener {
         face: BlockFace,
     ): Block? =
         if (face != BlockFace.BOTTOM &&
-            above.isAir &&
+            above.air() &&
             (
                 block.compare(Block.GRASS_BLOCK) ||
                     block.compare(Block.DIRT) ||

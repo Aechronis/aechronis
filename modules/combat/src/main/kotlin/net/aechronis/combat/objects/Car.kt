@@ -166,7 +166,7 @@ open class Car(
         val endY = floor(currentSurfaceY - 10).toInt()
         for (y in startY downTo endY) {
             val block = instance.getBlock(position.blockX(), y, position.blockZ())
-            if (block.isSolid) {
+            if (block.solid()) {
                 return (y + 1).toDouble()
             }
         }

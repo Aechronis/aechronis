@@ -34,7 +34,7 @@ object BlockPlacementCooldownListener {
         if (event.isCancelled) return
 
         val item = event.player.itemIn(event.hand)
-        if (!item.material().isBlock()) return
+        if (item.material().block() == null) return
 
         val cooldownGroup = item.cooldownGroup()
         val playerCooldowns = cooldowns[event.player.uuid] ?: return

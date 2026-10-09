@@ -25,7 +25,7 @@ object WorldEditListener {
                         z = position.blockZ(),
                         blockOld = oldBlock.key().asString(),
                         blockNew = newBlock.key().asString(),
-                        action = if (newBlock.isAir) BlockAction.BREAK else BlockAction.PLACE,
+                        action = if (newBlock.air()) BlockAction.BREAK else BlockAction.PLACE,
                         instanceUuid = event.instance.uuid,
                         blockOldState = oldBlock.state(),
                         blockNewState = newBlock.state(),

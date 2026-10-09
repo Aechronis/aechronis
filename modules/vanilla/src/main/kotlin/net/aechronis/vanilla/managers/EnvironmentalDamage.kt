@@ -18,9 +18,9 @@ import java.util.concurrent.ConcurrentHashMap
 object EnvironmentalDamage {
     private val fireContactTicks = ConcurrentHashMap<UUID, Int>()
     private val voidDamageTicks = ConcurrentHashMap<UUID, Int>()
-    private val IN_FIRE: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:in_fire")
-    private val ON_FIRE: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:on_fire")
-    private val DROWN: RegistryKey<DamageType> = RegistryKey.unsafeOf("minecraft:drown")
+    private val IN_FIRE: RegistryKey<DamageType> = DamageType.IN_FIRE
+    private val ON_FIRE: RegistryKey<DamageType> = DamageType.ON_FIRE
+    private val DROWN: RegistryKey<DamageType> = DamageType.DROWN
 
     fun init() {
         ModuleScheduler

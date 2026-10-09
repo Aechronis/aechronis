@@ -205,7 +205,7 @@ open class Boat(
         for (y in startY downTo endY) {
             val block = loadedBlock(instance, floor(x).toInt(), y, floor(z).toInt()) ?: return null
             if (block.compare(Block.WATER)) return (y + 1).toDouble()
-            if (block.isSolid) return null
+            if (block.solid()) return null
         }
 
         return null
@@ -252,7 +252,7 @@ open class Boat(
                 for (z in minZ..maxZ) {
                     for (y in floor(minY + CLEARANCE_EPSILON).toInt()..floor(maxY - CLEARANCE_EPSILON).toInt()) {
                         val block = loadedBlock(instance, x, y, z) ?: return false
-                        if (block.isSolid &&
+                        if (block.solid() &&
                             solidHitboxes[index].intersects(
                                 BLOCK_HITBOX,
                                 position,
