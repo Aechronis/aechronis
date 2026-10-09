@@ -1,6 +1,7 @@
 package net.aechronis.nodes.colonization
 
 import net.aechronis.combat.objects.Gun
+import net.aechronis.combat.objects.Item
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.war.Attack
@@ -23,12 +24,14 @@ internal data class AiDefender(
 )
 
 internal data class AiDefenderSlot(
-    val gun: Gun,
+    val gunName: String,
     var defender: AiDefender? = null,
     var respawnAtMillis: Long = 0,
     var spawnPending: Boolean = false,
     var generation: Int = 0,
-)
+) {
+    val gun: Gun? get() = (Item.getFromName(gunName) as? Gun)?.takeIf { it.maxAmmo > 0 }
+}
 
 internal class DefenseSession(
     val instance: Instance,

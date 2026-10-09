@@ -178,7 +178,7 @@ internal class DevModuleWatcher(
             return DevModuleWatcher(Path.of(root), modules.split(','), moduleDirectory, reload, buildFiles = buildFiles.split(','))
         }
 
-        /** Copy everything before replacing any live JAR; rollback the disk set if installation fails. */
+        /** Stage only changed JARs before replacing any; rollback the disk set if installation fails. */
         internal fun installModules(
             source: Path,
             destination: Path,
@@ -191,28 +191,32 @@ internal class DevModuleWatcher(
                         .toList()
                 }
             require(jars.isNotEmpty()) { "The development build produced no module JARs" }
-            val staging = Files.createTempDirectory(destination, ".dev-install-")
-            val installed = mutableListOf<Path>()
-            try {
-                jars.forEach { jar ->
+            val changed =
+                jars.filter { jar ->
                     val target = destination.resolve(jar.fileName)
                     require(Files.isRegularFile(target)) {
                         "Module layout changed; manually rerun devRun before installing ${jar.fileName}"
                     }
+                    Files.mismatch(jar, target) != -1L
+                }
+            if (changed.isEmpty()) return
+            val staging = Files.createTempDirectory(destination, ".dev-install-")
+            val installed = mutableListOf<Path>()
+            try {
+                changed.forEach { jar ->
+                    val target = destination.resolve(jar.fileName)
                     Files.copy(jar, staging.resolve(jar.fileName.toString() + ".new"))
                     Files.copy(target, staging.resolve(jar.fileName.toString() + ".old"))
                 }
-                jars.forEach { jar ->
+                changed.forEach { jar ->
                     val target = destination.resolve(jar.fileName)
-                    if (Files.mismatch(jar, target) != -1L) {
-                        Files.move(
-                            staging.resolve(jar.fileName.toString() + ".new"),
-                            target,
-                            StandardCopyOption.ATOMIC_MOVE,
-                            StandardCopyOption.REPLACE_EXISTING,
-                        )
-                        installed.add(jar)
-                    }
+                    Files.move(
+                        staging.resolve(jar.fileName.toString() + ".new"),
+                        target,
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING,
+                    )
+                    installed.add(jar)
                 }
             } catch (error: Exception) {
                 installed.asReversed().forEach { jar ->

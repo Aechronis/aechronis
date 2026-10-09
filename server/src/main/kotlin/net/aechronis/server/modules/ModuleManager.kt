@@ -1,5 +1,6 @@
 package net.aechronis.server.modules
 
+import net.aechronis.server.resourcepack.ModuleResourcePacks
 import net.minestom.server.MinecraftServer
 import net.minestom.server.network.packet.server.CachedPacket
 import java.nio.file.AtomicMoveNotSupportedException
@@ -29,6 +30,7 @@ class ModuleManager private constructor(
     private val requiredModules = readIds(directory.resolve(".required-modules"))
     private var artifacts = linkedMapOf<String, ModuleArtifact>()
     private var loaded = linkedMapOf<String, LoadedModule>()
+    private val ownedArtifacts = linkedSetOf<ModuleArtifact>()
     private var disabled = readIds(directory.resolve(".disabled-modules"))
     private var context: ModuleContext? = null
     private var generation = 0L
@@ -52,6 +54,9 @@ class ModuleManager private constructor(
             val plan = plan(artifacts, disabled)
             loaded = instantiate(artifacts, plan, emptyMap())
             start(loaded.values.toList(), context)
+            context.publishResourcePacks(loaded.values.mapNotNull { it.resourcePacks }) {
+                loaded.values.forEach { it.resourcePackChanged(context) }
+            }
             loaded.values.forEach(LoadedModule::publish)
             generation = 1
             phase = "running"
@@ -115,10 +120,15 @@ class ModuleManager private constructor(
         var prepared = false
         var stopped = false
         var gameplayPause: AutoCloseable? = null
+        val survivorPauses = mutableListOf<AutoCloseable>()
+        val resourceUpdates = linkedMapOf<String, Pair<ModuleArtifact, ModuleResourcePacks?>>()
+        var resourcesPublished = false
+        var refreshResourcePacks = false
+        val previousPacks = loaded.values.mapNotNull { it.resourcePacks }
         val startedAt = System.nanoTime()
         try {
             install()
-            staged += measured("stage JARs") { ModuleArtifact.stage(moduleJarsForGeneration(directory)) }
+            staged += measured("stage JARs") { ModuleArtifact.stage(moduleJarsForGeneration(directory), artifacts.values) }
             val proposed = staged.associateByTo(linkedMapOf()) { it.definition.id }
             var nextDisabled = disabled
             when (action) {
@@ -150,23 +160,65 @@ class ModuleManager private constructor(
             }
             val seeds =
                 (artifacts.keys + proposed.keys).filterTo(linkedSetOf()) { key ->
-                    artifacts[key]?.fingerprint != proposed[key]?.fingerprint || (key in loaded) != (key in nextPlan)
+                    artifacts[key]?.codeFingerprint != proposed[key]?.codeFingerprint || (key in loaded) != (key in nextPlan)
                 }
             if (action == Action.RESTART) seeds += checkNotNull(id)
-            changed = reloadClosure(seeds, artifacts, proposed, loaded.keys + nextPlan)
+            val forced =
+                (loaded.keys - nextPlan.toSet()) + (nextPlan.toSet() - loaded.keys) +
+                    if (action == Action.RESTART) setOf(checkNotNull(id)) else emptySet()
+            changed = reloadClosure(seeds, artifacts, proposed, loaded.keys + nextPlan, forced)
             val oldAffected = loaded.filterKeys { it in changed }.values.toList()
             val survivors = loaded.filterKeys { it !in changed }
             // Unchanged modules retain the exact original loader and object graph.
             candidates = instantiate(proposed, nextPlan, survivors)
             val replacements = candidates.filterKeys { it in changed }.values.toList()
-            measured("prepare resource packs") { replacements.forEach { it.prepareResources(context) } }
+            measured("prepare resource packs") {
+                replacements.forEach { it.prepareResources(context) }
+                survivors.forEach { (key, module) ->
+                    val artifact = proposed.getValue(key)
+                    if (module.resourceArtifact.resourcePackFingerprint != artifact.resourcePackFingerprint) {
+                        resourceUpdates[key] = artifact to module.prepareResources(context, artifact)
+                    }
+                }
+            }
+
+            fun publishResources() {
+                resourcesPublished = true
+                context.publishResourcePacks(
+                    candidates.mapNotNull { (key, module) ->
+                        if (key in resourceUpdates) resourceUpdates.getValue(key).second else module.resourcePacks
+                    },
+                ) {
+                    (replacements + resourceUpdates.keys.map(candidates::getValue)).forEach { it.resourcePackChanged(context) }
+                }
+            }
+
+            fun adoptResources() {
+                resourceUpdates.forEach { (key, update) -> candidates.getValue(key).replaceResources(update.first, update.second) }
+                resourceUpdates.clear()
+            }
             if (closing) error("Server shutdown began while staging modules")
             if (oldAffected.isEmpty() && replacements.isEmpty()) {
                 writeDisabled(nextDisabled)
+                val refreshed = resourceUpdates.keys.toSet()
+                context.runLive {
+                    publishResources()
+                    refreshResourcePacks = refreshed.isNotEmpty()
+                }
+                adoptResources()
                 commitArtifacts(proposed, nextDisabled)
+                if (refreshed.isNotEmpty()) generation += 1
                 phase = "running"
                 updateSnapshot()
-                return ModuleOperationResult(true, "$description completed; no running modules changed")
+                return ModuleOperationResult(
+                    true,
+                    if (refreshed.isEmpty()) {
+                        "$description completed; no running modules changed"
+                    } else {
+                        "Resource packs refreshed without restarting modules"
+                    },
+                    refreshed,
+                )
             }
 
             phase = "reloading"
@@ -178,6 +230,7 @@ class ModuleManager private constructor(
                     if (player.openInventory != null) player.closeInventory()
                 }
             }
+            survivors.values.forEach { survivorPauses += it.pauseCallbacks() }
             prepared = true
             measured("quiesce affected modules") {
                 oldAffected.asReversed().forEach(LoadedModule::detachInputs)
@@ -190,17 +243,20 @@ class ModuleManager private constructor(
                 context.saveCoreWorld()
             }
             measured("stop affected modules") {
-                context.removeResourcePacksFromOnlinePlayers(oldAffected.mapTo(hashSetOf()) { it.module.id })
                 oldAffected.asReversed().forEach { it.stop(context) }
             }
             stopped = true
             measured("start replacement modules") { start(replacements, context, resourcesPrepared = true) }
             writeDisabled(nextDisabled)
             context.runLive {
-                replacements.forEach(LoadedModule::publish)
-                refreshClients()
-                runCatching(context::sendResourcePacksToOnlinePlayers).onFailure { report("Refresh resource packs", it) }
+                ModuleRuntime.withLifecycleCallbacks {
+                    publishResources()
+                    replacements.forEach(LoadedModule::publish)
+                    refreshClients()
+                    refreshResourcePacks = true
+                }
             }
+            adoptResources()
             loaded = candidates
             commitArtifacts(proposed, nextDisabled, oldAffected)
             generation += 1
@@ -213,9 +269,22 @@ class ModuleManager private constructor(
             )
         } catch (error: Throwable) {
             report(description, error)
+            val restorationFailure =
+                if (resourcesPublished) {
+                    runCatching {
+                        context.runLive {
+                            context.publishResourcePacks(previousPacks) {
+                                loaded.filterKeys { it !in changed }.values.forEach { it.resourcePackChanged(context) }
+                            }
+                            refreshResourcePacks = true
+                        }
+                    }.exceptionOrNull()?.also(error::addSuppressed)
+                } else {
+                    null
+                }
             val replacementModules = candidates.filter { (id, module) -> loaded[id] !== module }.values.toList()
             val cleanupFailures = stopAndClose(replacementModules, context)
-            if (cleanupFailures.isNotEmpty()) {
+            if (cleanupFailures.isNotEmpty() || restorationFailure != null) {
                 cleanupFailures.forEach(error::addSuppressed)
                 failClosed(context)
             } else if (stopped) {
@@ -231,9 +300,14 @@ class ModuleManager private constructor(
                     writeDisabled(disabled)
                     generation += 1
                     context.runLive {
-                        replacements.forEach(LoadedModule::publish)
-                        refreshClients()
-                        context.sendResourcePacksToOnlinePlayers()
+                        ModuleRuntime.withLifecycleCallbacks {
+                            context.publishResourcePacks(loaded.values.mapNotNull { it.resourcePacks }) {
+                                replacements.forEach { it.resourcePackChanged(context) }
+                            }
+                            replacements.forEach(LoadedModule::publish)
+                            refreshClients()
+                            refreshResourcePacks = true
+                        }
                     }
                     phase = "running"
                     updateSnapshot()
@@ -260,6 +334,8 @@ class ModuleManager private constructor(
                 changed,
             )
         } finally {
+            resourceUpdates.values.forEach { (_, packs) -> packs?.close() }
+            if (phase != "degraded") survivorPauses.asReversed().forEach { it.close() }
             if (gameplayPause != null) {
                 try {
                     if (phase == "degraded") {
@@ -277,7 +353,11 @@ class ModuleManager private constructor(
                     gameplayPause.close()
                 }
             }
-            val retained = artifacts.values.toSet() + unsafeModules.map { it.artifact }
+            if (refreshResourcePacks && phase == "running") {
+                runCatching { context.runLive(context::sendResourcePacksToOnlinePlayers) }
+                    .onFailure { report("Refresh resource packs", it) }
+            }
+            val retained = ownedArtifacts + unsafeModules.flatMap { listOf(it.artifact, it.resourceArtifact) }
             staged.filterNot { it in retained }.forEach { runCatching(it::close).onFailure { error -> report("Close staged JAR", error) } }
             println("[Modules] $description took ${(System.nanoTime() - startedAt) / 1_000_000}ms")
         }
@@ -289,13 +369,13 @@ class ModuleManager private constructor(
         retired: List<LoadedModule> = emptyList(),
     ) {
         retired.forEach { runCatching(it::close).onFailure { error -> report("Close retired loader", error) } }
-        val next = proposed.mapValuesTo(linkedMapOf()) { (id, artifact) -> loaded[id]?.artifact ?: artifact }
-        artifacts.values.filterNot { it in next.values }.forEach {
-            runCatching(it::close).onFailure { error ->
-                report("Delete retired JAR", error)
-            }
+        val retained = proposed.values.toSet() + (loaded.values + unsafeModules).flatMap { listOf(it.artifact, it.resourceArtifact) }
+        ownedArtifacts.filterNot { it in retained }.forEach {
+            runCatching(it::close).onFailure { error -> report("Delete retired JAR", error) }
         }
-        artifacts = next
+        ownedArtifacts.clear()
+        ownedArtifacts.addAll(retained)
+        artifacts = proposed
         disabled = nextDisabled
     }
 
@@ -314,15 +394,17 @@ class ModuleManager private constructor(
             }
             // Initializers can synchronously announce services and receive replies (e.g. vote rewards).
             // Background game callbacks remain gated until the whole affected graph is ready.
-            ModuleRuntime.withLifecycleCallbacks {
-                ModuleStartupTimings.measure("Configuration") {
-                    modules.asReversed().forEach { module ->
-                        ModuleStartupTimings.measure(module.module.id) { module.configure(context) }
+            context.withStartingModules(modules.mapTo(hashSetOf()) { it.module.id }) {
+                ModuleRuntime.withLifecycleCallbacks {
+                    ModuleStartupTimings.measure("Configuration") {
+                        modules.asReversed().forEach { module ->
+                            ModuleStartupTimings.measure(module.module.id) { module.configure(context) }
+                        }
                     }
-                }
-                ModuleStartupTimings.measure("Initialization") {
-                    modules.forEach { module ->
-                        ModuleStartupTimings.measure(module.module.id) { module.start(context) }
+                    ModuleStartupTimings.measure("Initialization") {
+                        modules.forEach { module ->
+                            ModuleStartupTimings.measure(module.module.id) { module.start(context) }
+                        }
                     }
                 }
             }
@@ -431,7 +513,8 @@ class ModuleManager private constructor(
                 val failures = if (context == null) emptyList() else stopAndClose((loaded.values + unsafeModules).distinct(), context)
                 check(failures.isEmpty()) { "Module teardown failed: ${failures.joinToString { it.message.orEmpty() }}" }
                 loaded.clear()
-                artifacts.values.forEach(ModuleArtifact::close)
+                ownedArtifacts.forEach(ModuleArtifact::close)
+                ownedArtifacts.clear()
                 artifacts.clear()
                 phase = "closed"
                 updateSnapshot()
@@ -520,7 +603,10 @@ class ModuleManager private constructor(
             Files.createDirectories(directory)
             val manager = ModuleManager(directory)
             try {
-                ModuleArtifact.stage(moduleJarsForGeneration(directory)).forEach { manager.artifacts[it.definition.id] = it }
+                ModuleArtifact.stage(moduleJarsForGeneration(directory)).forEach {
+                    manager.artifacts[it.definition.id] = it
+                    manager.ownedArtifacts += it
+                }
                 manager.plan(manager.artifacts, manager.disabled)
                 manager.updateSnapshot()
                 return manager
@@ -592,6 +678,7 @@ class ModuleManager private constructor(
             old: Map<String, ModuleArtifact>,
             staged: Map<String, ModuleArtifact>,
             active: Set<String>,
+            forced: Set<String> = emptySet(),
         ): Set<String> {
             val result = seeds.toMutableSet()
             do {
@@ -599,7 +686,17 @@ class ModuleManager private constructor(
                 listOf(old, staged).forEach { graph ->
                     graph.forEach { (id, artifact) ->
                         if (id in active && artifact.definition.dependencies.any { it in result }) result += id
-                        if (id in active && id in result) result += artifact.definition.reloadTogether.filter { it in active }
+                        if (id in active && id in result) {
+                            result += artifact.definition.reloadTogether.filter { it in active }
+                            result +=
+                                artifact.definition.reloadTogetherInputs.keys.filter { dependency ->
+                                    dependency in active &&
+                                        (
+                                            id in forced ||
+                                                old[id]?.dependencyFingerprint(dependency) != staged[id]?.dependencyFingerprint(dependency)
+                                        )
+                                }
+                        }
                     }
                 }
             } while (result.size != before)

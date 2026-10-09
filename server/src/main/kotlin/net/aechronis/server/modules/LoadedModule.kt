@@ -1,7 +1,6 @@
 package net.aechronis.server.modules
 
 import net.aechronis.server.resourcepack.ModuleResourcePacks
-import net.aechronis.server.resourcepack.ResourcePackRegistration
 import java.util.concurrent.CompletableFuture
 
 /** Lifecycle and registrations for exactly one classloader. Runtime mutations belong to the lifecycle worker. */
@@ -19,7 +18,8 @@ internal class LoadedModule(
                 check(
                     it.id == artifact.definition.id &&
                         it.dependencies == artifact.definition.dependencies &&
-                        it.reloadTogether == artifact.definition.reloadTogether,
+                        it.reloadTogether == artifact.definition.reloadTogether &&
+                        it.reloadTogetherInputs == artifact.definition.reloadTogetherInputs,
                 ) {
                     "Module metadata changed between discovery and loading"
                 }
@@ -35,8 +35,10 @@ internal class LoadedModule(
         ).apply { published = false }
     private val registrations = RuntimeRegistrations(scope)
     private val checkpointTracker = ModuleCheckpointTracker()
-    private var preparedPack: ModuleResourcePacks? = null
-    private var installedPack: ResourcePackRegistration? = null
+    var resourceArtifact: ModuleArtifact = artifact
+        private set
+    var resourcePacks: ModuleResourcePacks? = null
+        private set
     private var activated = false
     private var initialized = false
     private var prepared = false
@@ -44,8 +46,30 @@ internal class LoadedModule(
         private set
 
     fun prepareResources(context: ModuleContext) {
-        preparedPack = withContextClassLoader(classLoader) { context.prepareResourcePacks(artifact, module) }
+        resourcePacks = prepareResources(context, resourceArtifact)
     }
+
+    fun prepareResources(
+        context: ModuleContext,
+        source: ModuleArtifact,
+    ): ModuleResourcePacks? = withContextClassLoader(classLoader) { context.prepareResourcePacks(source, module) }
+
+    fun replaceResources(
+        source: ModuleArtifact,
+        packs: ModuleResourcePacks?,
+    ) {
+        resourcePacks?.close()
+        resourcePacks = packs
+        resourceArtifact = source
+    }
+
+    fun resourcePackChanged(context: ModuleContext) {
+        withContextClassLoader(classLoader) {
+            ModuleRuntime.withLifecycleCallbacks { module.resourcePackChanged(context) }
+        }
+    }
+
+    fun pauseCallbacks(): AutoCloseable = scope.pauseCallbacks()
 
     fun configure(context: ModuleContext) {
         ModuleRuntime.activate(scope)
@@ -54,8 +78,6 @@ internal class LoadedModule(
     }
 
     fun start(context: ModuleContext) {
-        preparedPack?.let { installedPack = context.installResourcePacks(it) }
-        preparedPack = null
         initialized = true
         withContextClassLoader(classLoader) { registrations.record { module.initialize(context) } }
         running = true
@@ -100,8 +122,6 @@ internal class LoadedModule(
             withContextClassLoader(classLoader) { module.shutdown(context) }
             initialized = false
         }
-        installedPack?.close()
-        installedPack = null
         registrations.cleanup()
         ModuleRuntime.deactivate(scope)
         activated = false
@@ -110,8 +130,8 @@ internal class LoadedModule(
 
     override fun close() {
         check(!activated) { "Refusing to close an active or unsafe module classloader: ${module.id}" }
-        preparedPack?.hostedPack?.retire()
-        preparedPack = null
+        resourcePacks?.close()
+        resourcePacks = null
         classLoader.close()
     }
 }

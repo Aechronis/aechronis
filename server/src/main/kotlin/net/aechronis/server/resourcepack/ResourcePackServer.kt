@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 
 class ResourcePackServer private constructor(
@@ -33,6 +34,8 @@ class ResourcePackServer private constructor(
         get() = server.address.port
 
     private val activePacks = linkedMapOf<String, ModuleResourcePacks>()
+    private val preparedPacks = hashMapOf<PackKey, ModuleResourcePacks>()
+    private val playerBasePacks = hashMapOf<UUID, List<ResourcePackInfo>>()
     private val playerProviders = linkedMapOf<String, PlayerPackProvider>()
     private val playerRequests = hashMapOf<UUID, PlayerPackRequest>()
     private var disconnectListener: EventListener<PlayerDisconnectEvent>? = null
@@ -40,44 +43,90 @@ class ResourcePackServer private constructor(
     private var serverStopped = false
     private var closed = false
 
+    /** Cached packs hold no module callbacks or classloaders. The final lease deletes the archive. */
     internal fun prepare(
         id: String,
-        directory: Path?,
+        fingerprint: String?,
         externalPacks: List<ResourcePackInfo>,
-    ): ModuleResourcePacks {
+        directory: () -> Path?,
+    ): ModuleResourcePacks? {
+        synchronized(this) { check(!closed) { "Resource-pack server is closed" } }
+        if (fingerprint == null && externalPacks.isEmpty()) return null
         require(id.matches(RESOURCE_PACK_ID_PATTERN)) { "Invalid resource-pack ID: '$id'" }
-        require(directory != null || externalPacks.isNotEmpty()) { "Module '$id' does not provide any resource packs" }
+        val key = PackKey(id, fingerprint, externalPacks.map { Triple(it.id(), it.uri(), it.hash()) })
+        synchronized(this) { preparedPacks[key]?.tryRetain()?.let { return it } }
         val hostedPack =
-            directory?.let {
+            directory()?.let {
                 ServedResourcePack(
                     id = id,
                     uuid = UUID.nameUUIDFromBytes("aechronis:resource-pack:$id".toByteArray(StandardCharsets.UTF_8)),
                     archive = ResourcePackArchive.create(it),
                 )
             }
-        val packs =
-            ModuleResourcePacks(
-                moduleId = id,
-                hostedPack = hostedPack,
-                externalPacks = externalPacks.toList(),
-            )
-        return packs
+        val prepared =
+            ModuleResourcePacks(id, hostedPack, externalPacks.toList()) { packs ->
+                synchronized(this) { preparedPacks.remove(key, packs) }
+            }
+        synchronized(this) {
+            if (closed) {
+                prepared.close()
+                error("Resource-pack server is closed")
+            }
+            preparedPacks[key]?.tryRetain()?.let {
+                prepared.close()
+                return it
+            }
+            preparedPacks[key] = prepared
+        }
+        return prepared
+    }
+
+    /** Publish one complete stack; unchanged content keeps its existing archive and client layer. */
+    @Synchronized
+    internal fun publish(
+        packs: List<ModuleResourcePacks>,
+        updateCachedAssets: () -> Unit = {},
+    ): Boolean {
+        check(!closed) { "Resource-pack server is closed" }
+        require(packs.map { it.moduleId }.distinct().size == packs.size) { "Duplicate resource-pack modules" }
+        val previous = activePacks.values.toList()
+        if (previous == packs) {
+            try {
+                updateCachedAssets()
+            } finally {
+                packRevision += 1
+            }
+            return false
+        }
+        packs.forEach(ModuleResourcePacks::retain)
+        activePacks.clear()
+        packs.forEach { activePacks[it.moduleId] = it }
+        try {
+            // A provider cannot capture the new revision with the previous atlas/template.
+            updateCachedAssets()
+        } catch (error: Throwable) {
+            activePacks.clear()
+            previous.forEach { activePacks[it.moduleId] = it }
+            packs.forEach(ModuleResourcePacks::close)
+            packRevision += 1
+            throw error
+        }
+        previous.forEach(ModuleResourcePacks::close)
+        packRevision += 1
+        return true
     }
 
     @Synchronized
-    internal fun installPrepared(packs: ModuleResourcePacks): ResourcePackRegistration {
-        check(!closed) { "Resource-pack server is closed" }
-        val id = packs.moduleId
-        check(id !in activePacks) { "Resource packs for module '$id' are already active" }
-        val hostedPack = packs.hostedPack
-        val externalPacks = packs.externalPacks
-        activePacks[id] = packs
-        packRevision += 1
-        hostedPack?.let { println("[ResourcePack] serving ${it.id} (${it.archive.hash})") }
-        if (externalPacks.isNotEmpty()) {
-            println("[ResourcePack] registered ${externalPacks.size} external pack(s) for $id")
+    internal fun readAsset(
+        moduleId: String,
+        path: String,
+    ): ByteArray? {
+        requirePackEntry(path)
+        val archive = activePacks[moduleId]?.hostedPack?.archive ?: return null
+        return ZipFile(archive.path.toFile()).use { zip ->
+            val entry = zip.getEntry(path) ?: return null
+            zip.getInputStream(entry).use { it.readBytes() }
         }
-        return ResourcePackRegistration(this, packs)
     }
 
     @Synchronized
@@ -109,13 +158,17 @@ class ResourcePackServer private constructor(
         check(!closed) { "Resource-pack server is closed" }
         require(id.matches(RESOURCE_PACK_ID_PATTERN)) { "Invalid resource-pack ID: '$id'" }
         check(id !in playerProviders) { "Player resource-pack provider '$id' is already active" }
+        ensureDisconnectListener()
+        val registration = PlayerPackProvider(id, provider)
+        playerProviders[id] = registration
+        return AutoCloseable { unregisterPlayerProvider(registration) }
+    }
+
+    private fun ensureDisconnectListener() {
         if (disconnectListener == null) {
             disconnectListener = EventListener.of(PlayerDisconnectEvent::class.java) { event -> releasePlayer(event.player.uuid) }
             MinecraftServer.getGlobalEventHandler().addListener(checkNotNull(disconnectListener))
         }
-        val registration = PlayerPackProvider(id, provider)
-        playerProviders[id] = registration
-        return AutoCloseable { unregisterPlayerProvider(registration) }
     }
 
     /** Used by AsyncPlayerConfigurationEvent, where building a personalized pack may block. */
@@ -148,6 +201,7 @@ class ResourcePackServer private constructor(
         includeBase: Boolean,
     ): PlayerPackRequest? {
         if (closed || !player.isOnline) return null
+        ensureDisconnectListener()
         // A skin refresh may supersede a hot-reload worker, but it must retain
         // that worker's obligation to publish the new shared stack as well.
         val request = PlayerPackRequest(includeBase || playerRequests[player.uuid]?.includeBase == true)
@@ -189,6 +243,10 @@ class ResourcePackServer private constructor(
                     return
                 }
                 val overlays = mutableListOf<ResourcePackInfo>()
+                val previousOverlays =
+                    providers.mapNotNull { provider ->
+                        provider.packs[player.uuid]?.let { resourcePackInfo(it, player.playerConnection.serverAddress) }
+                    }
                 val removed = mutableListOf<UUID>()
                 for ((provider, archive) in prepared) {
                     if (playerProviders[provider.id] !== provider) continue
@@ -215,13 +273,26 @@ class ResourcePackServer private constructor(
                                 previous?.retire()
                             }
                         }
-                    overlays += resourcePackInfo(pack, player.playerConnection.serverAddress)
+                    val info = resourcePackInfo(pack, player.playerConnection.serverAddress)
+                    overlays += info
                 }
                 // Sending under the lock makes the request token check and publication atomic.
                 // A newer skin request cannot be followed by a stale worker's packet.
                 if (removed.isNotEmpty()) player.removeResourcePacks(removed)
-                val base = if (request.includeBase) resourcePackInfos(player.playerConnection.serverAddress) else emptyList()
-                sendResourcePacks(player, base + overlays)
+                val base =
+                    if (request.includeBase) {
+                        val current = resourcePackInfos(player.playerConnection.serverAddress)
+                        val delta = resourcePackDelta(playerBasePacks[player.uuid].orEmpty(), current)
+                        if (delta.removed.isNotEmpty()) player.removeResourcePacks(delta.removed)
+                        playerBasePacks[player.uuid] = current
+                        delta
+                    } else {
+                        ResourcePackDelta(emptyList(), emptyList(), false)
+                    }
+                // Reassert every higher layer when the base stack changes; identical code
+                // reloads send neither base packs nor unchanged personalized overlays.
+                val overlayUpdates = resourcePackDelta(previousOverlays, overlays).updated
+                sendResourcePacks(player, base.updated + if (base.changed) overlays else overlayUpdates)
                 playerRequests.remove(player.uuid, request)
             }
         } finally {
@@ -237,6 +308,7 @@ class ResourcePackServer private constructor(
     @Synchronized
     private fun releasePlayer(uuid: UUID) {
         playerRequests.remove(uuid)
+        playerBasePacks.remove(uuid)
         for (provider in playerProviders.values) provider.packs.remove(uuid)?.retire()
     }
 
@@ -294,17 +366,6 @@ class ResourcePackServer private constructor(
         return URI("http", null, host, port, pack.path, null, null)
     }
 
-    @Synchronized
-    internal fun uninstall(packs: ModuleResourcePacks) {
-        if (activePacks[packs.moduleId] !== packs) return
-        activePacks.remove(packs.moduleId)
-        packRevision += 1
-        packs.hostedPack?.let { pack ->
-            pack.retire()
-            println("[ResourcePack] stopped serving ${pack.id}")
-        }
-    }
-
     override fun close() {
         val packs =
             synchronized(this) {
@@ -313,7 +374,8 @@ class ResourcePackServer private constructor(
                 disconnectListener?.let { MinecraftServer.getGlobalEventHandler().removeListener(it) }
                 disconnectListener = null
                 val packs =
-                    activePacks.values.mapNotNull(ModuleResourcePacks::hostedPack) + playerProviders.values.flatMap { it.packs.values }
+                    playerProviders.values.flatMap { it.packs.values }
+                activePacks.values.forEach(ModuleResourcePacks::close)
                 activePacks.clear()
                 playerProviders.values.forEach {
                     it.callback = null
@@ -321,6 +383,7 @@ class ResourcePackServer private constructor(
                 }
                 playerProviders.clear()
                 playerRequests.clear()
+                playerBasePacks.clear()
                 packs
             }
         var failure: Throwable? = null
@@ -386,6 +449,12 @@ class ResourcePackServer private constructor(
         }
     }
 
+    private data class PackKey(
+        val id: String,
+        val fingerprint: String?,
+        val external: List<Triple<UUID, URI, String>>,
+    )
+
     private class PlayerPackProvider(
         val id: String,
         var callback: ((Player) -> Map<String, ByteArray>?)?,
@@ -428,18 +497,60 @@ class ResourcePackServer private constructor(
     }
 }
 
-class ResourcePackRegistration internal constructor(
-    private val server: ResourcePackServer,
-    private val packs: ModuleResourcePacks,
-) : AutoCloseable {
-    override fun close() = server.uninstall(packs)
+internal data class ResourcePackDelta(
+    val removed: List<UUID>,
+    val updated: List<ResourcePackInfo>,
+    val changed: Boolean,
+)
+
+/** A changed lower layer must be followed by all higher layers to preserve stack precedence. */
+internal fun resourcePackDelta(
+    previous: List<ResourcePackInfo>,
+    current: List<ResourcePackInfo>,
+): ResourcePackDelta {
+    var prefix = 0
+    while (prefix < previous.size && prefix < current.size) {
+        val before = previous[prefix]
+        val after = current[prefix]
+        if (before.id() != after.id() || before.uri() != after.uri() || before.hash() != after.hash()) break
+        prefix += 1
+    }
+    return ResourcePackDelta(
+        previous.map(ResourcePackInfo::id) - current.map(ResourcePackInfo::id).toSet(),
+        current.drop(prefix),
+        prefix != previous.size || prefix != current.size,
+    )
 }
 
-internal data class ModuleResourcePacks(
+internal class ModuleResourcePacks(
     val moduleId: String,
     val hostedPack: ServedResourcePack?,
     val externalPacks: List<ResourcePackInfo>,
-)
+    private val released: (ModuleResourcePacks) -> Unit,
+) : AutoCloseable {
+    private var references = 1
+
+    fun retain(): ModuleResourcePacks = checkNotNull(tryRetain()) { "Resource pack has been released" }
+
+    @Synchronized
+    fun tryRetain(): ModuleResourcePacks? {
+        if (references == 0) return null
+        references += 1
+        return this
+    }
+
+    override fun close() {
+        val last =
+            synchronized(this) {
+                check(references > 0) { "Resource pack has already been released" }
+                --references == 0
+            }
+        if (last) {
+            released(this)
+            hostedPack?.retire()
+        }
+    }
+}
 
 internal class ServedResourcePack(
     val id: String,

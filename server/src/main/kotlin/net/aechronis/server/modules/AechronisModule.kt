@@ -14,6 +14,14 @@ interface AechronisModule {
     val reloadTogether: Set<String>
         get() = emptySet()
 
+    /**
+     * Dependencies holding stable configuration need restart only when its producing classes
+     * change. Inputs are exact JAR paths (including nested classes) or directory prefixes ending
+     * in '/'. Enable, disable and explicit restart still refresh these dependencies.
+     */
+    val reloadTogetherInputs: Map<String, Set<String>>
+        get() = emptyMap()
+
     /** Remote base packs placed before every module's automatically discovered embedded pack. */
     val externalResourcePacks: List<ResourcePackInfo>
         get() = emptyList()
@@ -28,6 +36,9 @@ interface AechronisModule {
     fun configure(context: ModuleContext) = Unit
 
     fun initialize(context: ModuleContext) = Unit
+
+    /** Refresh cached asset data after publication, without restarting gameplay or registrations. */
+    fun resourcePackChanged(context: ModuleContext) = Unit
 
     /**
      * Stops accepting mutable background work and waits for work already in flight to finish.

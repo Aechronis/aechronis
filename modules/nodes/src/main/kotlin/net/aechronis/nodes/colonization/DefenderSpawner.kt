@@ -52,7 +52,8 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
         session: DefenseSession,
         slot: AiDefenderSlot,
         guardPosition: Pos,
-    ): AiDefender {
+    ): AiDefender? {
+        val gun = slot.gun ?: return null
         val entity = EntityCreature(EntityType.MANNEQUIN)
         val defenderName = Component.text("${session.targetTown.name} Defender", NamedTextColor.RED)
         entity.setTag(EntityTags.TRANSIENT_ENTITY, true)
@@ -69,8 +70,8 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
         }
         val motor = PlayerLikeGroundFollower(entity)
         entity.navigator.setNodeFollower { motor }
-        entity.setEquipment(EquipmentSlot.MAIN_HAND, slot.gun.toItemStack())
-        val weapon = DefenderWeapon(slot.gun)
+        entity.setEquipment(EquipmentSlot.MAIN_HAND, gun.toItemStack())
+        val weapon = DefenderWeapon(gun)
         return AiDefender(
             entity = entity,
             brain = DefenderBrain(),
@@ -89,7 +90,7 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
         var changed = false
         session.slots.forEach { slot ->
             val defender = slot.defender ?: return@forEach
-            if (!defender.entity.isDead && !defender.entity.isRemoved) return@forEach
+            if (slot.gun != null && !defender.entity.isDead && !defender.entity.isRemoved) return@forEach
 
             defender.blockBreaker.stop(session.instance)
             defender.navigation.cancel()
@@ -113,7 +114,7 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
     ) {
         if (!sessions.isActive(session) || session.spawnPreparationInFlight) return
         val wave = session.slots
-            .filter { slot -> slot.defender == null && !slot.spawnPending && slot.respawnAtMillis <= now }
+            .filter { slot -> slot.gun != null && slot.defender == null && !slot.spawnPending && slot.respawnAtMillis <= now }
             .take(MAX_DEFENDER_SPAWNS_PER_WAVE)
             .map { slot ->
                 slot.spawnPending = true
@@ -217,7 +218,7 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
                         return@forEach
                     }
                     slot.spawnPending = false
-                    val defender = createDefender(session, slot, guardPosition)
+                    val defender = createDefender(session, slot, guardPosition) ?: return@forEach
                     slot.defender = defender
                     defender.navigation.retainChunkAt(spawn)
                     prepareDefenderSpawn(instance, session, slot, generation, defender, spawn)

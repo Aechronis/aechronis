@@ -41,6 +41,7 @@ import net.aechronis.combat.utils.combatDamageKind
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleEvents
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
@@ -53,6 +54,7 @@ import java.nio.file.Path
 
 object Combat {
     private var initialized = false
+    private var catalogueVehiclesNeedRestore = false
 
     var config: CombatConfig = CombatConfig()
         private set
@@ -254,12 +256,49 @@ object Combat {
     internal fun initializeVehiclePersistence(context: ModuleContext) {
         val vehiclePath = Path.of("combat", "vehicles.json")
         VehiclePersistence.initialize(vehiclePath, context.instance)
+        catalogueVehiclesNeedRestore = false
+    }
+
+    /** Release old definitions while keeping Combat's listeners, storage and dependency graph alive. */
+    fun prepareItemCatalogueReload() {
+        if (!initialized || catalogueVehiclesNeedRestore) return
+        VehiclePersistence.prepareForShutdown()
+        VehiclePersistence.save()
+        cancelAndClear(aimingResetTasks)
+        cancelAndClear(reloadTasks)
+        cancelAndClear(placeTasks)
+        cancelAndClear(grenadeFuseTasks)
+        armedGrenades.clear()
+        grenadeFuseDeadlines.clear()
+        Projectile.shutdown()
+        VehiclePersistence.shutdown()
+        TurretScope.shutdown()
+        ModelManager.shutdown()
+        GunAnimation.shutdown()
+        VehicleTickManager.shutdown()
+        playerAiming.clear()
+        ModuleScheduler.releaseCancelledTasks()
+        catalogueVehiclesNeedRestore = true
+    }
+
+    /** Recreate saved vehicles against the replacement catalogue after its items are registered. */
+    fun restoreItemCatalogue(context: ModuleContext) {
+        if (!initialized || !catalogueVehiclesNeedRestore) return
+        try {
+            initializeVehiclePersistence(context)
+        } catch (error: Throwable) {
+            // A partial spawn must not survive into rollback or overwrite the authoritative save.
+            runCatching(VehiclePersistence::shutdown).onFailure(error::addSuppressed)
+            catalogueVehiclesNeedRestore = true
+            throw error
+        }
     }
 
     /** Releases every piece of combat-owned runtime state without causing gameplay effects. */
     @Synchronized
     fun shutdown() {
         initialized = false
+        catalogueVehiclesNeedRestore = false
         val failures = ArrayList<Throwable>()
 
         cleanup(failures, "task cancellation") {

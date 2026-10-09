@@ -6,9 +6,7 @@ import net.aechronis.server.network.ServerNetwork
 import net.aechronis.server.network.ServerTransport
 import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.resourcepack.ModuleResourcePacks
-import net.aechronis.server.resourcepack.ResourcePackRegistration
 import net.aechronis.server.resourcepack.ResourcePackServer
-import net.kyori.adventure.resource.ResourcePackInfo
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
@@ -77,32 +75,64 @@ class ModuleContext(
         transientState.remove(key)
     }
 
-    /** Extraction, ZIP creation and hashing happen before any running module is stopped. */
+    private var startingModules: Set<String> = emptySet()
+
+    fun isModuleStarting(id: String): Boolean = id in startingModules
+
+    internal fun <T> withStartingModules(
+        ids: Set<String>,
+        action: () -> T,
+    ): T {
+        val previous = startingModules
+        startingModules = ids
+        return try {
+            action()
+        } finally {
+            startingModules = previous
+        }
+    }
+
+    /** Read the currently published assets, including asset-only updates to a surviving module. */
+    fun readResourcePackAsset(
+        moduleId: String,
+        path: String,
+    ): ByteArray? = resourcePackServer?.readAsset(moduleId, path)
+
+    /** Unchanged content reuses its prepared archive before extraction or ZIP creation. */
     internal fun prepareResourcePacks(
         artifact: ModuleArtifact,
         module: AechronisModule,
     ): ModuleResourcePacks? {
-        val staging =
-            resourcePackDirectory?.let { root ->
-                Files.createDirectories(root)
-                Files.createTempDirectory(root, ".module-${module.id}-")
-            } ?: artifact.directory.resolve("pack")
+        if (artifact.resourcePackFingerprint == null && module.externalResourcePacks.isEmpty()) return null
+        var staging: Path? = null
         return try {
-            val installed = EmbeddedResourcePack.installIfPresent(staging, module.javaClass)
-            if (installed == null && module.externalResourcePacks.isEmpty()) {
-                null
-            } else {
-                checkNotNull(resourcePackServer) { "Resource-pack server is unavailable" }
-                    .prepare(module.id, installed, module.externalResourcePacks)
-            }
+            checkNotNull(resourcePackServer) { "Resource-pack server is unavailable" }
+                .prepare(module.id, artifact.resourcePackFingerprint, module.externalResourcePacks) {
+                    if (artifact.resourcePackFingerprint == null) {
+                        null
+                    } else {
+                        val target =
+                            resourcePackDirectory?.let { root ->
+                                Files.createDirectories(root)
+                                Files.createTempDirectory(root, ".module-${module.id}-")
+                            } ?: artifact.directory.resolve("pack")
+                        staging = target
+                        EmbeddedResourcePack.install(target, artifact.jar)
+                    }
+                }
         } finally {
-            // The prepared archive owns a separate file; extracted assets are no longer needed.
-            deleteModuleTree(staging)
+            staging?.let(::deleteModuleTree)
         }
     }
 
-    internal fun installResourcePacks(packs: ModuleResourcePacks): ResourcePackRegistration =
-        checkNotNull(resourcePackServer).installPrepared(packs)
+    internal fun publishResourcePacks(
+        packs: List<ModuleResourcePacks>,
+        updateCachedAssets: () -> Unit = {},
+    ): Boolean =
+        resourcePackServer?.publish(packs, updateCachedAssets) ?: run {
+            updateCachedAssets()
+            false
+        }
 
     /** Close the registration during shutdown. Provider work participates in module quiescence. */
     fun registerPlayerResourcePack(
@@ -124,14 +154,6 @@ class ModuleContext(
     internal fun sendResourcePacksToOnlinePlayers() {
         val server = resourcePackServer ?: return
         MinecraftServer.getConnectionManager().onlinePlayers.forEach(server::sendResourcePacksAsync)
-    }
-
-    internal fun removeResourcePacksFromOnlinePlayers(moduleIds: Set<String>) {
-        val server = resourcePackServer ?: return
-        MinecraftServer.getConnectionManager().onlinePlayers.forEach { player ->
-            val packs = server.resourcePackInfos(player.playerConnection.serverAddress, moduleIds)
-            if (packs.isNotEmpty()) player.removeResourcePacks(packs.map(ResourcePackInfo::id))
-        }
     }
 
     /** Park the tick at a scheduler boundary, after the previous entity tick has finished. */

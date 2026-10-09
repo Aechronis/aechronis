@@ -55,6 +55,14 @@ object BlockRestoreManager {
     @Synchronized
     fun shutdown() {
         if (!initialized) return
+        flush()
+        initialized = false
+    }
+
+    /** Settle temporary changes before another module tears down structures, while staying active. */
+    @Synchronized
+    fun flush() {
+        if (!initialized) return
         scheduled.values.forEach(Task::cancel)
         scheduled.clear()
         // Restores remove themselves from pending as they complete (see restore()'s handling of
@@ -62,7 +70,7 @@ object BlockRestoreManager {
         // remaining entries and initialized state so coordinated teardown can retry.
         restoreAllImmediately()
         pending.clear()
-        initialized = false
+        ModuleScheduler.releaseCancelledTasks()
     }
 
     fun temporarilyBreakLeaf(

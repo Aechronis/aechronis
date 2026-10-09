@@ -1,7 +1,10 @@
 package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
+import net.aechronis.combat.listeners.HatListener
+import net.aechronis.server.modules.ModuleResources
 import net.kyori.adventure.text.Component
+import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
@@ -48,7 +51,19 @@ class Hat(
         val registeredHats = ConcurrentHashMap<String, Hat>()
 
         fun registerHats(vararg hats: Hat) {
+            require(hats.map { it.name }.distinct().size == hats.size) { "Duplicate names in hat catalogue" }
+            require(hats.none { registeredHats.containsKey(it.name) }) { "A hat name is already registered" }
             hats.forEach { registeredHats[it.name] = it }
+            ModuleResources.own(
+                AutoCloseable {
+                    hats.forEach { registeredHats.remove(it.name, it) }
+                    // Disabling a catalogue also restores helmets when no replacement starts.
+                    MinecraftServer.getConnectionManager().onlinePlayers.forEach { player ->
+                        HatListener.refresh(player)
+                        player.inventory.update()
+                    }
+                },
+            )
         }
 
         fun getFromName(name: String): Hat? = registeredHats[name]

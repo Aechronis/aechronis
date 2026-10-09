@@ -127,7 +127,7 @@ internal class DefenderBlockBreaker(
     fun stop(instance: Instance) {
         clearAnimation(instance)
         action = null
-        if (!entity.isRemoved) entity.setEquipment(EquipmentSlot.MAIN_HAND, weapon.gun.toItemStack())
+        if (!entity.isRemoved) entity.setEquipment(EquipmentSlot.MAIN_HAND, weapon.gun?.toItemStack() ?: ItemStack.AIR)
     }
 
     private fun setAnimation(
