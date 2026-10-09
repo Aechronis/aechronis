@@ -558,14 +558,6 @@ object Boats {
                 }
                 for (x in listOf(5.95, 10.05)) rail(Vec(x, 3.71, 7.2), Vec(x, 3.71, 10.35), 0.3)
 
-                // Passenger benches leave the middle aisle and the gaps between rows open.
-                val benchRows = (0..4).map { -5.35 + it * 2.05 } + (0..5).map { 15.9 + it * 1.95 }
-                for ((minX, maxX) in listOf(6.34 to 7.08, 8.92 to 9.66)) {
-                    for (z in benchRows) {
-                        surface(minX, maxX, z, z + 0.55, 1.65, 0.5)
-                        rail(Vec(minX, 2.0, z + 0.515), Vec(maxX, 2.0, z + 0.515), 0.18)
-                    }
-                }
                 solid(7.86, 1.18, 28.78, 8.14, 1.96, 29.02)
             }.build()
 
