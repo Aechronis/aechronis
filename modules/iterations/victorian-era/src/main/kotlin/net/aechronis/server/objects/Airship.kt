@@ -16,6 +16,7 @@ import net.minestom.server.entity.Player
 class Airship(
     name: String,
     itemName: Component,
+    model: String,
     scale: Double,
     hitbox: Hitbox,
     health: Health,
@@ -29,6 +30,8 @@ class Airship(
 ) : Balloon(
         name = name,
         itemName = itemName,
+        itemModel = model,
+        model = model,
         scale = scale,
         hitbox = hitbox,
         health = health,

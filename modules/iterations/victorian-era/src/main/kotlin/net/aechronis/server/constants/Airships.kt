@@ -1,7 +1,5 @@
 package net.aechronis.server.constants
 
-import net.aechronis.combat.objects.AmmoTypes
-import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.ShulkerHitbox
@@ -14,73 +12,70 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
 
+/**
+ * Both ships are walkable: the crew stands on a one-cube floor and the hull is not solid, since a
+ * solid hull this size exceeds the shulker limit. Numbers are blocks relative to the model centre,
+ * with +z as the bow; flip the signs of z if a model faces the other way.
+ */
 object Airships {
-    /**
-     * Both use the placeholder "zeppelin" model: 16 pixels long at scale 16 = 16 blocks, envelope above,
-     * a flat deck below. Layout numbers are in blocks at scale 16 and shrink with [scale].
-     */
-    private fun build(
-        name: String,
-        title: String,
-        scale: Double,
-        hp: Float,
-        gunners: Int,
-        speed: Double,
-        coal: Int,
-        crashHits: Int,
-    ): Airship {
-        val s = scale / 16.0
-        val envelope = HitboxPart(offset = Vec(0.0, 3.5 * s, 0.0), size = Vec(3.0 * s, 3.5 * s, 8.0 * s))
-        val deck = HitboxPart(offset = Vec(0.0, -4.5 * s, 0.0), size = Vec(2.5 * s, 0.5 * s, 6.0 * s))
-        // The envelope sits 4 blocks above the deck so jumping never hits it; the crew walks on a one-cube floor.
-        val floor =
-            (-2..2).flatMap { x -> (-5..5).map { z -> ShulkerHitboxPart(Vec(x * s, -4.5 * s, z * s), s) } }
-        return Airship(
-            name = name,
-            itemName = Component.text(title, NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            scale = scale,
-            hitbox = Hitbox(listOf(envelope, deck)),
-            health =
-                Health(
-                    hp,
-                    mapOf(
-                        AmmoTypes.NORMAL to RIFLE_HIT,
-                        AmmoTypes.EXPLOSIVE to hp / 20,
-                        AmmoTypes.BOMB to hp / 10,
-                        AmmoTypes.MISSILE to hp / 10,
+    private fun title(name: String) = Component.text(name, NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false)
+
+    private fun gunnerSeats(
+        x: Double,
+        y: Double,
+        count: Int,
+    ) = listOf(
+        VehicleSeat("gun-starboard", "Starboard gunner", VehicleSeatRole.GUNNER, Vec(x, y, 0.0), weaponId = "maxim-starboard"),
+        VehicleSeat("gun-port", "Port gunner", VehicleSeatRole.GUNNER, Vec(-x, y, 0.0), weaponId = "maxim-port"),
+    ).take(count)
+
+    // Model "lz1": 1 unit = 1 block. A 44 block long, 5 wide, 7 tall hull with a keel walkway.
+    val zeppelin =
+        Airship(
+            name = "zeppelin",
+            itemName = title("Zeppelin"),
+            model = "aechronis:lz1",
+            scale = 16.0,
+            hitbox = Hitbox(listOf(HitboxPart(offset = Vec.ZERO, size = Vec(2.3, 3.4, 21.9)))),
+            health = vehicleHealth(rifleShots = 200, shells = 20, bombs = 10),
+            collisionHitbox =
+                ShulkerHitbox(
+                    (-1..1).flatMap { x ->
+                        (-21..21).map { z -> ShulkerHitboxPart(Vec(x.toDouble(), -3.0, z.toDouble()), 1.0) }
+                    },
+                ),
+            seats =
+                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -2.45, 18.0), standing = true)) +
+                    gunnerSeats(x = 1.2, y = -2.2, count = 2),
+            gun = FieldPieces.maximGunWeapon,
+            horizontalSpeed = 0.2,
+            maxFuel = 20 * COAL_FUEL,
+            crashHits = 30,
+        )
+
+    // Model "dupuy-de-lome": 1 unit = 0.75 blocks. A 33 block long envelope over a 4 wide, 12 long gondola.
+    val airship =
+        Airship(
+            name = "airship",
+            itemName = title("Airship"),
+            model = "aechronis:dupuy-de-lome",
+            scale = 12.0,
+            hitbox =
+                Hitbox(
+                    listOf(
+                        HitboxPart(offset = Vec(0.0, 7.9, 0.0), size = Vec(6.8, 6.4, 16.3)),
+                        HitboxPart(offset = Vec(0.0, -10.9, 0.4), size = Vec(1.95, 3.4, 6.0)),
                     ),
                 ),
-            collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(envelope))).parts + floor),
-            seats = seats(s, gunners),
+            health = vehicleHealth(rifleShots = 80, shells = 20, bombs = 10),
+            collisionHitbox =
+                ShulkerHitbox((-2..2).flatMap { x -> (-7..8).map { z -> ShulkerHitboxPart(Vec(x * 0.75, -14.0, z * 0.75), 0.75) } }),
+            seats =
+                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -13.6, 5.0), standing = true)) +
+                    gunnerSeats(x = 1.4, y = -13.3, count = 1),
             gun = FieldPieces.maximGunWeapon,
-            horizontalSpeed = speed,
-            maxFuel = coal * COAL_FUEL,
-            crashHits = crashHits,
+            horizontalSpeed = 0.25,
+            maxFuel = 10 * COAL_FUEL,
+            crashHits = 12,
         )
-    }
-
-    /** A standing pilot at the bow and Maxim gunners at the sides; everyone else just stands on the deck. */
-    private fun seats(
-        s: Double,
-        gunners: Int,
-    ): List<VehicleSeat> =
-        listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -3.95 * s, 5.0 * s), standing = true)) +
-            listOf(
-                VehicleSeat(
-                    "gun-starboard",
-                    "Starboard gunner",
-                    VehicleSeatRole.GUNNER,
-                    Vec(2.0 * s, -3.7 * s, 0.0),
-                    weaponId = "maxim-starboard",
-                ),
-                VehicleSeat("gun-port", "Port gunner", VehicleSeatRole.GUNNER, Vec(-2.0 * s, -3.7 * s, 0.0), weaponId = "maxim-port"),
-            ).take(gunners)
-
-    // 200 rifle shots
-    val zeppelin =
-        build("zeppelin", "Zeppelin", scale = 16.0, hp = 200 * RIFLE_HIT, gunners = 2, speed = 0.2, coal = 20, crashHits = 30)
-
-    // small cheaper cousin: 80 rifle shots, one gunner
-    val airship =
-        build("airship", "Airship", scale = 10.0, hp = 80 * RIFLE_HIT, gunners = 1, speed = 0.25, coal = 10, crashHits = 12)
 }

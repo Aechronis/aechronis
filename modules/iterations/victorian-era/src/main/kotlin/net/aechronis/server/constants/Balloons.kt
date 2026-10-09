@@ -20,36 +20,52 @@ internal const val RIFLE_HIT = 47F
 /** Ticks of flight one piece of coal buys (45 seconds); matches Balloon.coalFuel. */
 internal const val COAL_FUEL = 900
 
+/** Health that dies to [rifleShots] rifle hits, [shells] artillery shells or [bombs] bombs/missiles. */
+internal fun vehicleHealth(
+    rifleShots: Int,
+    shells: Int,
+    bombs: Int,
+): Health {
+    val total = rifleShots * RIFLE_HIT
+    return Health(
+        total,
+        mapOf(
+            AmmoTypes.NORMAL to RIFLE_HIT,
+            AmmoTypes.EXPLOSIVE to total / shells,
+            AmmoTypes.BOMB to total / bombs,
+            AmmoTypes.MISSILE to total / bombs,
+        ),
+    )
+}
+
 object Balloons {
-    // Placeholder model is 16 pixels tall at scale 6.0: envelope above, basket below, origin at the model centre.
-    private val envelope = HitboxPart(offset = Vec(0.0, 1.875, 0.0), size = Vec(2.2, 1.125, 2.2))
-    private val basket = HitboxPart(offset = Vec(0.0, -2.25, 0.0), size = Vec(1.1, 0.75, 1.1))
-    private val hotAirBalloonHitbox = Hitbox(listOf(envelope, basket))
+    // Model "parisian-ballons-montes": 1 model unit = SCALE / 16 blocks, origin at the model centre.
+    // Numbers below are blocks relative to that origin. The basket is 8 units wide, the envelope 27.
+    private const val SCALE = 5.0
+    private const val FLOOR_TOP = -6.3
+
+    private val skirt = HitboxPart(offset = Vec(0.0, -0.47, 0.0), size = Vec(3.1, 0.78, 3.1))
+    private val body = HitboxPart(offset = Vec(0.0, 2.66, 0.0), size = Vec(4.2, 2.35, 4.2))
+    private val crown = HitboxPart(offset = Vec(0.0, 5.78, 0.0), size = Vec(2.5, 0.78, 2.5))
+    private val basket = HitboxPart(offset = Vec(0.0, -5.5, 0.0), size = Vec(1.25, 1.0, 1.25))
+
+    // Solid envelope plus a thin floor; the basket itself stays open to stand in.
     private val basketFloor =
-        (-2..2).flatMap { x -> (-2..2).map { z -> ShulkerHitboxPart(Vec(x * 0.5, -2.75, z * 0.5), 0.5) } }
+        (-4..4).flatMap { x -> (-4..4).map { z -> ShulkerHitboxPart(Vec(x * 0.25, FLOOR_TOP - 0.125, z * 0.25), 0.25) } }
 
     val hotAirBalloon =
         Balloon(
             name = "hot-air-balloon",
             itemName = Component.text("Hot Air Balloon", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
-            scale = 6.0,
-            hitbox = hotAirBalloonHitbox,
-            // 20 rifle shots
-            health =
-                Health(
-                    20 * RIFLE_HIT,
-                    mapOf(
-                        AmmoTypes.NORMAL to RIFLE_HIT,
-                        AmmoTypes.EXPLOSIVE to 10 * RIFLE_HIT,
-                        AmmoTypes.BOMB to 20 * RIFLE_HIT,
-                        AmmoTypes.MISSILE to 20 * RIFLE_HIT,
-                    ),
-                ),
+            itemModel = "aechronis:parisian-ballons-montes",
+            model = "aechronis:parisian-ballons-montes",
+            scale = SCALE,
+            hitbox = Hitbox(listOf(skirt, body, crown, basket)),
+            health = vehicleHealth(rifleShots = 20, shells = 2, bombs = 1),
             // holds 10 coal
             maxFuel = 10 * COAL_FUEL,
-            // the pilot stands by the burner; up to three more people stand in the basket
-            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.6, -2.45, 0.6), standing = true)),
-            // solid envelope and a thin basket floor; the basket itself stays open to stand in
-            collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(envelope))).parts + basketFloor),
+            // the pilot stands in the basket corner; up to three more people stand beside them
+            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.7, FLOOR_TOP + 0.05, 0.7), standing = true)),
+            collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(skirt, body, crown))).parts + basketFloor),
         )
 }
