@@ -52,7 +52,7 @@ dependencies {
     grimMinestom("net.aechronis:grim-minestom:2.3.74-minestom.4") {
         isTransitive = false
     }
-    implementation("net.minestom:minestom:2026.09.12-26.2")
+    implementation("net.minestom:minestom:2026.10.05-26.2")
     // Shared socket types also serve Votifier and PacketEvents. Keep one compatible Netty
     // runtime in core while the protocol engines and all Via state live in their module.
     implementation(platform("io.netty:netty-bom:4.2.18.Final"))

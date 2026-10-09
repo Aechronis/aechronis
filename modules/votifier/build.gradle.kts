@@ -14,7 +14,7 @@ dependencies {
     compileOnly(project(":server"))
     compileOnly(project(":modules:gems"))
     compileOnly(project(":modules:vanilla"))
-    compileOnly("net.minestom:minestom:2026.09.12-26.2")
+    compileOnly("net.minestom:minestom:2026.10.05-26.2")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     add("moduleImplementation", "com.github.NuVotifier.NuVotifier:nuvotifier-api:2.7.1") {
         exclude(group = "io.netty")
