@@ -45,7 +45,7 @@ object Airships {
                     },
                 ),
             seats =
-                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -2.45, 18.0), standing = true)) +
+                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -2.2, 18.0))) +
                     gunnerSeats(x = 1.2, y = -2.2, count = 2),
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.2,
@@ -69,10 +69,10 @@ object Airships {
                 ),
             health = vehicleHealth(rifleShots = 80, shells = 20, bombs = 10),
             collisionHitbox =
-                ShulkerHitbox((-2..2).flatMap { x -> (-7..8).map { z -> ShulkerHitboxPart(Vec(x * 0.75, -14.0, z * 0.75), 0.75) } }),
+                ShulkerHitbox((-2..2).flatMap { x -> (-7..8).map { z -> ShulkerHitboxPart(Vec(x * 0.75, -12.475, z * 0.75), 0.75) } }),
             seats =
-                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -13.6, 5.0), standing = true)) +
-                    gunnerSeats(x = 1.4, y = -13.3, count = 1),
+                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -11.8, 5.0))) +
+                    gunnerSeats(x = 1.4, y = -11.8, count = 1),
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.25,
             maxFuel = 10 * COAL_FUEL,

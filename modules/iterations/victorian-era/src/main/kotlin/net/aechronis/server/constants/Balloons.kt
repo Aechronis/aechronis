@@ -42,7 +42,7 @@ object Balloons {
     // Model "parisian-ballons-montes": 1 model unit = SCALE / 16 blocks, origin at the model centre.
     // Numbers below are blocks relative to that origin. The basket is 8 units wide, the envelope 27.
     private const val SCALE = 5.0
-    private const val FLOOR_TOP = -6.3
+    private const val FLOOR_TOP = -4.8
 
     private val skirt = HitboxPart(offset = Vec(0.0, -0.47, 0.0), size = Vec(3.1, 0.78, 3.1))
     private val body = HitboxPart(offset = Vec(0.0, 2.66, 0.0), size = Vec(4.2, 2.35, 4.2))
@@ -64,8 +64,8 @@ object Balloons {
             health = vehicleHealth(rifleShots = 20, shells = 2, bombs = 1),
             // holds 10 coal
             maxFuel = 10 * COAL_FUEL,
-            // the pilot stands in the basket corner; up to three more people stand beside them
-            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.7, FLOOR_TOP + 0.05, 0.7), standing = true)),
+            // the pilot sits in the basket corner; up to three more people stand beside them
+            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.7, FLOOR_TOP + 0.3, 0.7))),
             collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(skirt, body, crown))).parts + basketFloor),
         )
 }
