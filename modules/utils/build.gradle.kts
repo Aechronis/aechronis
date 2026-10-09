@@ -5,5 +5,5 @@ plugins {
 
 dependencies {
     compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.09.12-26.2")
+    compileOnly("net.minestom:minestom:2026.10.05-26.2")
 }
