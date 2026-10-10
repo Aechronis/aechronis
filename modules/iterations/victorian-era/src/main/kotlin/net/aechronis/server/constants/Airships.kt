@@ -33,16 +33,19 @@ object Airships {
         }
 
     // Model "lz1": 1 unit = SIZE blocks, chosen so the two hanging gondola cabins (0.65 units tall) are 2 blocks
-    // tall: the hull is then about 132 blocks long. The crew walks inside the hull; numbers are the marker
-    // positions (in units) times SIZE.
+    // tall: the hull is then about 132 blocks long. The crew stands on the two cabin platforms (bow and stern),
+    // which sit 10 blocks under the model centre. Numbers are model units times SIZE.
     private const val ZEPPELIN_SIZE = 3.0
-    private const val ZEPPELIN_FLOOR = -2.1 * ZEPPELIN_SIZE
-    private const val ZEPPELIN_SEAT = -1.8 * ZEPPELIN_SIZE
+    private const val ZEPPELIN_FLOOR = -3.22 * ZEPPELIN_SIZE
+    private const val BOW_CABIN_Z = 12.0 * ZEPPELIN_SIZE
+    private const val STERN_CABIN_Z = -12.3 * ZEPPELIN_SIZE
+
+    private fun platform(centerZ: Double) = deckFloor(-1.0, 1.0, centerZ - 3.5, centerZ + 3.5, ZEPPELIN_FLOOR, cube = 0.5)
 
     private fun zeppelinSpot(
         x: Double,
         z: Double,
-    ) = Vec(x * ZEPPELIN_SIZE, ZEPPELIN_SEAT, z * ZEPPELIN_SIZE)
+    ) = Vec(x, ZEPPELIN_FLOOR + 0.3, z)
 
     val zeppelin =
         Airship(
@@ -52,29 +55,19 @@ object Airships {
             scale = 16.0 * ZEPPELIN_SIZE,
             hitbox = Hitbox(listOf(HitboxPart(offset = Vec.ZERO, size = Vec(2.3, 3.4, 21.9).mul(ZEPPELIN_SIZE)))),
             health = vehicleHealth(rifleShots = 200, shells = 20, bombs = 10),
-            collisionHitbox =
-                ShulkerHitbox(
-                    deckFloor(
-                        -1.5 * ZEPPELIN_SIZE,
-                        1.5 * ZEPPELIN_SIZE,
-                        -12.0 * ZEPPELIN_SIZE,
-                        12.0 * ZEPPELIN_SIZE,
-                        ZEPPELIN_FLOOR,
-                        cube = 1.5,
-                    ),
-                ),
+            collisionHitbox = ShulkerHitbox(platform(BOW_CABIN_Z) + platform(STERN_CABIN_Z)),
             seats =
-                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, zeppelinSpot(0.0, 6.0))) +
+                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, zeppelinSpot(0.0, BOW_CABIN_Z + 2.4))) +
                     listOf(
-                        gunner("starboard", "Starboard gunner", zeppelinSpot(-1.2, 0.0)),
-                        gunner("port", "Port gunner", zeppelinSpot(1.2, 0.0)),
+                        gunner("starboard", "Starboard gunner", zeppelinSpot(-0.45, BOW_CABIN_Z)),
+                        gunner("port", "Port gunner", zeppelinSpot(0.45, BOW_CABIN_Z - 1.0)),
                     ) +
                     riders(
-                        zeppelinSpot(-0.9, -5.0),
-                        zeppelinSpot(0.9, -5.0),
-                        zeppelinSpot(-0.9, -9.0),
-                        zeppelinSpot(0.9, -9.0),
-                        zeppelinSpot(0.0, 3.0),
+                        zeppelinSpot(0.0, STERN_CABIN_Z + 2.4),
+                        zeppelinSpot(0.0, STERN_CABIN_Z + 1.2),
+                        zeppelinSpot(0.0, STERN_CABIN_Z),
+                        zeppelinSpot(0.0, STERN_CABIN_Z - 1.2),
+                        zeppelinSpot(0.0, STERN_CABIN_Z - 2.4),
                     ),
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.2,

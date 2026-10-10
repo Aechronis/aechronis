@@ -273,6 +273,8 @@ open class Vehicle(
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(model)
         meta.posRotInterpolationDuration = 3
         meta.scale = modelScale
+        // huge models would otherwise be culled once the viewer is more than 64 blocks from the model centre
+        meta.viewRange = 10f
         meta.isHasNoGravity = true
 
         entity.spawn()
