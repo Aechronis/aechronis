@@ -88,7 +88,11 @@ data class ResourceNode(
         internal fun fromName(name: String): ResourceNode? = resourceNodes[name]
 
         internal fun loadRegistry(json: JsonObject) {
-            resourceNodes.putAll(loadFromJson(json))
+            install(loadFromJson(json))
+        }
+
+        internal fun install(resources: Map<String, ResourceNode>) {
+            resourceNodes.putAll(resources)
         }
 
         fun count(): Int = resourceNodes.size

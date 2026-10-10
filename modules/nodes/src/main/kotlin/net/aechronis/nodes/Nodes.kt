@@ -406,6 +406,14 @@ object Nodes {
     }
 
     internal fun loadTerritories(json: JsonObject, ids: List<TerritoryId>? = null) {
+        prepareTerritories(json, ids).forEach(Territory::install)
+    }
+
+    private fun prepareTerritories(
+        json: JsonObject,
+        ids: List<TerritoryId>? = null,
+        resourceNode: (String) -> ResourceNode? = ResourceNode::fromName,
+    ): List<Territory> {
         val preprocessing = TerritoryPreprocessing.loadFromJson(json, ids)
         val graph = HashMap<TerritoryId, TerritoryResources>()
         if (ids != null) {
@@ -422,13 +430,13 @@ object Nodes {
             }
             neighbors.forEach { id ->
                 Territory.fromId(id)?.let { territory ->
-                    val resources = territory.resourceNodes.map { ResourceNode.fromName(it) ?: error("Resource node '$it' does not exist (for territory id=${territory.id})") }.sortedBy { it.priority }
+                    val resources = territory.resourceNodes.map { resourceNode(it) ?: error("Resource node '$it' does not exist (for territory id=${territory.id})") }.sortedBy { it.priority }
                     graph[id] = resources.fold(config.globalResources.copy()) { current, resource -> resource.apply(current) }
                 }
             }
         }
         preprocessing.forEach { territory ->
-            val resources = territory.resourceNodes.map { ResourceNode.fromName(it) ?: error("Resource node '$it' does not exist (for territory id=${territory.id})") }.sortedBy { it.priority }
+            val resources = territory.resourceNodes.map { resourceNode(it) ?: error("Resource node '$it' does not exist (for territory id=${territory.id})") }.sortedBy { it.priority }
             graph[territory.id] = resources.fold(config.globalResources.copy()) { current, resource -> resource.apply(current) }
         }
         val toBuild = if (ids == null) {
@@ -448,23 +456,47 @@ object Nodes {
             }
             graph[territory.id] = resources
         }
-        toBuild.forEach { data ->
+        return toBuild.mapNotNull { data ->
             if (!data.chunks.contains(data.core)) {
                 println("[Nodes] Territory ${data.id} chunk does not contain core")
-                return@forEach
+                return@mapNotNull null
             }
             val resources = graph[data.id]!!.applyNeighborModifiers()
-            val names = data.resourceNodes.sortedBy { ResourceNode.fromName(it)!!.priority }
-            val territory = Territory(data.id, data.name, data.color, data.core, data.chunks, data.bordersWilderness, data.neighbors, names, resources.income, OreSampler(ArrayList(resources.ores.values)), resources.attackerTimeMultiplier, resources.defenderTimeMultiplier)
-            Territory.install(territory)
+            val names = data.resourceNodes.sortedBy { resourceNode(it)!!.priority }
+            Territory(data.id, data.name, data.color, data.core, data.chunks, data.bordersWilderness, data.neighbors, names, resources.income, OreSampler(ArrayList(resources.ores.values)), resources.attackerTimeMultiplier, resources.defenderTimeMultiplier)
         }
     }
 
     internal fun loadWorld(): Boolean {
         synchronized(occupationPersistenceLock) {
-            // Reloads can also fail after clearing registries; keep their partial state off disk.
+            // A failed reload must never make its source files eligible for saving.
             worldLoaded = false
         }
+        // Parse and validate replacement data before stopping any runtime users of the current world.
+        val world = if (Files.notExists(config.pathWorld)) {
+            println("[Nodes] No world definition found at ${config.pathWorld}; starting without resource nodes or territories")
+            null
+        } else {
+            Deserializer.worldFromJson(config.pathWorld)
+        }
+        val resources = world?.resources?.let(ResourceNode::loadFromJson).orEmpty()
+        val territories = world?.territories?.let { prepareTerritories(it, resourceNode = resources::get) }.orEmpty()
+        val towns = if (Files.notExists(config.pathTowns)) {
+            System.err.println("No towns found: ${config.pathTowns}")
+            null
+        } else {
+            Deserializer.townsFromJson(config.pathTowns).prepare(territories)
+        }
+        val buildings = if (towns == null) {
+            // As before, a missing towns file starts an empty world without loading buildings or war state.
+            emptyList()
+        } else if (Files.notExists(config.pathBuildings)) {
+            System.err.println("No buildings found: ${config.pathBuildings}")
+            emptyList()
+        } else {
+            Deserializer.buildingsFromJson(config.pathBuildings)
+        }
+
         FlagWar.resetForReload()
         Warzone.resetForReload()
         Colonization.resetForReload()
@@ -480,30 +512,17 @@ object Nodes {
             Nation.clearRegistry()
             Resident.clearRegistry()
             Building.clearRegistry()
-            if (Files.notExists(config.pathWorld)) {
-                println("[Nodes] No world definition found at ${config.pathWorld}; starting without resource nodes or territories")
-            } else {
-                val (resources, territoriesJson) = Deserializer.worldFromJson(config.pathWorld)
-                if (resources != null) loadResources(resources)
-                if (territoriesJson != null) loadTerritories(territoriesJson)
+            ResourceNode.install(resources)
+            territories.forEach(Territory::install)
+            if (towns != null) {
+                towns.install()
+                Resident.all().forEach { it.getSaveState() }
+                Town.all().forEach { it.getSaveState() }
+                Nation.all().forEach { it.getSaveState() }
+                FlagWar.load()
+                Warzone.load()
+                buildings.forEach(Building::register)
             }
-            if (Files.notExists(config.pathTowns)) {
-                System.err.println("No towns found: ${config.pathTowns}")
-                loaded = true
-                return true
-            }
-            Deserializer.townsFromJson(config.pathTowns)
-            Resident.all().forEach { it.getSaveState() }
-            Town.all().forEach { it.getSaveState() }
-            Nation.all().forEach { it.getSaveState() }
-            FlagWar.load()
-            Warzone.load()
-            if (Files.notExists(config.pathBuildings)) {
-                System.err.println("No buildings found: ${config.pathBuildings}")
-                loaded = true
-                return true
-            }
-            Deserializer.buildingsFromJson(config.pathBuildings)
             Building.all().forEach { it.getSaveState() }
             loaded = true
             return true

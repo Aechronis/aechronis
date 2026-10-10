@@ -125,11 +125,16 @@ object MiningBoostManager {
     @Synchronized
     fun getSaveState(): MiningBoostSaveState = MiningBoostSaveState(haste.toSaveState(), miningBoost.toSaveState())
 
-    /** Load the optional global boost object from towns.json. */
+    /** Decode the optional global boost object without changing the active boosts. */
+    internal fun decode(json: JsonObject?): MiningBoostSaveState = MiningBoostSaveState(
+        (json?.get("haste") as? JsonObject)?.toActiveBoost(HASTE_MAX_MULTIPLIER).toSaveState(),
+        (json?.get("boost") as? JsonObject)?.toActiveBoost(MINING_BOOST_MAX_MULTIPLIER).toSaveState(),
+    )
+
     @Synchronized
-    fun load(json: JsonObject?) {
-        haste = (json?.get("haste") as? JsonObject)?.toActiveBoost(HASTE_MAX_MULTIPLIER)
-        miningBoost = (json?.get("boost") as? JsonObject)?.toActiveBoost(MINING_BOOST_MAX_MULTIPLIER)
+    internal fun load(state: MiningBoostSaveState) {
+        haste = state.haste?.let { ActiveBoost(it.multiplier, it.startedAt, it.expiresAt) }
+        miningBoost = state.boost?.let { ActiveBoost(it.multiplier, it.startedAt, it.expiresAt) }
         expire(System.currentTimeMillis())
     }
 
