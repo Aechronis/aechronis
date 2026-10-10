@@ -6,7 +6,6 @@ import com.cronutils.model.time.ExecutionTime
 import com.cronutils.parser.CronParser
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.listeners.KothListener
 import net.aechronis.vanilla.objects.KothZone
@@ -24,7 +23,6 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -87,16 +85,21 @@ object Koth {
     private val captureGlowPreviousStates = mutableMapOf<UUID, Boolean>()
     private val captureGlowPlayers = mutableMapOf<UUID, Player>()
     private val cronParser = CronParser(CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX))
-    private lateinit var file: Path
+    private val storage = JsonRegistryFile("KOTHs")
 
     private const val ANNOUNCEMENT_INTERVAL_MS = 10 * 60 * 1000L
     private const val TRANSIENT_STATE_VERSION = 1
     private const val MAX_TRANSIENT_ENTRIES = 4096
 
     fun init(path: Path) {
-        file = path
-        Files.createDirectories(path.parent)
-        load()
+        storage.load(path, definitions) { contents ->
+            val loaded = linkedMapOf<String, SavedKoth>()
+            Json.decodeFromString<List<SavedKoth>>(contents).forEach { entry ->
+                if (valid(entry) && loaded.putIfAbsent(entry.name, entry) == null) return@forEach
+                System.err.println("Skipping invalid or duplicate KOTH '${entry.name}' in $path")
+            }
+            loaded
+        }
         KothListener.init()
         ModuleScheduler
             .buildTask(::scheduledTick)
@@ -209,6 +212,7 @@ object Koth {
         displayRadiusBlocks: Double,
     ): Boolean {
         if (
+            !storage.canSave ||
             name.isBlank() ||
             name in definitions ||
             captureSeconds <= 0 ||
@@ -224,7 +228,7 @@ object Koth {
     }
 
     fun remove(name: String): Boolean {
-        if (name !in definitions || name in active) return false
+        if (!storage.canSave || name !in definitions || name in active) return false
         definitions.remove(name)
         scheduledRuns.remove(name)
         save()
@@ -236,6 +240,7 @@ object Koth {
         player: Player,
         first: Boolean,
     ): Boolean {
+        if (!storage.canSave) return false
         val saved = definitions[name] ?: return false
         val instance = player.instance ?: return false
         val world = instance.getDimensionName()
@@ -252,6 +257,7 @@ object Koth {
         name: String,
         command: String,
     ): Boolean {
+        if (!storage.canSave) return false
         val saved = definitions[name] ?: return false
         val normalized = command.trim().removePrefix("/").trim()
         if (normalized.isBlank()) return false
@@ -264,6 +270,7 @@ object Koth {
         name: String,
         index: Int,
     ): Boolean {
+        if (!storage.canSave) return false
         val saved = definitions[name] ?: return false
         if (index !in saved.rewardCommands.indices) return false
         saved.rewardCommands.removeAt(index)
@@ -277,6 +284,7 @@ object Koth {
         name: String,
         expression: String,
     ): Boolean {
+        if (!storage.canSave) return false
         val saved = definitions[name] ?: return false
         val normalized = normalizeSchedule(expression) ?: return false
         if (normalized in saved.schedules) return false
@@ -289,6 +297,7 @@ object Koth {
         name: String,
         expression: String,
     ): Boolean {
+        if (!storage.canSave) return false
         val saved = definitions[name] ?: return false
         val normalized = normalizeSchedule(expression) ?: return false
         val removed = saved.schedules.remove(normalized)
@@ -580,24 +589,8 @@ object Koth {
         return Definition(saved, instance, KothZone(BlockVec(first.x, first.y, first.z), BlockVec(second.x, second.y, second.z)))
     }
 
-    private fun load() {
-        definitions.clear()
-        if (!Files.exists(file)) return
-        runCatching {
-            Json.decodeFromString<List<SavedKoth>>(Files.readString(file))
-        }.onSuccess { saved ->
-            saved.forEach { entry ->
-                if (valid(entry) && definitions.putIfAbsent(entry.name, entry) == null) return@forEach
-                System.err.println("Skipping invalid or duplicate KOTH '${entry.name}' in $file")
-            }
-        }.onFailure { error ->
-            System.err.println("Failed to load KOTHs from $file: ${error.message}")
-        }
-    }
-
     private fun save() {
-        if (!::file.isInitialized) return
-        AtomicFiles.write(file, preservePermissions = true) { writer -> writer.write(Json.encodeToString(definitions.values.toList())) }
+        storage.save { Json.encodeToString(definitions.values.toList()) }
     }
 
     private fun decodeTransientState(payload: ByteArray): List<TransientKothState> =

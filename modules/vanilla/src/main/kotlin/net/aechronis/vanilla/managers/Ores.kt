@@ -2,7 +2,6 @@ package net.aechronis.vanilla.managers
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.OreSounds
@@ -25,7 +24,6 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -65,13 +63,17 @@ object Ores {
     // This must run before Guard (-1000) and Nodes' protection node (-999) so configured ores are mineable everywhere.
     private val eventNode = EventNode.all("vanilla-ores").setPriority(-1001)
     internal val cooldowns = ConcurrentHashMap<Cooldown, Long>()
-    private lateinit var file: Path
+    private val storage = JsonRegistryFile("ores")
 
     fun init(path: Path) {
-        file = path
-        Files.createDirectories(path.parent)
         cooldowns.clear()
-        load()
+        storage.load(path, ores) { contents ->
+            val loaded = linkedMapOf<OreLocation, Ore>()
+            Json.decodeFromString<List<SavedOre>>(contents).filter { it.timeSeconds > 0 }.forEach { entry ->
+                loaded[OreLocation(entry.world, entry.x, entry.y, entry.z)] = Ore(entry.timeSeconds)
+            }
+            loaded
+        }
 
         eventNode.addListener(PlayerBlockBreakEvent::class.java, Ores::onBreak)
         Vanilla.eventNode.addListener(PlayerChunkLoadEvent::class.java, Ores::onChunkLoad)
@@ -150,7 +152,7 @@ object Ores {
         player: Player,
         timeSeconds: Long,
     ): Boolean {
-        if (timeSeconds <= 0) return false
+        if (!storage.canSave || timeSeconds <= 0) return false
         val target = targetOre(player) ?: return false
         val location = location(player.instance ?: return false, target)
         val block = player.instance!!.getBlock(target)
@@ -167,6 +169,7 @@ object Ores {
     }
 
     fun remove(player: Player): Boolean {
+        if (!storage.canSave) return false
         val target = targetOre(player) ?: return false
         val instance = player.instance ?: return false
         val location = location(instance, target)
@@ -418,25 +421,13 @@ object Ores {
 
     private fun isOre(block: Block): Boolean = block.name().endsWith("_ore")
 
-    private fun load() {
-        ores.clear()
-        if (!Files.exists(file)) return
-        runCatching {
-            Json.decodeFromString<List<SavedOre>>(Files.readString(file)).filter { it.timeSeconds > 0 }.forEach { entry ->
-                ores[OreLocation(entry.world, entry.x, entry.y, entry.z)] = Ore(entry.timeSeconds)
-            }
-        }.onFailure { error ->
-            System.err.println("Failed to load ores: ${error.message}")
-        }
-    }
-
     private fun save() {
-        AtomicFiles.write(file, preservePermissions = true) { writer ->
+        storage.save {
             val saved =
                 ores.map { (location, ore) ->
                     SavedOre(location.world, location.x, location.y, location.z, ore.timeSeconds)
                 }
-            writer.write(Json.encodeToString(saved))
+            Json.encodeToString(saved)
         }
     }
 
