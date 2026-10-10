@@ -40,6 +40,7 @@ import net.minestom.server.network.packet.server.play.ParticlePacket
 import net.minestom.server.particle.Particle
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
+import java.util.Collections
 import java.util.EnumSet
 import java.util.UUID
 import java.util.concurrent.ThreadLocalRandom
@@ -51,11 +52,14 @@ class Town(
     val uuid: UUID,
     name: String,
     var home: TerritoryId, // main territory owned by town
-    var leader: Resident?,
+    leader: Resident?,
     var spawnpoint: Pos,
 ) {
     // Registry keys can change only through the domain rename operation.
     var name: String = name
+        private set
+
+    var leader: Resident? = leader
         private set
 
     companion object {
@@ -121,9 +125,7 @@ class Town(
             val town = Town(UUID.randomUUID(), name, territory.id, leader, spawnpoint)
             territory.town = town
             if (leader != null) {
-                leader.town = town
                 TownMembershipRequests.cancel(leader)
-                leader.needsUpdate()
             }
             towns[name] = town
             Nametag.onTownCreated(town)
@@ -160,15 +162,12 @@ class Town(
             }
             val spawnpoint = spawn ?: Territory.defaultSpawnLocation(home)
             val town = Town(uuid, name, home.id, leaderResident, spawnpoint)
-            leaderResident?.town = town
             residents.forEach { id ->
-                Resident.fromUuid(id)?.let { resident ->
-                    town.residents.add(resident)
-                    resident.town = town
-                    resident.needsUpdate()
-                }
+                Resident.fromUuid(id)?.let { resident -> attachResident(town, resident) }
             }
-            officers.forEach { id -> Resident.fromUuid(id)?.let { town.officers.add(it) } }
+            officers.forEach { id ->
+                Resident.fromUuid(id)?.takeIf { it.town === town }?.let(town.mutableOfficers::add)
+            }
             territoryIds.forEach { id ->
                 val territory = Territory.fromId(TerritoryId(id))
                 if (territory != null) {
@@ -270,7 +269,6 @@ class Town(
                 "Cannot destroy ${town.name}: warzone territories must remain inside a town"
             }
             val nation = town.nation
-            val indexedPlayers = town.playersOnline.associateBy { it.uuid }
             if (nation != null) {
                 if (nation.towns.size == 1) Nation.destroy(nation) else Nation.removeTown(nation, town)
             }
@@ -284,15 +282,7 @@ class Town(
             town.captured.toList().forEach { territoryId ->
                 Territory.fromId(territoryId)?.let(::release)
             }
-            town.residents.forEach { resident ->
-                resident.town = null
-                resident.nation = null
-                resident.needsUpdate()
-                (resident.player() ?: indexedPlayers[resident.uuid])?.let { player ->
-                    WaypointMenu.closeBrowse(player, resident)
-                    nation?.playersOnline?.remove(player)
-                }
-            }
+            town.residents.toList().forEach { resident -> removeResident(town, resident) }
             TownMembershipRequests.cancelTown(town)
             towns.remove(town.name)
             Nametag.onTownDestroyed(town)
@@ -451,7 +441,7 @@ class Town(
             }
             // Clear any stale role records left by malformed saved data as well.
             if (source.officers.isNotEmpty()) {
-                source.officers.clear()
+                source.mutableOfficers.clear()
                 source.needsUpdate()
                 Nodes.markWorldDirty()
             }
@@ -531,6 +521,65 @@ class Town(
             return null
         }
 
+        /** Shared by loading and live joins; persisted trust and UI are handled by the caller. */
+        private fun attachResident(town: Town, resident: Resident) {
+            val previousTown = resident.town
+            val player = resident.player() ?: previousTown?.playersOnline?.firstOrNull { it.uuid == resident.uuid }
+            if (previousTown !== null && previousTown !== town) detachResident(previousTown, resident)
+            town.mutableResidents.add(resident)
+            resident.updateTownMembership(town)
+            town.nation?.let { Nation.indexResident(it, resident, player) }
+            if (player != null) indexOnlinePlayer(town, player)
+            town.needsUpdate()
+        }
+
+        private fun detachResident(town: Town, resident: Resident) {
+            town.nation?.let { Nation.unindexResident(it, resident) }
+            town.mutableResidents.remove(resident)
+            town.mutableOfficers.remove(resident)
+            if (town.leader === resident) town.leader = null
+            town.mutablePlayersOnline.removeAll { it.uuid == resident.uuid }
+            resident.updateTownMembership(null)
+            town.needsUpdate()
+        }
+
+        /** Nation owns the town index; this operation keeps every resident index in sync. */
+        internal fun updateNationMembership(town: Town, nation: Nation?) {
+            val previousNation = town.nation
+            if (previousNation === nation) return
+            town.residents.forEach { resident ->
+                if (previousNation != null) Nation.unindexResident(previousNation, resident)
+            }
+            town.nation = nation
+            town.residents.forEach { resident ->
+                if (nation != null) {
+                    val player = resident.player() ?: town.playersOnline.firstOrNull { it.uuid == resident.uuid }
+                    Nation.indexResident(nation, resident, player)
+                }
+                resident.needsUpdate()
+            }
+            town.needsUpdate()
+        }
+
+        private fun indexOnlinePlayer(town: Town, player: Player) {
+            town.mutablePlayersOnline.removeAll { it.uuid == player.uuid }
+            town.mutablePlayersOnline.add(player)
+        }
+
+        internal fun setOnline(resident: Resident, player: Player) {
+            require(resident.uuid == player.uuid) { "Online player does not match resident" }
+            val town = resident.town ?: return
+            indexOnlinePlayer(town, player)
+            town.nation?.let { Nation.indexResident(it, resident, player) }
+        }
+
+        internal fun setOffline(resident: Resident, player: Player) {
+            val town = resident.town ?: return
+            // A delayed disconnect from the previous session must not remove its replacement.
+            town.mutablePlayersOnline.removeAll { it === player }
+            town.nation?.let { Nation.unindexOnlinePlayer(it, player) }
+        }
+
         fun addResident(
             town: Town,
             resident: Resident,
@@ -541,18 +590,9 @@ class Town(
             if (resident.town != null || towns.values.any { it.residents.contains(resident) }) return false
             if (!bypassJoinRestrictions && joinRestriction(town, resident) != null) return false
 
-            town.residents.add(resident)
-            resident.town = town
+            attachResident(town, resident)
             resident.trusted = false
             TownMembershipRequests.cancel(resident)
-            resident.player()?.let { town.playersOnline.add(it) }
-            town.nation?.let { nation ->
-                resident.nation = nation
-                nation.residents.add(resident)
-                resident.player()?.let { nation.playersOnline.add(it) }
-            }
-            town.needsUpdate()
-            resident.needsUpdate()
             resident.minimap?.refresh()
             resident.player()?.let { player -> Nametag.onResidentAdded(town, player) }
             Nodes.markWorldDirty()
@@ -560,19 +600,10 @@ class Town(
         }
 
         fun removeResident(town: Town, resident: Resident) {
-            Resident.stopPlotSelection(resident)
-            town.officers.remove(resident)
-            town.residents.remove(resident)
-            resident.town = null
+            if (resident.town !== town) return
             val player = resident.player() ?: town.playersOnline.firstOrNull { it.uuid == resident.uuid }
-            town.nation?.let { nation ->
-                resident.nation = null
-                nation.residents.remove(resident)
-                if (player != null) nation.playersOnline.remove(player)
-            }
-            if (player != null) town.playersOnline.remove(player)
-            town.needsUpdate()
-            resident.needsUpdate()
+            Resident.stopPlotSelection(resident)
+            detachResident(town, resident)
             resident.minimap?.refresh()
             if (player != null) WaypointMenu.closeBrowse(player, resident)
             if (player != null) Nametag.onResidentRemoved(town, player)
@@ -582,7 +613,7 @@ class Town(
         fun addOfficer(town: Town, resident: Resident): Boolean {
             if (resident.town !== town) return false
             if (town.officers.contains(resident)) return true
-            town.officers.add(resident)
+            town.mutableOfficers.add(resident)
             town.needsUpdate()
             Nodes.markWorldDirty()
             return true
@@ -590,7 +621,7 @@ class Town(
 
         fun removeOfficer(town: Town, resident: Resident): Boolean {
             if (resident.town !== town) return false
-            town.officers.remove(resident)
+            town.mutableOfficers.remove(resident)
             town.needsUpdate()
             Nodes.markWorldDirty()
             return true
@@ -599,7 +630,7 @@ class Town(
         fun setLeader(town: Town, resident: Resident?) {
             if (resident != null) {
                 if (resident.town !== town || town.leader === resident) return
-                town.officers.remove(resident)
+                town.mutableOfficers.remove(resident)
                 town.leader = resident
             } else {
                 if (town.leader == null) return
@@ -711,10 +742,12 @@ class Town(
     val townNametagId: Int = townNametagIdCounter++
 
     // residents belong to town
-    val residents: HashSet<Resident> = hashSetOf()
+    private val mutableResidents = hashSetOf<Resident>()
+    val residents: Set<Resident> = Collections.unmodifiableSet(mutableResidents)
 
     // officer rank players (assistants to leader)
-    val officers: HashSet<Resident> = hashSetOf()
+    private val mutableOfficers = hashSetOf<Resident>()
+    val officers: Set<Resident> = Collections.unmodifiableSet(mutableOfficers)
 
     // territories owned by town
     // this includes annexed territories
@@ -728,6 +761,7 @@ class Town(
 
     // nation for town
     var nation: Nation? = null
+        private set
 
     // Remaining lives; defeated towns retain their territory ownership even at zero.
     var lives: Int = 1
@@ -738,9 +772,9 @@ class Town(
     internal var lifeRevision: Long = 0L
         private set
 
-    // players currently online in town
-    // must be Set to satisfy bukkit interface in Chat.kt
-    val playersOnline: MutableSet<Player> = mutableSetOf()
+    // Live, read-only view of the online membership index.
+    private val mutablePlayersOnline = mutableSetOf<Player>()
+    val playersOnline: Set<Player> = Collections.unmodifiableSet(mutablePlayersOnline)
 
     // income storage container from territory income
     // map material -> current amount of it
@@ -786,13 +820,7 @@ class Town(
 
     init {
         if (leader != null) {
-            // add creator to residents list
-            this.residents.add(leader!!)
-
-            // add creator as online
-            if (this.leader!!.player()?.isOnline == true) {
-                this.playersOnline.add(leader!!.player()!!)
-            }
+            attachResident(this, leader)
         }
 
         // generate initial json string (must be at end to capture state after leader added)

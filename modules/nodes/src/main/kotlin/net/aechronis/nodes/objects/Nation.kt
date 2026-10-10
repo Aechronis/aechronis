@@ -20,6 +20,7 @@ import net.aechronis.nodes.utils.Color
 import net.aechronis.nodes.war.FlagWar
 import net.minestom.server.command.CommandSender
 import net.minestom.server.entity.Player
+import java.util.Collections
 import java.util.Random
 import java.util.UUID
 
@@ -29,11 +30,15 @@ private val random = Random()
 class Nation(
     val uuid: UUID,
     name: String,
-    var capital: Town, // main town in nation, used for nation leadership
+    capital: Town,
 ) {
 
     // Registry keys can change only through the domain rename operation.
     var name: String = name
+        private set
+
+    // Nation leadership changes through setCapital or removal of the existing capital.
+    var capital: Town = capital
         private set
 
     companion object {
@@ -58,30 +63,39 @@ class Nation(
             return FlagWar.isDeathWar || other in nation.enemies || nation in other.enemies
         }
 
-        private fun indexTownMembers(nation: Nation, town: Town) {
-            val indexedPlayers = town.playersOnline.associateBy { it.uuid }
-            town.residents.forEach { resident ->
-                if (resident.town !== town) return@forEach
-                resident.nation = nation
-                nation.residents.add(resident)
-                val player = resident.player() ?: indexedPlayers[resident.uuid]
-                if (player != null) {
-                    nation.playersOnline.removeAll { it.uuid == resident.uuid }
-                    nation.playersOnline.add(player)
-                }
-                resident.needsUpdate()
+        internal fun indexResident(nation: Nation, resident: Resident, player: Player?) {
+            check(resident.nation === nation) { "Resident does not belong to this nation" }
+            nation.mutableResidents.add(resident)
+            if (player != null) {
+                nation.mutablePlayersOnline.removeAll { it.uuid == resident.uuid }
+                nation.mutablePlayersOnline.add(player)
             }
         }
 
-        private fun unindexTownMembers(nation: Nation, town: Town) {
-            val residents = town.residents.filter { it.town === town }
-            val residentIds = residents.mapTo(hashSetOf()) { it.uuid }
-            residents.forEach { resident ->
-                if (resident.nation === nation) resident.nation = null
-                nation.residents.remove(resident)
-                resident.needsUpdate()
-            }
-            nation.playersOnline.removeAll { it.uuid in residentIds }
+        internal fun unindexResident(nation: Nation, resident: Resident) {
+            nation.mutableResidents.remove(resident)
+            nation.mutablePlayersOnline.removeAll { it.uuid == resident.uuid }
+        }
+
+        internal fun unindexOnlinePlayer(nation: Nation, player: Player) {
+            nation.mutablePlayersOnline.removeAll { it === player }
+        }
+
+        /** Loading, joining, leaving and dissolution all use the same relationship transition. */
+        private fun assignTown(town: Town, nation: Nation?) {
+            val previousNation = town.nation
+            if (previousNation === nation) return
+            previousNation?.mutableTowns?.remove(town)
+            previousNation?.needsUpdate()
+            nation?.mutableTowns?.add(town)
+            Town.updateNationMembership(town, nation)
+            nation?.needsUpdate()
+        }
+
+        private fun membershipChanged() {
+            Nametag.refreshRelationships()
+            Nodes.markWorldDirty()
+            Resident.renderMinimaps()
         }
 
         fun create(name: String, town: Town, leader: Resident? = null): Result<Nation> {
@@ -93,14 +107,8 @@ class Nation(
             val nation = Nation(UUID.randomUUID(), name, town)
             Town.initializeCapitalLives(town)
             nations[name] = nation
-            nation.towns.add(town)
-            town.nation = nation
-            indexTownMembers(nation, town)
-            town.needsUpdate()
-            nation.needsUpdate()
-            Nametag.refreshRelationships()
-            Nodes.markWorldDirty()
-            Resident.renderMinimaps()
+            assignTown(town, nation)
+            membershipChanged()
             return Result.success(nation)
         }
 
@@ -123,10 +131,7 @@ class Nation(
             nation.flagUrl = flagUrl
             for (townName in towns) {
                 val town = Town.fromName(townName) ?: continue
-                nation.towns.add(town)
-                town.nation = nation
-                town.needsUpdate()
-                indexTownMembers(nation, town)
+                assignTown(town, nation)
             }
             nation.needsUpdate()
             nations[name] = nation
@@ -142,38 +147,21 @@ class Nation(
                 it.enemies.remove(nation)
                 it.needsUpdate()
             }
-            nation.towns.forEach { town ->
-                unindexTownMembers(nation, town)
-                town.nation = null
-                town.needsUpdate()
-            }
-            nation.towns.clear()
-            nation.residents.clear()
-            nation.playersOnline.clear()
+            nation.towns.toList().forEach { town -> assignTown(town, null) }
             nations.remove(nation.name)
-            Nametag.refreshRelationships()
-            Nodes.markWorldDirty()
-            Resident.renderMinimaps()
+            membershipChanged()
         }
 
         fun addTown(nation: Nation, town: Town): Result<Town> {
             if (town.nation != null) return Result.failure(ErrorTownHasNation)
-            nation.towns.add(town)
-            town.nation = nation
-            town.needsUpdate()
-            indexTownMembers(nation, town)
-            nation.needsUpdate()
-            Nametag.refreshRelationships()
-            Nodes.markWorldDirty()
-            Resident.renderMinimaps()
+            assignTown(town, nation)
+            membershipChanged()
             return Result.success(town)
         }
 
         fun removeTown(nation: Nation, town: Town): Result<Town> {
             if (town.nation !== nation) return Result.failure(net.aechronis.nodes.constants.ErrorNationDoesNotHaveTown)
-            nation.towns.remove(town)
-            unindexTownMembers(nation, town)
-            town.nation = null
+            assignTown(town, null)
             if (nation.towns.isEmpty()) {
                 destroy(nation)
             } else if (town === nation.capital) {
@@ -181,11 +169,7 @@ class Nation(
                 Town.initializeCapitalLives(nation.capital)
                 nation.capital.residents.forEach { it.player()?.let { player -> Message.print(player, "Your town is now the capital of ${nation.name}") } }
             }
-            town.needsUpdate()
-            nation.needsUpdate()
-            Nametag.refreshRelationships()
-            Nodes.markWorldDirty()
-            Resident.renderMinimaps()
+            membershipChanged()
             return Result.success(town)
         }
 
@@ -321,11 +305,13 @@ class Nation(
         }
     }
 
-    // must be Set to satisfy bukkit interface in Chat.kt
-    val playersOnline: MutableSet<Player> = mutableSetOf()
+    private val mutablePlayersOnline = mutableSetOf<Player>()
+    val playersOnline: Set<Player> = Collections.unmodifiableSet(mutablePlayersOnline)
 
-    val towns: HashSet<Town> = hashSetOf()
-    val residents: HashSet<Resident> = hashSetOf()
+    private val mutableTowns = hashSetOf<Town>()
+    val towns: Set<Town> = Collections.unmodifiableSet(mutableTowns)
+    private val mutableResidents = hashSetOf<Resident>()
+    val residents: Set<Resident> = Collections.unmodifiableSet(mutableResidents)
 
     // nation's diplomatic relations: allies, enemies
     // determine who nation can attack during war
