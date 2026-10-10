@@ -35,4 +35,5 @@ enum class VehicleSeatRole(
     GUNNER(false, true, "gunner"),
     PILOT(true, true, "pilot"),
     OPERATOR(true, true, "operator"),
+    PASSENGER(false, false, "passenger"),
 }

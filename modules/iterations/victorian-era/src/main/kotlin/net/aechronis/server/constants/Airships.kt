@@ -31,7 +31,7 @@ object Airships {
         VehicleSeat("gun-port", "Port gunner", VehicleSeatRole.GUNNER, Vec(-x, y, z), weaponId = "maxim-port"),
     ).take(count)
 
-    /** Seated riders with no mounted gun; they shoot whatever they hold. */
+    /** Seated passengers with no mounted gun; they shoot whatever they hold. */
     private fun riders(
         y: Double,
         spots: List<Pair<Double, Double>>,
@@ -39,9 +39,8 @@ object Airships {
         VehicleSeat(
             "rider-${index + 1}",
             "Rider ${index + 1}",
-            VehicleSeatRole.GUNNER,
+            VehicleSeatRole.PASSENGER,
             Vec(x, y, z),
-            weaponId = "hand-${index + 1}",
             handheld = true,
         )
     }

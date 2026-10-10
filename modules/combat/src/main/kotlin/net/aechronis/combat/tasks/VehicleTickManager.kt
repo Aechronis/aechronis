@@ -96,6 +96,10 @@ object VehicleTickManager {
                     ride.vehicle.onGunnerTick(ride.player)
                 }
 
+                for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.PASSENGER }) {
+                    ride.vehicle.onPassengerTick(ride.player)
+                }
+
                 val vehicles = VehicleRegistry.all()
                 vehicles.forEach {
                     it.updateAnimatedParts()
