@@ -1,109 +1,48 @@
 package net.aechronis.server.constants
 
-import net.aechronis.combat.objects.AmmoTypes
-import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.ShulkerHitbox
-import net.aechronis.combat.objects.ShulkerHitboxPart
 import net.aechronis.combat.objects.VehicleSeat
 import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.server.objects.Balloon
-import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.format.NamedTextColor
-import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
-import kotlin.math.abs
-import kotlin.math.ceil
-import kotlin.math.sqrt
-
-/** Vehicle damage is flat per hit by ammo type; Victorian rifles do 44-50, so 47 on average. */
-internal const val RIFLE_HIT = 47F
-
-/** Ticks of flight one piece of coal buys (45 seconds); matches Balloon.coalFuel. */
-internal const val COAL_FUEL = 900
-
-/** Health that dies to [rifleShots] rifle hits, [shells] artillery shells or [bombs] bombs/missiles. */
-internal fun vehicleHealth(
-    rifleShots: Int,
-    shells: Int,
-    bombs: Int,
-): Health {
-    val total = rifleShots * RIFLE_HIT
-    return Health(
-        total,
-        mapOf(
-            AmmoTypes.NORMAL to RIFLE_HIT,
-            AmmoTypes.EXPLOSIVE to total / shells,
-            AmmoTypes.BOMB to total / bombs,
-            AmmoTypes.MISSILE to total / bombs,
-        ),
-    )
-}
-
-/** A thin floor of shulker cubes covering the given rectangle, with its top surface at [top]. */
-internal fun deckFloor(
-    minX: Double,
-    maxX: Double,
-    minZ: Double,
-    maxZ: Double,
-    top: Double,
-    cube: Double,
-): List<ShulkerHitboxPart> {
-    fun centers(
-        min: Double,
-        max: Double,
-    ): List<Double> {
-        val count = ceil((max - min) / cube).toInt().coerceAtLeast(1)
-        val step = if (count > 1) (max - min - cube) / (count - 1) else 0.0
-        return List(count) { min + cube / 2 + it * step }
-    }
-    return centers(minX, maxX).flatMap { x -> centers(minZ, maxZ).map { z -> ShulkerHitboxPart(Vec(x, top - cube / 2, z), cube) } }
-}
-
-/** A cigar-shaped hitbox: [slices] boxes along z, each as wide and tall as an ellipsoid of the given half-extents at that point. */
-internal fun ellipsoid(
-    center: Vec,
-    half: Vec,
-    slices: Int,
-): List<HitboxPart> =
-    List(slices) { index ->
-        val t = (index + 0.5) / slices * 2 - 1
-        val outer = (index.toDouble() / slices * 2 - 1).let { abs(it) }.coerceAtLeast(abs((index + 1.0) / slices * 2 - 1))
-        val scale = sqrt(1 - outer * outer * 0.98)
-        HitboxPart(
-            offset = center.add(0.0, 0.0, t * half.z()),
-            size = Vec(half.x() * scale, half.y() * scale, half.z() / slices),
-        )
-    }
 
 object Balloons {
     // Model "parisian-ballons-montes": 1 model unit = SCALE / 16 blocks, origin at the model centre.
     // Numbers below are blocks relative to that origin. The basket is 8 units wide, the envelope 27.
     private const val SCALE = 5.0
-    private const val FLOOR_TOP = -6.28
+    private const val BASKET_FLOOR = -6.28
+    private const val SEAT_HEIGHT = BASKET_FLOOR + 0.5
+    private const val SEAT_SPREAD = 0.44
 
+    // Damage hitbox: the envelope in three slices, plus the basket.
     private val skirt = HitboxPart(offset = Vec(0.0, -0.47, 0.0), size = Vec(3.1, 0.78, 3.1))
     private val body = HitboxPart(offset = Vec(0.0, 2.66, 0.0), size = Vec(4.2, 2.35, 4.2))
     private val crown = HitboxPart(offset = Vec(0.0, 5.78, 0.0), size = Vec(2.5, 0.78, 2.5))
     private val basket = HitboxPart(offset = Vec(0.0, -5.5, 0.0), size = Vec(1.25, 1.0, 1.25))
 
     // Solid envelope plus a thin floor; the basket itself stays open to stand in.
-    private val basketFloor = deckFloor(-0.875, 0.875, -0.875, 0.875, FLOOR_TOP, cube = 0.25)
+    private val basketFloor = deckFloor(-0.875, 0.875, -0.875, 0.875, BASKET_FLOOR, cube = 0.25)
+
+    // The pilot and a passenger sit in opposite corners of the basket.
+    private val seats =
+        listOf(
+            VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(SEAT_SPREAD, SEAT_HEIGHT, SEAT_SPREAD)),
+            riderSeat(1, Vec(-SEAT_SPREAD, SEAT_HEIGHT, -SEAT_SPREAD)),
+        )
 
     val hotAirBalloon =
         Balloon(
             name = "hot-air-balloon",
-            itemName = Component.text("Hot Air Balloon", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            itemName = vehicleTitle("Hot Air Balloon"),
             itemModel = "aechronis:parisian-ballons-montes",
             model = "aechronis:parisian-ballons-montes",
             scale = SCALE,
             hitbox = Hitbox(listOf(skirt, body, crown, basket)),
             health = vehicleHealth(rifleShots = 20, shells = 2, bombs = 1),
-            // holds 10 coal
             maxFuel = 10 * COAL_FUEL,
-            // the pilot sits in the basket corner; up to three more people stand beside them
-            seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.44, -6.16, 0.44))),
+            seats = seats,
             collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(skirt, body, crown))).parts + basketFloor),
         )
 }
