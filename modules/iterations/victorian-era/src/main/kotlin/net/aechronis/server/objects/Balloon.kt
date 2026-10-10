@@ -144,6 +144,9 @@ open class Balloon(
         entity.setView(yaw + delta.coerceIn(-turnSpeed, turnSpeed), 0f)
     }
 
+    /** What touches the ground: the hitbox, plus any hanging model parts a subclass adds below it. */
+    protected open val groundHitbox: Hitbox get() = hitbox
+
     /** Moves one axis at a time so the balloon slides along walls; blocked axes lose their velocity. */
     private fun move(
         entity: Entity,
@@ -160,7 +163,7 @@ open class Balloon(
             )
         for ((step, stop) in axes) {
             val candidate = position.add(step).let { if (it.y > maxAltitude) it.withY(maxAltitude) else it }
-            if (hitbox.checkGroundCollision(instance, candidate, candidate.yaw, candidate.pitch, 0f)) {
+            if (groundHitbox.checkGroundCollision(instance, candidate, candidate.yaw, candidate.pitch, 0f)) {
                 remaining = stop(remaining)
             } else {
                 position = candidate
@@ -251,7 +254,7 @@ open class Balloon(
     private fun sink(entity: Entity) {
         val instance = entity.instance ?: return
         val next = entity.position.add(0.0, -sinkSpeed, 0.0)
-        if (hitbox.checkGroundCollision(instance, next, next.yaw, next.pitch, 0f)) {
+        if (groundHitbox.checkGroundCollision(instance, next, next.yaw, next.pitch, 0f)) {
             destroy(entity)
         } else {
             entity.teleport(next)

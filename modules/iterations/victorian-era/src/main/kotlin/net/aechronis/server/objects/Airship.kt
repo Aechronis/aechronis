@@ -6,10 +6,12 @@ import net.aechronis.combat.objects.ArmedVehicle
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Health
 import net.aechronis.combat.objects.Hitbox
+import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.VehicleSeat
 import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
@@ -54,6 +56,10 @@ class Airship(
         collisionHitbox = collisionHitbox,
     ),
     ArmedVehicle {
+    // a thin keel at the lowest point of the model, so hanging cabins rest on the ground instead of sinking in
+    override val groundHitbox: Hitbox =
+        Hitbox(hitbox.parts + HitboxPart(Vec(0.0, hitbox.getBottomOffset() - groundClearance + 0.05, 0.0), Vec(1.0, 0.05, 1.0)))
+
     override fun spawn(
         instance: Instance,
         pos: Pos,
