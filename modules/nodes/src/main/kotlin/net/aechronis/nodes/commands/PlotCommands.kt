@@ -30,10 +30,7 @@ class TownPlotToggleCommand : NodesCommand("toggle") {
     init {
         setDefaultExecutor { player, _, _ -> Message.print(player, "Usage: /town plot toggle") }
         addSyntax({ player, resident, town, _ ->
-            if (!isTownStaff(resident, town)) {
-                Message.error(player, "Only the town leader or officers can select plots")
-                return@addSyntax
-            }
+            if (!requireTownStaff(player, resident, town, "Only the town leader or officers can select plots")) return@addSyntax
             if (resident.plotSelectionEnabled) {
                 Resident.stopPlotSelection(resident)
                 Message.print(player, "Plot selection disabled")
@@ -50,10 +47,7 @@ class TownPlotCreateCommand : NodesCommand("create") {
         val nameArg = ArgumentSanitizedString.create("plot-name")
         setDefaultExecutor { player, _, _ -> Message.print(player, "Usage: /town plot create <plot-name>") }
         addSyntax({ player, resident, town, context ->
-            if (!isTownStaff(resident, town)) {
-                Message.error(player, "Only the town leader or officers can create plots")
-                return@addSyntax
-            }
+            if (!requireTownStaff(player, resident, town, "Only the town leader or officers can create plots")) return@addSyntax
             val first = resident.plotCornerOne
             val second = resident.plotCornerTwo
             if (first == null || second == null) {
@@ -76,10 +70,7 @@ class TownPlotRedefineCommand : NodesCommand("redefine") {
         val nameArg = ArgumentSanitizedString.create("plot-name")
         setDefaultExecutor { player, _, _ -> Message.print(player, "Usage: /town plot redefine <plot-name>") }
         addSyntax({ player, resident, town, context ->
-            if (!isTownStaff(resident, town)) {
-                Message.error(player, "Only the town leader or officers can redefine plots")
-                return@addSyntax
-            }
+            if (!requireTownStaff(player, resident, town, "Only the town leader or officers can redefine plots")) return@addSyntax
             val plot = town.plots[context[nameArg]]
             if (plot == null) {
                 Message.error(player, "Plot not found")
@@ -138,10 +129,7 @@ class TownPlotDeleteCommand : NodesCommand("delete") {
         val nameArg = ArgumentSanitizedString.create("plot-name")
         setDefaultExecutor { player, _, _ -> Message.print(player, "Usage: /town plot delete <plot-name>") }
         addSyntax({ player, resident, town, context ->
-            if (!isTownStaff(resident, town)) {
-                Message.error(player, "Only the town leader or officers can delete plots")
-                return@addSyntax
-            }
+            if (!requireTownStaff(player, resident, town, "Only the town leader or officers can delete plots")) return@addSyntax
             val plot = town.plots[context[nameArg]]
             if (plot == null || !Plot.delete(town, plot)) {
                 Message.error(player, "Plot not found")
@@ -254,10 +242,7 @@ private fun setGroupPlotPermission(
     permissionName: String,
     flagName: String,
 ) {
-    if (resident != null && !isTownStaff(resident, town)) {
-        Message.error(player, "Only the town leader or officers can change plot permissions")
-        return
-    }
+    if (resident != null && !requireTownStaff(player, resident, town, "Only the town leader or officers can change plot permissions")) return
     val plot = town.plots[plotName]
     val group = parseGroup(groupName)
     val permissions = parsePlotPermissions(permissionName)
@@ -279,10 +264,7 @@ private fun setPlayerPlotPermission(
     permissionName: String,
     flagName: String,
 ) {
-    if (resident != null && !isTownStaff(resident, town)) {
-        Message.error(player, "Only the town leader or officers can change plot permissions")
-        return
-    }
+    if (resident != null && !requireTownStaff(player, resident, town, "Only the town leader or officers can change plot permissions")) return
     val plot = town.plots[plotName]
     val permissions = parsePlotPermissions(permissionName)
     val flag = parsePlotFlag(flagName)
@@ -324,8 +306,6 @@ private fun parsePlotFlag(value: String): Boolean? = when (value.lowercase()) {
 private fun plotPermissionArgument() = ArgumentType.Word("action").from("all", "build", "break", "destroy", "interact", "chests", "items", "income")
 
 private fun plotFlagArgument() = ArgumentType.Word("flag").from("allow", "deny", "inherit")
-
-private fun isTownStaff(resident: Resident, town: Town): Boolean = resident === town.leader || town.officers.contains(resident)
 
 private fun printPlots(sender: Player, town: Town) {
     Message.print(sender, "${ChatColor.BOLD}Plots in ${town.name}:")
