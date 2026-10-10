@@ -53,7 +53,8 @@ object Airships {
             itemName = title("Zeppelin"),
             model = "aechronis:lz1",
             scale = 16.0 * ZEPPELIN_SIZE,
-            hitbox = Hitbox(listOf(HitboxPart(offset = Vec.ZERO, size = Vec(2.3, 3.4, 21.9).mul(ZEPPELIN_SIZE)))),
+            // the hull bottom stops just above the cabin platforms so the crew can leave onto them
+            hitbox = Hitbox(listOf(HitboxPart(offset = Vec(0.0, 0.35, 0.0), size = Vec(2.3, 3.28, 21.9).mul(ZEPPELIN_SIZE)))),
             health = vehicleHealth(rifleShots = 200, shells = 20, bombs = 10),
             collisionHitbox = ShulkerHitbox(platform(BOW_CABIN_Z) + platform(STERN_CABIN_Z)),
             seats =
