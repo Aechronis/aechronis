@@ -1,10 +1,7 @@
 plugins {
-    kotlin("jvm")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
 }
 
 dependencies {
-    compileOnly(project(":server"))
     compileOnly(project(":modules:vanilla"))
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
 }

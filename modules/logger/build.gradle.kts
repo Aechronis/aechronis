@@ -1,16 +1,13 @@
 plugins {
-    kotlin("jvm")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
 }
 
 dependencies {
-    compileOnly(project(":server"))
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:combat"))
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
     compileOnly(project(":modules:vanilla"))
     compileOnly(project(":modules:worldedit"))
 
-    compileOnly("com.h2database:h2:2.5.252")
-    compileOnly("com.zaxxer:HikariCP:7.1.0")
+    compileOnly(libs.h2)
+    compileOnly(libs.hikari)
 }

@@ -1,13 +1,10 @@
 plugins {
-    kotlin("jvm")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
 }
 
 dependencies {
-    compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-    compileOnly("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
+    compileOnly(libs.kotlinx.serialization.json)
+    compileOnly(libs.blocksandstuff.blocks)
     compileOnly(project(":modules:combat"))
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:vanilla"))

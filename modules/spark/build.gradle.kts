@@ -1,18 +1,15 @@
 plugins {
-    kotlin("jvm")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
 }
 
-val sparkVersion = "1.10.186-SNAPSHOT"
+val sparkVersion = libs.versions.spark.get()
 
 dependencies {
-    compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
-    compileOnly("org.slf4j:slf4j-api:2.0.20")
-    add("moduleImplementation", "me.lucko:spark-common:$sparkVersion")
+    compileOnly(libs.slf4j.api)
+    add("moduleImplementation", libs.spark)
     // Upstream Spark expects its platform adapter to provide these libraries
-    add("moduleImplementation", "com.google.guava:guava:33.7.2-jre")
-    add("moduleImplementation", "com.google.code.gson:gson:2.14.0")
+    add("moduleImplementation", libs.guava)
+    add("moduleImplementation", libs.gson)
 }
 
 tasks.withType<Jar>().configureEach {

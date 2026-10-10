@@ -9,10 +9,10 @@ import org.gradle.jvm.toolchain.JavaToolchainService
 
 plugins {
     id("jvm-toolchains")
-    kotlin("jvm") version "2.4.20" apply false
-    kotlin("plugin.serialization") version "2.4.20" apply false
-    id("org.jlleitschuh.gradle.ktlint") version "14.2.0" apply false
-    id("com.gradleup.shadow") version "9.6.1" apply false
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.ktlint) apply false
+    alias(libs.plugins.shadow) apply false
 }
 
 allprojects {
@@ -27,11 +27,18 @@ allprojects {
 
 subprojects {
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
+        pluginManager.apply(libs.plugins.ktlint.get().pluginId)
         extensions.configure<JavaPluginExtension> {
-            toolchain.languageVersion.set(JavaLanguageVersion.of(25))
+            toolchain.languageVersion.set(JavaLanguageVersion.of(libs.versions.java.get()))
         }
         if (path.startsWith(":modules:")) {
-            pluginManager.apply("com.gradleup.shadow")
+            pluginManager.apply(libs.plugins.shadow.get().pluginId)
+
+            // Core owns these shared runtime classes; module JARs only compile against them.
+            dependencies {
+                add("compileOnly", project(":server"))
+                add("compileOnly", libs.minestom)
+            }
 
             val moduleApi = configurations.dependencyScope("moduleApi")
             val moduleImplementation = configurations.dependencyScope("moduleImplementation")
@@ -144,7 +151,7 @@ tasks.register<Sync>("assembleDevModules") {
 }
 
 val devJavaLauncher = extensions.getByType<JavaToolchainService>().launcherFor {
-    languageVersion.set(JavaLanguageVersion.of(25))
+    languageVersion.set(JavaLanguageVersion.of(libs.versions.java.get()))
 }
 
 tasks.register<JavaExec>("devRun") {

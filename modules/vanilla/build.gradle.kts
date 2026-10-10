@@ -1,19 +1,16 @@
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.serialization")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 dependencies {
-    compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-    add("moduleImplementation", "com.cronutils:cron-utils:9.2.1") {
+    compileOnly(libs.kotlinx.serialization.json)
+    addProvider<MinimalExternalModuleDependency, ExternalModuleDependency>("moduleImplementation", libs.cronutils) {
         exclude(group = "org.slf4j", module = "slf4j-api")
     }
-    add("moduleImplementation", "com.modernmt.text:profanity-filter:1.0.1")
-    compileOnly("org.everbuild.blocksandstuff:blocksandstuff-blocks:1.10.2-SNAPSHOT")
-    compileOnly("org.everbuild.blocksandstuff:blocksandstuff-common:1.10.2-SNAPSHOT")
+    add("moduleImplementation", libs.profanity.filter)
+    compileOnly(libs.blocksandstuff.blocks)
+    compileOnly(libs.blocksandstuff.common)
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:combat"))
 }

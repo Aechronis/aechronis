@@ -1,12 +1,9 @@
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.serialization")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 dependencies {
-    compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+    compileOnly(libs.kotlinx.serialization.json)
     compileOnly(project(":modules:utils"))
 }
