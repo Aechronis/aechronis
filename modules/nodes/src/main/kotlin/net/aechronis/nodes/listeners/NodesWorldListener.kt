@@ -28,16 +28,16 @@ import net.aechronis.nodes.constants.ErrorSkyBlocked
 import net.aechronis.nodes.constants.ErrorTooManyAttacks
 import net.aechronis.nodes.constants.ErrorTownBlacklisted
 import net.aechronis.nodes.constants.ErrorTownNotWhitelisted
-import net.aechronis.nodes.constants.INTERACTIVE_BLOCKS
 import net.aechronis.nodes.constants.PROTECTED_BLOCKS
-import net.aechronis.nodes.constants.PermissionsGroup
-import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.objects.MiningBoostManager
-import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.permissions.LandAccess
+import net.aechronis.nodes.permissions.LandAccessAction
+import net.aechronis.nodes.permissions.LandAccessDecision
+import net.aechronis.nodes.permissions.warzoneOccupier
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.Attack
 import net.aechronis.nodes.war.AttackMode
@@ -105,63 +105,11 @@ object NodesWorldListener {
             }
         }
 
-        val territory: Territory? = Territory.fromBlock(blockPos.blockX, blockPos.blockZ)
-        val town: Town? = territory?.town
-        val resident = Resident.fromPlayer(player)
-
-        // interacting in areas with no territory or no town
-        if (town === null) {
-            if (hasWildernessPermissions(territory)) {
-                return
-            }
-
+        val decision = LandAccess.check(player, blockPos, LandAccessAction.BREAK)
+        if (decision != LandAccessDecision.ALLOW) {
             event.isCancelled = true
-            Message.error(player, "You cannot destroy here!")
-            return
+            Message.error(player, checkNotNull(decision.message))
         }
-
-        if (resident?.hasTownPermissionBypass() == true) {
-            return
-        }
-
-        // interacting in a town
-        if (resident !== null) {
-            // A completed warzone occupation is controlled by the capturing
-            // town, not by the original owner or its plots.
-            val warzoneOccupier = territoryChunk?.let { warzoneOccupier(territory, it) }
-            if (warzoneOccupier != null) {
-                if (hasTownPermissions(TownPermissions.DESTROY, warzoneOccupier, resident)) return
-                event.isCancelled = true
-                Message.error(player, "You cannot destroy here!")
-                return
-            }
-
-            if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) {
-                return
-            }
-
-            val plot = Plot.at(town, blockPos.blockX, blockPos.blockY, blockPos.blockZ)
-            val plotPermission = plot?.let { getPlotPermission(TownPermissions.DESTROY, it, resident, town) }
-            if (plotPermission != null) {
-                if (plotPermission) return
-                event.isCancelled = true
-                Message.error(player, "You cannot destroy here!")
-                return
-            }
-
-            if (hasTownPermissions(TownPermissions.DESTROY, town, resident)) {
-                return
-            }
-
-            // territory occupier permissions
-            val occupier: Town? = territory.occupier
-            if (occupier !== null && hasOccupierPermissions(TownPermissions.DESTROY, town, occupier, resident)) {
-                return
-            }
-        }
-
-        event.isCancelled = true
-        Message.error(player, "You cannot destroy here!")
     }
 
     private fun onBlockBreakSuccess(event: PlayerBlockBreakEvent) {
@@ -358,72 +306,14 @@ object NodesWorldListener {
             }
         }
 
-        val territory: Territory? = Territory.fromBlock(blockPos.blockX, blockPos.blockZ)
-        val territoryChunk = TerritoryChunk.fromBlock(blockPos.blockX, blockPos.blockZ)
-        val resident = Resident.fromPlayer(player)
-        val town: Town? = territory?.town
-
-        // interacting in areas with no territory or no town
-        if (town === null) {
-            if (hasWildernessPermissions(territory)) {
-                return
+        val decision = LandAccess.check(player, blockPos, LandAccessAction.PLACE, block)
+        if (decision != LandAccessDecision.ALLOW) {
+            if (decision.applyPlacementCooldown) {
+                NodesBlockPlacementCooldownListener.apply(player, blockPos.blockX, blockPos.blockZ)
             }
-
             event.isCancelled = true
-            Message.error(player, "You cannot build here!")
-            return
+            Message.error(player, checkNotNull(decision.message))
         }
-
-        if (resident?.hasTownPermissionBypass() == true) {
-            return
-        }
-
-        // interacting in a town
-        if (resident !== null) {
-            // Warzone occupations use the capturing town's ordinary
-            // permissions, rather than the owner town's permissions.
-            val warzoneOccupier = territoryChunk?.let { warzoneOccupier(territory, it) }
-            if (warzoneOccupier != null) {
-                if (hasTownPermissions(TownPermissions.BUILD, warzoneOccupier, resident)) return
-                event.isCancelled = true
-                Message.error(player, "You cannot build here!")
-                return
-            }
-
-            if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) {
-                return
-            }
-
-            val plot = Plot.at(town, blockPos.blockX, blockPos.blockY, blockPos.blockZ)
-            val plotPermission = plot?.let { getPlotPermission(TownPermissions.BUILD, it, resident, town) }
-            if (plotPermission != null) {
-                if (plotPermission) return
-                event.isCancelled = true
-                Message.error(player, "You cannot build here!")
-                return
-            }
-
-            if (hasTownPermissions(TownPermissions.BUILD, town, resident)) {
-                return
-            }
-
-            // territory occupier permissions
-            val occupier: Town? = territory.occupier
-            if (occupier !== null && hasOccupierPermissions(TownPermissions.BUILD, town, occupier, resident)) {
-                return
-            }
-
-            val canColonizeHere = resident.town?.let { residentTown ->
-                Colonization.isAuthorized(player.uuid, residentTown, town)
-            } == true
-            if ((FlagWar.enabled || canColonizeHere || Warzone.isActive(territory)) && Nodes.config.flagBlocks.contains(block)) {
-                return
-            }
-        }
-
-        NodesBlockPlacementCooldownListener.apply(player, blockPos.blockX, blockPos.blockZ)
-        event.isCancelled = true
-        Message.error(player, "You cannot build here!")
     }
 
     private fun onBlockPlaceSuccess(event: PlayerBlockPlaceEvent) {
@@ -443,131 +333,18 @@ object NodesWorldListener {
     private fun onBlockInteract(event: PlayerBlockInteractEvent) {
         if (event.isCancelled) return
 
-        val territory: Territory? = Territory.fromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)
-        val territoryChunk = TerritoryChunk.fromBlock(event.blockPosition.blockX, event.blockPosition.blockZ)
-        val resident = Resident.fromPlayer(event.player)
-        val town: Town? = territory?.town
-
-        // interacting in areas with no territory or no town
-        // DO NOT USE WILDERNESS PERMISSIONS
-        if (territory === null) {
-            return
+        val action = if (PROTECTED_BLOCKS.any { event.block.compare(it) }) LandAccessAction.CHEST_INTERACT else LandAccessAction.INTERACT
+        val decision = LandAccess.check(event.player, event.blockPosition, action, event.block)
+        if (decision != LandAccessDecision.ALLOW) {
+            event.isCancelled = true
+            Message.error(event.player, checkNotNull(decision.message))
         }
-        if (town === null) {
-            return
-        }
-
-        if (resident?.hasTownPermissionBypass() == true) {
-            return
-        }
-
-        if (resident !== null) {
-            if (INTERACTIVE_BLOCKS.none { event.block.compare(it) }) {
-                return
-            }
-
-            val warzoneOccupier = territoryChunk?.let { warzoneOccupier(territory, it) }
-            if (warzoneOccupier != null) {
-                val permission = if (PROTECTED_BLOCKS.any { event.block.compare(it) }) TownPermissions.CHESTS else TownPermissions.INTERACT
-                if (!hasTownPermissions(permission, warzoneOccupier, resident)) {
-                    event.isCancelled = true
-                    Message.error(event.player, if (permission == TownPermissions.CHESTS) "You cannot use chests here!" else "You cannot interact here!")
-                    return
-                }
-                if (permission == TownPermissions.CHESTS &&
-                    warzoneOccupier.protectedBlocks.contains(event.blockPosition) &&
-                    !resident.hasTownProtectedChestPermissions(warzoneOccupier)
-                ) {
-                    event.isCancelled = true
-                    Message.error(event.player, "This chest is for trusted residents only")
-                }
-                return
-            }
-
-            if (territoryChunk != null && hasWarPermissions(resident, territory, territoryChunk)) {
-                return
-            }
-
-            val plot = Plot.at(town, event.blockPosition.blockX, event.blockPosition.blockY, event.blockPosition.blockZ)
-
-            // special permissions for using chests, furnaces, etc...
-            if (PROTECTED_BLOCKS.any { event.block.compare(it) }) {
-                val plotPermission = plot?.let { getPlotPermission(TownPermissions.CHESTS, it, resident, town) }
-
-                // normal town permissions
-                if (plotPermission == true || (plotPermission == null && hasTownPermissions(TownPermissions.CHESTS, town, resident))) {
-                    // check if chest protected
-                    if (town.protectedBlocks.contains(event.blockPosition) && !resident.hasTownProtectedChestPermissions(town)) {
-                        event.isCancelled = true
-                        Message.error(event.player, "This chest is for trusted residents only")
-                    }
-
-                    return
-                }
-
-                event.isCancelled = true
-                Message.error(event.player, "You cannot use chests here!")
-                return
-            }
-
-            // general interact permissions
-            val plotPermission = plot?.let { getPlotPermission(TownPermissions.INTERACT, it, resident, town) }
-            if (plotPermission == true || (plotPermission == null && hasTownPermissions(TownPermissions.INTERACT, town, resident))) {
-                return
-            }
-            if (plotPermission == false) {
-                event.isCancelled = true
-                Message.error(event.player, "You cannot interact here!")
-                return
-            }
-
-            // territory occupier permissions
-            val occupier: Town? = territory.occupier
-            if (occupier !== null && hasOccupierPermissions(TownPermissions.INTERACT, town, occupier, resident)) {
-                return
-            }
-        }
-
-        event.isCancelled = true
-        Message.error(event.player, "You cannot interact here!")
     }
 
     fun hasStorageAccess(player: Player, position: Point, access: StorageAccess): Boolean {
         val blockPosition = BlockVec(position.blockX(), position.blockY(), position.blockZ())
-        val territory = Territory.fromBlock(blockPosition.blockX, blockPosition.blockZ)
-        val town = territory?.town
-
-        if (access == StorageAccess.INTERACT && territory == null) return true
-        if (town == null) return access == StorageAccess.INTERACT || hasWildernessPermissions(territory)
-
-        val resident = Resident.fromPlayer(player) ?: return false
-        if (resident.hasTownPermissionBypass()) return true
-
-        val territoryChunk = TerritoryChunk.fromBlock(blockPosition.blockX, blockPosition.blockZ)
-        if (territoryChunk != null) {
-            val warzoneOccupier = warzoneOccupier(territory, territoryChunk)
-            if (warzoneOccupier != null) {
-                val permission = if (access == StorageAccess.INTERACT) TownPermissions.CHESTS else TownPermissions.DESTROY
-                return hasTownPermissions(permission, warzoneOccupier, resident) &&
-                    (!warzoneOccupier.protectedBlocks.contains(blockPosition) || resident.hasTownProtectedChestPermissions(warzoneOccupier))
-            }
-            if (hasWarPermissions(resident, territory, territoryChunk)) return true
-        }
-
-        val permission = if (access == StorageAccess.INTERACT) TownPermissions.CHESTS else TownPermissions.DESTROY
-        val plotPermission = Plot.at(town, blockPosition.blockX, blockPosition.blockY, blockPosition.blockZ)
-            ?.let { getPlotPermission(permission, it, resident, town) }
-        val allowed = when (plotPermission) {
-            true -> true
-
-            false -> false
-
-            null -> hasTownPermissions(permission, town, resident) ||
-                (territory.occupier?.let { occupier -> hasOccupierPermissions(permission, town, occupier, resident) } == true)
-        }
-        if (!allowed) return false
-
-        return !town.protectedBlocks.contains(blockPosition) || resident.hasTownProtectedChestPermissions(town)
+        val action = if (access == StorageAccess.INTERACT) LandAccessAction.STORAGE_INTERACT else LandAccessAction.STORAGE_BREAK
+        return LandAccess.check(player, blockPosition, action) == LandAccessDecision.ALLOW
     }
 
     fun init() {
@@ -577,153 +354,6 @@ object NodesWorldListener {
         Nodes.lowPriorityEventNode.addListener(PlayerBlockPlaceEvent::class.java, this::onBlockPlaceSuccess)
         Nodes.highPriorityEventNode.addListener(PlayerBlockInteractEvent::class.java, this::onBlockInteract)
     }
-}
-
-/**
- * Permissions for unclaimed territories or empty areas (no territories)
- */
-private fun hasWildernessPermissions(territory: Territory?): Boolean {
-    if (territory !== null && Nodes.config.canInteractInUnclaimed) {
-        return true
-    } else if (Nodes.config.canInteractInEmpty) {
-        return true
-    }
-
-    return false
-}
-
-/**
- * Default permissions check for town:
- * perms: town permissions type
- * town: town
- * player: player interacting in town
- */
-private fun hasTownPermissions(perms: TownPermissions, town: Town, player: Resident): Boolean {
-    if (town.permissions[perms].contains(PermissionsGroup.TOWN) && player.town === town) {
-        return true
-    } else if (town.permissions[perms].contains(PermissionsGroup.TRUSTED) && player.town === town && player.trusted) {
-        return true
-    } else if (town.permissions[perms].contains(PermissionsGroup.NATION) && town.nation !== null && player.nation === town.nation) {
-        return true
-    } else if (town.permissions[perms].contains(PermissionsGroup.ALLY) && town.nation !== null && player.town?.nation !== null && town.nation!!.allies.contains(player.town!!.nation)) {
-        return true
-    } else if (town.permissions[perms].contains(PermissionsGroup.OUTSIDER)) {
-        return true
-    }
-
-    return false
-}
-
-/**
- * Returns a plot override, or null when the plot should inherit town permissions.
- */
-private fun getPlotPermission(
-    permission: TownPermissions,
-    plot: net.aechronis.nodes.objects.Plot,
-    resident: Resident,
-    town: Town,
-): Boolean? {
-    plot.playerPermission(resident.uuid, permission)?.let { return it }
-
-    val groupMatches = listOf(
-        PermissionsGroup.TOWN to (resident.town === town),
-        PermissionsGroup.TRUSTED to (resident.town === town && resident.trusted),
-        PermissionsGroup.NATION to (town.nation !== null && resident.nation === town.nation),
-        PermissionsGroup.ALLY to (
-            town.nation !== null &&
-                resident.town?.nation !== null &&
-                town.nation!!.allies.contains(resident.town!!.nation)
-            ),
-        PermissionsGroup.OUTSIDER to true,
-    )
-
-    for ((group, matches) in groupMatches) {
-        if (matches) {
-            plot.groupPermission(group, permission)?.let { return it }
-        }
-    }
-
-    return null
-}
-
-/**
- * Permissions check for a town's territory occupied by another town:
- * perms: town permissions type
- * town: town that owns the territory
- * occupier: town that is occupier of the territory
- * player: player interacting in the territory
- */
-private fun hasOccupierPermissions(perms: TownPermissions, town: Town, occupier: Town, player: Resident): Boolean = if (Nodes.config.allowControlInOccupiedTownList.contains(town.uuid)) {
-    hasTownPermissions(perms, occupier, player)
-} else {
-    false
-}
-
-/**
- * Warzones run outside global FlagWar, so their settled occupations must not
- * depend on FlagWar.enabled or the optional occupied-town control list.
- * Chunk occupation takes precedence until a core capture occupies the whole
- * territory.
- */
-private fun warzoneOccupier(territory: Territory, territoryChunk: TerritoryChunk): Town? = if (Warzone.isActive(territory)) territoryChunk.occupier ?: territory.occupier else null
-
-// bypass permissions and allow all interaction in
-// captured chunks/territories during wartime
-private fun hasWarPermissions(resident: Resident, territory: Territory, territoryChunk: TerritoryChunk): Boolean {
-    if (FlagWar.enabled || territoryChunk.attacker !== null || FlagWar.isColonized(territoryChunk.coord)) {
-        val residentTown = resident.town
-        val territoryTown = territory.town
-
-        if (residentTown !== null) {
-            // extended permissions for allies
-            if (Nodes.config.warPermissions) {
-                val residentNation = residentTown.nation
-
-                val territoryOccupierNation = territory.occupier?.nation
-                val territoryTownNation = territoryTown?.nation
-                val chunkOccupierNation = territoryChunk.occupier?.nation
-                val chunkAttackerNation = territoryChunk.attacker?.nation
-
-                if (territory.occupier === residentTown ||
-                    (residentNation !== null && territoryOccupierNation !== null && residentNation.allies.contains(territoryOccupierNation)) ||
-                    territoryChunk.occupier === residentTown ||
-                    territoryChunk.attacker === residentTown ||
-                    (residentNation !== null && territoryTownNation !== null && residentNation.allies.contains(territoryTownNation)) ||
-                    (residentNation !== null && chunkOccupierNation !== null && residentNation.allies.contains(chunkOccupierNation)) ||
-                    (residentNation !== null && chunkAttackerNation !== null && residentNation.allies.contains(chunkAttackerNation))
-                ) {
-                    return true
-                }
-
-                if (residentNation !== null) {
-                    if (residentNation === territoryChunk.occupier?.nation ||
-                        residentNation === territory.occupier?.nation ||
-                        residentNation === territoryChunk.attacker?.nation
-                    ) {
-                        return true
-                    }
-                }
-            }
-            // only let town/nation by default
-            else {
-                if (territory.occupier === residentTown || territoryChunk.occupier === residentTown || territoryChunk.attacker === residentTown) {
-                    return true
-                }
-
-                val residentNation = residentTown.nation
-                if (residentNation !== null) {
-                    if (residentNation === territoryChunk.occupier?.nation ||
-                        residentNation === territory.occupier?.nation ||
-                        residentNation === territoryChunk.attacker?.nation
-                    ) {
-                        return true
-                    }
-                }
-            }
-        }
-    }
-
-    return false
 }
 
 // handle hidden ore generation during mining
