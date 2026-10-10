@@ -1,8 +1,7 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
-    kotlin("jvm")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
 }
 
 // The server owns coroutine dispatchers; this module owns and cancels its jobs.
@@ -19,11 +18,9 @@ tasks.named<ShadowJar>("shadowJar") {
 }
 
 dependencies {
-    compileOnly(project(":server"))
     compileOnly(project(":modules:nodes"))
     compileOnly(project(":modules:utils"))
-    compileOnly("net.luckperms:api:5.5")
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
-    add("moduleImplementation", "dev.kord:kord-core:0.18.1")
-    add("moduleImplementation", "io.ktor:ktor-client-okhttp:3.6.0")
+    compileOnly(libs.luckperms.api)
+    add("moduleImplementation", libs.kord)
+    add("moduleImplementation", libs.ktor.okhttp)
 }

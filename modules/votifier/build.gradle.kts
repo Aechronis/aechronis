@@ -1,7 +1,6 @@
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.serialization")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 tasks.processResources {
@@ -11,16 +10,14 @@ tasks.processResources {
 }
 
 dependencies {
-    compileOnly(project(":server"))
     compileOnly(project(":modules:gems"))
     compileOnly(project(":modules:vanilla"))
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-    add("moduleImplementation", "com.github.NuVotifier.NuVotifier:nuvotifier-api:2.7.1") {
+    compileOnly(libs.kotlinx.serialization.json)
+    addProvider<MinimalExternalModuleDependency, ExternalModuleDependency>("moduleImplementation", libs.nuvotifier.api) {
         exclude(group = "io.netty")
     }
-    add("moduleImplementation", "com.github.NuVotifier.NuVotifier:nuvotifier-common:2.7.1") {
+    addProvider<MinimalExternalModuleDependency, ExternalModuleDependency>("moduleImplementation", libs.nuvotifier.common) {
         exclude(group = "io.netty")
     }
-    compileOnly("io.netty:netty-handler:4.2.18.Final")
+    compileOnly(libs.netty.handler.versioned)
 }

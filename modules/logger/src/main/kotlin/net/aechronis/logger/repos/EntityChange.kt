@@ -5,7 +5,11 @@ import net.aechronis.logger.objects.EntityChange
 import net.aechronis.logger.objects.EntityChangeAction
 import net.aechronis.logger.params.LookupParams
 import net.aechronis.logger.utils.AsyncWriteGate
+import net.aechronis.logger.utils.appendLogFilters
+import net.aechronis.logger.utils.bindAll
+import net.aechronis.logger.utils.chunkBounds
 import net.aechronis.logger.utils.placeholders
+import net.aechronis.logger.utils.radiusBounds
 import net.aechronis.logger.utils.setNullableBytes
 import net.aechronis.logger.utils.setNullableString
 import net.minestom.server.coordinate.Pos
@@ -13,7 +17,6 @@ import net.minestom.server.coordinate.Vec
 import java.sql.ResultSet
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -25,50 +28,44 @@ class EntityChange(
     private val columns =
         "id, ts, player_uuid, player_name, entity_uuid, entity_type, action, instance_uuid, x, y, z, yaw, pitch, " +
             "velocity_x, velocity_y, velocity_z, tag_data, source, origin, rolled_back"
-    private val pendingWrites = ConcurrentHashMap.newKeySet<CompletableFuture<Void>>()
     private val writeGate = AsyncWriteGate(executor, "entity change repository")
 
-    fun insertAsync(change: EntityChange): CompletableFuture<Void> {
-        val future =
-            writeGate.submit {
-                database.dataSource.connection.use { connection ->
-                    connection
-                        .prepareStatement(
-                            """
-                            INSERT INTO "$table"
-                                (ts, player_uuid, player_name, entity_uuid, entity_type, action, instance_uuid,
-                                 x, y, z, yaw, pitch, velocity_x, velocity_y, velocity_z, tag_data, source, origin)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """.trimIndent(),
-                        ).use { statement ->
-                            statement.setLong(1, change.timestamp)
-                            statement.setNullableString(2, change.playerUuid?.toString())
-                            statement.setNullableString(3, change.playerName)
-                            statement.setString(4, change.entityUuid.toString())
-                            statement.setString(5, change.entityType)
-                            statement.setString(6, change.action.value)
-                            statement.setString(7, change.instanceUuid.toString())
-                            statement.setDouble(8, change.position.x())
-                            statement.setDouble(9, change.position.y())
-                            statement.setDouble(10, change.position.z())
-                            statement.setFloat(11, change.position.yaw())
-                            statement.setFloat(12, change.position.pitch())
-                            statement.setDouble(13, change.velocity.x())
-                            statement.setDouble(14, change.velocity.y())
-                            statement.setDouble(15, change.velocity.z())
-                            statement.setNullableBytes(16, change.tagData)
-                            statement.setString(17, change.source)
-                            statement.setString(18, change.origin)
-                            statement.executeUpdate()
-                        }
-                }
+    fun insertAsync(change: EntityChange): CompletableFuture<Void> =
+        writeGate.submit {
+            database.dataSource.connection.use { connection ->
+                connection
+                    .prepareStatement(
+                        """
+                        INSERT INTO "$table"
+                            (ts, player_uuid, player_name, entity_uuid, entity_type, action, instance_uuid,
+                             x, y, z, yaw, pitch, velocity_x, velocity_y, velocity_z, tag_data, source, origin)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """.trimIndent(),
+                    ).use { statement ->
+                        statement.setLong(1, change.timestamp)
+                        statement.setNullableString(2, change.playerUuid?.toString())
+                        statement.setNullableString(3, change.playerName)
+                        statement.setString(4, change.entityUuid.toString())
+                        statement.setString(5, change.entityType)
+                        statement.setString(6, change.action.value)
+                        statement.setString(7, change.instanceUuid.toString())
+                        statement.setDouble(8, change.position.x())
+                        statement.setDouble(9, change.position.y())
+                        statement.setDouble(10, change.position.z())
+                        statement.setFloat(11, change.position.yaw())
+                        statement.setFloat(12, change.position.pitch())
+                        statement.setDouble(13, change.velocity.x())
+                        statement.setDouble(14, change.velocity.y())
+                        statement.setDouble(15, change.velocity.z())
+                        statement.setNullableBytes(16, change.tagData)
+                        statement.setString(17, change.source)
+                        statement.setString(18, change.origin)
+                        statement.executeUpdate()
+                    }
             }
-        pendingWrites += future
-        future.whenComplete { _, _ -> pendingWrites -= future }
-        return future
-    }
+        }
 
-    fun flushAsync(): CompletableFuture<Void> = CompletableFuture.allOf(*pendingWrites.toTypedArray())
+    fun flushAsync(): CompletableFuture<Void> = writeGate.flushAsync()
 
     fun searchForOperationAsync(
         params: LookupParams,
@@ -82,42 +79,12 @@ class EntityChange(
         flushAsync().thenApplyAsync({
             val sql = StringBuilder("SELECT $columns FROM \"$table\" WHERE ts >= ? AND rolled_back = ? AND instance_uuid = ?")
             val args = mutableListOf<Any>(targetTs, rolledBack, instanceUuid.toString())
-            params.until?.let {
-                sql.append(" AND ts <= ?")
-                args += it
-            }
-            if (params.users.isNotEmpty()) {
-                sql.append(" AND LOWER(player_name) IN (${placeholders(params.users.size)})")
-                params.users.forEach { args += it.lowercase() }
-            }
-            params.source?.let {
-                sql.append(" AND LOWER(source) = ?")
-                args += it.lowercase()
-            }
-            params.origin?.let {
-                sql.append(" AND LOWER(origin) = ?")
-                args += it.lowercase()
-            }
+            sql.appendLogFilters(args, params.users, params.source, params.origin, until = params.until)
             params.radius?.let { radius ->
-                sql.append(" AND FLOOR(x) BETWEEN ? AND ? AND FLOOR(y) BETWEEN ? AND ? AND FLOOR(z) BETWEEN ? AND ?")
-                args += center.blockX() - radius
-                args += center.blockX() + radius
-                args += center.blockY() - radius
-                args += center.blockY() + radius
-                args += center.blockZ() - radius
-                args += center.blockZ() + radius
+                radiusBounds(center.blockX(), center.blockY(), center.blockZ(), radius).appendSql(sql, args, floorCoordinates = true)
             }
             params.chunkRadius?.let { chunkRadius ->
-                val expand = chunkRadius - 1
-                val minX = ((center.blockX() shr 4) - expand) shl 4
-                val maxX = (((center.blockX() shr 4) + expand) shl 4) + 15
-                val minZ = ((center.blockZ() shr 4) - expand) shl 4
-                val maxZ = (((center.blockZ() shr 4) + expand) shl 4) + 15
-                sql.append(" AND x BETWEEN ? AND ? AND z BETWEEN ? AND ?")
-                args += minX
-                args += maxX
-                args += minZ
-                args += maxZ
+                chunkBounds(center.blockX(), center.blockZ(), chunkRadius).appendSql(sql, args)
             }
             actions?.let {
                 sql.append(" AND action IN (${placeholders(it.size)})")
@@ -136,7 +103,7 @@ class EntityChange(
             val rows = mutableListOf<EntityChange>()
             database.dataSource.connection.use { connection ->
                 connection.prepareStatement(sql.toString()).use { statement ->
-                    args.forEachIndexed { index, value -> statement.setObject(index + 1, value) }
+                    statement.bindAll(args)
                     statement.executeQuery().use { results -> while (results.next()) rows += mapRow(results) }
                 }
             }

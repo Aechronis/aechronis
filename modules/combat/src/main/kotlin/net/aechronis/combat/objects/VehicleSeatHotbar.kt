@@ -55,10 +55,12 @@ internal object VehicleSeatHotbar {
         }
         if (sessions.putIfAbsent(player, Session(player.heldSlot)) == null) {
             player.closeInventory()
-            Combat.reloadTasks.remove(player)?.cancel()
-            Combat.placeTasks.remove(player)?.cancel()
-            Combat.aimingResetTasks.remove(player)?.cancel()
-            Combat.playerAiming.remove(player)
+            Combat.playerStates[player]?.apply {
+                cancelReload()
+                cancelPlacement()
+                cancelAimingReset()
+                aiming = false
+            }
             GunAnimation.cancel(player)
             player.clearItemUse()
             player.clearTitle()

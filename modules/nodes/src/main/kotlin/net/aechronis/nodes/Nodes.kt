@@ -61,6 +61,7 @@ import net.aechronis.nodes.objects.TerritoryPreprocessing
 import net.aechronis.nodes.objects.TerritoryResources
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TownMembershipRequests
 import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.serdes.Deserializer
@@ -78,16 +79,13 @@ import net.aechronis.nodes.war.Alliance
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.nodes.war.serdes.WarSerializer
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
-import net.minestom.server.timer.Task
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
-import java.nio.file.Paths
-import java.nio.file.StandardCopyOption
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ThreadLocalRandom
@@ -284,22 +282,19 @@ object Nodes {
         cleanupStage(CleanupStage.FLAGS_MENU, FlagsMenu::closeAll)
         cleanupStage(CleanupStage.ACTIVE_BUILDINGS, ActiveBuildings::shutdown)
         cleanupStage(CleanupStage.WARP_TASKS, PortWarpTask::cancelAll)
+        cleanupStage(CleanupStage.MEMBERSHIP_REQUESTS) { captureLive(TownMembershipRequests::clear) }
         cleanupStage(CleanupStage.RESIDENTS) {
             Resident.all().forEach { resident ->
                 resident.destroyMinimap()
                 resident.clearPlotSelection()
                 resident.teleportThread?.cancel()
                 resident.teleportThread = null
-                resident.inviteThread?.cancel()
-                resident.inviteThread = null
             }
         }
         cleanupStage(CleanupStage.TOWNS) {
             captureLive {
                 Town.all().forEach { town ->
-                    town.applications.values.forEach(Task::cancel)
-                    town.applications.clear()
-                    if (persistState && town.income.pushToStorage(true)) town.needsUpdate()
+                    if (persistState && town.income.pushToStorage(true)) town.invalidateSaveState()
                 }
             }
         }
@@ -346,6 +341,7 @@ object Nodes {
         FLAGS_MENU,
         ACTIVE_BUILDINGS,
         WARP_TASKS,
+        MEMBERSHIP_REQUESTS,
         RESIDENTS,
         TOWNS,
         ALLIANCE,
@@ -400,23 +396,7 @@ object Nodes {
         val updatedTerritories = JsonObject(territoriesJson + (territoryId.toString() to updatedTerritory))
         val updatedRoot = JsonObject(root + ("territories" to updatedTerritories))
 
-        val parent = path.parent ?: Paths.get(".")
-        val temporaryPath = Files.createTempFile(parent, "world-", ".json.tmp")
-        try {
-            Files.writeString(temporaryPath, updatedRoot.toString())
-            try {
-                Files.move(
-                    temporaryPath,
-                    path,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(temporaryPath, path, StandardCopyOption.REPLACE_EXISTING)
-            }
-        } finally {
-            Files.deleteIfExists(temporaryPath)
-        }
+        AtomicFiles.writeString(path, updatedRoot.toString())
 
         val reloadIds = buildList {
             add(territoryId)
@@ -488,6 +468,7 @@ object Nodes {
         FlagWar.resetForReload()
         Warzone.resetForReload()
         Colonization.resetForReload()
+        TownMembershipRequests.clear()
         Resident.all().forEach { it.destroyMinimap() }
         MiningBoostManager.reset()
 
@@ -702,7 +683,7 @@ object Nodes {
     private const val SHUTDOWN_DRAIN_TIMEOUT_SECONDS = 60L
 
     internal fun saveWorldPreprocess() {
-        Town.all().forEach { town -> if (town.income.pushToStorage(false)) town.needsUpdate() }
+        Town.all().forEach { town -> if (town.income.pushToStorage(false)) town.invalidateSaveState() }
     }
 
     /** Cross-domain income engine. */

@@ -20,10 +20,9 @@ import net.aechronis.guard.flags.StringFlagValue
 import net.aechronis.guard.flags.StringListFlagValue
 import net.aechronis.guard.objects.Zone
 import net.aechronis.guard.objects.ZoneBounds
-import java.nio.file.AtomicMoveNotSupportedException
+import net.aechronis.server.io.AtomicFiles
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 
 class ZoneStorage {
     @Serializable
@@ -62,8 +61,6 @@ class ZoneStorage {
         path: Path,
         zones: Collection<Zone>,
     ) {
-        val parent = path.parent ?: Path.of(".")
-        Files.createDirectories(parent)
         val saved =
             SavedZones(
                 zones.map { zone ->
@@ -78,17 +75,7 @@ class ZoneStorage {
                 },
             )
 
-        val temporary = Files.createTempFile(parent, "${path.fileName}-", ".tmp")
-        try {
-            Files.writeString(temporary, Json.encodeToString(saved))
-            try {
-                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING)
-            }
-        } finally {
-            Files.deleteIfExists(temporary)
-        }
+        AtomicFiles.writeString(path, Json.encodeToString(saved))
     }
 
     private fun readZone(saved: SavedZone): Zone =

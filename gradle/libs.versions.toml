@@ -1,0 +1,67 @@
+[versions]
+kotlin = "2.4.20"
+ktlint = "14.2.0"
+shadow = "9.6.1"
+java = "25"
+minestom = "2026.10.05-26.2"
+grim = "2.3.74-minestom.4"
+netty = "4.2.18.Final"
+serialization = "1.11.0"
+coroutines = "1.11.0"
+h2 = "2.5.252"
+hikari = "7.1.0"
+mariadb = "3.5.10"
+slf4j = "2.0.20"
+signedvelocity = "1.4.1"
+blocksandstuff = "1.10.2-SNAPSHOT"
+luckperms-api = "5.5"
+luckperms = "5.5.87-minestom.1"
+kord = "0.18.1"
+ktor = "3.6.0"
+spark = "1.10.186-SNAPSHOT"
+guava = "33.7.2-jre"
+gson = "2.14.0"
+cronutils = "9.2.1"
+profanity-filter = "1.0.1"
+via = "5.11.0"
+nuvotifier = "2.7.1"
+worldedit = "7.4.5"
+
+[libraries]
+minestom = { module = "net.minestom:minestom", version.ref = "minestom" }
+grim = { module = "net.aechronis:grim-minestom", version.ref = "grim" }
+netty-bom = { module = "io.netty:netty-bom", version.ref = "netty" }
+netty-handler = { module = "io.netty:netty-handler" }
+netty-handler-versioned = { module = "io.netty:netty-handler", version.ref = "netty" }
+netty-epoll = { module = "io.netty:netty-transport-classes-epoll" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
+hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+mariadb = { module = "org.mariadb.jdbc:mariadb-java-client", version.ref = "mariadb" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+signedvelocity = { module = "io.github.4drian3d:signedvelocity-minestom", version.ref = "signedvelocity" }
+blocksandstuff-blocks = { module = "org.everbuild.blocksandstuff:blocksandstuff-blocks", version.ref = "blocksandstuff" }
+blocksandstuff-fluids = { module = "org.everbuild.blocksandstuff:blocksandstuff-fluids", version.ref = "blocksandstuff" }
+blocksandstuff-common = { module = "org.everbuild.blocksandstuff:blocksandstuff-common", version.ref = "blocksandstuff" }
+luckperms-api = { module = "net.luckperms:api", version.ref = "luckperms-api" }
+luckperms-minestom = { module = "net.aechronis:luckperms-minestom", version.ref = "luckperms" }
+kord = { module = "dev.kord:kord-core", version.ref = "kord" }
+ktor-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+spark = { module = "me.lucko:spark-common", version.ref = "spark" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+cronutils = { module = "com.cronutils:cron-utils", version.ref = "cronutils" }
+profanity-filter = { module = "com.modernmt.text:profanity-filter", version.ref = "profanity-filter" }
+viaversion = { module = "com.viaversion:viaversion-common", version.ref = "via" }
+viabackwards = { module = "com.viaversion:viabackwards-common", version.ref = "via" }
+nuvotifier-api = { module = "com.github.NuVotifier.NuVotifier:nuvotifier-api", version.ref = "nuvotifier" }
+nuvotifier-common = { module = "com.github.NuVotifier.NuVotifier:nuvotifier-common", version.ref = "nuvotifier" }
+worldedit = { module = "com.sk89q.worldedit:worldedit-core", version.ref = "worldedit" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }

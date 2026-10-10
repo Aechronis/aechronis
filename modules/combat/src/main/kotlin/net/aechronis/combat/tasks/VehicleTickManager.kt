@@ -1,16 +1,13 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
-import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Car
-import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.objects.VehicleRuntime
 import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.combat.utils.CombatDamageKind
-import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.rotatePointInverse
 import net.aechronis.combat.utils.withCombatAttribution
@@ -33,8 +30,6 @@ object VehicleTickManager {
     private const val IMPACT_COOLDOWN_MS = 700L
     private const val MIN_IMPACT_SPEED = 0.08
     private const val MAX_IMPACT_DAMAGE = 8F
-    private const val VEHICLE_INTERACTION_DISTANCE = 3.0
-    private const val LOOK_BROAD_PHASE_MARGIN = 1.0e-9
     private const val MAX_CARRY_HEIGHT = 5.0
 
     private data class ImpactKey(
@@ -57,10 +52,6 @@ object VehicleTickManager {
     private val previousVehiclePoses = HashMap<Entity, VehiclePose>()
     private val lastImpacts = HashMap<ImpactKey, Long>()
     private val collisionIndex = VehicleCollisionIndex()
-
-    val playerLookingAtVehicle = HashMap<Player, Vehicle>()
-    val playerLookingAtEntity = HashMap<Player, Entity>()
-    val playerLookingAtStation = HashMap<Player, Int>()
 
     fun start() {
         ModuleScheduler
@@ -105,7 +96,7 @@ object VehicleTickManager {
                     it.updateAnimatedParts()
                     it.updateCollisionHitbox()
                 }
-                val vehicleLookIndex = prepareVehicleLookIndex(vehicles.map { it.entity to it.vehicle })
+                val vehicleLookIndex = VehicleInteractionTracker.prepareVehicleLookIndex(vehicles.map { it.entity to it.vehicle })
                 val activeEntities = vehicles.map { it.entity }.toSet()
                 val supports = carryStandingPlayers(vehicles, playerSupports)
                 // Carrying may move a player into another collision-index cell.
@@ -125,245 +116,14 @@ object VehicleTickManager {
                 }
                 lastImpacts.keys.removeIf { it.vehicle !in activeEntities }
 
-                // check if players are looking at vehicles and spawn fake blocks around them
-                // see modelmanager
-                for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
-                    // skip players already in a vehicle
-                    if (VehicleRegistry.ride(player) != null) {
-                        playerLookingAtVehicle.remove(player)
-                        playerLookingAtEntity.remove(player)
-                        playerLookingAtStation.remove(player)
-                        continue
-                    }
-
-                    val instance = player.instance
-                    if (instance == null) {
-                        playerLookingAtVehicle.remove(player)
-                        playerLookingAtEntity.remove(player)
-                        playerLookingAtStation.remove(player)
-                        continue
-                    }
-
-                    // raycast to check if looking at a vehicle
-                    val eyePos = player.position.add(0.0, player.eyeHeight, 0.0)
-                    val target =
-                        findLookedAtVehicle(
-                            instance,
-                            eyePos,
-                            eyePos.direction().mul(VEHICLE_INTERACTION_DISTANCE),
-                            vehicleLookIndex,
-                        )
-
-                    if (target != null) {
-                        playerLookingAtEntity[player] = target.entity
-                        playerLookingAtVehicle[player] = target.vehicle
-                        if (target.stationIndex == null) {
-                            playerLookingAtStation.remove(player)
-                        } else {
-                            playerLookingAtStation[player] = target.stationIndex
-                        }
-                    } else {
-                        playerLookingAtVehicle.remove(player)
-                        playerLookingAtEntity.remove(player)
-                        playerLookingAtStation.remove(player)
-                    }
-                }
+                VehicleInteractionTracker.update(MinecraftServer.getConnectionManager().onlinePlayers, vehicleLookIndex)
             }.repeat(TaskSchedule.tick(1))
             .schedule()
     }
 
-    internal class VehicleLookCandidate(
-        val entity: Entity,
-        val vehicle: Vehicle,
-        val position: Pos,
-        val boundingRadius: Double,
-        val hitbox: Hitbox.Prepared,
-        val stationIndex: Int? = null,
-    ) {
-        var queryStamp = 0L
-    }
-
-    internal class VehicleLookIndex(
-        candidates: Iterable<VehicleLookCandidate>,
-    ) {
-        private class InstanceBuckets {
-            val cells = HashMap<Long, MutableList<VehicleLookCandidate>>()
-            val oversized = ArrayList<VehicleLookCandidate>()
-        }
-
-        private val instances = HashMap<Instance, InstanceBuckets>()
-        private var query = 0L
-
-        init {
-            for (candidate in candidates) {
-                val instance = candidate.entity.instance ?: continue
-                val buckets = instances.getOrPut(instance, ::InstanceBuckets)
-                val radius = candidate.boundingRadius
-                val minX = cell(candidate.position.x - radius)
-                val maxX = cell(candidate.position.x + radius)
-                val minZ = cell(candidate.position.z - radius)
-                val maxZ = cell(candidate.position.z + radius)
-                val coveredCells = (maxX.toLong() - minX + 1L) * (maxZ.toLong() - minZ + 1L)
-
-                if (coveredCells > MAX_CELLS_PER_VEHICLE) {
-                    buckets.oversized.add(candidate)
-                    continue
-                }
-
-                for (x in minX..maxX) {
-                    for (z in minZ..maxZ) {
-                        buckets.cells.getOrPut(cellKey(x, z), ::ArrayList).add(candidate)
-                    }
-                }
-            }
-        }
-
-        fun findClosest(
-            instance: Instance,
-            origin: Pos,
-            vector: Vec,
-        ): VehicleLookCandidate? {
-            var closest: VehicleLookCandidate? = null
-            var closestDistance = Double.POSITIVE_INFINITY
-            val vectorLength = vector.length()
-            val blockingDistance = Ray(origin, vector).firstBlock(instance)?.t ?: Double.POSITIVE_INFINITY
-            val stationHits = HashMap<Entity, Pair<VehicleLookCandidate, Double>>()
-
-            forEachCandidate(instance, origin, vector) { candidate ->
-                if (candidate.entity.instance !== instance) return@forEachCandidate
-
-                val dx = origin.x - candidate.position.x
-                val dy = origin.y - candidate.position.y
-                val dz = origin.z - candidate.position.z
-                val reach = vectorLength + candidate.boundingRadius + LOOK_BROAD_PHASE_MARGIN
-                if (dx * dx + dy * dy + dz * dz > reach * reach) return@forEachCandidate
-
-                val distance =
-                    candidate.hitbox.firstIntersection(
-                        origin,
-                        vector,
-                        vectorLength,
-                    ) ?: return@forEachCandidate
-                if (distance > blockingDistance + LOOK_BROAD_PHASE_MARGIN) return@forEachCandidate
-                if (candidate.stationIndex != null) {
-                    val previous = stationHits[candidate.entity]
-                    if (previous == null || distance < previous.second) stationHits[candidate.entity] = candidate to distance
-                }
-                if (distance < closestDistance) {
-                    closest = candidate
-                    closestDistance = distance
-                }
-            }
-
-            // Coarse hull boxes can overlap a turret. Within the closest boat, a
-            // weapon actually intersected by the ray takes precedence over boarding.
-            return closest?.let { stationHits[it.entity]?.first ?: it }
-        }
-
-        internal fun candidateCount(
-            instance: Instance,
-            origin: Pos,
-            vector: Vec,
-        ): Int {
-            var count = 0
-            forEachCandidate(instance, origin, vector) { count += 1 }
-            return count
-        }
-
-        private inline fun forEachCandidate(
-            instance: Instance,
-            origin: Pos,
-            vector: Vec,
-            action: (VehicleLookCandidate) -> Unit,
-        ) {
-            val buckets = instances[instance] ?: return
-            val currentQuery = ++query
-
-            for (candidate in buckets.oversized) {
-                if (candidate.queryStamp == currentQuery) continue
-                candidate.queryStamp = currentQuery
-                action(candidate)
-            }
-
-            val endX = origin.x + vector.x
-            val endZ = origin.z + vector.z
-            val minX = cell(minOf(origin.x, endX))
-            val maxX = cell(maxOf(origin.x, endX))
-            val minZ = cell(minOf(origin.z, endZ))
-            val maxZ = cell(maxOf(origin.z, endZ))
-            for (x in minX..maxX) {
-                for (z in minZ..maxZ) {
-                    for (candidate in buckets.cells[cellKey(x, z)] ?: continue) {
-                        if (candidate.queryStamp == currentQuery) continue
-                        candidate.queryStamp = currentQuery
-                        action(candidate)
-                    }
-                }
-            }
-        }
-
-        companion object {
-            private const val CELL_SIZE = 8.0
-            private const val MAX_CELLS_PER_VEHICLE = 64L
-
-            private fun cell(value: Double): Int = kotlin.math.floor(value / CELL_SIZE).toInt()
-
-            private fun cellKey(
-                x: Int,
-                z: Int,
-            ): Long = (x.toLong() shl 32) xor (z.toLong() and 0xffffffffL)
-        }
-    }
-
-    internal fun prepareVehicleLookIndex(vehicles: Iterable<Pair<Entity, Vehicle>>): VehicleLookIndex =
-        VehicleLookIndex(
-            vehicles.flatMap { (entity, vehicle) ->
-                val position = entity.position
-                buildList {
-                    add(
-                        VehicleLookCandidate(
-                            entity,
-                            vehicle,
-                            position,
-                            vehicle.hitbox.boundingRadius,
-                            vehicle.hitbox.prepare(
-                                position,
-                                position.yaw,
-                                position.pitch,
-                                vehicle.hitboxRoll(entity),
-                            ),
-                        ),
-                    )
-                    if (vehicle is Boat) {
-                        for (target in vehicle.weaponInteractionTargets(entity)) {
-                            add(
-                                VehicleLookCandidate(
-                                    entity,
-                                    vehicle,
-                                    target.position,
-                                    target.hitbox.boundingRadius,
-                                    target.hitbox.prepare(target.position, target.position.yaw, target.position.pitch, 0f),
-                                    target.stationIndex,
-                                ),
-                            )
-                        }
-                    }
-                }
-            },
-        )
-
-    internal fun findLookedAtVehicle(
-        instance: Instance,
-        origin: Pos,
-        vector: Vec,
-        vehicles: VehicleLookIndex,
-    ): VehicleLookCandidate? = vehicles.findClosest(instance, origin, vector)
-
     fun removePlayer(player: Player) {
         VehicleRegistry.all().forEach { it.removeCarriedPlayer(player) }
-        playerLookingAtVehicle.remove(player)
-        playerLookingAtEntity.remove(player)
-        playerLookingAtStation.remove(player)
+        VehicleInteractionTracker.removePlayer(player)
         lastImpacts.keys.removeIf { it.player === player }
         collisionIndex.removePlayer(player)
     }
@@ -372,9 +132,7 @@ object VehicleTickManager {
         VehicleRegistry.all().forEach { it.setCarriedPlayers(emptySet()) }
         previousVehiclePoses.clear()
         lastImpacts.clear()
-        playerLookingAtVehicle.clear()
-        playerLookingAtEntity.clear()
-        playerLookingAtStation.clear()
+        VehicleInteractionTracker.clear()
         collisionIndex.clear()
     }
 

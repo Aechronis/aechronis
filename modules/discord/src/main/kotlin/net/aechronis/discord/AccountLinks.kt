@@ -9,9 +9,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import net.aechronis.server.io.AtomicFiles
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.security.SecureRandom
 import java.util.UUID
 
@@ -129,15 +129,11 @@ internal class AccountLinks(
                 )
             }
         val destination = path.toAbsolutePath()
-        Files.createDirectories(destination.parent)
-        val temporary = Files.createTempFile(destination.parent, ".accounts-", ".json")
-        try {
+        AtomicFiles.withTemporaryFile(destination) { temporary ->
             Files.writeString(temporary, data.toString())
             // Fail closed if the filesystem cannot atomically replace the account store.
-            Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            AtomicFiles.replace(temporary, destination, requireAtomic = true)
             links = updated
-        } finally {
-            Files.deleteIfExists(temporary)
         }
     }
 

@@ -5,9 +5,12 @@ import net.aechronis.logger.objects.FeatureLogEntry
 import net.aechronis.logger.params.FeatureLookupParams
 import net.aechronis.logger.utils.AsyncWriteGate
 import net.aechronis.logger.utils.DataCodec
+import net.aechronis.logger.utils.appendLogFilters
 import net.aechronis.logger.utils.bindAll
+import net.aechronis.logger.utils.chunkBounds
 import net.aechronis.logger.utils.getNullableInt
 import net.aechronis.logger.utils.placeholders
+import net.aechronis.logger.utils.radiusBounds
 import net.aechronis.logger.utils.setNullableInt
 import net.aechronis.logger.utils.setNullableString
 import java.sql.ResultSet
@@ -74,49 +77,16 @@ class FeatureLog(
             )
         val args = mutableListOf<Any>(params.source.lowercase())
 
-        if (params.users.isNotEmpty()) {
-            sql.append(" AND LOWER(player_name) IN (${placeholders(params.users.size)})")
-            params.users.forEach { args += it.lowercase() }
-        }
-        params.since?.let {
-            sql.append(" AND ts >= ?")
-            args += it
-        }
-        params.until?.let {
-            sql.append(" AND ts <= ?")
-            args += it
-        }
+        sql.appendLogFilters(args, params.users, origin = params.origin, since = params.since, until = params.until)
         params.radius?.let { r ->
-            sql.append(
-                " AND x IS NOT NULL AND y IS NOT NULL AND z IS NOT NULL" +
-                    " AND x BETWEEN ? AND ? AND y BETWEEN ? AND ? AND z BETWEEN ? AND ?",
-            )
-            args += centerX - r
-            args += centerX + r
-            args += centerY - r
-            args += centerY + r
-            args += centerZ - r
-            args += centerZ + r
+            radiusBounds(centerX, centerY, centerZ, r).appendSql(sql, args, requireCoordinates = true)
         }
         params.chunkRadius?.let { cr ->
-            val expand = cr - 1
-            val minX = ((centerX shr 4) - expand) shl 4
-            val maxX = (((centerX shr 4) + expand) shl 4) + 15
-            val minZ = ((centerZ shr 4) - expand) shl 4
-            val maxZ = (((centerZ shr 4) + expand) shl 4) + 15
-            sql.append(" AND x IS NOT NULL AND z IS NOT NULL AND x BETWEEN ? AND ? AND z BETWEEN ? AND ?")
-            args += minX
-            args += maxX
-            args += minZ
-            args += maxZ
+            chunkBounds(centerX, centerZ, cr).appendSql(sql, args, requireCoordinates = true)
         }
         if (params.actions.isNotEmpty()) {
             sql.append(" AND LOWER(action) IN (${placeholders(params.actions.size)})")
             params.actions.forEach { args += it.lowercase() }
-        }
-        params.origin?.let {
-            sql.append(" AND LOWER(origin) = ?")
-            args += it.lowercase()
         }
         sql.append(" ORDER BY ts DESC LIMIT ?")
         args += limit

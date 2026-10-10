@@ -101,64 +101,99 @@ class Drone(
     override val persistent = false
     override val customDriverView = true
 
-    override fun healthStatus(entity: Entity): Pair<Float, Float>? = entityHealth[entity]?.let { it to rawHealth }
+    private class Runtime(
+        val entity: Entity,
+        var health: Float,
+        var battery: Float = 1f,
+        var camera: LivingEntity? = null,
+        var payload: Entity? = null,
+    )
+
+    private class OperatorSession(
+        val runtime: Runtime,
+        val originalPosition: Pos,
+        val originalBoundingBox: BoundingBox,
+        var yaw: Float,
+        var pitch: Float,
+        var inverted: Boolean,
+        var mannequin: LivingEntity? = null,
+        var throttle: Float = 0f,
+        var buzzTick: Int = 0,
+        var pendingSwitch: Boolean = false,
+        var boundary: Float = 90f,
+        var viewmodel: Entity? = null,
+        var payloadViewmodel: Entity? = null,
+    )
+
+    private val runtimes = HashMap<Entity, Runtime>()
+    private val operators = HashMap<Player, OperatorSession>()
+
+    override fun healthStatus(entity: Entity): Pair<Float, Float>? = runtimes[entity]?.let { it.health to rawHealth }
 
     override fun onEnter(
         player: Player,
         entity: Entity,
     ) {
         if (!canEnterAsDriver(player, entity)) return
+        val runtime = runtimes[entity] ?: return
 
         clearCrashStatic(player)
-        playerOriginalPos[player] = player.position
-
-        spawnOperatorMannequin(player)
-        playerOriginalBoundingBox[player] = player.boundingBox
-        player.boundingBox = BoundingBox(0.0, 0.0, 0.0)
-
-        entity.updateViewableRule({ viewer -> viewer != player })
-        entityPayload[entity]?.updateViewableRule { viewer -> viewer != player }
-
-        super.onEnter(player, entity)
-
-        playerThrottle[player] = 0F
-
         val inverted = abs(entity.position.pitch) > 90f
-        playerYaw[player] = entity.position.yaw
-        playerPitch[player] = entity.position.pitch
-        playerInverted[player] = inverted
-        playerPendingSwitch[player] = false
+        val session = OperatorSession(runtime, player.position, player.boundingBox, entity.position.yaw, entity.position.pitch, inverted)
+        operators[player] = session
+        try {
+            spawnOperatorMannequin(player, session)
+            player.boundingBox = BoundingBox(0.0, 0.0, 0.0)
 
-        spectateCamera(player, entitySpider[entity])
+            entity.updateViewableRule({ viewer -> viewer != player })
+            runtime.payload?.updateViewableRule { viewer -> viewer != player }
 
-        entitySpider[entity]?.let { camera ->
-            spawnViewmodels(player, camera, camera.position.yaw, camera.position.pitch, inverted)
+            super.onEnter(player, entity)
+            if (driverEntity(player) !== entity) {
+                onExit(player)
+                return
+            }
+
+            spectateCamera(player, runtime.camera)
+            runtime.camera?.let { camera ->
+                spawnViewmodels(player, session, camera, camera.position.yaw, camera.position.pitch, inverted)
+            }
+        } catch (failure: Exception) {
+            runCatching { onExit(player) }.onFailure(failure::addSuppressed)
+            throw failure
         }
     }
 
     private fun spawnViewmodels(
         player: Player,
+        session: OperatorSession,
         camera: Entity,
         yaw: Float,
         pitch: Float,
         inverted: Boolean,
     ) {
-        playerViewmodel[player] = spawnViewmodel(player, camera, model, VIEWMODEL_DOWN, VIEWMODEL_FORWARD, yaw, pitch, inverted)
-        val projModel = projectileModel
-        if (projModel != null) {
-            val payloadVmScale = VIEWMODEL_SCALE * (projectileScale / scale)
-            playerPayloadViewmodel[player] =
-                spawnViewmodel(
-                    player,
-                    camera,
-                    projModel,
-                    VIEWMODEL_PAYLOAD_DOWN,
-                    VIEWMODEL_PAYLOAD_FORWARD,
-                    yaw,
-                    pitch,
-                    inverted,
-                    payloadVmScale,
-                )
+        val viewmodel = spawnViewmodel(player, camera, model, VIEWMODEL_DOWN, VIEWMODEL_FORWARD, yaw, pitch, inverted)
+        try {
+            val payloadViewmodel =
+                projectileModel?.let { projModel ->
+                    val payloadVmScale = VIEWMODEL_SCALE * (projectileScale / scale)
+                    spawnViewmodel(
+                        player,
+                        camera,
+                        projModel,
+                        VIEWMODEL_PAYLOAD_DOWN,
+                        VIEWMODEL_PAYLOAD_FORWARD,
+                        yaw,
+                        pitch,
+                        inverted,
+                        payloadVmScale,
+                    )
+                }
+            session.viewmodel = viewmodel
+            session.payloadViewmodel = payloadViewmodel
+        } catch (failure: Exception) {
+            runCatching { viewmodel.remove() }.onFailure(failure::addSuppressed)
+            throw failure
         }
     }
 
@@ -174,24 +209,29 @@ class Drone(
         vmScale: Double = VIEWMODEL_SCALE,
     ): Entity {
         val viewmodel = Entity(EntityType.ITEM_DISPLAY)
-        viewmodel.updateViewableRule { it == player }
-        viewmodel.setInstance(mount.instance!!, mount.position.withView(yaw, pitch))
+        try {
+            viewmodel.updateViewableRule { it == player }
+            viewmodel.setInstance(mount.instance!!, mount.position.withView(yaw, pitch))
 
-        val meta = viewmodel.entityMeta as ItemDisplayMeta
-        meta.itemStack = ItemStack.of(Material.BONE).withItemModel(vmModel)
-        meta.setBillboardRenderConstraints(AbstractDisplayMeta.BillboardConstraints.FIXED)
-        meta.scale = Vec(vmScale)
-        meta.setTranslation(viewmodelTranslation(down, forward, inverted))
+            val meta = viewmodel.entityMeta as ItemDisplayMeta
+            meta.itemStack = ItemStack.of(Material.BONE).withItemModel(vmModel)
+            meta.setBillboardRenderConstraints(AbstractDisplayMeta.BillboardConstraints.FIXED)
+            meta.scale = Vec(vmScale)
+            meta.setTranslation(viewmodelTranslation(down, forward, inverted))
 
-        meta.leftRotation = setRoll(if (inverted) Math.PI.toFloat() else 0f)
-        meta.setTransformationInterpolationDuration(0)
-        meta.posRotInterpolationDuration = VIEWMODEL_INTERPOLATION
-        meta.isHasNoGravity = true
-        viewmodel.spawn()
-        viewmodel.setView(yaw, pitch)
+            meta.leftRotation = setRoll(if (inverted) Math.PI.toFloat() else 0f)
+            meta.setTransformationInterpolationDuration(0)
+            meta.posRotInterpolationDuration = VIEWMODEL_INTERPOLATION
+            meta.isHasNoGravity = true
+            viewmodel.spawn()
+            viewmodel.setView(yaw, pitch)
 
-        mount.addPassenger(viewmodel)
-        return viewmodel
+            mount.addPassenger(viewmodel)
+            return viewmodel
+        } catch (failure: Exception) {
+            runCatching { viewmodel.remove() }.onFailure(failure::addSuppressed)
+            throw failure
+        }
     }
 
     private fun viewmodelTranslation(
@@ -201,43 +241,65 @@ class Drone(
     ): Vec = Vec(0.0, if (inverted) down else -down, forward)
 
     override fun onExit(player: Player) {
+        val session = operators.remove(player)
+        if (session == null) {
+            super.onExit(player)
+            return
+        }
         val retainCrashStatic = hasCrashStatic(player)
         // restore the drone model's (and mounted payload's) visibility to the pilot
-        val entity = driverEntity(player)
-        entity?.addViewer(player)
-        entityPayload[entity]?.addViewer(player)
-        super.onExit(player)
-        playerOriginalPos.remove(player)
-        playerThrottle.remove(player)
-        playerBuzzTick.remove(player)
-        playerPayloadViewmodel.remove(player)?.remove()
-        // base class drops the vehicle/entity tracking
-        playerYaw.remove(player)
-        playerPitch.remove(player)
-        playerInverted.remove(player)
-        playerPendingSwitch.remove(player)
-        playerBoundary.remove(player)
-        playerViewmodel.remove(player)?.remove()
+        try {
+            session.runtime.entity.addViewer(player)
+            session.runtime.payload?.addViewer(player)
+        } finally {
+            try {
+                super.onExit(player)
+            } finally {
+                restoreOperator(player, session, retainCrashStatic)
+            }
+        }
+    }
+
+    private fun restoreOperator(
+        player: Player,
+        session: OperatorSession,
+        retainCrashStatic: Boolean,
+    ) {
+        val failures = ArrayList<Throwable>()
+
+        fun cleanup(action: () -> Unit) {
+            runCatching(action).onFailure(failures::add)
+        }
+        cleanup { session.payloadViewmodel?.remove() }
+        cleanup { session.viewmodel?.remove() }
         if (player.isOnline) {
             for (slot in PILOT_HOTBAR_SLOTS) {
-                player.sendPacket(SetPlayerInventorySlotPacket(slot, player.inventory.getItemStack(slot)))
+                cleanup { player.sendPacket(SetPlayerInventorySlotPacket(slot, player.inventory.getItemStack(slot))) }
             }
         }
 
-        if (!retainCrashStatic) player.stopSpectating()
-        entitySpider[entity]?.removeViewer(player)
+        if (!retainCrashStatic) cleanup { player.stopSpectating() }
+        cleanup { session.runtime.camera?.removeViewer(player) }
 
         // return the pilot to the operator clone's spot
-        playerOperatorMannequin.remove(player)?.let { mannequin ->
+        session.mannequin?.let { mannequin ->
             mannequinPilot.remove(mannequin)
-            player.teleport(mannequin.position)
-            mannequin.remove()
+            cleanup { player.teleport(if (mannequin.instance == null) session.originalPosition else mannequin.position) }
+            cleanup { mannequin.remove() }
         }
-        playerOriginalBoundingBox.remove(player)?.let { player.boundingBox = it }
+        cleanup { player.boundingBox = session.originalBoundingBox }
+        failures.firstOrNull()?.let { failure ->
+            failures.drop(1).forEach(failure::addSuppressed)
+            throw failure
+        }
     }
 
-    private fun spawnOperatorMannequin(player: Player) {
+    private fun spawnOperatorMannequin(
+        player: Player,
+        session: OperatorSession,
+    ) {
         val mannequin = LivingEntity(EntityType.MANNEQUIN)
+        session.mannequin = mannequin
         mannequin.editEntityMeta(MannequinMeta::class.java) { meta ->
             meta.profile = ResolvableProfile(player.skin)
         }
@@ -247,7 +309,6 @@ class Drone(
         mannequin.leggings = player.leggings
         mannequin.boots = player.boots
         mannequin.spawn()
-        playerOperatorMannequin[player] = mannequin
         mannequinPilot[mannequin] = player
     }
 
@@ -256,34 +317,29 @@ class Drone(
         pos: Pos,
     ): Entity {
         val entity = super.spawn(instance, pos)
-
-        entitySpider[entity] = spawnSpider(instance, entity.position.withPitch(0F))
-        entityBattery[entity] = 1f
-        entityHealth[entity] = rawHealth
-
-        // mount the payload model so observers see the drone carrying it
-        if (projectileModel != null) {
-            entityPayload[entity] = spawnPayloadDisplay(entity)
+        val runtime = Runtime(entity, rawHealth)
+        runtimes[entity] = runtime
+        try {
+            runtime.camera = spawnSpider(instance, entity.position.withPitch(0F))
+            // mount the payload model so observers see the drone carrying it
+            if (projectileModel != null) {
+                runtime.payload = spawnPayloadDisplay(entity)
+            }
+        } catch (failure: Exception) {
+            runCatching { removeRuntimeEntity(entity) }.onFailure(failure::addSuppressed)
+            throw failure
         }
 
         return entity
     }
 
     override fun cleanupRuntime(entity: Entity) {
-        // these aren't tracked by the base Vehicle, so clean them up ourselves
-        entitySpider.remove(entity)?.remove()
-        entityPayload.remove(entity)?.remove()
-        entityBattery.remove(entity)
-        entityHealth.remove(entity)
-    }
-
-    override fun destroy(
-        entity: Entity,
-        attacker: Player?,
-        weapon: Component?,
-    ) {
-        cleanupRuntime(entity)
-        super.destroy(entity, attacker, weapon)
+        val runtime = runtimes.remove(entity) ?: return
+        try {
+            runtime.camera?.remove()
+        } finally {
+            runtime.payload?.remove()
+        }
     }
 
     override fun takeDamage(
@@ -293,8 +349,9 @@ class Drone(
         attacker: Player?,
         weapon: Component?,
     ): Boolean {
-        val newHealth = (entityHealth[entity] ?: return false) - amount
-        entityHealth[entity] = newHealth
+        val runtime = runtimes[entity] ?: return false
+        val newHealth = runtime.health - amount
+        runtime.health = newHealth
         if (newHealth <= 0f) {
             destroy(entity, attacker, weapon)
             return true
@@ -305,16 +362,21 @@ class Drone(
     // the payload model shown attached to the drone for outside observers
     private fun spawnPayloadDisplay(drone: Entity): Entity {
         val display = Entity(EntityType.ITEM_DISPLAY)
-        display.setInstance(drone.instance!!, payloadWorldPos(drone.position))
+        try {
+            display.setInstance(drone.instance!!, payloadWorldPos(drone.position))
 
-        val meta = display.entityMeta as ItemDisplayMeta
-        meta.itemStack = ItemStack.of(Material.BONE).withItemModel(projectileModel!!)
-        meta.posRotInterpolationDuration = 3
-        meta.scale = Vec(projectileScale)
-        meta.isHasNoGravity = true
+            val meta = display.entityMeta as ItemDisplayMeta
+            meta.itemStack = ItemStack.of(Material.BONE).withItemModel(projectileModel!!)
+            meta.posRotInterpolationDuration = 3
+            meta.scale = Vec(projectileScale)
+            meta.isHasNoGravity = true
 
-        display.spawn()
-        return display
+            display.spawn()
+            return display
+        } catch (failure: Exception) {
+            runCatching { display.remove() }.onFailure(failure::addSuppressed)
+            throw failure
+        }
     }
 
     // world transform of the mounted payload, given the drone's rendered pose
@@ -405,13 +467,18 @@ class Drone(
         pos: Pos,
     ): LivingEntity {
         val spider = LivingEntity(EntityType.CAVE_SPIDER)
-        spider.isAutoViewable = false
-        spider.setInstance(instance, pos)
-        spider.setNoGravity(true)
-        spider.isInvisible = true
-        spider.getAttribute(Attribute.SCALE).baseValue = 0.0
-        spider.spawn()
-        return spider
+        try {
+            spider.isAutoViewable = false
+            spider.setInstance(instance, pos)
+            spider.setNoGravity(true)
+            spider.isInvisible = true
+            spider.getAttribute(Attribute.SCALE).baseValue = 0.0
+            spider.spawn()
+            return spider
+        } catch (failure: Exception) {
+            runCatching { spider.remove() }.onFailure(failure::addSuppressed)
+            throw failure
+        }
     }
 
     private fun spectateCamera(
@@ -425,34 +492,36 @@ class Drone(
 
     override fun onTick(player: Player) {
         val entity = driverEntity(player) ?: return
+        val session = operators[player] ?: return
+        val runtime = session.runtime
         val inputEvent = KeyPressListener.playerInputEvent[player]
 
-        spectateCamera(player, entitySpider[entity])
+        spectateCamera(player, runtime.camera)
 
         if (inputEvent?.isHoldingShiftKey == true) {
             endFlight(player)
             return
         }
 
-        val throttle = playerThrottle[player] ?: 0F
-        val battery = drainBattery(entity, throttle)
+        val throttle = session.throttle
+        val battery = drainBattery(runtime, throttle)
         if (battery <= 0f) {
             destroy(entity)
             return
         }
 
         val position = entity.position
-        val orientation = updateOrientation(player, position, inputEvent)
+        val orientation = updateOrientation(session, inputEvent)
         val speed = ((throttle / 100f) * maxSpeed).toDouble()
         val finalPos = moveDrone(player, entity, position, orientation, speed) ?: return
 
-        playFlightBuzz(player, entity, finalPos, throttle)
-        entityPayload[entity]?.teleport(payloadWorldPos(finalPos.withPitch(orientation.renderPitch)))
+        playFlightBuzz(session, finalPos, throttle)
+        runtime.payload?.teleport(payloadWorldPos(finalPos.withPitch(orientation.renderPitch)))
         driverSeat(player)?.teleport(finalPos)
 
-        updatePilotView(player, entity, finalPos, orientation)
+        updatePilotView(player, session, finalPos, orientation)
 
-        val distance = playerOriginalPos[player]?.distance(entity.position) ?: return
+        val distance = session.originalPosition.distance(entity.position)
         if (distance > maxRange) {
             endFlight(player)
             return
@@ -462,12 +531,12 @@ class Drone(
     }
 
     private fun drainBattery(
-        entity: Entity,
+        runtime: Runtime,
         throttle: Float,
     ): Float {
         val drain = (BATTERY_IDLE_FRACTION + (1f - BATTERY_IDLE_FRACTION) * throttle / 100f) / batteryLifeTicks
-        val battery = ((entityBattery[entity] ?: 1f) - drain).coerceAtLeast(0f)
-        entityBattery[entity] = battery
+        val battery = (runtime.battery - drain).coerceAtLeast(0f)
+        runtime.battery = battery
         return battery
     }
 
@@ -484,14 +553,13 @@ class Drone(
     )
 
     private fun updateOrientation(
-        player: Player,
-        position: Pos,
+        session: OperatorSession,
         inputEvent: PlayerInputEvent?,
     ): FlightOrientation {
-        var yaw = playerYaw[player] ?: position.yaw
-        val prevPitch = playerPitch[player] ?: position.pitch
+        var yaw = session.yaw
+        val prevPitch = session.pitch
         var rawPitch = prevPitch
-        val activeInverted = playerInverted[player] == true
+        val activeInverted = session.inverted
         val yawSign = if (activeInverted) -1f else 1f
         if (inputEvent != null) {
             if (inputEvent.isHoldingForwardKey) rawPitch += pitchSpeed
@@ -504,17 +572,17 @@ class Drone(
         // the unclamped pitch the model/payload are rendered with for observers
         val renderPitch = wrapDegrees(velocityPitch)
 
-        val pendingSwitch = playerPendingSwitch[player] ?: false
+        val pendingSwitch = session.pendingSwitch
         var newActiveInverted = activeInverted
         var doSwitch = false
 
         // Hold the camera at the inversion boundary for one tick, then replace it
         // on the next tick. Movement and observer rendering keep the unclamped pitch.
         if (pendingSwitch) {
-            rawPitch = playerBoundary[player] ?: 90f
+            rawPitch = session.boundary
             newActiveInverted = !activeInverted
             doSwitch = true
-            playerPendingSwitch[player] = false
+            session.pendingSwitch = false
         } else {
             val crossPos = (prevPitch < 90f && rawPitch > 90f) || (prevPitch > 90f && rawPitch < 90f)
             val crossNeg = (prevPitch < -90f && rawPitch > -90f) || (prevPitch > -90f && rawPitch < -90f)
@@ -526,25 +594,25 @@ class Drone(
                 }
             if (boundary != null) {
                 rawPitch = boundary
-                playerBoundary[player] = boundary
-                playerPendingSwitch[player] = true
+                session.boundary = boundary
+                session.pendingSwitch = true
             } else {
                 val rawInverted = abs(rawPitch) > 90f
                 val nearBoundary = abs(abs(rawPitch) - 90f) < 0.5f
                 if (rawInverted != activeInverted && !nearBoundary) {
                     val resyncBoundary = if (rawPitch > 0f) 90f else -90f
                     rawPitch = resyncBoundary
-                    playerBoundary[player] = resyncBoundary
-                    playerPendingSwitch[player] = true
+                    session.boundary = resyncBoundary
+                    session.pendingSwitch = true
                 }
             }
         }
 
         yaw = wrapDegrees(yaw)
         val pitch = wrapDegrees(rawPitch)
-        playerYaw[player] = yaw
-        playerPitch[player] = pitch
-        playerInverted[player] = newActiveInverted
+        session.yaw = yaw
+        session.pitch = pitch
+        session.inverted = newActiveInverted
 
         val yawRad = Math.toRadians(yaw.toDouble())
         val pitchRad = Math.toRadians(velocityPitch.toDouble())
@@ -611,41 +679,41 @@ class Drone(
     }
 
     private fun playFlightBuzz(
-        player: Player,
-        entity: Entity,
+        session: OperatorSession,
         position: Pos,
         throttle: Float,
     ) {
         val buzzPeriod = buzzPeriodTicks.coerceAtLeast(1)
-        val buzzTick = playerBuzzTick[player] ?: 0
+        val buzzTick = session.buzzTick
         if (buzzTick == 0) {
             val pitch = (buzzSound.pitch() * (1f + BUZZ_THROTTLE_PITCH_GAIN * throttle / 100f)).coerceIn(0.5f, 2.0f)
             val buzz = Sound.sound(buzzSound.name(), buzzSound.source(), buzzSound.volume(), pitch)
-            entity.instance?.playSound(buzz, position.x, position.y, position.z)
+            session.runtime.entity.instance
+                ?.playSound(buzz, position.x, position.y, position.z)
         }
-        playerBuzzTick[player] = (buzzTick + 1) % buzzPeriod
+        session.buzzTick = (buzzTick + 1) % buzzPeriod
     }
 
     private fun updatePilotView(
         player: Player,
-        entity: Entity,
+        session: OperatorSession,
         position: Pos,
         orientation: FlightOrientation,
     ) {
         val center = hitbox.getWorldCenter(position, orientation.yaw, orientation.pitch, 0f)
         if (orientation.switchCamera) {
-            replaceCamera(player, entity, center, orientation)
+            replaceCamera(player, session, center, orientation)
         }
 
-        val spider = entitySpider[entity]
+        val spider = session.runtime.camera
         if (spider != null) {
             spider.teleport(center.withView(spider.position.yaw, spider.position.pitch))
             spider.setView(orientation.displayYaw, orientation.cameraPitch, orientation.displayYaw)
         }
 
         // keep the first-person models oriented to the camera so they stay in the same place on screen
-        playerViewmodel[player]?.setView(orientation.displayYaw, orientation.cameraPitch)
-        playerPayloadViewmodel[player]?.setView(orientation.displayYaw, orientation.cameraPitch)
+        session.viewmodel?.setView(orientation.displayYaw, orientation.cameraPitch)
+        session.payloadViewmodel?.setView(orientation.displayYaw, orientation.cameraPitch)
 
         // Lock the view without creating a player teleport while the pilot is mounted.
         player.sendPacket(
@@ -660,22 +728,30 @@ class Drone(
 
     private fun replaceCamera(
         player: Player,
-        entity: Entity,
+        session: OperatorSession,
         center: Pos,
         orientation: FlightOrientation,
     ) {
-        val instance = entity.instance ?: return
-        val oldSpider = entitySpider[entity]
+        val runtime = session.runtime
+        val instance = runtime.entity.instance ?: return
+        val oldSpider = runtime.camera
         val freshSpider = spawnSpider(instance, center.withView(orientation.displayYaw, orientation.cameraPitch))
-        freshSpider.setView(orientation.displayYaw, orientation.cameraPitch, orientation.displayYaw)
-        entitySpider[entity] = freshSpider
-        // spectate the fresh camera before removing the old one
-        spectateCamera(player, freshSpider)
+        val oldViewmodel = session.viewmodel
+        val oldPayloadViewmodel = session.payloadViewmodel
+        try {
+            freshSpider.setView(orientation.displayYaw, orientation.cameraPitch, orientation.displayYaw)
+            runtime.camera = freshSpider
+            // spectate the fresh camera before removing the old one
+            spectateCamera(player, freshSpider)
 
-        // respawn the viewmodel(s) on the fresh camera in lockstep
-        val oldViewmodel = playerViewmodel[player]
-        val oldPayloadViewmodel = playerPayloadViewmodel[player]
-        spawnViewmodels(player, freshSpider, orientation.displayYaw, orientation.cameraPitch, orientation.inverted)
+            // respawn the viewmodel(s) on the fresh camera in lockstep
+            spawnViewmodels(player, session, freshSpider, orientation.displayYaw, orientation.cameraPitch, orientation.inverted)
+        } catch (failure: Exception) {
+            runtime.camera = oldSpider
+            runCatching { spectateCamera(player, oldSpider) }.onFailure(failure::addSuppressed)
+            runCatching { freshSpider.remove() }.onFailure(failure::addSuppressed)
+            throw failure
+        }
         oldViewmodel?.remove()
         oldPayloadViewmodel?.remove()
         oldSpider?.remove()
@@ -746,7 +822,8 @@ class Drone(
         clearCrashStatic(player)
         camera.setAutoViewable(false)
         camera.addViewer(player)
-        playerCrashStaticCameras[player] = camera
+        val session = CrashStaticSession(camera)
+        crashSessions[player] = session
         ModelManager.setCustomView(player, true)
 
         player.spectate(camera)
@@ -754,9 +831,9 @@ class Drone(
             player.sendPacket(SetTimePacket(CRASH_STATIC_TIME, instance.createTimePacket().clocks))
         }
 
-        playerCrashStaticTasks[player] =
+        session.task =
             ModuleScheduler
-                .buildTask { finishCrashStatic(player, camera) }
+                .buildTask { finishCrashStatic(player, session) }
                 .delay(TaskSchedule.seconds(CRASH_STATIC_SECONDS))
                 .schedule()
     }
@@ -769,129 +846,87 @@ class Drone(
         return d
     }
 
+    internal fun adjustThrottle(
+        player: Player,
+        delta: Int,
+    ) {
+        val session = operators[player] ?: return
+        session.throttle = (session.throttle + delta * -10F).coerceIn(0F, 100F)
+    }
+
+    internal fun shutdownRuntimeState() {
+        val players = operators.keys.toList()
+        val failures = ArrayList<Throwable>()
+
+        fun cleanup(action: () -> Unit) {
+            runCatching(action).onFailure(failures::add)
+        }
+        players.forEach { player -> cleanup { onExit(player) } }
+        runtimes.keys.toList().forEach { entity -> cleanup { removeRuntimeEntity(entity) } }
+        players.forEach { player -> cleanup { resetShutdownView(player) } }
+        failures.firstOrNull()?.let { failure ->
+            failures.drop(1).forEach(failure::addSuppressed)
+            throw failure
+        }
+    }
+
     companion object {
-        val entitySpider = hashMapOf<Entity, LivingEntity>()
+        private class CrashStaticSession(
+            val camera: LivingEntity,
+            var task: Task? = null,
+        )
 
-        val entityBattery = hashMapOf<Entity, Float>()
+        private val mannequinPilot = HashMap<LivingEntity, Player>()
+        private val crashSessions = ConcurrentHashMap<Player, CrashStaticSession>()
 
-        val entityHealth = hashMapOf<Entity, Float>()
+        internal fun operatorFor(mannequin: Entity): Player? = mannequinPilot[mannequin]
 
-        val entityPayload = hashMapOf<Entity, Entity>()
-
-        val playerOperatorMannequin = hashMapOf<Player, LivingEntity>()
-        val mannequinPilot = hashMapOf<LivingEntity, Player>()
-
-        val playerOriginalPos = HashMap<Player, Pos>()
-
-        val playerOriginalBoundingBox = hashMapOf<Player, BoundingBox>()
-
-        val playerThrottle = hashMapOf<Player, Float>()
-
-        val playerBuzzTick = hashMapOf<Player, Int>()
-
-        val playerYaw = hashMapOf<Player, Float>()
-        val playerPitch = hashMapOf<Player, Float>()
-
-        val playerInverted = hashMapOf<Player, Boolean>()
-
-        val playerPendingSwitch = hashMapOf<Player, Boolean>()
-        val playerBoundary = hashMapOf<Player, Float>()
-
-        val playerViewmodel = hashMapOf<Player, Entity>()
-        val playerPayloadViewmodel = hashMapOf<Player, Entity>()
-
-        private val playerCrashStaticCameras = ConcurrentHashMap<Player, LivingEntity>()
-        private val playerCrashStaticTasks = ConcurrentHashMap<Player, Task>()
-
-        internal fun hasCrashStatic(player: Player): Boolean = playerCrashStaticCameras.containsKey(player)
+        internal fun hasCrashStatic(player: Player): Boolean = crashSessions.containsKey(player)
 
         internal fun clearCrashStatic(
             player: Player,
             resetCamera: Boolean = true,
         ) {
-            playerCrashStaticTasks.remove(player)?.cancel()
+            val session = crashSessions.remove(player)
+            session?.task?.cancel()
             ModelManager.setCustomView(player, false)
-            val camera = playerCrashStaticCameras.remove(player) ?: return
+            if (session == null) return
             if (resetCamera && player.isOnline) player.stopSpectating()
-            camera.remove()
+            session.camera.remove()
         }
 
-        internal fun shutdownRuntimeState() {
-            val players =
-                buildSet {
-                    addAll(playerOperatorMannequin.keys)
-                    addAll(playerOriginalPos.keys)
-                    addAll(playerOriginalBoundingBox.keys)
-                    addAll(playerThrottle.keys)
-                    addAll(playerBuzzTick.keys)
-                    addAll(playerYaw.keys)
-                    addAll(playerPitch.keys)
-                    addAll(playerInverted.keys)
-                    addAll(playerPendingSwitch.keys)
-                    addAll(playerBoundary.keys)
-                    addAll(playerViewmodel.keys)
-                    addAll(playerPayloadViewmodel.keys)
-                    addAll(playerCrashStaticCameras.keys)
-                    addAll(playerCrashStaticTasks.keys)
-                }
-
-            playerCrashStaticTasks.values.toSet().forEach { task -> runCatching { task.cancel() } }
-            playerCrashStaticCameras.values.toSet().forEach(Entity::remove)
-            playerViewmodel.values.toSet().forEach(Entity::remove)
-            playerPayloadViewmodel.values.toSet().forEach(Entity::remove)
-            entitySpider.values.toSet().forEach(Entity::remove)
-            entityPayload.values.toSet().forEach(Entity::remove)
-            playerOperatorMannequin.values.toSet().forEach(Entity::remove)
-            mannequinPilot.keys.toSet().forEach(Entity::remove)
-
-            for (player in players) {
-                ModelManager.setCustomView(player, false)
-                playerOriginalBoundingBox[player]?.let { original ->
-                    runCatching { player.boundingBox = original }
-                }
-                if (player.isOnline) {
-                    runCatching { player.stopSpectating() }
-                    runCatching {
-                        for (slot in PILOT_HOTBAR_SLOTS) {
-                            player.sendPacket(SetPlayerInventorySlotPacket(slot, player.inventory.getItemStack(slot)))
-                        }
-                    }
-                    player.instance?.let { instance ->
-                        runCatching { player.sendPacket(SetTimePacket(10000, instance.createTimePacket().clocks)) }
-                    }
-                }
+        internal fun shutdownCrashStatics() {
+            val failures = ArrayList<Throwable>()
+            for (player in crashSessions.keys.toList()) {
+                runCatching { clearCrashStatic(player) }.onFailure(failures::add)
+                runCatching { resetShutdownView(player) }.onFailure(failures::add)
             }
+            failures.firstOrNull()?.let { failure ->
+                failures.drop(1).forEach(failure::addSuppressed)
+                throw failure
+            }
+        }
 
-            entitySpider.clear()
-            entityBattery.clear()
-            entityHealth.clear()
-            entityPayload.clear()
-            playerOperatorMannequin.clear()
-            mannequinPilot.clear()
-            playerOriginalPos.clear()
-            playerOriginalBoundingBox.clear()
-            playerThrottle.clear()
-            playerBuzzTick.clear()
-            playerYaw.clear()
-            playerPitch.clear()
-            playerInverted.clear()
-            playerPendingSwitch.clear()
-            playerBoundary.clear()
-            playerViewmodel.clear()
-            playerPayloadViewmodel.clear()
-            playerCrashStaticCameras.clear()
-            playerCrashStaticTasks.clear()
+        private fun resetShutdownView(player: Player) {
+            ModelManager.setCustomView(player, false)
+            if (!player.isOnline) return
+            player.stopSpectating()
+            for (slot in PILOT_HOTBAR_SLOTS) {
+                player.sendPacket(SetPlayerInventorySlotPacket(slot, player.inventory.getItemStack(slot)))
+            }
+            player.instance?.let { instance ->
+                player.sendPacket(SetTimePacket(10000, instance.createTimePacket().clocks))
+            }
         }
 
         private fun finishCrashStatic(
             player: Player,
-            camera: LivingEntity,
+            session: CrashStaticSession,
         ) {
-            if (!playerCrashStaticCameras.remove(player, camera)) return
-            playerCrashStaticTasks.remove(player)
+            if (!crashSessions.remove(player, session)) return
             ModelManager.setCustomView(player, false)
             if (player.isOnline) player.stopSpectating()
-            camera.remove()
+            session.camera.remove()
         }
 
         const val BATTERY_IDLE_FRACTION = 0.25f

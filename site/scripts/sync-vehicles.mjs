@@ -1,9 +1,10 @@
 // Run from any directory with: node site/scripts/sync-vehicles.mjs
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { exportItemModel } from './export-item-model.mjs'
-import { callArguments, definitions, displayName, namedArguments, number, splitArguments, string, stripComments } from './kotlin-source.mjs'
+import { callArguments, constructorDefaults, definitions, displayName, namedArguments, number, splitArguments, string, stripComments } from '../../tools/kotlin-source.cjs'
+import { ammunitionNames, defaultsFor, readConstants } from '../../tools/combat-source.cjs'
 
 const site = fileURLToPath(new URL('../', import.meta.url))
 const modules = join(site, '../modules')
@@ -12,18 +13,6 @@ const fieldPieces = ['Cannon', 'AutomaticFieldPiece']
 const catalogues = {}
 const read = path => readFileSync(path, 'utf8')
 const format = value => Number(value.toFixed(3)).toString()
-
-function defaultsFor(type, source, iteration) {
-  const imported = source.match(new RegExp(`import ([\\w.]+\\.${type})\\b`))?.[1]
-  if (!imported) throw new Error(`Missing import for vehicle type ${type}`)
-  const relative = `src/main/kotlin/${imported.replaceAll('.', '/')}.kt`
-  const path = [join(iteration, relative), join(modules, 'combat', relative)].find(existsSync)
-  if (!path) throw new Error(`Missing vehicle class source: ${imported}`)
-  const code = stripComments(read(path))
-  const match = code.match(new RegExp(`\\bclass ${type}\\s*\\(`))
-  if (!match) throw new Error(`Missing constructor: ${imported}`)
-  return namedArguments(callArguments(code, match.index + match[0].length - 1))
-}
 
 function constructorArgs(expression, type) {
   const match = expression?.match(new RegExp(`^${type}\\s*\\(`))
@@ -47,16 +36,11 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
   if (!entry.isDirectory() || entry.name.startsWith('.')) continue
   const iterationId = entry.name
   const iteration = join(modules, 'iterations', iterationId)
-  const constants = join(iteration, 'src/main/kotlin/net/aechronis/server/constants')
-  if (!existsSync(constants)) continue
-  const sources = readdirSync(constants, { withFileTypes: true })
-    .filter(entry => entry.isFile() && entry.name.endsWith('.kt')).sort((a, b) => a.name.localeCompare(b.name))
-    .map(entry => read(join(constants, entry.name)))
-  const vehicles = sources.flatMap(source => definitions(source, types).map(definition => ({ ...definition, source })))
+  const constants = readConstants(iteration, [...types, 'Ammo', 'Gun'])
+  const vehicles = constants.filter(({ type }) => types.includes(type))
   if (!vehicles.length) continue
-  const ammoNames = new Map(sources.flatMap(source => definitions(source, ['Ammo']))
-    .map(({ key, args }) => [`Ammo.${key}`, displayName(args.itemName)]))
-  const guns = new Map(sources.flatMap(source => definitions(source, ['Gun'])).map(({ key, args }) => [`Guns.${key}`, args]))
+  const ammoNames = ammunitionNames(constants)
+  const guns = new Map(constants.filter(({ type }) => type === 'Gun').map(({ owner, key, args }) => [`${owner}.${key}`, args]))
   const output = join(site, 'src/public/iterations', iterationId, 'vehicles')
   rmSync(output, { recursive: true, force: true })
   mkdirSync(output, { recursive: true })
@@ -123,9 +107,7 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
       if (args.bomb) {
         // Bomb defaults live alongside the Plane class.
         const planePath = join(modules, 'combat/src/main/kotlin/net/aechronis/combat/objects/Plane.kt')
-        const code = stripComments(read(planePath))
-        const match = code.match(/class PlaneBombWeapon\s*\(/)
-        const bombDefaults = namedArguments(callArguments(code, match.index + match[0].length - 1))
+        const bombDefaults = constructorDefaults(read(planePath), 'PlaneBombWeapon')
         weapon = { ...bombDefaults, ...namedArguments(constructorArgs(args.bomb, 'PlaneBombWeapon')) }
       }
       const n = field => number(weapon[field], `${id}/${field}`)

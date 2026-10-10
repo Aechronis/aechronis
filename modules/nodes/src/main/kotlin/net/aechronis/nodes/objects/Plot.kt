@@ -21,9 +21,7 @@ class Plot(
             if (town.plots.containsKey(name)) return Result.failure(IllegalArgumentException("A plot with that name already exists"))
             val plot = Plot(name, cornerOne, cornerTwo)
             validate(town, plot)?.let { return Result.failure(IllegalArgumentException(it)) }
-            town.plots[name] = plot
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.addPlot(plot)
             return Result.success(plot)
         }
 
@@ -32,30 +30,22 @@ class Plot(
             val plot = Plot(existing.name, cornerOne, cornerTwo)
             validate(town, plot, existing)?.let { return Result.failure(IllegalArgumentException(it)) }
             plot.copyPermissionsFrom(existing)
-            town.plots[existing.name] = plot
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.replacePlot(existing, plot)
             return Result.success(plot)
         }
 
-        fun delete(town: Town, plot: Plot): Boolean {
-            if (town.plots[plot.name] !== plot) return false
-            town.plots.remove(plot.name)
-            town.needsUpdate()
-            Nodes.markWorldDirty()
-            return true
-        }
+        fun delete(town: Town, plot: Plot): Boolean = town.removePlot(plot)
 
         fun setGroupPermissions(town: Town, plot: Plot, group: PermissionsGroup, permissions: Iterable<TownPermissions>, allowed: Boolean?) {
-            permissions.forEach { plot.setGroupPermission(group, it, allowed) }
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.updatePlotPermissions(plot) {
+                permissions.forEach { plot.setGroupPermission(group, it, allowed) }
+            }
         }
 
         fun setPlayerPermissions(town: Town, plot: Plot, player: Resident, permissions: Iterable<TownPermissions>, allowed: Boolean?) {
-            permissions.forEach { plot.setPlayerPermission(player.uuid, it, allowed) }
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.updatePlotPermissions(plot) {
+                permissions.forEach { plot.setPlayerPermission(player.uuid, it, allowed) }
+            }
         }
 
         internal fun isValid(town: Town, plot: Plot, ignored: Plot? = null): Boolean = validate(town, plot, ignored) == null
@@ -120,7 +110,7 @@ class Plot(
 
     fun playerPermission(player: UUID, permission: TownPermissions): Boolean? = playerPermissions[player]?.get(permission)
 
-    fun setGroupPermission(group: PermissionsGroup, permission: TownPermissions, value: Boolean?) {
+    private fun setGroupPermission(group: PermissionsGroup, permission: TownPermissions, value: Boolean?) {
         if (value == null) {
             groupPermissions[group]?.remove(permission)
             if (groupPermissions[group]?.isEmpty() == true) groupPermissions.remove(group)
@@ -130,7 +120,7 @@ class Plot(
         needsUpdate()
     }
 
-    fun setPlayerPermission(player: UUID, permission: TownPermissions, value: Boolean?) {
+    private fun setPlayerPermission(player: UUID, permission: TownPermissions, value: Boolean?) {
         if (value == null) {
             playerPermissions[player]?.remove(permission)
             if (playerPermissions[player]?.isEmpty() == true) playerPermissions.remove(player)
@@ -144,7 +134,7 @@ class Plot(
 
     fun playerPermissionEntries(): Map<UUID, Map<TownPermissions, Boolean>> = playerPermissions.mapValues { it.value.toMap() }
 
-    fun copyPermissionsFrom(other: Plot) {
+    private fun copyPermissionsFrom(other: Plot) {
         other.groupPermissionEntries().forEach { (group, permissions) ->
             permissions.forEach { (permission, value) -> setGroupPermission(group, permission, value) }
         }
@@ -153,7 +143,7 @@ class Plot(
         }
     }
 
-    fun needsUpdate() {
+    private fun needsUpdate() {
         needsUpdate = true
     }
 

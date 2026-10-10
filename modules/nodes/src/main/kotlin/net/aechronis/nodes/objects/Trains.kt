@@ -11,6 +11,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import net.aechronis.nodes.Message
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
@@ -22,10 +23,8 @@ import net.minestom.server.item.Material
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import org.everbuild.blocksandstuff.blocks.placement.common.AbstractRailPlacementRule.RailShape
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
@@ -727,19 +726,7 @@ object Trains {
                 }
             }
         }
-        val parent = path.parent ?: Path.of(".")
-        Files.createDirectories(parent)
-        val temporary = Files.createTempFile(parent, "trains-", ".json.tmp")
-        try {
-            Files.writeString(temporary, root.toString())
-            try {
-                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING)
-            }
-        } finally {
-            Files.deleteIfExists(temporary)
-        }
+        AtomicFiles.writeString(path, root.toString())
     }
 
     private fun positionToJson(position: BlockVec): JsonObject = buildJsonObject {

@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.aechronis.server.hasPermission
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
@@ -172,7 +173,7 @@ object Warps {
     private fun save() {
         if (!::file.isInitialized) return
         val saved = synchronized(warps) { warps.values.toList() }
-        AtomicFiles.write(file) { writer -> writer.write(Json.encodeToString(saved)) }
+        AtomicFiles.write(file, preservePermissions = true) { writer -> writer.write(Json.encodeToString(saved)) }
     }
 
     private fun valid(warp: SavedWarp): Boolean =

@@ -21,15 +21,15 @@ object GrenadeListener {
     }
 
     private fun onHeldSlotChange(event: PlayerChangeHeldSlotEvent) {
-        if (Combat.armedGrenades.containsKey(event.player)) event.isCancelled = true
+        if (Combat.playerStates[event.player]?.armedGrenade != null) event.isCancelled = true
     }
 
     private fun onSwapItem(event: PlayerSwapItemEvent) {
-        if (Combat.armedGrenades.containsKey(event.player)) event.isCancelled = true
+        if (Combat.playerStates[event.player]?.armedGrenade != null) event.isCancelled = true
     }
 
     private fun onInventoryClick(event: InventoryPreClickEvent) {
-        if (Combat.armedGrenades.containsKey(event.player)) event.isCancelled = true
+        if (Combat.playerStates[event.player]?.armedGrenade != null) event.isCancelled = true
     }
 
     fun init() {

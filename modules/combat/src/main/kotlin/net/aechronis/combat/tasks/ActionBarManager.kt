@@ -40,7 +40,7 @@ object ActionBarManager {
         val ammo =
             gun
                 ?.takeIf {
-                    vehicle !is ArmedVehicle && ride?.role != VehicleSeatRole.GUNNER && Combat.reloadTasks[player] == null
+                    vehicle !is ArmedVehicle && ride?.role != VehicleSeatRole.GUNNER && Combat.playerStates[player]?.reloadTask == null
                 }?.ammoText(player)
 
         val actionBar =
@@ -67,10 +67,10 @@ object ActionBarManager {
                     is Plane ->
                         formatPlaneTelemetry(
                             vehicle.speed,
-                            Plane.playerThrottle[player] ?: 0f,
+                            vehicle.currentThrottle(player),
                             vehicle.maxThrottle,
                         )
-                    is Car -> formatCarTelemetry(Car.playerSpeed[player] ?: 0f)
+                    is Car -> formatCarTelemetry(vehicle.currentSpeed(player))
                     else -> vehicle.telemetryText(entity)
                 }
             } else {

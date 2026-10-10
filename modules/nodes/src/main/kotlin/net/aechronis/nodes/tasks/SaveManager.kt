@@ -15,6 +15,7 @@ import net.aechronis.nodes.objects.BuildingSaveState
 import net.aechronis.nodes.serdes.Serializer
 import net.aechronis.nodes.serdes.WorldSaveState
 import net.aechronis.nodes.serdes.snapshotList
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
@@ -36,7 +37,7 @@ internal class TaskSaveWorld(
     private val backupTask: TaskSaveBackup?,
 ) : Runnable {
     override fun run() {
-        AtomicFiles.writeString(pathTowns, snapshot.toJsonString())
+        AtomicFiles.writeString(pathTowns, snapshot.toJsonString(), preservePermissions = true)
         backupTask?.run()
     }
 }
@@ -57,11 +58,11 @@ internal class TaskSaveBackup(
         if (Files.exists(pathTowns)) {
             // save towns file backup
             val backupName = "towns.${BACKUP_DATE_FORMATTER.format(Instant.ofEpochMilli(timestamp))}.json"
-            AtomicFiles.copy(pathTowns, pathBackup.resolve(backupName))
+            AtomicFiles.copy(pathTowns, pathBackup.resolve(backupName), preservePermissions = true)
         }
 
         // save last backup timestamp to file
-        AtomicFiles.writeString(pathLastBackupTime, timestamp.toString())
+        AtomicFiles.writeString(pathLastBackupTime, timestamp.toString(), preservePermissions = true)
     }
 }
 
@@ -73,7 +74,7 @@ class TaskSaveBuildings(
 
     override fun run() {
         val jsonStr = Serializer.buildingsToJson(buildingsSnapshot)
-        AtomicFiles.writeString(pathBuildingsSave, jsonStr)
+        AtomicFiles.writeString(pathBuildingsSave, jsonStr, preservePermissions = true)
     }
 }
 

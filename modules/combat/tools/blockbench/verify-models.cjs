@@ -8,6 +8,8 @@ const plugin = require('./aechronis_combat_animation.js');
 const mesh = require('./combat-mesh.cjs');
 const project = require('./combat-project.cjs');
 const profiles = require('./combat-profiles.cjs');
+const {constantValue, number, string} = require('../../../../tools/kotlin-source.cjs');
+const {defaultsFor, readConstants} = require('../../../../tools/combat-source.cjs');
 const root = path.resolve(__dirname, '../../../..');
 const read = file => JSON.parse(fs.readFileSync(file, 'utf8'));
 const near = (actual, expected, label, tolerance = 1e-7) => assert(
@@ -48,21 +50,16 @@ function assertAsset(file, expected) {
         `Stale exported asset: ${path.relative(root, file)}; rebuild its saved model`);
 }
 function kotlinGuns(iteration) {
-    const result = [];
-    for (const file of files(path.join(iteration, 'src'), 'Guns.kt')) {
-        const text = fs.readFileSync(file, 'utf8');
-        const starts = [...text.matchAll(/\bval\s+\w+\s*=\s*Gun\s*\(/g)];
-        starts.forEach((match, i) => {
-            const block = text.slice(match.index, starts[i + 1]?.index ?? text.length);
-            const name = block.match(/\bname\s*=\s*"([^"]+)"/)?.[1];
-            const value = key => block.match(new RegExp(`\\b${key}\\s*=\\s*(\\d+)`))?.[1];
-            const id = value('animatedViewModelProfile');
-            if (id !== undefined) result.push({name, id: Number(id), reload: Number(value('reloadTime')),
-                fire: value('fireAnimationTicks') === undefined ? defaultFireTicks : Number(value('fireAnimationTicks')),
-                item: block.match(/\bitemModel\s*=\s*"([^"]+)"/)?.[1]});
+    return readConstants(iteration, ['Gun']).filter(({owner}) => owner === 'Guns')
+        .map(({args, source}) => {
+            const values = {...defaultsFor('Gun', source, iteration), ...args};
+            const name = string(args.name, 'gun name');
+            const fireTicks = values.fireAnimationTicks === 'GUN_FIRE_ANIMATION_TICKS'
+                ? String(defaultFireTicks) : values.fireAnimationTicks;
+            return {name, id: number(values.animatedViewModelProfile, `${name}/profile`),
+                reload: number(values.reloadTime, `${name}/reloadTime`), fire: number(fireTicks, `${name}/fireAnimationTicks`),
+                item: args.itemModel === undefined ? undefined : string(args.itemModel, `${name}/itemModel`)};
         });
-    }
-    return result;
 }
 function bounds(source, indices) {
     const points = source.faces.filter(f => indices.some(i => f.face.startsWith(`e${i}_`))).flatMap(f => f.positions);
@@ -154,7 +151,7 @@ function checkEmptyReload(gun, iteration, source, model) {
 }
 
 const animationKotlin = fs.readFileSync(path.join(root, 'modules/combat/src/main/kotlin/net/aechronis/combat/utils/GunAnimation.kt'), 'utf8');
-const defaultFireTicks = Number(animationKotlin.match(/const val GUN_FIRE_ANIMATION_TICKS\s*=\s*(\d+)/)?.[1]);
+const defaultFireTicks = number(constantValue(animationKotlin, 'GUN_FIRE_ANIMATION_TICKS'), 'GUN_FIRE_ANIMATION_TICKS');
 assert(Number.isInteger(defaultFireTicks));
 let modelsChecked = 0, assetsChecked = 0;
 for (const pack of project.packs(root)) {

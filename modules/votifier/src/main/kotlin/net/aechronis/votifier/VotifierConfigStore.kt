@@ -3,6 +3,7 @@ package net.aechronis.votifier
 import com.vexsoftware.votifier.net.protocol.v1crypto.RSAIO
 import com.vexsoftware.votifier.net.protocol.v1crypto.RSAKeygen
 import kotlinx.serialization.json.Json
+import net.aechronis.server.io.AtomicFiles
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -49,11 +50,14 @@ internal class VotifierConfigStore(
 
     private fun saveLocked() {
         val temporary = file.resolveSibling("config.json.tmp")
-        Files.writeString(temporary, Json.encodeToString(config))
-        try {
-            Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        } catch (_: Exception) {
-            Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING)
+        AtomicFiles.withTemporaryPath(temporary) {
+            Files.writeString(temporary, Json.encodeToString(config))
+            try {
+                AtomicFiles.replace(temporary, file, requireAtomic = true)
+            } catch (_: Exception) {
+                // Preserve Votifier's existing retry policy for any atomic-move failure.
+                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING)
+            }
         }
     }
 }

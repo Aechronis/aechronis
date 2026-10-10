@@ -1,12 +1,9 @@
 plugins {
-    kotlin("jvm")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
 }
 
 dependencies {
-    compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
-    compileOnly("com.h2database:h2:2.5.252")
+    compileOnly(libs.h2)
     compileOnly(project(":modules:nodes"))
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:vanilla"))

@@ -2,6 +2,7 @@ package net.aechronis.vanilla.managers
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.OreSounds
@@ -430,7 +431,7 @@ object Ores {
     }
 
     private fun save() {
-        AtomicFiles.write(file) { writer ->
+        AtomicFiles.write(file, preservePermissions = true) { writer ->
             val saved =
                 ores.map { (location, ore) ->
                     SavedOre(location.world, location.x, location.y, location.z, ore.timeSeconds)

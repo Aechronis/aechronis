@@ -2,14 +2,10 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
-import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.rotatePoint
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
-import net.kyori.adventure.text.format.ShadowColor
-import net.kyori.adventure.text.format.TextColor
-import net.kyori.adventure.title.Title
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -18,7 +14,6 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.network.packet.server.play.PlayerRotationPacket
 import net.minestom.server.particle.Particle
-import java.util.WeakHashMap
 import kotlin.math.abs
 import kotlin.math.floor
 
@@ -81,16 +76,14 @@ open class Boat(
         var yaw = 0f
         var pitch = 0f
         var nextMuzzle = 0
-        var ammo = 1
-        var reloadStartedAt: Long? = null
+        val magazine = VehicleMagazine(1)
     }
 
     private class Runtime(
         val mounts: List<MountState>,
     )
 
-    // Direct entity removal must not retain an orphaned hull through its item definition.
-    private val runtimes = armament?.let { WeakHashMap<Entity, Runtime>() }
+    private val runtimes = armament?.let { HashMap<Entity, Runtime>() }
 
     private val solidHitboxes = hitbox.parts.map { Hitbox(listOf(it)) }
 
@@ -338,7 +331,8 @@ open class Boat(
                 ?.get(ride.entity)
                 ?.mounts
                 ?.getOrNull(index)
-                ?.reloadStartedAt = null
+                ?.magazine
+                ?.cancelReload()
         }
         if (ride != null) player.clearTitle()
         super.onGunnerExit(player)
@@ -413,14 +407,14 @@ open class Boat(
         val ride = VehicleRegistry.gunner(player)?.takeIf { it.vehicle === this } ?: return null
         val index = ride.stationIndex ?: return null
         val mount = runtimes?.get(ride.entity)?.mounts?.getOrNull(index) ?: return null
-        return weapons[index] to mount.ammo
+        return weapons[index] to mount.magazine.ammo
     }
 
     override fun snapshotWeaponAmmo(entity: Entity): Map<String, Int> =
         runtimes
             ?.get(entity)
             ?.mounts
-            ?.mapIndexed { index, state -> weapons[index].id to state.ammo }
+            ?.mapIndexed { index, state -> weapons[index].id to state.magazine.ammo }
             ?.toMap() ?: emptyMap()
 
     override fun restoreWeaponAmmo(
@@ -428,16 +422,14 @@ open class Boat(
         saved: Map<String, Int>?,
         legacyAmmo: Int?,
     ) {
-        val armament = armament ?: return
         val runtime = runtimes?.get(entity) ?: return
         runtime.mounts.forEachIndexed { index, state ->
             // A legacy shared breech represents at most one round, not one per new station.
-            state.ammo =
-                (
-                    (saved?.get(weapons[index].id) ?: saved?.get(weapons[index].model))
-                        ?: if (saved == null && index == 0) legacyAmmo ?: 0 else 0
-                ).coerceIn(0, armament.maxAmmo)
-            state.reloadStartedAt = null
+            state.magazine.restoreAmmo(
+                (saved?.get(weapons[index].id) ?: saved?.get(weapons[index].model))
+                    ?: if (saved == null && index == 0) legacyAmmo ?: 0 else 0,
+            )
+            state.magazine.cancelReload()
         }
     }
 
@@ -462,36 +454,10 @@ open class Boat(
         now: Long = System.currentTimeMillis(),
     ) {
         val armament = armament ?: return
-        val ammo = armament.ammo
         val ride = VehicleRegistry.gunner(player)?.takeIf { it.vehicle === this } ?: return
         val index = ride.stationIndex ?: return
         val mount = runtimes?.get(ride.entity)?.mounts?.getOrNull(index) ?: return
-        if (mount.ammo > 0) return
-        if (ammo[player] == 0) {
-            if (mount.reloadStartedAt != null) player.clearTitle()
-            mount.reloadStartedAt = null
-            return
-        }
-        val startedAt = mount.reloadStartedAt ?: now.also { mount.reloadStartedAt = it }
-        val elapsed = now - startedAt
-        val duration = weapons[index].reloadTime
-        if (elapsed >= duration) {
-            ammo[player] -= 1
-            mount.ammo = armament.maxAmmo
-            mount.reloadStartedAt = null
-            ride.clearEmptyAmmoFeedback()
-            player.clearTitle()
-            return
-        }
-        player.showTitle(
-            Title.title(
-                Component.empty(),
-                Message.progressBar((elapsed.toDouble() / duration).coerceIn(0.0, 1.0)).shadowColor(ShadowColor.none()),
-                0,
-                3,
-                10,
-            ),
-        )
+        updateVehicleReload(player, ride, mount.magazine, armament.ammo, weapons[index].reloadTime, now)
     }
 
     private fun fire(
@@ -504,21 +470,8 @@ open class Boat(
         val instance = body.instance ?: return
         val weapon = weapons[index]
         val mount = runtime.mounts[index]
-        if (mount.reloadStartedAt != null) return
-        if (mount.ammo <= 0) {
-            if (ammo[player] == 0 && VehicleRegistry.gunner(player)?.canReportEmptyAmmo(System.currentTimeMillis()) == true) {
-                player.showTitle(
-                    Title.title(
-                        Component.empty(),
-                        Component.text("✕").color(TextColor.color(0.5F, 0F, 0F)).shadowColor(ShadowColor.none()),
-                        0,
-                        10,
-                        10,
-                    ),
-                )
-            }
-            return
-        }
+        val ride = VehicleRegistry.gunner(player)?.takeIf { it.entity === body && it.stationIndex == index } ?: return
+        if (!hasReadyVehicleAmmo(player, ride, mount.magazine, ammo)) return
         val origin = body.position.add(rotatePoint(weapon.pivotOffset, body.position.yaw, 0f, 0f))
         // The saved component has baked elevation. Only traverse rotates its
         // muzzle location; projectile elevation follows this gunner's bounded aim.
@@ -533,8 +486,7 @@ open class Boat(
         // skips the hull; shells leaving the muzzle can hit their own ship.
         val obstruction = firstProjectileImpact(Ray(origin, tip), instance, ignored + body)
         // Reserve the shot before an immediate blast can destroy this vehicle.
-        mount.ammo -= 1
-        if (ammo[player] > 0) mount.reloadStartedAt = System.currentTimeMillis()
+        if (!mount.magazine.consume(System.currentTimeMillis(), ammo[player] > 0)) return
         mount.nextMuzzle = (mount.nextMuzzle + 1) % weapon.muzzleOffsets.size
         if (obstruction != null) {
             Explosion.bypassingDamageImmunity(
@@ -585,17 +537,7 @@ open class Boat(
                 ),
         )
 
-    override fun destroy(
-        entity: Entity,
-        attacker: Player?,
-        weapon: Component?,
-    ) {
-        cleanupRuntime(entity)
-        super.destroy(entity, attacker, weapon)
-    }
-
     override fun cleanupRuntime(entity: Entity) {
-        VehicleRegistry.gunners(entity).forEach { TurretScope.close(it.player) }
         runtimes?.remove(entity)
         super.cleanupRuntime(entity)
     }

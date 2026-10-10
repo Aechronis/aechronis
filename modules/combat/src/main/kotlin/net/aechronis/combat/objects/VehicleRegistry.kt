@@ -213,39 +213,22 @@ internal class VehicleRuntime(
     }
 
     private val healthState: Health? = vehicle.health?.fresh()
-    private val ammoCapacity: Int? =
-        (vehicle as? ArmedVehicle)?.maxAmmo?.also {
-            require(it > 0) { "Vehicle maxAmmo must be greater than zero" }
-        }
-    private var currentAmmo: Int? = ammoCapacity
-    var reloadStartedAt: Long? = null
-    var nextShotAt: Long = 0L
+    val magazine: VehicleMagazine? = (vehicle as? ArmedVehicle)?.maxAmmo?.let(::VehicleMagazine)
 
     val health: Float? get() = healthState?.health
     val maxHealth: Float? get() = healthState?.maxHealth
-    val ammo: Int? get() = currentAmmo
+    val ammo: Int? get() = magazine?.ammo
 
     fun restore(
         health: Float?,
         ammo: Int?,
     ) {
         if (health != null && health.isFinite()) healthState?.restore(health)
-        if (ammo != null && ammoCapacity != null) currentAmmo = ammo.coerceIn(0, ammoCapacity)
+        if (ammo != null) magazine?.restoreAmmo(ammo)
     }
 
     /** Returns whether this hit depleted the vehicle's health. */
     fun takeDamage(ammoType: AmmoTypes): Boolean = healthState?.takeHp(ammoType) ?: false
-
-    fun refillAmmo() {
-        currentAmmo = ammoCapacity
-    }
-
-    fun consumeAmmo(): Boolean {
-        val remaining = currentAmmo ?: return false
-        if (remaining <= 0) return false
-        currentAmmo = remaining - 1
-        return true
-    }
 }
 
 internal class VehicleRide(
@@ -353,12 +336,27 @@ internal object VehicleRegistry {
 
     fun remove(entity: Entity): VehicleRuntime? {
         require(playerRides.values.none { it.entity === entity }) { "Vehicle riders must leave before removal" }
-        return runtimes.remove(entity)?.also { it.removeParts() }
+        val runtime = runtimes.remove(entity) ?: return null
+        try {
+            runtime.vehicle.releaseRuntime(entity)
+        } catch (failure: Throwable) {
+            runCatching(runtime::removeParts).onFailure(failure::addSuppressed)
+            throw failure
+        }
+        runtime.removeParts()
+        return runtime
     }
 
     fun clear() {
         playerRides.clear()
-        runtimes.values.forEach { it.removeParts() }
-        runtimes.clear()
+        val failures = ArrayList<Throwable>()
+        runtimes.keys.toList().forEach { entity ->
+            runCatching { remove(entity) }.onFailure(failures::add)
+        }
+        if (failures.isNotEmpty()) {
+            throw IllegalStateException("Vehicle runtime cleanup completed with ${failures.size} failure(s)").apply {
+                failures.forEach(::addSuppressed)
+            }
+        }
     }
 }

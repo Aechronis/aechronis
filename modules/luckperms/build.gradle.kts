@@ -1,14 +1,11 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
-    kotlin("jvm")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
 }
 
 dependencies {
-    compileOnly(project(":server"))
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
-    add("moduleImplementation", "net.aechronis:luckperms-minestom:5.5.87-minestom.1")
+    add("moduleImplementation", libs.luckperms.minestom)
 }
 
 tasks.named<ShadowJar>("shadowJar") {

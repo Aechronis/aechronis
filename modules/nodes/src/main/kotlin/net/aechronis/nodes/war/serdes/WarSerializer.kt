@@ -33,11 +33,10 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.server.io.AtomicFiles
 import java.nio.charset.StandardCharsets
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
@@ -224,11 +223,7 @@ object WarSerializer {
         path: Path,
         json: String,
     ) {
-        val absolutePath = path.toAbsolutePath()
-        val parent = absolutePath.parent
-        Files.createDirectories(parent)
-        val temporary = Files.createTempFile(parent, ".${absolutePath.fileName}.", ".tmp")
-        try {
+        AtomicFiles.withTemporaryFile(path) { temporary ->
             Files.writeString(
                 temporary,
                 json,
@@ -236,18 +231,7 @@ object WarSerializer {
                 StandardOpenOption.WRITE,
                 StandardOpenOption.TRUNCATE_EXISTING,
             )
-            try {
-                Files.move(
-                    temporary,
-                    absolutePath,
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING,
-                )
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(temporary, absolutePath, StandardCopyOption.REPLACE_EXISTING)
-            }
-        } finally {
-            Files.deleteIfExists(temporary)
+            AtomicFiles.replace(temporary, path.toAbsolutePath())
         }
     }
 

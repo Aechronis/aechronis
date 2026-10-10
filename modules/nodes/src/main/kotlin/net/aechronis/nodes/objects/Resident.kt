@@ -93,17 +93,11 @@ class Resident(val uuid: UUID, val name: String) {
         fun fromUuid(uuid: UUID): Resident? = residents[uuid]
 
         fun setOnline(resident: Resident, player: Player) {
-            resident.town?.let { town ->
-                town.playersOnline.add(player)
-                town.nation?.playersOnline?.add(player)
-            }
+            Town.setOnline(resident, player)
         }
 
         fun setOffline(resident: Resident, player: Player) {
-            resident.town?.let { town ->
-                town.playersOnline.remove(player)
-                town.nation?.playersOnline?.remove(player)
-            }
+            Town.setOffline(resident, player)
         }
 
         fun toggleChatMode(resident: Resident, mode: ChatMode): ChatMode {
@@ -207,7 +201,15 @@ class Resident(val uuid: UUID, val name: String) {
     }
 
     var town: Town? = null
-    var nation: Nation? = null
+        private set
+
+    // Nation membership follows the town; it cannot diverge from that relationship.
+    val nation: Nation? get() = town?.nation
+
+    internal fun updateTownMembership(town: Town?) {
+        this.town = town
+        needsUpdate()
+    }
 
     // flag that player trusted by town
     var trusted: Boolean = false
@@ -234,11 +236,6 @@ class Resident(val uuid: UUID, val name: String) {
 
     // town teleport thread
     var teleportThread: Task? = null
-
-    // town invite
-    var invitingTown: Town? = null
-    var invitingPlayer: Player? = null
-    var inviteThread: Task? = null
 
     var townJoinLockedUntil: Long? = null
         private set

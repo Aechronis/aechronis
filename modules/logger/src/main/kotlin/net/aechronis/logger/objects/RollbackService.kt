@@ -346,113 +346,30 @@ class RollbackService(
         result: CompletableFuture<RollbackExecutionResult>,
         timing: ChunkRestoreTiming?,
     ) {
-        if (lifecycle.isClosing || result.isDone) return
-        val worldChanges =
-            changes.filter {
-                it.changeKind == RollbackChangeKind.BLOCK || it.changeKind == RollbackChangeKind.STORAGE
-            }
-        val inventoryChanges = changes.filter { it.changeKind == RollbackChangeKind.INVENTORY }
-        val entityChanges = changes.filter { it.changeKind == RollbackChangeKind.ENTITY }
-        val appliedWorld = mutableListOf<RollbackChange>()
-        val worldResult =
-            if (
-                plan.kind == RollbackOperationKind.CHUNK_RESTORE &&
-                worldChanges.all { it.changeKind == RollbackChangeKind.BLOCK }
-            ) {
-                worldWriter.applyChunkRestoreWorldChanges(
-                    instance,
-                    worldChanges,
-                    reverse = false,
-                    tolerateConflicts = true,
-                    appliedWorld,
-                )
-            } else {
-                worldWriter.applyWorldChanges(
-                    instance,
-                    worldChanges,
-                    reverse = false,
-                    tolerateUnlinkedBlockConflicts = true,
-                    appliedWorld,
-                )
-            }
-        worldResult.whenComplete { runtimeSkipped, worldFailure ->
-            if (result.isDone) return@whenComplete
-            if (worldFailure != null) {
-                recovery.finishApplyFailure(
+        executeBatches(
+            instance,
+            plan.kind,
+            changes,
+            BatchMode.APPLY,
+            result,
+            timing,
+            persist = { applied, runtimeSkipped ->
+                Logger.rollback.completeOperationAsync(
                     operationId,
-                    worldFailure,
-                    recovery.compensateApplied(instance, appliedWorld, emptyList(), emptyList(), reverseExternal = true),
-                    result,
-                    forceRecovery = worldWriter.isStorageWorldChangeFailure(worldFailure),
+                    applied,
+                    rolledBack = plan.kind == RollbackOperationKind.ROLLBACK,
+                    skippedCount = initialSkipped + runtimeSkipped,
                 )
-                return@whenComplete
-            }
-            val skipped = initialSkipped + runtimeSkipped
-            val appliedInventory = mutableListOf<RollbackChange>()
-            stateWriter.applyInventory(inventoryChanges, reverse = false, appliedInventory).whenComplete { _, inventoryFailure ->
-                if (result.isDone) return@whenComplete
-                if (inventoryFailure != null) {
-                    recovery.finishApplyFailure(
-                        operationId,
-                        inventoryFailure,
-                        recovery.compensateApplied(
-                            instance,
-                            appliedWorld,
-                            appliedInventory,
-                            emptyList(),
-                            reverseExternal = true,
-                        ),
-                        result,
-                    )
-                    return@whenComplete
-                }
-
-                val appliedEntities = mutableListOf<RollbackChange>()
-                stateWriter.applyEntities(instance, entityChanges, reverse = false, appliedEntities).whenComplete { _, entityFailure ->
-                    if (result.isDone) return@whenComplete
-                    if (entityFailure != null) {
-                        recovery.finishApplyFailure(
-                            operationId,
-                            entityFailure,
-                            recovery.compensateApplied(
-                                instance,
-                                appliedWorld,
-                                appliedInventory,
-                                appliedEntities,
-                                reverseExternal = true,
-                            ),
-                            result,
-                        )
-                        return@whenComplete
-                    }
-
-                    val applied = appliedWorld + appliedInventory + appliedEntities
-                    val rolledBack = plan.kind == RollbackOperationKind.ROLLBACK
-                    timing?.applied()
-                    lifecycle.observeStage(
-                        isAbandoned = result::isDone,
-                        start = { Logger.rollback.completeOperationAsync(operationId, applied, rolledBack, skipped) },
-                        onComplete = { _, failure ->
-                            if (failure == null) {
-                                timing?.completed(operationId, applied.size, skipped)
-                                result.complete(RollbackExecutionResult(plan.kind, operationId, applied.size, skipped))
-                            } else {
-                                val compensation =
-                                    recovery.compensateApplied(
-                                        instance,
-                                        appliedWorld,
-                                        appliedInventory,
-                                        appliedEntities,
-                                        reverseExternal = true,
-                                    )
-                                recovery.finishApplyFailure(operationId, failure, compensation, result, forceRecovery = true)
-                            }
-                        },
-                        onFailure = result::completeExceptionally,
-                    )
-                }
-            }
-        }
+            },
+            completed = { applied, runtimeSkipped ->
+                val skipped = initialSkipped + runtimeSkipped
+                timing?.completed(operationId, applied.size, skipped)
+                RollbackExecutionResult(plan.kind, operationId, applied.size, skipped)
+            },
+            failed = { failure, compensation, forceRecovery ->
+                recovery.finishApplyFailure(operationId, failure, compensation, result, forceRecovery)
+            },
+        )
     }
 
     private fun replayLatest(
@@ -607,6 +524,50 @@ class RollbackService(
         undo: Boolean,
         result: CompletableFuture<RollbackExecutionResult>,
     ) {
+        executeBatches(
+            instance,
+            operation.kind,
+            changes,
+            if (undo) BatchMode.UNDO else BatchMode.REDO,
+            result,
+            persist = { _, _ ->
+                val transition = if (undo) RollbackStatus.UNDOING else RollbackStatus.REDOING
+                val targetStatus = if (undo) RollbackStatus.UNDONE else RollbackStatus.APPLIED
+                val targetRolledBack =
+                    if (undo) operation.kind == RollbackOperationKind.RESTORE else operation.kind == RollbackOperationKind.ROLLBACK
+                Logger.rollback.completeReplayAsync(operation, transition, targetStatus, targetRolledBack)
+            },
+            completed = { applied, _ ->
+                RollbackExecutionResult(operation.kind, operation.id, applied.size, 0)
+            },
+            failed = { failure, compensation, forceRecovery ->
+                recovery.finishReplayFailure(operation.id, undo, failure, compensation, result, forceRecovery)
+            },
+        )
+    }
+
+    private enum class BatchMode {
+        APPLY,
+        UNDO,
+        REDO,
+        ;
+
+        val reverse: Boolean get() = this == UNDO
+        val tolerateConflicts: Boolean get() = this == APPLY
+    }
+
+    /** Shares mutation order and compensation while callers own their persisted transitions. */
+    private fun executeBatches(
+        instance: Instance,
+        kind: RollbackOperationKind,
+        changes: List<RollbackChange>,
+        mode: BatchMode,
+        result: CompletableFuture<RollbackExecutionResult>,
+        timing: ChunkRestoreTiming? = null,
+        persist: (List<RollbackChange>, Int) -> CompletableFuture<Void>,
+        completed: (List<RollbackChange>, Int) -> RollbackExecutionResult,
+        failed: (Throwable, CompletableFuture<Void>, Boolean) -> Unit,
+    ) {
         if (lifecycle.isClosing || result.isDone) return
         val worldChanges =
             changes.filter {
@@ -615,118 +576,78 @@ class RollbackService(
         val inventoryChanges = changes.filter { it.changeKind == RollbackChangeKind.INVENTORY }
         val entityChanges = changes.filter { it.changeKind == RollbackChangeKind.ENTITY }
         val appliedWorld = mutableListOf<RollbackChange>()
+        val appliedInventory = mutableListOf<RollbackChange>()
+        val appliedEntities = mutableListOf<RollbackChange>()
+
+        fun compensate(
+            failure: Throwable,
+            forceRecovery: Boolean = false,
+        ) {
+            failed(
+                failure,
+                recovery.compensateApplied(
+                    instance,
+                    appliedWorld,
+                    appliedInventory,
+                    appliedEntities,
+                    reverseExternal = !mode.reverse,
+                ),
+                forceRecovery,
+            )
+        }
+
         val worldResult =
             if (
-                operation.kind == RollbackOperationKind.CHUNK_RESTORE &&
+                kind == RollbackOperationKind.CHUNK_RESTORE &&
                 worldChanges.all { it.changeKind == RollbackChangeKind.BLOCK }
             ) {
                 worldWriter.applyChunkRestoreWorldChanges(
                     instance,
                     worldChanges,
-                    reverse = undo,
-                    tolerateConflicts = false,
+                    reverse = mode.reverse,
+                    tolerateConflicts = mode.tolerateConflicts,
                     appliedWorld,
                 )
             } else {
                 worldWriter.applyWorldChanges(
                     instance,
                     worldChanges,
-                    reverse = undo,
-                    tolerateUnlinkedBlockConflicts = false,
+                    reverse = mode.reverse,
+                    tolerateUnlinkedBlockConflicts = mode.tolerateConflicts,
                     appliedWorld,
                 )
             }
-        worldResult.whenComplete { _, worldFailure ->
+        worldResult.whenComplete { runtimeSkipped, worldFailure ->
             if (result.isDone) return@whenComplete
             if (worldFailure != null) {
-                recovery.finishReplayFailure(
-                    operation.id,
-                    undo,
-                    worldFailure,
-                    recovery.compensateApplied(
-                        instance,
-                        appliedWorld,
-                        emptyList(),
-                        emptyList(),
-                        reverseExternal = !undo,
-                    ),
-                    result,
-                    forceRecovery = worldWriter.isStorageWorldChangeFailure(worldFailure),
-                )
+                compensate(worldFailure, forceRecovery = worldWriter.isStorageWorldChangeFailure(worldFailure))
                 return@whenComplete
             }
-
-            val appliedInventory = mutableListOf<RollbackChange>()
-            stateWriter.applyInventory(inventoryChanges, reverse = undo, appliedInventory).whenComplete { _, inventoryFailure ->
+            stateWriter.applyInventory(inventoryChanges, reverse = mode.reverse, appliedInventory).whenComplete { _, inventoryFailure ->
                 if (result.isDone) return@whenComplete
                 if (inventoryFailure != null) {
-                    recovery.finishReplayFailure(
-                        operation.id,
-                        undo,
-                        inventoryFailure,
-                        recovery.compensateApplied(
-                            instance,
-                            appliedWorld,
-                            appliedInventory,
-                            emptyList(),
-                            reverseExternal = !undo,
-                        ),
-                        result,
-                    )
+                    compensate(inventoryFailure)
                     return@whenComplete
                 }
-
-                val appliedEntities = mutableListOf<RollbackChange>()
-                stateWriter.applyEntities(instance, entityChanges, reverse = undo, appliedEntities).whenComplete { _, entityFailure ->
+                stateWriter.applyEntities(instance, entityChanges, reverse = mode.reverse, appliedEntities).whenComplete {
+                    _,
+                    entityFailure,
+                    ->
                     if (result.isDone) return@whenComplete
                     if (entityFailure != null) {
-                        recovery.finishReplayFailure(
-                            operation.id,
-                            undo,
-                            entityFailure,
-                            recovery.compensateApplied(
-                                instance,
-                                appliedWorld,
-                                appliedInventory,
-                                appliedEntities,
-                                reverseExternal = !undo,
-                            ),
-                            result,
-                        )
+                        compensate(entityFailure)
                         return@whenComplete
                     }
-
-                    val transition = if (undo) RollbackStatus.UNDOING else RollbackStatus.REDOING
-                    val targetStatus = if (undo) RollbackStatus.UNDONE else RollbackStatus.APPLIED
-                    val targetRolledBack =
-                        if (undo) {
-                            operation.kind == RollbackOperationKind.RESTORE
-                        } else {
-                            operation.kind == RollbackOperationKind.ROLLBACK
-                        }
+                    val applied = appliedWorld + appliedInventory + appliedEntities
+                    timing?.applied()
                     lifecycle.observeStage(
                         isAbandoned = result::isDone,
-                        start = { Logger.rollback.completeReplayAsync(operation, transition, targetStatus, targetRolledBack) },
+                        start = { persist(applied, runtimeSkipped) },
                         onComplete = { _, failure ->
                             if (failure == null) {
-                                result.complete(
-                                    RollbackExecutionResult(
-                                        operation.kind,
-                                        operation.id,
-                                        appliedWorld.size + appliedInventory.size + appliedEntities.size,
-                                        0,
-                                    ),
-                                )
+                                result.complete(completed(applied, runtimeSkipped))
                             } else {
-                                val compensation =
-                                    recovery.compensateApplied(
-                                        instance,
-                                        appliedWorld,
-                                        appliedInventory,
-                                        appliedEntities,
-                                        reverseExternal = !undo,
-                                    )
-                                recovery.finishReplayFailure(operation.id, undo, failure, compensation, result, forceRecovery = true)
+                                compensate(failure, forceRecovery = true)
                             }
                         },
                         onFailure = result::completeExceptionally,

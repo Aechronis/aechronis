@@ -3,6 +3,7 @@ package net.aechronis.vanilla.managers
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.HorseListener
@@ -548,7 +549,7 @@ object Horses {
         if (!::file.isInitialized) return
         val live = horses.entries.filter { (horse, _) -> horse.instance === world && !horse.isDead }.map { (h, d) -> snapshot(h, d) }
         val saved = SavedHorses(FORMAT_VERSION, live + dormant.values.flatMap { it.toList() })
-        AtomicFiles.write(file) { writer -> writer.write(Json.encodeToString(saved)) }
+        AtomicFiles.write(file, preservePermissions = true) { writer -> writer.write(Json.encodeToString(saved)) }
     }
 
     fun shutdown() {

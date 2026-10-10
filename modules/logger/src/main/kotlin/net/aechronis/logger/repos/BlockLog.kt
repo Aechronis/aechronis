@@ -5,15 +5,17 @@ import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
 import net.aechronis.logger.params.LookupParams
 import net.aechronis.logger.utils.AsyncWriteGate
+import net.aechronis.logger.utils.appendLogFilters
 import net.aechronis.logger.utils.bindAll
+import net.aechronis.logger.utils.chunkBounds
 import net.aechronis.logger.utils.placeholders
+import net.aechronis.logger.utils.radiusBounds
 import net.aechronis.logger.utils.setNullableBytes
 import net.aechronis.logger.utils.setNullableString
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -26,7 +28,6 @@ class BlockLog(
     private val selectColumns =
         "id, ts, player_uuid, player_name, x, y, z, block_old, block_new, action, " +
             "instance_uuid, block_old_state, block_new_state, block_old_nbt, block_new_nbt, source, origin, rolled_back"
-    private val pendingWrites = ConcurrentHashMap.newKeySet<CompletableFuture<Void>>()
     private val writeGate = AsyncWriteGate(executor, "block log repository")
 
     private val insertSql =
@@ -46,36 +47,31 @@ class BlockLog(
         LIMIT ?
         """.trimIndent()
 
-    fun insertAsync(entry: BlockLogEntry): CompletableFuture<Void> {
-        val future = writeGate.submit { insert(entry) }
-        return trackWrite(future)
-    }
+    fun insertAsync(entry: BlockLogEntry): CompletableFuture<Void> = writeGate.submit { insert(entry) }
 
     fun insertAllAsync(entries: List<BlockLogEntry>): CompletableFuture<Void> {
         if (entries.isEmpty()) return CompletableFuture.completedFuture(null)
-        val future =
-            writeGate.submit {
-                database.dataSource.connection.use { connection ->
-                    connection.autoCommit = false
-                    try {
-                        connection.prepareStatement(insertSql).use { statement ->
-                            entries.forEach { entry ->
-                                bindInsert(statement, entry)
-                                statement.addBatch()
-                            }
-                            statement.executeBatch()
+        return writeGate.submit {
+            database.dataSource.connection.use { connection ->
+                connection.autoCommit = false
+                try {
+                    connection.prepareStatement(insertSql).use { statement ->
+                        entries.forEach { entry ->
+                            bindInsert(statement, entry)
+                            statement.addBatch()
                         }
-                        connection.commit()
-                    } catch (exception: Exception) {
-                        connection.rollback()
-                        throw exception
+                        statement.executeBatch()
                     }
+                    connection.commit()
+                } catch (exception: Exception) {
+                    connection.rollback()
+                    throw exception
                 }
             }
-        return trackWrite(future)
+        }
     }
 
-    fun flushAsync(): CompletableFuture<Void> = CompletableFuture.allOf(*pendingWrites.toTypedArray())
+    fun flushAsync(): CompletableFuture<Void> = writeGate.flushAsync()
 
     private fun insert(entry: BlockLogEntry) {
         database.dataSource.connection.use { conn ->
@@ -106,12 +102,6 @@ class BlockLog(
         statement.setNullableBytes(14, entry.blockNewNbt)
         statement.setString(15, entry.source)
         statement.setString(16, entry.origin)
-    }
-
-    private fun trackWrite(future: CompletableFuture<Void>): CompletableFuture<Void> {
-        pendingWrites += future
-        future.whenComplete { _, _ -> pendingWrites -= future }
-        return future
     }
 
     fun lookupAsync(
@@ -218,46 +208,12 @@ class BlockLog(
         val sql = StringBuilder("SELECT $selectColumns FROM \"$table\" WHERE 1=1")
         val args = mutableListOf<Any>()
 
-        if (params.users.isNotEmpty()) {
-            sql.append(" AND LOWER(player_name) IN (${placeholders(params.users.size)})")
-            params.users.forEach { args += it.lowercase() }
-        }
-        params.source?.let {
-            sql.append(" AND LOWER(source) = ?")
-            args += it.lowercase()
-        }
-        params.origin?.let {
-            sql.append(" AND LOWER(origin) = ?")
-            args += it.lowercase()
-        }
-        params.since?.let {
-            sql.append(" AND ts >= ?")
-            args += it
-        }
-        params.until?.let {
-            sql.append(" AND ts <= ?")
-            args += it
-        }
+        sql.appendLogFilters(args, params.users, params.source, params.origin, params.since, params.until)
         params.radius?.let { r ->
-            sql.append(" AND x BETWEEN ? AND ? AND y BETWEEN ? AND ? AND z BETWEEN ? AND ?")
-            args += centerX - r
-            args += centerX + r
-            args += centerY - r
-            args += centerY + r
-            args += centerZ - r
-            args += centerZ + r
+            radiusBounds(centerX, centerY, centerZ, r).appendSql(sql, args)
         }
         params.chunkRadius?.let { cr ->
-            val expand = cr - 1
-            val minX = ((centerX shr 4) - expand) shl 4
-            val maxX = (((centerX shr 4) + expand) shl 4) + 15
-            val minZ = ((centerZ shr 4) - expand) shl 4
-            val maxZ = (((centerZ shr 4) + expand) shl 4) + 15
-            sql.append(" AND x BETWEEN ? AND ? AND z BETWEEN ? AND ?")
-            args += minX
-            args += maxX
-            args += minZ
-            args += maxZ
+            chunkBounds(centerX, centerZ, cr).appendSql(sql, args)
         }
         params.actions?.let { acts ->
             sql.append(" AND action IN (${placeholders(acts.size)})")

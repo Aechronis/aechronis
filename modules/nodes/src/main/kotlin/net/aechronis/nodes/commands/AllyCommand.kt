@@ -27,10 +27,7 @@ class AllyCommand : NodesCommand("ally") {
                 return@addSyntax
             }
 
-            if (resident !== town.leader && !town.officers.contains(resident)) {
-                Message.error(player, "Only the leader and officers can offer/accept alliances")
-                return@addSyntax
-            }
+            if (!requireTownStaff(player, resident, town, "Only the leader and officers can offer/accept alliances")) return@addSyntax
 
             if (nation === context[nationArg]) {
                 Message.error(player, "You cannot ally yourself.")

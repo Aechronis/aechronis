@@ -9,7 +9,7 @@ import net.aechronis.combat.objects.VehicleCollisionEntity
 import net.aechronis.combat.objects.VehicleDisplayEntity
 import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.objects.VehicleSeatHotbar
-import net.aechronis.combat.tasks.VehicleTickManager
+import net.aechronis.combat.tasks.VehicleInteractionTracker
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Player
@@ -87,11 +87,11 @@ object VehicleListener {
         // A shulker may intercept the client's click. Selection still uses the original
         // detailed hitbox and reach, including when the physical hull is larger.
         val target =
-            VehicleTickManager.findLookedAtVehicle(
+            VehicleInteractionTracker.findLookedAtVehicle(
                 instance,
                 eye,
-                eye.direction().mul(3.0),
-                VehicleTickManager.prepareVehicleLookIndex(VehicleRegistry.all().map { it.entity to it.vehicle }),
+                eye.direction().mul(VehicleInteractionTracker.INTERACTION_DISTANCE),
+                VehicleInteractionTracker.prepareVehicleLookIndex(VehicleRegistry.all().map { it.entity to it.vehicle }),
             ) ?: return false
         if (target.vehicle.onInteract(player, target.entity)) return true
         target.vehicle.board(player, target.entity)

@@ -273,7 +273,7 @@ internal object GunAnimation {
         }
         // A native slot event usually released the old owner already. Direct inventory
         // changes can also reach here; restore only the old slot, never the new hand.
-        if (active.remove(player)?.action?.isReload == true) Combat.reloadTasks.remove(player)?.cancel()
+        if (active.remove(player)?.action?.isReload == true) Combat.playerStates[player]?.cancelReload()
         aimTargets.remove(player)
         GunMotionTracker.clear(player)
         if (previous != null && previous.slot != player.heldSlot) restoreSlot(player, previous.slot.toInt())
@@ -320,7 +320,7 @@ internal object GunAnimation {
                 // Consecutive FIRE clips can leave no idle tick for updateAim.
                 // Accept input at the shot boundary, before capturing both the
                 // transition tint and its model direction for the tracer bundle.
-                val aiming = Combat.playerAiming[player] == true
+                val aiming = Combat.playerStates[player]?.aiming == true
                 recordAimTarget(player, current, aiming)
                 gunItemModel(
                     finalItem,
@@ -447,7 +447,7 @@ internal object GunAnimation {
                 return
             }
             if ((!animation.action.isReload && elapsed >= animation.durationTicks) ||
-                (animation.action.isReload && Combat.reloadTasks[player] == null)
+                (animation.action.isReload && Combat.playerStates[player]?.reloadTask == null)
             ) {
                 completedManualCycle =
                     animation.action == GunAnimationAction.FIRE &&
@@ -542,7 +542,7 @@ internal object GunAnimation {
     }
 
     fun cancel(player: Player) {
-        if (active[player]?.action?.isReload == true) Combat.reloadTasks.remove(player)?.cancel()
+        if (active[player]?.action?.isReload == true) Combat.playerStates[player]?.cancelReload()
         if (held.remove(player) != null && player.isOnline) player.sendPacket(SetCooldownPacket(GUN_USE_COOLDOWN_GROUP, 0))
         aimTargets.remove(player)
         GunMotionTracker.clear(player)

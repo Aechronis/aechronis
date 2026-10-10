@@ -31,8 +31,8 @@ object MeleeListener {
 
         val currentTime = System.currentTimeMillis()
         val melee = Item.getFromItemStack(attacker.itemInMainHand) as? Melee ?: return
-        val cooldownMs = currentTime - (Combat.meleeLastAttackTimes[attacker] ?: 0L)
-        Combat.meleeLastAttackTimes[attacker] = currentTime
+        val cooldownMs = currentTime - (Combat.playerStates[attacker]?.meleeLastAttackTime ?: 0L)
+        Combat.playerStates.getOrCreate(attacker).meleeLastAttackTime = currentTime
 
         // check invincibility frames
         if (!Combat.canDamage(target, currentTime)) {
@@ -211,7 +211,7 @@ object MeleeListener {
     }
 
     private fun isPlayerFalling(player: Player): Boolean {
-        val positions = Combat.playerPreviousPositions[player]
+        val positions = Combat.playerStates[player]?.previousPositions
         if (positions == null || positions.size < 2) return player.velocity.y < 0.0
 
         // get distance moved in last tick
@@ -222,7 +222,7 @@ object MeleeListener {
     }
 
     private fun isPlayerStationary(player: Player): Boolean {
-        val positions = Combat.playerPreviousPositions[player]
+        val positions = Combat.playerStates[player]?.previousPositions
         if (positions == null || positions.size < 2) return true
 
         // get distance moved in last tick
@@ -278,7 +278,7 @@ object MeleeListener {
     private fun onHandAnimation(event: PlayerHandAnimationEvent) {
         val player = event.player
         if (Item.getFromItemStack(player.itemInMainHand) !is Melee) return
-        Combat.meleeLastAttackTimes[player] = System.currentTimeMillis()
+        Combat.playerStates.getOrCreate(player).meleeLastAttackTime = System.currentTimeMillis()
     }
 
     fun init() {

@@ -145,7 +145,7 @@ open class Vehicle(
         player: Player,
         pos: Pos,
     ): Boolean {
-        if (Combat.placeTasks[player] != null) return false // already placing
+        if (Combat.playerStates[player]?.placeTask != null) return false // already placing
         if (Mounts.isMounted(player)) {
             Mounts.showBlocked(player)
             return false
@@ -191,7 +191,7 @@ open class Vehicle(
     ) {
         var time = placeTime
 
-        Combat.placeTasks[player] =
+        Combat.playerStates.getOrCreate(player).placeTask =
             ModuleScheduler
                 .buildTask {
                     time -= 100
@@ -208,8 +208,7 @@ open class Vehicle(
                                 10,
                             ),
                         )
-                        Combat.placeTasks[player]?.cancel()
-                        Combat.placeTasks.remove(player)
+                        Combat.playerStates[player]?.cancelPlacement()
                         return@buildTask
                     }
 
@@ -235,8 +234,7 @@ open class Vehicle(
                             )
                         }
 
-                        Combat.placeTasks[player]!!.cancel()
-                        Combat.placeTasks.remove(player)
+                        Combat.playerStates[player]?.cancelPlacement()
                     } else {
                         player.showTitle(
                             Title.title(
@@ -417,7 +415,7 @@ open class Vehicle(
         try {
             if (ride.definition.standing) restoreStandingControl(player)
             if (ride.role.usesWeapon) {
-                ride.runtime.reloadStartedAt = null
+                ride.runtime.magazine?.cancelReload()
                 player.clearTitle()
             }
             LagCompensation.resetHistory(player)
@@ -701,40 +699,9 @@ open class Vehicle(
     ) {
         val armedVehicle = this as? ArmedVehicle ?: return
         val ride = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this && it.role.usesWeapon } ?: return
-        val runtime = ride.runtime
-        val current = runtime.ammo ?: return
+        val magazine = ride.runtime.magazine ?: return
         val duration = ammoReloadTime(ride.entity).coerceAtLeast(0L)
-        if (current > 0) {
-            if (runtime.nextShotAt >
-                now
-            ) {
-                showReloadProgress(player, (1.0 - (runtime.nextShotAt - now).toDouble() / duration.coerceAtLeast(1)).coerceIn(0.0, 1.0))
-            }
-            return
-        }
-        if (armedVehicle.ammo[player] == 0) {
-            if (runtime.reloadStartedAt != null) player.clearTitle()
-            runtime.reloadStartedAt = null
-            return
-        }
-        val startedAt = runtime.reloadStartedAt ?: now.also { runtime.reloadStartedAt = it }
-        val elapsed = now - startedAt
-        if (elapsed >= duration) {
-            armedVehicle.ammo[player] -= 1
-            runtime.refillAmmo()
-            runtime.reloadStartedAt = null
-            ride.clearEmptyAmmoFeedback()
-            player.clearTitle()
-        } else {
-            showReloadProgress(player, (elapsed.toDouble() / duration).coerceIn(0.0, 1.0))
-        }
-    }
-
-    private fun showReloadProgress(
-        player: Player,
-        progress: Double,
-    ) {
-        player.showTitle(Title.title(Component.empty(), Message.progressBar(progress).shadowColor(ShadowColor.none()), 0, 3, 10))
+        updateVehicleReload(player, ride, magazine, armedVehicle.ammo, duration, now)
     }
 
     protected fun hasReadyAmmo(
@@ -742,25 +709,9 @@ open class Vehicle(
         entity: Entity,
     ): Boolean {
         val armedVehicle = this as? ArmedVehicle ?: return false
-        val runtime = VehicleRegistry.runtime(entity) ?: return false
+        val magazine = VehicleRegistry.runtime(entity)?.magazine ?: return false
         val operator = VehicleRegistry.ride(player)?.takeIf { it.entity === entity && it.role.usesWeapon } ?: return false
-        if (runtime.reloadStartedAt != null || runtime.nextShotAt > System.currentTimeMillis()) return false
-        if ((runtime.ammo ?: 0) > 0) return true
-
-        if (armedVehicle.ammo[player] == 0) {
-            val now = System.currentTimeMillis()
-            if (!operator.canReportEmptyAmmo(now)) return false
-            player.showTitle(
-                Title.title(
-                    Component.empty(),
-                    Component.text("✕").color(TextColor.color(0.5F, 0F, 0F)).shadowColor(ShadowColor.none()),
-                    0,
-                    10,
-                    10,
-                ),
-            )
-        }
-        return false
+        return hasReadyVehicleAmmo(player, operator, magazine, armedVehicle.ammo)
     }
 
     /** Starts reloading after the last round, or after every shot for single-shot weapons. */
@@ -768,16 +719,14 @@ open class Vehicle(
         entity: Entity,
         reloadAfterShot: Boolean = false,
     ): Boolean {
-        val runtime = VehicleRegistry.runtime(entity) ?: return false
-        if (!runtime.consumeAmmo()) return false
-        val now = System.currentTimeMillis()
-        if (reloadAfterShot) runtime.nextShotAt = now + ammoReloadTime(entity)
-        if (runtime.ammo == 0) {
-            val armedVehicle = this as? ArmedVehicle ?: return true
-            val player = VehicleRegistry.weaponOperator(entity)?.player ?: return true
-            if (armedVehicle.ammo[player] > 0) runtime.reloadStartedAt = now
-        }
-        return true
+        val magazine = VehicleRegistry.runtime(entity)?.magazine ?: return false
+        val armedVehicle = this as? ArmedVehicle ?: return false
+        val player = if (magazine.ammo == 1) VehicleRegistry.weaponOperator(entity)?.player else null
+        return magazine.consume(
+            now = System.currentTimeMillis(),
+            hasReserve = player != null && armedVehicle.ammo[player] > 0,
+            shotRecovery = if (reloadAfterShot) ammoReloadTime(entity) else null,
+        )
     }
 
     /** Stable weapon IDs allow saved ammunition to survive seat reordering or model changes. */
@@ -820,18 +769,21 @@ open class Vehicle(
     /** Removes a live vehicle for module teardown without invoking destruction effects. */
     internal fun unload(entity: Entity) {
         prepareForShutdown(entity)
-        cleanupRuntime(entity)
         removeRuntimeEntity(entity)
     }
 
     protected open fun cleanupRuntime(entity: Entity) = Unit
 
+    /** Invoked once by the registry after riders and the registered runtime are detached. */
+    internal fun releaseRuntime(entity: Entity) = cleanupRuntime(entity)
+
     protected fun removeRuntimeEntity(entity: Entity) {
         VehicleRegistry.ridesOf(entity).forEach { exit(it.player) }
-        VehicleRegistry.remove(entity)
-
-        // remove the displayentity
-        entity.remove()
+        try {
+            VehicleRegistry.remove(entity)
+        } finally {
+            entity.remove()
+        }
     }
 
     companion object {
@@ -877,17 +829,12 @@ open class Vehicle(
             VehicleRegistry.all().forEach { runtime -> cleanup { runtime.vehicle.unload(runtime.entity) } }
             VehicleRegistry.rides().forEach { ride -> cleanup { forceExit(ride.player) } }
 
-            listOf<() -> Unit>(
-                Plane::shutdownRuntimeState,
-                Tank::shutdownRuntimeState,
-                Car::shutdownRuntimeState,
-                VehicleCameraDistance::shutdown,
-            ).forEach(::cleanup)
+            cleanup(VehicleCameraDistance::shutdown)
 
             VehicleRegistry.rides().forEach { ride -> cleanup { ride.seat.remove() } }
             VehicleRegistry.all().forEach { runtime -> cleanup { runtime.entity.remove() } }
             hiddenOccupants.toList().forEach { player -> cleanup { VisibilityRules.remove(player, VISIBILITY_RULE_OWNER) } }
-            VehicleRegistry.clear()
+            cleanup(VehicleRegistry::clear)
             hiddenOccupants.clear()
             forcedExitPlayers.clear()
             switchingPlayers.clear()

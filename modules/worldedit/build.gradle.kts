@@ -1,12 +1,9 @@
 plugins {
-    kotlin("jvm")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.jvm)
 }
 
 dependencies {
-    compileOnly(project(":server"))
     compileOnly(project(":modules:utils"))
-    compileOnly("net.minestom:minestom:2026.10.05-26.2")
-    add("moduleApi", "com.sk89q.worldedit:worldedit-core:7.4.5")
-    compileOnly("com.google.guava:guava:33.7.2-jre")
+    add("moduleApi", libs.worldedit)
+    compileOnly(libs.guava)
 }
