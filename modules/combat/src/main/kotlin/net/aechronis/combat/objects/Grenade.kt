@@ -39,7 +39,7 @@ class Grenade(
     override fun toItemStack(): ItemStack = super.toItemStack().withMaxStackSize(1)
 
     fun use(player: Player): Boolean {
-        val armed = Combat.armedGrenades[player]
+        val armed = Combat.playerStates[player]?.armedGrenade
         if (armed == null && Mounts.isMounted(player)) {
             Mounts.showBlocked(player)
             return false
@@ -56,12 +56,13 @@ class Grenade(
 
     private fun arm(player: Player) {
         val deadline = System.currentTimeMillis() + fuseTimeMillis
-        Combat.armedGrenades[player] = this
-        Combat.grenadeFuseDeadlines[player] = deadline
-        Combat.grenadeFuseTasks[player] =
+        val state = Combat.playerStates.getOrCreate(player)
+        state.armedGrenade = this
+        state.grenadeFuseDeadline = deadline
+        state.grenadeFuseTask =
             ModuleScheduler
                 .buildTask {
-                    if (Combat.armedGrenades[player] === this) detonateInHand(player)
+                    if (Combat.playerStates[player]?.armedGrenade === this) detonateInHand(player)
                 }.delay(TaskSchedule.millis(fuseTimeMillis))
                 .schedule()
     }
@@ -101,10 +102,8 @@ class Grenade(
         return true
     }
 
-    private fun remainingFuse(player: Player): Long {
-        // The arm time is kept in the task deadline, so use the task's deadline map.
-        return (Combat.grenadeFuseDeadlines[player] ?: System.currentTimeMillis()) - System.currentTimeMillis()
-    }
+    private fun remainingFuse(player: Player): Long =
+        (Combat.playerStates[player]?.grenadeFuseDeadline ?: System.currentTimeMillis()) - System.currentTimeMillis()
 
     private fun consumeOne(player: Player) {
         val item = player.itemInMainHand
@@ -134,7 +133,7 @@ class Grenade(
 
     companion object {
         fun detonateInHand(player: Player) {
-            val grenade = Combat.armedGrenades[player] ?: return
+            val grenade = Combat.playerStates[player]?.armedGrenade ?: return
             val pos = player.position.add(0.0, player.eyeHeight, 0.0)
             grenade.consumeOne(player)
             clearArmed(player)
@@ -142,9 +141,7 @@ class Grenade(
         }
 
         fun clearArmed(player: Player) {
-            Combat.grenadeFuseTasks.remove(player)?.cancel()
-            Combat.grenadeFuseDeadlines.remove(player)
-            Combat.armedGrenades.remove(player)
+            Combat.playerStates[player]?.clearGrenade()
         }
     }
 }

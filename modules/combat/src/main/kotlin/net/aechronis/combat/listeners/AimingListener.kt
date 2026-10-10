@@ -11,7 +11,6 @@ import net.minestom.server.event.player.PlayerInputEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.event.player.PlayerUseItemOnBlockEvent
 import net.minestom.server.timer.TaskSchedule
-import kotlin.collections.set
 
 object AimingListener {
     private fun onPlayerUseItem(event: PlayerUseItemEvent) {
@@ -28,27 +27,30 @@ object AimingListener {
     }
 
     private fun refreshRightClickAim(player: Player) {
-        Combat.playerAiming[player] = true
-        Combat.aimingResetTasks.remove(player)?.cancel()
+        val state = Combat.playerStates.getOrCreate(player)
+        state.aiming = true
+        state.cancelAimingReset()
 
         // right click repeats every four ticks, including during automatic fire
-        Combat.aimingResetTasks[player] =
+        state.aimingResetTask =
             ModuleScheduler
                 .buildTask {
-                    Combat.aimingResetTasks.remove(player)
-                    Combat.playerAiming[player] = player.isSneaking
+                    Combat.playerStates[player]?.aimingResetTask = null
+                    Combat.playerStates.getOrCreate(player).aiming = player.isSneaking
                 }.delay(TaskSchedule.tick(6))
                 .schedule()
     }
 
     private fun onPlayerInput(event: PlayerInputEvent) {
-        Combat.playerAiming[event.player] = event.isHoldingShiftKey || Combat.aimingResetTasks.containsKey(event.player)
+        val state = Combat.playerStates.getOrCreate(event.player)
+        state.aiming = event.isHoldingShiftKey || state.aimingResetTask != null
     }
 
     private fun onPlayerChangeHeldSlot(event: PlayerChangeHeldSlotEvent) {
         if (event.isCancelled || event.oldSlot == event.newSlot) return
-        Combat.aimingResetTasks.remove(event.player)?.cancel()
-        Combat.playerAiming[event.player] = event.player.isSneaking
+        val state = Combat.playerStates.getOrCreate(event.player)
+        state.cancelAimingReset()
+        state.aiming = event.player.isSneaking
     }
 
     fun init() {

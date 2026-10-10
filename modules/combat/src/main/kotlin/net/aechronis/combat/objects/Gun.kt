@@ -201,7 +201,7 @@ class Gun(
             return false
         }
 
-        if (Combat.reloadTasks[player] != null) return false // already reloading
+        if (Combat.playerStates[player]?.reloadTask != null) return false // already reloading
 
         // create task
         runReloadTask(player)
@@ -218,7 +218,7 @@ class Gun(
         val reloadSlot = player.heldSlot
         val reloadInstance = player.instance
 
-        Combat.reloadTasks[player] =
+        Combat.playerStates.getOrCreate(player).reloadTask =
             ModuleScheduler
                 .buildTask {
                     time -= 100
@@ -242,8 +242,7 @@ class Gun(
                                 10,
                             ),
                         )
-                        Combat.reloadTasks[player]?.cancel()
-                        Combat.reloadTasks.remove(player)
+                        Combat.playerStates[player]?.cancelReload()
                         GunAnimation.clear(player)
                         return@buildTask
                     }
@@ -253,8 +252,7 @@ class Gun(
                         setAmmo(player, maxAmmo)
                         ammo[player] -= 1
 
-                        Combat.reloadTasks[player]!!.cancel()
-                        Combat.reloadTasks.remove(player)
+                        Combat.playerStates[player]?.cancelReload()
                         GunAnimation.clear(player)
                     } else {
                         player.showTitle(
@@ -292,16 +290,16 @@ class Gun(
         }
         val firedAtNanos = System.nanoTime()
         val now = System.currentTimeMillis()
-        val lastAction = Combat.playerLastActionTimes[player] ?: 0L
+        val lastAction = Combat.playerStates[player]?.lastActionTime ?: 0L
         if (now - lastAction < cooldown && !ignoreCooldown) return false
-        if (Combat.reloadTasks[player] != null) return false
-        Combat.playerLastActionTimes[player] = now
+        if (Combat.playerStates[player]?.reloadTask != null) return false
+        Combat.playerStates.getOrCreate(player).lastActionTime = now
         if (!hasAmmo(player) && !ignoreAmmo) return false
 
         // Calculate position to fire bullets (rays) from. ADS only affects handheld shots,
         // matching the state which displays the aiming animation.
-        val speed = Combat.playerSpeeds[player] ?: 0F
-        val aimingMultiplier = aimingMultiplier(firePos == null && Combat.playerAiming[player] == true)
+        val speed = Combat.playerStates[player]?.speed ?: 0F
+        val aimingMultiplier = aimingMultiplier(firePos == null && Combat.playerStates[player]?.aiming == true)
         // A rider's shots start above their own mount and must not hit it.
         val ignored = if (mount != null) ignoredEntities + mount else ignoredEntities
         val origin = firePos ?: player.position.add(0.0, player.eyeHeight, 0.0)
@@ -339,7 +337,7 @@ class Gun(
                                 offsetPos,
                                 player.settings.mainHand,
                                 bulletTrailOffset,
-                                Combat.playerAiming[player] == true,
+                                Combat.playerStates[player]?.aiming == true,
                             )
                         } else {
                             offsetPos

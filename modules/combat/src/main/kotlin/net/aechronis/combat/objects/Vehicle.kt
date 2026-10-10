@@ -127,7 +127,7 @@ open class Vehicle(
         player: Player,
         pos: Pos,
     ): Boolean {
-        if (Combat.placeTasks[player] != null) return false // already placing
+        if (Combat.playerStates[player]?.placeTask != null) return false // already placing
         if (Mounts.isMounted(player)) {
             Mounts.showBlocked(player)
             return false
@@ -173,7 +173,7 @@ open class Vehicle(
     ) {
         var time = placeTime
 
-        Combat.placeTasks[player] =
+        Combat.playerStates.getOrCreate(player).placeTask =
             ModuleScheduler
                 .buildTask {
                     time -= 100
@@ -190,8 +190,7 @@ open class Vehicle(
                                 10,
                             ),
                         )
-                        Combat.placeTasks[player]?.cancel()
-                        Combat.placeTasks.remove(player)
+                        Combat.playerStates[player]?.cancelPlacement()
                         return@buildTask
                     }
 
@@ -217,8 +216,7 @@ open class Vehicle(
                             )
                         }
 
-                        Combat.placeTasks[player]!!.cancel()
-                        Combat.placeTasks.remove(player)
+                        Combat.playerStates[player]?.cancelPlacement()
                     } else {
                         player.showTitle(
                             Title.title(

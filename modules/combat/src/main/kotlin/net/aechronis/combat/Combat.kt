@@ -19,7 +19,6 @@ import net.aechronis.combat.listeners.ReloadListener
 import net.aechronis.combat.listeners.RespawnProtectionListener
 import net.aechronis.combat.listeners.VehicleListener
 import net.aechronis.combat.listeners.WeaponLoreListener
-import net.aechronis.combat.objects.Grenade
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Item
@@ -44,12 +43,10 @@ import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
-import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.event.EventNode
-import net.minestom.server.timer.Task
 import java.nio.file.Path
 
 object Combat {
@@ -64,28 +61,10 @@ object Combat {
     val eventNode = EventNode.all("combat")
     val highPriorityEventNode = EventNode.all("combat-high-priority").setPriority(-999)
 
-    val playerAiming = HashMap<Player, Boolean>()
-    val aimingResetTasks = HashMap<Player, Task>()
-
-    val reloadTasks = HashMap<Player, Task>()
-
-    val playerPreviousPositions = HashMap<Player, ArrayDeque<Pos>>()
-    val playerSpeeds = HashMap<Player, Float>()
-
-    val playerLastActionTimes = HashMap<Player, Long>()
-
-    val meleeLastAttackTimes = HashMap<Player, Long>()
-
-    val placeTasks = HashMap<Player, Task>()
-
-    val armedGrenades = HashMap<Player, Grenade>()
-    val grenadeFuseTasks = HashMap<Player, Task>()
-    val grenadeFuseDeadlines = HashMap<Player, Long>()
+    internal val playerStates = CombatPlayerStates()
 
     val entityLastDamageTime = HashMap<LivingEntity, Long>()
     private val activeDamage = HashMap<LivingEntity, Damage>()
-
-    internal val respawnProtectionExpiresAt = HashMap<Player, Long>()
 
     private const val DAMAGE_IMMUNITY_MS = 500L
     internal const val RESPAWN_PROTECTION_MS = 5_000L
@@ -94,22 +73,23 @@ object Combat {
         player: Player,
         now: Long = System.currentTimeMillis(),
     ) {
-        respawnProtectionExpiresAt[player] = now + RESPAWN_PROTECTION_MS
+        playerStates.getOrCreate(player).respawnProtectionExpiresAt = now + RESPAWN_PROTECTION_MS
     }
 
     internal fun isRespawnProtected(
         player: Player,
         now: Long = System.currentTimeMillis(),
     ): Boolean {
-        val expiresAt = respawnProtectionExpiresAt[player] ?: return false
+        val state = playerStates[player] ?: return false
+        val expiresAt = state.respawnProtectionExpiresAt ?: return false
         if (now < expiresAt) return true
 
-        respawnProtectionExpiresAt.remove(player)
+        state.respawnProtectionExpiresAt = null
         return false
     }
 
     internal fun revokeRespawnProtection(player: Player) {
-        respawnProtectionExpiresAt.remove(player)
+        playerStates[player]?.respawnProtectionExpiresAt = null
     }
 
     fun canDamage(
@@ -264,19 +244,14 @@ object Combat {
         if (!initialized || catalogueVehiclesNeedRestore) return
         VehiclePersistence.prepareForShutdown()
         VehiclePersistence.save()
-        cancelAndClear(aimingResetTasks)
-        cancelAndClear(reloadTasks)
-        cancelAndClear(placeTasks)
-        cancelAndClear(grenadeFuseTasks)
-        armedGrenades.clear()
-        grenadeFuseDeadlines.clear()
+        playerStates.cancelActions()
         Projectile.shutdown()
         VehiclePersistence.shutdown()
         TurretScope.shutdown()
         ModelManager.shutdown()
         GunAnimation.shutdown()
         VehicleTickManager.shutdown()
-        playerAiming.clear()
+        playerStates.clearAiming()
         ModuleScheduler.releaseCancelledTasks()
         catalogueVehiclesNeedRestore = true
     }
@@ -301,14 +276,7 @@ object Combat {
         catalogueVehiclesNeedRestore = false
         val failures = ArrayList<Throwable>()
 
-        cleanup(failures, "task cancellation") {
-            cancelAndClear(aimingResetTasks)
-            cancelAndClear(reloadTasks)
-            cancelAndClear(placeTasks)
-            cancelAndClear(grenadeFuseTasks)
-            armedGrenades.clear()
-            grenadeFuseDeadlines.clear()
-        }
+        cleanup(failures, "task cancellation") { playerStates.cancelActions() }
         cleanup(failures, "projectile removal") { Projectile.shutdown() }
         cleanup(failures, "vehicle removal") { VehiclePersistence.shutdown() }
         cleanup(failures, "turret scope restoration") { TurretScope.shutdown() }
@@ -319,14 +287,9 @@ object Combat {
         cleanup(failures, "vehicle tick state") { VehicleTickManager.shutdown() }
         cleanup(failures, "lag compensation") { LagCompensation.clear() }
 
-        playerAiming.clear()
-        playerPreviousPositions.clear()
-        playerSpeeds.clear()
-        playerLastActionTimes.clear()
-        meleeLastAttackTimes.clear()
+        cleanup(failures, "player state") { playerStates.clear() }
         entityLastDamageTime.clear()
         activeDamage.clear()
-        respawnProtectionExpiresAt.clear()
         KeyPressListener.playerInputEvent.clear()
         MannequinDamageListener.shutdown()
         Hitbox.viewingHitboxes.clear()
@@ -339,12 +302,6 @@ object Combat {
                 failures.forEach(::addSuppressed)
             }
         }
-    }
-
-    private fun cancelAndClear(tasks: MutableMap<*, Task>) {
-        val activeTasks = tasks.values.toSet()
-        tasks.clear()
-        activeTasks.forEach(Task::cancel)
     }
 
     private inline fun cleanup(

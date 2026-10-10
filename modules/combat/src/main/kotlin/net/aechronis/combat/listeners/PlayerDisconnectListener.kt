@@ -1,7 +1,6 @@
 package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
-import net.aechronis.combat.objects.Grenade
 import net.aechronis.combat.objects.HatMenu
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Vehicle
@@ -21,20 +20,8 @@ object PlayerDisconnectListener {
         VehicleTickManager.playerLookingAtEntity.remove(player)
         VehicleTickManager.removePlayer(player)
 
-        // cancel any active tasks before removing
-        Combat.aimingResetTasks.remove(player)?.cancel()
-        Combat.reloadTasks.remove(player)?.cancel()
-        Combat.placeTasks.remove(player)?.cancel()
-        Grenade.clearArmed(player)
-
-        // remove player from all hashmaps to prevent memory leaks
-        Combat.playerAiming.remove(player)
-        Combat.playerPreviousPositions.remove(player)
-        Combat.playerSpeeds.remove(player)
-        Combat.playerLastActionTimes.remove(player)
-        Combat.meleeLastAttackTimes.remove(player)
+        Combat.playerStates.remove(player)
         Combat.entityLastDamageTime.remove(player)
-        Combat.revokeRespawnProtection(player)
         LagCompensation.removePlayer(player)
         ModelManager.clearPlayer(player)
         KeyPressListener.playerInputEvent.remove(player)

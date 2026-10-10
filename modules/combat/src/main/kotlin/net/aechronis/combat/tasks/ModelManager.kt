@@ -193,8 +193,8 @@ object ModelManager {
         val gun = if (VehicleSeatHotbar.isActive(player)) null else Item.getFromItemStack(player.itemInMainHand) as? Gun
         val hideCrosshair =
             gun != null &&
-                Combat.playerAiming[player] == true &&
-                Combat.reloadTasks[player] == null
+                Combat.playerStates[player]?.aiming == true &&
+                Combat.playerStates[player]?.reloadTask == null
         return when {
             TurretScope.isActive(player) || hideCrosshair -> SHADER_AIMING_TIME
             gun != null ||
@@ -210,11 +210,11 @@ object ModelManager {
         val instance = player.instance ?: return
         restoreStowedGuns(player)
         val gun = if (VehicleSeatHotbar.isActive(player)) null else Item.getFromItemStack(player.itemInMainHand) as? Gun
-        val isAiming = gun != null && Combat.playerAiming[player] == true
+        val isAiming = gun != null && Combat.playerStates[player]?.aiming == true
         val showAim =
             gun != null &&
                 isAiming &&
-                Combat.reloadTasks[player] == null
+                Combat.playerStates[player]?.reloadTask == null
         val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
         val hasCustomDriverView = Vehicle.drivenBy(player)?.customDriverView == true
         val customViewOwnsShaderTime = hasCustomView(player)
@@ -260,7 +260,7 @@ object ModelManager {
         if (preserveAction) return
         val model =
             when {
-                Combat.reloadTasks[player] != null -> gun.itemModelReloading
+                Combat.playerStates[player]?.reloadTask != null -> gun.itemModelReloading
                 showAim -> gun.itemModelAiming
                 !hasAmmo -> gun.itemModelEmpty
                 else -> gun.itemModel

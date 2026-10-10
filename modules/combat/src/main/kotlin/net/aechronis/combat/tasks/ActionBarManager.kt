@@ -40,7 +40,7 @@ object ActionBarManager {
         val ammo =
             gun
                 ?.takeIf {
-                    vehicle !is ArmedVehicle && ride?.role != VehicleSeatRole.GUNNER && Combat.reloadTasks[player] == null
+                    vehicle !is ArmedVehicle && ride?.role != VehicleSeatRole.GUNNER && Combat.playerStates[player]?.reloadTask == null
                 }?.ammoText(player)
 
         val actionBar =

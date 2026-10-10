@@ -2,8 +2,6 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
-import net.aechronis.combat.utils.Ray
-import net.aechronis.combat.utils.rotatePoint
 import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -96,6 +94,22 @@ class Cannon(
 
     private val runtimes = HashMap<Entity, CannonRuntime>()
 
+    private val projectileLauncher =
+        VehicleProjectileLauncher(
+            barrelTipOffset = barrelTipOffset,
+            model = projectileModel,
+            name = projectileName,
+            speed = projectileSpeed,
+            explosionRadius = projectileExplosionRadius,
+            explosionFire = projectileExplosionFire,
+            explosionDamage = projectileExplosionDamage,
+            ammoType = ammo.ammoType,
+            trailParticle = projectileTrailParticle,
+            trailSpacing = projectileTrailSpacing,
+            trailMaxParticles = projectileTrailMaxParticles,
+            maxRange = projectileMaxRange,
+        )
+
     init {
         require(traverseSpeed.isFinite() && traverseSpeed > 0f) { "Cannon traverseSpeed must be positive and finite" }
         require(maxYaw.isFinite() && maxYaw in 0f..180f) { "Cannon maxYaw must be within 0 to 180 degrees" }
@@ -174,57 +188,9 @@ class Cannon(
     ) {
         if (!hasReadyAmmo(player, body)) return
 
-        val instance = body.instance ?: return
-
-        val tip = rotatePoint(barrelTipOffset, yaw, pitch, 0f)
-        val muzzle = barrelPos.add(tip.x, tip.y, tip.z)
-        val direction = muzzle.withView(yaw, pitch).direction()
-        val ignoredEntities =
-            buildSet<Entity> {
-                add(body)
-                add(player)
-                addAll(VehicleRegistry.ridesOf(body).map { it.player })
-            }
-        val obstruction =
-            firstProjectileImpact(
-                Ray(barrelPos, muzzle.asVec().sub(barrelPos)),
-                instance,
-                ignoredEntities,
-            )
-
-        if (obstruction != null) {
-            Explosion.bypassingDamageImmunity(
-                instance = instance,
-                pos = obstruction.point.asPos(),
-                radius = projectileExplosionRadius,
-                fire = projectileExplosionFire,
-                damage = projectileExplosionDamage,
-                source = player,
-                weapon = projectileName,
-                ammoType = ammo.ammoType,
-            )
-        } else {
-            Projectile.bypassingDamageImmunity(
-                instance = instance,
-                pos = muzzle,
-                model = projectileModel,
-                direction = direction,
-                speed = projectileSpeed,
-                explosionRadius = projectileExplosionRadius,
-                explosionFire = projectileExplosionFire,
-                explosionDamage = projectileExplosionDamage,
-                source = player,
-                weapon = projectileName,
-                ignoredEntities = ignoredEntities,
-                ammoType = ammo.ammoType,
-                trailParticle = projectileTrailParticle,
-                trailSpacing = projectileTrailSpacing,
-                trailMaxParticles = projectileTrailMaxParticles,
-                maxRange = projectileMaxRange,
-            )
+        if (projectileLauncher.fire(player, body, barrelPos, yaw, pitch)) {
+            consumeAmmo(body, reloadAfterShot = true)
         }
-
-        consumeAmmo(body, reloadAfterShot = true)
     }
 
     override fun cleanupRuntime(entity: Entity) {

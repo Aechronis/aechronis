@@ -10,8 +10,8 @@ object PlayerPositionManager {
         ModuleScheduler
             .buildTask {
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
-                    // get or create deque for player
-                    val positions = Combat.playerPreviousPositions.getOrPut(player) { ArrayDeque() }
+                    val state = Combat.playerStates.getOrCreate(player)
+                    val positions = state.previousPositions
 
                     // append current position
                     positions.addLast(player.position)
@@ -31,7 +31,7 @@ object PlayerPositionManager {
                         }
                     }
 
-                    Combat.playerSpeeds[player] = speed.toFloat()
+                    state.speed = speed.toFloat()
                 }
             }.repeat(TaskSchedule.tick(1))
             .schedule()
