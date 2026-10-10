@@ -136,7 +136,9 @@ class ANewMilleniumModule : AechronisModule {
         var failure: Throwable? = null
         listOf(
             TabManager::shutdown,
-            Drone::shutdownRuntimeState,
+            Drones.scoutDrone::shutdownRuntimeState,
+            Drones.kamikazeDrone::shutdownRuntimeState,
+            Drone::shutdownCrashStatics,
         ).forEach { cleanup ->
             runCatching(cleanup).onFailure { error ->
                 failure?.addSuppressed(error) ?: run { failure = error }

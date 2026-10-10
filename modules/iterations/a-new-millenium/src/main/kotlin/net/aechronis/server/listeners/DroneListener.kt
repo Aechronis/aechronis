@@ -14,7 +14,7 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 object DroneListener {
     fun onScroll(event: PlayerChangeHeldSlotEvent) {
         val player = event.player
-        if (Vehicle.drivenBy(player) !is Drone) return
+        val drone = Vehicle.drivenBy(player) as? Drone ?: return
 
         // shortest signed distance around the 0..8 hotbar ring, so scrolling
         // past an edge (e.g. 0 -> 8) counts as -1 rather than +8
@@ -22,12 +22,11 @@ object DroneListener {
         if (delta > 4) delta -= 9
         if (delta < -4) delta += 9
 
-        Drone.playerThrottle[player] =
-            ((Drone.playerThrottle[player] ?: 0F) + delta * -10F).coerceIn(0F, 100F)
+        drone.adjustThrottle(player, delta)
     }
 
     private fun onOperatorDamage(event: EntityDamageEvent) {
-        val pilot = Drone.mannequinPilot[event.entity] ?: return
+        val pilot = Drone.operatorFor(event.entity) ?: return
         event.isCancelled = true
         MannequinDamageListener.forwardDamage(pilot, event.damage)
     }

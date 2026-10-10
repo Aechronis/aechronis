@@ -18,7 +18,6 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.network.packet.server.play.PlayerRotationPacket
 import net.minestom.server.particle.Particle
-import java.util.WeakHashMap
 import kotlin.math.abs
 import kotlin.math.floor
 
@@ -89,8 +88,7 @@ open class Boat(
         val mounts: List<MountState>,
     )
 
-    // Direct entity removal must not retain an orphaned hull through its item definition.
-    private val runtimes = armament?.let { WeakHashMap<Entity, Runtime>() }
+    private val runtimes = armament?.let { HashMap<Entity, Runtime>() }
 
     private val solidHitboxes = hitbox.parts.map { Hitbox(listOf(it)) }
 
@@ -585,17 +583,7 @@ open class Boat(
                 ),
         )
 
-    override fun destroy(
-        entity: Entity,
-        attacker: Player?,
-        weapon: Component?,
-    ) {
-        cleanupRuntime(entity)
-        super.destroy(entity, attacker, weapon)
-    }
-
     override fun cleanupRuntime(entity: Entity) {
-        VehicleRegistry.gunners(entity).forEach { TurretScope.close(it.player) }
         runtimes?.remove(entity)
         super.cleanupRuntime(entity)
     }

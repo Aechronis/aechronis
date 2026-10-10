@@ -97,6 +97,15 @@ class Tank(
         }
     }
 
+    private class Runtime(
+        val turret: Entity,
+        val barrel: Entity,
+        var yaw: Float = 0f,
+        var pitch: Float = 0f,
+    )
+
+    private val runtimes = HashMap<Entity, Runtime>()
+
     override fun spawn(
         instance: Instance,
         pos: Pos,
@@ -104,37 +113,37 @@ class Tank(
         // spawn the body via the normal vehicle spawn
         val body = super.spawn(instance, pos)
 
-        // spawn the turret as a second item display
         val turret = VehicleDisplayEntity(body)
-        turret.setInstance(body.instance, body.position)
-
-        val turretMeta = turret.entityMeta as ItemDisplayMeta
-        turretMeta.itemStack = ItemStack.of(Material.BONE).withItemModel(turretModel)
-        turretMeta.posRotInterpolationDuration = 3
-        turretMeta.scale = Vec(scale)
-        turretMeta.isHasNoGravity = true
-
-        turret.spawn()
-
-        // spawn the barrel as a third item display
         val barrel = VehicleDisplayEntity(body)
-        barrel.setInstance(body.instance, turret.position)
+        runtimes[body] = Runtime(turret, barrel)
+        try {
+            // spawn the turret as a second item display
+            turret.setInstance(body.instance, body.position)
 
-        val barrelMeta = barrel.entityMeta as ItemDisplayMeta
-        barrelMeta.itemStack = ItemStack.of(Material.BONE).withItemModel(barrelModel)
-        barrelMeta.posRotInterpolationDuration = 3
-        barrelMeta.scale = Vec(scale)
-        barrelMeta.isHasNoGravity = true
+            val turretMeta = turret.entityMeta as ItemDisplayMeta
+            turretMeta.itemStack = ItemStack.of(Material.BONE).withItemModel(turretModel)
+            turretMeta.posRotInterpolationDuration = 3
+            turretMeta.scale = Vec(scale)
+            turretMeta.isHasNoGravity = true
 
-        barrel.spawn()
+            turret.spawn()
 
-        entityTurret[body] = turret
-        entityBarrel[body] = barrel
+            // spawn the barrel as a third item display
+            barrel.setInstance(body.instance, turret.position)
 
-        yaw[body] = 0f
-        pitch[body] = 0f
+            val barrelMeta = barrel.entityMeta as ItemDisplayMeta
+            barrelMeta.itemStack = ItemStack.of(Material.BONE).withItemModel(barrelModel)
+            barrelMeta.posRotInterpolationDuration = 3
+            barrelMeta.scale = Vec(scale)
+            barrelMeta.isHasNoGravity = true
 
-        return body
+            barrel.spawn()
+
+            return body
+        } catch (failure: Throwable) {
+            runCatching { removeRuntimeEntity(body) }.onFailure(failure::addSuppressed)
+            throw failure
+        }
     }
 
     override fun onTick(player: Player) {
@@ -154,12 +163,13 @@ class Tank(
             return
         }
         val entity = ride.entity
-        yaw[entity] = approachAngle(yaw[entity] ?: 0f, player.position.yaw - entity.position.yaw, turretTraverseSpeed)
-        pitch[entity] = approachAngle(pitch[entity] ?: 0f, player.position.pitch.coerceIn(-25f, 5f), turretTraverseSpeed)
+        val runtime = runtimes[entity] ?: return
+        runtime.yaw = approachAngle(runtime.yaw, player.position.yaw - entity.position.yaw, turretTraverseSpeed)
+        runtime.pitch = approachAngle(runtime.pitch, player.position.pitch.coerceIn(-25f, 5f), turretTraverseSpeed)
         updateTurret(entity)
         super.onGunnerTick(player)
         if (KeyPressListener.playerInputEvent[player]?.isHoldingJumpKey == true) {
-            fire(player, entity, entity.position, entity.position.yaw + (yaw[entity] ?: 0f), pitch[entity] ?: 0f)
+            fire(player, entity, entity.position, entity.position.yaw + runtime.yaw, runtime.pitch)
         }
     }
 
@@ -170,14 +180,15 @@ class Tank(
         val definition = seats[seatIndex]
         if (definition.role != VehicleSeatRole.GUNNER) return super.getSeatWorldPos(entity, seatIndex)
         // The crew position follows the turret; barrel elevation does not pitch the occupant.
-        return entity.position.add(rotatePoint(definition.offset, entity.position.yaw + (yaw[entity] ?: 0f), 0f, 0f))
+        return entity.position.add(rotatePoint(definition.offset, entity.position.yaw + (runtimes[entity]?.yaw ?: 0f), 0f, 0f))
     }
 
     private fun updateTurret(entity: Entity) {
+        val runtime = runtimes[entity] ?: return
         val position = entity.position
-        val turretYaw = position.yaw + (yaw[entity] ?: 0f)
-        entityTurret[entity]?.teleport(position.withView(turretYaw, 0f))
-        entityBarrel[entity]?.teleport(position.withView(turretYaw, pitch[entity] ?: 0f))
+        val turretYaw = position.yaw + runtime.yaw
+        runtime.turret.teleport(position.withView(turretYaw, 0f))
+        runtime.barrel.teleport(position.withView(turretYaw, runtime.pitch))
     }
 
     private fun fire(
@@ -243,19 +254,17 @@ class Tank(
     }
 
     override fun cleanupRuntime(entity: Entity) {
-        entityTurret.remove(entity)?.remove()
-        entityBarrel.remove(entity)?.remove()
-        yaw.remove(entity)
-        pitch.remove(entity)
-    }
-
-    override fun destroy(
-        entity: Entity,
-        attacker: Player?,
-        weapon: Component?,
-    ) {
-        cleanupRuntime(entity)
-        super.destroy(entity, attacker, weapon)
+        try {
+            runtimes.remove(entity)?.let { runtime ->
+                try {
+                    runtime.turret.remove()
+                } finally {
+                    runtime.barrel.remove()
+                }
+            }
+        } finally {
+            super.cleanupRuntime(entity)
+        }
     }
 
     // steps [current] toward [target] by at most [maxStep] degrees, takes the shortest way around
@@ -271,24 +280,6 @@ class Tank(
             delta > maxStep -> current + maxStep
             delta < -maxStep -> current - maxStep
             else -> current + delta
-        }
-    }
-
-    companion object {
-        val entityTurret = hashMapOf<Entity, Entity>()
-        val entityBarrel = hashMapOf<Entity, Entity>()
-
-        // yaw/pitch of the turret/barrel
-        val yaw = hashMapOf<Entity, Float>()
-        val pitch = hashMapOf<Entity, Float>()
-
-        internal fun shutdownRuntimeState() {
-            entityTurret.values.toSet().forEach(Entity::remove)
-            entityBarrel.values.toSet().forEach(Entity::remove)
-            entityTurret.clear()
-            entityBarrel.clear()
-            yaw.clear()
-            pitch.clear()
         }
     }
 }

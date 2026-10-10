@@ -67,10 +67,10 @@ object ActionBarManager {
                     is Plane ->
                         formatPlaneTelemetry(
                             vehicle.speed,
-                            Plane.playerThrottle[player] ?: 0f,
+                            vehicle.currentThrottle(player),
                             vehicle.maxThrottle,
                         )
-                    is Car -> formatCarTelemetry(Car.playerSpeed[player] ?: 0f)
+                    is Car -> formatCarTelemetry(vehicle.currentSpeed(player))
                     else -> null
                 }
             } else {

@@ -119,6 +119,25 @@ class Plane(
     ArmedVehicle {
     override val reloadTime: Long = bomb?.reloadTime ?: weapons.maxOfOrNull { it.gun.reloadTime } ?: 0L
 
+    private class Runtime(
+        var dive: DiveState? = null,
+        var destroying: Boolean = false,
+    )
+
+    private class PilotState(
+        val entity: Entity,
+        var roll: Float = 0f,
+        var state: PlaneState = PlaneState.LANDED,
+        var takeoffCounter: Int = 0,
+        var throttle: Float = 0f,
+        var bombFireHeld: Boolean = false,
+    )
+
+    private val runtimes = HashMap<Entity, Runtime>()
+    private val pilots = HashMap<Player, PilotState>()
+
+    internal fun currentThrottle(player: Player): Float = pilots[player]?.throttle ?: 0f
+
     init {
         require(reloadTime >= 0) { "Plane reloadTime must not be negative" }
         require(maxAmmo > 0) { "Plane maxAmmo must be greater than zero" }
@@ -128,31 +147,33 @@ class Plane(
         require(maxDiveSpeed > 0.0 && maxDiveSpeed.isFinite()) { "Plane maxDiveSpeed must be positive and finite" }
     }
 
+    override fun spawn(
+        instance: Instance,
+        pos: Pos,
+    ): Entity = super.spawn(instance, pos).also { runtimes[it] = Runtime() }
+
     override fun onEnter(
         player: Player,
         entity: Entity,
     ) {
         // only allow one pilot at a time, and never let a pilot reclaim a plane
         // that is already in an uncontrolled dive.
-        if (!canEnterAsDriver(player, entity) || entityDives.containsKey(entity)) return
+        if (!canEnterAsDriver(player, entity) || runtimes[entity]?.dive != null) return
 
         super.onEnter(player, entity)
+        if (VehicleRegistry.driver(player)?.entity !== entity) return
         (entity.entityMeta as ItemDisplayMeta).setTransformationInterpolationDuration(3)
-        playerRoll[player] = 0f
-        playerState[player] = PlaneState.LANDED
-        takeoffCounter[player] = 0
-        playerThrottle[player] = 0f
-        if (VehicleRegistry.driver(player)?.entity === entity) {
-            VehicleCameraDistance.apply(player, hitbox, seats.first { it.role.drives }.offset)
-        }
+        pilots[player] = PilotState(entity)
+        VehicleCameraDistance.apply(player, hitbox, seats.first { it.role.drives }.offset)
     }
 
     override fun onExit(player: Player) {
         val entity = VehicleRegistry.driver(player)?.entity
-        val state = playerState[player]
+        val pilot = pilots[player]
+        val state = pilot?.state
         if (entity != null &&
             (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) &&
-            entity !in destroyingEntities &&
+            runtimes[entity]?.destroying != true &&
             !Vehicle.isForcedExit(player)
         ) {
             val instance = entity.instance ?: player.instance
@@ -162,10 +183,10 @@ class Plane(
                     entity.position,
                     entity.position.yaw,
                     entity.position.pitch,
-                    playerRoll[player] ?: 0f,
+                    pilot?.roll ?: 0f,
                 )
             ) {
-                beginDive(entity, playerThrottle[player] ?: minAirThrottle, playerRoll[player] ?: 0f)
+                beginDive(entity, pilot?.throttle ?: minAirThrottle, pilot?.roll ?: 0f)
             }
         }
         try {
@@ -174,29 +195,30 @@ class Plane(
             if (entity != null) {
                 (entity.entityMeta as ItemDisplayMeta).leftRotation = setRoll(0f)
             }
-            playerRoll.remove(player)
-            playerState.remove(player)
-            takeoffCounter.remove(player)
-            playerThrottle.remove(player)
-            playerBombFireHeld.remove(player)
+            pilots.remove(player)
             VehicleCameraDistance.restore(player)
         }
     }
 
     override fun prepareForShutdown(entity: Entity) {
-        entityDives.remove(entity)
+        runtimes[entity]?.dive = null
         VehicleRegistry.driverOf(entity)?.let { ride ->
-            playerState[ride.player] = PlaneState.LANDED
-            playerThrottle[ride.player] = 0f
-            playerRoll[ride.player] = 0f
+            pilots[ride.player]?.let { pilot ->
+                pilot.state = PlaneState.LANDED
+                pilot.throttle = 0f
+                pilot.roll = 0f
+            }
         }
         (entity.entityMeta as ItemDisplayMeta).leftRotation = setRoll(0f)
         super.prepareForShutdown(entity)
     }
 
     override fun cleanupRuntime(entity: Entity) {
-        entityDives.remove(entity)
-        destroyingEntities.remove(entity)
+        runtimes.remove(entity)
+        pilots.entries.filter { it.value.entity === entity }.forEach { (player, _) ->
+            pilots.remove(player)
+            VehicleCameraDistance.restore(player)
+        }
     }
 
     override fun destroy(
@@ -207,12 +229,12 @@ class Plane(
         val instance = entity.instance
         val position = entity.position
 
-        cleanupRuntime(entity)
-        destroyingEntities.add(entity)
+        val runtime = runtimes[entity]
+        runtime?.destroying = true
         try {
             super.destroy(entity, attacker, weapon)
         } finally {
-            destroyingEntities.remove(entity)
+            runtime?.destroying = false
         }
 
         if (instance != null) {
@@ -229,7 +251,7 @@ class Plane(
     }
 
     override fun onUnoccupiedTick(entity: Entity) {
-        val dive = entityDives[entity] ?: return
+        val dive = runtimes[entity]?.dive ?: return
         val instance = entity.instance ?: return
         val position = entity.position
 
@@ -250,8 +272,9 @@ class Plane(
 
     override fun onTick(player: Player) {
         val entity = VehicleRegistry.driver(player)?.entity ?: return
-        var roll = playerRoll[player] ?: 0f
-        var state = playerState[player] ?: PlaneState.LANDED
+        val pilot = pilots[player] ?: return
+        var roll = pilot.roll
+        var state = pilot.state
 
         if (state == PlaneState.CRASHED) {
             return
@@ -261,12 +284,12 @@ class Plane(
 
         // handle takeoff
         if (state == PlaneState.LANDED && inputEvent?.isHoldingForwardKey == true) {
-            playerState[player] = PlaneState.TAKING_OFF
-            takeoffCounter[player] = 200
+            pilot.state = PlaneState.TAKING_OFF
+            pilot.takeoffCounter = 200
             state = PlaneState.TAKING_OFF
         }
 
-        var throttle = playerThrottle[player] ?: 0f
+        var throttle = pilot.throttle
         if (state == PlaneState.LANDED) {
             throttle = 0f
         } else {
@@ -277,14 +300,14 @@ class Plane(
                     inputEvent?.isHoldingBackwardKey == true,
                 )
         }
-        playerThrottle[player] = throttle
+        pilot.throttle = throttle
 
         if (state == PlaneState.FLYING || state == PlaneState.TAKING_OFF) {
             val targetYaw = player.position.yaw
             val yawDelta = angleDifference(entity.position.yaw, targetYaw)
             val targetRoll = yawDelta.coerceIn(-45f, 45f)
             roll = approach(roll, targetRoll, 1.5f)
-            playerRoll[player] = roll
+            pilot.roll = roll
 
             val yaw = approachAngle(entity.position.yaw, targetYaw, 45f * turnSpeed)
             entity.setView(yaw, player.position.pitch.coerceIn(-60f, 60f))
@@ -305,12 +328,12 @@ class Plane(
                     abs(roll) < 10f
 
             if (isSafeLanding) {
-                playerState[player] = PlaneState.LANDED
-                playerRoll[player] = 0f
-                playerThrottle[player] = 0f
+                pilot.state = PlaneState.LANDED
+                pilot.roll = 0f
+                pilot.throttle = 0f
                 return
             } else {
-                playerState[player] = PlaneState.CRASHED
+                pilot.state = PlaneState.CRASHED
                 destroy(entity)
                 return
             }
@@ -318,12 +341,12 @@ class Plane(
 
         // handle taking off state
         if (state == PlaneState.TAKING_OFF) {
-            val counter = takeoffCounter[player] ?: 0
+            val counter = pilot.takeoffCounter
             if (counter <= 0) {
-                playerState[player] = PlaneState.FLYING
+                pilot.state = PlaneState.FLYING
                 state = PlaneState.FLYING
             } else {
-                takeoffCounter[player] = counter - 1
+                pilot.takeoffCounter = counter - 1
             }
         }
 
@@ -333,25 +356,25 @@ class Plane(
         }
 
         val meta = entity.entityMeta as ItemDisplayMeta
-        meta.leftRotation = setRoll((playerRoll[player] ?: 0f) / 55)
+        meta.leftRotation = setRoll(pilot.roll / 55)
 
         // Guns fire while held; bombs release only when the fire key is first pressed.
         val canFire = state == PlaneState.FLYING || state == PlaneState.TAKING_OFF
         val isHoldingFireKey = inputEvent?.isHoldingJumpKey == true
         if (canFire && isHoldingFireKey) {
             fireGuns(player)
-            if (bomb != null && isBombRelease(isHoldingFireKey, playerBombFireHeld[player] == true)) {
+            if (bomb != null && isBombRelease(isHoldingFireKey, pilot.bombFireHeld)) {
                 fireBomb(player)
             }
         }
-        playerBombFireHeld[player] = canFire && isHoldingFireKey
+        pilot.bombFireHeld = canFire && isHoldingFireKey
 
         super.onTick(player)
     }
 
     override fun hitboxRoll(entity: Entity): Float {
         val pilot = VehicleRegistry.driverOf(entity)?.player ?: return 0f
-        return playerRoll[pilot] ?: 0f
+        return pilots[pilot]?.roll ?: 0f
     }
 
     private fun approach(
@@ -373,7 +396,7 @@ class Plane(
         roll: Float,
     ) {
         val initialSpeed = (speed * throttle / maxThrottle).coerceAtLeast(speed * minAirThrottle / maxThrottle)
-        entityDives[entity] = DiveState(initialSpeed.coerceAtMost(maxDiveSpeed), entity.position.pitch, roll)
+        runtimes[entity]?.dive = DiveState(initialSpeed.coerceAtMost(maxDiveSpeed), entity.position.pitch, roll)
     }
 
     private fun firstDiveCollision(
@@ -440,7 +463,7 @@ class Plane(
         if (!hasReadyAmmo(player, entity)) return
 
         val position = entity.position
-        val roll = playerRoll[player] ?: 0f
+        val roll = pilots[player]?.roll ?: 0f
 
         for ((_, mount) in weapons.withIndex()) {
             // fire from each fire point
@@ -475,7 +498,7 @@ class Plane(
 
         val instance = entity.instance ?: return
         val position = entity.position
-        val releaseOffset = rotatePoint(bomb.releaseOffset, position.yaw, position.pitch, playerRoll[player] ?: 0f)
+        val releaseOffset = rotatePoint(bomb.releaseOffset, position.yaw, position.pitch, pilots[player]?.roll ?: 0f)
         val releasePos = position.add(releaseOffset.x, releaseOffset.y, releaseOffset.z)
         val ignoredEntities =
             buildSet<Entity> {
@@ -526,24 +549,6 @@ class Plane(
     }
 
     companion object {
-        var playerRoll = hashMapOf<Player, Float>()
-        var playerState = hashMapOf<Player, PlaneState>()
-        var takeoffCounter = hashMapOf<Player, Int>()
-        var playerThrottle = hashMapOf<Player, Float>()
-        var playerBombFireHeld = hashMapOf<Player, Boolean>()
-        private val entityDives = HashMap<Entity, DiveState>()
-        private val destroyingEntities = HashSet<Entity>()
-
-        internal fun shutdownRuntimeState() {
-            playerRoll.clear()
-            playerState.clear()
-            takeoffCounter.clear()
-            playerThrottle.clear()
-            playerBombFireHeld.clear()
-            entityDives.clear()
-            destroyingEntities.clear()
-        }
-
         private const val DIVE_COLLISION_SAMPLE_SPACING = 0.25
         private const val MAX_DIVE_COLLISION_SAMPLES = 128
     }

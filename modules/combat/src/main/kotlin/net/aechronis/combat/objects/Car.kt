@@ -55,6 +55,15 @@ open class Car(
         collisionHitbox,
         modelScale,
     ) {
+    private class DriverState(
+        val entity: Entity,
+        var speed: Float = 0f,
+    )
+
+    private val drivers = HashMap<Player, DriverState>()
+
+    internal fun currentSpeed(player: Player): Float = drivers[player]?.speed ?: 0f
+
     override fun onEnter(
         player: Player,
         entity: Entity,
@@ -64,23 +73,32 @@ open class Car(
 
         super.onEnter(player, entity)
         if (VehicleRegistry.driver(player)?.entity === entity) {
+            drivers[player] = DriverState(entity)
             VehicleCameraDistance.apply(player, hitbox, seats.first { it.role.drives }.offset)
         }
-        playerSpeed[player] = 0f
     }
 
     override fun onExit(player: Player) {
         try {
             super.onExit(player)
         } finally {
-            playerSpeed.remove(player)
+            drivers.remove(player)
             VehicleCameraDistance.restore(player)
         }
     }
 
+    override fun cleanupRuntime(entity: Entity) {
+        drivers.entries.filter { it.value.entity === entity }.forEach { (player, _) ->
+            drivers.remove(player)
+            VehicleCameraDistance.restore(player)
+        }
+        super.cleanupRuntime(entity)
+    }
+
     override fun onTick(player: Player) {
         val entity = VehicleRegistry.driver(player)?.entity ?: return
-        var currentSpeed = playerSpeed[player] ?: 0f
+        val driver = drivers[player] ?: return
+        var currentSpeed = driver.speed
         val inputEvent = KeyPressListener.playerInputEvent[player]
 
         // handle acceleration/braking
@@ -105,7 +123,7 @@ open class Car(
             }
         }
 
-        playerSpeed[player] = currentSpeed
+        driver.speed = currentSpeed
 
         val yawRad = Math.toRadians(targetYaw.toDouble())
         val dx = -sin(yawRad) * currentSpeed
@@ -115,7 +133,7 @@ open class Car(
 
         val instance = entity.instance ?: return
         if (!canStartMoving(instance, position)) {
-            playerSpeed[player] = 0f
+            driver.speed = 0f
             super.onTick(player)
             return
         }
@@ -124,7 +142,7 @@ open class Car(
         val targetPosition = position.withX(newX).withZ(newZ).withYaw(targetYaw)
         val newSurfaceY = findSurfaceY(instance, targetPosition, currentSurfaceY)
         if (newSurfaceY == null) {
-            playerSpeed[player] = 0f
+            driver.speed = 0f
             super.onTick(player)
             return
         }
@@ -134,7 +152,7 @@ open class Car(
 
         val newPos = targetPosition.withY(newY)
         if (heightDelta > maxClimbHeight || (newPos != position && !canMoveTo(instance, entity, newPos))) {
-            playerSpeed[player] = 0f
+            driver.speed = 0f
         } else if (newPos != position) {
             entity.teleport(newPos)
         }
@@ -171,13 +189,5 @@ open class Car(
             }
         }
         return null
-    }
-
-    companion object {
-        val playerSpeed = hashMapOf<Player, Float>()
-
-        internal fun shutdownRuntimeState() {
-            playerSpeed.clear()
-        }
     }
 }

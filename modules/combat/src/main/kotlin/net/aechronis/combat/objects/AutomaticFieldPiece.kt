@@ -198,15 +198,6 @@ class AutomaticFieldPiece(
         runtimes.remove(entity)?.barrel?.remove()
     }
 
-    override fun destroy(
-        entity: Entity,
-        attacker: Player?,
-        weapon: Component?,
-    ) {
-        cleanupRuntime(entity)
-        super.destroy(entity, attacker, weapon)
-    }
-
     private fun angleDifference(
         current: Float,
         target: Float,

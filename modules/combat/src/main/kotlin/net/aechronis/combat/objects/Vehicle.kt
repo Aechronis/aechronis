@@ -772,18 +772,21 @@ open class Vehicle(
     /** Removes a live vehicle for module teardown without invoking destruction effects. */
     internal fun unload(entity: Entity) {
         prepareForShutdown(entity)
-        cleanupRuntime(entity)
         removeRuntimeEntity(entity)
     }
 
     protected open fun cleanupRuntime(entity: Entity) = Unit
 
+    /** Invoked once by the registry after riders and the registered runtime are detached. */
+    internal fun releaseRuntime(entity: Entity) = cleanupRuntime(entity)
+
     protected fun removeRuntimeEntity(entity: Entity) {
         VehicleRegistry.ridesOf(entity).forEach { exit(it.player) }
-        VehicleRegistry.remove(entity)
-
-        // remove the displayentity
-        entity.remove()
+        try {
+            VehicleRegistry.remove(entity)
+        } finally {
+            entity.remove()
+        }
     }
 
     companion object {
@@ -829,17 +832,12 @@ open class Vehicle(
             VehicleRegistry.all().forEach { runtime -> cleanup { runtime.vehicle.unload(runtime.entity) } }
             VehicleRegistry.rides().forEach { ride -> cleanup { forceExit(ride.player) } }
 
-            listOf<() -> Unit>(
-                Plane::shutdownRuntimeState,
-                Tank::shutdownRuntimeState,
-                Car::shutdownRuntimeState,
-                VehicleCameraDistance::shutdown,
-            ).forEach(::cleanup)
+            cleanup(VehicleCameraDistance::shutdown)
 
             VehicleRegistry.rides().forEach { ride -> cleanup { ride.seat.remove() } }
             VehicleRegistry.all().forEach { runtime -> cleanup { runtime.entity.remove() } }
             hiddenOccupants.toList().forEach { player -> cleanup { VisibilityRules.remove(player, VISIBILITY_RULE_OWNER) } }
-            VehicleRegistry.clear()
+            cleanup(VehicleRegistry::clear)
             hiddenOccupants.clear()
             forcedExitPlayers.clear()
             switchingPlayers.clear()

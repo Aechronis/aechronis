@@ -353,12 +353,27 @@ internal object VehicleRegistry {
 
     fun remove(entity: Entity): VehicleRuntime? {
         require(playerRides.values.none { it.entity === entity }) { "Vehicle riders must leave before removal" }
-        return runtimes.remove(entity)?.also { it.removeParts() }
+        val runtime = runtimes.remove(entity) ?: return null
+        try {
+            runtime.vehicle.releaseRuntime(entity)
+        } catch (failure: Throwable) {
+            runCatching(runtime::removeParts).onFailure(failure::addSuppressed)
+            throw failure
+        }
+        runtime.removeParts()
+        return runtime
     }
 
     fun clear() {
         playerRides.clear()
-        runtimes.values.forEach { it.removeParts() }
-        runtimes.clear()
+        val failures = ArrayList<Throwable>()
+        runtimes.keys.toList().forEach { entity ->
+            runCatching { remove(entity) }.onFailure(failures::add)
+        }
+        if (failures.isNotEmpty()) {
+            throw IllegalStateException("Vehicle runtime cleanup completed with ${failures.size} failure(s)").apply {
+                failures.forEach(::addSuppressed)
+            }
+        }
     }
 }

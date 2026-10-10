@@ -232,15 +232,6 @@ class Cannon(
         runtime.barrel.remove()
     }
 
-    override fun destroy(
-        entity: Entity,
-        attacker: Player?,
-        weapon: Component?,
-    ) {
-        cleanupRuntime(entity)
-        super.destroy(entity, attacker, weapon)
-    }
-
     // steps [current] toward [target] by at most [maxStep] degrees, takes the shortest way around
     private fun approachAngle(
         current: Float,
