@@ -186,7 +186,7 @@ class Nation(
             nations[name] = nation
             nation.needsUpdate()
             nation.towns.forEach { town ->
-                town.needsUpdate()
+                town.invalidateSaveState()
                 town.residents.forEach { it.needsUpdate() }
             }
             nation.enemies.forEach { it.needsUpdate() }
@@ -235,11 +235,11 @@ class Nation(
             other.allies.add(nation)
             nation.towns.forEach { town ->
                 town.residents.forEach { it.player()?.let { player -> Message.print(player, "Your nation is now allied with ${other.name}") } }
-                town.needsUpdate()
+                town.invalidateSaveState()
             }
             other.towns.forEach { town ->
                 town.residents.forEach { it.player()?.let { player -> Message.print(player, "Your nation is now allied with ${nation.name}") } }
-                town.needsUpdate()
+                town.invalidateSaveState()
             }
             nation.needsUpdate()
             other.needsUpdate()
@@ -254,8 +254,8 @@ class Nation(
             if (!nation.allies.contains(other) || !other.allies.contains(nation)) return Result.failure(net.aechronis.nodes.constants.ErrorNotAllies)
             nation.allies.remove(other)
             other.allies.remove(nation)
-            nation.towns.forEach { it.needsUpdate() }
-            other.towns.forEach { it.needsUpdate() }
+            nation.towns.forEach { it.invalidateSaveState() }
+            other.towns.forEach { it.invalidateSaveState() }
             nation.needsUpdate()
             other.needsUpdate()
             Nametag.refreshRelationships()
@@ -270,8 +270,8 @@ class Nation(
             if (nation.enemies.contains(enemy) && enemy.enemies.contains(nation)) return Result.failure(net.aechronis.nodes.constants.ErrorAlreadyEnemies)
             nation.enemies.add(enemy)
             enemy.enemies.add(nation)
-            nation.towns.forEach { it.needsUpdate() }
-            enemy.towns.forEach { it.needsUpdate() }
+            nation.towns.forEach { it.invalidateSaveState() }
+            enemy.towns.forEach { it.invalidateSaveState() }
             nation.needsUpdate()
             enemy.needsUpdate()
             Nametag.refreshRelationships()
@@ -283,8 +283,8 @@ class Nation(
         fun removeEnemy(nation: Nation, enemy: Nation): Result<Boolean> {
             nation.enemies.remove(enemy)
             enemy.enemies.remove(nation)
-            nation.towns.forEach { it.needsUpdate() }
-            enemy.towns.forEach { it.needsUpdate() }
+            nation.towns.forEach { it.invalidateSaveState() }
+            enemy.towns.forEach { it.invalidateSaveState() }
             nation.needsUpdate()
             enemy.needsUpdate()
             Nametag.refreshRelationships()

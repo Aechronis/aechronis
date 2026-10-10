@@ -51,15 +51,21 @@ private var townNametagIdCounter: Int = 0
 class Town(
     val uuid: UUID,
     name: String,
-    var home: TerritoryId, // main territory owned by town
+    home: TerritoryId, // main territory owned by town
     leader: Resident?,
-    var spawnpoint: Pos,
+    spawnpoint: Pos,
 ) {
     // Registry keys can change only through the domain rename operation.
     var name: String = name
         private set
 
     var leader: Resident? = leader
+        private set
+
+    var home: TerritoryId = home
+        private set
+
+    var spawnpoint: Pos = spawnpoint
         private set
 
     companion object {
@@ -175,24 +181,23 @@ class Town(
                         System.err.println(
                             "Territory ${territory.id} is claimed by both ${previousOwner.name} and ${town.name}; keeping ${town.name}",
                         )
-                        previousOwner.territories.remove(territory.id)
-                        previousOwner.annexed.remove(territory.id)
-                        previousOwner.needsUpdate()
-                        Nodes.markWorldDirty()
+                        previousOwner.mutableTerritories.remove(territory.id)
+                        previousOwner.mutableAnnexed.remove(territory.id)
+                        previousOwner.markChanged()
                     }
-                    town.territories.add(territory.id)
+                    town.mutableTerritories.add(territory.id)
                     territory.town = town
                 }
             }
             annexedTerritoryIds.forEach { id ->
                 val territoryId = TerritoryId(id)
-                if (town.territories.contains(territoryId)) town.annexed.add(territoryId)
+                if (town.territories.contains(territoryId)) town.mutableAnnexed.add(territoryId)
             }
             capturedTerritoryIds.forEach { id ->
                 val territoryId = TerritoryId(id)
                 Territory.fromId(territoryId)?.let { territory ->
-                    territory.occupier?.captured?.remove(territoryId)
-                    town.captured.add(territoryId)
+                    territory.occupier?.mutableCaptured?.remove(territoryId)
+                    town.mutableCaptured.add(territoryId)
                     territory.occupier = town
                 }
             }
@@ -209,7 +214,7 @@ class Town(
             town.protectedBlocks.addAll(protectedBlocks)
             plots.forEach { state ->
                 val plot = Plot(state)
-                if (plot.name.isNotBlank() && !town.plots.containsKey(plot.name) && Plot.isValid(town, plot)) town.plots[plot.name] = plot
+                if (plot.name.isNotBlank() && !town.plots.containsKey(plot.name) && Plot.isValid(town, plot)) town.mutablePlots[plot.name] = plot
             }
             town.coatOfArmsUrl = coatOfArmsUrl
             town.aiConfig = aiConfig
@@ -217,7 +222,7 @@ class Town(
             town.capitalLifeGranted = capitalLifeGranted
             town.lifeRevision = lifeRevision.coerceAtLeast(0L)
             towns[name] = town
-            town.needsUpdate()
+            town.invalidateSaveState()
             return town
         }
 
@@ -226,16 +231,14 @@ class Town(
             if (town.lives < 2) town.lives = 2
             town.capitalLifeGranted = true
             town.lifeRevision++
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
         }
 
         internal fun loseLife(town: Town): Int {
             require(town.lives > 0) { "A town with no remaining lives cannot lose another life" }
             town.lives--
             town.lifeRevision++
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
             return town.lives
         }
 
@@ -244,8 +247,7 @@ class Town(
             if (town.lives == lives) return
             town.lives = lives
             town.lifeRevision++
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
             FlagWar.needsSave = true
         }
 
@@ -260,8 +262,7 @@ class Town(
             town.lives = restoredLives
             town.capitalLifeGranted = capitalLifeGranted
             town.lifeRevision = revision
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
         }
 
         fun destroy(town: Town) {
@@ -297,11 +298,10 @@ class Town(
             if (town.home == territory.id) return Result.failure(ErrorTerritoryIsTownHome)
             if (Warzone.isRegistered(territory)) return Result.failure(ErrorTerritoryIsWarzone)
             release(territory)
-            town.territories.remove(territory.id)
+            town.mutableTerritories.remove(territory.id)
             territory.town = null
-            town.annexed.remove(territory.id)
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.mutableAnnexed.remove(territory.id)
+            town.markChanged()
             Resident.renderMinimaps()
             return Result.success(territory)
         }
@@ -309,10 +309,9 @@ class Town(
         fun addTerritory(town: Town, territory: Territory): Result<Territory> {
             if (territory.town != null) return Result.failure(ErrorTerritoryOwned)
             if (Warzone.isRegistered(territory)) return Result.failure(ErrorTerritoryIsWarzone)
-            town.territories.add(territory.id)
+            town.mutableTerritories.add(territory.id)
             territory.town = town
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
             Resident.renderMinimaps()
             return Result.success(territory)
         }
@@ -325,16 +324,15 @@ class Town(
             FlagWar.clearTerritoryOccupation(territory)
             val current = territory.occupier
             if (current != null) {
-                current.captured.remove(territory.id)
+                current.mutableCaptured.remove(territory.id)
                 territory.occupier = null
-                current.needsUpdate()
+                current.invalidateSaveState()
             }
             if (territory.town !== town) {
-                town.captured.add(territory.id)
+                town.mutableCaptured.add(territory.id)
                 territory.occupier = town
             }
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
             FlagWar.requestMinimapRefresh()
             if (commitWarState) FlagWar.commitTerritoryOccupation(territory, town, colonized = false)
         }
@@ -379,15 +377,14 @@ class Town(
                 // Territory occupations belong to the previous ownership state and must not
                 // survive an administrative ownership transfer.
                 release(territory)
-                source.territories.remove(territory.id)
-                source.annexed.remove(territory.id)
-                destination.territories.add(territory.id)
+                source.mutableTerritories.remove(territory.id)
+                source.mutableAnnexed.remove(territory.id)
+                destination.mutableTerritories.add(territory.id)
                 territory.town = destination
             }
 
             destroy(source)
-            destination.needsUpdate()
-            Nodes.markWorldDirty()
+            destination.markChanged()
             Resident.renderMinimaps()
             transferred.size
         }
@@ -404,20 +401,20 @@ class Town(
 
             release(territory)
             if (source != null) {
-                source.territories.remove(territory.id)
-                source.annexed.remove(territory.id)
+                source.mutableTerritories.remove(territory.id)
+                source.mutableAnnexed.remove(territory.id)
             }
-            destination.territories.add(territory.id)
-            destination.annexed.add(territory.id)
+            destination.mutableTerritories.add(territory.id)
+            destination.mutableAnnexed.add(territory.id)
             territory.town = destination
-            destination.needsUpdate()
+            destination.invalidateSaveState()
 
             if (source != null) {
                 val newHome = source.territories.firstNotNullOfOrNull(Territory::fromId)
                 when {
                     newHome == null -> destroy(source)
                     source.home == territory.id -> setHome(source, newHome)
-                    else -> source.needsUpdate()
+                    else -> source.invalidateSaveState()
                 }
             }
             Nodes.markWorldDirty()
@@ -442,8 +439,7 @@ class Town(
             // Clear any stale role records left by malformed saved data as well.
             if (source.officers.isNotEmpty()) {
                 source.mutableOfficers.clear()
-                source.needsUpdate()
-                Nodes.markWorldDirty()
+                source.markChanged()
             }
             return transferred.size
         }
@@ -452,10 +448,9 @@ class Town(
             synchronized(Nodes.occupationPersistenceLock) {
                 FlagWar.clearTerritoryOccupation(territory)
                 territory.occupier?.let { town ->
-                    town.captured.remove(territory.id)
+                    town.mutableCaptured.remove(territory.id)
                     territory.occupier = null
-                    town.needsUpdate()
-                    Nodes.markWorldDirty()
+                    town.markChanged()
                     Resident.renderMinimaps()
                 }
                 FlagWar.commitTerritoryOccupation(territory, null, colonized = false)
@@ -468,13 +463,13 @@ class Town(
         ) {
             var changed = false
             towns.values.forEach { town ->
-                if (town !== occupier && town.captured.remove(territory.id)) {
-                    town.needsUpdate()
+                if (town !== occupier && town.mutableCaptured.remove(territory.id)) {
+                    town.invalidateSaveState()
                     changed = true
                 }
             }
-            if (occupier != null && occupier.captured.add(territory.id)) {
-                occupier.needsUpdate()
+            if (occupier != null && occupier.mutableCaptured.add(territory.id)) {
+                occupier.invalidateSaveState()
                 changed = true
             }
             if (territory.occupier !== occupier) {
@@ -486,20 +481,17 @@ class Town(
 
         fun addToIncome(town: Town, material: Material, amount: Int) {
             town.income.add(material, amount)
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
         }
 
         fun setCoatOfArmsUrl(town: Town, value: String?) {
             town.coatOfArmsUrl = value
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
         }
 
         fun setColor(town: Town, r: Int, g: Int, b: Int) {
             town.color = Color(r, g, b)
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
             Resident.renderMinimaps()
         }
 
@@ -507,9 +499,16 @@ class Town(
             val territory = Territory.fromBlock(spawnpoint.blockX(), spawnpoint.blockZ())
             if (territory == null || territory.id != town.home) return false
             town.spawnpoint = spawnpoint
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
             return true
+        }
+
+        internal fun resetSpawn(town: Town): Pos? {
+            val home = Territory.fromId(town.home) ?: return null
+            val spawnpoint = Territory.defaultSpawnLocation(home)
+            town.spawnpoint = spawnpoint
+            town.markChanged()
+            return spawnpoint
         }
 
         fun joinRestriction(town: Town, resident: Resident): String? {
@@ -530,7 +529,7 @@ class Town(
             resident.updateTownMembership(town)
             town.nation?.let { Nation.indexResident(it, resident, player) }
             if (player != null) indexOnlinePlayer(town, player)
-            town.needsUpdate()
+            town.invalidateSaveState()
         }
 
         private fun detachResident(town: Town, resident: Resident) {
@@ -540,7 +539,7 @@ class Town(
             if (town.leader === resident) town.leader = null
             town.mutablePlayersOnline.removeAll { it.uuid == resident.uuid }
             resident.updateTownMembership(null)
-            town.needsUpdate()
+            town.invalidateSaveState()
         }
 
         /** Nation owns the town index; this operation keeps every resident index in sync. */
@@ -558,7 +557,7 @@ class Town(
                 }
                 resident.needsUpdate()
             }
-            town.needsUpdate()
+            town.invalidateSaveState()
         }
 
         private fun indexOnlinePlayer(town: Town, player: Player) {
@@ -614,16 +613,14 @@ class Town(
             if (resident.town !== town) return false
             if (town.officers.contains(resident)) return true
             town.mutableOfficers.add(resident)
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
             return true
         }
 
         fun removeOfficer(town: Town, resident: Resident): Boolean {
             if (resident.town !== town) return false
             town.mutableOfficers.remove(resident)
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
             return true
         }
 
@@ -636,8 +633,7 @@ class Town(
                 if (town.leader == null) return
                 town.leader = null
             }
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
         }
 
         fun rename(town: Town, name: String): Boolean {
@@ -647,10 +643,9 @@ class Town(
             town.updateNametags()
             towns[name] = town
             Nametag.onTownRenamed(town)
-            town.needsUpdate()
             town.nation?.needsUpdate()
             town.residents.forEach { it.needsUpdate() }
-            Nodes.markWorldDirty()
+            town.markChanged()
             return true
         }
 
@@ -658,8 +653,7 @@ class Town(
 
         fun setPermissions(town: Town, permissions: Iterable<TownPermissions>, group: PermissionsGroup, flag: Boolean) {
             permissions.forEach { if (flag) town.permissions[it].add(group) else town.permissions[it].remove(group) }
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
         }
 
         fun setHome(town: Town, territory: Territory) {
@@ -667,22 +661,19 @@ class Town(
             town.home = territory.id
             town.spawnpoint = Territory.defaultSpawnLocation(territory)
             Resident.renderMinimaps()
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
         }
 
         fun setAiConfig(town: Town, config: AiTownConfig) {
             config.requireRegisteredGuns()
             if (town.aiConfig == config) return
             town.aiConfig = config
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
         }
 
         internal fun protectChest(town: Town, block: BlockVec, protect: Boolean) {
             if (protect) town.protectedBlocks.add(block) else town.protectedBlocks.remove(block)
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
         }
 
         internal fun showProtectedChests(town: Town, resident: Resident) {
@@ -712,8 +703,7 @@ class Town(
 
         internal fun onIncomeInventoryChanged(town: Town) {
             if (!town.income.synchronizeFromInventory()) return
-            town.needsUpdate()
-            Nodes.markWorldDirty()
+            town.markChanged()
         }
 
         private fun formatDuration(milliseconds: Long): String {
@@ -733,7 +723,7 @@ class Town(
                 town.permissions[it].clear()
                 town.permissions[it].addAll(Nodes.config.defaultTownPermissions[it].orEmpty())
             }
-            town.needsUpdate()
+            town.invalidateSaveState()
         }
     }
 
@@ -751,13 +741,16 @@ class Town(
 
     // territories owned by town
     // this includes annexed territories
-    val territories: HashSet<TerritoryId> = hashSetOf(home)
+    private val mutableTerritories: HashSet<TerritoryId> = hashSetOf(home)
+    val territories: Set<TerritoryId> = Collections.unmodifiableSet(mutableTerritories)
 
     // separate set of all annexed territories
-    val annexed: HashSet<TerritoryId> = hashSetOf()
+    private val mutableAnnexed: HashSet<TerritoryId> = hashSetOf()
+    val annexed: Set<TerritoryId> = Collections.unmodifiableSet(mutableAnnexed)
 
     // territories captured by town (but not annexed)
-    val captured: HashSet<TerritoryId> = hashSetOf()
+    private val mutableCaptured: HashSet<TerritoryId> = hashSetOf()
+    val captured: Set<TerritoryId> = Collections.unmodifiableSet(mutableCaptured)
 
     // nation for town
     var nation: Nation? = null
@@ -789,7 +782,8 @@ class Town(
     val protectedBlocks: HashSet<BlockVec> = hashSetOf()
 
     // persistent 3D cuboid plots inside the town's claimed territory
-    val plots: LinkedHashMap<String, Plot> = linkedMapOf()
+    private val mutablePlots = linkedMapOf<String, Plot>()
+    val plots: Map<String, Plot> = Collections.unmodifiableMap(mutablePlots)
 
     var aiConfig: AiTownConfig = AiTownConfig()
         private set
@@ -802,6 +796,7 @@ class Town(
         ThreadLocalRandom.current().nextInt(256),
         ThreadLocalRandom.current().nextInt(256),
     )
+        private set
 
     // re-usable nametag strings, for each diplomatic relation type
     var nametagTown: String = "${DiplomaticRelationship.TOWN.chatColor}[${this.name}]"
@@ -925,9 +920,40 @@ class Town(
         override fun encode(): String = TownJsonCodec.encode(this)
     }
 
-    // function to let client flag this object as dirty
-    fun needsUpdate() {
+    internal fun addPlot(plot: Plot) {
+        check(plot.name !in mutablePlots) { "A plot with that name already exists" }
+        mutablePlots[plot.name] = plot
+        markChanged()
+    }
+
+    internal fun replacePlot(previous: Plot, replacement: Plot) {
+        check(mutablePlots[previous.name] === previous) { "Plot does not belong to this town" }
+        require(previous.name == replacement.name) { "Replacing a plot cannot change its name" }
+        mutablePlots[previous.name] = replacement
+        markChanged()
+    }
+
+    internal fun removePlot(plot: Plot): Boolean {
+        if (!mutablePlots.remove(plot.name, plot)) return false
+        markChanged()
+        return true
+    }
+
+    internal fun updatePlotPermissions(plot: Plot, update: () -> Unit) {
+        require(mutablePlots[plot.name] === plot) { "Plot does not belong to this town" }
+        update()
+        markChanged()
+    }
+
+    /** Invalidates only the snapshot; loading, save preparation or a containing mutation owns scheduling. */
+    internal fun invalidateSaveState() {
         this.needsUpdate = true
+    }
+
+    /** Completes a live mutation: the next world save must include a fresh town snapshot. */
+    private fun markChanged() {
+        invalidateSaveState()
+        Nodes.markWorldDirty()
     }
 
     // wrapper to return self as savestate

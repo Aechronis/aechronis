@@ -1,7 +1,6 @@
 package net.aechronis.nodes.commands
 
 import net.aechronis.nodes.Message
-import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.colonization.AiTownConfig
 import net.aechronis.nodes.commands.arguments.ArgumentResident
 import net.aechronis.nodes.commands.arguments.ArgumentResidentArray
@@ -11,7 +10,6 @@ import net.aechronis.nodes.commands.arguments.ArgumentTerritoryArray
 import net.aechronis.nodes.commands.arguments.ArgumentTown
 import net.aechronis.nodes.commands.arguments.ArgumentTownArray
 import net.aechronis.nodes.objects.NodesCommand
-import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.Warzone
@@ -508,19 +506,13 @@ class NodesAdminTownDefaultTownSpawnsCommand : NodesCommand("defaulttownspawns",
         addSyntax({ player, resident, context ->
             // set town home territory
             for (town in context[townsArg]) {
-                val terrHome = Territory.fromId(town.home)
-                if (terrHome !== null) {
-                    val spawnpoint = Territory.defaultSpawnLocation(terrHome)
-                    town.spawnpoint = spawnpoint
-                    town.needsUpdate()
+                val spawnpoint = Town.resetSpawn(town)
+                if (spawnpoint != null) {
                     Message.print(player, "Set town \"${town.name}\" spawnpoint to $spawnpoint")
                 } else {
                     Message.error(player, "Town \"${town.name}\" home territory ${town.home} does not exist")
                 }
             }
-
-            // TODO: move this out
-            Nodes.markWorldDirty()
         }, townsArg)
     }
 }

@@ -294,7 +294,7 @@ object Nodes {
         cleanupStage(CleanupStage.TOWNS) {
             captureLive {
                 Town.all().forEach { town ->
-                    if (persistState && town.income.pushToStorage(true)) town.needsUpdate()
+                    if (persistState && town.income.pushToStorage(true)) town.invalidateSaveState()
                 }
             }
         }
@@ -683,7 +683,7 @@ object Nodes {
     private const val SHUTDOWN_DRAIN_TIMEOUT_SECONDS = 60L
 
     internal fun saveWorldPreprocess() {
-        Town.all().forEach { town -> if (town.income.pushToStorage(false)) town.needsUpdate() }
+        Town.all().forEach { town -> if (town.income.pushToStorage(false)) town.invalidateSaveState() }
     }
 
     /** Cross-domain income engine. */
