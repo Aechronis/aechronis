@@ -3,28 +3,22 @@ package net.aechronis.logger.repos
 import net.aechronis.logger.db.Database
 import net.aechronis.logger.objects.InventorySnapshot
 import net.aechronis.logger.objects.InventorySnapshotAction
+import net.aechronis.logger.utils.AsyncWriteGate
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
-import net.aechronis.logger.utils.shutdownExecutor
 import net.minestom.server.item.ItemStack
 import java.sql.ResultSet
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.locks.ReentrantReadWriteLock
 
 class InventorySnapshot(
     private val database: Database,
     private val executor: ExecutorService = Executors.newVirtualThreadPerTaskExecutor(),
 ) : AutoCloseable {
     private val table = database.inventorySnapshotTableName
-    private val pendingWrites = ConcurrentHashMap.newKeySet<CompletableFuture<Void>>()
-    private val lifecycleLock = ReentrantReadWriteLock()
-
-    @Volatile
-    private var closed = false
+    private val writeGate = AsyncWriteGate(executor, "inventory snapshot repository")
 
     private val selectColumns = "id, ts, player_uuid, player_name, action, inventory_data, source, origin"
 
@@ -35,38 +29,9 @@ class InventorySnapshot(
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
 
-    /**
-     * Submits work only while the repository is open. The read lock makes admission atomic with
-     * [close], so an executor can never be shut down between the lifecycle check and submission.
-     */
-    private fun submit(task: () -> Unit): CompletableFuture<Void> {
-        lifecycleLock.readLock().lock()
-        try {
-            if (closed) return CompletableFuture.failedFuture(IllegalStateException("inventory snapshot repository is closed"))
-            return CompletableFuture.runAsync(task, executor)
-        } finally {
-            lifecycleLock.readLock().unlock()
-        }
-    }
+    fun insertAsync(snapshot: InventorySnapshot): CompletableFuture<Void> = writeGate.submit { insert(snapshot) }
 
-    private fun <T> supply(task: () -> T): CompletableFuture<T> {
-        lifecycleLock.readLock().lock()
-        try {
-            if (closed) return CompletableFuture.failedFuture(IllegalStateException("inventory snapshot repository is closed"))
-            return CompletableFuture.supplyAsync(task, executor)
-        } finally {
-            lifecycleLock.readLock().unlock()
-        }
-    }
-
-    fun insertAsync(snapshot: InventorySnapshot): CompletableFuture<Void> {
-        val future = submit { insert(snapshot) }
-        pendingWrites += future
-        future.whenComplete { _, _ -> pendingWrites -= future }
-        return future
-    }
-
-    fun flushAsync(): CompletableFuture<Void> = CompletableFuture.allOf(*pendingWrites.toTypedArray())
+    fun flushAsync(): CompletableFuture<Void> = writeGate.flushAsync()
 
     fun findByPlayerNameAsync(
         playerName: String,
@@ -76,7 +41,7 @@ class InventorySnapshot(
         require(limit > 0) { "snapshot limit must be positive" }
         require(offset >= 0) { "snapshot offset cannot be negative" }
         return flushAsync().thenCompose {
-            supply {
+            writeGate.supply {
                 val snapshots = mutableListOf<InventorySnapshot>()
                 database.dataSource.connection.use { connection ->
                     connection
@@ -114,7 +79,7 @@ class InventorySnapshot(
 
     fun findByIdAsync(id: Long): CompletableFuture<InventorySnapshot?> =
         flushAsync().thenCompose {
-            supply {
+            writeGate.supply {
                 database.dataSource.connection.use { connection ->
                     connection.prepareStatement("SELECT $selectColumns FROM \"$table\" WHERE id = ?").use { statement ->
                         statement.setLong(1, id)
@@ -196,12 +161,6 @@ class InventorySnapshot(
         )
 
     override fun close() {
-        lifecycleLock.writeLock().lock()
-        try {
-            closed = true
-            shutdownExecutor(executor, "inventory snapshot repository")
-        } finally {
-            lifecycleLock.writeLock().unlock()
-        }
+        writeGate.close()
     }
 }
