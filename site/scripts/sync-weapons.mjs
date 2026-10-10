@@ -4,6 +4,8 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync, existsSync
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { exportItemModel } from './export-item-model.mjs'
+import { boolean, displayName, number, string } from '../../tools/kotlin-source.cjs'
+import { ammunitionNames, defaultsFor, readConstants } from '../../tools/combat-source.cjs'
 
 const site = fileURLToPath(new URL('../', import.meta.url))
 const iterations = join(site, '../modules/iterations')
@@ -12,35 +14,27 @@ for (const entry of readdirSync(iterations, { withFileTypes: true }).sort((a, b)
   if (!entry.isDirectory() || entry.name.startsWith('.')) continue
   const iterationId = entry.name
   const iteration = join(iterations, iterationId)
-  const definitionsPath = join(iteration, 'src/main/kotlin/net/aechronis/server/constants/Guns.kt')
-  const meleesPath = join(iteration, 'src/main/kotlin/net/aechronis/server/constants/Melees.kt')
-  if (!existsSync(definitionsPath) && !existsSync(meleesPath)) continue
+  const constants = readConstants(iteration, ['Gun', 'Melee', 'Ammo'])
+  const guns = constants.filter(({ type, owner }) => type === 'Gun' && owner === 'Guns')
+  const melees = constants.filter(({ type }) => type === 'Melee')
+  if (!guns.length && !melees.length) continue
+  const ammoNames = ammunitionNames(constants)
+  const gunDefinitions = new Map(guns.map(definition => [string(definition.args.name, 'gun name'), definition]))
   const output = join(site, 'src/public/iterations', iterationId, 'weapons')
   // This directory contains only generated exports. Remove obsolete weapon assets too.
   rmSync(output, { recursive: true, force: true })
   mkdirSync(output, { recursive: true })
-  const guns = existsSync(definitionsPath) ? readFileSync(definitionsPath, 'utf8') : ''
-  const definitions = new Map([...guns.matchAll(/val (\w+)\s*=\s*Gun\(([\s\S]*?)\n        \)/g)]
-    .map(([, key, body]) => [body.match(/name = "([^"]+)"/)[1], { key, body }]))
   const weapons = []
   const models = join(iteration, 'models')
   for (const file of (existsSync(models) ? readdirSync(models, { withFileTypes: true }) : [])
     .filter(entry => entry.isFile() && entry.name.endsWith('.bbmodel')).map(entry => entry.name).sort()) {
     const id = file.slice(0, -8)
-    const definition = definitions.get(id)
+    const definition = gunDefinitions.get(id)
     if (!definition) throw new Error(`No gun definition for ${file}`)
-    const { body } = definition
-    const value = (field, fallback) => {
-      const match = body.match(new RegExp(`\\b${field} = ([^,\\n]+)`))
-      if (!match && fallback !== undefined) return String(fallback)
-      if (!match) throw new Error(`Missing ${field} for ${id}`)
-      return match[1]
-    }
-    const stat = (field, fallback) => {
-      const number = Number(value(field, fallback).trim().replace(/[FfLl]$/, ''))
-      if (!Number.isFinite(number)) throw new Error(`Unsupported ${field} for ${iterationId}/${id}`)
-      return number
-    }
+    const args = { ...defaultsFor('Gun', definition.source, iteration), ...definition.args }
+    const stat = field => number(args[field], `${iterationId}/${id}/${field}`)
+    const ammo = ammoNames.get(args.ammo)
+    if (!ammo) throw new Error(`Unknown ammunition for ${iterationId}/${id}: ${args.ammo}`)
     const model = JSON.parse(readFileSync(join(iteration, 'models', file), 'utf8'))
     const textures = model.textures.map((texture, index) => {
       const filename = `${id}-${index}.png`
@@ -71,34 +65,25 @@ for (const entry of readdirSync(iterations, { withFileTypes: true }).sort((a, b)
       return { texture: texture.filename, positions, uvs }
     })
     writeFileSync(join(output, `${id}.json`), JSON.stringify({ meshes }))
-    weapons.push({ id, name: body.match(/itemName = Component.text\("([^"]+)"/)[1],
-      ammo: { 'Ammo.ammo762x39mm': '7.62×39 mm', 'Ammo.ammo9mm': '9 mm', 'Ammo.rocket': 'Rocket' }[value('ammo')],
-      magazine: Number(value('maxAmmo')), damage: Number(value('damage').replace('F', '')),
-      mode: value('automatic') === 'true' ? 'Automatic' : 'Single shot',
-      reload: Number(value('reloadTime')) / 1000,
+    weapons.push({ id, name: displayName(args.itemName), ammo,
+      magazine: stat('maxAmmo'), damage: stat('damage'),
+      mode: boolean(args.automatic, `${id}/automatic`) ? 'Automatic' : 'Single shot',
+      reload: stat('reloadTime') / 1000,
       rpm: Math.round(60_000 / stat('cooldown')),
       recoilMin: stat('recoilMin'), recoilMax: stat('recoilMax'),
       spreadMin: stat('spreadMin'), spreadMax: stat('spreadMax'),
-      maxRange: stat('maxRange', 128.0),
+      maxRange: stat('maxRange'),
     })
   }
   const pack = join(iteration, 'resource-pack/assets/aechronis')
-  const melees = existsSync(meleesPath) ? readFileSync(meleesPath, 'utf8') : ''
-  for (const [, key, body] of melees.matchAll(/val (\w+)\s*=\s*Melee\(([\s\S]*?)\n\s*\)/g)) {
-    const id = body.match(/\bname\s*=\s*"([^"]+)"/)?.[1]
-    const name = body.match(/\bitemName\s*=\s*Component.text\("([^"]+)"/)?.[1]
-    if (!id || !name) throw new Error(`Missing melee name for ${iterationId}/${key}`)
+  for (const definition of melees) {
+    const args = { ...defaultsFor('Melee', definition.source, iteration), ...definition.args }
+    const id = string(args.name, 'melee name')
+    const name = displayName(args.itemName)
     if (weapons.some(weapon => weapon.id === id)) throw new Error(`Duplicate weapon ID: ${iterationId}/${id}`)
-    const stat = (field, fallback) => {
-      const value = body.match(new RegExp(`\\b${field}\\s*=\\s*([^,\\n]+)`))?.[1]
-      if (value === undefined && fallback !== undefined) return fallback
-      const number = value === undefined ? NaN : Number(value)
-      if (!Number.isFinite(number)) throw new Error(`Missing or unsupported ${field} for ${iterationId}/${id}`)
-      return number
-    }
+    const stat = field => number(args[field], `${iterationId}/${id}/${field}`)
     exportItemModel(pack, id, output)
-    // Match Melee's defaults when the definition omits them.
-    weapons.push({ id, name, damage: stat('damage'), attackSpeed: stat('attackSpeed', 4.0), knockback: stat('knockback', 0.4) })
+    weapons.push({ id, name, damage: stat('damage'), attackSpeed: stat('attackSpeed'), knockback: stat('knockback') })
   }
   catalogues[iterationId] = weapons.map(weapon => ({
     ...weapon, model: `/iterations/${iterationId}/weapons/${weapon.id}.json`,
