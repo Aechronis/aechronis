@@ -48,6 +48,11 @@ internal object VehicleSeatHotbar {
         val ride = VehicleRegistry.ride(player) ?: return
         // Remote drones own a camera, throttle hotbar, and a separate operator mannequin.
         if (ride.vehicle.customDriverView) return
+        if (ride.definition.handheld) {
+            // switching here from a crew seat must give the rider their own hotbar and inventory back
+            close(player)
+            return
+        }
         if (sessions.putIfAbsent(player, Session(player.heldSlot)) == null) {
             player.closeInventory()
             Combat.playerStates[player]?.apply {

@@ -71,7 +71,7 @@ object ActionBarManager {
                             vehicle.maxThrottle,
                         )
                     is Car -> formatCarTelemetry(vehicle.currentSpeed(player))
-                    else -> null
+                    else -> vehicle.telemetryText(entity)
                 }
             } else {
                 null

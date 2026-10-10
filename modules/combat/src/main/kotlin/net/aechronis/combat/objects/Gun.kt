@@ -294,8 +294,9 @@ class Gun(
         // matching the state which displays the aiming animation.
         val speed = Combat.playerStates[player]?.speed ?: 0F
         val aimingMultiplier = aimingMultiplier(firePos == null && Combat.playerStates[player]?.aiming == true)
-        // A rider's shots start above their own mount and must not hit it.
-        val ignored = if (mount != null) ignoredEntities + mount else ignoredEntities
+        // A rider's shots start above their own mount, or inside their own vehicle, and must not hit it.
+        val ownVehicle = VehicleRegistry.ride(player)?.entity
+        val ignored = ignoredEntities + listOfNotNull(mount, ownVehicle)
         val origin = firePos ?: player.position.add(0.0, player.eyeHeight, 0.0)
 
         // Keep the shooter's sound with them, without also playing the positional copy.

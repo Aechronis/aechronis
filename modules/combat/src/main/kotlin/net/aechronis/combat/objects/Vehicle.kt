@@ -99,6 +99,24 @@ open class Vehicle(
 
     protected fun driverEntity(player: Player): Entity? = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this }?.entity
 
+    /** Right-click with an item on this vehicle; return true to consume the click instead of boarding. */
+    open fun onInteract(
+        player: Player,
+        entity: Entity,
+    ): Boolean = false
+
+    /** Extra action-bar text (e.g. fuel) for the driver; null shows nothing. */
+    open fun telemetryText(entity: Entity): String? = null
+
+    /** Everyone riding [entity], driver included. */
+    protected fun occupants(entity: Entity): List<Player> = VehicleRegistry.ridesOf(entity).map { it.player }
+
+    /** The crew seat [player] occupies on this vehicle, if any. */
+    protected fun seatOf(player: Player): VehicleSeat? = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this }?.definition
+
+    /** The vehicle entity [player] is riding, if it is this vehicle. */
+    protected fun entityOf(player: Player): Entity? = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this }?.entity
+
     protected fun driverSeat(player: Player): Entity? = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this }?.seat
 
     /** Checks live vehicle hitboxes, including their current roll, for a movement collision. */
@@ -253,6 +271,8 @@ open class Vehicle(
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(model)
         meta.posRotInterpolationDuration = 3
         meta.scale = modelScale
+        // huge models would otherwise be culled once the viewer is more than 64 blocks from the model centre
+        meta.viewRange = 10f
         meta.isHasNoGravity = true
 
         entity.spawn()
@@ -295,7 +315,11 @@ open class Vehicle(
         entity: Entity,
         definition: VehicleSeat,
     ) {
-        if (definition.role.drives) onEnter(player, entity) else onGunnerEnter(player, entity, gunnerSeats.indexOf(definition))
+        when {
+            definition.role.drives -> onEnter(player, entity)
+            definition.role == VehicleSeatRole.PASSENGER -> onPassengerEnter(player, entity, definition)
+            else -> onGunnerEnter(player, entity, gunnerSeats.indexOf(definition))
+        }
     }
 
     /** A seat transfer runs on the gameplay thread; an occupied target never releases the old seat. */
@@ -446,6 +470,30 @@ open class Vehicle(
     }
 
     internal open fun hitboxRoll(entity: Entity): Float = 0f
+
+    /** A seated rider with no weapon station; unlike gunners they keep following the hull on their own. */
+    open fun onPassengerEnter(
+        player: Player,
+        entity: Entity,
+        definition: VehicleSeat,
+    ) {
+        if (canEnter(player, entity)) mountSeat(player, entity, definition)
+    }
+
+    open fun onPassengerExit(player: Player) {
+        val ride = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this && it.role == VehicleSeatRole.PASSENGER } ?: return
+        leaveSeat(ride)
+    }
+
+    open fun onPassengerTick(player: Player) {
+        val ride = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this && it.role == VehicleSeatRole.PASSENGER } ?: return
+        if (KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
+            onPassengerExit(player)
+            return
+        }
+        val view = player.position
+        ride.seat.teleport(getSeatWorldPos(ride.entity, ride.seatIndex).withView(view.yaw, view.pitch))
+    }
 
     open fun onGunnerEnter(
         player: Player,
@@ -802,7 +850,11 @@ open class Vehicle(
         /** Routes a normal exit through the vehicle's occupied station hook. */
         internal fun exit(player: Player) {
             val ride = VehicleRegistry.ride(player) ?: return
-            if (ride.role.drives) ride.vehicle.onExit(player) else ride.vehicle.onGunnerExit(player)
+            when {
+                ride.role.drives -> ride.vehicle.onExit(player)
+                ride.role == VehicleSeatRole.PASSENGER -> ride.vehicle.onPassengerExit(player)
+                else -> ride.vehicle.onGunnerExit(player)
+            }
         }
 
         fun isVehicleOccupant(player: Player): Boolean = activeRide(player) != null
