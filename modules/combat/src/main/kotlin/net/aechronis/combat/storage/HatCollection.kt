@@ -4,11 +4,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.HatInstance
-import java.nio.file.AtomicMoveNotSupportedException
+import net.aechronis.server.io.AtomicFiles
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.nio.file.attribute.PosixFileAttributeView
 import java.util.UUID
 
 object HatCollection {
@@ -183,36 +181,5 @@ internal class HatCollectionStore(
     private fun writeAtomically(
         target: Path,
         contents: String,
-    ) {
-        val parent = target.parent ?: Path.of(".")
-        Files.createDirectories(parent)
-        val temporary = Files.createTempFile(parent, ".${target.fileName}-", ".tmp")
-        var failure: Throwable? = null
-        try {
-            Files.writeString(temporary, contents)
-            preservePermissions(target, temporary)
-            try {
-                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING)
-            }
-        } catch (error: Throwable) {
-            failure = error
-            throw error
-        } finally {
-            runCatching { Files.deleteIfExists(temporary) }.exceptionOrNull()?.let { cleanupError ->
-                failure?.addSuppressed(cleanupError) ?: throw cleanupError
-            }
-        }
-    }
-
-    private fun preservePermissions(
-        source: Path,
-        target: Path,
-    ) {
-        if (!Files.exists(source)) return
-        val sourceAttributes = Files.getFileAttributeView(source, PosixFileAttributeView::class.java) ?: return
-        val targetAttributes = Files.getFileAttributeView(target, PosixFileAttributeView::class.java) ?: return
-        targetAttributes.setPermissions(sourceAttributes.readAttributes().permissions())
-    }
+    ) = AtomicFiles.writeString(target, contents, preservePermissions = true)
 }

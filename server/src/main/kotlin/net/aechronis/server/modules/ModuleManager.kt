@@ -1,12 +1,11 @@
 package net.aechronis.server.modules
 
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.resourcepack.ModuleResourcePacks
 import net.minestom.server.MinecraftServer
 import net.minestom.server.network.packet.server.CachedPacket
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
@@ -584,15 +583,9 @@ class ModuleManager private constructor(
     private fun writeDisabled(ids: Set<String>) {
         val target = directory.resolve(".disabled-modules")
         val temporary = directory.resolve(".disabled-${UUID.randomUUID()}.tmp")
-        try {
+        AtomicFiles.withTemporaryPath(temporary) {
             Files.writeString(temporary, ids.sorted().joinToString("\n", postfix = if (ids.isEmpty()) "" else "\n"))
-            try {
-                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING)
-            }
-        } finally {
-            Files.deleteIfExists(temporary)
+            AtomicFiles.replace(temporary, target)
         }
     }
 

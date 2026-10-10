@@ -1,13 +1,12 @@
 package net.aechronis.vanilla.managers
 
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.vanilla.serdes.PlayerDataSerializer
 import net.aechronis.vanilla.serdes.PlayerDataSnapshot
 import net.kyori.adventure.nbt.BinaryTagIO
 import java.io.IOException
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.util.AbstractMap.SimpleImmutableEntry
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
@@ -118,19 +117,11 @@ private fun writePlayerData(
     snapshot: PlayerDataSnapshot,
 ) {
     val data = PlayerDataSerializer.serialize(snapshot)
-    Files.createDirectories(path)
     val target = path.resolve("${snapshot.uuid}.dat")
-    val temporary = Files.createTempFile(path, ".${snapshot.uuid}.", ".tmp")
-    try {
+    AtomicFiles.withTemporaryFile(target) { temporary ->
         Files.newOutputStream(temporary).use { output ->
             BinaryTagIO.writer().writeNamed(SimpleImmutableEntry("", data), output, BinaryTagIO.Compression.GZIP)
         }
-        try {
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        } catch (_: AtomicMoveNotSupportedException) {
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING)
-        }
-    } finally {
-        Files.deleteIfExists(temporary)
+        AtomicFiles.replace(temporary, target)
     }
 }

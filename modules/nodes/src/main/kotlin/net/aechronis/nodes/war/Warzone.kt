@@ -17,6 +17,7 @@ import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.utils.ChatColor
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
@@ -25,10 +26,7 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
-import java.nio.charset.StandardCharsets
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.util.UUID
 
 /**
@@ -487,19 +485,7 @@ object Warzone {
         // A failed write must not abort the tick, which would skip awarding finished zones.
         runCatching {
             val path = Nodes.config.pathWarzone.toAbsolutePath()
-            val parent = path.parent ?: return
-            Files.createDirectories(parent)
-            val temporary = Files.createTempFile(parent, ".${path.fileName}.", ".tmp")
-            try {
-                Files.writeString(temporary, root.toString(), StandardCharsets.UTF_8)
-                try {
-                    Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-                } catch (_: AtomicMoveNotSupportedException) {
-                    Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING)
-                }
-            } finally {
-                Files.deleteIfExists(temporary)
-            }
+            AtomicFiles.writeString(path, root.toString())
         }.onFailure { error -> System.err.println("[Nodes] Failed to save warzones: ${error.message}") }
     }
 

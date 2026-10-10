@@ -8,13 +8,11 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Plane
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.VehicleRegistry
+import net.aechronis.server.io.AtomicFiles
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.instance.Instance
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.nio.file.attribute.PosixFileAttributeView
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
@@ -255,37 +253,14 @@ object VehiclePersistence {
         x.isFinite() && y.isFinite() && z.isFinite() && yaw.isFinite() && pitch.isFinite()
 
     private fun write(saved: PersistedVehicles) {
-        val parent = path.parent ?: Path.of(".")
-        Files.createDirectories(parent)
-        val temporary = Files.createTempFile(parent, "vehicles-", ".json.tmp")
-        var writeFailure: Throwable? = null
-        try {
-            Files.newBufferedWriter(temporary).use { writer -> writer.write(Json.encodeToString(saved)) }
-            preservePermissions(path, temporary)
+        AtomicFiles.withTemporaryFile(path) { temporary ->
             try {
-                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING)
-            }
-        } catch (error: Throwable) {
-            val wrapped = IllegalStateException("Failed to save vehicles to $path", error)
-            writeFailure = wrapped
-            throw wrapped
-        } finally {
-            runCatching { Files.deleteIfExists(temporary) }.exceptionOrNull()?.let { cleanupError ->
-                writeFailure?.addSuppressed(cleanupError) ?: throw cleanupError
+                Files.newBufferedWriter(temporary).use { writer -> writer.write(Json.encodeToString(saved)) }
+                AtomicFiles.replace(temporary, path, preservePermissions = true)
+            } catch (error: Throwable) {
+                throw IllegalStateException("Failed to save vehicles to $path", error)
             }
         }
-    }
-
-    private fun preservePermissions(
-        source: Path,
-        target: Path,
-    ) {
-        if (!Files.exists(source)) return
-        val sourceAttributes = Files.getFileAttributeView(source, PosixFileAttributeView::class.java) ?: return
-        val targetAttributes = Files.getFileAttributeView(target, PosixFileAttributeView::class.java) ?: return
-        targetAttributes.setPermissions(sourceAttributes.readAttributes().permissions())
     }
 }
 

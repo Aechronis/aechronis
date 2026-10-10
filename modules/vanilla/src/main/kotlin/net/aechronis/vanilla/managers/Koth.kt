@@ -6,6 +6,7 @@ import com.cronutils.model.time.ExecutionTime
 import com.cronutils.parser.CronParser
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.listeners.KothListener
 import net.aechronis.vanilla.objects.KothZone
@@ -596,7 +597,7 @@ object Koth {
 
     private fun save() {
         if (!::file.isInitialized) return
-        AtomicFiles.write(file) { writer -> writer.write(Json.encodeToString(definitions.values.toList())) }
+        AtomicFiles.write(file, preservePermissions = true) { writer -> writer.write(Json.encodeToString(definitions.values.toList())) }
     }
 
     private fun decodeTransientState(payload: ByteArray): List<TransientKothState> =
