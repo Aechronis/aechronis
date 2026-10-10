@@ -3,7 +3,6 @@ package net.aechronis.server.constants
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.ShulkerHitbox
-import net.aechronis.combat.objects.ShulkerHitboxPart
 import net.aechronis.combat.objects.VehicleSeat
 import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.server.objects.Airship
@@ -15,37 +14,28 @@ import net.minestom.server.coordinate.Vec
 /**
  * Both ships are walkable: the crew stands on a one-cube floor and the hull is not solid, since a
  * solid hull this size exceeds the shulker limit. Numbers are blocks relative to the model centre,
- * with +z as the bow. Seats sit in the middle of the hull, where it is wide enough to sit; flip the signs of z if a model faces the other way.
+ * with +z as the bow, so starboard (right) is -x. They come from the seat and floor markers in the
+ * Blockbench files: blocks = (model units - 8) * scale / 16.
  */
 object Airships {
     private fun title(name: String) = Component.text(name, NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false)
 
-    /** Gunner seats with a mounted Maxim, one per side: starboard (right) first, then port (left). */
-    private fun mountedGunners(
-        x: Double,
-        y: Double,
-        z: Double,
-        count: Int,
-    ) = listOf(
-        VehicleSeat("gun-starboard", "Starboard gunner", VehicleSeatRole.GUNNER, Vec(x, y, z), weaponId = "maxim-starboard"),
-        VehicleSeat("gun-port", "Port gunner", VehicleSeatRole.GUNNER, Vec(-x, y, z), weaponId = "maxim-port"),
-    ).take(count)
+    private fun gunner(
+        id: String,
+        name: String,
+        at: Vec,
+    ) = VehicleSeat(id, name, VehicleSeatRole.GUNNER, at, weaponId = "maxim-$id")
 
     /** Seated passengers with no mounted gun; they shoot whatever they hold. */
-    private fun riders(
-        y: Double,
-        spots: List<Pair<Double, Double>>,
-    ) = spots.mapIndexed { index, (x, z) ->
-        VehicleSeat(
-            "rider-${index + 1}",
-            "Rider ${index + 1}",
-            VehicleSeatRole.PASSENGER,
-            Vec(x, y, z),
-            handheld = true,
-        )
-    }
+    private fun riders(vararg at: Vec) =
+        at.mapIndexed { index, spot ->
+            VehicleSeat("rider-${index + 1}", "Rider ${index + 1}", VehicleSeatRole.PASSENGER, spot, handheld = true)
+        }
 
-    // Model "lz1": 1 unit = 1 block. A 44 block long, 5 wide, 7 tall hull with a keel walkway.
+    // Model "lz1": 1 unit = 1 block. A 44 block long hull with no cabin; the crew walks inside it.
+    private const val ZEPPELIN_FLOOR = -2.1
+    private const val ZEPPELIN_SEAT = -1.8
+
     val zeppelin =
         Airship(
             name = "zeppelin",
@@ -54,23 +44,30 @@ object Airships {
             scale = 16.0,
             hitbox = Hitbox(listOf(HitboxPart(offset = Vec.ZERO, size = Vec(2.3, 3.4, 21.9)))),
             health = vehicleHealth(rifleShots = 200, shells = 20, bombs = 10),
-            collisionHitbox =
-                ShulkerHitbox(
-                    (-1..1).flatMap { x ->
-                        (-21..21).map { z -> ShulkerHitboxPart(Vec(x.toDouble(), -3.0, z.toDouble()), 1.0) }
-                    },
-                ),
+            collisionHitbox = ShulkerHitbox(deckFloor(-1.5, 1.5, -21.5, 21.5, ZEPPELIN_FLOOR, cube = 1.0)),
             seats =
-                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -2.2, 6.0))) +
-                    mountedGunners(x = 1.2, y = -2.2, z = 0.0, count = 2) +
-                    riders(-2.2, listOf(0.9 to -5.0, -0.9 to -5.0, 0.9 to -9.0, -0.9 to -9.0, 0.0 to 3.0)),
+                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, ZEPPELIN_SEAT, 6.0))) +
+                    listOf(
+                        gunner("starboard", "Starboard gunner", Vec(-1.2, ZEPPELIN_SEAT, 0.0)),
+                        gunner("port", "Port gunner", Vec(1.2, ZEPPELIN_SEAT, 0.0)),
+                    ) +
+                    riders(
+                        Vec(-0.9, ZEPPELIN_SEAT, -5.0),
+                        Vec(0.9, ZEPPELIN_SEAT, -5.0),
+                        Vec(-0.9, ZEPPELIN_SEAT, -9.0),
+                        Vec(0.9, ZEPPELIN_SEAT, -9.0),
+                        Vec(0.0, ZEPPELIN_SEAT, 3.0),
+                    ),
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.2,
             maxFuel = 20 * COAL_FUEL,
             crashHits = 30,
         )
 
-    // Model "dupuy-de-lome": 1 unit = 0.75 blocks. A 33 block long envelope over a 4 wide, 12 long gondola.
+    // Model "dupuy-de-lome": 1 unit = 0.75 blocks. A 33 block long envelope over a small wooden gondola.
+    private const val AIRSHIP_FLOOR = -11.77
+    private const val AIRSHIP_SEAT = -11.48
+
     val airship =
         Airship(
             name = "airship",
@@ -85,16 +82,11 @@ object Airships {
                     ),
                 ),
             health = vehicleHealth(rifleShots = 80, shells = 20, bombs = 10),
-            collisionHitbox =
-                ShulkerHitbox(
-                    (-2..2).flatMap { x ->
-                        (-4..4).map { z -> ShulkerHitboxPart(Vec(x * 0.75, -12.475, z * 0.75 + 0.4), 0.75) }
-                    },
-                ),
+            collisionHitbox = ShulkerHitbox(deckFloor(-1.425, 1.425, -2.775, 2.775, AIRSHIP_FLOOR, cube = 0.75)),
             seats =
-                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, -11.8, 2.4))) +
-                    mountedGunners(x = 1.3, y = -11.8, z = -1.0, count = 1) +
-                    riders(-11.8, listOf(-1.3 to -1.0, 0.0 to -2.8)),
+                listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, AIRSHIP_SEAT, 1.5))) +
+                    listOf(gunner("starboard", "Starboard gunner", Vec(-0.825, AIRSHIP_SEAT, 0.0))) +
+                    riders(Vec(0.825, AIRSHIP_SEAT, 0.0), Vec(0.0, AIRSHIP_SEAT, -1.5)),
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.25,
             maxFuel = 10 * COAL_FUEL,
