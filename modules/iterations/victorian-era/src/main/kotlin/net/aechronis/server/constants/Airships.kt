@@ -40,6 +40,16 @@ object Airships {
     private const val BOW_CABIN_Z = 12.0 * ZEPPELIN_SIZE
     private const val STERN_CABIN_Z = -12.3 * ZEPPELIN_SIZE
 
+    // The hull as sliced from the model: blunt nose, long cylinder, tapering tail. Its underside is trimmed
+    // 1.9 blocks so the crew can stand on the cabin platforms without being inside it.
+    private val ZEPPELIN_HULL =
+        listOf(
+            HitboxPart(Vec(0.0, 2.25, -61.5), Vec(5.4, 6.75, 4.5)),
+            HitboxPart(Vec(0.0, 2.15, -3.0), Vec(6.6, 9.25, 54.0)),
+            HitboxPart(Vec(0.0, 1.7, 55.5), Vec(6.3, 8.8, 4.5)),
+            HitboxPart(Vec(0.0, 2.25, 63.0), Vec(4.2, 5.55, 3.0)),
+        )
+
     private fun platform(centerZ: Double) = deckFloor(-1.0, 1.0, centerZ - 3.5, centerZ + 3.5, ZEPPELIN_FLOOR, cube = 0.5)
 
     private fun zeppelinSpot(
@@ -53,8 +63,7 @@ object Airships {
             itemName = title("Zeppelin"),
             model = "aechronis:lz1",
             scale = 16.0 * ZEPPELIN_SIZE,
-            // the hull bottom stops just above the cabin platforms so the crew can leave onto them
-            hitbox = Hitbox(listOf(HitboxPart(offset = Vec(0.0, 0.35, 0.0), size = Vec(2.3, 3.28, 21.9).mul(ZEPPELIN_SIZE)))),
+            hitbox = Hitbox(ZEPPELIN_HULL),
             health = vehicleHealth(rifleShots = 200, shells = 20, bombs = 10),
             collisionHitbox = ShulkerHitbox(platform(BOW_CABIN_Z) + platform(STERN_CABIN_Z)),
             seats =
@@ -88,10 +97,8 @@ object Airships {
             scale = 12.0,
             hitbox =
                 Hitbox(
-                    listOf(
-                        HitboxPart(offset = Vec(0.0, 7.9, 0.0), size = Vec(6.8, 6.4, 16.3)),
+                    ellipsoid(Vec(0.0, 7.6, 0.0), Vec(7.5, 7.2, 16.5), slices = 9) +
                         HitboxPart(offset = Vec(0.0, -10.9, 0.4), size = Vec(1.95, 3.4, 6.0)),
-                    ),
                 ),
             health = vehicleHealth(rifleShots = 80, shells = 20, bombs = 10),
             collisionHitbox = ShulkerHitbox(deckFloor(-1.425, 1.425, -2.775, 2.775, AIRSHIP_FLOOR, cube = 0.75)),

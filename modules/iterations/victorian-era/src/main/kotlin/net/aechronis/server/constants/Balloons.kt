@@ -13,7 +13,9 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Vec
+import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.sqrt
 
 /** Vehicle damage is flat per hit by ammo type; Victorian rifles do 44-50, so 47 on average. */
 internal const val RIFLE_HIT = 47F
@@ -58,6 +60,22 @@ internal fun deckFloor(
     }
     return centers(minX, maxX).flatMap { x -> centers(minZ, maxZ).map { z -> ShulkerHitboxPart(Vec(x, top - cube / 2, z), cube) } }
 }
+
+/** A cigar-shaped hitbox: [slices] boxes along z, each as wide and tall as an ellipsoid of the given half-extents at that point. */
+internal fun ellipsoid(
+    center: Vec,
+    half: Vec,
+    slices: Int,
+): List<HitboxPart> =
+    List(slices) { index ->
+        val t = (index + 0.5) / slices * 2 - 1
+        val outer = (index.toDouble() / slices * 2 - 1).let { abs(it) }.coerceAtLeast(abs((index + 1.0) / slices * 2 - 1))
+        val scale = sqrt(1 - outer * outer * 0.98)
+        HitboxPart(
+            offset = center.add(0.0, 0.0, t * half.z()),
+            size = Vec(half.x() * scale, half.y() * scale, half.z() / slices),
+        )
+    }
 
 object Balloons {
     // Model "parisian-ballons-montes": 1 model unit = SCALE / 16 blocks, origin at the model centre.
