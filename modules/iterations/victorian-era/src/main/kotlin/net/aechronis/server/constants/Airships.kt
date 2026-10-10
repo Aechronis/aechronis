@@ -33,21 +33,21 @@ object Airships {
         }
 
     // Model "lz1": 1 unit = SIZE blocks, chosen so the two hanging gondola cabins (0.65 units tall) are 2 blocks
-    // tall: the hull is then about 132 blocks long. The crew stands on the two cabin platforms (bow and stern),
+    // tall: the hull, with its middle stretch cut out of the model, is then about 82 blocks long. The crew stands on the two cabin platforms (bow and stern),
     // which sit 10 blocks under the model centre. Numbers are model units times SIZE.
     private const val ZEPPELIN_SIZE = 3.0
     private const val ZEPPELIN_FLOOR = -3.22 * ZEPPELIN_SIZE
-    private const val BOW_CABIN_Z = 12.0 * ZEPPELIN_SIZE
-    private const val STERN_CABIN_Z = -12.3 * ZEPPELIN_SIZE
+    private const val BOW_CABIN_Z = 3.785 * ZEPPELIN_SIZE
+    private const val STERN_CABIN_Z = -4.085 * ZEPPELIN_SIZE
 
     // The hull as sliced from the model: blunt nose, long cylinder, tapering tail. Its underside is trimmed
     // 1.9 blocks so the crew can stand on the cabin platforms without being inside it.
     private val ZEPPELIN_HULL =
         listOf(
-            HitboxPart(Vec(0.0, 2.25, -61.5), Vec(5.4, 6.75, 4.5)),
-            HitboxPart(Vec(0.0, 2.15, -3.0), Vec(6.6, 9.25, 54.0)),
-            HitboxPart(Vec(0.0, 1.7, 55.5), Vec(6.3, 8.8, 4.5)),
-            HitboxPart(Vec(0.0, 2.25, 63.0), Vec(4.2, 5.55, 3.0)),
+            HitboxPart(Vec(0.0, 2.25, -36.85), Vec(5.4, 6.75, 4.5)),
+            HitboxPart(Vec(0.0, 2.15, -3.0), Vec(6.6, 9.25, 29.35)),
+            HitboxPart(Vec(0.0, 1.7, 30.85), Vec(6.3, 8.8, 4.5)),
+            HitboxPart(Vec(0.0, 2.25, 38.35), Vec(4.2, 5.55, 3.0)),
         )
 
     private fun platform(centerZ: Double) = deckFloor(-1.0, 1.0, centerZ - 3.5, centerZ + 3.5, ZEPPELIN_FLOOR, cube = 0.5)
