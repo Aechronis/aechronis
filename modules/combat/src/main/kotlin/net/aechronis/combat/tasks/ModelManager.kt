@@ -201,7 +201,7 @@ object ModelManager {
                 VehicleSeatHotbar.isActive(
                     player,
                 ) ||
-                VehicleTickManager.playerLookingAtVehicle[player] != null -> SHADER_COMBAT_TIME
+                VehicleInteractionTracker[player] != null -> SHADER_COMBAT_TIME
             else -> SHADER_IDLE_TIME
         }
     }
@@ -215,7 +215,7 @@ object ModelManager {
             gun != null &&
                 isAiming &&
                 Combat.playerStates[player]?.reloadTask == null
-        val isLookingAtVehicle = VehicleTickManager.playerLookingAtVehicle[player] != null
+        val isLookingAtVehicle = VehicleInteractionTracker[player] != null
         val hasCustomDriverView = Vehicle.drivenBy(player)?.customDriverView == true
         val customViewOwnsShaderTime = hasCustomView(player)
         val turretScopeActive = TurretScope.isActive(player)

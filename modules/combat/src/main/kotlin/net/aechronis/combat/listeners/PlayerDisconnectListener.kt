@@ -16,8 +16,6 @@ object PlayerDisconnectListener {
         // vehicle
         Vehicle.exit(player)
 
-        VehicleTickManager.playerLookingAtVehicle.remove(player)
-        VehicleTickManager.playerLookingAtEntity.remove(player)
         VehicleTickManager.removePlayer(player)
 
         Combat.playerStates.remove(player)
