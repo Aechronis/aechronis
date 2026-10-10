@@ -32,9 +32,10 @@ object Airships {
             VehicleSeat("rider-${index + 1}", "Rider ${index + 1}", VehicleSeatRole.PASSENGER, spot, handheld = true)
         }
 
-    // Model "lz1": 1 unit = SIZE blocks. At SIZE 1.125 the little gondola cabins are 2 blocks tall and the hull is
-    // 49 blocks long, 5 wide and 8 tall. There is no big cabin: the crew walks inside the hull. Numbers are the marker positions (in units) times SIZE.
-    private const val ZEPPELIN_SIZE = 1.125
+    // Model "lz1": 1 unit = SIZE blocks, chosen so the two hanging gondola cabins (0.65 units tall) are 2 blocks
+    // tall: the hull is then about 132 blocks long. The crew walks inside the hull; numbers are the marker
+    // positions (in units) times SIZE.
+    private const val ZEPPELIN_SIZE = 3.0
     private const val ZEPPELIN_FLOOR = -2.1 * ZEPPELIN_SIZE
     private const val ZEPPELIN_SEAT = -1.8 * ZEPPELIN_SIZE
 
@@ -56,10 +57,10 @@ object Airships {
                     deckFloor(
                         -1.5 * ZEPPELIN_SIZE,
                         1.5 * ZEPPELIN_SIZE,
-                        -21.5 * ZEPPELIN_SIZE,
-                        21.5 * ZEPPELIN_SIZE,
+                        -12.0 * ZEPPELIN_SIZE,
+                        12.0 * ZEPPELIN_SIZE,
                         ZEPPELIN_FLOOR,
-                        cube = 1.0,
+                        cube = 1.5,
                     ),
                 ),
             seats =
