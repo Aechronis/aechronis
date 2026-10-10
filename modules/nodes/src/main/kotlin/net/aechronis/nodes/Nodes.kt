@@ -61,6 +61,7 @@ import net.aechronis.nodes.objects.TerritoryPreprocessing
 import net.aechronis.nodes.objects.TerritoryResources
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TownMembershipRequests
 import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.serdes.Deserializer
@@ -83,7 +84,6 @@ import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
-import net.minestom.server.timer.Task
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -284,21 +284,18 @@ object Nodes {
         cleanupStage(CleanupStage.FLAGS_MENU, FlagsMenu::closeAll)
         cleanupStage(CleanupStage.ACTIVE_BUILDINGS, ActiveBuildings::shutdown)
         cleanupStage(CleanupStage.WARP_TASKS, PortWarpTask::cancelAll)
+        cleanupStage(CleanupStage.MEMBERSHIP_REQUESTS) { captureLive(TownMembershipRequests::clear) }
         cleanupStage(CleanupStage.RESIDENTS) {
             Resident.all().forEach { resident ->
                 resident.destroyMinimap()
                 resident.clearPlotSelection()
                 resident.teleportThread?.cancel()
                 resident.teleportThread = null
-                resident.inviteThread?.cancel()
-                resident.inviteThread = null
             }
         }
         cleanupStage(CleanupStage.TOWNS) {
             captureLive {
                 Town.all().forEach { town ->
-                    town.applications.values.forEach(Task::cancel)
-                    town.applications.clear()
                     if (persistState && town.income.pushToStorage(true)) town.needsUpdate()
                 }
             }
@@ -346,6 +343,7 @@ object Nodes {
         FLAGS_MENU,
         ACTIVE_BUILDINGS,
         WARP_TASKS,
+        MEMBERSHIP_REQUESTS,
         RESIDENTS,
         TOWNS,
         ALLIANCE,
@@ -488,6 +486,7 @@ object Nodes {
         FlagWar.resetForReload()
         Warzone.resetForReload()
         Colonization.resetForReload()
+        TownMembershipRequests.clear()
         Resident.all().forEach { it.destroyMinimap() }
         MiningBoostManager.reset()
 

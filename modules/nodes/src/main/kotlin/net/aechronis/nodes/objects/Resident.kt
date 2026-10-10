@@ -235,11 +235,6 @@ class Resident(val uuid: UUID, val name: String) {
     // town teleport thread
     var teleportThread: Task? = null
 
-    // town invite
-    var invitingTown: Town? = null
-    var invitingPlayer: Player? = null
-    var inviteThread: Task? = null
-
     var townJoinLockedUntil: Long? = null
         private set
 

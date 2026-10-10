@@ -122,7 +122,7 @@ class Town(
             territory.town = town
             if (leader != null) {
                 leader.town = town
-                clearPendingMembershipRequests(leader)
+                TownMembershipRequests.cancel(leader)
                 leader.needsUpdate()
             }
             towns[name] = town
@@ -293,6 +293,7 @@ class Town(
                     nation?.playersOnline?.remove(player)
                 }
             }
+            TownMembershipRequests.cancelTown(town)
             towns.remove(town.name)
             Nametag.onTownDestroyed(town)
             Nodes.markWorldDirty()
@@ -521,16 +522,6 @@ class Town(
             return true
         }
 
-        private fun clearPendingMembershipRequests(resident: Resident) {
-            towns.values.forEach { town ->
-                town.applications.remove(resident)?.cancel()
-            }
-            resident.inviteThread?.cancel()
-            resident.invitingTown = null
-            resident.invitingPlayer = null
-            resident.inviteThread = null
-        }
-
         fun joinRestriction(town: Town, resident: Resident): String? {
             if (resident.town != null || towns.values.any { it.residents.contains(resident) }) {
                 return "You are already a member of a town"
@@ -553,7 +544,7 @@ class Town(
             town.residents.add(resident)
             resident.town = town
             resident.trusted = false
-            clearPendingMembershipRequests(resident)
+            TownMembershipRequests.cancel(resident)
             resident.player()?.let { town.playersOnline.add(it) }
             town.nation?.let { nation ->
                 resident.nation = nation
@@ -784,9 +775,6 @@ class Town(
     var nametagNeutral: String = "${DiplomaticRelationship.NEUTRAL.chatColor}[${this.name}]"
     var nametagAlly: String = "${DiplomaticRelationship.ALLY.chatColor}[${this.name}]"
     var nametagEnemy: String = "${DiplomaticRelationship.ENEMY.chatColor}[${this.name}]"
-
-    // players applying to town and their tasks
-    val applications: HashMap<Resident, Task> = hashMapOf()
 
     var coatOfArmsUrl: String? = null
         private set

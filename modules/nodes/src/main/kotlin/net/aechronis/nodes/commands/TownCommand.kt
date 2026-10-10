@@ -18,6 +18,7 @@ import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.TownBuildingsMenu
 import net.aechronis.nodes.objects.TownFly
+import net.aechronis.nodes.objects.TownMembershipRequests
 import net.aechronis.nodes.tasks.IncomeBreakdown
 import net.aechronis.nodes.tasks.IncomeCalculator
 import net.aechronis.nodes.utils.ChatColor
@@ -258,12 +259,12 @@ class TownApplyCommand : NodesCommand("apply", null, "join") {
                 return@addSyntax
             }
 
-            if (context[townArg].applications.containsKey(resident)) {
+            if (TownMembershipRequests.hasApplication(context[townArg], resident)) {
                 Message.error(player, "You have already applied to ${context[townArg].name}")
                 return@addSyntax
             }
 
-            val activeApplicationTown = Town.all().firstOrNull { it.applications.containsKey(resident) }
+            val activeApplicationTown = TownMembershipRequests.applicationTown(resident)
             if (activeApplicationTown != null) {
                 Message.error(player, "You have already applied to ${activeApplicationTown.name}")
                 return@addSyntax
@@ -289,18 +290,7 @@ class TownApplyCommand : NodesCommand("apply", null, "join") {
             }
             Message.print(player, "Your application has been sent")
 
-            context[townArg].applications.put(
-                resident,
-                ModuleScheduler
-                    .buildTask {
-                        if (resident.town == null) {
-                            player.sendMessage("No one in ${context[townArg].name} responded to your application!")
-                            context[townArg].applications.remove(resident)
-                        }
-                    }
-                    .delay(TaskSchedule.tick(1200))
-                    .schedule(),
-            )
+            TownMembershipRequests.apply(context[townArg], resident, player)
         }, townArg)
     }
 }
@@ -328,10 +318,11 @@ class TownInviteCommand : NodesCommand("invite") {
                 return@addSyntax
             }
 
-            if (context[playerArg].invitingTown == town) {
+            val invitation = TownMembershipRequests.invitation(context[playerArg])
+            if (invitation?.town == town) {
                 Message.error(player, "This player has already been invited to the town")
                 return@addSyntax
-            } else if (context[playerArg].invitingTown != null) {
+            } else if (invitation != null) {
                 Message.error(player, "This player is considering another town invitation")
                 return@addSyntax
             }
@@ -348,19 +339,7 @@ class TownInviteCommand : NodesCommand("invite") {
             if (town.leader === resident || town.officers.contains(resident)) {
                 Message.print(player, "${invitee.username} has been invited to your town.")
                 Message.print(invitee, "You have been invited to become a member of ${town.name}.\nType \"/t accept\" to join the town or \"/t reject\" to refuse the offer.")
-                context[playerArg].invitingTown = town
-                context[playerArg].invitingPlayer = player
-                context[playerArg].inviteThread = ModuleScheduler
-                    .buildTask {
-                        if (context[playerArg].invitingPlayer == player) {
-                            Message.print(player, "${invitee.username} didn't respond to your town invitation!")
-                            context[playerArg].invitingTown = null
-                            context[playerArg].invitingPlayer = null
-                            context[playerArg].inviteThread = null
-                        }
-                    }
-                    .delay(TaskSchedule.tick(1200))
-                    .schedule()
+                TownMembershipRequests.invite(town, context[playerArg], player, invitee)
             } else {
                 Message.error(player, "You are not allowed to invite new members")
             }
@@ -370,233 +349,107 @@ class TownInviteCommand : NodesCommand("invite") {
 
 class TownAcceptCommand : NodesCommand("accept") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/town accept")
-            Message.print(player, "/town accept <player-name>")
-        }
-
-        val playerArg = ArgumentResident.create("player-name")
-
-        addSyntax({ player, resident, context ->
-            val town = resident.town
-            if (town == null) {
-                if (resident.invitingTown == null) {
-                    Message.error(player, "You have not been invited to any town or your invitation expired")
-                    return@addSyntax
-                }
-
-                val invitingTown = resident.invitingTown!!
-                val invitingPlayer = resident.invitingPlayer
-                if (!Town.addResident(invitingTown, resident)) {
-                    Message.error(player, "You are already a member of a town")
-                    return@addSyntax
-                }
-
-                Message.print(player, "You are now a member of ${invitingTown.name}! Type \"/t spawn\" to teleport to your new town.")
-                Message.print(invitingPlayer, "${resident.name} has accepted your invitation!")
-            } else {
-                if (town.leader != resident && !town.officers.contains(resident)) {
-                    Message.error(player, "You aren't allowed to consider town applications")
-                    return@addSyntax
-                }
-
-                if (town.applications.isEmpty()) {
-                    Message.error(player, "There are no active applications")
-                    return@addSyntax
-                }
-
-                var applicant: Resident = resident
-                if (town.applications.size == 1) {
-                    town.applications.forEach { k, v ->
-                        applicant = k
-                    }
-                } else {
-                    val applicantsString = town.applications.keys.joinToString(", ") { applicant -> applicant.name }
-                    Message.print(player, "There are multiple town applications. Please use \"/town accept [player]\".\nCurrent applicants: $applicantsString")
-                    return@addSyntax
-                }
-
-                if (!Town.addResident(town, applicant)) {
-                    town.applications.remove(applicant)?.cancel()
-                    Message.error(player, "${applicant.name} is already a member of a town")
-                    return@addSyntax
-                }
-
-                Message.print(player, "${applicant.name} has been accepted into your town!")
-                val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
-                if (applicantPlayer != null) {
-                    Message.print(applicantPlayer, "You have been accepted into ${town.name}!")
-                }
-            }
-        })
-
-        addSyntax({ player, resident, context ->
-            val town = resident.town
-            if (town == null) {
-                if (resident.invitingTown == null) {
-                    Message.error(player, "You have not been invited to any town or your invitation expired")
-                    return@addSyntax
-                }
-
-                val invitingTown = resident.invitingTown!!
-                val invitingPlayer = resident.invitingPlayer
-                if (!Town.addResident(invitingTown, resident)) {
-                    Message.error(player, "You are already a member of a town")
-                    return@addSyntax
-                }
-
-                Message.print(player, "You are now a member of ${invitingTown.name}! Type \"/t spawn\" to teleport to your new town.")
-                Message.print(invitingPlayer, "${resident.name} has accepted your invitation!")
-            } else {
-                if (town.leader != resident && !town.officers.contains(resident)) {
-                    Message.error(player, "You aren't allowed to consider town applications")
-                    return@addSyntax
-                }
-
-                if (town.applications.isEmpty()) {
-                    Message.error(player, "There are no active applications")
-                    return@addSyntax
-                }
-
-                var applicant: Resident = resident
-                if (town.applications.size == 1) {
-                    town.applications.forEach { k, v ->
-                        applicant = k
-                    }
-                    if (context[playerArg].name != applicant.name) {
-                        Message.error(player, "That player has not applied or their application has expired")
-                        return@addSyntax
-                    }
-                } else {
-                    applicant = context[playerArg]
-                    if (!town.applications.containsKey(applicant)) {
-                        Message.error(player, "That player has not applied or their application has expired")
-                        return@addSyntax
-                    }
-                }
-
-                if (!Town.addResident(town, applicant)) {
-                    town.applications.remove(applicant)?.cancel()
-                    Message.error(player, "${applicant.name} is already a member of a town")
-                    return@addSyntax
-                }
-
-                Message.print(player, "${applicant.name} has been accepted into your town!")
-                val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
-                if (applicantPlayer != null) {
-                    Message.print(applicantPlayer, "You have been accepted into ${town.name}!")
-                }
-            }
-        }, playerArg)
+        registerMembershipResponse(accept = true)
     }
 }
 
 class TownDenyCommand : NodesCommand("deny", null, "reject") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/town deny")
-            Message.print(player, "/town deny <player-name>")
+        registerMembershipResponse(accept = false)
+    }
+}
+
+private fun NodesCommand.registerMembershipResponse(accept: Boolean) {
+    val command = if (accept) "accept" else "deny"
+    setDefaultExecutor { player, _, _ ->
+        Message.print(player, "Usage:")
+        Message.print(player, "/town $command")
+        Message.print(player, "/town $command <player-name>")
+    }
+
+    val playerArg = ArgumentResident.create("player-name")
+    addSyntax({ player, resident, _ ->
+        respondToMembershipRequest(player, resident, null, accept)
+    })
+    addSyntax({ player, resident, context ->
+        respondToMembershipRequest(player, resident, context[playerArg], accept)
+    }, playerArg)
+}
+
+private fun respondToMembershipRequest(player: Player, resident: Resident, requestedApplicant: Resident?, accept: Boolean) {
+    val town = resident.town
+    if (town == null) {
+        val invitation = TownMembershipRequests.invitation(resident)
+        if (invitation == null) {
+            Message.error(player, "You have not been invited to any town or your invitation expired")
+            return
         }
 
-        val playerArg = ArgumentResident.create("player-name")
-
-        addSyntax({ player, resident, context ->
-            val town = resident.town
-            if (town == null) {
-                if (resident.invitingTown == null) {
-                    Message.error(player, "You have not been invited to any town or your invitation expired")
-                    return@addSyntax
-                }
-
-                Message.print(player, "You have rejected the invitation to join ${resident.invitingTown?.name}")
-                Message.print(resident.invitingPlayer, "${resident.name} has rejected your invitation!")
-                resident.invitingTown = null
-                resident.invitingPlayer = null
-                resident.inviteThread = null
-            } else {
-                if (town.leader != resident && !town.officers.contains(resident)) {
-                    Message.error(player, "You aren't allowed to consider town applications")
-                    return@addSyntax
-                }
-
-                if (town.applications.isEmpty()) {
-                    Message.error(player, "There are no active applications")
-                    return@addSyntax
-                }
-
-                var applicant: Resident = resident
-                if (town.applications.size == 1) {
-                    town.applications.forEach { k, v ->
-                        applicant = k
-                    }
-                } else {
-                    val applicantsString = town.applications.keys.joinToString(", ") { applicant -> applicant.name }
-                    Message.print(player, "There are multiple town applications. Please use \"/town deny [player]\".\nCurrent applicants: $applicantsString")
-                    return@addSyntax
-                }
-
-                Message.print(player, "${applicant.name} has been denied residence in your town!")
-                val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
-                if (applicantPlayer != null) {
-                    Message.print(applicantPlayer, "Your application to ${town.name} has been rejected!")
-                }
-
-                town.applications.remove(applicant)
+        if (accept) {
+            if (!Town.addResident(invitation.town, resident)) {
+                Message.error(player, "You are already a member of a town")
+                return
             }
-        })
+            Message.print(player, "You are now a member of ${invitation.town.name}! Type \"/t spawn\" to teleport to your new town.")
+            Message.print(invitation.inviter, "${resident.name} has accepted your invitation!")
+        } else {
+            Message.print(player, "You have rejected the invitation to join ${invitation.town.name}")
+            Message.print(invitation.inviter, "${resident.name} has rejected your invitation!")
+            TownMembershipRequests.cancelInvitation(resident)
+        }
+        return
+    }
 
-        addSyntax({ player, resident, context ->
-            val town = resident.town
-            if (town == null) {
-                if (resident.invitingTown == null) {
-                    Message.error(player, "You have not been invited to any town or your invitation expired")
-                    return@addSyntax
-                }
+    if (town.leader != resident && !town.officers.contains(resident)) {
+        Message.error(player, "You aren't allowed to consider town applications")
+        return
+    }
 
-                Message.print(player, "You have rejected the invitation to join ${resident.invitingTown?.name}")
-                Message.print(resident.invitingPlayer, "${resident.name} has rejected your invitation!")
-                resident.invitingTown = null
-                resident.invitingPlayer = null
-                resident.inviteThread = null
-            } else {
-                if (town.leader != resident && !town.officers.contains(resident)) {
-                    Message.error(player, "You aren't allowed to consider town applications")
-                    return@addSyntax
-                }
+    val applicants = TownMembershipRequests.applicants(town)
+    if (applicants.isEmpty()) {
+        Message.error(player, "There are no active applications")
+        return
+    }
 
-                if (town.applications.isEmpty()) {
-                    Message.error(player, "There are no active applications")
-                    return@addSyntax
-                }
+    val applicant = if (applicants.size == 1) {
+        val onlyApplicant = applicants.single()
+        if (requestedApplicant != null && requestedApplicant.name != onlyApplicant.name) {
+            Message.error(player, "That player has not applied or their application has expired")
+            return
+        }
+        onlyApplicant
+    } else {
+        if (requestedApplicant == null) {
+            val command = if (accept) "accept" else "deny"
+            val applicantsString = applicants.joinToString(", ") { it.name }
+            Message.print(player, "There are multiple town applications. Please use \"/town $command [player]\".\nCurrent applicants: $applicantsString")
+            return
+        }
+        if (!TownMembershipRequests.hasApplication(town, requestedApplicant)) {
+            Message.error(player, "That player has not applied or their application has expired")
+            return
+        }
+        requestedApplicant
+    }
 
-                var applicant: Resident = resident
-                if (town.applications.size == 1) {
-                    town.applications.forEach { k, v ->
-                        applicant = k
-                    }
-                    if (context[playerArg].name != applicant.name) {
-                        Message.error(player, "That player has not applied or their application has expired")
-                        return@addSyntax
-                    }
-                } else {
-                    applicant = context[playerArg]
-                    if (!town.applications.containsKey(applicant)) {
-                        Message.error(player, "That player has not applied or their application has expired")
-                        return@addSyntax
-                    }
-                }
-
-                Message.print(player, "${applicant.name} has been denied residence in your town!")
-                val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
-                if (applicantPlayer != null) {
-                    Message.print(applicantPlayer, "Your application to ${town.name} has been rejected!")
-                }
-
-                town.applications.remove(applicant)
-            }
-        }, playerArg)
+    if (accept) {
+        if (!Town.addResident(town, applicant)) {
+            TownMembershipRequests.cancelApplication(town, applicant)
+            Message.error(player, "${applicant.name} is already a member of a town")
+            return
+        }
+        Message.print(player, "${applicant.name} has been accepted into your town!")
+        val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
+        if (applicantPlayer != null) {
+            Message.print(applicantPlayer, "You have been accepted into ${town.name}!")
+        }
+    } else {
+        Message.print(player, "${applicant.name} has been denied residence in your town!")
+        val applicantPlayer = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(applicant.name)
+        if (applicantPlayer != null) {
+            Message.print(applicantPlayer, "Your application to ${town.name} has been rejected!")
+        }
+        TownMembershipRequests.cancelApplication(town, applicant)
     }
 }
 
