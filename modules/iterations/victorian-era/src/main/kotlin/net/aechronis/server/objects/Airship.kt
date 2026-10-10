@@ -9,7 +9,10 @@ import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.VehicleSeat
 import net.kyori.adventure.text.Component
+import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
+import net.minestom.server.instance.Instance
 
 /**
  * Big turning balloon with a walkable deck. Anyone can stand on the deck. Gunner seats fire [gun]
@@ -29,6 +32,8 @@ class Airship(
     horizontalSpeed: Double,
     maxFuel: Int,
     crashHits: Int,
+    /** How far the model hangs below the hitbox, so the hull does not spawn partly in the ground. */
+    private val groundClearance: Double = 0.0,
     turnSpeed: Float = 1f,
 ) : Balloon(
         name = name,
@@ -49,6 +54,11 @@ class Airship(
         collisionHitbox = collisionHitbox,
     ),
     ArmedVehicle {
+    override fun spawn(
+        instance: Instance,
+        pos: Pos,
+    ): Entity = super.spawn(instance, pos.add(0.0, groundClearance, 0.0))
+
     override val ammo: Ammo = gun.ammo
     override val maxAmmo: Int = gun.maxAmmo
     override val reloadTime: Long = gun.reloadTime

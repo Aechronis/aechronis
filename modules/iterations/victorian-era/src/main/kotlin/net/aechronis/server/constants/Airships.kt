@@ -83,6 +83,7 @@ object Airships {
             horizontalSpeed = 0.2,
             maxFuel = 20 * COAL_FUEL,
             crashHits = 30,
+            groundClearance = 3.5,
         )
 
     // Model "dupuy-de-lome": 1 unit = 0.75 blocks. A 33 block long envelope over a small wooden gondola.
@@ -110,5 +111,6 @@ object Airships {
             horizontalSpeed = 0.25,
             maxFuel = 10 * COAL_FUEL,
             crashHits = 12,
+            groundClearance = 0.9,
         )
 }
