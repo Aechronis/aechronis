@@ -391,7 +391,7 @@ open class Vehicle(
         try {
             if (ride.definition.standing) restoreStandingControl(player)
             if (ride.role.usesWeapon) {
-                ride.runtime.reloadStartedAt = null
+                ride.runtime.magazine?.cancelReload()
                 player.clearTitle()
             }
             LagCompensation.resetHistory(player)
@@ -651,40 +651,9 @@ open class Vehicle(
     ) {
         val armedVehicle = this as? ArmedVehicle ?: return
         val ride = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this && it.role.usesWeapon } ?: return
-        val runtime = ride.runtime
-        val current = runtime.ammo ?: return
+        val magazine = ride.runtime.magazine ?: return
         val duration = ammoReloadTime(ride.entity).coerceAtLeast(0L)
-        if (current > 0) {
-            if (runtime.nextShotAt >
-                now
-            ) {
-                showReloadProgress(player, (1.0 - (runtime.nextShotAt - now).toDouble() / duration.coerceAtLeast(1)).coerceIn(0.0, 1.0))
-            }
-            return
-        }
-        if (armedVehicle.ammo[player] == 0) {
-            if (runtime.reloadStartedAt != null) player.clearTitle()
-            runtime.reloadStartedAt = null
-            return
-        }
-        val startedAt = runtime.reloadStartedAt ?: now.also { runtime.reloadStartedAt = it }
-        val elapsed = now - startedAt
-        if (elapsed >= duration) {
-            armedVehicle.ammo[player] -= 1
-            runtime.refillAmmo()
-            runtime.reloadStartedAt = null
-            ride.clearEmptyAmmoFeedback()
-            player.clearTitle()
-        } else {
-            showReloadProgress(player, (elapsed.toDouble() / duration).coerceIn(0.0, 1.0))
-        }
-    }
-
-    private fun showReloadProgress(
-        player: Player,
-        progress: Double,
-    ) {
-        player.showTitle(Title.title(Component.empty(), Message.progressBar(progress).shadowColor(ShadowColor.none()), 0, 3, 10))
+        updateVehicleReload(player, ride, magazine, armedVehicle.ammo, duration, now)
     }
 
     protected fun hasReadyAmmo(
@@ -692,25 +661,9 @@ open class Vehicle(
         entity: Entity,
     ): Boolean {
         val armedVehicle = this as? ArmedVehicle ?: return false
-        val runtime = VehicleRegistry.runtime(entity) ?: return false
+        val magazine = VehicleRegistry.runtime(entity)?.magazine ?: return false
         val operator = VehicleRegistry.ride(player)?.takeIf { it.entity === entity && it.role.usesWeapon } ?: return false
-        if (runtime.reloadStartedAt != null || runtime.nextShotAt > System.currentTimeMillis()) return false
-        if ((runtime.ammo ?: 0) > 0) return true
-
-        if (armedVehicle.ammo[player] == 0) {
-            val now = System.currentTimeMillis()
-            if (!operator.canReportEmptyAmmo(now)) return false
-            player.showTitle(
-                Title.title(
-                    Component.empty(),
-                    Component.text("✕").color(TextColor.color(0.5F, 0F, 0F)).shadowColor(ShadowColor.none()),
-                    0,
-                    10,
-                    10,
-                ),
-            )
-        }
-        return false
+        return hasReadyVehicleAmmo(player, operator, magazine, armedVehicle.ammo)
     }
 
     /** Starts reloading after the last round, or after every shot for single-shot weapons. */
@@ -718,16 +671,14 @@ open class Vehicle(
         entity: Entity,
         reloadAfterShot: Boolean = false,
     ): Boolean {
-        val runtime = VehicleRegistry.runtime(entity) ?: return false
-        if (!runtime.consumeAmmo()) return false
-        val now = System.currentTimeMillis()
-        if (reloadAfterShot) runtime.nextShotAt = now + ammoReloadTime(entity)
-        if (runtime.ammo == 0) {
-            val armedVehicle = this as? ArmedVehicle ?: return true
-            val player = VehicleRegistry.weaponOperator(entity)?.player ?: return true
-            if (armedVehicle.ammo[player] > 0) runtime.reloadStartedAt = now
-        }
-        return true
+        val magazine = VehicleRegistry.runtime(entity)?.magazine ?: return false
+        val armedVehicle = this as? ArmedVehicle ?: return false
+        val player = if (magazine.ammo == 1) VehicleRegistry.weaponOperator(entity)?.player else null
+        return magazine.consume(
+            now = System.currentTimeMillis(),
+            hasReserve = player != null && armedVehicle.ammo[player] > 0,
+            shotRecovery = if (reloadAfterShot) ammoReloadTime(entity) else null,
+        )
     }
 
     /** Stable weapon IDs allow saved ammunition to survive seat reordering or model changes. */
