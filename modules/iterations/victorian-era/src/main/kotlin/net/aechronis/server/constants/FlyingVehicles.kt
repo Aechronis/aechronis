@@ -68,6 +68,21 @@ internal fun deckFloor(
     return centers(minX, maxX).flatMap { x -> centers(minZ, maxZ).map { z -> ShulkerHitboxPart(Vec(x, top - cube / 2, z), cube) } }
 }
 
+/** A waist-high wall of shulker cubes around the edge of a square deck, [height] tall above [floorTop]. */
+internal fun railing(
+    halfWidth: Double,
+    floorTop: Double,
+    cube: Double,
+    height: Double,
+): List<ShulkerHitboxPart> {
+    val ring = List(ceil(2 * halfWidth / cube).toInt()) { -halfWidth + cube / 2 + it * cube }
+    val edge = halfWidth - cube / 2
+    val cells = ring.flatMap { a -> ring.filter { b -> abs(a) == edge || abs(b) == edge }.map { b -> a to b } }
+    return (0 until ceil(height / cube).toInt()).flatMap { layer ->
+        cells.map { (x, z) -> ShulkerHitboxPart(Vec(x, floorTop + cube / 2 + layer * cube, z), cube) }
+    }
+}
+
 /**
  * A cigar-shaped hitbox: [slices] boxes laid end to end along z, each as wide and tall as an
  * ellipsoid with the given [half] extents is at the widest edge of that slice.

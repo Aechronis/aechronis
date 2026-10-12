@@ -25,6 +25,9 @@ object Balloons {
     // Solid envelope plus a thin floor; the basket itself stays open to stand in.
     private val basketFloor = deckFloor(-0.875, 0.875, -0.875, 0.875, BASKET_FLOOR, cube = 0.25)
 
+    // Rails keep passengers from walking or falling out of the basket; the pilot's corner stays inside them.
+    private val basketRails = railing(halfWidth = 0.875, floorTop = BASKET_FLOOR, cube = 0.25, height = 1.5)
+
     // Only the pilot has a seat; everyone else stands on the basket floor.
     private val seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(SEAT_SPREAD, SEAT_HEIGHT, SEAT_SPREAD)))
 
@@ -38,6 +41,6 @@ object Balloons {
             hitbox = Hitbox(listOf(skirt, body, crown, basket)),
             health = vehicleHealth(rifleShots = 20, shells = 2, bombs = 1),
             seats = seats,
-            collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(skirt, body, crown))).parts + basketFloor),
+            collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(skirt, body, crown))).parts + basketFloor + basketRails),
         )
 }
