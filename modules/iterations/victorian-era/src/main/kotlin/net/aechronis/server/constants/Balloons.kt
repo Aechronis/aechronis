@@ -26,7 +26,7 @@ object Balloons {
     private val basketFloor = deckFloor(-0.875, 0.875, -0.875, 0.875, BASKET_FLOOR, cube = 0.25)
 
     // Rails keep passengers from walking or falling out of the basket; the pilot's corner stays inside them.
-    private val basketRails = railing(halfWidth = 0.875, floorTop = BASKET_FLOOR, cube = 0.25, height = 1.5)
+    private val basketRails = railing(halfWidth = 0.875, floorTop = BASKET_FLOOR, cube = 0.25, height = 0.75)
 
     // Only the pilot has a seat; everyone else stands on the basket floor.
     private val seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(SEAT_SPREAD, SEAT_HEIGHT, SEAT_SPREAD)))
