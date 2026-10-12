@@ -68,18 +68,33 @@ internal fun deckFloor(
     return centers(minX, maxX).flatMap { x -> centers(minZ, maxZ).map { z -> ShulkerHitboxPart(Vec(x, top - cube / 2, z), cube) } }
 }
 
-/** A waist-high wall of shulker cubes around the edge of a square deck, [height] tall above [floorTop]. */
+/**
+ * A low wall of shulker cubes around the edge of a rectangular deck, [height] tall above [floorTop].
+ * The cubes are [cube] across, grown slightly so a whole number of them spans each side.
+ */
 internal fun railing(
-    halfWidth: Double,
+    minX: Double,
+    maxX: Double,
+    minZ: Double,
+    maxZ: Double,
     floorTop: Double,
     cube: Double,
     height: Double,
 ): List<ShulkerHitboxPart> {
-    val ring = List(ceil(2 * halfWidth / cube).toInt()) { -halfWidth + cube / 2 + it * cube }
-    val edge = halfWidth - cube / 2
-    val cells = ring.flatMap { a -> ring.filter { b -> abs(a) == edge || abs(b) == edge }.map { b -> a to b } }
-    return (0 until ceil(height / cube).toInt()).flatMap { layer ->
-        cells.map { (x, z) -> ShulkerHitboxPart(Vec(x, floorTop + cube / 2 + layer * cube, z), cube) }
+    val countX = max(ceil((maxX - minX) / cube).toInt(), 2)
+    val countZ = max(ceil((maxZ - minZ) / cube).toInt(), 2)
+    val stepX = (maxX - minX) / countX
+    val stepZ = (maxZ - minZ) / countZ
+    val size = max(stepX, stepZ)
+    val layers = ceil(height / size).toInt()
+    return (0 until layers).flatMap { layer ->
+        (0 until countX).flatMap { i ->
+            (0 until countZ)
+                .filter { j -> i == 0 || i == countX - 1 || j == 0 || j == countZ - 1 }
+                .map { j ->
+                    ShulkerHitboxPart(Vec(minX + (i + 0.5) * stepX, floorTop + size / 2 + layer * size, minZ + (j + 0.5) * stepZ), size)
+                }
+        }
     }
 }
 

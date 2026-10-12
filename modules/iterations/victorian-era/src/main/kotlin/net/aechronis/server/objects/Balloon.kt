@@ -22,7 +22,8 @@ import kotlin.math.sin
 /**
  * Slow lighter-than-air vehicle.
  *
- * Driver keys: forward = fly where you look, jump = climb, backward = descend, none = hover.
+ * Driver keys: forward = fly where you look, jump = climb, backward or sneak = descend, none = hover.
+ * The swap-hands key dismounts.
  * An empty balloon drifts down on its own, and a destroyed one sinks to the ground instead of exploding.
  */
 open class Balloon(
@@ -70,6 +71,9 @@ open class Balloon(
         animatedParts,
         collisionHitbox,
     ) {
+    override val exitsOnSneak = false
+    override val exitsOnSwapHands = true
+
     // ===== Ticking =====
 
     override fun onTick(player: Player) {
@@ -102,7 +106,7 @@ open class Balloon(
         val vertical =
             when {
                 input?.isHoldingJumpKey == true -> climbSpeed
-                input?.isHoldingBackwardKey == true -> -descendSpeed
+                input?.isHoldingBackwardKey == true || input?.isHoldingShiftKey == true -> -descendSpeed
                 else -> 0.0
             }
         val target = Vec(-sin(heading) * forward, vertical, cos(heading) * forward)

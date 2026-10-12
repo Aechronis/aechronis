@@ -282,10 +282,16 @@ open class Vehicle(
         crew.leave(ride)
     }
 
+    /** Whether holding sneak dismounts a crew seat; flying vehicles use it to descend instead. */
+    open val exitsOnSneak: Boolean = true
+
+    /** Whether the swap-hands key dismounts a crew seat. */
+    open val exitsOnSwapHands: Boolean = false
+
     // Called after the driving controller has moved the hull.
     open fun onTick(player: Player) {
         val ride = VehicleRegistry.driver(player) ?: return
-        if (KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
+        if (exitsOnSneak && KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
             onExit(player)
             return
         }
@@ -303,7 +309,7 @@ open class Vehicle(
     /** Weapon operators tick after hull movement, including without a driver. */
     open fun onGunnerTick(player: Player) {
         val ride = VehicleRegistry.gunner(player)?.takeIf { it.vehicle === this } ?: return
-        if (KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
+        if (exitsOnSneak && KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
             onGunnerExit(player)
             return
         }

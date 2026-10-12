@@ -22,7 +22,7 @@ object Airships {
             scale = Zeppelin.SCALE,
             hitbox = Hitbox(Zeppelin.hull),
             health = vehicleHealth(rifleShots = 200, shells = 20, bombs = 10),
-            collisionHitbox = ShulkerHitbox(Zeppelin.platforms),
+            collisionHitbox = ShulkerHitbox(Zeppelin.platforms + Zeppelin.rails),
             seats = Zeppelin.seats,
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.2,
@@ -37,7 +37,7 @@ object Airships {
             scale = Dirigible.SCALE,
             hitbox = Hitbox(Dirigible.hull),
             health = vehicleHealth(rifleShots = 80, shells = 20, bombs = 10),
-            collisionHitbox = ShulkerHitbox(Dirigible.platform),
+            collisionHitbox = ShulkerHitbox(Dirigible.platform + Dirigible.rails),
             seats = Dirigible.seats,
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.25,
@@ -67,6 +67,7 @@ object Airships {
             )
 
         val platforms = cabinPlatform(BOW_CABIN_Z) + cabinPlatform(STERN_CABIN_Z)
+        val rails = cabinRails(BOW_CABIN_Z) + cabinRails(STERN_CABIN_Z)
 
         val seats =
             listOf(
@@ -75,7 +76,9 @@ object Airships {
                 maximSeat("port", "Port gunner", seatAt(0.45, BOW_CABIN_Z - 1.0)),
             )
 
-        private fun cabinPlatform(centerZ: Double) = deckFloor(-1.0, 1.0, centerZ - 3.5, centerZ + 3.5, FLOOR, cube = 0.5)
+        private fun cabinPlatform(centerZ: Double) = deckFloor(-1.0, 1.0, centerZ - 3.5, centerZ + 3.5, FLOOR, cube = 1.0)
+
+        private fun cabinRails(centerZ: Double) = railing(-1.0, 1.0, centerZ - 3.5, centerZ + 3.5, FLOOR, cube = 0.25, height = 0.75)
 
         private fun seatAt(
             x: Double,
@@ -96,6 +99,7 @@ object Airships {
                 HitboxPart(offset = Vec(0.0, -10.9, 0.4), size = Vec(1.95, 3.4, 6.0))
 
         val platform = deckFloor(-1.425, 1.425, -2.775, 2.775, FLOOR, cube = 0.75)
+        val rails = railing(-1.425, 1.425, -2.775, 2.775, FLOOR, cube = 0.25, height = 0.75)
 
         val seats =
             listOf(
