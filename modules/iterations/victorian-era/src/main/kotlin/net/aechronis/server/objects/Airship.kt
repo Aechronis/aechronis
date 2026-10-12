@@ -19,7 +19,7 @@ import net.minestom.server.instance.Instance
 /**
  * Big turning balloon with a walkable deck. Anyone can stand on the deck. Gunner seats fire [gun]
  * (jump key) wherever the gunner looks, drawing on one shared magazine that reloads from the
- * gunner's belts; passenger seats keep the rider's own hotbar and guns.
+ * gunner's belts.
  */
 class Airship(
     name: String,
@@ -32,8 +32,6 @@ class Airship(
     seats: List<VehicleSeat>,
     val gun: Gun,
     horizontalSpeed: Double,
-    maxFuel: Int,
-    crashHits: Int,
     /** How far the model hangs below the hitbox, so the hull does not spawn partly in the ground. */
     private val groundClearance: Double = 0.0,
     turnSpeed: Float = 1f,
@@ -47,8 +45,6 @@ class Airship(
         health = health,
         horizontalSpeed = horizontalSpeed,
         turnSpeed = turnSpeed,
-        maxFuel = maxFuel,
-        crashHits = crashHits,
         seats = seats,
         // the crew stays visible and shootable, the deck is a place to fight from
         invisibleWhileRiding = false,

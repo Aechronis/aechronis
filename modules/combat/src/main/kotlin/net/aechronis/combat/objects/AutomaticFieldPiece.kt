@@ -9,10 +9,7 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
-import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
-import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
 
 /**
  * A pushable gun carriage: look to aim and hold jump to fire at [gun]'s configured cadence.
@@ -88,6 +85,7 @@ class AutomaticFieldPiece(
     )
 
     private val runtimes = HashMap<Entity, Runtime>()
+    private val aiming = FieldPieceAiming(traverseSpeed, maxYaw, minPitch, maxPitch)
 
     init {
         require(reloadTime >= 0) { "AutomaticFieldPiece reloadTime must not be negative" }
@@ -111,17 +109,19 @@ class AutomaticFieldPiece(
     ): Entity {
         val body = super.spawn(instance, pos)
         val barrel = VehicleDisplayEntity(body)
-        barrel.setInstance(instance, barrelOrigin(body).withView(body.position.yaw, 0f.coerceIn(minPitch, maxPitch)))
-
-        val meta = barrel.entityMeta as ItemDisplayMeta
-        meta.itemStack = ItemStack.of(Material.BONE).withItemModel(barrelModel)
-        meta.posRotInterpolationDuration = 3
-        meta.scale = Vec(scale)
-        meta.isHasNoGravity = true
-        barrel.spawn()
-
         runtimes[body] = Runtime(barrel)
-        return body
+        try {
+            barrel.spawnWeaponDisplay(
+                instance,
+                barrelOrigin(body).withView(body.position.yaw, 0f.coerceIn(minPitch, maxPitch)),
+                barrelModel,
+                scale,
+            )
+            return body
+        } catch (failure: Throwable) {
+            runCatching { removeRuntimeEntity(body) }.onFailure(failure::addSuppressed)
+            throw failure
+        }
     }
 
     override fun onTick(player: Player) {
@@ -129,18 +129,7 @@ class AutomaticFieldPiece(
         val body = driverEntity(player) ?: return
         val runtime = runtimes[body] ?: return
         val barrel = runtime.barrel
-        val pos = body.position
-        val newYaw =
-            if (maxYaw == 180f) {
-                barrel.position.yaw + angleDifference(barrel.position.yaw, player.position.yaw).coerceIn(-traverseSpeed, traverseSpeed)
-            } else {
-                val currentYaw = angleDifference(pos.yaw, barrel.position.yaw).coerceIn(-maxYaw, maxYaw)
-                val targetYaw = angleDifference(pos.yaw, player.position.yaw).coerceIn(-maxYaw, maxYaw)
-                pos.yaw + currentYaw + (targetYaw - currentYaw).coerceIn(-traverseSpeed, traverseSpeed)
-            }
-        val targetPitch = player.position.pitch.coerceIn(minPitch, maxPitch)
-        val newPitch = barrel.position.pitch + (targetPitch - barrel.position.pitch).coerceIn(-traverseSpeed, traverseSpeed)
-        val barrelPos = barrelOrigin(body).withView(newYaw, newPitch)
+        val barrelPos = aiming.step(barrelOrigin(body), barrel.position, player.position)
         barrel.teleport(barrelPos)
 
         if (KeyPressListener.playerInputEvent[player]?.isHoldingJumpKey == true) {
@@ -195,16 +184,10 @@ class AutomaticFieldPiece(
     }
 
     override fun cleanupRuntime(entity: Entity) {
-        runtimes.remove(entity)?.barrel?.remove()
-    }
-
-    private fun angleDifference(
-        current: Float,
-        target: Float,
-    ): Float {
-        var delta = (target - current) % 360f
-        if (delta > 180f) delta -= 360f
-        if (delta < -180f) delta += 360f
-        return delta
+        try {
+            runtimes.remove(entity)?.let { removeWeaponDisplays(it.barrel) }
+        } finally {
+            super.cleanupRuntime(entity)
+        }
     }
 }

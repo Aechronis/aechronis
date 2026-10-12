@@ -117,7 +117,7 @@ class Nation(
             name: String,
             capitalName: String,
             color: Color?,
-            towns: ArrayList<String>,
+            towns: List<String>,
             rallyCap: Int? = null,
             longName: String? = null,
             flagUrl: String? = null,
@@ -293,15 +293,9 @@ class Nation(
             return Result.success(true)
         }
 
-        fun loadDiplomacy(
-            nations: ArrayList<Nation>,
-            nationAllies: ArrayList<ArrayList<String>>,
-            nationEnemies: ArrayList<ArrayList<String>>,
-        ) {
-            nations.forEachIndexed { i, nation ->
-                nationAllies[i].forEach { name -> fromName(name)?.let { nation.allies.add(it) } }
-                nationEnemies[i].forEach { name -> fromName(name)?.let { nation.enemies.add(it) } }
-            }
+        internal fun loadDiplomacy(nation: Nation, allies: List<String>, enemies: List<String>) {
+            allies.forEach { name -> fromName(name)?.let { nation.allies.add(it) } }
+            enemies.forEach { name -> fromName(name)?.let { nation.enemies.add(it) } }
         }
     }
 

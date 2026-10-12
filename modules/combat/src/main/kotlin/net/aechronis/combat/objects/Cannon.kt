@@ -7,10 +7,7 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
-import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
-import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
 import net.minestom.server.particle.Particle
 
 /**
@@ -93,6 +90,7 @@ class Cannon(
     )
 
     private val runtimes = HashMap<Entity, CannonRuntime>()
+    private val aiming = FieldPieceAiming(traverseSpeed, maxYaw, minPitch, maxPitch)
 
     private val projectileLauncher =
         VehicleProjectileLauncher(
@@ -136,21 +134,20 @@ class Cannon(
     ): Entity {
         // spawn the body via the normal vehicle spawn
         val body = super.spawn(instance, pos)
-
         val barrel = VehicleDisplayEntity(body)
-        barrel.setInstance(body.instance, body.position.withView(body.position.yaw, 0f.coerceIn(minPitch, maxPitch)))
-
-        val barrelMeta = barrel.entityMeta as ItemDisplayMeta
-        barrelMeta.itemStack = ItemStack.of(Material.BONE).withItemModel(barrelModel)
-        barrelMeta.posRotInterpolationDuration = 3
-        barrelMeta.scale = Vec(scale)
-        barrelMeta.isHasNoGravity = true
-
-        barrel.spawn()
-
         runtimes[body] = CannonRuntime(barrel)
-
-        return body
+        try {
+            barrel.spawnWeaponDisplay(
+                body.instance,
+                body.position.withView(body.position.yaw, 0f.coerceIn(minPitch, maxPitch)),
+                barrelModel,
+                scale,
+            )
+            return body
+        } catch (failure: Throwable) {
+            runCatching { removeRuntimeEntity(body) }.onFailure(failure::addSuppressed)
+            throw failure
+        }
     }
 
     override fun onTick(player: Player) {
@@ -159,23 +156,13 @@ class Cannon(
         val runtime = runtimes[entity] ?: return
         val barrel = runtime.barrel
         val pos = entity.position
-        val newYaw =
-            if (maxYaw == 180f) {
-                approachAngle(barrel.position.yaw, player.position.yaw, traverseSpeed)
-            } else {
-                // Clamp relative to the carriage, including when steering moves the current barrel beyond its limit.
-                val currentYaw = angleDifference(pos.yaw, barrel.position.yaw).coerceIn(-maxYaw, maxYaw)
-                val targetYaw = angleDifference(pos.yaw, player.position.yaw).coerceIn(-maxYaw, maxYaw)
-                pos.yaw + currentYaw + (targetYaw - currentYaw).coerceIn(-traverseSpeed, traverseSpeed)
-            }
-        val targetPitch = player.position.pitch.coerceIn(minPitch, maxPitch)
-        val newPitch = barrel.position.pitch + (targetPitch - barrel.position.pitch).coerceIn(-traverseSpeed, traverseSpeed)
-        barrel.teleport(pos.withView(newYaw, newPitch))
+        val barrelPos = aiming.step(pos, barrel.position, player.position)
+        barrel.teleport(barrelPos)
 
         // fire
         val inputEvent = KeyPressListener.playerInputEvent[player]
         if (inputEvent?.isHoldingJumpKey == true) {
-            fire(player, entity, pos, newYaw, newPitch)
+            fire(player, entity, pos, barrelPos.yaw, barrelPos.pitch)
         }
     }
 
@@ -194,31 +181,10 @@ class Cannon(
     }
 
     override fun cleanupRuntime(entity: Entity) {
-        val runtime = runtimes.remove(entity) ?: return
-        runtime.barrel.remove()
-    }
-
-    // steps [current] toward [target] by at most [maxStep] degrees, takes the shortest way around
-    private fun approachAngle(
-        current: Float,
-        target: Float,
-        maxStep: Float,
-    ): Float {
-        val delta = angleDifference(current, target)
-        return when {
-            delta > maxStep -> current + maxStep
-            delta < -maxStep -> current - maxStep
-            else -> current + delta
+        try {
+            runtimes.remove(entity)?.let { removeWeaponDisplays(it.barrel) }
+        } finally {
+            super.cleanupRuntime(entity)
         }
-    }
-
-    private fun angleDifference(
-        current: Float,
-        target: Float,
-    ): Float {
-        var delta = (target - current) % 360f
-        if (delta > 180f) delta -= 360f
-        if (delta < -180f) delta += 360f
-        return delta
     }
 }

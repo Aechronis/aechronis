@@ -25,12 +25,8 @@ object Balloons {
     // Solid envelope plus a thin floor; the basket itself stays open to stand in.
     private val basketFloor = deckFloor(-0.875, 0.875, -0.875, 0.875, BASKET_FLOOR, cube = 0.25)
 
-    // The pilot and a passenger sit in opposite corners of the basket.
-    private val seats =
-        listOf(
-            VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(SEAT_SPREAD, SEAT_HEIGHT, SEAT_SPREAD)),
-            riderSeat(1, Vec(-SEAT_SPREAD, SEAT_HEIGHT, -SEAT_SPREAD)),
-        )
+    // Only the pilot has a seat; everyone else stands on the basket floor.
+    private val seats = listOf(VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(SEAT_SPREAD, SEAT_HEIGHT, SEAT_SPREAD)))
 
     val hotAirBalloon =
         Balloon(
@@ -41,7 +37,6 @@ object Balloons {
             scale = SCALE,
             hitbox = Hitbox(listOf(skirt, body, crown, basket)),
             health = vehicleHealth(rifleShots = 20, shells = 2, bombs = 1),
-            maxFuel = 10 * COAL_FUEL,
             seats = seats,
             collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(skirt, body, crown))).parts + basketFloor),
         )

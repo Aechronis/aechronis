@@ -19,6 +19,7 @@ import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.serdes.SaveState
 import net.aechronis.nodes.serdes.TownJsonCodec
+import net.aechronis.nodes.serdes.TownLoadState
 import net.aechronis.nodes.serdes.snapshotList
 import net.aechronis.nodes.serdes.snapshotMap
 import net.aechronis.nodes.utils.ChatColor
@@ -140,28 +141,7 @@ class Town(
             return Result.success(town)
         }
 
-        fun load(
-            uuid: UUID,
-            name: String,
-            leader: UUID?,
-            homeId: Int,
-            spawn: Pos?,
-            color: Color?,
-            residents: ArrayList<UUID>,
-            officers: ArrayList<UUID>,
-            territoryIds: ArrayList<Int>,
-            capturedTerritoryIds: ArrayList<Int>,
-            annexedTerritoryIds: ArrayList<Int>,
-            income: MutableMap<Material, Int>,
-            permissions: MutableMap<TownPermissions, EnumSet<PermissionsGroup>>,
-            protectedBlocks: HashSet<BlockVec>,
-            plots: ArrayList<Plot.PlotSaveState> = arrayListOf(),
-            aiConfig: AiTownConfig = AiTownConfig(),
-            lives: Int? = null,
-            capitalLifeGranted: Boolean = false,
-            lifeRevision: Long = 0L,
-            coatOfArmsUrl: String? = null,
-        ): Town {
+        internal fun load(state: TownLoadState): Town = with(state) {
             val leaderResident = leader?.let { Resident.fromUuid(it) }
             val home = requireNotNull(Territory.fromId(TerritoryId(homeId))) {
                 "Cannot load town '$name': home territory $homeId is missing from the world definition"
@@ -223,7 +203,7 @@ class Town(
             town.lifeRevision = lifeRevision.coerceAtLeast(0L)
             towns[name] = town
             town.invalidateSaveState()
-            return town
+            town
         }
 
         internal fun initializeCapitalLives(town: Town) {

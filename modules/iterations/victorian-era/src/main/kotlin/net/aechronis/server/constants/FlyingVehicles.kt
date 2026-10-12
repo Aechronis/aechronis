@@ -20,9 +20,6 @@ import kotlin.math.sqrt
 /** Vehicle damage is flat per hit by ammo type; Victorian rifles do 44-50, so 47 on average. */
 internal const val RIFLE_HIT = 47F
 
-/** Ticks of flight one piece of coal buys (45 seconds); matches Balloon.coalFuel. */
-internal const val COAL_FUEL = 900
-
 /** Item name in the gold, non-italic style used by every flying vehicle. */
 internal fun vehicleTitle(name: String) = Component.text(name, NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false)
 
@@ -44,13 +41,7 @@ internal fun vehicleHealth(
     )
 }
 
-/** A seat for a rider who fires whatever they hold; [number] makes the seat id and name unique. */
-internal fun riderSeat(
-    number: Int,
-    at: Vec,
-) = VehicleSeat("rider-$number", "Rider $number", VehicleSeatRole.PASSENGER, at, handheld = true)
-
-/** A seat for a rider with a mounted Maxim; [id] is `starboard` or `port`. */
+/** A seat for a gunner with a mounted Maxim; [id] is `starboard` or `port`. */
 internal fun maximSeat(
     id: String,
     name: String,

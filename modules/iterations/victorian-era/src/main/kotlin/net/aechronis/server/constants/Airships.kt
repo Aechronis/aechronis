@@ -26,8 +26,6 @@ object Airships {
             seats = Zeppelin.seats,
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.2,
-            maxFuel = 20 * COAL_FUEL,
-            crashHits = 30,
             groundClearance = Zeppelin.GROUND_CLEARANCE,
         )
 
@@ -43,15 +41,13 @@ object Airships {
             seats = Dirigible.seats,
             gun = FieldPieces.maximGunWeapon,
             horizontalSpeed = 0.25,
-            maxFuel = 10 * COAL_FUEL,
-            crashHits = 12,
             groundClearance = Dirigible.GROUND_CLEARANCE,
         )
 
     /**
      * Model "lz1": 1 unit = 3 blocks, so the two hanging gondola cabins (0.65 units tall) are 2 blocks tall.
      * The model's middle stretch is cut out, leaving a hull about 82 blocks long. The crew stands on a
-     * platform in each cabin: pilot and gunners at the bow, riders at the stern.
+     * platform in each cabin. Only the pilot and gunners have seats, at the bow; everyone else stands on the platforms.
      */
     private object Zeppelin {
         const val SCALE = 16.0 * 3.0
@@ -77,7 +73,7 @@ object Airships {
                 VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, seatAt(0.0, BOW_CABIN_Z + 2.4)),
                 maximSeat("starboard", "Starboard gunner", seatAt(-0.45, BOW_CABIN_Z)),
                 maximSeat("port", "Port gunner", seatAt(0.45, BOW_CABIN_Z - 1.0)),
-            ) + listOf(2.4, 1.2, 0.0, -1.2, -2.4).mapIndexed { index, along -> riderSeat(index + 1, seatAt(0.0, STERN_CABIN_Z + along)) }
+            )
 
         private fun cabinPlatform(centerZ: Double) = deckFloor(-1.0, 1.0, centerZ - 3.5, centerZ + 3.5, FLOOR, cube = 0.5)
 
@@ -105,8 +101,6 @@ object Airships {
             listOf(
                 VehicleSeat("pilot", "Pilot", VehicleSeatRole.DRIVER, Vec(0.0, SEAT_HEIGHT, 1.5)),
                 maximSeat("starboard", "Starboard gunner", Vec(-0.825, SEAT_HEIGHT, 0.0)),
-                riderSeat(1, Vec(0.825, SEAT_HEIGHT, 0.0)),
-                riderSeat(2, Vec(0.0, SEAT_HEIGHT, -1.5)),
             )
     }
 }

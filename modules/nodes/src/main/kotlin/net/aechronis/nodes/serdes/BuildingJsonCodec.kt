@@ -12,7 +12,6 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import net.aechronis.nodes.objects.ActiveBuilding
-import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.BuildingSaveState
 import net.aechronis.nodes.objects.Port
 import net.kyori.adventure.nbt.TagStringIO
@@ -47,12 +46,6 @@ internal object BuildingJsonCodec {
             }
         }
     }.toString()
-
-    fun loadActive(json: JsonObject) {
-        val building = decodeActive(json)
-        require(!Building.hasAt(building.chunkX, building.chunkZ)) { "Duplicate building at ${building.chunkX}, ${building.chunkZ}" }
-        Building.register(building)
-    }
 
     internal fun decodeActive(json: JsonObject): ActiveBuilding {
         val position = BlockVec(json.getValue("x").jsonPrimitive.int, json.getValue("y").jsonPrimitive.int, json.getValue("z").jsonPrimitive.int)

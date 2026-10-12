@@ -4,7 +4,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.aechronis.server.hasPermission
-import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
@@ -13,7 +12,6 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.timer.TaskSchedule
-import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -50,13 +48,18 @@ object Warps {
     private val warps = linkedMapOf<String, SavedWarp>()
     private val lastUse = ConcurrentHashMap<UUID, Long>()
     private val pendingWarps = ConcurrentHashMap<UUID, PendingWarp>()
-    private lateinit var file: Path
+    private val storage = JsonRegistryFile("warps")
 
     fun init(path: Path) {
         ModulePermissions.register(COOLDOWN_BYPASS_PERMISSION)
-        file = path
-        Files.createDirectories(path.parent)
-        load()
+        storage.load(path, warps) { contents ->
+            val loaded = linkedMapOf<String, SavedWarp>()
+            Json.decodeFromString<List<SavedWarp>>(contents).forEach { warp ->
+                if (valid(warp) && loaded.putIfAbsent(warp.name.key(), warp) == null) return@forEach
+                System.err.println("Skipping invalid or duplicate warp '${warp.name}' in $path")
+            }
+            loaded
+        }
     }
 
     fun saveAll() = save()
@@ -73,7 +76,7 @@ object Warps {
         name: String,
         player: Player,
     ): Boolean {
-        if (name.isBlank()) return false
+        if (!storage.canSave || name.isBlank()) return false
         val instance = player.instance ?: return false
         val position = player.position
         val warp =
@@ -94,6 +97,7 @@ object Warps {
     }
 
     fun remove(name: String): Boolean {
+        if (!storage.canSave) return false
         val removed = synchronized(warps) { warps.remove(name.key()) != null }
         if (removed) save()
         return removed
@@ -153,27 +157,11 @@ object Warps {
     private fun instance(world: String): Instance? =
         MinecraftServer.getInstanceManager().instances.firstOrNull { it.getDimensionName() == world }
 
-    private fun load() {
-        synchronized(warps) {
-            warps.clear()
-            if (!Files.exists(file)) return
-            runCatching {
-                Json.decodeFromString<List<SavedWarp>>(Files.readString(file))
-            }.onSuccess { saved ->
-                saved.forEach { warp ->
-                    if (valid(warp) && warps.putIfAbsent(warp.name.key(), warp) == null) return@forEach
-                    System.err.println("Skipping invalid or duplicate warp '${warp.name}' in $file")
-                }
-            }.onFailure { error ->
-                System.err.println("Failed to load warps: ${error.message}")
-            }
-        }
-    }
-
     private fun save() {
-        if (!::file.isInitialized) return
-        val saved = synchronized(warps) { warps.values.toList() }
-        AtomicFiles.write(file, preservePermissions = true) { writer -> writer.write(Json.encodeToString(saved)) }
+        storage.save {
+            val saved = synchronized(warps) { warps.values.toList() }
+            Json.encodeToString(saved)
+        }
     }
 
     private fun valid(warp: SavedWarp): Boolean =

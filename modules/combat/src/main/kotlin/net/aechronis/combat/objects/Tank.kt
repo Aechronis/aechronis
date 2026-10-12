@@ -8,10 +8,7 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
-import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
-import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
 import net.minestom.server.particle.Particle
 
 class Tank(
@@ -132,27 +129,8 @@ class Tank(
         val barrel = VehicleDisplayEntity(body)
         runtimes[body] = Runtime(turret, barrel)
         try {
-            // spawn the turret as a second item display
-            turret.setInstance(body.instance, body.position)
-
-            val turretMeta = turret.entityMeta as ItemDisplayMeta
-            turretMeta.itemStack = ItemStack.of(Material.BONE).withItemModel(turretModel)
-            turretMeta.posRotInterpolationDuration = 3
-            turretMeta.scale = Vec(scale)
-            turretMeta.isHasNoGravity = true
-
-            turret.spawn()
-
-            // spawn the barrel as a third item display
-            barrel.setInstance(body.instance, turret.position)
-
-            val barrelMeta = barrel.entityMeta as ItemDisplayMeta
-            barrelMeta.itemStack = ItemStack.of(Material.BONE).withItemModel(barrelModel)
-            barrelMeta.posRotInterpolationDuration = 3
-            barrelMeta.scale = Vec(scale)
-            barrelMeta.isHasNoGravity = true
-
-            barrel.spawn()
+            turret.spawnWeaponDisplay(body.instance, body.position, turretModel, scale)
+            barrel.spawnWeaponDisplay(body.instance, turret.position, barrelModel, scale)
 
             return body
         } catch (failure: Throwable) {
@@ -223,11 +201,7 @@ class Tank(
     override fun cleanupRuntime(entity: Entity) {
         try {
             runtimes.remove(entity)?.let { runtime ->
-                try {
-                    runtime.turret.remove()
-                } finally {
-                    runtime.barrel.remove()
-                }
+                removeWeaponDisplays(runtime.turret, runtime.barrel)
             }
         } finally {
             super.cleanupRuntime(entity)

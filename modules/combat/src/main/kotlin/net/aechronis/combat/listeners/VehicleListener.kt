@@ -29,11 +29,8 @@ object VehicleListener {
         val player = event.player
         Vehicle.reconcileOccupant(player)
 
-        // riders can still interact with their vehicle (e.g. refuel), whatever they are aiming at
-        if (VehicleRegistry.ride(player) != null) {
-            interactWhileRiding(player)
-            return
-        }
+        // check if player is already in a vehicle
+        if (VehicleRegistry.ride(player) != null) return
 
         if (enterLookedAtVehicle(player)) return
 
@@ -53,10 +50,6 @@ object VehicleListener {
         val player = event.player
         Vehicle.reconcileOccupant(player)
 
-        if (interactWhileRiding(player)) {
-            event.isCancelled = true
-            return
-        }
         if (VehicleRegistry.ride(player) != null) return
         if (enterLookedAtVehicle(player)) {
             event.isCancelled = true
@@ -67,12 +60,6 @@ object VehicleListener {
         val eyePosition = player.position.add(0.0, player.eyeHeight, 0.0)
         val target = findWaterPlacementPosition(player.instance, eyePosition, eyePosition.direction()) ?: return
         if (boat.place(player, target)) event.isCancelled = true
-    }
-
-    /** Lets the vehicle [player] is riding consume the click; true if it did. */
-    private fun interactWhileRiding(player: Player): Boolean {
-        val ride = VehicleRegistry.ride(player) ?: return false
-        return ride.vehicle.onInteract(player, ride.entity)
     }
 
     private fun onPlayerEntityInteract(event: PlayerEntityInteractEvent) {
@@ -93,7 +80,6 @@ object VehicleListener {
                 eye.direction().mul(VehicleInteractionTracker.INTERACTION_DISTANCE),
                 VehicleInteractionTracker.prepareVehicleLookIndex(VehicleRegistry.all().map { it.entity to it.vehicle }),
             ) ?: return false
-        if (target.vehicle.onInteract(player, target.entity)) return true
         target.vehicle.board(player, target.entity)
         return true
     }
