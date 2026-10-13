@@ -2,7 +2,9 @@ package net.aechronis.nodes.colonization
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Nation
+import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Town
 import net.aechronis.server.modules.ModuleScheduler
@@ -79,10 +81,11 @@ object ColonizationMenu {
             return
         }
 
+        val ports = Building.all().filterIsInstance<Port>()
         val nations = Nation.all()
             .filter { nation ->
                 nation !== attackingNation &&
-                    nation.towns.any { town -> Colonization.canSelectTarget(attackingTown, town) }
+                    nation.towns.any { town -> Colonization.canSelectTarget(attackingTown, town, ports) }
             }
             .sortedBy { nation -> nation.name.lowercase() }
         if (nations.isEmpty()) {
@@ -143,8 +146,9 @@ object ColonizationMenu {
             sessions.remove(player.uuid)
             return
         }
+        val ports = Building.all().filterIsInstance<Port>()
         val towns = nation.towns
-            .filter { town -> Colonization.canSelectTarget(attackingTown, town) }
+            .filter { town -> Colonization.canSelectTarget(attackingTown, town, ports) }
             .sortedBy { town -> town.name.lowercase() }
         if (towns.isEmpty()) {
             Message.error(player, "${nation.name} has no bordering or port-reachable towns to colonize")

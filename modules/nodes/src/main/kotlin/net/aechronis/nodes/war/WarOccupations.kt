@@ -181,9 +181,9 @@ internal class WarOccupations(
         if (changed) {
             state.needsSave = true
             Resident.renderMinimaps()
-            WarSerializer.save(false)
-            state.territoryOccupationJournalDirty = false
-            state.needsSave = false
+            // The periodic save (and Nodes.saveWorld) flushes the journal before any towns snapshot,
+            // so avoid blocking the caller's tick on disk I/O here.
+            startSaveTask()
         }
     }
 

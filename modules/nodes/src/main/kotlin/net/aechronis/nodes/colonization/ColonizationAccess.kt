@@ -25,7 +25,7 @@ internal fun canStartColonization(
 internal fun colonizationAccess(
     attackingNation: Nation,
     targetTown: Town,
-    ports: Iterable<Port> = Building.all().filterIsInstance<Port>(),
+    ports: Iterable<Port>? = null,
     portOwner: (Port) -> Town? = Port::getOwner,
 ): ColonizationAccess? {
     val targetTerritories = targetTown.territories
@@ -36,7 +36,9 @@ internal fun colonizationAccess(
         return ColonizationAccess.BORDER
     }
 
-    val nationPorts = ports.filter { port -> portOwner(port)?.nation === attackingNation }
+    // only walk the building registry when the border check did not already grant access
+    val nationPorts = (ports ?: Building.all().filterIsInstance<Port>())
+        .filter { port -> portOwner(port)?.nation === attackingNation }
     if (
         nationPorts.any { port ->
             val maxDistanceSquared = port.maxWarpDistance.toLong() * port.maxWarpDistance.toLong()

@@ -26,7 +26,12 @@ internal class DefenseSessions {
     fun loadChunks(
         session: DefenseSession,
         chunks: Collection<Coord>,
-    ): CompletableFuture<Void> = chunkLeases.loadChunks(session.instance, session, chunks)
+    ): CompletableFuture<Void> = try {
+        chunkLeases.loadChunks(session.instance, session, chunks)
+    } catch (error: IllegalStateException) {
+        // leases close during shutdown/reload; surface it as a failed load so callers release their pending state
+        CompletableFuture.failedFuture(error)
+    }
 
     fun reconcileChunks(session: DefenseSession) = chunkLeases.reconcile(session)
 

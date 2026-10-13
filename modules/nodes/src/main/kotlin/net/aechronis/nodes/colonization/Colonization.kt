@@ -1,5 +1,6 @@
 package net.aechronis.nodes.colonization
 
+import net.aechronis.nodes.objects.Port
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.war.Attack
@@ -109,13 +110,14 @@ object Colonization {
     internal fun canSelectTarget(
         attackingTown: Town,
         targetTown: Town,
+        ports: Iterable<Port>? = null,
     ): Boolean {
         val attackingNation = attackingTown.nation ?: return false
         val targetNation = targetTown.nation ?: return false
         return targetTown.isAi &&
             targetTown !== attackingTown &&
             targetNation !== attackingNation &&
-            colonizationAccess(attackingNation, targetTown) != null
+            colonizationAccess(attackingNation, targetTown, ports) != null
     }
 
     internal fun isAuthorized(

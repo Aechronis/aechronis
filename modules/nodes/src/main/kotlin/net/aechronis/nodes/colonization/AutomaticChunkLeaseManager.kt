@@ -38,7 +38,6 @@ internal class AutomaticChunkLeaseManager(
                 var existingLease = instanceLeases[coord]
                 if (
                     existingLease != null &&
-                    existingLease.sessions.isEmpty() &&
                     (existingLease.loadFuture.isCancelled || existingLease.loadFuture.isCompletedExceptionally)
                 ) {
                     instanceLeases.remove(coord)
@@ -225,7 +224,7 @@ internal class AutomaticChunkLeaseManager(
         System.err.println("Failed to release automatic chunk ${lease.coord} during module shutdown: ${error.message}")
     }
 
-    // returns true when this lease is still ours but cannot be unloaded yet
+    // returns true when this lease is still ours but cannot be unloaded yet; a started save finishes asynchronously
     private fun cleanupChunk(lease: AutomaticChunkLease): Boolean {
         val cleanupOperation = CompletableFuture<Unit>()
         val loadedChunk =
@@ -252,31 +251,45 @@ internal class AutomaticChunkLeaseManager(
                 currentChunk
             }
 
-        val saved =
-            runCatching {
-                lease.instance.saveChunkToStorage(loadedChunk).get(CHUNK_SAVE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            }.onFailure { error ->
-                if (error is InterruptedException) Thread.currentThread().interrupt()
-                System.err.println("Failed to save automatic chunk ${lease.coord} before unload: ${error.message}")
-            }.isSuccess
+        // never block the tick thread on storage; the save completion performs the unload
+        val save =
+            try {
+                lease.instance
+                    .saveChunkToStorage(loadedChunk)
+                    .orTimeout(CHUNK_SAVE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            } catch (error: Throwable) {
+                CompletableFuture.failedFuture(error)
+            }
+        save.whenComplete { _, error ->
+            if (error != null) System.err.println("Failed to save automatic chunk ${lease.coord} before unload: ${error.message}")
+            val retryNeeded = finishCleanup(lease, loadedChunk, saved = error == null, cleanupOperation)
+            if (retryNeeded) scheduleCleanup()
+        }
+        return false
+    }
 
-        return try {
+    private fun finishCleanup(
+        lease: AutomaticChunkLease,
+        loadedChunk: Chunk,
+        saved: Boolean,
+        cleanupOperation: CompletableFuture<Unit>,
+    ): Boolean {
+        try {
             synchronized(leasesByInstance) {
-                val instanceLeases = leasesByInstance[lease.instance] ?: return@synchronized false
-                if (instanceLeases[lease.coord] !== lease || lease.sessions.isNotEmpty()) return@synchronized false
-                if (!saved) return@synchronized true
+                if (closed) return false
+                val instanceLeases = leasesByInstance[lease.instance] ?: return false
+                if (instanceLeases[lease.coord] !== lease || lease.sessions.isNotEmpty()) return false
+                if (!saved) return true
 
                 val currentChunk = lease.instance.getChunk(lease.coord.x, lease.coord.z)
                 if (currentChunk !== loadedChunk) {
                     removeLease(lease, instanceLeases)
-                    return@synchronized false
+                    return false
                 }
-                if (currentChunk.viewers.isNotEmpty() || lease.instance.containsEntityIn(lease.coord)) {
-                    return@synchronized true
-                }
+                if (currentChunk.viewers.isNotEmpty() || lease.instance.containsEntityIn(lease.coord)) return true
                 lease.instance.unloadChunk(currentChunk)
                 removeLease(lease, instanceLeases)
-                false
+                return false
             }
         } finally {
             synchronized(leasesByInstance) {
