@@ -48,8 +48,10 @@ class StatsModule : AechronisModule {
                 }.delay(TaskSchedule.seconds(30))
                 .repeat(TaskSchedule.seconds(30))
                 .schedule()
-        saver = Executors.newSingleThreadScheduledExecutor { Thread(it, "stats-save").also { t -> t.isDaemon = true } }
-            .also { it.scheduleWithFixedDelay({ runCatching { Stats.save() } }, 30, 30, TimeUnit.SECONDS) }
+        saver =
+            Executors
+                .newSingleThreadScheduledExecutor { Thread(it, "stats-save").also { t -> t.isDaemon = true } }
+                .also { it.scheduleWithFixedDelay({ runCatching { Stats.save() } }, 30, 30, TimeUnit.SECONDS) }
         val port = System.getenv("STATS_PORT")?.toIntOrNull() ?: 8090
         try {
             http =
@@ -90,7 +92,11 @@ class StatsModule : AechronisModule {
     /** Serves identical requests from a 5 second cache so polling viewers never re-sort the whole player list. */
     private val cache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, String>>()
 
-    private fun cached(sort: String, player: String?, nations: Boolean): String {
+    private fun cached(
+        sort: String,
+        player: String?,
+        nations: Boolean,
+    ): String {
         val key = "$nations|$sort|$player"
         val now = System.currentTimeMillis()
         cache[key]?.let { (at, body) -> if (now - at < 5_000) return body }

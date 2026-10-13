@@ -10,8 +10,6 @@ package net.aechronis.nodes.listeners
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
-import net.aechronis.stats.Stat
-import net.aechronis.stats.Stats
 import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.canStartColonization
 import net.aechronis.nodes.constants.DiplomaticRelationship
@@ -45,6 +43,8 @@ import net.aechronis.nodes.war.Attack
 import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
+import net.aechronis.stats.Stat
+import net.aechronis.stats.Stats
 import net.aechronis.utils.OreSounds
 import net.aechronis.vanilla.managers.StorageAccess
 import net.minestom.server.MinecraftServer

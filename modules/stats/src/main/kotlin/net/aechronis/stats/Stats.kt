@@ -9,7 +9,9 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.UUID
 
-enum class Stat(val key: String) {
+enum class Stat(
+    val key: String,
+) {
     KILLS("kills"),
     DEATHS("deaths"),
     CAPS_BROKEN("capsBroken"),
@@ -40,7 +42,10 @@ data class PlayerStats(
 }
 
 @Serializable
-private data class SavedStats(val players: Map<String, PlayerStats>, val nations: Map<String, PlayerStats>)
+private data class SavedStats(
+    val players: Map<String, PlayerStats>,
+    val nations: Map<String, PlayerStats>,
+)
 
 /** Leaderboard categories accepted by the HTTP API. */
 val SORT_KEYS = listOf("kills", "deaths", "kd", "capsBroken", "capsCompleted", "playtime")
@@ -57,19 +62,28 @@ object Stats {
     private var dirty = false
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun add(player: Player, stat: Stat) = add(player.uuid, player.username, stat)
+    fun add(
+        player: Player,
+        stat: Stat,
+    ) = add(player.uuid, player.username, stat)
 
     /** [name] is null when the player may be offline; the last known name is kept. */
-    fun add(uuid: UUID, name: String?, stat: Stat) =
-        synchronized(this) {
-            val entry = players.getOrPut(uuid) { PlayerStats() }
-            if (name != null) entry.name = name
-            apply(entry, stat)
-            nationOf(uuid)?.let { apply(nations.getOrPut(it) { PlayerStats(name = it) }, stat) }
-            dirty = true
-        }
+    fun add(
+        uuid: UUID,
+        name: String?,
+        stat: Stat,
+    ) = synchronized(this) {
+        val entry = players.getOrPut(uuid) { PlayerStats() }
+        if (name != null) entry.name = name
+        apply(entry, stat)
+        nationOf(uuid)?.let { apply(nations.getOrPut(it) { PlayerStats(name = it) }, stat) }
+        dirty = true
+    }
 
-    private fun apply(entry: PlayerStats, stat: Stat) {
+    private fun apply(
+        entry: PlayerStats,
+        stat: Stat,
+    ) {
         when (stat) {
             Stat.KILLS -> entry.kills++
             Stat.DEATHS -> entry.deaths++
@@ -79,16 +93,18 @@ object Stats {
     }
 
     /** Credits [seconds] of online time to each player in [online]. */
-    internal fun addPlaytime(online: Collection<Player>, seconds: Long) =
-        synchronized(this) {
-            online.forEach { player ->
-                val entry = players.getOrPut(player.uuid) { PlayerStats() }
-                entry.name = player.username
-                entry.playtime += seconds
-                nationOf(player.uuid)?.let { nations.getOrPut(it) { PlayerStats(name = it) }.playtime += seconds }
-            }
-            if (online.isNotEmpty()) dirty = true
+    internal fun addPlaytime(
+        online: Collection<Player>,
+        seconds: Long,
+    ) = synchronized(this) {
+        online.forEach { player ->
+            val entry = players.getOrPut(player.uuid) { PlayerStats() }
+            entry.name = player.username
+            entry.playtime += seconds
+            nationOf(player.uuid)?.let { nations.getOrPut(it) { PlayerStats(name = it) }.playtime += seconds }
         }
+        if (online.isNotEmpty()) dirty = true
+    }
 
     internal fun load() =
         synchronized(this) {
@@ -121,15 +137,28 @@ object Stats {
     }
 
     /** Top [limit] players by [sort] plus, optionally, one player's stats with their rank in every category. */
-    internal fun query(sort: String, limit: Int, playerName: String?, nationBoard: Boolean = false): String {
+    internal fun query(
+        sort: String,
+        limit: Int,
+        playerName: String?,
+        nationBoard: Boolean = false,
+    ): String {
         val keys = if (nationBoard) NATION_SORT_KEYS else SORT_KEYS
         require(sort in keys) { "Unknown sort '$sort'" }
-        val snapshot = synchronized(this) { (if (nationBoard) nations else players).values.filter { it.name.isNotEmpty() }.map { it.copy() } }
+        val snapshot =
+            synchronized(this) { (if (nationBoard) nations else players).values.filter { it.name.isNotEmpty() }.map { it.copy() } }
         val top = snapshot.sortedWith(compareByDescending<PlayerStats> { it.value(sort) }.thenBy { it.name.lowercase() })
+
         fun row(p: PlayerStats) =
             buildString {
                 append("{\"name\":${Json.encodeToString(p.name)}")
-                keys.forEach { append(",\"$it\":${p.value(it).let { v -> if (it == "kd") "%.2f".format(java.util.Locale.ROOT, v) else v.toLong().toString() }}") }
+                keys.forEach {
+                    append(
+                        ",\"$it\":${p.value(it).let { v ->
+                            if (it == "kd") "%.2f".format(java.util.Locale.ROOT, v) else v.toLong().toString()
+                        }}",
+                    )
+                }
             }
         // Ties share a rank, matching the per-player rank below.
         var rank = 0

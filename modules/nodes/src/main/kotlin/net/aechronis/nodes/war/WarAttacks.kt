@@ -1,8 +1,6 @@
 package net.aechronis.nodes.war
 
 import net.aechronis.nodes.Nodes
-import net.aechronis.stats.Stat
-import net.aechronis.stats.Stats
 import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.constants.ErrorAlreadyCaptured
 import net.aechronis.nodes.constants.ErrorAlreadyUnderAttack
@@ -21,6 +19,8 @@ import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.Town
 import net.aechronis.server.modules.ModuleScheduler
+import net.aechronis.stats.Stat
+import net.aechronis.stats.Stats
 import net.minestom.server.MinecraftServer
 import net.minestom.server.adventure.audience.Audiences
 import net.minestom.server.coordinate.BlockVec

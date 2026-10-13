@@ -3,11 +3,11 @@ package net.aechronis.nodes
 import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.nodes.objects.NationFlagPack
 import net.aechronis.nodes.objects.Resident
-import net.aechronis.stats.Stats
 import net.aechronis.server.events.SpawnPointChangedEvent
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModulePermissions
+import net.aechronis.stats.Stats
 import java.util.concurrent.CompletableFuture
 
 class NodesModule : AechronisModule {
