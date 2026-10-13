@@ -59,6 +59,10 @@ object Stats {
     /** Set by the nodes module: a player's current nation name, or null. Kills, deaths and playtime count for it. */
     @Volatile
     var nationOf: (UUID) -> String? = { null }
+
+    /** Set by the nodes module: true when two players are in the same town/nation or allied. Such kills don't count. */
+    @Volatile
+    var areFriendly: (Player, Player) -> Boolean = { _, _ -> false }
     private var dirty = false
     private val json = Json { ignoreUnknownKeys = true }
 

@@ -1,8 +1,10 @@
 package net.aechronis.nodes
 
 import net.aechronis.combat.tasks.BlockRestoreManager
+import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.objects.NationFlagPack
 import net.aechronis.nodes.objects.Resident
+import net.aechronis.nodes.objects.Town
 import net.aechronis.server.events.SpawnPointChangedEvent
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
@@ -18,6 +20,9 @@ class NodesModule : AechronisModule {
         ModulePermissions.register("nodes.bypass", "*")
         Nodes.initialize(takeConfiguration(context))
         Stats.nationOf = { Resident.fromUuid(it)?.town?.nation?.name }
+        Stats.areFriendly = { a, b ->
+            Town.relationshipOfPlayerToPlayer(a, b) in setOf(DiplomaticRelationship.TOWN, DiplomaticRelationship.NATION, DiplomaticRelationship.ALLY)
+        }
         NationFlagPack.initialize(context)
         context.addListener(SpawnPointChangedEvent::class.java) { event ->
             Nodes.config.defaultRespawnPoint = event.spawnPoint
@@ -38,6 +43,7 @@ class NodesModule : AechronisModule {
 
     override fun shutdown(context: ModuleContext) {
         Stats.nationOf = { null }
+        Stats.areFriendly = { _, _ -> false }
         NationFlagPack.shutdown()
         Nodes.cleanup()
     }

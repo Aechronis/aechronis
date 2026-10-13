@@ -33,9 +33,11 @@ class StatsModule : AechronisModule {
         Stats.load()
         context.addListener(PlayerDeathEvent::class.java) { event ->
             val victim = event.player
+            val killer = victim.lastDamageSource?.attacker as? Player
+            // Team and ally kills count as neither a kill nor a death.
+            if (killer != null && killer.uuid != victim.uuid && Stats.areFriendly(killer, victim)) return@addListener
             Stats.add(victim, Stat.DEATHS)
-            val killer = victim.lastDamageSource?.attacker as? Player ?: return@addListener
-            if (killer.uuid != victim.uuid) Stats.add(killer, Stat.KILLS)
+            if (killer != null && killer.uuid != victim.uuid) Stats.add(killer, Stat.KILLS)
         }
         // Playtime is credited on the server thread (nation lookups are not thread-safe) from the real time between ticks.
         var last = System.nanoTime()
