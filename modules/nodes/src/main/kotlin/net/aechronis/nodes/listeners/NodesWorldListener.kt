@@ -10,6 +10,8 @@ package net.aechronis.nodes.listeners
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
+import net.aechronis.stats.Stat
+import net.aechronis.stats.Stats
 import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.canStartColonization
 import net.aechronis.nodes.constants.DiplomaticRelationship
@@ -93,6 +95,7 @@ object NodesWorldListener {
                         }
                     }
                     attack.cancel()
+                    if (attack.mode != AttackMode.COLONIZATION) Stats.add(player, Stat.CAPS_BROKEN)
                     Message.broadcast("${ChatColor.GOLD}$context Attack at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ}) defeated by ${player.username}")
                     return
                 }

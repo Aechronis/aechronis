@@ -1,6 +1,8 @@
 package net.aechronis.nodes.war
 
 import net.aechronis.nodes.Nodes
+import net.aechronis.stats.Stat
+import net.aechronis.stats.Stats
 import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.constants.ErrorAlreadyCaptured
 import net.aechronis.nodes.constants.ErrorAlreadyUnderAttack
@@ -337,6 +339,7 @@ internal class WarAttacks(
                 removeAttackReferences(attack)
                 state.needsSave = true
                 capture.capture(attack)
+                if (attack.mode != AttackMode.COLONIZATION) Stats.add(attack.attacker, null, Stat.CAPS_COMPLETED)
             }
         } finally {
             notifyColonizationAttackEnded(attack)

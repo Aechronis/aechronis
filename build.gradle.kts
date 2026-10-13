@@ -108,6 +108,7 @@ val runtimeModuleProjects =
         ":modules:gems",
         ":modules:tebex",
         ":modules:votifier",
+        ":modules:stats",
         ":modules:iterations:victorian-era",
     )
 

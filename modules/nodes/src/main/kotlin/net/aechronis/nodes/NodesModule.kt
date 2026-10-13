@@ -2,6 +2,8 @@ package net.aechronis.nodes
 
 import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.nodes.objects.NationFlagPack
+import net.aechronis.nodes.objects.Resident
+import net.aechronis.stats.Stats
 import net.aechronis.server.events.SpawnPointChangedEvent
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
@@ -10,11 +12,12 @@ import java.util.concurrent.CompletableFuture
 
 class NodesModule : AechronisModule {
     override val id = "nodes"
-    override val dependencies = setOf("utils", "combat", "vanilla", "worldedit")
+    override val dependencies = setOf("utils", "combat", "vanilla", "worldedit", "stats")
 
     override fun initialize(context: ModuleContext) {
         ModulePermissions.register("nodes.bypass", "*")
         Nodes.initialize(takeConfiguration(context))
+        Stats.nationOf = { Resident.fromUuid(it)?.town?.nation?.name }
         NationFlagPack.initialize(context)
         context.addListener(SpawnPointChangedEvent::class.java) { event ->
             Nodes.config.defaultRespawnPoint = event.spawnPoint
@@ -34,6 +37,7 @@ class NodesModule : AechronisModule {
     }
 
     override fun shutdown(context: ModuleContext) {
+        Stats.nationOf = { null }
         NationFlagPack.shutdown()
         Nodes.cleanup()
     }
