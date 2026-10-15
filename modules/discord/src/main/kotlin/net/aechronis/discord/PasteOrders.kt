@@ -61,14 +61,53 @@ internal class PasteOrders(
         val x: Int,
         val y: Int,
         val z: Int,
+        /** Chunks this paste writes. */
         val chunks: Int,
+        /** Chunks bought now; the rest were already paid for by an earlier paste. */
+        val newChunks: Int,
         val cost: Long,
         val town: String,
         val file: Path,
-        /** Paid-for footprint; a free repaste may only touch chunks inside it. */
+        /** Chunks this paste may write to: the selection plus anything already paid for. */
         val allowance: Set<Long>,
+        /** Every chunk the original schematic fills; kept in history so a repaste may grow into them. */
+        val max: Set<Long>,
         val replaces: PasteHistory.Entry? = null,
     )
+
+    /** A validated upload waiting for the player to pick chunks. */
+    class Draft(
+        val id: String,
+        val discordId: String,
+        val player: UUID,
+        val x: Int,
+        val y: Int,
+        val z: Int,
+        val file: Path,
+        val old: PasteHistory.Entry?,
+        val touched: Set<Long>,
+        val box: Box,
+        val map: ChunkMap,
+        val selected: MutableSet<Long>,
+        /** Chunks outside the player's own town; they can't be pasted. */
+        val blocked: Set<Long>,
+        val created: Long = System.currentTimeMillis(),
+    ) {
+        val paid: Set<Long> get() = old?.chunks.orEmpty()
+    }
+
+    private val drafts = ConcurrentHashMap<String, Draft>()
+
+    fun draft(id: String): Draft? = drafts[id]?.takeIf { System.currentTimeMillis() - it.created < DRAFT_MILLIS }
+
+    fun cancel(id: String) {
+        drafts.remove(id)?.let { discard(it.file) }
+    }
+
+    private fun purgeDrafts() {
+        val now = System.currentTimeMillis()
+        drafts.values.filter { now - it.created >= DRAFT_MILLIS }.forEach { cancel(it.id) }
+    }
 
     /** Autocomplete choices (label to paste id) for /repaste. */
     fun suggest(discordId: String): List<Pair<String, String>> {
@@ -100,7 +139,7 @@ internal class PasteOrders(
         y: Int,
         z: Int,
         replacing: String? = null,
-    ): Result<Order> {
+    ): Result<Draft> {
         val player =
             links.player(discordId) ?: return fail("Link your account first: /discord link in Minecraft, then /link code:<code> here.")
         val old =
@@ -133,7 +172,11 @@ internal class PasteOrders(
                 discard(file)
                 return fail("That schematic is too large once unpacked.")
             }
-            val clipboard = load(file) ?: return fail("Could not read that file as a .schem schematic.").also { discard(file) }
+            val clipboard =
+                load(file) ?: run {
+                    discard(file)
+                    return fail("Could not read that file as a .schem schematic.")
+                }
             val box = box(clipboard, x, y, z)
             if (box.width > MAX_SIDE || box.length > MAX_SIDE || box.height > MAX_HEIGHT) {
                 discard(file)
@@ -145,29 +188,27 @@ internal class PasteOrders(
                 return Result.failure(scan.exceptionOrNull()!!)
             }
             val touched = scan.getOrThrow()
-            if (old != null && !old.chunks.containsAll(touched)) {
+            if (old != null && !old.max.containsAll(touched)) {
                 discard(file)
                 return fail(
-                    "A free repaste may only use the chunks of the original paste. This one reaches outside them; buy the extra chunks with /paste.",
+                    "A repaste can't go beyond the footprint of your original schematic. This one reaches outside it; start a new /paste instead.",
                 )
             }
-            val chunks = touched.size
-            val cost = if (old != null) 0L else chunks * COST_PER_CHUNK
-            val allowance = old?.chunks ?: touched
-            val order = Order(id, discordId, player, x, y, z, chunks, cost, "", file, allowance, old)
-            val town =
+            val map = ChunkMap.render(clipboard, x, z, touched)
+            val blocked =
                 try {
-                    onGameThread { check(order, box) }
+                    onGameThread { outsideTown(player, touched) }
                 } catch (rejection: IllegalStateException) {
                     discard(file)
                     return Result.failure(rejection)
                 }
-            val ready = Order(id, discordId, player, x, y, z, chunks, cost, town, file, allowance, old)
-            // One open order per player; a new request replaces the old one.
-            pending.values.filter { it.player == player }.forEach { pending.remove(it.id)?.let { old -> discard(old.file) } }
-            pending[id] = ready
-            journal(if (old != null) "repaste requested" else "requested", ready)
-            return Result.success(ready)
+            val selected = ((old?.chunks.orEmpty() intersect touched) - blocked).toMutableSet()
+            val draft = Draft(id, discordId, player, x, y, z, file, old, touched, box, map, selected, blocked)
+            // One open draft per player; a new upload replaces the old one.
+            purgeDrafts()
+            drafts.values.filter { it.player == player }.forEach { cancel(it.id) }
+            drafts[id] = draft
+            return Result.success(draft)
         } catch (error: kotlin.coroutines.cancellation.CancellationException) {
             discard(file)
             throw error
@@ -176,6 +217,61 @@ internal class PasteOrders(
             System.err.println("[Discord] Paste prepare failed (${error.javaClass.simpleName})")
             return fail("Could not process that schematic.")
         }
+    }
+
+    /** Turns a draft and its chunk selection into a pending order; the draft stays open if a check fails. */
+    suspend fun confirm(id: String): Result<Order> {
+        val draft = draft(id) ?: return fail("This picker expired. Run the command again.")
+        val allowance = draft.selected intersect draft.touched
+        val added = draft.selected - draft.paid
+        if (allowance.isEmpty()) return fail("Select at least one chunk first.")
+        val newChunks = added.size
+        val order =
+            Order(
+                draft.id,
+                draft.discordId,
+                draft.player,
+                draft.x,
+                draft.y,
+                draft.z,
+                allowance.size,
+                newChunks,
+                newChunks * COST_PER_CHUNK,
+                "",
+                draft.file,
+                allowance,
+                draft.old?.max ?: draft.touched,
+                draft.old,
+            )
+        val town =
+            try {
+                onGameThread { check(order, draft.box, draft.map) }
+            } catch (rejection: IllegalStateException) {
+                return Result.failure(rejection)
+            }
+        val ready =
+            Order(
+                order.id,
+                order.discordId,
+                order.player,
+                order.x,
+                order.y,
+                order.z,
+                order.chunks,
+                order.newChunks,
+                order.cost,
+                town,
+                order.file,
+                order.allowance,
+                order.max,
+                order.replaces,
+            )
+        // One open order per player; a newer request replaces the older one.
+        pending.values.filter { it.player == draft.player }.forEach { pending.remove(it.id)?.let { old -> discard(old.file) } }
+        pending[draft.id] = ready
+        drafts.remove(draft.id)
+        journal(if (draft.old != null) "repaste requested" else "requested", ready)
+        return Result.success(ready)
     }
 
     fun reject(
@@ -232,11 +328,11 @@ internal class PasteOrders(
                     Gems.refund(order.player, order.cost)
                     journal("refunded", order, by)
                 } else {
-                    journal("repaste failed", order, by)
+                    journal("paste failed", order, by)
                 }
                 System.err.println("[Discord] Paste failed (${result.exceptionOrNull()?.javaClass?.simpleName})")
                 discard(order.file)
-                return if (order.cost > 0) "Paste failed; ${order.cost} gems refunded." else "Repaste failed; nothing was charged."
+                return if (order.cost > 0) "Paste failed; ${order.cost} gems refunded." else "Paste failed; nothing was charged."
             }
             journal(if (old != null) "repasted" else "pasted", order, by)
             runCatching {
@@ -253,8 +349,9 @@ internal class PasteOrders(
                         order.y,
                         order.z,
                         order.town,
-                        order.allowance,
+                        (old?.chunks.orEmpty() + order.allowance),
                         System.currentTimeMillis(),
+                        order.max,
                     ),
                 )
             }.onFailure {
@@ -263,7 +360,7 @@ internal class PasteOrders(
                 )
             }
             return if (old != null) {
-                "Repasted over the old build at ${order.x} ${order.y} ${order.z} in ${order.town} (${order.chunks} chunk(s)). No charge."
+                "Repasted over the old build at ${order.x} ${order.y} ${order.z} in ${order.town} (${order.chunks} chunk(s), ${order.newChunks} new). Charged ${order.cost} gems."
             } else {
                 "Pasted ${order.chunks} chunk(s) at ${order.x} ${order.y} ${order.z} in ${order.town}. Charged ${order.cost} gems."
             }
@@ -313,10 +410,12 @@ internal class PasteOrders(
                     ) {
                         continue
                     }
-                    it.setBlock(
-                        BlockVector3.at(old.x + pos.x() - o.x(), old.y + pos.y() - o.y(), old.z + pos.z() - o.z()),
-                        BlockTypes.AIR!!.defaultState,
-                    )
+                    val wx = old.x + pos.x() - o.x()
+                    val wz = old.z + pos.z() - o.z()
+                    // Chunks the old paste never wrote to may hold the player's own work.
+                    val chunk = ChunkMap.pack(wx shr 4, wz shr 4)
+                    if (chunk !in old.chunks || chunk !in order.allowance) continue
+                    it.setBlock(BlockVector3.at(wx, old.y + pos.y() - o.y(), wz), BlockTypes.AIR!!.defaultState)
                 }
             }
             Operations.complete(
@@ -330,10 +429,20 @@ internal class PasteOrders(
         }
     }
 
+    /** Game-thread: the chunks that hold blocks but lie outside the player's own town. */
+    private fun outsideTown(
+        player: UUID,
+        touched: Set<Long>,
+    ): Set<Long> {
+        val town = Resident.fromUuid(player)?.town ?: error("You are not in a town.")
+        return touched.filterTo(HashSet()) { Territory.fromBlock(ChunkMap.cx(it) shl 4, ChunkMap.cz(it) shl 4)?.town !== town }
+    }
+
     /** Game-thread check: footprint must lie fully inside the buyer's own town, in world height, and be affordable. */
     private fun check(
         order: Order,
         box: Box,
+        map: ChunkMap? = null,
     ): String {
         val town = Resident.fromUuid(order.player)?.town ?: error("You are not in a town.")
         val dimension = world.cachedDimensionType
@@ -345,7 +454,7 @@ internal class PasteOrders(
             if (Territory.fromBlock(cx shl 4, cz shl 4)?.town !==
                 town
             ) {
-                error("The paste must be entirely inside your own town (${town.name}).")
+                error("Chunk ${map?.label(packed) ?: "$cx,$cz"} is outside your own town (${town.name}); deselect it.")
             }
         }
         if (order.cost > 0) {
@@ -466,10 +575,11 @@ internal class PasteOrders(
         }
     }
 
-    private fun fail(message: String): Result<Order> = Result.failure(IllegalArgumentException(message))
+    private fun <T> fail(message: String): Result<T> = Result.failure(IllegalArgumentException(message))
 
     companion object {
         const val COST_PER_CHUNK = 50L
+        const val DRAFT_MILLIS = 15 * 60_000L
         const val MAX_BYTES = 5_000_000
         const val MAX_INFLATED = 100_000_000L
         const val MAX_SIDE = 256
