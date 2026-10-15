@@ -52,6 +52,22 @@ private val transactionTimeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:m
 object Gems {
     fun rememberPlayer(player: Player) = repository.rememberPlayer(player.uuid, player.username)
 
+    /** Offline-safe, keyed by UUID. Null if the player has never joined. */
+    fun balance(uuid: UUID): Long? = repository.balance(uuid)
+
+    /** Atomic debit plus transaction row (product <= 64 chars). Null if funds are short or the player is unknown. */
+    fun charge(
+        uuid: UUID,
+        product: String,
+        cost: Long,
+    ): UUID? = repository.purchase(uuid, product, cost)
+
+    /** Returns false if the player row vanished. */
+    fun refund(
+        uuid: UUID,
+        amount: Long,
+    ): Boolean = repository.adjust(uuid, amount) != null
+
     fun grantReward(
         player: Player,
         amount: Long,
