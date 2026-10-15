@@ -41,8 +41,20 @@ class DiscordModule : AechronisModule {
         val supervisor = SupervisorJob()
         job = supervisor
         val scope = CoroutineScope(supervisor + Dispatchers.IO + CoroutineName("discord"))
-        val category = System.getenv("DISCORD_TICKET_CATEGORY_ID")?.trim()?.toULongOrNull()?.takeIf { it > 0u }?.let(::Snowflake)
-        val staff = System.getenv("DISCORD_STAFF_ROLE_ID")?.trim()?.toULongOrNull()?.takeIf { it > 0u }?.let(::Snowflake)
+        val category =
+            System
+                .getenv("DISCORD_TICKET_CATEGORY_ID")
+                ?.trim()
+                ?.toULongOrNull()
+                ?.takeIf { it > 0u }
+                ?.let(::Snowflake)
+        val staff =
+            System
+                .getenv("DISCORD_STAFF_ROLE_ID")
+                ?.trim()
+                ?.toULongOrNull()
+                ?.takeIf { it > 0u }
+                ?.let(::Snowflake)
         val pastes =
             if (category != null && staff != null) {
                 PasteOrders(
@@ -50,7 +62,12 @@ class DiscordModule : AechronisModule {
                     context.instance,
                     category,
                     staff,
-                    System.getenv("DISCORD_STAFF_REVIEW_CHANNEL_ID")?.trim()?.toULongOrNull()?.takeIf { it > 0u }?.let(::Snowflake),
+                    System
+                        .getenv("DISCORD_STAFF_REVIEW_CHANNEL_ID")
+                        ?.trim()
+                        ?.toULongOrNull()
+                        ?.takeIf { it > 0u }
+                        ?.let(::Snowflake),
                 )
             } else {
                 println("[Discord] /paste disabled: set DISCORD_TICKET_CATEGORY_ID and DISCORD_STAFF_ROLE_ID")

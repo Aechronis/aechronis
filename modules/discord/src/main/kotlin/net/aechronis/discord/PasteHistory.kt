@@ -53,11 +53,24 @@ internal class PasteHistory(
             Entry(
                 e.getValue("id").jsonPrimitive.content,
                 UUID.fromString(e.getValue("player").jsonPrimitive.content),
-                e.getValue("x").jsonPrimitive.content.toInt(),
-                e.getValue("y").jsonPrimitive.content.toInt(),
-                e.getValue("z").jsonPrimitive.content.toInt(),
+                e
+                    .getValue("x")
+                    .jsonPrimitive.content
+                    .toInt(),
+                e
+                    .getValue("y")
+                    .jsonPrimitive.content
+                    .toInt(),
+                e
+                    .getValue("z")
+                    .jsonPrimitive.content
+                    .toInt(),
                 e.getValue("town").jsonPrimitive.content,
-                e.getValue("chunks").jsonArray.map { c -> c.jsonPrimitive.long }.toSet(),
+                e
+                    .getValue("chunks")
+                    .jsonArray
+                    .map { c -> c.jsonPrimitive.long }
+                    .toSet(),
                 e.getValue("time").jsonPrimitive.long,
             )
         }

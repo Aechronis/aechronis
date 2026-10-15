@@ -3,31 +3,29 @@ package net.aechronis.discord
 import dev.kord.common.Color
 import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
+import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.MessageChannelBehavior
 import dev.kord.core.behavior.channel.createMessage
-import java.net.URLEncoder
-import java.nio.file.Files
 import dev.kord.core.behavior.edit
-import dev.kord.core.entity.channel.CategorizableChannel
-import dev.kord.core.entity.interaction.InteractionCommand
-import dev.kord.core.entity.interaction.ChatInputCommandInteraction
-import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
-import dev.kord.rest.builder.interaction.attachment
-import dev.kord.rest.builder.interaction.integer
-import dev.kord.rest.builder.message.actionRow
-import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.createEphemeralFollowup
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.behavior.interaction.suggestString
+import dev.kord.core.entity.channel.CategorizableChannel
+import dev.kord.core.entity.interaction.ChatInputCommandInteraction
+import dev.kord.core.entity.interaction.InteractionCommand
 import dev.kord.core.event.gateway.ReadyEvent
 import dev.kord.core.event.interaction.AutoCompleteInteractionCreateEvent
+import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.core.supplier.EntitySupplyStrategy
 import dev.kord.gateway.Intent
 import dev.kord.gateway.Intents
 import dev.kord.rest.builder.interaction.ChatInputCreateBuilder
+import dev.kord.rest.builder.interaction.attachment
+import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
+import dev.kord.rest.builder.message.actionRow
 import dev.kord.rest.builder.message.allowedMentions
 import dev.kord.rest.builder.message.embed
 import io.ktor.client.HttpClient
@@ -45,6 +43,8 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.net.URLEncoder
+import java.nio.file.Files
 
 internal object DiscordBot {
     suspend fun run(
@@ -66,9 +66,16 @@ internal object DiscordBot {
             kord = client
             val requests = InteractionRequests()
             pastes?.log =
-                System.getenv("DISCORD_PASTE_LOG_WEBHOOK")?.trim()?.takeIf { it.startsWith("https://discord.com/api/webhooks/") }?.let { PasteLog(it, http, scope) }
+                System
+                    .getenv("DISCORD_PASTE_LOG_WEBHOOK")
+                    ?.trim()
+                    ?.takeIf {
+                        it.startsWith("https://discord.com/api/webhooks/")
+                    }?.let { PasteLog(it, http, scope) }
             val slots = Semaphore(8)
-            val names = nodes.names + setOf("link", "unlink", "account") + setOfNotNull("paste".takeIf { pastes != null }, "repaste".takeIf { pastes != null })
+            val names =
+                nodes.names + setOf("link", "unlink", "account") +
+                    setOfNotNull("paste".takeIf { pastes != null }, "repaste".takeIf { pastes != null })
             if (pastes != null) {
                 client.on<ButtonInteractionCreateEvent>(scope = scope) {
                     val parts = interaction.componentId.split(":", limit = 2)
@@ -76,7 +83,11 @@ internal object DiscordBot {
                     if (!requests.claim(interaction.id.toString())) return@on
                     try {
                         val response = interaction.deferEphemeralResponse()
-                        if (pastes.staffRole !in interaction.data.member.value?.roles.orEmpty()) {
+                        if (pastes.staffRole !in
+                            interaction.data.member.value
+                                ?.roles
+                                .orEmpty()
+                        ) {
                             response.respond { content = "Only staff can approve or reject pastes." }
                             return@on
                         }
@@ -84,10 +95,25 @@ internal object DiscordBot {
                             if (parts[0] == "paste-approve") {
                                 pastes.approve(parts[1], interaction.user.id.toString())
                             } else {
-                                if (pastes.reject(parts[1], interaction.user.id.toString())) "Paste rejected." else "That order was already handled or expired."
+                                if (pastes.reject(
+                                        parts[1],
+                                        interaction.user.id.toString(),
+                                    )
+                                ) {
+                                    "Paste rejected."
+                                } else {
+                                    "That order was already handled or expired."
+                                }
                             }
                         val done = result.startsWith("Pasted") || result.startsWith("Repasted")
-                        val outcome = if (parts[0] == "paste-reject") "rejected" else if (done) "completed" else "cancelled"
+                        val outcome =
+                            if (parts[0] == "paste-reject") {
+                                "rejected"
+                            } else if (done) {
+                                "completed"
+                            } else {
+                                "cancelled"
+                            }
                         val old = interaction.message.embeds.firstOrNull()
                         val viewer = pastes.viewerOf.remove(parts[1])
                         interaction.message.edit {
@@ -96,7 +122,16 @@ internal object DiscordBot {
                                 old?.apply(this)
                                 title = "${old?.title?.substringBefore(' ') ?: "Paste"} $outcome"
                                 color = Color(if (done) 0x57F287 else 0xED4245)
-                                field(if (parts[0] == "paste-approve") "Approved by" else "Rejected by", true) { "<@${interaction.user.id}> (${interaction.user.username})" }
+                                field(
+                                    if (parts[0] ==
+                                        "paste-approve"
+                                    ) {
+                                        "Approved by"
+                                    } else {
+                                        "Rejected by"
+                                    },
+                                    true,
+                                ) { "<@${interaction.user.id}> (${interaction.user.username})" }
                                 field("Result") { result }
                             }
                             components = mutableListOf()
@@ -326,6 +361,7 @@ private suspend fun submitPaste(
     val inTicket = (interaction.channel.asChannelOrNull() as? CategorizableChannel)?.categoryId == pastes.ticketCategory
     if (!inTicket) return CommandReply("Use this command inside your ticket channel.")
     val file = command.attachments["schematic"] ?: return CommandReply("Attach a .schem file.")
+
     fun coord(name: String): Int? = command.integers[name]?.takeIf { it in -30_000_000L..30_000_000L }?.toInt()
     val replacing = if (repaste) command.strings["paste"].orEmpty() else null
     // A repaste keeps the original origin, so only /paste takes coordinates.

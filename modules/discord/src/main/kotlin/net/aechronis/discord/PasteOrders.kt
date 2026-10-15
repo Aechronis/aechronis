@@ -16,36 +16,26 @@ import io.github.openminigameserver.worldedit.platform.misc.WorldEditExecutor
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
-import io.ktor.client.request.forms.formData
-import io.ktor.client.request.forms.submitFormWithBinaryData
-import io.ktor.client.request.patch
 import io.ktor.client.request.post
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.Headers
-import io.ktor.http.HttpHeaders
-import java.net.URLEncoder
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import net.aechronis.gems.Gems
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.minestom.server.instance.InstanceContainer
-import java.nio.file.Files
 import java.io.IOException
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.util.UUID
@@ -110,13 +100,23 @@ internal class PasteOrders(
         z: Int,
         replacing: String? = null,
     ): Result<Order> {
-        val player = links.player(discordId) ?: return fail("Link your account first: /discord link in Minecraft, then /link code:<code> here.")
-        val old = replacing?.let { wanted -> history.get(wanted)?.takeIf { it.player == player } ?: return fail("Pick one of your own pastes from the list.") }
+        val player =
+            links.player(discordId) ?: return fail("Link your account first: /discord link in Minecraft, then /link code:<code> here.")
+        val old =
+            replacing?.let { wanted ->
+                history.get(wanted)?.takeIf { it.player == player }
+                    ?: return fail("Pick one of your own pastes from the list.")
+            }
         if (old != null && !Files.exists(saved(old.id))) return fail("The original schematic for that paste is missing; ask staff.")
         // A repaste always lands on the original origin.
-        @Suppress("NAME_SHADOWING") val x = old?.x ?: x
-        @Suppress("NAME_SHADOWING") val y = old?.y ?: y
-        @Suppress("NAME_SHADOWING") val z = old?.z ?: z
+        @Suppress("NAME_SHADOWING")
+        val x = old?.x ?: x
+
+        @Suppress("NAME_SHADOWING")
+        val y = old?.y ?: y
+
+        @Suppress("NAME_SHADOWING")
+        val z = old?.z ?: z
         if (!filename.endsWith(".schem", ignoreCase = true)) return fail("Only .schem (Sponge) schematics are supported.")
         if (size !in 1..MAX_BYTES) return fail("Schematic must be under ${MAX_BYTES / 1_000_000} MB.")
         val id = UUID.randomUUID().toString()
@@ -146,7 +146,9 @@ internal class PasteOrders(
             val touched = scan.getOrThrow()
             if (old != null && !old.chunks.containsAll(touched)) {
                 discard(file)
-                return fail("A free repaste may only use the chunks of the original paste. This one reaches outside them; buy the extra chunks with /paste.")
+                return fail(
+                    "A free repaste may only use the chunks of the original paste. This one reaches outside them; buy the extra chunks with /paste.",
+                )
             }
             val chunks = touched.size
             val cost = if (old != null) 0L else chunks * COST_PER_CHUNK
@@ -178,7 +180,11 @@ internal class PasteOrders(
     fun reject(
         id: String,
         by: String,
-    ): Boolean = pending.remove(id)?.also { discard(it.file); journal("rejected", it, by) } != null
+    ): Boolean =
+        pending.remove(id)?.also {
+            discard(it.file)
+            journal("rejected", it, by)
+        } != null
 
     /** Charges and pastes. Returns a message for the ticket. Single use: the order is claimed atomically. */
     suspend fun approve(
@@ -187,8 +193,14 @@ internal class PasteOrders(
     ): String {
         val order = pending.remove(id) ?: return "That order was already handled or expired. Ask the player to run /paste again."
         try {
-            if (links.player(order.discordId) != order.player) return "The player's account was unlinked. Order cancelled.".also { discard(order.file) }
-            val clipboard = withContext(Dispatchers.IO) { load(order.file) } ?: return "Schematic file is unreadable. Order cancelled.".also { discard(order.file) }
+            if (links.player(order.discordId) !=
+                order.player
+            ) {
+                return "The player's account was unlinked. Order cancelled.".also { discard(order.file) }
+            }
+            val clipboard =
+                withContext(Dispatchers.IO) { load(order.file) }
+                    ?: return "Schematic file is unreadable. Order cancelled.".also { discard(order.file) }
             val box = box(clipboard, order.x, order.y, order.z)
             try {
                 onGameThread { check(order, box) }
@@ -230,8 +242,25 @@ internal class PasteOrders(
                 Files.createDirectories(saved(order.id).parent)
                 Files.move(order.file, saved(order.id))
             }
-            runCatching { history.replace(old?.id, PasteHistory.Entry(order.id, order.player, order.x, order.y, order.z, order.town, order.allowance, System.currentTimeMillis())) }
-                .onFailure { System.err.println("[Discord] Could not record paste ${order.id} in history (${it.javaClass.simpleName}); it cannot be repasted") }
+            runCatching {
+                history.replace(
+                    old?.id,
+                    PasteHistory.Entry(
+                        order.id,
+                        order.player,
+                        order.x,
+                        order.y,
+                        order.z,
+                        order.town,
+                        order.allowance,
+                        System.currentTimeMillis(),
+                    ),
+                )
+            }.onFailure {
+                System.err.println(
+                    "[Discord] Could not record paste ${order.id} in history (${it.javaClass.simpleName}); it cannot be repasted",
+                )
+            }
             return if (old != null) {
                 "Repasted over the old build at ${order.x} ${order.y} ${order.z} in ${order.town} (${order.chunks} chunk(s)). No charge."
             } else {
@@ -277,8 +306,16 @@ internal class PasteOrders(
                 // Clear only what the old paste placed, so anything else the player built there stays.
                 val o = previous.origin
                 for (pos in previous.region) {
-                    if (previous.getBlock(pos).blockType.material.isAir) continue
-                    it.setBlock(BlockVector3.at(old.x + pos.x() - o.x(), old.y + pos.y() - o.y(), old.z + pos.z() - o.z()), BlockTypes.AIR!!.defaultState)
+                    if (previous
+                            .getBlock(pos)
+                            .blockType.material.isAir
+                    ) {
+                        continue
+                    }
+                    it.setBlock(
+                        BlockVector3.at(old.x + pos.x() - o.x(), old.y + pos.y() - o.y(), old.z + pos.z() - o.z()),
+                        BlockTypes.AIR!!.defaultState,
+                    )
                 }
             }
             Operations.complete(
@@ -304,7 +341,11 @@ internal class PasteOrders(
         for (packed in order.allowance) {
             val cx = (packed shr 32).toInt()
             val cz = packed.toInt()
-            if (Territory.fromBlock(cx shl 4, cz shl 4)?.town !== town) error("The paste must be entirely inside your own town (${town.name}).")
+            if (Territory.fromBlock(cx shl 4, cz shl 4)?.town !==
+                town
+            ) {
+                error("The paste must be entirely inside your own town (${town.name}).")
+            }
         }
         if (order.cost > 0) {
             val balance = Gems.balance(order.player) ?: error("No gem balance found; join the server once first.")
@@ -336,8 +377,12 @@ internal class PasteOrders(
         val max = clipboard.region.maximumPoint
         val origin = clipboard.origin
         return Box(
-            x + min.x() - origin.x(), y + min.y() - origin.y(), z + min.z() - origin.z(),
-            x + max.x() - origin.x(), y + max.y() - origin.y(), z + max.z() - origin.z(),
+            x + min.x() - origin.x(),
+            y + min.y() - origin.y(),
+            z + min.z() - origin.z(),
+            x + max.x() - origin.x(),
+            y + max.y() - origin.y(),
+            z + max.z() - origin.z(),
         )
     }
 
@@ -352,12 +397,25 @@ internal class PasteOrders(
         for (pos in clipboard.region) {
             val type = clipboard.getBlock(pos).blockType
             if (type.material.isAir) continue
-            if (isOre(type.id())) return Result.failure(IllegalArgumentException("Schematics containing ores or mineral blocks are not allowed (found ${type.id()})."))
+            if (isOre(
+                    type.id(),
+                )
+            ) {
+                return Result.failure(
+                    IllegalArgumentException("Schematics containing ores or mineral blocks are not allowed (found ${type.id()})."),
+                )
+            }
             val cx = (x + pos.x() - origin.x()) shr 4
             val cz = (z + pos.z() - origin.z()) shr 4
             touched += (cx.toLong() shl 32) or (cz.toLong() and 0xffffffffL)
         }
-        return if (touched.isEmpty()) Result.failure(IllegalArgumentException("The schematic contains no blocks.")) else Result.success(touched)
+        return if (touched.isEmpty()) {
+            Result.failure(
+                IllegalArgumentException("The schematic contains no blocks."),
+            )
+        } else {
+            Result.success(touched)
+        }
     }
 
     /** A small gzip can unpack to gigabytes; measure it without keeping it before WorldEdit reads it into memory. */
@@ -398,7 +456,9 @@ internal class PasteOrders(
             Files.createDirectories(dir)
             Files.writeString(
                 dir.resolve("journal.log"),
-                "${System.currentTimeMillis()} $event ${order.id} ${order.player} ${order.cost} ${order.x},${order.y},${order.z}${by?.let { " by $it" }.orEmpty()}\n",
+                "${System.currentTimeMillis()} $event ${order.id} ${order.player} ${order.cost} ${order.x},${order.y},${order.z}${by?.let {
+                    " by $it"
+                }.orEmpty()}\n",
                 StandardOpenOption.CREATE,
                 StandardOpenOption.APPEND,
             )
@@ -416,10 +476,22 @@ internal class PasteOrders(
 
         private val MINERAL_BLOCKS =
             setOf(
-                "coal_block", "iron_block", "gold_block", "diamond_block", "emerald_block",
-                "lapis_block", "redstone_block", "netherite_block", "copper_block",
-                "exposed_copper", "weathered_copper", "oxidized_copper", "ancient_debris",
-                "bedrock", "obsidian", "crying_obsidian",
+                "coal_block",
+                "iron_block",
+                "gold_block",
+                "diamond_block",
+                "emerald_block",
+                "lapis_block",
+                "redstone_block",
+                "netherite_block",
+                "copper_block",
+                "exposed_copper",
+                "weathered_copper",
+                "oxidized_copper",
+                "ancient_debris",
+                "bedrock",
+                "obsidian",
+                "crying_obsidian",
             )
 
         /** Ores, raw ore and storage blocks of mined materials, bedrock and obsidian: a paste must not hand out these. */
@@ -448,6 +520,7 @@ internal class PasteLog(
                 "rejected", "refunded", "repaste failed" -> 0xED4245
                 else -> 0xF0B232
             }
+
         fun field(
             name: String,
             value: String,
@@ -480,9 +553,10 @@ internal class PasteLog(
                                                         field("Chunks", "${order.chunks}"),
                                                         field("Cost", if (order.cost > 0) "${order.cost} gems" else "Free"),
                                                         field("Minecraft", "`${order.player}`"),
-                                                    ) + listOfNotNull(
-                                                        by?.let { field("Staff", "<@$it>") },
-                                                    ),
+                                                    ) +
+                                                        listOfNotNull(
+                                                            by?.let { field("Staff", "<@$it>") },
+                                                        ),
                                                 ),
                                             )
                                             put("footer", buildJsonObject { put("text", "Order ${order.id}") })
@@ -501,4 +575,3 @@ internal class PasteLog(
         }
     }
 }
-
