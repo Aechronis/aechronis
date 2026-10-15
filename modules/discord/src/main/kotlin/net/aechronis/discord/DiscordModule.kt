@@ -55,22 +55,21 @@ class DiscordModule : AechronisModule {
                 ?.toULongOrNull()
                 ?.takeIf { it > 0u }
                 ?.let(::Snowflake)
+        val staffChannel =
+            System
+                .getenv("DISCORD_STAFF_REVIEW_CHANNEL_ID")
+                ?.trim()
+                ?.toULongOrNull()
+                ?.takeIf { it > 0u }
+                ?.let(::Snowflake)
+        // Without a separate staff channel the buttons would sit in the ticket, so a role is then mandatory.
         val pastes =
-            if (category != null && staff != null) {
-                PasteOrders(
-                    links,
-                    context.instance,
-                    category,
-                    staff,
-                    System
-                        .getenv("DISCORD_STAFF_REVIEW_CHANNEL_ID")
-                        ?.trim()
-                        ?.toULongOrNull()
-                        ?.takeIf { it > 0u }
-                        ?.let(::Snowflake),
-                )
+            if (category != null && (staffChannel != null || staff != null)) {
+                PasteOrders(links, context.instance, category, staff, staffChannel)
             } else {
-                println("[Discord] /paste disabled: set DISCORD_TICKET_CATEGORY_ID and DISCORD_STAFF_ROLE_ID")
+                println(
+                    "[Discord] /paste disabled: set DISCORD_TICKET_CATEGORY_ID and DISCORD_STAFF_REVIEW_CHANNEL_ID (or DISCORD_STAFF_ROLE_ID)",
+                )
                 null
             }
         scope.launch { DiscordBot.run(token, guildId, scope, links, commands, pastes) }

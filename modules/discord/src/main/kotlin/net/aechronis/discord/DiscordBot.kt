@@ -83,7 +83,9 @@ internal object DiscordBot {
                     if (!requests.claim(interaction.id.toString())) return@on
                     try {
                         val response = interaction.deferEphemeralResponse()
-                        if (pastes.staffRole !in
+                        val role = pastes.staffRole
+                        if (role != null &&
+                            role !in
                             interaction.data.member.value
                                 ?.roles
                                 .orEmpty()
