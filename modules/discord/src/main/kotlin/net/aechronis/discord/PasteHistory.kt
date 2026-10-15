@@ -27,6 +27,8 @@ internal class PasteHistory(
         val town: String,
         val chunks: Set<Long>,
         val time: Long,
+        /** Every chunk the original schematic fills; a repaste may grow into any of them. */
+        val max: Set<Long> = chunks,
     )
 
     private var entries: List<Entry> = load()
@@ -53,12 +55,31 @@ internal class PasteHistory(
             Entry(
                 e.getValue("id").jsonPrimitive.content,
                 UUID.fromString(e.getValue("player").jsonPrimitive.content),
-                e.getValue("x").jsonPrimitive.content.toInt(),
-                e.getValue("y").jsonPrimitive.content.toInt(),
-                e.getValue("z").jsonPrimitive.content.toInt(),
+                e
+                    .getValue("x")
+                    .jsonPrimitive.content
+                    .toInt(),
+                e
+                    .getValue("y")
+                    .jsonPrimitive.content
+                    .toInt(),
+                e
+                    .getValue("z")
+                    .jsonPrimitive.content
+                    .toInt(),
                 e.getValue("town").jsonPrimitive.content,
-                e.getValue("chunks").jsonArray.map { c -> c.jsonPrimitive.long }.toSet(),
+                e
+                    .getValue("chunks")
+                    .jsonArray
+                    .map { c -> c.jsonPrimitive.long }
+                    .toSet(),
                 e.getValue("time").jsonPrimitive.long,
+                e["max"]?.jsonArray?.map { c -> c.jsonPrimitive.long }?.toSet()
+                    ?: e
+                        .getValue("chunks")
+                        .jsonArray
+                        .map { c -> c.jsonPrimitive.long }
+                        .toSet(),
             )
         }
     }
@@ -79,6 +100,7 @@ internal class PasteHistory(
                                 put("z", e.z)
                                 put("town", e.town)
                                 put("chunks", JsonArray(e.chunks.map(::JsonPrimitive)))
+                                put("max", JsonArray(e.max.map(::JsonPrimitive)))
                                 put("time", e.time)
                             }
                         },
