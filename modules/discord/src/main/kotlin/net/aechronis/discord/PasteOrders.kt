@@ -57,7 +57,8 @@ internal class PasteOrders(
     private val links: AccountLinks,
     private val world: InstanceContainer,
     val ticketCategory: Snowflake,
-    val staffRole: Snowflake,
+    /** Optional extra gate; without it anyone who can see the staff channel can decide. */
+    val staffRole: Snowflake?,
     /** Where staff review and approve; null keeps the buttons in the ticket channel. */
     val staffChannel: Snowflake?,
     private val dir: Path = Path.of("discord", "pastes"),
