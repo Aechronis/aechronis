@@ -15,4 +15,5 @@ dependencies {
     compileOnly(project(":modules:logger"))
     compileOnly(project(":modules:guard"))
     compileOnly(project(":modules:gems"))
+    compileOnly(project(":modules:duels"))
 }

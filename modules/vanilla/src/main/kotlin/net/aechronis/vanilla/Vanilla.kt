@@ -26,6 +26,7 @@ import net.aechronis.vanilla.commands.Recpies
 import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Shutdown
+import net.aechronis.vanilla.commands.Spawn
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
 import net.aechronis.vanilla.commands.Vanish
@@ -122,6 +123,7 @@ object Vanilla {
                         Vanish(),
                         Vote(),
                         Warp(),
+                        Spawn(),
                     )
                 if (config.musicEnabled) commands += Disc()
                 if (config.blocksEnabled) commands += Convert()

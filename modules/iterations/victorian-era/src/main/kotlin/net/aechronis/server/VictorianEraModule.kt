@@ -3,7 +3,9 @@ package net.aechronis.server
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.utils.GunHandSkins
+import net.aechronis.duels.Kits
 import net.aechronis.nodes.NodesModule
+import net.aechronis.server.config.VictorianDuelsKits
 import net.aechronis.server.config.VictorianNodesConfiguration
 import net.aechronis.server.config.VictorianVanillaConfiguration
 import net.aechronis.server.constants.Ammo
@@ -31,7 +33,7 @@ class VictorianEraModule : AechronisModule {
                 .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build(),
         )
-    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes")
+    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "duels")
     override val reloadTogetherInputs =
         mapOf(
             "vanilla" to
@@ -49,6 +51,7 @@ class VictorianEraModule : AechronisModule {
 
     override fun configure(context: ModuleContext) {
         measure("Item catalogue") { registerItems() }
+        measure("Duel kits") { Kits.register(*VictorianDuelsKits.create().toTypedArray()) }
         val hands by lazy {
             checkNotNull(EmbeddedResourcePack.readAsset(javaClass, GunHandSkins.HAND_TEXTURE)) { "Missing iteration hand atlas" }
         }

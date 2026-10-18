@@ -51,6 +51,7 @@ include(
     ":modules:tebex",
     ":modules:votifier",
     ":modules:guard",
+    ":modules:duels",
     ":modules:iterations:a-new-millenium",
     ":modules:iterations:victorian-era",
 )
