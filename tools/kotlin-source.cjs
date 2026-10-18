@@ -91,4 +91,4 @@ function displayName(value) {
   return string(match[1], 'display name');
 }
 
-module.exports = { splitArguments, stripComments, callArguments, namedArguments, definitions, constructorDefaults, constantValue, number, string, boolean, displayName };
+module.exports = { maskSource, splitArguments, stripComments, callArguments, namedArguments, definitions, constructorDefaults, constantValue, number, string, boolean, displayName };
