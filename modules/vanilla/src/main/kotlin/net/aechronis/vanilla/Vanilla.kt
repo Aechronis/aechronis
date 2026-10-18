@@ -65,6 +65,7 @@ import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Shelves
 import net.aechronis.vanilla.managers.Signs
+import net.aechronis.vanilla.managers.SpawnTeleport
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.TreeFeller
 import net.aechronis.vanilla.managers.VoteLinks
@@ -218,6 +219,7 @@ object Vanilla {
             "storage" to Storage::shutdown,
             "sign editors" to Signs::shutdown,
             "pending warps" to Warps::shutdown,
+            "pending spawn teleports" to SpawnTeleport::shutdown,
             "shop inventories" to KillShop::shutdown,
             "command inventories" to Commands::shutdown,
             "horses" to { if (config.horsesEnabled) Horses.shutdown() },
