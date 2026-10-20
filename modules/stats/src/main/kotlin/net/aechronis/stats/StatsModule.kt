@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Tracks kills/deaths here and cap stats from the nodes module, and serves them as JSON for the
- * website: GET /stats?sort=kills&player=Name. Put HTTPS in front (the site is https). Port: STATS_PORT.
+ * website: GET /stats?sort=kills&player=Name, plus /stats/search and /stats/history. Put HTTPS in front (the site is https). Port: STATS_PORT.
  */
 class StatsModule : AechronisModule {
     override val id = "stats"
@@ -59,6 +59,8 @@ class StatsModule : AechronisModule {
             http =
                 HttpServer.create(InetSocketAddress(port), 0).apply {
                     createContext("/stats", ::handle)
+                    createContext("/stats/search", ::handleSearch)
+                    createContext("/stats/history", ::handleHistory)
                     httpExecutor = Executors.newFixedThreadPool(2) { Thread(it, "stats-http").also { t -> t.isDaemon = true } }
                     executor = httpExecutor
                     start()
@@ -71,32 +73,57 @@ class StatsModule : AechronisModule {
     }
 
     private fun handle(exchange: HttpExchange) =
-        exchange.use {
-            val query =
-                (it.requestURI.rawQuery ?: "").split('&').filter { p -> p.isNotEmpty() }.associate { p ->
-                    val (k, v) = (p.split('=', limit = 2) + "")
-                    k to URLDecoder.decode(v, StandardCharsets.UTF_8)
-                }
-            val (status, body) =
-                try {
-                    200 to
-                        cached(
-                            query["sort"] ?: "kills",
-                            query["player"]?.take(16)?.lowercase(),
-                            query["type"] == "nation",
-                            query["scope"] == "war",
-                            query["week"]?.also { w -> require(weekFormat.matches(w)) },
-                        )
-                } catch (error: IllegalArgumentException) {
-                    400 to "{\"error\":\"bad request\"}"
-                }
-            val bytes = body.toByteArray(StandardCharsets.UTF_8)
-            it.responseHeaders.add("Content-Type", "application/json")
-            it.responseHeaders.add("Access-Control-Allow-Origin", "*")
-            it.responseHeaders.add("Cache-Control", "public, max-age=5")
-            it.sendResponseHeaders(status, bytes.size.toLong())
-            it.responseBody.write(bytes)
+        respond(exchange) { query ->
+            cached("stats|${query["sort"]}|${query["player"]}|${query["type"]}|${query["scope"]}|${query["week"]}") {
+                Stats.query(
+                    query["sort"] ?: "kills",
+                    20,
+                    query["player"]?.take(16)?.lowercase(),
+                    query["type"] == "nation",
+                    query["scope"] == "war",
+                    query["week"]?.also { w -> require(weekFormat.matches(w)) },
+                )
+            }
         }
+
+    /** GET /stats/search?q=prefix: up to 8 matching players and nations. */
+    private fun handleSearch(exchange: HttpExchange) =
+        respond(exchange) { query ->
+            val q = (query["q"] ?: "").trim().take(16).lowercase()
+            if (q.isEmpty()) "{\"results\":[]}" else cached("search|$q") { Stats.search(q, 8) }
+        }
+
+    /** GET /stats/history?player=Name[&type=nation]: per war week stats, newest first. */
+    private fun handleHistory(exchange: HttpExchange) =
+        respond(exchange) { query ->
+            val name = (query["player"] ?: "").trim().take(16).lowercase()
+            require(name.isNotEmpty())
+            val nation = query["type"] == "nation"
+            cached("history|$nation|$name") { Stats.history(name, nation, 12) }
+        }
+
+    private fun respond(
+        exchange: HttpExchange,
+        handler: (Map<String, String>) -> String,
+    ) = exchange.use {
+        val query =
+            (it.requestURI.rawQuery ?: "").split('&').filter { p -> p.isNotEmpty() }.associate { p ->
+                val (k, v) = (p.split('=', limit = 2) + "")
+                k to URLDecoder.decode(v, StandardCharsets.UTF_8)
+            }
+        val (status, body) =
+            try {
+                200 to handler(query)
+            } catch (error: IllegalArgumentException) {
+                400 to "{\"error\":\"bad request\"}"
+            }
+        val bytes = body.toByteArray(StandardCharsets.UTF_8)
+        it.responseHeaders.add("Content-Type", "application/json")
+        it.responseHeaders.add("Access-Control-Allow-Origin", "*")
+        it.responseHeaders.add("Cache-Control", "public, max-age=5")
+        it.sendResponseHeaders(status, bytes.size.toLong())
+        it.responseBody.write(bytes)
+    }
 
     /** Serves identical requests from a 5 second cache so polling viewers never re-sort the whole player list. */
     private val weekFormat = Regex("""\d{4}-\d{2}-\d{2}""")
@@ -104,17 +131,13 @@ class StatsModule : AechronisModule {
     private val cache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, String>>()
 
     private fun cached(
-        sort: String,
-        player: String?,
-        nations: Boolean,
-        war: Boolean,
-        week: String?,
+        key: String,
+        compute: () -> String,
     ): String {
-        val key = "$nations|$war|$week|$sort|$player"
         val now = System.currentTimeMillis()
         cache[key]?.let { (at, body) -> if (now - at < 5_000) return body }
-        val body = Stats.query(sort, 20, player, nations, war, week)
-        if (cache.size > 200) cache.clear() // bounded: player names are user-supplied
+        val body = compute()
+        if (cache.size > 200) cache.clear() // bounded: names are user-supplied
         cache[key] = now to body
         return body
     }

@@ -30,8 +30,8 @@ function clock(time) {
   return new Date(time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
 }
 
-async function request(params) {
-  const response = await fetch(`${api}?${new URLSearchParams(params)}`)
+async function request(params, path = '') {
+  const response = await fetch(`${api}${path}?${new URLSearchParams(params)}`)
   if (!response.ok) throw new Error()
   return response.json()
 }
@@ -131,9 +131,26 @@ const searchBusy = ref(false)
 const notFound = ref('')
 const searchInput = ref(null)
 
+// Suggestions come from GET /stats/search (debounced); names already seen cover the gap until it answers.
+const remote = ref({ q: '', hits: [] })
+let searchTimer = 0
+watch(query, value => {
+  clearTimeout(searchTimer)
+  const q = value.trim().toLowerCase()
+  if (!q) return
+  searchTimer = setTimeout(async () => {
+    try {
+      const data = await request({ q }, '/search')
+      remote.value = { q, hits: data.results }
+    } catch { /* the local suggestions stay */ }
+  }, 180)
+})
+onUnmounted(() => clearTimeout(searchTimer))
+
 const suggestions = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return []
+  if (remote.value.q === q) return remote.value.hits.slice(0, 8)
   const all = [...known.value.values()]
   const starts = all.filter(e => e.name.toLowerCase().startsWith(q))
   const contains = all.filter(e => !e.name.toLowerCase().startsWith(q) && e.name.toLowerCase().includes(q))
@@ -163,7 +180,7 @@ async function choose(option) {
       request({ sort: 'kills', player: option.name }),
       request({ sort: 'kills', player: option.name, type: 'nation' }),
     ])
-    const hit = p.player ? { name: p.player.name, type: 'player' } : n.player ? { name: n.player.name, type: 'nation' } : null
+    const hit = p.player ? { name: p.player.name, type: 'player', nation: p.player.nation } : n.player ? { name: n.player.name, type: 'nation' } : null
     if (!hit) { notFound.value = option.name; searchOpen.value = true; return }
     remember([hit.name], hit.type)
     query.value = ''
@@ -216,10 +233,12 @@ async function loadProfile(withHistory = false) {
     if (data.player) selected.value = { ...entry, name: data.player.name }
     if (withHistory) {
       history.value = []
-      const recent = weeks.value.slice(0, 6)
-      const rows = await Promise.all(recent.map(w => request({ ...base, scope: 'war', week: w }).then(d => ({ week: w, stats: d.player, total: d.total })).catch(() => ({ week: w, stats: null }))))
+      const data = await request({ player: entry.name, ...(entry.type === 'nation' ? { type: 'nation' } : {}) }, '/history')
       if (id !== profileLatest) return
-      history.value = rows
+      // One row per recent war; wars the profile has no entry for show as "Didn't play".
+      const played = new Map(data.weeks.map(h => [h.week, h]))
+      const recent = (weeks.value.length ? weeks.value : data.weeks.map(h => h.week)).slice(0, 6)
+      history.value = recent.map(w => ({ week: w, stats: played.get(w) ?? null }))
     }
   } catch {
     if (id === profileLatest) failed()
@@ -438,7 +457,7 @@ onUnmounted(() => {
             <template v-else>
               <span class="st-avatar" :class="option.type">{{ option.name[0] }}</span>
               <span class="st-opt-name">{{ option.name }}</span>
-              <span class="st-opt-meta">{{ option.type === 'nation' ? 'Nation' : 'Player' }}</span>
+              <span class="st-opt-meta">{{ option.type === 'nation' ? 'Nation' : option.nation || 'Player' }}</span>
             </template>
           </li>
           <li v-if="notFound" class="st-opt-empty" role="presentation">No player or nation named “{{ notFound }}” has recorded stats.</li>
@@ -495,7 +514,10 @@ onUnmounted(() => {
                 @keydown.enter="select({ name: row.name, type: mode })"
               >
                 <td class="st-rank-col"><span :class="{ top: row.rank <= 3 }">{{ row.rank }}</span></td>
-                <td class="st-name-col">{{ row.name }}</td>
+                <td class="st-name-col">
+                  {{ row.name }}
+                  <button v-if="row.nation" type="button" class="st-nation" @click.stop="select({ name: row.nation, type: 'nation' })" @keydown.enter.stop>{{ row.nation }}</button>
+                </td>
                 <td v-for="key in columns" :key="key" :class="{ on: sort === key }">{{ show(key, row[key]) }}</td>
               </tr>
             </tbody>
@@ -577,7 +599,7 @@ onUnmounted(() => {
             <span class="st-avatar st-avatar-lg" :class="selected.type">{{ selected.name[0] }}</span>
             <div class="st-head-text">
               <h2 id="st-profile-title">{{ selected.name }}</h2>
-              <span class="st-muted">{{ selected.type === 'nation' ? 'Nation' : 'Player' }}<template v-if="history.length"> · played {{ playedWars }} of the last {{ history.length }} wars</template></span>
+              <span class="st-muted">{{ selected.type === 'nation' ? 'Nation' : 'Player' }}<template v-if="profile && profile.stats && profile.stats.nation"> of <button type="button" class="st-nation" @click="select({ name: profile.stats.nation, type: 'nation' })">{{ profile.stats.nation }}</button></template><template v-if="history.length"> · played {{ playedWars }} of the last {{ history.length }} wars</template></span>
             </div>
             <select v-model="period" class="st-select st-select-sm" aria-label="Profile period" @change="loadProfile()">
               <option value="all">All-time</option>
@@ -660,6 +682,8 @@ onUnmounted(() => {
 .st-options li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 7px; cursor: pointer; }
 .st-options li.active { background: var(--vp-c-default-soft); }
 .st-opt-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-nation { margin-left: 6px; padding: 0 6px; border: 0; border-radius: 4px; font: inherit; font-size: 12px; font-weight: 500; color: #f0903e; background: var(--vp-c-default-soft); cursor: pointer; }
+.st-nation:hover { text-decoration: underline; }
 .st-opt-meta { font-size: 12px; color: var(--vp-c-text-2); }
 .st-options .st-opt-empty { cursor: default; color: var(--vp-c-text-2); }
 .st-avatar { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px; font-weight: 700; font-size: 13px; text-transform: uppercase; background: var(--vp-c-default-soft); color: var(--vp-c-brand-1); }

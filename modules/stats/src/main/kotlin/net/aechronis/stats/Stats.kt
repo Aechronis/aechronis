@@ -29,6 +29,8 @@ data class PlayerStats(
     var capsBroken: Int = 0,
     var capsCompleted: Int = 0,
     var playtime: Long = 0,
+    /** A player's nation when last credited; null for nations and nationless players. */
+    var nation: String? = null,
 ) {
     val kd: Double get() = if (deaths == 0) kills.toDouble() else kills.toDouble() / deaths
 
@@ -145,6 +147,7 @@ object Stats {
         buckets.forEach { bucket ->
             val entry = bucket.players.getOrPut(uuid) { PlayerStats() }
             if (name != null) entry.name = name
+            entry.nation = nation
             change(entry)
             nation?.let { change(bucket.nations.getOrPut(it) { PlayerStats(name = it) }) }
         }
@@ -169,7 +172,8 @@ object Stats {
             val bucket = war.getOrPut(week) { Bucket() }
             if (bucket.rally.lastOrNull()?.let { it.time / RALLY_SECONDS == slot } == true) return
             val counts = online.mapNotNull { nationOf(it.uuid) }.groupingBy { it }.eachCount()
-            bucket.rally.add(RallySample(now.toEpochSecond(), counts))
+            // Stamped at the slot start so every sample sits exactly on a 10 minute mark (1:00, 1:10, ... 3:50 PM).
+            bucket.rally.add(RallySample(slot * RALLY_SECONDS, counts))
             dirty = true
         }
 
@@ -260,6 +264,7 @@ object Stats {
         fun row(p: PlayerStats) =
             buildString {
                 append("{\"name\":${Json.encodeToString(p.name)}")
+                if (!nationBoard) append(",\"nation\":${Json.encodeToString(p.nation)}")
                 keys.forEach {
                     append(
                         ",\"$it\":${p.value(it).let { v ->
@@ -295,5 +300,63 @@ object Stats {
         return "{\"sort\":\"$sort\",\"total\":${snapshot.size}$warJson,\"players\":[${rows.joinToString(
             ",",
         )}],\"player\":${meJson ?: "null"}}"
+    }
+
+    /** Per war week (newest first, at most [limit]) the named player's or nation's stats; weeks they didn't play are left out. */
+    internal fun history(
+        name: String,
+        nation: Boolean,
+        limit: Int,
+    ): String {
+        val rows =
+            synchronized(this) {
+                war.entries.reversed().mapNotNull { (week, bucket) ->
+                    val stats =
+                        (if (nation) bucket.nations.values else bucket.players.values).firstOrNull {
+                            it.name.equals(
+                                name,
+                                ignoreCase = true,
+                            )
+                        }
+                    stats?.let { week to it.copy() }
+                }
+            }.take(limit)
+        val weeks =
+            rows.joinToString(",") { (week, p) ->
+                "{\"week\":\"$week\",\"kills\":${p.kills},\"deaths\":${p.deaths},\"kd\":${"%.2f".format(java.util.Locale.ROOT, p.kd)}," +
+                    "\"capsBroken\":${p.capsBroken},\"capsCompleted\":${p.capsCompleted}}"
+            }
+        val shown = Json.encodeToString(rows.firstOrNull()?.second?.name ?: name)
+        return "{\"name\":$shown,\"type\":\"${if (nation) "nation" else "player"}\",\"weeks\":[$weeks]}"
+    }
+
+    /** Up to [limit] player and nation names matching [q]: prefix matches first, then other substring matches, each alphabetical. */
+    internal fun search(
+        q: String,
+        limit: Int,
+    ): String {
+        val needle = q.lowercase()
+        val names =
+            synchronized(this) {
+                main.players.values
+                    .filter { it.name.isNotEmpty() }
+                    .map { Triple(it.name, "player", it.nation) } +
+                    main.nations.values
+                        .filter { it.name.isNotEmpty() }
+                        .map { Triple(it.name, "nation", null) }
+            }
+        val hits =
+            names
+                .filter { needle in it.first.lowercase() }
+                .sortedWith(
+                    compareBy<Triple<String, String, String?>> { !it.first.startsWith(needle, ignoreCase = true) }
+                        .thenBy { it.first.lowercase() },
+                ).take(limit)
+        val results =
+            hits.joinToString(",") { (n, type, nation) ->
+                val nationJson = nation?.let { ",\"nation\":${Json.encodeToString(it)}" } ?: ""
+                "{\"name\":${Json.encodeToString(n)},\"type\":\"$type\"$nationJson}"
+            }
+        return "{\"results\":[$results]}"
     }
 }
