@@ -288,6 +288,9 @@ open class Vehicle(
     /** Whether the swap-hands key dismounts a crew seat. */
     open val exitsOnSwapHands: Boolean = false
 
+    /** Whether the crew decks sit inside the damage hitbox, so a dismount onto a deck may overlap it. */
+    open val decksInsideHitbox: Boolean = false
+
     // Called after the driving controller has moved the hull.
     open fun onTick(player: Player) {
         val ride = VehicleRegistry.driver(player) ?: return

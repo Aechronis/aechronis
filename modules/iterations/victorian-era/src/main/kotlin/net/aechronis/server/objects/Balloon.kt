@@ -73,6 +73,7 @@ open class Balloon(
     ) {
     override val exitsOnSneak = false
     override val exitsOnSwapHands = true
+    override val decksInsideHitbox = true
 
     // ===== Ticking =====
 

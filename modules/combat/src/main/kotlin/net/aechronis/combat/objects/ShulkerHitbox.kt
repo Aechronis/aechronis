@@ -116,7 +116,10 @@ class ShulkerHitbox(
                     }
                 }
                 if (!(lower < -EPSILON && upper > EPSILON)) continue
-                val distance = if (upper <= -lower) upper + EPSILON else lower - EPSILON
+                // A player overlapping a deck from above is lifted onto it rather than pushed down through it,
+                // unless the pushdown is a small head bump from a hull moving into them.
+                val liftOnto = axis == 1 && upper + EPSILON <= MAX_LIFT && -lower > MIN_HEAD_BUMP
+                val distance = if (liftOnto || upper <= -lower) upper + EPSILON else lower - EPSILON
                 if (abs(distance) < abs(bestDistance)) {
                     bestDistance = distance
                     bestNormal =
@@ -143,6 +146,8 @@ class ShulkerHitbox(
 
     companion object {
         private const val EPSILON = 1.0e-6
+        private const val MAX_LIFT = 2.2
+        private const val MIN_HEAD_BUMP = 0.5
 
         /**
          * Default physical shape for existing definitions. Overlapping cubes keep the
