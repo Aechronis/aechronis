@@ -137,7 +137,11 @@ class StatsModule : AechronisModule {
         val now = System.currentTimeMillis()
         cache[key]?.let { (at, body) -> if (now - at < 5_000) return body }
         val body = compute()
-        if (cache.size > 200) cache.clear() // bounded: names are user-supplied
+        if (cache.size > 200) {
+            // Bounded (names are user-supplied); drop stale entries first so a flood of unique queries doesn't wipe fresh ones.
+            cache.values.removeIf { (at, _) -> now - at >= 5_000 }
+            if (cache.size > 200) cache.clear()
+        }
         cache[key] = now to body
         return body
     }

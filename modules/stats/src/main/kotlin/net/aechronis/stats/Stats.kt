@@ -329,17 +329,25 @@ object Stats {
     ): String {
         val rows =
             synchronized(this) {
-                war.entries.reversed().mapNotNull { (week, bucket) ->
-                    val stats =
-                        (if (nation) bucket.nations.values else bucket.players.values).firstOrNull {
-                            it.name.equals(
-                                name,
-                                ignoreCase = true,
-                            )
-                        }
-                    stats?.let { week to it.copy() }
-                }
-            }.take(limit)
+                // Resolve the name once, then hash-lookup per war: a scan of every player in every war bucket would hold the lock for long.
+                val playerIds = if (nation) emptyList() else main.players.filterValues { it.name.equals(name, ignoreCase = true) }.keys
+                val nationKey = if (nation) main.nations.keys.firstOrNull { it.equals(name, ignoreCase = true) } else null
+                war.entries
+                    .reversed()
+                    .asSequence()
+                    .mapNotNull { (week, bucket) ->
+                        val stats =
+                            if (nation) {
+                                nationKey?.let {
+                                    bucket.nations[it]
+                                }
+                            } else {
+                                playerIds.firstNotNullOfOrNull { bucket.players[it] }
+                            }
+                        stats?.let { week to it.copy() }
+                    }.take(limit)
+                    .toList()
+            }
         val weeks =
             rows.joinToString(",") { (week, p) ->
                 "{\"week\":\"$week\",\"kills\":${p.kills},\"deaths\":${p.deaths},\"kd\":${"%.2f".format(java.util.Locale.ROOT, p.kd)}," +
