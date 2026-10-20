@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
-// Public HTTPS endpoint of the server's stats module (GET /stats?sort=&player=).
+// Public HTTPS endpoint of the server's stats module (GET /stats?sort=&player=&scope=&week=).
 const api = import.meta.env.DEV ? 'http://localhost:8090/stats' : 'https://stats.aechronis.net/stats'
 const columns = [
   { key: 'kills', label: 'Kills' },
@@ -18,67 +18,58 @@ function show(key, value) {
   return `${hours}h ${Math.floor((value % 3600) / 60)}m`
 }
 
+async function request(params) {
+  const response = await fetch(`${api}?${new URLSearchParams(params)}`)
+  if (!response.ok) throw new Error()
+  return response.json()
+}
+
+// ---- Leaderboards -------------------------------------------------------
+
 const nationKeys = ['kills', 'deaths', 'kd', 'playtime']
 const mode = ref('players')
 const scope = ref('all') // 'all' = all-time, 'war' = Saturday 1-4pm ET snapshots
 const week = ref('')
 const weeks = ref([])
+const rally = ref([])
 // War snapshots track a rally graph instead of playtime.
 const statColumns = computed(() => {
   const base = mode.value === 'nations' ? columns.filter(c => nationKeys.includes(c.key)) : columns
   return scope.value === 'war' ? base.filter(c => c.key !== 'playtime') : base
 })
 const tabs = computed(() => scope.value === 'war' ? [...statColumns.value, { key: 'rally', label: 'Rally' }] : statColumns.value)
-const rally = ref([])
 const tab = ref('kills')
 const board = ref([])
 const total = ref(0)
 const loading = ref(false)
 const error = ref('')
-const username = ref('')
-const me = ref(null)
-const notFound = ref('')
 
 let latest = 0
 
-async function load(player = me.value?.name ?? '') {
-  const request = ++latest
+async function load() {
+  const requestId = ++latest
   loading.value = true
   error.value = ''
   try {
-    const query = new URLSearchParams({ sort: tab.value === 'rally' ? 'kills' : tab.value })
+    const params = { sort: tab.value === 'rally' ? 'kills' : tab.value }
     if (scope.value === 'war') {
-      query.set('scope', 'war')
-      if (week.value) query.set('week', week.value)
+      params.scope = 'war'
+      if (week.value) params.week = week.value
     }
-    if (mode.value === 'nations') query.set('type', 'nation')
-    else if (player) query.set('player', player)
-    const response = await fetch(`${api}?${query}`)
-    if (!response.ok) throw new Error()
-    const data = await response.json()
-    if (request !== latest) return // a newer tab click superseded this response
+    if (mode.value === 'nations') params.type = 'nation'
+    const data = await request(params)
+    if (requestId !== latest) return // a newer click superseded this response
     board.value = data.players
     total.value = data.total
     if (scope.value === 'war') {
       weeks.value = data.weeks
-      rally.value = data.rally ?? []
       week.value = data.week ?? ''
-    }
-    if (player && mode.value === 'players') {
-      me.value = data.player
-      notFound.value = data.player ? '' : player
+      rally.value = data.rally ?? []
     }
   } catch {
-    if (request !== latest) return
+    if (requestId !== latest) return
     error.value = 'Stats are unavailable right now. Please try again.'
-  } finally { if (request === latest) loading.value = false }
-}
-
-function lookup() {
-  const name = username.value.trim()
-  if (!name) return
-  mode.value = 'players' // player cards only exist on the player boards
-  load(name)
+  } finally { if (requestId === latest) loading.value = false }
 }
 
 function setScope(next) {
@@ -107,36 +98,168 @@ function select(key) {
   load()
 }
 
-// Rally graph: players online per nation, sampled every ten minutes during war.
-const palette = ['#e4572e', '#2e86ab', '#76b041', '#f2a900', '#7b2d8e', '#17bebb', '#d1495b', '#8d6a9f']
+// ---- Player lookup ------------------------------------------------------
+
+const username = ref('')
+const lookedUp = ref('') // canonical name of the player on the card
+const period = ref('all') // 'all' or a war week
+const card = ref(null) // { kind: 'ok' | 'unknown' | 'absent', ... }
+const cardBusy = ref(false)
+const cardColumns = computed(() => period.value === 'all' ? columns : columns.filter(c => c.key !== 'playtime'))
+
+let cardLatest = 0
+
+async function refreshCard() {
+  const requestId = ++cardLatest
+  cardBusy.value = true
+  try {
+    const params = { sort: 'kills', player: lookedUp.value }
+    if (period.value !== 'all') Object.assign(params, { scope: 'war', week: period.value })
+    const data = await request(params)
+    if (requestId !== cardLatest) return
+    card.value = data.player
+      ? { kind: 'ok', stats: data.player, total: data.total }
+      : { kind: 'absent', name: lookedUp.value, week: period.value }
+  } catch {
+    if (requestId === cardLatest) error.value = 'Stats are unavailable right now. Please try again.'
+  } finally { if (requestId === cardLatest) cardBusy.value = false }
+}
+
+async function lookup() {
+  const name = username.value.trim()
+  if (!name) return
+  const requestId = ++cardLatest
+  cardBusy.value = true
+  error.value = ''
+  try {
+    const data = await request({ sort: 'kills', player: name })
+    if (requestId !== cardLatest) return
+    if (!data.player) {
+      lookedUp.value = ''
+      card.value = { kind: 'unknown', name }
+      return
+    }
+    lookedUp.value = data.player.name
+    period.value = 'all'
+    card.value = { kind: 'ok', stats: data.player, total: data.total }
+  } catch {
+    if (requestId === cardLatest) error.value = 'Stats are unavailable right now. Please try again.'
+  } finally { if (requestId === cardLatest) cardBusy.value = false }
+}
+
+// ---- Rally graph --------------------------------------------------------
+// Players online per nation, one sample every ten minutes during war. Drag (or hover, or use
+// the arrow keys) along the graph to read any moment.
+
+const W = 720
+const H = 340
+const left = 48
+const right = 16
+const top = 16
+const bottom = 36
+const hidden = ref([])
+const cursor = ref(0)
+const dragging = ref(false)
+const svg = ref(null)
+
+function clock(time) {
+  return new Date(time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
+}
+
+// Round the axis step to 1/2/5 x 10^n so ticks stay readable from a handful of players to hundreds.
+function niceStep(max) {
+  const rough = max / 5
+  const power = 10 ** Math.floor(Math.log10(rough))
+  const unit = rough / power
+  return (unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 5 ? 5 : 10) * power
+}
+
+const series = computed(() => {
+  const peaks = {}
+  for (const sample of rally.value) {
+    for (const [nation, count] of Object.entries(sample.nations)) peaks[nation] = Math.max(peaks[nation] ?? 0, count)
+  }
+  return Object.keys(peaks)
+    .sort((a, b) => peaks[b] - peaks[a])
+    .map((name, i) => ({ name, color: `hsl(${(i * 137.5) % 360} 65% 48%)` }))
+})
+
 const chart = computed(() => {
   const samples = rally.value
   if (!samples.length) return null
-  const peaks = {}
-  for (const sample of samples) for (const [nation, count] of Object.entries(sample.nations)) peaks[nation] = Math.max(peaks[nation] ?? 0, count)
-  const names = Object.keys(peaks).sort((a, b) => peaks[b] - peaks[a]).slice(0, palette.length)
-  const max = Math.max(1, ...names.map(name => peaks[name]))
+  const shown = series.value.filter(s => !hidden.value.includes(s.name))
+  const max = Math.max(1, ...samples.flatMap(sample => shown.map(s => sample.nations[s.name] ?? 0)))
+  const step = niceStep(max)
+  const ceiling = Math.ceil(max / step) * step
   const t0 = samples[0].time
   const span = Math.max(1, samples[samples.length - 1].time - t0)
-  const x = time => 40 + ((time - t0) / span) * 540
-  const y = count => 260 - (count / max) * 240
-  const clock = time => new Date(time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
+  const x = time => left + ((time - t0) / span) * (W - left - right)
+  const y = count => H - bottom - (count / ceiling) * (H - top - bottom)
+  const grid = []
+  for (let value = 0; value <= ceiling; value += step) grid.push({ y: y(value), label: value })
+  const every = Math.max(1, Math.ceil(samples.length / 7))
   return {
-    max,
-    lines: names.map((name, i) => ({
-      name,
-      color: palette[i],
-      points: samples.map(sample => `${x(sample.time)},${y(sample.nations[name] ?? 0)}`).join(' '),
-      dots: samples.map(sample => ({ cx: x(sample.time), cy: y(sample.nations[name] ?? 0), label: `${name}: ${sample.nations[name] ?? 0} online at ${clock(sample.time)} ET` })),
+    xs: samples.map(sample => x(sample.time)),
+    grid,
+    ticks: samples.map((sample, i) => ({ x: x(sample.time), label: clock(sample.time), i })).filter(tick => tick.i % every === 0),
+    lines: shown.map(s => ({
+      ...s,
+      points: samples.map(sample => `${x(sample.time)},${y(sample.nations[s.name] ?? 0)}`).join(' '),
+      at: samples.map(sample => y(sample.nations[s.name] ?? 0)),
     })),
-    ticks: samples.filter((_, i) => i % 3 === 0).map(sample => ({ x: x(sample.time), label: clock(sample.time) })),
-    grid: [0, max / 2, max].map(count => ({ y: y(count), label: Math.round(count) })),
   }
 })
 
+// Everything at the cursor: nations sorted by how many were online.
+const readout = computed(() => {
+  const sample = rally.value[cursor.value]
+  if (!sample) return null
+  const rows = series.value
+    .map(s => ({ ...s, count: sample.nations[s.name] ?? 0 }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  return { time: clock(sample.time), rows, sum: rows.reduce((acc, row) => acc + row.count, 0) }
+})
+
+watch(rally, samples => { cursor.value = Math.max(0, samples.length - 1) })
+
+function toggle(name) {
+  hidden.value = hidden.value.includes(name) ? hidden.value.filter(n => n !== name) : [...hidden.value, name]
+}
+
+function moveTo(event) {
+  if (!chart.value || !svg.value) return
+  const box = svg.value.getBoundingClientRect()
+  const x = ((event.clientX - box.left) / box.width) * W
+  let best = 0
+  chart.value.xs.forEach((value, i) => { if (Math.abs(value - x) < Math.abs(chart.value.xs[best] - x)) best = i })
+  cursor.value = best
+}
+
+function down(event) {
+  dragging.value = true
+  try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* keep dragging without capture */ }
+  moveTo(event)
+}
+
+function move(event) {
+  if (dragging.value || event.pointerType === 'mouse') moveTo(event)
+}
+
+function key(event) {
+  const last = rally.value.length - 1
+  const steps = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }
+  if (event.key === 'Home') cursor.value = 0
+  else if (event.key === 'End') cursor.value = last
+  else if (steps[event.key]) cursor.value = Math.min(last, Math.max(0, cursor.value + steps[event.key]))
+  else return
+  event.preventDefault()
+}
+
 let timer
-onMounted(() => {
+onMounted(async () => {
   load()
+  // The war weeks power the lookup card's period picker.
+  try { weeks.value = (await request({ scope: 'war' })).weeks } catch { /* the leaderboard load reports errors */ }
   timer = setInterval(() => { if (!document.hidden) load() }, 30000)
 })
 onUnmounted(() => clearInterval(timer))
@@ -148,22 +271,41 @@ onUnmounted(() => clearInterval(timer))
       <label for="stats-username">Look up a player</label>
       <div class="stats-lookup-row">
         <input id="stats-username" v-model="username" autocomplete="off" autocapitalize="none" :spellcheck="false" pattern="[A-Za-z0-9_]{3,16}" maxlength="16" placeholder="Minecraft username" required />
-        <button type="submit" class="stats-primary" :disabled="loading">Look up</button>
+        <button type="submit" class="stats-primary" :disabled="cardBusy">Look up</button>
       </div>
     </form>
 
     <p v-if="error" role="alert" class="stats-message stats-error">{{ error }}</p>
-    <p v-if="notFound" role="status" class="stats-message">No stats recorded yet for {{ notFound }}.</p>
 
-    <section v-if="me" class="stats-card" aria-labelledby="stats-me">
-      <h2 id="stats-me">{{ me.name }}</h2>
-      <dl>
-        <div v-for="column in statColumns" :key="column.key">
-          <dt>{{ column.label }}</dt>
-          <dd>{{ show(column.key, me[column.key]) }} <span class="stats-rank">#{{ me.ranks[column.key] }}</span></dd>
+    <section v-if="card" class="stats-card" aria-live="polite">
+      <template v-if="card.kind === 'unknown'">
+        <h2>Player not found</h2>
+        <p class="stats-empty">No player named <strong>{{ card.name }}</strong> has any recorded stats. Check the spelling, or they may not have played since stats tracking started.</p>
+      </template>
+      <template v-else>
+        <div class="stats-card-head">
+          <h2>{{ lookedUp }}</h2>
+          <label class="stats-period">
+            <span>Period</span>
+            <select v-model="period" @change="refreshCard">
+              <option value="all">All-time</option>
+              <option v-for="w in weeks" :key="w" :value="w">War of {{ w }}</option>
+            </select>
+          </label>
         </div>
-      </dl>
-      <p class="stats-note">Rank among {{ total }} players with recorded stats.</p>
+        <template v-if="card.kind === 'absent'">
+          <p class="stats-empty"><strong>{{ lookedUp }}</strong> didn't play in the war of {{ card.week }}. No stats were recorded for them that day.</p>
+        </template>
+        <template v-else>
+          <dl>
+            <div v-for="column in cardColumns" :key="column.key">
+              <dt>{{ column.label }}</dt>
+              <dd>{{ show(column.key, card.stats[column.key]) }} <span class="stats-rank">#{{ card.stats.ranks[column.key] }}</span></dd>
+            </div>
+          </dl>
+          <p class="stats-note">Rank among {{ card.total }} players with recorded stats{{ period === 'all' ? '' : ` in the war of ${period}` }}.</p>
+        </template>
+      </template>
     </section>
 
     <h2>Leaderboards</h2>
@@ -185,27 +327,50 @@ onUnmounted(() => clearInterval(timer))
       <div class="stats-board" role="tabpanel">
         <template v-if="tab === 'rally'">
           <p v-if="!chart && !loading" role="status">No rally data has been recorded yet.</p>
-          <figure v-else-if="chart" class="stats-chart">
-            <svg viewBox="0 0 600 300" role="img" aria-label="Players online per nation during war, every ten minutes">
-              <g v-for="line in chart.grid" :key="line.y">
-                <line x1="40" x2="580" :y1="line.y" :y2="line.y" class="stats-grid" />
-                <text x="34" :y="line.y + 4" text-anchor="end" class="stats-axis">{{ line.label }}</text>
+          <div v-else-if="chart" class="stats-chart">
+            <svg
+              ref="svg"
+              :viewBox="`0 0 ${W} ${H}`"
+              role="slider"
+              tabindex="0"
+              :aria-valuemin="0"
+              :aria-valuemax="rally.length - 1"
+              :aria-valuenow="cursor"
+              :aria-valuetext="readout ? `${readout.time}: ${readout.sum} players online` : ''"
+              aria-label="Players online per nation during war. Drag, or use the arrow keys, to read any moment."
+              @pointerdown="down"
+              @pointermove="move"
+              @pointerup="dragging = false"
+              @pointercancel="dragging = false"
+              @keydown="key"
+            >
+              <g v-for="line in chart.grid" :key="line.label">
+                <line :x1="left" :x2="W - right" :y1="line.y" :y2="line.y" class="stats-grid" />
+                <text :x="left - 8" :y="line.y + 4" text-anchor="end" class="stats-axis">{{ line.label }}</text>
               </g>
-              <text v-for="tick in chart.ticks" :key="tick.x" :x="tick.x" y="282" text-anchor="middle" class="stats-axis">{{ tick.label }}</text>
-              <g v-for="line in chart.lines" :key="line.name" :style="{ color: line.color }">
-                <polyline :points="line.points" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-                <circle v-for="dot in line.dots" :key="dot.cx" :cx="dot.cx" :cy="dot.cy" r="3" fill="currentColor"><title>{{ dot.label }}</title></circle>
-              </g>
+              <text v-for="tick in chart.ticks" :key="tick.i" :x="tick.x" :y="H - 12" text-anchor="middle" class="stats-axis">{{ tick.label }}</text>
+              <polyline v-for="line in chart.lines" :key="line.name" :points="line.points" fill="none" :stroke="line.color" stroke-width="2" stroke-linejoin="round" />
+              <line :x1="chart.xs[cursor]" :x2="chart.xs[cursor]" :y1="top" :y2="H - bottom" class="stats-cursor" />
+              <circle v-for="line in chart.lines" :key="line.name" :cx="chart.xs[cursor]" :cy="line.at[cursor]" r="4" :fill="line.color" class="stats-dot" />
             </svg>
-            <figcaption class="stats-legend">
-              <span v-for="line in chart.lines" :key="line.name"><i :style="{ background: line.color }"></i>{{ line.name }}</span>
-            </figcaption>
-          </figure>
+            <div v-if="readout" class="stats-readout" aria-live="off">
+              <p class="stats-readout-head"><strong>{{ readout.time }} ET</strong> <span>{{ readout.sum }} online across {{ readout.rows.length }} nations</span></p>
+              <ul>
+                <li v-for="row in readout.rows" :key="row.name" :class="{ off: hidden.includes(row.name) }">
+                  <button type="button" :aria-pressed="!hidden.includes(row.name)" @click="toggle(row.name)">
+                    <i :style="{ background: row.color }"></i>
+                    <span class="stats-name">{{ row.name }}</span>
+                    <span class="stats-value">{{ row.count }}</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </div>
         </template>
         <p v-else-if="loading && !board.length" role="status">Loading stats…</p>
         <p v-else-if="!board.length && !error">{{ scope === 'war' ? 'No war stats have been recorded yet.' : 'No stats have been recorded yet.' }}</p>
         <ol v-else>
-          <li v-for="row in board" :key="row.name" :class="{ 'stats-me': me && row.name === me.name }">
+          <li v-for="row in board" :key="row.name" :class="{ 'stats-me': row.name === lookedUp }">
             <span class="stats-pos">{{ row.rank }}</span>
             <span class="stats-name">{{ row.name }}</span>
             <span class="stats-value">{{ show(tab, row[tab]) }}</span>
@@ -213,7 +378,7 @@ onUnmounted(() => clearInterval(timer))
         </ol>
       </div>
     </div>
-    <p v-if="tab === 'rally'" class="stats-note">Players online per nation, sampled every 10 minutes during war (Saturdays 1pm-4pm Eastern).</p>
+    <p v-if="tab === 'rally'" class="stats-note">Players online per nation, sampled every 10 minutes during war (Saturdays 1pm-4pm Eastern). Click a nation to hide or show it.</p>
     <p v-else class="stats-note">Top 20 {{ mode }}{{ scope === 'war' ? ' (war)' : '' }} by {{ columns.find(column => column.key === tab).label.toLowerCase() }}. Refreshes every 30 seconds.{{ scope === 'war' ? ' War stats are recorded Saturdays 1pm-4pm Eastern, one snapshot per week.' : '' }}</p>
   </div>
 </template>
@@ -227,9 +392,13 @@ onUnmounted(() => clearInterval(timer))
 .stats button:hover:not(:disabled) { border-color: var(--vp-c-brand-1); }
 .stats button:disabled { opacity: .55; cursor: not-allowed; }
 .stats .stats-primary { background: var(--vp-c-brand-1); border-color: var(--vp-c-brand-1); color: var(--vp-c-white); }
-.stats button:focus-visible, .stats input:focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 3px; }
+.stats button:focus-visible, .stats input:focus-visible, .stats select:focus-visible, .stats svg:focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 3px; }
+.stats select { border: 1px solid var(--vp-c-divider); border-radius: 6px; padding: .5rem .8rem; font: inherit; font-size: .875rem; background: var(--vp-c-bg); }
 .stats-card { margin-top: 1.5rem; padding: 1.25rem; border: 1px solid var(--vp-c-divider); border-radius: 12px; background: var(--vp-c-bg-soft); }
-.stats-card h2 { margin: 0 0 .75rem; padding: 0; border: 0; }
+.stats-card h2 { margin: 0; padding: 0; border: 0; }
+.stats-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.stats-period { display: flex; align-items: center; gap: .5rem; font-size: .875rem; color: var(--vp-c-text-2); }
+.stats-empty { margin: .75rem 0 0; line-height: 1.6; color: var(--vp-c-text-2); }
 .stats-card dl { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem 1.5rem; }
 .stats-card dt { font-size: .875rem; color: var(--vp-c-text-2); }
 .stats-card dd { margin: 0; font-size: 1.2rem; font-weight: 600; }
@@ -238,7 +407,6 @@ onUnmounted(() => clearInterval(timer))
 .stats-message { border-radius: 8px; padding: 1rem; background: var(--vp-c-bg-soft); }
 .stats-error { border: 1px solid var(--vp-c-danger-1); }
 .stats-modes { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
-.stats select { border: 1px solid var(--vp-c-divider); border-radius: 6px; padding: .5rem .8rem; font: inherit; font-size: .875rem; background: var(--vp-c-bg); }
 .stats .stats-modes button.active { background: var(--vp-c-brand-1); border-color: var(--vp-c-brand-1); color: var(--vp-c-white); }
 .stats-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 1.5rem; align-items: start; }
 .stats-tabs { display: flex; flex-direction: column; gap: .5rem; }
@@ -251,11 +419,17 @@ onUnmounted(() => clearInterval(timer))
 .stats-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .stats-value { font-weight: 600; }
 .stats .stats-me { background: var(--vp-c-brand-soft); }
-@media (max-width: 640px) { .stats-layout { grid-template-columns: 1fr; } .stats-tabs { flex-direction: row; flex-wrap: wrap; } }
-.stats-chart { margin: 0; }
-.stats-chart svg { width: 100%; height: auto; }
+.stats-chart svg { width: 100%; height: auto; cursor: ew-resize; touch-action: none; user-select: none; }
 .stats-grid { stroke: var(--vp-c-divider); stroke-width: 1; }
 .stats-axis { fill: var(--vp-c-text-2); font-size: 11px; }
-.stats-legend { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin-top: .75rem; font-size: .875rem; }
-.stats-legend i { display: inline-block; width: .75rem; height: .75rem; border-radius: 2px; margin-right: .35rem; }
+.stats-cursor { stroke: var(--vp-c-text-2); stroke-width: 1; stroke-dasharray: 4 3; }
+.stats-dot { stroke: var(--vp-c-bg); stroke-width: 2; }
+.stats-readout { margin-top: .75rem; border-top: 1px solid var(--vp-c-divider); padding-top: .75rem; }
+.stats-readout-head { margin: 0 0 .5rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; }
+.stats-readout-head span { color: var(--vp-c-text-2); font-size: .875rem; }
+.stats-readout ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .25rem .75rem; max-height: 220px; overflow-y: auto; }
+.stats .stats-readout button { display: flex; align-items: center; gap: .5rem; width: 100%; border: 0; padding: .2rem .25rem; background: transparent; text-align: left; }
+.stats-readout i { flex: none; width: .75rem; height: .75rem; border-radius: 2px; }
+.stats-readout li.off { opacity: .4; }
+@media (max-width: 640px) { .stats-layout { grid-template-columns: 1fr; } .stats-tabs { flex-direction: row; flex-wrap: wrap; } }
 </style>
