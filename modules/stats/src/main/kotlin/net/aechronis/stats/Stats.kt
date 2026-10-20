@@ -366,6 +366,7 @@ object Stats {
         val hits =
             names
                 .filter { needle in it.first.lowercase() }
+                .distinctBy { it.first.lowercase() to it.second }
                 .sortedWith(
                     compareBy<Triple<String, String, String?>> { !it.first.startsWith(needle, ignoreCase = true) }
                         .thenBy { it.first.lowercase() },
