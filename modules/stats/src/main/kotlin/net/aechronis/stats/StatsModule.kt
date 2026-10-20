@@ -126,7 +126,7 @@ class StatsModule : AechronisModule {
     }
 
     /** Serves identical requests from a 5 second cache so polling viewers never re-sort the whole player list. */
-    private val weekFormat = Regex("""\d{4}-\d{2}-\d{2}""")
+    private val weekFormat = Regex("""\d{4}-\d{2}-\d{2}(~\d+)?""")
 
     private val cache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, String>>()
 

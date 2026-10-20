@@ -24,7 +24,9 @@ function show(key, value) {
 }
 function weekLabel(week) {
   if (!week) return ''
-  return new Date(`${week}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+  // A second war on the same date is keyed "yyyy-MM-dd~2".
+  const [date, nth] = week.split('~')
+  return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) + (nth ? ` #${nth}` : '')
 }
 function clock(time) {
   return new Date(time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })

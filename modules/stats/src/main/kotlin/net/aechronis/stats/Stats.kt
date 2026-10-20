@@ -64,6 +64,7 @@ private data class SavedStats(
     val players: Map<String, PlayerStats>,
     val nations: Map<String, PlayerStats>,
     val war: Map<String, SavedBucket> = emptyMap(),
+    val currentWar: String? = null,
 )
 
 /** Leaderboard categories accepted by the HTTP API. */
@@ -101,16 +102,22 @@ object Stats {
     @Volatile
     var warActive: () -> Boolean = { false }
 
-    /** Key of the war in progress (its start date), kept so a war running past midnight stays in one bucket. */
+    /** Key of the war in progress; saved so a restart mid-war resumes the same bucket. */
     private var currentWar: String? = null
 
+    /** The war in progress gets its start date as key; a second war on the same date becomes "yyyy-MM-dd~2", "~3", ... */
     private fun warWeek(now: ZonedDateTime): String? {
-        if (!warActive()) return null.also { currentWar = null }
-        return currentWar ?: now
-            .withZoneSameInstant(WAR_ZONE)
-            .toLocalDate()
-            .toString()
-            .also { currentWar = it }
+        if (!warActive()) {
+            if (currentWar != null) dirty = true
+            return null.also { currentWar = null }
+        }
+        currentWar?.let { return it }
+        val date = now.withZoneSameInstant(WAR_ZONE).toLocalDate().toString()
+        var key = date
+        var n = 2
+        while (war.containsKey(key)) key = "$date~${n++}"
+        dirty = true
+        return key.also { currentWar = it }
     }
 
     @Volatile
@@ -190,6 +197,7 @@ object Stats {
             main.players.clear()
             main.nations.clear()
             war.clear()
+            currentWar = null
             if (Files.exists(path)) {
                 val loaded = json.decodeFromString<SavedStats>(Files.readString(path))
                 loaded.players.forEach { (id, stats) -> main.players[UUID.fromString(id)] = stats }
@@ -200,6 +208,7 @@ object Stats {
                     bucket.nations.putAll(saved.nations)
                     bucket.rally.addAll(saved.rally)
                 }
+                currentWar = loaded.currentWar
             }
             dirty = false
         }
@@ -214,6 +223,7 @@ object Stats {
                         main.players.mapKeys { it.key.toString() },
                         main.nations,
                         war.mapValues { (_, b) -> SavedBucket(b.players.mapKeys { it.key.toString() }, b.nations, b.rally) },
+                        currentWar,
                     ),
                 )
             }
