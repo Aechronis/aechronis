@@ -7,6 +7,9 @@ import net.minestom.server.entity.Player
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.time.DayOfWeek
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.util.UUID
 
 enum class Stat(
@@ -42,19 +45,42 @@ data class PlayerStats(
 }
 
 @Serializable
+private data class SavedBucket(
+    val players: Map<String, PlayerStats> = emptyMap(),
+    val nations: Map<String, PlayerStats> = emptyMap(),
+)
+
+@Serializable
 private data class SavedStats(
     val players: Map<String, PlayerStats>,
     val nations: Map<String, PlayerStats>,
+    val war: Map<String, SavedBucket> = emptyMap(),
 )
 
 /** Leaderboard categories accepted by the HTTP API. */
 val SORT_KEYS = listOf("kills", "deaths", "kd", "capsBroken", "capsCompleted", "playtime")
 val NATION_SORT_KEYS = listOf("kills", "deaths", "kd", "playtime")
 
+private class Bucket {
+    val players = HashMap<UUID, PlayerStats>()
+    val nations = HashMap<String, PlayerStats>()
+}
+
+/** Weekly war stats are recorded only Saturdays from 1pm to 4pm Eastern (daylight saving is handled by the zone). */
+private val WAR_ZONE = ZoneId.of("America/New_York")
+
+/** The date of the war Saturday containing [now], or null outside the 1pm-4pm Eastern window. */
+internal fun warWeekOf(now: ZonedDateTime): String? {
+    val local = now.withZoneSameInstant(WAR_ZONE)
+    return if (local.dayOfWeek == DayOfWeek.SATURDAY && local.hour in 13..15) local.toLocalDate().toString() else null
+}
+
 object Stats {
     private val path = Path.of("stats", "stats.json")
-    private val players = HashMap<UUID, PlayerStats>()
-    private val nations = HashMap<String, PlayerStats>()
+    private val main = Bucket()
+
+    /** One bucket per war Saturday, keyed by its date (yyyy-MM-dd). */
+    private val war = java.util.TreeMap<String, Bucket>()
 
     /** Set by the nodes module: a player's current nation name, or null. Kills, deaths and playtime count for it. */
     @Volatile
@@ -76,13 +102,7 @@ object Stats {
         uuid: UUID,
         name: String?,
         stat: Stat,
-    ) = synchronized(this) {
-        val entry = players.getOrPut(uuid) { PlayerStats() }
-        if (name != null) entry.name = name
-        apply(entry, stat)
-        nationOf(uuid)?.let { apply(nations.getOrPut(it) { PlayerStats(name = it) }, stat) }
-        dirty = true
-    }
+    ) = credit(uuid, name) { apply(it, stat) }
 
     private fun apply(
         entry: PlayerStats,
@@ -96,28 +116,43 @@ object Stats {
         }
     }
 
+    /** Applies [change] to the player and their nation in the all-time stats and, during the war window, this week's war stats. */
+    private fun credit(
+        uuid: UUID,
+        name: String?,
+        change: (PlayerStats) -> Unit,
+    ) = synchronized(this) {
+        val nation = nationOf(uuid)
+        val buckets = listOfNotNull(main, warWeekOf(ZonedDateTime.now())?.let { war.getOrPut(it) { Bucket() } })
+        buckets.forEach { bucket ->
+            val entry = bucket.players.getOrPut(uuid) { PlayerStats() }
+            if (name != null) entry.name = name
+            change(entry)
+            nation?.let { change(bucket.nations.getOrPut(it) { PlayerStats(name = it) }) }
+        }
+        dirty = true
+    }
+
     /** Credits [seconds] of online time to each player in [online]. */
     internal fun addPlaytime(
         online: Collection<Player>,
         seconds: Long,
-    ) = synchronized(this) {
-        online.forEach { player ->
-            val entry = players.getOrPut(player.uuid) { PlayerStats() }
-            entry.name = player.username
-            entry.playtime += seconds
-            nationOf(player.uuid)?.let { nations.getOrPut(it) { PlayerStats(name = it) }.playtime += seconds }
-        }
-        if (online.isNotEmpty()) dirty = true
-    }
+    ) = online.forEach { player -> credit(player.uuid, player.username) { it.playtime += seconds } }
 
     internal fun load() =
         synchronized(this) {
-            players.clear()
-            nations.clear()
+            main.players.clear()
+            main.nations.clear()
+            war.clear()
             if (Files.exists(path)) {
                 val loaded = json.decodeFromString<SavedStats>(Files.readString(path))
-                loaded.players.forEach { (id, stats) -> players[UUID.fromString(id)] = stats }
-                nations.putAll(loaded.nations)
+                loaded.players.forEach { (id, stats) -> main.players[UUID.fromString(id)] = stats }
+                main.nations.putAll(loaded.nations)
+                loaded.war.forEach { (week, saved) ->
+                    val bucket = war.getOrPut(week) { Bucket() }
+                    saved.players.forEach { (id, stats) -> bucket.players[UUID.fromString(id)] = stats }
+                    bucket.nations.putAll(saved.nations)
+                }
             }
             dirty = false
         }
@@ -127,7 +162,13 @@ object Stats {
             synchronized(this) {
                 if (!dirty) return
                 dirty = false
-                Json.encodeToString(SavedStats(players.mapKeys { it.key.toString() }, nations))
+                Json.encodeToString(
+                    SavedStats(
+                        main.players.mapKeys { it.key.toString() },
+                        main.nations,
+                        war.mapValues { (_, b) -> SavedBucket(b.players.mapKeys { it.key.toString() }, b.nations) },
+                    ),
+                )
             }
         try {
             Files.createDirectories(path.parent)
@@ -140,17 +181,38 @@ object Stats {
         }
     }
 
-    /** Top [limit] players by [sort] plus, optionally, one player's stats with their rank in every category. */
+    /**
+     * Top [limit] players by [sort] plus, optionally, one player's stats with their rank in every category.
+     * [warBoard] switches to weekly war stats for [week] (a yyyy-MM-dd date, or null for the latest week).
+     */
     internal fun query(
         sort: String,
         limit: Int,
         playerName: String?,
         nationBoard: Boolean = false,
+        warBoard: Boolean = false,
+        week: String? = null,
     ): String {
         val keys = if (nationBoard) NATION_SORT_KEYS else SORT_KEYS
         require(sort in keys) { "Unknown sort '$sort'" }
+        var weeks = emptyList<String>()
+        var chosenWeek: String? = null
         val snapshot =
-            synchronized(this) { (if (nationBoard) nations else players).values.filter { it.name.isNotEmpty() }.map { it.copy() } }
+            synchronized(this) {
+                val bucket =
+                    if (warBoard) {
+                        weeks = war.keys.reversed()
+                        chosenWeek = week ?: weeks.firstOrNull()
+                        chosenWeek?.let { war[it] }
+                    } else {
+                        main
+                    }
+                (if (nationBoard) bucket?.nations else bucket?.players)
+                    ?.values
+                    ?.filter { it.name.isNotEmpty() }
+                    ?.map { it.copy() }
+                    .orEmpty()
+            }
         val top = snapshot.sortedWith(compareByDescending<PlayerStats> { it.value(sort) }.thenBy { it.name.lowercase() })
 
         fun row(p: PlayerStats) =
@@ -181,6 +243,14 @@ object Stats {
                     }
                 row(p) + ",\"ranks\":{$ranks}}"
             }
-        return "{\"sort\":\"$sort\",\"total\":${snapshot.size},\"players\":[${rows.joinToString(",")}],\"player\":${meJson ?: "null"}}"
+        val warJson =
+            if (warBoard) {
+                ",\"week\":${chosenWeek?.let { "\"$it\"" } ?: "null"},\"weeks\":[${weeks.joinToString(",") { "\"$it\"" }}]"
+            } else {
+                ""
+            }
+        return "{\"sort\":\"$sort\",\"total\":${snapshot.size}$warJson,\"players\":[${rows.joinToString(
+            ",",
+        )}],\"player\":${meJson ?: "null"}}"
     }
 }

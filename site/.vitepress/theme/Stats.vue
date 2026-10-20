@@ -20,6 +20,9 @@ function show(key, value) {
 
 const nationKeys = ['kills', 'deaths', 'kd', 'playtime']
 const mode = ref('players')
+const scope = ref('all') // 'all' = all-time, 'war' = Saturday 1-4pm ET snapshots
+const week = ref('')
+const weeks = ref([])
 const tabs = computed(() => mode.value === 'nations' ? columns.filter(c => nationKeys.includes(c.key)) : columns)
 const tab = ref('kills')
 const board = ref([])
@@ -38,6 +41,10 @@ async function load(player = me.value?.name ?? '') {
   error.value = ''
   try {
     const query = new URLSearchParams({ sort: tab.value })
+    if (scope.value === 'war') {
+      query.set('scope', 'war')
+      if (week.value) query.set('week', week.value)
+    }
     if (mode.value === 'nations') query.set('type', 'nation')
     else if (player) query.set('player', player)
     const response = await fetch(`${api}?${query}`)
@@ -46,6 +53,10 @@ async function load(player = me.value?.name ?? '') {
     if (request !== latest) return // a newer tab click superseded this response
     board.value = data.players
     total.value = data.total
+    if (scope.value === 'war') {
+      weeks.value = data.weeks
+      week.value = data.week ?? ''
+    }
     if (player && mode.value === 'players') {
       me.value = data.player
       notFound.value = data.player ? '' : player
@@ -61,6 +72,18 @@ function lookup() {
   if (!name) return
   mode.value = 'players' // player cards only exist on the player boards
   load(name)
+}
+
+function setScope(next) {
+  scope.value = next
+  week.value = ''
+  board.value = []
+  load()
+}
+
+function setWeek() {
+  board.value = []
+  load()
 }
 
 function setMode(next) {
@@ -109,6 +132,13 @@ onUnmounted(() => clearInterval(timer))
     </section>
 
     <h2>Leaderboards</h2>
+    <div class="stats-modes" role="group" aria-label="Stats period">
+      <button type="button" :aria-pressed="scope === 'all'" :class="{ active: scope === 'all' }" @click="setScope('all')">All-time</button>
+      <button type="button" :aria-pressed="scope === 'war'" :class="{ active: scope === 'war' }" @click="setScope('war')">War</button>
+      <select v-if="scope === 'war' && weeks.length" v-model="week" aria-label="War week" @change="setWeek">
+        <option v-for="w in weeks" :key="w" :value="w">Week of {{ w }}</option>
+      </select>
+    </div>
     <div class="stats-modes" role="group" aria-label="Leaderboard type">
       <button type="button" :aria-pressed="mode === 'players'" :class="{ active: mode === 'players' }" @click="setMode('players')">Players</button>
       <button type="button" :aria-pressed="mode === 'nations'" :class="{ active: mode === 'nations' }" @click="setMode('nations')">Nations</button>
@@ -118,8 +148,8 @@ onUnmounted(() => clearInterval(timer))
         <button v-for="column in tabs" :key="column.key" type="button" role="tab" :aria-selected="tab === column.key" :class="{ active: tab === column.key }" @click="select(column.key)">{{ column.label }}</button>
       </div>
       <div class="stats-board" role="tabpanel">
-        <p v-if="loading && !board.length" role="status">Loading stats…</p>
-        <p v-else-if="!board.length && !error">No stats have been recorded yet.</p>
+        <p v-if="loading && !board.length" role="status">Loading statsâ€¦</p>
+        <p v-else-if="!board.length && !error">{{ scope === 'war' ? 'No war stats have been recorded yet.' : 'No stats have been recorded yet.' }}</p>
         <ol v-else>
           <li v-for="row in board" :key="row.name" :class="{ 'stats-me': me && row.name === me.name }">
             <span class="stats-pos">{{ row.rank }}</span>
@@ -129,7 +159,7 @@ onUnmounted(() => clearInterval(timer))
         </ol>
       </div>
     </div>
-    <p class="stats-note">Top 20 {{ mode }} by {{ columns.find(column => column.key === tab).label.toLowerCase() }}. Refreshes every 30 seconds.</p>
+    <p class="stats-note">Top 20 {{ mode }}{{ scope === 'war' ? ' (war)' : '' }} by {{ columns.find(column => column.key === tab).label.toLowerCase() }}. Refreshes every 30 seconds.{{ scope === 'war' ? ' War stats are recorded Saturdays 1pm-4pm Eastern, one snapshot per week.' : '' }}</p>
   </div>
 </template>
 
@@ -152,7 +182,8 @@ onUnmounted(() => clearInterval(timer))
 .stats-note { font-size: .875rem; line-height: 1.5; color: var(--vp-c-text-2); }
 .stats-message { border-radius: 8px; padding: 1rem; background: var(--vp-c-bg-soft); }
 .stats-error { border: 1px solid var(--vp-c-danger-1); }
-.stats-modes { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.stats-modes { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+.stats select { border: 1px solid var(--vp-c-divider); border-radius: 6px; padding: .5rem .8rem; font: inherit; font-size: .875rem; background: var(--vp-c-bg); }
 .stats .stats-modes button.active { background: var(--vp-c-brand-1); border-color: var(--vp-c-brand-1); color: var(--vp-c-white); }
 .stats-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 1.5rem; align-items: start; }
 .stats-tabs { display: flex; flex-direction: column; gap: .5rem; }

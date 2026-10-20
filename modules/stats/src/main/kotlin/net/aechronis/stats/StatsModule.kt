@@ -79,7 +79,14 @@ class StatsModule : AechronisModule {
                 }
             val (status, body) =
                 try {
-                    200 to cached(query["sort"] ?: "kills", query["player"]?.take(16)?.lowercase(), query["type"] == "nation")
+                    200 to
+                        cached(
+                            query["sort"] ?: "kills",
+                            query["player"]?.take(16)?.lowercase(),
+                            query["type"] == "nation",
+                            query["scope"] == "war",
+                            query["week"]?.also { w -> require(weekFormat.matches(w)) },
+                        )
                 } catch (error: IllegalArgumentException) {
                     400 to "{\"error\":\"bad request\"}"
                 }
@@ -92,17 +99,21 @@ class StatsModule : AechronisModule {
         }
 
     /** Serves identical requests from a 5 second cache so polling viewers never re-sort the whole player list. */
+    private val weekFormat = Regex("""\d{4}-\d{2}-\d{2}""")
+
     private val cache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, String>>()
 
     private fun cached(
         sort: String,
         player: String?,
         nations: Boolean,
+        war: Boolean,
+        week: String?,
     ): String {
-        val key = "$nations|$sort|$player"
+        val key = "$nations|$war|$week|$sort|$player"
         val now = System.currentTimeMillis()
         cache[key]?.let { (at, body) -> if (now - at < 5_000) return body }
-        val body = Stats.query(sort, 20, player, nations)
+        val body = Stats.query(sort, 20, player, nations, war, week)
         if (cache.size > 200) cache.clear() // bounded: player names are user-supplied
         cache[key] = now to body
         return body
