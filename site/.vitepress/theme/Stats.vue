@@ -278,8 +278,8 @@ const series = computed(() => {
 })
 const colorOf = s => s.color ?? (focus.value === s.name ? 'var(--vp-c-text-1)' : 'var(--vp-c-text-3)')
 
-// The war runs 1-4pm ET and the server records one sample per 10 minute slot, so the x axis is
-// laid out in whole slots across the full window; a slot with no sample is left as a gap.
+// The server records one sample per 10 minute slot while a war runs (at least 3 hours drawn), so the x axis is
+// laid out in whole slots from the first sample; a slot with no sample is left as a gap.
 const SLOT = 600
 const WAR_SLOTS = 18
 

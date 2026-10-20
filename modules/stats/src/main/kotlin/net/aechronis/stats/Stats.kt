@@ -7,7 +7,6 @@ import net.minestom.server.entity.Player
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import java.time.DayOfWeek
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.UUID
@@ -84,14 +83,8 @@ private val WAR_NATION_SORT_KEYS = NATION_SORT_KEYS - "playtime"
 /** Rally graph resolution. */
 private const val RALLY_SECONDS = 600L
 
-/** Weekly war stats are recorded only Saturdays from 1pm to 4pm Eastern (daylight saving is handled by the zone). */
+/** War stats are keyed by the Eastern date the war started on. */
 private val WAR_ZONE = ZoneId.of("America/New_York")
-
-/** The date of the war Saturday containing [now], or null outside the 1pm-4pm Eastern window. */
-internal fun warWeekOf(now: ZonedDateTime): String? {
-    val local = now.withZoneSameInstant(WAR_ZONE)
-    return if (local.dayOfWeek == DayOfWeek.SATURDAY && local.hour in 13..15) local.toLocalDate().toString() else null
-}
 
 object Stats {
     private val path = Path.of("stats", "stats.json")
@@ -105,6 +98,21 @@ object Stats {
     var nationOf: (UUID) -> String? = { null }
 
     /** Set by the nodes module: true when two players are in the same town/nation or allied. Such kills don't count. */
+    @Volatile
+    var warActive: () -> Boolean = { false }
+
+    /** Key of the war in progress (its start date), kept so a war running past midnight stays in one bucket. */
+    private var currentWar: String? = null
+
+    private fun warWeek(now: ZonedDateTime): String? {
+        if (!warActive()) return null.also { currentWar = null }
+        return currentWar ?: now
+            .withZoneSameInstant(WAR_ZONE)
+            .toLocalDate()
+            .toString()
+            .also { currentWar = it }
+    }
+
     @Volatile
     var areFriendly: (Player, Player) -> Boolean = { _, _ -> false }
     private var dirty = false
@@ -142,7 +150,7 @@ object Stats {
         change: (PlayerStats) -> Unit,
     ) = synchronized(this) {
         val nation = nationOf(uuid)
-        val week = if (warToo) warWeekOf(ZonedDateTime.now()) else null
+        val week = if (warToo) warWeek(ZonedDateTime.now()) else null
         val buckets = listOfNotNull(main, week?.let { war.getOrPut(it) { Bucket() } })
         buckets.forEach { bucket ->
             val entry = bucket.players.getOrPut(uuid) { PlayerStats() }
@@ -163,16 +171,16 @@ object Stats {
         sampleRally(online)
     }
 
-    /** During the war window, records players online per nation once per 10 minute slot. */
+    /** While a war is running, records players online per nation once per 10 minute slot. */
     private fun sampleRally(online: Collection<Player>) =
         synchronized(this) {
             val now = ZonedDateTime.now()
-            val week = warWeekOf(now) ?: return
+            val week = warWeek(now) ?: return
             val slot = now.toEpochSecond() / RALLY_SECONDS
             val bucket = war.getOrPut(week) { Bucket() }
             if (bucket.rally.lastOrNull()?.let { it.time / RALLY_SECONDS == slot } == true) return
             val counts = online.mapNotNull { nationOf(it.uuid) }.groupingBy { it }.eachCount()
-            // Stamped at the slot start so every sample sits exactly on a 10 minute mark (1:00, 1:10, ... 3:50 PM).
+            // Stamped at the slot start so every sample sits exactly on a 10 minute mark (the first sample lands within 30s of the war starting).
             bucket.rally.add(RallySample(slot * RALLY_SECONDS, counts))
             dirty = true
         }
