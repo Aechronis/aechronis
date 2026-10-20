@@ -23,7 +23,13 @@ const mode = ref('players')
 const scope = ref('all') // 'all' = all-time, 'war' = Saturday 1-4pm ET snapshots
 const week = ref('')
 const weeks = ref([])
-const tabs = computed(() => mode.value === 'nations' ? columns.filter(c => nationKeys.includes(c.key)) : columns)
+// War snapshots track a rally graph instead of playtime.
+const statColumns = computed(() => {
+  const base = mode.value === 'nations' ? columns.filter(c => nationKeys.includes(c.key)) : columns
+  return scope.value === 'war' ? base.filter(c => c.key !== 'playtime') : base
+})
+const tabs = computed(() => scope.value === 'war' ? [...statColumns.value, { key: 'rally', label: 'Rally' }] : statColumns.value)
+const rally = ref([])
 const tab = ref('kills')
 const board = ref([])
 const total = ref(0)
@@ -40,7 +46,7 @@ async function load(player = me.value?.name ?? '') {
   loading.value = true
   error.value = ''
   try {
-    const query = new URLSearchParams({ sort: tab.value })
+    const query = new URLSearchParams({ sort: tab.value === 'rally' ? 'kills' : tab.value })
     if (scope.value === 'war') {
       query.set('scope', 'war')
       if (week.value) query.set('week', week.value)
@@ -55,6 +61,7 @@ async function load(player = me.value?.name ?? '') {
     total.value = data.total
     if (scope.value === 'war') {
       weeks.value = data.weeks
+      rally.value = data.rally ?? []
       week.value = data.week ?? ''
     }
     if (player && mode.value === 'players') {
@@ -76,6 +83,7 @@ function lookup() {
 
 function setScope(next) {
   scope.value = next
+  if (!tabs.value.some(c => c.key === tab.value)) tab.value = 'kills'
   week.value = ''
   board.value = []
   load()
@@ -98,6 +106,33 @@ function select(key) {
   board.value = []
   load()
 }
+
+// Rally graph: players online per nation, sampled every ten minutes during war.
+const palette = ['#e4572e', '#2e86ab', '#76b041', '#f2a900', '#7b2d8e', '#17bebb', '#d1495b', '#8d6a9f']
+const chart = computed(() => {
+  const samples = rally.value
+  if (!samples.length) return null
+  const peaks = {}
+  for (const sample of samples) for (const [nation, count] of Object.entries(sample.nations)) peaks[nation] = Math.max(peaks[nation] ?? 0, count)
+  const names = Object.keys(peaks).sort((a, b) => peaks[b] - peaks[a]).slice(0, palette.length)
+  const max = Math.max(1, ...names.map(name => peaks[name]))
+  const t0 = samples[0].time
+  const span = Math.max(1, samples[samples.length - 1].time - t0)
+  const x = time => 40 + ((time - t0) / span) * 540
+  const y = count => 260 - (count / max) * 240
+  const clock = time => new Date(time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
+  return {
+    max,
+    lines: names.map((name, i) => ({
+      name,
+      color: palette[i],
+      points: samples.map(sample => `${x(sample.time)},${y(sample.nations[name] ?? 0)}`).join(' '),
+      dots: samples.map(sample => ({ cx: x(sample.time), cy: y(sample.nations[name] ?? 0), label: `${name}: ${sample.nations[name] ?? 0} online at ${clock(sample.time)} ET` })),
+    })),
+    ticks: samples.filter((_, i) => i % 3 === 0).map(sample => ({ x: x(sample.time), label: clock(sample.time) })),
+    grid: [0, max / 2, max].map(count => ({ y: y(count), label: Math.round(count) })),
+  }
+})
 
 let timer
 onMounted(() => {
@@ -123,7 +158,7 @@ onUnmounted(() => clearInterval(timer))
     <section v-if="me" class="stats-card" aria-labelledby="stats-me">
       <h2 id="stats-me">{{ me.name }}</h2>
       <dl>
-        <div v-for="column in columns" :key="column.key">
+        <div v-for="column in statColumns" :key="column.key">
           <dt>{{ column.label }}</dt>
           <dd>{{ show(column.key, me[column.key]) }} <span class="stats-rank">#{{ me.ranks[column.key] }}</span></dd>
         </div>
@@ -148,7 +183,26 @@ onUnmounted(() => clearInterval(timer))
         <button v-for="column in tabs" :key="column.key" type="button" role="tab" :aria-selected="tab === column.key" :class="{ active: tab === column.key }" @click="select(column.key)">{{ column.label }}</button>
       </div>
       <div class="stats-board" role="tabpanel">
-        <p v-if="loading && !board.length" role="status">Loading stats…</p>
+        <template v-if="tab === 'rally'">
+          <p v-if="!chart && !loading" role="status">No rally data has been recorded yet.</p>
+          <figure v-else-if="chart" class="stats-chart">
+            <svg viewBox="0 0 600 300" role="img" aria-label="Players online per nation during war, every ten minutes">
+              <g v-for="line in chart.grid" :key="line.y">
+                <line x1="40" x2="580" :y1="line.y" :y2="line.y" class="stats-grid" />
+                <text x="34" :y="line.y + 4" text-anchor="end" class="stats-axis">{{ line.label }}</text>
+              </g>
+              <text v-for="tick in chart.ticks" :key="tick.x" :x="tick.x" y="282" text-anchor="middle" class="stats-axis">{{ tick.label }}</text>
+              <g v-for="line in chart.lines" :key="line.name" :style="{ color: line.color }">
+                <polyline :points="line.points" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                <circle v-for="dot in line.dots" :key="dot.cx" :cx="dot.cx" :cy="dot.cy" r="3" fill="currentColor"><title>{{ dot.label }}</title></circle>
+              </g>
+            </svg>
+            <figcaption class="stats-legend">
+              <span v-for="line in chart.lines" :key="line.name"><i :style="{ background: line.color }"></i>{{ line.name }}</span>
+            </figcaption>
+          </figure>
+        </template>
+        <p v-else-if="loading && !board.length" role="status">Loading stats…</p>
         <p v-else-if="!board.length && !error">{{ scope === 'war' ? 'No war stats have been recorded yet.' : 'No stats have been recorded yet.' }}</p>
         <ol v-else>
           <li v-for="row in board" :key="row.name" :class="{ 'stats-me': me && row.name === me.name }">
@@ -159,7 +213,8 @@ onUnmounted(() => clearInterval(timer))
         </ol>
       </div>
     </div>
-    <p class="stats-note">Top 20 {{ mode }}{{ scope === 'war' ? ' (war)' : '' }} by {{ columns.find(column => column.key === tab).label.toLowerCase() }}. Refreshes every 30 seconds.{{ scope === 'war' ? ' War stats are recorded Saturdays 1pm-4pm Eastern, one snapshot per week.' : '' }}</p>
+    <p v-if="tab === 'rally'" class="stats-note">Players online per nation, sampled every 10 minutes during war (Saturdays 1pm-4pm Eastern).</p>
+    <p v-else class="stats-note">Top 20 {{ mode }}{{ scope === 'war' ? ' (war)' : '' }} by {{ columns.find(column => column.key === tab).label.toLowerCase() }}. Refreshes every 30 seconds.{{ scope === 'war' ? ' War stats are recorded Saturdays 1pm-4pm Eastern, one snapshot per week.' : '' }}</p>
   </div>
 </template>
 
@@ -197,4 +252,10 @@ onUnmounted(() => clearInterval(timer))
 .stats-value { font-weight: 600; }
 .stats .stats-me { background: var(--vp-c-brand-soft); }
 @media (max-width: 640px) { .stats-layout { grid-template-columns: 1fr; } .stats-tabs { flex-direction: row; flex-wrap: wrap; } }
+.stats-chart { margin: 0; }
+.stats-chart svg { width: 100%; height: auto; }
+.stats-grid { stroke: var(--vp-c-divider); stroke-width: 1; }
+.stats-axis { fill: var(--vp-c-text-2); font-size: 11px; }
+.stats-legend { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin-top: .75rem; font-size: .875rem; }
+.stats-legend i { display: inline-block; width: .75rem; height: .75rem; border-radius: 2px; margin-right: .35rem; }
 </style>

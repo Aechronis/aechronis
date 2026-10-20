@@ -44,10 +44,18 @@ data class PlayerStats(
         }
 }
 
+/** Players online per nation at one moment, [time] in epoch seconds. */
+@Serializable
+data class RallySample(
+    val time: Long,
+    val nations: Map<String, Int>,
+)
+
 @Serializable
 private data class SavedBucket(
     val players: Map<String, PlayerStats> = emptyMap(),
     val nations: Map<String, PlayerStats> = emptyMap(),
+    val rally: List<RallySample> = emptyList(),
 )
 
 @Serializable
@@ -64,7 +72,15 @@ val NATION_SORT_KEYS = listOf("kills", "deaths", "kd", "playtime")
 private class Bucket {
     val players = HashMap<UUID, PlayerStats>()
     val nations = HashMap<String, PlayerStats>()
+    val rally = ArrayList<RallySample>()
 }
+
+/** War snapshots leave out playtime; they track the rally graph instead. */
+private val WAR_SORT_KEYS = SORT_KEYS - "playtime"
+private val WAR_NATION_SORT_KEYS = NATION_SORT_KEYS - "playtime"
+
+/** Rally graph resolution. */
+private const val RALLY_SECONDS = 600L
 
 /** Weekly war stats are recorded only Saturdays from 1pm to 4pm Eastern (daylight saving is handled by the zone). */
 private val WAR_ZONE = ZoneId.of("America/New_York")
@@ -120,10 +136,12 @@ object Stats {
     private fun credit(
         uuid: UUID,
         name: String?,
+        warToo: Boolean = true,
         change: (PlayerStats) -> Unit,
     ) = synchronized(this) {
         val nation = nationOf(uuid)
-        val buckets = listOfNotNull(main, warWeekOf(ZonedDateTime.now())?.let { war.getOrPut(it) { Bucket() } })
+        val week = if (warToo) warWeekOf(ZonedDateTime.now()) else null
+        val buckets = listOfNotNull(main, week?.let { war.getOrPut(it) { Bucket() } })
         buckets.forEach { bucket ->
             val entry = bucket.players.getOrPut(uuid) { PlayerStats() }
             if (name != null) entry.name = name
@@ -137,7 +155,23 @@ object Stats {
     internal fun addPlaytime(
         online: Collection<Player>,
         seconds: Long,
-    ) = online.forEach { player -> credit(player.uuid, player.username) { it.playtime += seconds } }
+    ) {
+        online.forEach { player -> credit(player.uuid, player.username, warToo = false) { it.playtime += seconds } }
+        sampleRally(online)
+    }
+
+    /** During the war window, records players online per nation once per 10 minute slot. */
+    private fun sampleRally(online: Collection<Player>) =
+        synchronized(this) {
+            val now = ZonedDateTime.now()
+            val week = warWeekOf(now) ?: return
+            val slot = now.toEpochSecond() / RALLY_SECONDS
+            val bucket = war.getOrPut(week) { Bucket() }
+            if (bucket.rally.lastOrNull()?.let { it.time / RALLY_SECONDS == slot } == true) return
+            val counts = online.mapNotNull { nationOf(it.uuid) }.groupingBy { it }.eachCount()
+            bucket.rally.add(RallySample(now.toEpochSecond(), counts))
+            dirty = true
+        }
 
     internal fun load() =
         synchronized(this) {
@@ -152,6 +186,7 @@ object Stats {
                     val bucket = war.getOrPut(week) { Bucket() }
                     saved.players.forEach { (id, stats) -> bucket.players[UUID.fromString(id)] = stats }
                     bucket.nations.putAll(saved.nations)
+                    bucket.rally.addAll(saved.rally)
                 }
             }
             dirty = false
@@ -166,7 +201,7 @@ object Stats {
                     SavedStats(
                         main.players.mapKeys { it.key.toString() },
                         main.nations,
-                        war.mapValues { (_, b) -> SavedBucket(b.players.mapKeys { it.key.toString() }, b.nations) },
+                        war.mapValues { (_, b) -> SavedBucket(b.players.mapKeys { it.key.toString() }, b.nations, b.rally) },
                     ),
                 )
             }
@@ -193,17 +228,24 @@ object Stats {
         warBoard: Boolean = false,
         week: String? = null,
     ): String {
-        val keys = if (nationBoard) NATION_SORT_KEYS else SORT_KEYS
+        val keys =
+            when {
+                warBoard && nationBoard -> WAR_NATION_SORT_KEYS
+                warBoard -> WAR_SORT_KEYS
+                nationBoard -> NATION_SORT_KEYS
+                else -> SORT_KEYS
+            }
         require(sort in keys) { "Unknown sort '$sort'" }
         var weeks = emptyList<String>()
         var chosenWeek: String? = null
+        var rally = emptyList<RallySample>()
         val snapshot =
             synchronized(this) {
                 val bucket =
                     if (warBoard) {
                         weeks = war.keys.reversed()
                         chosenWeek = week ?: weeks.firstOrNull()
-                        chosenWeek?.let { war[it] }
+                        chosenWeek?.let { war[it] }?.also { rally = it.rally.toList() }
                     } else {
                         main
                     }
@@ -245,7 +287,8 @@ object Stats {
             }
         val warJson =
             if (warBoard) {
-                ",\"week\":${chosenWeek?.let { "\"$it\"" } ?: "null"},\"weeks\":[${weeks.joinToString(",") { "\"$it\"" }}]"
+                ",\"week\":${chosenWeek?.let { "\"$it\"" } ?: "null"},\"weeks\":[${weeks.joinToString(",") { "\"$it\"" }}]," +
+                    "\"rally\":${Json.encodeToString(rally)}"
             } else {
                 ""
             }
