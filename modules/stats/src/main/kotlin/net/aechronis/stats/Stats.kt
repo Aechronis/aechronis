@@ -91,14 +91,14 @@ object Stats {
     private val path = Path.of("stats", "stats.json")
     private val main = Bucket()
 
-    /** One bucket per war Saturday, keyed by its date (yyyy-MM-dd). */
+    /** One bucket per war, keyed by its start date (yyyy-MM-dd, with "~2", "~3" for later wars that day). */
     private val war = java.util.TreeMap<String, Bucket>()
 
     /** Set by the nodes module: a player's current nation name, or null. Kills, deaths and playtime count for it. */
     @Volatile
     var nationOf: (UUID) -> String? = { null }
 
-    /** Set by the nodes module: true when two players are in the same town/nation or allied. Such kills don't count. */
+    /** Set by the nodes module: true while a nodes war is running; war stats and the rally graph are recorded only then. */
     @Volatile
     var warActive: () -> Boolean = { false }
 
@@ -120,6 +120,7 @@ object Stats {
         return key.also { currentWar = it }
     }
 
+    /** Set by the nodes module: true when two players are in the same town/nation or allied. Such kills don't count. */
     @Volatile
     var areFriendly: (Player, Player) -> Boolean = { _, _ -> false }
     private var dirty = false
@@ -149,7 +150,7 @@ object Stats {
         }
     }
 
-    /** Applies [change] to the player and their nation in the all-time stats and, during the war window, this week's war stats. */
+    /** Applies [change] to the player and their nation in the all-time stats and, during the war window, the current war's stats. */
     private fun credit(
         uuid: UUID,
         name: String?,
