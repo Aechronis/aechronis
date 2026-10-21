@@ -698,6 +698,8 @@ object Blocks {
                 "resin_brick_slab",
                 "resin_brick_wall",
             ),
+            // crafting_table and barrel are deliberately absent: they craft from planks, and a log makes 8 planks,
+            // so converting them back into logs through the master chain would be an infinite wood loop.
             cycle(
                 "lantern",
                 "soul_lantern",
@@ -719,11 +721,9 @@ object Blocks {
                 "bee_nest",
                 "sponge",
                 "wet_sponge",
-                "crafting_table",
                 "furnace",
                 "blast_furnace",
                 "smoker",
-                "barrel",
                 "chest",
                 "trapped_chest",
                 "ender_chest",
