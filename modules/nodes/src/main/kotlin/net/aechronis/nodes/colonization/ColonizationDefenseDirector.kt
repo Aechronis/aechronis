@@ -259,8 +259,8 @@ internal class ColonizationDefenseDirector(
         attackingTowns: Set<Town>,
         instance: Instance,
     ): Boolean = player.instance === instance &&
-        isAttackingParticipant(player, attackingTowns) &&
         player.gameMode != GameMode.SPECTATOR &&
         !player.isDead &&
-        !player.isRemoved
+        !player.isRemoved &&
+        isAttackingParticipant(player, attackingTowns) // the costly diplomacy lookup runs last
 }

@@ -86,24 +86,31 @@ object WarDeserializer {
         val jsonOccupiedChunks = jsonObj.get("occupied")?.jsonObject
         if (jsonOccupiedChunks !== null) {
             for ((townIdText, chunksJson) in jsonOccupiedChunks) {
-                val townId = UUID.fromString(townIdText)
-                val chunkList = chunksJson.jsonArray
-                for (i in 0 until chunkList.size step 2) {
-                    val cx = chunkList[i].jsonPrimitive.int
-                    val cz = chunkList[i + 1].jsonPrimitive.int
-                    val coord = Coord(cx, cz)
-
-                    FlagWar.loadOccupiedChunk(townId, coord)
+                runCatching {
+                    val townId = UUID.fromString(townIdText)
+                    val chunkList = chunksJson.jsonArray
+                    require(chunkList.size % 2 == 0) { "chunk coordinates must be x/z pairs" }
+                    for (i in 0 until chunkList.size step 2) {
+                        val cx = chunkList[i].jsonPrimitive.int
+                        val cz = chunkList[i + 1].jsonPrimitive.int
+                        FlagWar.loadOccupiedChunk(townId, Coord(cx, cz))
+                    }
+                }.onFailure { error ->
+                    System.err.println("[Nodes] Ignoring invalid occupied chunks for $townIdText: ${error.message}")
                 }
             }
         }
 
         val jsonColonizedChunks = jsonObj.get("colonized")?.jsonArray
         if (jsonColonizedChunks !== null) {
-            require(jsonColonizedChunks.size % 2 == 0) { "Colonized chunk coordinates must be x/z pairs" }
-            for (i in 0 until jsonColonizedChunks.size step 2) {
-                val coord = Coord(jsonColonizedChunks[i].jsonPrimitive.int, jsonColonizedChunks[i + 1].jsonPrimitive.int)
-                FlagWar.loadColonizedChunk(coord)
+            runCatching {
+                require(jsonColonizedChunks.size % 2 == 0) { "Colonized chunk coordinates must be x/z pairs" }
+                for (i in 0 until jsonColonizedChunks.size step 2) {
+                    val coord = Coord(jsonColonizedChunks[i].jsonPrimitive.int, jsonColonizedChunks[i + 1].jsonPrimitive.int)
+                    FlagWar.loadColonizedChunk(coord)
+                }
+            }.onFailure { error ->
+                System.err.println("[Nodes] Ignoring invalid colonized chunks: ${error.message}")
             }
         }
 
