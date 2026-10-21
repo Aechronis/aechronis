@@ -8,6 +8,8 @@
 
 package net.aechronis.nodes.listeners
 
+import net.aechronis.combat.events.ExplosionBlockChangeType
+import net.aechronis.combat.events.ExplosionBlockDamageEvent
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.colonization.Colonization
@@ -29,6 +31,7 @@ import net.aechronis.nodes.constants.ErrorTooManyAttacks
 import net.aechronis.nodes.constants.ErrorTownBlacklisted
 import net.aechronis.nodes.constants.ErrorTownNotWhitelisted
 import net.aechronis.nodes.constants.PROTECTED_BLOCKS
+import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
@@ -43,6 +46,7 @@ import net.aechronis.nodes.war.Attack
 import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
+import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.OreSounds
 import net.aechronis.vanilla.managers.StorageAccess
 import net.minestom.server.MinecraftServer
@@ -348,12 +352,41 @@ object NodesWorldListener {
         return LandAccess.check(player, blockPosition, action) == LandAccessDecision.ALLOW
     }
 
+    // A blast that destroys a flag ends its attack, as breaking the flag by hand does.
+    private fun onExplosion(event: ExplosionBlockDamageEvent) {
+        if (event.isCancelled || FlagWar.chunkToAttacker.isEmpty()) return
+
+        val destroyed = linkedSetOf<Attack>()
+        for (change in event.changes) {
+            if (change.type != ExplosionBlockChangeType.DAMAGE) continue
+            val position = change.position
+            val attack = FlagWar.chunkToAttacker[Coord(position.blockX shr 4, position.blockZ shr 4)] ?: continue
+            if (position == attack.flagBase || position == attack.flagBlock || position == attack.flagTorch) {
+                destroyed.add(attack)
+            }
+        }
+        if (destroyed.isEmpty()) return
+
+        // Wait a tick so a later listener cancelling the explosion leaves the flags standing.
+        ModuleScheduler.scheduleNextTick {
+            if (event.isCancelled) return@scheduleNextTick
+            val by = event.sourceName ?: "an explosion"
+            for (attack in destroyed) {
+                if (FlagWar.chunkToAttacker[attack.coord] !== attack) continue
+                val context = if (attack.mode == AttackMode.COLONIZATION) "[Colonization]" else "[War]"
+                attack.cancel()
+                Message.broadcast("${ChatColor.GOLD}$context Attack at (${attack.flagBlock.blockX}, ${attack.flagBlock.blockY}, ${attack.flagBlock.blockZ}) defeated by $by")
+            }
+        }
+    }
+
     fun init() {
         Nodes.highPriorityEventNode.addListener(PlayerBlockBreakEvent::class.java, this::onBlockBreak)
         Nodes.lowPriorityEventNode.addListener(PlayerBlockBreakEvent::class.java, this::onBlockBreakSuccess)
         Nodes.highPriorityEventNode.addListener(PlayerBlockPlaceEvent::class.java, this::onBlockPlace)
         Nodes.lowPriorityEventNode.addListener(PlayerBlockPlaceEvent::class.java, this::onBlockPlaceSuccess)
         Nodes.highPriorityEventNode.addListener(PlayerBlockInteractEvent::class.java, this::onBlockInteract)
+        Nodes.lowPriorityEventNode.addListener(ExplosionBlockDamageEvent::class.java, this::onExplosion)
     }
 }
 
