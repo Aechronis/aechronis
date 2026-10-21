@@ -6,6 +6,8 @@ import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.VehicleSeat
 import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.server.objects.Airship
+import net.kyori.adventure.key.Key
+import net.kyori.adventure.sound.Sound
 import net.minestom.server.coordinate.Vec
 
 /**
@@ -25,8 +27,16 @@ object Airships {
             collisionHitbox = ShulkerHitbox(Zeppelin.platforms + Zeppelin.rails),
             seats = Zeppelin.seats,
             gun = FieldPieces.maximGunWeapon,
-            horizontalSpeed = 0.2,
+            // 20 blocks/s, reached after 20 s; turns stay wide because the hull only turns as fast as it is moving
+            horizontalSpeed = 1.0,
+            acceleration = 1.0 / (20 * 20),
             groundClearance = Zeppelin.GROUND_CLEARANCE,
+            turnSpeed = 0.5f,
+            minTurnFraction = 0.2,
+            turnSlowdown = 0.5,
+            engineSound = Sound.sound(Key.key("aechronis:zeppelin.engine"), Sound.Source.NEUTRAL, 6f, 1f),
+            // length of zeppelin-engine.ogg
+            engineSoundTicks = 229,
         )
 
     val airship =

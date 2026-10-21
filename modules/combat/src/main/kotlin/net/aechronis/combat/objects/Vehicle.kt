@@ -71,6 +71,9 @@ open class Vehicle(
         ) { "Vehicle model scale must be positive and finite on every axis" }
     }
 
+    /** Client ticks the hull, its parts and seats glide between position updates; fewer keeps fast movers tight to carried riders. */
+    open val interpolationTicks: Int = 3
+
     /** Whether live instances of this vehicle are included in vehicle saves. */
     open val persistent: Boolean = true
 
@@ -243,7 +246,7 @@ open class Vehicle(
 
         val meta = entity.entityMeta as ItemDisplayMeta
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(model)
-        meta.posRotInterpolationDuration = 3
+        meta.posRotInterpolationDuration = interpolationTicks
         meta.scale = modelScale
         // huge models would otherwise be culled once the viewer is more than 64 blocks from the model centre
         meta.viewRange = 10f

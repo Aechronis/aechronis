@@ -132,7 +132,7 @@ internal class VehicleCollisionHitbox(
                     carrier.setNoGravity(true)
                     carrier.setHasPhysics(false)
                     carrier.entityMeta.isInvisible = true
-                    (carrier.entityMeta as ItemDisplayMeta).posRotInterpolationDuration = 3
+                    (carrier.entityMeta as ItemDisplayMeta).posRotInterpolationDuration = owner.vehicle.interpolationTicks
                     // Passenger positioning bypasses the client's shulker block-grid snapping.
                     part.spawn(targetInstance, box.bottomCenter)
                 }

@@ -9,6 +9,7 @@ import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.HitboxPart
 import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.VehicleSeat
+import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -35,6 +36,11 @@ class Airship(
     /** How far the model hangs below the hitbox, so the hull does not spawn partly in the ground. */
     private val groundClearance: Double = 0.0,
     turnSpeed: Float = 1f,
+    acceleration: Double = 0.004,
+    minTurnFraction: Double = 1.0,
+    turnSlowdown: Double = 0.0,
+    engineSound: Sound? = null,
+    engineSoundTicks: Int = 0,
 ) : Balloon(
         name = name,
         itemName = itemName,
@@ -45,6 +51,11 @@ class Airship(
         health = health,
         horizontalSpeed = horizontalSpeed,
         turnSpeed = turnSpeed,
+        acceleration = acceleration,
+        minTurnFraction = minTurnFraction,
+        turnSlowdown = turnSlowdown,
+        engineSound = engineSound,
+        engineSoundTicks = engineSoundTicks,
         seats = seats,
         // the crew stays visible and shootable, the deck is a place to fight from
         invisibleWhileRiding = false,
