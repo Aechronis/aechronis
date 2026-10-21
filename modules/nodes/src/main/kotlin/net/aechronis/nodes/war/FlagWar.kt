@@ -250,8 +250,10 @@ object FlagWar {
         destructionEnabled: Boolean,
         deathWar: Boolean = false,
     ) {
-        skirmishTargetsByNation.clear()
-        townsDefeatedThisWar.clear()
+        // Changing the mode of a running war must not re-arm defeats or reset a skirmish's selected targets.
+        val alreadyEnabled = enabled
+        if (!alreadyEnabled) townsDefeatedThisWar.clear()
+        if (!alreadyEnabled || FlagWar.canOnlyAttackBorders != canOnlyAttackBorders) skirmishTargetsByNation.clear()
         enabled = true
         FlagWar.deathWar = deathWar
         FlagWar.canAnnexTerritories = canAnnexTerritories
@@ -286,6 +288,8 @@ object FlagWar {
         for (coord in occupiedChunks.toList()) {
             if (coord in colonizedChunks) continue
             val chunk = TerritoryChunk.fromCoord(coord)
+            // Warzone captures belong to the zone's own scoring, not to the global war.
+            if (chunk !== null && Warzone.isRegistered(chunk.territory)) continue
             if (chunk !== null) {
                 chunk.attacker = null
                 chunk.occupier = null

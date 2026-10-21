@@ -11,7 +11,6 @@ import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.objects.TownMembershipRequests
 import net.aechronis.nodes.utils.ChatColor
 import net.aechronis.nodes.war.FlagWar
-import net.aechronis.nodes.war.Warzone
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
@@ -335,8 +334,8 @@ class TownLeaveCommand : NodesCommand("leave") {
                 Message.error(player, "You must transfer leadership before leaving the town")
                 return false
             }
-            // Warzones are independent weekday activities, so they must not apply the global-war membership lock.
-            if (!Nodes.config.canLeaveTownDuringWar && FlagWar.enabled && !Warzone.hasActiveZones()) {
+            // Only global war locks membership; a running warzone does not set FlagWar.enabled and never lifts the lock.
+            if (!Nodes.config.canLeaveTownDuringWar && FlagWar.enabled) {
                 Message.error(player, "Cannot leave your town during war")
                 return false
             }
