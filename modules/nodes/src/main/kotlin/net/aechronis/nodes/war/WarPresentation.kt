@@ -18,6 +18,11 @@ import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.timer.Task
+import net.minestom.server.timer.TaskSchedule
+
+// Minimap renders are expensive per player, so bursts of attack changes share one refresh.
+private const val MINIMAP_REFRESH_DELAY_TICKS = 5
 
 private val SKY_BEACON_FRAME_BLOCK = Block.SEA_LANTERN
 private val SKY_BEACON_BLOCK = Block.BLACK_WOOL
@@ -31,6 +36,7 @@ internal class WarPresentation(private val state: FlagWarState) {
     // Core captures can cancel many flags; refresh all minimaps once afterward.
     private var minimapRefreshDeferrals: Int = 0
     private var minimapRefreshPending: Boolean = false
+    private var minimapRefreshTask: Task? = null
 
     fun printInfo(sender: CommandSender, detailed: Boolean = false) {
         val status = if (state.enabled) "enabled" else "${ChatColor.GRAY}disabled"
@@ -188,7 +194,7 @@ internal class WarPresentation(private val state: FlagWarState) {
         if (minimapRefreshDeferrals > 0) {
             minimapRefreshPending = true
         } else {
-            Resident.renderMinimaps()
+            scheduleMinimapRefresh()
         }
     }
 
@@ -200,9 +206,19 @@ internal class WarPresentation(private val state: FlagWarState) {
             minimapRefreshDeferrals--
             if (minimapRefreshDeferrals == 0 && minimapRefreshPending) {
                 minimapRefreshPending = false
-                Resident.renderMinimaps()
+                scheduleMinimapRefresh()
             }
         }
+    }
+
+    private fun scheduleMinimapRefresh() {
+        if (minimapRefreshTask != null) return
+        minimapRefreshTask = ModuleScheduler
+            .buildTask {
+                minimapRefreshTask = null
+                Resident.renderMinimaps()
+            }.delay(TaskSchedule.tick(MINIMAP_REFRESH_DELAY_TICKS))
+            .schedule()
     }
 
     // Intended to run on PlayerJoin to restore a player's active progress bars.
