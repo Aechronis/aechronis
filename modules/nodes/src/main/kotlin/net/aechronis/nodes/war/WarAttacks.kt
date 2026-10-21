@@ -262,7 +262,8 @@ internal class WarAttacks(
         // map flag block to attack (for breaking)
         state.blockToAttacker.put(flagBlock, attack)
 
-        if (mode == AttackMode.COLONIZATION) occupations.startSaveTask()
+        // Every mode is journaled so a crash can find the flag it left behind.
+        occupations.startSaveTask()
         notifyColonizationAttackStarted(attack)
 
         return attack

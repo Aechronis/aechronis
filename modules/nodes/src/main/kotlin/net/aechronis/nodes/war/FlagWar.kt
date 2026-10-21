@@ -438,6 +438,8 @@ object FlagWar {
         flagBaseY: Int,
     ) = presentation.createAttackBeacon(skyBeaconColorBlocks, skyBeaconWireframeBlocks, coord, flagBaseY)
 
+    internal fun sweepOrphanedAttack(coord: Coord, flagBase: BlockVec) = presentation.sweepOrphanedAttack(coord, flagBase)
+
     internal fun requestMinimapRefresh() = presentation.requestMinimapRefresh()
 
     internal fun deferMinimapRefresh(block: () -> Unit) = presentation.deferMinimapRefresh(block)

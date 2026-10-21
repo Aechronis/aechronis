@@ -18,6 +18,7 @@ import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.war.FlagWar
+import net.minestom.server.coordinate.BlockVec
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
@@ -103,6 +104,21 @@ object WarDeserializer {
             for (i in 0 until jsonColonizedChunks.size step 2) {
                 val coord = Coord(jsonColonizedChunks[i].jsonPrimitive.int, jsonColonizedChunks[i + 1].jsonPrimitive.int)
                 FlagWar.loadColonizedChunk(coord)
+            }
+        }
+
+        // Attacks are not resumed. Any flag blocks they left in the world after an unclean stop are removed.
+        jsonObj.get("attacks")?.jsonArray?.forEach { attackJson ->
+            runCatching {
+                val attack = attackJson.jsonObject
+                val chunk = attack.getValue("c").jsonArray
+                val base = attack.getValue("b").jsonArray
+                FlagWar.sweepOrphanedAttack(
+                    Coord(chunk[0].jsonPrimitive.int, chunk[1].jsonPrimitive.int),
+                    BlockVec(base[0].jsonPrimitive.int, base[1].jsonPrimitive.int, base[2].jsonPrimitive.int),
+                )
+            }.onFailure { error ->
+                System.err.println("[Nodes] Ignoring invalid saved attack $attackJson: ${error.message}")
             }
         }
 
