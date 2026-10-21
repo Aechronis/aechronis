@@ -71,7 +71,7 @@ object NodesWorldListener {
         val territoryChunk = TerritoryChunk.fromBlock(blockPos.blockX, blockPos.blockZ)
 
         // If a war or colonization flag is active, protect its immediate area.
-        val attack = territoryChunk?.takeIf { it.attacker !== null }?.let { FlagWar.chunkToAttacker.get(it.coord) }
+        val attack = flagProtectingBlock(blockPos)
         if (attack != null) {
             val context = if (attack.mode == AttackMode.COLONIZATION) "[Colonization]" else "[War]"
 
@@ -143,6 +143,17 @@ object NodesWorldListener {
         val blockPos = event.blockPosition
         val player: Player = event.player
 
+        // Block placement is disabled inside a flag's no-build region, even across a chunk edge.
+        flagProtectingBlock(blockPos)?.let { attack ->
+            val context = if (attack.mode == AttackMode.COLONIZATION) "[Colonization]" else "[War]"
+            event.isCancelled = true
+            Message.error(
+                player,
+                "$context Cannot build within ${Nodes.config.flagNoBuildDistance} blocks of flags",
+            )
+            return
+        }
+
         // War flags are globally available during war. Outside war, /colonize
         // enables them only inside the specifically selected AI town.
         val selectedColonizationTown = Colonization.selectedTown(player)
@@ -150,23 +161,8 @@ object NodesWorldListener {
         val isWarzone = flagTerritoryChunk?.territory?.let(Warzone::isActive) == true
         if (FlagWar.enabled || selectedColonizationTown != null || isWarzone || flagTerritoryChunk?.attacker !== null) {
             if (flagTerritoryChunk !== null) {
-                // disable block placement in flag no build distance
-                if (flagTerritoryChunk.attacker !== null) {
-                    val attack = FlagWar.chunkToAttacker.get(flagTerritoryChunk.coord)
-                    if (attack !== null) {
-                        if (blockInWarFlagNoBuildRegion(blockPos, attack)) {
-                            val context = if (attack.mode == AttackMode.COLONIZATION) "[Colonization]" else "[War]"
-                            event.isCancelled = true
-                            Message.error(
-                                player,
-                                "$context Cannot build within ${Nodes.config.flagNoBuildDistance} blocks of flags",
-                            )
-                            return
-                        }
-                    }
-                }
-                // check if this is flag placement
-                else if (FlagWar.flagBlocks.contains(block)) {
+                // check if this is flag placement; a chunk already under attack takes no second flag
+                if (flagTerritoryChunk.attacker === null && FlagWar.flagBlocks.contains(block)) {
                     // get player and town
                     val resident = Resident.fromPlayer(player)
                     if (resident !== null) {
@@ -451,6 +447,22 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
 /**
  * Return if a block is within a war attack flag's no build region
  */
+/** The attack whose flag protects [block], looking into neighbouring chunks; a flag block itself wins. */
+private fun flagProtectingBlock(block: BlockVec): Attack? {
+    if (FlagWar.chunkToAttacker.isEmpty()) return null
+    val reach = Nodes.config.flagNoBuildDistance
+    var protecting: Attack? = null
+    for (chunkX in ((block.blockX - reach) shr 4)..((block.blockX + reach) shr 4)) {
+        for (chunkZ in ((block.blockZ - reach) shr 4)..((block.blockZ + reach) shr 4)) {
+            val attack = FlagWar.chunkToAttacker[Coord(chunkX, chunkZ)] ?: continue
+            if (!blockInWarFlagNoBuildRegion(block, attack)) continue
+            if (attack.flagBlock == block) return attack
+            if (protecting == null) protecting = attack
+        }
+    }
+    return protecting
+}
+
 private fun blockInWarFlagNoBuildRegion(block: BlockVec, attack: Attack): Boolean {
     val x = block.blockX
     val y = block.blockY
