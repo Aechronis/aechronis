@@ -25,6 +25,7 @@ import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.TaskSchedule
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** Owns active attack creation, registration, ticking, and once-only cleanup. */
 internal class WarAttacks(
@@ -137,12 +138,9 @@ internal class WarAttacks(
                 }
             }
 
-            // attacker's current attacks (if any exist)
-            var currentAttacks = state.attackers.get(attacker)
-            if (currentAttacks == null) {
-                currentAttacks = ArrayList(Nodes.config.maxPlayerChunkAttacks) // set initial capacity = max attacks
-                state.attackers.put(attacker, currentAttacks)
-            } else if (currentAttacks.size >= Nodes.config.maxPlayerChunkAttacks) {
+            // attacker's current attacks (if any exist); createAttack registers the first one
+            val currentAttacks = state.attackers[attacker]
+            if (currentAttacks != null && currentAttacks.size >= Nodes.config.maxPlayerChunkAttacks) {
                 return Result.failure(ErrorTooManyAttacks)
             }
 
@@ -249,7 +247,7 @@ internal class WarAttacks(
         // add attack to list of attacks by attacker
         var currentAttacks = state.attackers.get(attacker)
         if (currentAttacks == null) {
-            currentAttacks = ArrayList(Nodes.config.maxPlayerChunkAttacks) // set initial capacity = max attacks
+            currentAttacks = CopyOnWriteArrayList()
             state.attackers.put(attacker, currentAttacks)
         }
         currentAttacks.add(attack)

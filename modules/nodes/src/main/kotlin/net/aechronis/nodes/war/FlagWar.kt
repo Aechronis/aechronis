@@ -19,6 +19,7 @@ import net.minestom.server.timer.Task
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Flag-based chunk conquest, conceptually based on
@@ -83,11 +84,11 @@ object FlagWar {
             state.skyBeaconSize = value
         }
 
-    internal val attackers: HashMap<UUID, ArrayList<Attack>> get() = state.attackers
+    internal val attackers: ConcurrentHashMap<UUID, CopyOnWriteArrayList<Attack>> get() = state.attackers
 
     internal val chunkToAttacker: ConcurrentHashMap<Coord, Attack> get() = state.chunkToAttacker
 
-    internal val blockToAttacker: HashMap<BlockVec, Attack> get() = state.blockToAttacker
+    internal val blockToAttacker: ConcurrentHashMap<BlockVec, Attack> get() = state.blockToAttacker
 
     internal val occupiedChunks: MutableSet<Coord> get() = state.occupiedChunks
 
