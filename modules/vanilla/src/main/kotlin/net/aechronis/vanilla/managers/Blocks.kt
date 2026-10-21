@@ -22,6 +22,11 @@ object Blocks {
     internal const val NEXT_PAGE_SLOT = 53
     private const val OUTPUTS_PER_PAGE = OUTPUT_END_SLOT - OUTPUT_START_SLOT + 1
 
+    // The home page fills three rows with chains and keeps the bottom row for the master chain,
+    // centred directly above the how-to book.
+    private const val HOME_CHAINS_PER_PAGE = 27
+    private const val MASTER_SLOT = 40
+
     val stonecutters: MutableSet<Inventory> = mutableSetOf()
     val outputsByInput: MutableMap<Material, MutableList<Material>> = mutableMapOf()
     private val cycleByMaterial: MutableMap<Material, Set<Material>> = mutableMapOf()
@@ -101,14 +106,18 @@ object Blocks {
         // Empty input row: show a browse listing (home chains, search results or one chain's members).
         val browsing = inputStacks(inv).isEmpty()
         if (!browsing) browseListings.remove(inv)
+        val home = browsing && inv !in browseListings
         val entries = if (browsing) browseListings[inv] ?: ConverterBrowse.chains() else converterOptions(inv).map(ItemStack::of)
-        val pageCount = maxOf(1, (entries.size + OUTPUTS_PER_PAGE - 1) / OUTPUTS_PER_PAGE)
+        val perPage = if (home) HOME_CHAINS_PER_PAGE else OUTPUTS_PER_PAGE
+        val pageCount = maxOf(1, (entries.size + perPage - 1) / perPage)
         val page = (converterPages[inv] ?: 0).coerceIn(0, pageCount - 1)
         converterPages[inv] = page
 
         for (slot in OUTPUT_START_SLOT..OUTPUT_END_SLOT) {
-            inv.setItemStack(slot, entries.getOrNull(page * OUTPUTS_PER_PAGE + slot - OUTPUT_START_SLOT) ?: ItemStack.AIR)
+            val offset = slot - OUTPUT_START_SLOT
+            inv.setItemStack(slot, if (offset < perPage) entries.getOrNull(page * perPage + offset) ?: ItemStack.AIR else ItemStack.AIR)
         }
+        if (home) inv.setItemStack(MASTER_SLOT, ConverterBrowse.masterEntry())
         inv.setItemStack(HELP_SLOT, ConverterBrowse.helpItem)
         inv.setItemStack(SEARCH_SLOT, if (browsing) ConverterBrowse.searchItem else ItemStack.AIR)
         inv.setItemStack(BACK_SLOT, if (browsing && inv in browseListings) ConverterBrowse.backItem else ItemStack.AIR)

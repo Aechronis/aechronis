@@ -31,6 +31,22 @@ object BlocksListener {
         val open = event.player.openInventory as? Inventory ?: return
         if (open !in Blocks.stonecutters) return
 
+        // Double-click gathers matching items from every open inventory, which would pull the
+        // display-only outputs and chain icons out of the converter.
+        if (event.click is Click.Double) {
+            event.isCancelled = true
+            return
+        }
+        // A drag can spread the cursor over the output grid or past the chain check on the input row.
+        val drag = event.click as? Click.Drag
+        if (drag != null) {
+            val cursor = event.player.inventory.cursorItem
+            val outsideInput = drag.slots().any { it in 0 until open.size && it !in Blocks.INPUT_START_SLOT..Blocks.INPUT_END_SLOT }
+            val touchesInput = drag.slots().any { it in Blocks.INPUT_START_SLOT..Blocks.INPUT_END_SLOT }
+            if (outsideInput || (touchesInput && !cursor.isAir && !Blocks.canDeposit(open, cursor.material()))) event.isCancelled = true
+            return
+        }
+
         // Route player-inventory shift-clicks into the converter inputs instead of letting
         // Minestom place them in an arbitrary slot in this chest.
         if (event.inventory !== open) {

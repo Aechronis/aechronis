@@ -29,6 +29,12 @@ object ConverterBrowse {
 
     private val masterIcon = Material.NETHER_STAR
 
+    /**
+     * Icons kept out of the master chain. A log crafts into 8 planks, so letting planks convert back into
+     * any log would be an infinite wood loop. Logs stay reachable through their own chain.
+     */
+    private val masterExcluded = setOf(Material.OAK_LOG)
+
     /** Icons preferred over a chain's first block, e.g. cobblestone (what players actually hold) over stone. */
     private val preferredIcons = listOf(Material.COBBLESTONE)
 
@@ -44,7 +50,7 @@ object ConverterBrowse {
     /** One representative block per chain; any of them converts into any other. */
     internal fun masterChain(configured: List<List<Material>>): List<Material> {
         val all = configured.map { it.distinct() }.filter { it.size > 1 }
-        return all.map { iconOf(it, all) }.distinct()
+        return all.map { iconOf(it, all) }.filterNot { it in masterExcluded }.distinct()
     }
 
     private fun master(): List<Material> = masterChain(Vanilla.config.blocksConfig.converterCycles)
@@ -128,26 +134,26 @@ object ConverterBrowse {
         return shown + if (more > 0) listOf(text("  +$more more", NamedTextColor.DARK_GRAY)) else emptyList()
     }
 
-    /** Home page: the master chain first, then one icon per chain. */
+    /** The master chain icon, pinned above the how-to book on the home page. */
+    internal fun masterEntry(): ItemStack =
+        ItemStack.of(masterIcon).withCustomName(text("Master Chain", NamedTextColor.LIGHT_PURPLE)).withLore(
+            listOf(
+                text("One block from every chain,", NamedTextColor.GRAY),
+                text("all interchangeable with each other", NamedTextColor.GRAY),
+                Component.empty(),
+            ) + memberLines(master()) + listOf(Component.empty(), text("Click to see the full chain", NamedTextColor.YELLOW)),
+        )
+
+    /** Home page: one icon per chain. */
     internal fun chains(): List<ItemStack> {
         val all = cycles()
-        val master = master()
-        val masterEntry =
-            ItemStack.of(masterIcon).withCustomName(text("Master Chain", NamedTextColor.LIGHT_PURPLE)).withLore(
-                listOf(
-                    text("One block from every chain below,", NamedTextColor.GRAY),
-                    text("all interchangeable with each other", NamedTextColor.GRAY),
-                    Component.empty(),
-                ) + memberLines(master) + listOf(Component.empty(), text("Click to see the full chain", NamedTextColor.YELLOW)),
+        return all.map { materials ->
+            ItemStack.of(iconOf(materials, all)).withCustomName(text(chainName(materials), NamedTextColor.GOLD)).withLore(
+                listOf(text("${materials.size} blocks, all interchangeable", NamedTextColor.GRAY), Component.empty()) +
+                    memberLines(materials) +
+                    listOf(Component.empty(), text("Click to see the full chain", NamedTextColor.YELLOW)),
             )
-        return listOf(masterEntry) +
-            all.map { materials ->
-                ItemStack.of(iconOf(materials, all)).withCustomName(text(chainName(materials), NamedTextColor.GOLD)).withLore(
-                    listOf(text("${materials.size} blocks, all interchangeable", NamedTextColor.GRAY), Component.empty()) +
-                        memberLines(materials) +
-                        listOf(Component.empty(), text("Click to see the full chain", NamedTextColor.YELLOW)),
-                )
-            }
+        }
     }
 
     /** Every block in the chain(s) of [material]. */

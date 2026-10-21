@@ -24,6 +24,7 @@ object ConverterSearch {
     private const val RESULT_SLOT = 2
     private const val ANVIL_COST_PROPERTY: Short = 0
     private const val LISTED_MATCHES = 6
+    private const val MAX_QUERY_LENGTH = 40
 
     private val searches: MutableMap<Inventory, List<Material>> = mutableMapOf()
 
@@ -87,7 +88,8 @@ object ConverterSearch {
     private fun onPacket(event: PlayerPacketEvent) {
         val packet = event.packet as? ClientNameItemPacket ?: return
         val inv = event.player.openInventory as? Inventory ?: return
-        if (inv in searches) update(event.player, inv, packet.itemName())
+        // Cap the query so a client spamming long names can't make every keystroke expensive.
+        if (inv in searches) update(event.player, inv, packet.itemName().take(MAX_QUERY_LENGTH))
     }
 
     private fun onClick(event: InventoryPreClickEvent) {
