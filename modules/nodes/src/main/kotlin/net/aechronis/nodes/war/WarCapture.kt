@@ -52,7 +52,9 @@ internal class WarCapture(
         // out during attack and chunks were modified in new territory
         val chunk = TerritoryChunk.fromCoord(attack.coord)
         if (chunk == null || chunk.territory !== attack.targetTerritory) {
-            println("finishAttack(): TerritoryChunk at ${attack.coord} is null")
+            println("finishAttack(): TerritoryChunk at ${attack.coord} is null or moved to another territory")
+            // The attack's references are already gone; a stale marker would block the chunk forever.
+            chunk?.attacker = null
             presentation.requestMinimapRefresh()
             return
         }

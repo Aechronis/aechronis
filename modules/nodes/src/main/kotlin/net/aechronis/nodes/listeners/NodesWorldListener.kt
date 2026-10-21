@@ -67,8 +67,8 @@ object NodesWorldListener {
         val territoryChunk = TerritoryChunk.fromBlock(blockPos.blockX, blockPos.blockZ)
 
         // If a war or colonization flag is active, protect its immediate area.
-        if (territoryChunk?.attacker !== null) {
-            val attack = FlagWar.chunkToAttacker.get(territoryChunk.coord)!!
+        val attack = territoryChunk?.takeIf { it.attacker !== null }?.let { FlagWar.chunkToAttacker.get(it.coord) }
+        if (attack != null) {
             val context = if (attack.mode == AttackMode.COLONIZATION) "[Colonization]" else "[War]"
 
             if (blockInWarFlagNoBuildRegion(blockPos, attack)) {
@@ -170,7 +170,8 @@ object NodesWorldListener {
                         if (town !== null) {
                             val townAttacked = flagTerritoryChunk.territory.town
                             val isColonization = Colonization.isAuthorized(player.uuid, town, townAttacked)
-                            val isWarzoneAttack = isWarzone && !isColonization
+                            // During global war, flags on claimed warzone land follow the normal war rules.
+                            val isWarzoneAttack = isWarzone && !isColonization && (!FlagWar.enabled || townAttacked == null)
                             if (!isColonization && !isWarzoneAttack && !FlagWar.enabled) {
                                 val error = when {
                                     townAttacked === selectedColonizationTown && town.nation == null ->
