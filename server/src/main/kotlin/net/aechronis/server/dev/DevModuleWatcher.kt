@@ -100,9 +100,10 @@ internal class DevModuleWatcher(
     private fun build(): Boolean {
         val wrapper =
             if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
-                listOf("cmd", "/c", projectRoot.resolve("gradlew.bat").toString())
+                // Relative to the working directory so a project path containing spaces survives cmd.
+                listOf("cmd", "/c", ".\\gradlew.bat")
             } else {
-                listOf(projectRoot.resolve("gradlew").toString())
+                listOf("./gradlew")
             }
         val process =
             synchronized(processLock) {

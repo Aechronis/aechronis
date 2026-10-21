@@ -16,6 +16,9 @@ object Blocks {
     internal const val OUTPUT_END_SLOT = 44
     internal const val PREVIOUS_PAGE_SLOT = 45
     private const val PAGE_SLOT = 47
+    private const val HELP_SLOT = 49
+    internal const val SEARCH_SLOT = 51
+    internal const val BACK_SLOT = 46
     internal const val NEXT_PAGE_SLOT = 53
     private const val OUTPUTS_PER_PAGE = OUTPUT_END_SLOT - OUTPUT_START_SLOT + 1
 
@@ -23,11 +26,16 @@ object Blocks {
     val outputsByInput: MutableMap<Material, MutableList<Material>> = mutableMapOf()
     private val cycleByMaterial: MutableMap<Material, Set<Material>> = mutableMapOf()
     private val converterPages: MutableMap<Inventory, Int> = mutableMapOf()
+    private val browseListings: MutableMap<Inventory, List<ItemStack>> = mutableMapOf()
 
-    fun openConverter(player: Player) {
+    fun openConverter(
+        player: Player,
+        listing: List<ItemStack>? = null,
+    ) {
         val inv = Inventory(InventoryType.CHEST_6_ROW, Component.text("Block Converter"))
         stonecutters.add(inv)
         converterPages[inv] = 0
+        if (listing != null) browseListings[inv] = listing
         refreshConverter(inv)
         player.openInventory(inv)
     }
@@ -90,15 +98,20 @@ object Blocks {
     ) {
         if (resetPage) converterPages[inv] = 0
 
-        val outputs = converterOptions(inv)
-        val pageCount = maxOf(1, (outputs.size + OUTPUTS_PER_PAGE - 1) / OUTPUTS_PER_PAGE)
+        // Empty input row: show a browse listing (home chains, search results or one chain's members).
+        val browsing = inputStacks(inv).isEmpty()
+        if (!browsing) browseListings.remove(inv)
+        val entries = if (browsing) browseListings[inv] ?: ConverterBrowse.chains() else converterOptions(inv).map(ItemStack::of)
+        val pageCount = maxOf(1, (entries.size + OUTPUTS_PER_PAGE - 1) / OUTPUTS_PER_PAGE)
         val page = (converterPages[inv] ?: 0).coerceIn(0, pageCount - 1)
         converterPages[inv] = page
 
         for (slot in OUTPUT_START_SLOT..OUTPUT_END_SLOT) {
-            val output = outputs.getOrNull(page * OUTPUTS_PER_PAGE + slot - OUTPUT_START_SLOT)
-            inv.setItemStack(slot, output?.let(ItemStack::of) ?: ItemStack.AIR)
+            inv.setItemStack(slot, entries.getOrNull(page * OUTPUTS_PER_PAGE + slot - OUTPUT_START_SLOT) ?: ItemStack.AIR)
         }
+        inv.setItemStack(HELP_SLOT, ConverterBrowse.helpItem)
+        inv.setItemStack(SEARCH_SLOT, if (browsing) ConverterBrowse.searchItem else ItemStack.AIR)
+        inv.setItemStack(BACK_SLOT, if (browsing && inv in browseListings) ConverterBrowse.backItem else ItemStack.AIR)
 
         inv.setItemStack(
             PREVIOUS_PAGE_SLOT,
@@ -110,7 +123,7 @@ object Blocks {
         )
         inv.setItemStack(
             PAGE_SLOT,
-            if (outputs.isNotEmpty()) {
+            if (entries.isNotEmpty()) {
                 ItemStack.of(Material.PAPER).withCustomName(Component.text("Page ${page + 1}/$pageCount"))
             } else {
                 ItemStack.AIR
@@ -174,6 +187,28 @@ object Blocks {
     internal fun closeConverter(inv: Inventory) {
         stonecutters.remove(inv)
         converterPages.remove(inv)
+        browseListings.remove(inv)
+    }
+
+    /** Replaces the empty-input listing, or restores the home chains when [listing] is null. */
+    internal fun showListing(
+        inv: Inventory,
+        listing: List<ItemStack>?,
+    ) {
+        if (listing == null) browseListings.remove(inv) else browseListings[inv] = listing
+        converterPages[inv] = 0
+        refreshConverter(inv)
+    }
+
+    /** True when a click on an output slot hit a browse entry rather than a convertible output. */
+    internal fun browseClick(
+        inv: Inventory,
+        slot: Int,
+    ): Boolean {
+        if (inputStacks(inv).isNotEmpty()) return false
+        val clicked = inv.getItemStack(slot)
+        if (!clicked.isAir) showListing(inv, ConverterBrowse.members(clicked.material()))
+        return true
     }
 
     internal fun conversionOutputs(cycles: List<List<Material>>): Map<Material, List<Material>> {
@@ -196,7 +231,8 @@ object Blocks {
         outputsByInput.clear()
         cycleByMaterial.clear()
 
-        val cycles = Vanilla.config.blocksConfig.converterCycles
+        val configured = Vanilla.config.blocksConfig.converterCycles
+        val cycles = configured + listOf(ConverterBrowse.masterChain(configured))
         for (cycle in cycles) {
             val materials = cycle.distinct()
             if (materials.size < 2) continue
@@ -211,5 +247,6 @@ object Blocks {
         }
 
         BlocksListener.init()
+        ConverterSearch.init()
     }
 }

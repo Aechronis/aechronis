@@ -2,6 +2,7 @@ package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Blocks
+import net.aechronis.vanilla.managers.ConverterSearch
 import net.aechronis.vanilla.objects.consumeStationInteraction
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryItemChangeEvent
@@ -57,8 +58,17 @@ object BlocksListener {
                 event.isCancelled = true
                 Blocks.setConverterPage(open, Blocks.currentConverterPage(open) + 1)
             }
+            Blocks.BACK_SLOT -> {
+                event.isCancelled = true
+                Blocks.showListing(open, null)
+            }
+            Blocks.SEARCH_SLOT -> {
+                event.isCancelled = true
+                ConverterSearch.open(event.player)
+            }
             in Blocks.OUTPUT_START_SLOT..Blocks.OUTPUT_END_SLOT -> {
                 event.isCancelled = true
+                if (Blocks.browseClick(open, event.slot)) return
                 Blocks.outputFor(open, event.slot)?.let { Blocks.convert(event.player, open, it) }
             }
             else -> event.isCancelled = true

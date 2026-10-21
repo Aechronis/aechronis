@@ -154,9 +154,10 @@ object Recipes {
     private fun ingredientLine(ingredient: RecipesIngredient): Component =
         Component.text("- ${ingredient.materials.joinToString(" / ", transform = ::materialName)}", NamedTextColor.WHITE)
 
-    private fun materialName(material: Material): String =
+    internal fun materialName(material: Material): String =
         material
             .name()
+            .substringAfter(':')
             .lowercase()
             .split('_')
             .joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
