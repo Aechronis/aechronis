@@ -80,6 +80,15 @@ open class Vehicle(
     /** Whether the driver uses a vehicle-owned camera, viewmodel, and shader clock. */
     open val customDriverView: Boolean = false
 
+    /** Extra area that counts as the vehicle when looking to board it, for decks and cabins below the damage hitbox. */
+    open val boardingHitbox: Hitbox? = null
+
+    /** Extra pilot telemetry, shown beside health in the action bar. */
+    open fun movementTelemetry(entity: Entity): String? = null
+
+    /** Temporary control tips for a pilot, shown after the telemetry. */
+    open fun controlsHint(player: Player): Component? = null
+
     /** Current and maximum health for vehicle telemetry. */
     open fun healthStatus(entity: Entity): Pair<Float, Float>? {
         val runtime = VehicleRegistry.runtime(entity) ?: return null
@@ -257,6 +266,27 @@ open class Vehicle(
         VehicleRegistry.register(entity, this).spawnParts()
 
         return entity
+    }
+
+    /** Lifts anyone the new hull's decks overlap onto the highest deck there, instead of letting the resolver crush them into the ground. */
+    protected fun liftPlayersOntoDecks(entity: Entity) {
+        val instance = entity.instance ?: return
+        val boxes = collisionHitbox.at(entity.position, hitboxRoll(entity)).boxes
+        for (player in instance.players) {
+            val start = player.position.asVec().add(player.boundingBox.relativeStart())
+            val end = player.position.asVec().add(player.boundingBox.relativeEnd())
+            val top =
+                boxes
+                    .filter { box ->
+                        start.x < box.max.x &&
+                            end.x > box.min.x &&
+                            start.y < box.max.y &&
+                            end.y > box.min.y &&
+                            start.z < box.max.z &&
+                            end.z > box.min.z
+                    }.maxOfOrNull { it.max.y } ?: continue
+            player.teleport(player.position.withY(top + 0.01))
+        }
     }
 
     private val crew = VehicleCrew(this, ::getSeatWorldPos, ::getGunnerSeatWorldPos)

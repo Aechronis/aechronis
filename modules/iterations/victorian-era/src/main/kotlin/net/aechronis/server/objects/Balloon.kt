@@ -15,11 +15,12 @@ import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.sound.SoundStop
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
-import net.kyori.adventure.title.Title
+import net.kyori.adventure.text.format.TextColor
+import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
-import java.time.Duration
+import net.minestom.server.instance.Instance
 import java.util.Collections
 import java.util.Locale
 import java.util.WeakHashMap
@@ -67,6 +68,8 @@ open class Balloon(
     /** Sound that follows the hull while it moves, and how many ticks one play lasts before it is replayed. */
     val engineSound: Sound? = null,
     val engineSoundTicks: Int = 0,
+    /** Where looking at the vehicle boards it, beyond the damage hitbox; put the low decks and cabins here. */
+    override val boardingHitbox: Hitbox? = null,
     seats: List<VehicleSeat> = listOf(VehicleSeat("driver", "Pilot", VehicleSeatRole.DRIVER)),
     invisibleWhileRiding: Boolean = true,
     invulnerableWhileRiding: Boolean = true,
@@ -95,6 +98,16 @@ open class Balloon(
     // the hull moves every tick, so the client may only smooth over a tick or two or the deck swims under the crew
     override val interpolationTicks = 2
 
+    /** A hull placed over someone would crush them into the ground, so lift anyone it overlaps onto its highest deck there. */
+    override fun spawn(
+        instance: Instance,
+        pos: Pos,
+    ): Entity {
+        val entity = super.spawn(instance, pos)
+        liftPlayersOntoDecks(entity)
+        return entity
+    }
+
     // ===== Ticking =====
 
     override fun onEnter(
@@ -102,7 +115,7 @@ open class Balloon(
         entity: Entity,
     ) {
         super.onEnter(player, entity)
-        if (driverEntity(player) === entity && shownControls.add(player)) showControls(player)
+        if (driverEntity(player) === entity) controlsShownAt.putIfAbsent(player, System.currentTimeMillis())
     }
 
     override fun onTick(player: Player) {
@@ -157,7 +170,7 @@ open class Balloon(
                 else -> 0.0
             }
         val notice = fly(entity, velocity, Vec(-sin(heading) * speed, climb, cos(heading) * speed))
-        if (entity.aliveTicks % 4L == 0L) player.sendActionBar(hud(entity, notice))
+        if (notice == null) notices.remove(entity) else notices[entity] = notice
     }
 
     /** Rotates the hull toward the driver's view, returning the degrees actually turned. */
@@ -174,17 +187,12 @@ open class Balloon(
         return applied
     }
 
-    private fun hud(
-        entity: Entity,
-        notice: String?,
-    ): Component {
+    // Shown in the pilot's health line, which the combat action bar redraws every tick.
+    override fun movementTelemetry(entity: Entity): String {
         val velocity = velocities[entity] ?: Vec.ZERO
-        val line =
-            Component.text(
-                "Alt %.0f/%.0f  |  %.1f b/s".format(Locale.ROOT, entity.position.y, maxAltitude, hypot(velocity.x, velocity.z) * 20.0),
-                NamedTextColor.GRAY,
-            )
-        return if (notice == null) line else line.append(Component.text("  |  $notice", NamedTextColor.RED))
+        val speed = hypot(velocity.x, velocity.z) * 20.0
+        val text = "Speed: [%.1f blocks/s] Elevation: [%.0f blocks]".format(Locale.ROOT, speed, entity.position.y)
+        return notices[entity]?.let { "$text [$it]" } ?: text
     }
 
     /** What touches the ground: the hitbox, plus any hanging model parts a subclass adds below it. */
@@ -287,26 +295,30 @@ open class Balloon(
         slot: Int,
     ) = Sound.sound(Key.key("${base.name().asString()}.$slot"), base.source(), base.volume(), base.pitch())
 
-    private fun showControls(player: Player) {
-        fun key(id: String) = Component.keybind(id, NamedTextColor.YELLOW)
+    /** Controls for a pilot's first few seconds, drawn like the telemetry beside it and fading out. */
+    override fun controlsHint(player: Player): Component? {
+        val age = System.currentTimeMillis() - (controlsShownAt[player] ?: return null)
+        if (age > HINT_MILLIS) return null
+        val fade = ((age - HINT_FADE_AFTER_MILLIS).toFloat() / (HINT_MILLIS - HINT_FADE_AFTER_MILLIS)).coerceIn(0f, 1f)
+        val color = TextColor.lerp(fade, HINT_COLOR, HINT_FADED_COLOR)
 
-        fun label(text: String) = Component.text(text, NamedTextColor.GRAY)
-        val controls =
-            Component
-                .text()
-                .append(key("key.forward"))
-                .append(label(if (turnSpeed > 0f) " fly, look to steer   " else " fly where you look   "))
-                .append(key("key.back"))
-                .append(label(" reverse   "))
-                .append(key("key.jump"))
-                .append(label(" climb   "))
-                .append(key("key.sneak"))
-                .append(label(" descend   "))
-                .append(key("key.swapOffhand"))
-                .append(label(" exit"))
-                .build()
-        val times = Title.Times.times(Duration.ofMillis(250), Duration.ofSeconds(7), Duration.ofSeconds(1))
-        player.showTitle(Title.title(Component.empty(), controls, times))
+        fun key(id: String) = Component.keybind(id).color(color)
+
+        fun label(text: String) = Component.text(text, color)
+        return Component
+            .text()
+            .append(label("  "))
+            .append(key("key.forward"))
+            .append(label(if (turnSpeed > 0f) " fly/steer " else " fly "))
+            .append(key("key.back"))
+            .append(label(" reverse "))
+            .append(key("key.jump"))
+            .append(label(" up "))
+            .append(key("key.sneak"))
+            .append(label(" down "))
+            .append(key("key.swapOffhand"))
+            .append(label(" exit"))
+            .build()
     }
 
     // ===== Destruction =====
@@ -350,6 +362,7 @@ open class Balloon(
         velocities.remove(entity)
         sinking.remove(entity)
         airborne.remove(entity)
+        notices.remove(entity)
     }
 
     private companion object {
@@ -359,7 +372,13 @@ open class Balloon(
         val airborne = WeakHashMap<Entity, Boolean>()
         val engineSlots = WeakHashMap<Entity, Int>()
         val engineNext = WeakHashMap<Entity, Long>()
-        val shownControls: MutableSet<Player> = Collections.newSetFromMap(WeakHashMap())
+        val controlsShownAt = WeakHashMap<Player, Long>()
+        val notices = WeakHashMap<Entity, String>()
+
+        const val HINT_MILLIS = 10_000L
+        const val HINT_FADE_AFTER_MILLIS = 5_000L
+        val HINT_COLOR = NamedTextColor.GRAY
+        val HINT_FADED_COLOR = TextColor.color(0x3a3a3a)
 
         const val BRAKING = 2.0
         const val REVERSE_SPEED = 0.5

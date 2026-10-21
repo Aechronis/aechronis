@@ -49,6 +49,9 @@ object Balloons {
             model = "aechronis:parisian-ballons-montes",
             scale = SCALE,
             hitbox = Hitbox(listOf(skirt, body, crown, basket)),
+            // the whole basket, so looking at it boards, not just the envelope above
+            boardingHitbox = Hitbox(listOf(HitboxPart(Vec(0.0, BASKET_FLOOR + 0.7, 0.0), Vec(1.6, 1.2, 1.6)))),
+            horizontalSpeed = 10.0 / 20,
             health = vehicleHealth(rifleShots = 20, shells = 2, bombs = 1),
             seats = seats,
             collisionHitbox = ShulkerHitbox(ShulkerHitbox.fromHitbox(Hitbox(listOf(skirt, body, crown))).parts + basketFloor + basketRails),

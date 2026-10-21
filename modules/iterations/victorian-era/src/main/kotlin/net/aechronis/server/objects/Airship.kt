@@ -30,6 +30,7 @@ class Airship(
     hitbox: Hitbox,
     health: Health,
     collisionHitbox: ShulkerHitbox,
+    boardingHitbox: Hitbox? = null,
     seats: List<VehicleSeat>,
     val gun: Gun,
     horizontalSpeed: Double,
@@ -61,6 +62,7 @@ class Airship(
         invisibleWhileRiding = false,
         invulnerableWhileRiding = false,
         collisionHitbox = collisionHitbox,
+        boardingHitbox = boardingHitbox,
     ),
     ArmedVehicle {
     // a thin keel at the lowest point of the model, so hanging cabins rest on the ground instead of sinking in

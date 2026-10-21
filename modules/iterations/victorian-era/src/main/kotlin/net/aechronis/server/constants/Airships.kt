@@ -25,6 +25,7 @@ object Airships {
             hitbox = Hitbox(Zeppelin.hull),
             health = vehicleHealth(rifleShots = 200, shells = 20, bombs = 10),
             collisionHitbox = ShulkerHitbox(Zeppelin.platforms + Zeppelin.rails),
+            boardingHitbox = Zeppelin.boarding,
             seats = Zeppelin.seats,
             gun = FieldPieces.maximGunWeapon,
             // 20 blocks/s, reached after 20 s; turns stay wide because the hull only turns as fast as it is moving
@@ -48,9 +49,10 @@ object Airships {
             hitbox = Hitbox(Dirigible.hull),
             health = vehicleHealth(rifleShots = 80, shells = 20, bombs = 10),
             collisionHitbox = ShulkerHitbox(Dirigible.platform + Dirigible.rails),
+            boardingHitbox = Dirigible.boarding,
             seats = Dirigible.seats,
             gun = FieldPieces.maximGunWeapon,
-            horizontalSpeed = 0.25,
+            horizontalSpeed = 15.0 / 20,
             groundClearance = Dirigible.GROUND_CLEARANCE,
         )
 
@@ -75,6 +77,17 @@ object Airships {
                 HitboxPart(Vec(0.0, 2.15, -3.0), Vec(6.6, 9.25, 29.35)),
                 HitboxPart(Vec(0.0, 1.7, 30.85), Vec(6.3, 8.8, 4.5)),
                 HitboxPart(Vec(0.0, 2.25, 38.35), Vec(4.2, 5.55, 3.0)),
+            )
+
+        /** Both cabins and the boardwalk between them, so looking at the low walkway boards. */
+        val boarding =
+            Hitbox(
+                listOf(
+                    HitboxPart(
+                        Vec(0.0, BOARDWALK_TOP - 0.5, (BOW_CABIN_Z + STERN_CABIN_Z) / 2),
+                        Vec(1.6, 1.6, (BOW_CABIN_Z - STERN_CABIN_Z) / 2 + 3.5),
+                    ),
+                ),
             )
 
         val platforms = cabinPlatform(BOW_CABIN_Z) + cabinPlatform(STERN_CABIN_Z) + boardwalk()
@@ -111,6 +124,8 @@ object Airships {
         val hull =
             ellipsoid(Vec(0.0, 7.6, 0.0), Vec(7.5, 7.2, 16.5), slices = 9) +
                 HitboxPart(offset = Vec(0.0, -10.9, 0.4), size = Vec(1.95, 3.4, 6.0))
+
+        val boarding = Hitbox(listOf(HitboxPart(Vec(0.0, FLOOR + 1.0, 0.0), Vec(1.8, 1.6, 3.2))))
 
         val platform = deckFloor(-1.425, 1.425, -2.775, 2.775, FLOOR, cube = 0.75)
         val rails = railing(-1.425, 1.425, -2.775, 2.775, FLOOR, cube = 0.25, height = 0.75)
