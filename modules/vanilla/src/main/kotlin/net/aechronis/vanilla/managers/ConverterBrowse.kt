@@ -30,10 +30,11 @@ object ConverterBrowse {
     private val masterIcon = Material.NETHER_STAR
 
     /**
-     * Icons kept out of the master chain. A log crafts into 8 planks, so planks must never convert into a
-     * block that leads back to logs. Planks stay reachable from logs by crafting and through the wood chains.
+     * Icons kept out of the master chain. A log crafts into 8 planks, so nothing made from planks may be able to
+     * convert back into a log. Planks stay out, and so does the lantern chain, which holds crafting tables and
+     * barrels. Both remain reachable from logs by crafting and through their own chains.
      */
-    private val masterExcluded = setOf(Material.OAK_PLANKS, Material.CRIMSON_PLANKS)
+    private val masterExcluded = setOf(Material.OAK_PLANKS, Material.CRIMSON_PLANKS, Material.LANTERN)
 
     /** Icons preferred over a chain's first block, e.g. cobblestone (what players actually hold) over stone. */
     private val preferredIcons = listOf(Material.COBBLESTONE)

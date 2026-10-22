@@ -698,13 +698,12 @@ object Blocks {
                 "resin_brick_slab",
                 "resin_brick_wall",
             ),
-            // crafting_table and barrel are deliberately absent: they craft from planks, and a log makes 8 planks,
-            // so converting them back into logs through the master chain would be an infinite wood loop.
+            // iron_bars lives in the stone chain only. Sharing it would bridge this chain (crafting tables,
+            // barrels) to the master chain, and planks craft from logs 8 to 1, which would make an infinite loop.
             cycle(
                 "lantern",
                 "soul_lantern",
                 "iron_chain",
-                "iron_bars",
                 "scaffolding",
                 "flower_pot",
                 "decorated_pot",
@@ -721,9 +720,11 @@ object Blocks {
                 "bee_nest",
                 "sponge",
                 "wet_sponge",
+                "crafting_table",
                 "furnace",
                 "blast_furnace",
                 "smoker",
+                "barrel",
                 "chest",
                 "trapped_chest",
                 "ender_chest",
