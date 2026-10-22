@@ -60,6 +60,7 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guide' },
       { text: 'Rules', link: '/rules' },
+      { text: 'Stats', link: '/stats' },
       { text: 'Store', link: '/store' },
       { text: 'Map', link: 'https://map.aechronis.net/' },
     ],
@@ -69,6 +70,7 @@ export default defineConfig({
       { text: 'Colonization', link: '/colonization' },
       { text: 'Rules', link: '/rules' },
       { text: 'Territory Tiers', link: '/territory-tiers' },
+      { text: 'Stats', link: '/stats' },
       { text: 'Buildings', link: '/buildings' },
       { text: 'Iterations', items: iterations },
     ],
