@@ -16,7 +16,7 @@ import net.minestom.server.network.packet.server.play.WindowPropertyPacket
 
 /**
  * The converter's search bar: an anvil whose text field filters blocks as you type.
- * The middle slot autofills the best match, the right slot opens the results in the converter.
+ * The middle slot completes the word being typed, the right slot opens the results in the converter.
  */
 object ConverterSearch {
     private const val TEXT_SLOT = 0
@@ -27,6 +27,7 @@ object ConverterSearch {
     private const val MAX_QUERY_LENGTH = 40
 
     private val searches: MutableMap<Inventory, List<Material>> = mutableMapOf()
+    private val autofills: MutableMap<Inventory, String> = mutableMapOf()
 
     private fun textItem(text: String): ItemStack = ItemStack.of(Material.PAPER).withCustomName(Component.text(text))
 
@@ -54,13 +55,15 @@ object ConverterSearch {
         searches[inv] = matches
         val best = matches.firstOrNull()
 
-        val typed = query.trim()
+        val completion = ConverterBrowse.autofill(query)
+        if (completion == null) autofills.remove(inv) else autofills[inv] = completion
         inv.setItemStack(
             AUTOFILL_SLOT,
-            if (best == null || Recipes.materialName(best).equals(typed, ignoreCase = true)) {
+            if (completion == null) {
                 ItemStack.AIR
             } else {
-                ItemStack.of(best).withCustomName(ConverterBrowse.text("Autofill: ${Recipes.materialName(best)}", NamedTextColor.GREEN))
+                val icon = ConverterBrowse.matches(completion).firstOrNull() ?: best ?: Material.PAPER
+                ItemStack.of(icon).withCustomName(ConverterBrowse.text("Autofill: $completion", NamedTextColor.GREEN))
             },
         )
         inv.setItemStack(
@@ -100,10 +103,9 @@ object ConverterSearch {
 
         when (event.slot) {
             AUTOFILL_SLOT -> {
-                val best = matches.firstOrNull() ?: return
-                val name = Recipes.materialName(best)
-                inv.setItemStack(TEXT_SLOT, textItem(name))
-                update(event.player, inv, name)
+                val completion = autofills[inv] ?: return
+                inv.setItemStack(TEXT_SLOT, textItem(completion))
+                update(event.player, inv, completion)
             }
             RESULT_SLOT -> {
                 if (matches.isEmpty()) return
@@ -116,6 +118,7 @@ object ConverterSearch {
     private fun onClose(event: InventoryCloseEvent) {
         val inv = event.inventory as? Inventory ?: return
         searches.remove(inv)
+        autofills.remove(inv)
     }
 
     fun init() {

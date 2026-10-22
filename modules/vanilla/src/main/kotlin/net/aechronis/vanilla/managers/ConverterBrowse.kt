@@ -228,4 +228,28 @@ object ConverterBrowse {
     }
 
     internal fun search(query: String): List<ItemStack> = matches(query).map(::result)
+
+    /**
+     * Completes the word being typed to the one most matching blocks use ("cop" -> "Copper", "ox" -> "Oxidized"),
+     * or null when the last word is already complete or nothing matches.
+     */
+    internal fun autofill(query: String): String? {
+        val typed = query.trimStart()
+        if (typed.isEmpty() || typed.endsWith(' ')) return null
+
+        val parts = typed.split(' ')
+        val last = parts.last()
+        val counts = HashMap<String, Int>()
+        for (material in matches(typed)) {
+            for (word in Recipes.materialName(material).split(' ')) {
+                if (word.startsWith(last, ignoreCase = true)) counts.merge(word, 1, Int::plus)
+            }
+        }
+        val best =
+            counts.entries
+                .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+                .firstOrNull()
+                ?.key ?: return null
+        return if (best.equals(last, ignoreCase = true)) null else (parts.dropLast(1) + best).joinToString(" ")
+    }
 }
