@@ -57,6 +57,7 @@ internal data class TownsLoadState(
                 minimapPosition = resident.minimapPosition,
                 minimapShiftEnabled = resident.minimapShiftEnabled,
                 minimapNorthLocked = resident.minimapNorthLocked,
+                minimapLegacy = resident.minimapLegacy,
                 townJoinLockedUntil = resident.townJoinLockedUntil,
             )
         }
@@ -90,6 +91,7 @@ internal data class ResidentLoadState(
     val minimapPosition: MinimapPosition,
     val minimapShiftEnabled: Boolean,
     val minimapNorthLocked: Boolean,
+    val minimapLegacy: Boolean,
     val townJoinLockedUntil: Long?,
 )
 
