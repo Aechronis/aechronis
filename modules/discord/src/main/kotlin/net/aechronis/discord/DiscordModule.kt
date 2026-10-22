@@ -17,7 +17,7 @@ import java.nio.file.Path
 
 class DiscordModule : AechronisModule {
     override val id = "discord"
-    override val dependencies = setOf("nodes", "luckperms")
+    override val dependencies = setOf("nodes", "luckperms", "gems", "worldedit")
 
     private var job: Job? = null
 
@@ -41,7 +41,38 @@ class DiscordModule : AechronisModule {
         val supervisor = SupervisorJob()
         job = supervisor
         val scope = CoroutineScope(supervisor + Dispatchers.IO + CoroutineName("discord"))
-        scope.launch { DiscordBot.run(token, guildId, scope, links, commands) }
+        val category =
+            System
+                .getenv("DISCORD_TICKET_CATEGORY_ID")
+                ?.trim()
+                ?.toULongOrNull()
+                ?.takeIf { it > 0u }
+                ?.let(::Snowflake)
+        val staff =
+            System
+                .getenv("DISCORD_STAFF_ROLE_ID")
+                ?.trim()
+                ?.toULongOrNull()
+                ?.takeIf { it > 0u }
+                ?.let(::Snowflake)
+        val staffChannel =
+            System
+                .getenv("DISCORD_STAFF_REVIEW_CHANNEL_ID")
+                ?.trim()
+                ?.toULongOrNull()
+                ?.takeIf { it > 0u }
+                ?.let(::Snowflake)
+        // Without a separate staff channel the buttons would sit in the ticket, so a role is then mandatory.
+        val pastes =
+            if (category != null && (staffChannel != null || staff != null)) {
+                PasteOrders(links, context.instance, category, staff, staffChannel)
+            } else {
+                println(
+                    "[Discord] /paste disabled: set DISCORD_TICKET_CATEGORY_ID and DISCORD_STAFF_REVIEW_CHANNEL_ID (or DISCORD_STAFF_ROLE_ID)",
+                )
+                null
+            }
+        scope.launch { DiscordBot.run(token, guildId, scope, links, commands, pastes) }
     }
 
     override fun prepareForShutdown(context: ModuleContext) = stop()
