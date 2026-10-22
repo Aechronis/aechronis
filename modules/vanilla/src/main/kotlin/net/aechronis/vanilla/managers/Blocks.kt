@@ -71,6 +71,8 @@ object Blocks {
         material: Material,
     ): Boolean {
         val firstInput = inputStacks(inv).firstOrNull()?.material() ?: return true
+        // Master Chain only mode mixes master blocks across their own chains; normal mode never does.
+        if (inv in masterOnly && firstInput in ConverterBrowse.masterBlocks()) return material in ConverterBrowse.masterBlocks()
         val cycle = cycleByMaterial[firstInput]
         return cycle?.contains(material) ?: (material == firstInput || material in outputsByInput[firstInput].orEmpty())
     }
@@ -127,8 +129,8 @@ object Blocks {
         }
         if (home) inv.setItemStack(MASTER_SLOT, ConverterBrowse.masterEntry())
         inv.setItemStack(HELP_SLOT, ConverterBrowse.helpItem)
-        val firstInput = inputStacks(inv).firstOrNull()?.material()
-        val canToggle = firstInput != null && firstInput in ConverterBrowse.masterBlocks()
+        val master = ConverterBrowse.masterBlocks()
+        val canToggle = !browsing && inputStacks(inv).all { it.material() in master }
         if (!canToggle) masterOnly.remove(inv)
         inv.setItemStack(
             SEARCH_SLOT,
@@ -276,8 +278,7 @@ object Blocks {
         outputsByInput.clear()
         cycleByMaterial.clear()
 
-        val configured = Vanilla.config.blocksConfig.converterCycles
-        val cycles = configured + listOf(ConverterBrowse.masterChain(configured))
+        val cycles = Vanilla.config.blocksConfig.converterCycles
         for (cycle in cycles) {
             val materials = cycle.distinct()
             if (materials.size < 2) continue

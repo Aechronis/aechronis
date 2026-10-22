@@ -60,7 +60,8 @@ object ConverterBrowse {
 
     /** Every block that shares a chain with [material], in chain order, including itself. */
     private fun group(material: Material): List<Material> =
-        (cycles().filter { material in it } + listOf(masterBlocks()).filter { material in it })
+        cycles()
+            .filter { material in it }
             .flatten()
             .distinct()
 
@@ -114,7 +115,7 @@ object ConverterBrowse {
                 text("Only blocks from the same chain mix.", NamedTextColor.DARK_GRAY),
                 text("The first block you place picks it.", NamedTextColor.DARK_GRAY),
                 text("Click any icon to see a full chain.", NamedTextColor.DARK_GRAY),
-                text("Master blocks can switch to Master only.", NamedTextColor.DARK_GRAY),
+                text("Master Chain blocks mix only in Master mode.", NamedTextColor.DARK_GRAY),
             ),
         )
 
@@ -133,8 +134,8 @@ object ConverterBrowse {
                 text("Master Chain only: ${if (on) "ON" else "OFF"}", if (on) NamedTextColor.GREEN else NamedTextColor.GRAY),
             ).withLore(
                 listOf(
-                    text("ON shows only the Master Chain blocks", NamedTextColor.GRAY),
-                    text("OFF shows this block's whole chain too", NamedTextColor.GRAY),
+                    text("ON converts master blocks only into", NamedTextColor.GRAY),
+                    text("other master blocks. OFF keeps to its own chain.", NamedTextColor.GRAY),
                     Component.empty(),
                     text("Click to switch", NamedTextColor.YELLOW),
                 ),
