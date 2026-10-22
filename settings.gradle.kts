@@ -50,6 +50,7 @@ include(
     ":modules:gems",
     ":modules:tebex",
     ":modules:votifier",
+    ":modules:stats",
     ":modules:guard",
     ":modules:iterations:a-new-millenium",
     ":modules:iterations:victorian-era",

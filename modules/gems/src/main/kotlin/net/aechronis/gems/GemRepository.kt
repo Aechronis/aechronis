@@ -208,6 +208,8 @@ class GemRepository(
         }
     }
 
+    fun balance(uuid: UUID): Long? = DriverManager.getConnection(url).use { balance(it, uuid) }
+
     private fun balance(
         connection: java.sql.Connection,
         uuid: UUID,

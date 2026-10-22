@@ -47,6 +47,8 @@ import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.server.modules.ModuleScheduler
+import net.aechronis.stats.Stat
+import net.aechronis.stats.Stats
 import net.aechronis.utils.OreSounds
 import net.aechronis.vanilla.managers.StorageAccess
 import net.minestom.server.MinecraftServer
@@ -97,6 +99,7 @@ object NodesWorldListener {
                         }
                     }
                     attack.cancel()
+                    if (attack.mode != AttackMode.COLONIZATION) Stats.add(player, Stat.CAPS_BROKEN)
                     Message.broadcast("${ChatColor.GOLD}$context Attack at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ}) defeated by ${player.username}")
                     return
                 }

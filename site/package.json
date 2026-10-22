@@ -6,6 +6,7 @@
     "dev": "vitepress dev",
     "build": "vitepress build",
     "preview": "vitepress preview",
+    "mock:stats": "node scripts/mock-stats.mjs",
     "sync:weapons": "node scripts/sync-weapons.mjs",
     "sync:vehicles": "node scripts/sync-vehicles.mjs",
     "predev": "npm run sync:weapons && npm run sync:vehicles",
