@@ -158,9 +158,15 @@ object ConverterBrowse {
         ItemStack.of(masterIcon).withCustomName(text("Master Chain", NamedTextColor.LIGHT_PURPLE)).withLore(
             listOf(
                 text("One block from every chain,", NamedTextColor.GRAY),
-                text("all interchangeable with each other", NamedTextColor.GRAY),
+                text("all interchangeable with each other.", NamedTextColor.GRAY),
                 Component.empty(),
-            ) + memberLines(masterBlocks()) + listOf(Component.empty(), text("Click to see the full chain", NamedTextColor.YELLOW)),
+                text("How to use", NamedTextColor.GOLD),
+                text("1. Put master blocks in the top row.", NamedTextColor.GRAY),
+                text("2. Click \"Master Chain only\" to turn it ON.", NamedTextColor.GRAY),
+                text("3. Click the master block you want.", NamedTextColor.GRAY),
+                text("Normal mode never leaves a block's chain.", NamedTextColor.DARK_GRAY),
+                Component.empty(),
+            ) + memberLines(masterBlocks()) + listOf(Component.empty(), text("Click to see all master blocks", NamedTextColor.YELLOW)),
         )
 
     /** Home page: one icon per chain. */
@@ -182,7 +188,7 @@ object ConverterBrowse {
                 ItemStack.of(it).withCustomName(fancy(it)).withLore(
                     listOf(
                         text("Master Chain", NamedTextColor.LIGHT_PURPLE),
-                        text("Put it in the top row to convert", NamedTextColor.DARK_GRAY),
+                        text("Top row + Master Chain only ON to convert", NamedTextColor.DARK_GRAY),
                     ),
                 )
             }
