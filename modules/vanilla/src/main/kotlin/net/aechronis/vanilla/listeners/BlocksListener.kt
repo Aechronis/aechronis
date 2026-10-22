@@ -80,7 +80,7 @@ object BlocksListener {
             }
             Blocks.SEARCH_SLOT -> {
                 event.isCancelled = true
-                ConverterSearch.open(event.player)
+                if (Blocks.isBrowsing(open)) ConverterSearch.open(event.player) else Blocks.toggleMasterOnly(open)
             }
             in Blocks.OUTPUT_START_SLOT..Blocks.OUTPUT_END_SLOT -> {
                 event.isCancelled = true

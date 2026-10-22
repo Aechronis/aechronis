@@ -54,11 +54,13 @@ object ConverterBrowse {
         return all.map { iconOf(it, all) }.filterNot { it in masterExcluded }.distinct()
     }
 
-    private fun master(): List<Material> = masterChain(Vanilla.config.blocksConfig.converterCycles)
+    internal fun isMasterIcon(material: Material): Boolean = material == masterIcon
+
+    internal fun masterBlocks(): List<Material> = masterChain(Vanilla.config.blocksConfig.converterCycles)
 
     /** Every block that shares a chain with [material], in chain order, including itself. */
     private fun group(material: Material): List<Material> =
-        (cycles().filter { material in it } + listOf(master()).filter { material in it })
+        (cycles().filter { material in it } + listOf(masterBlocks()).filter { material in it })
             .flatten()
             .distinct()
 
@@ -112,6 +114,7 @@ object ConverterBrowse {
                 text("Only blocks from the same chain mix.", NamedTextColor.DARK_GRAY),
                 text("The first block you place picks it.", NamedTextColor.DARK_GRAY),
                 text("Click any icon to see a full chain.", NamedTextColor.DARK_GRAY),
+                text("Master blocks can switch to Master only.", NamedTextColor.DARK_GRAY),
             ),
         )
 
@@ -122,6 +125,20 @@ object ConverterBrowse {
                 text("and see what converts into it.", NamedTextColor.GRAY),
             ),
         )
+
+    internal fun masterToggleItem(on: Boolean): ItemStack =
+        ItemStack
+            .of(if (on) Material.LIME_DYE else Material.GRAY_DYE)
+            .withCustomName(
+                text("Master Chain only: ${if (on) "ON" else "OFF"}", if (on) NamedTextColor.GREEN else NamedTextColor.GRAY),
+            ).withLore(
+                listOf(
+                    text("ON shows only the Master Chain blocks", NamedTextColor.GRAY),
+                    text("OFF shows this block's whole chain too", NamedTextColor.GRAY),
+                    Component.empty(),
+                    text("Click to switch", NamedTextColor.YELLOW),
+                ),
+            )
 
     internal val backItem: ItemStack =
         ItemStack.of(Material.BARRIER).withCustomName(text("Back to all chains", NamedTextColor.RED))
@@ -142,7 +159,7 @@ object ConverterBrowse {
                 text("One block from every chain,", NamedTextColor.GRAY),
                 text("all interchangeable with each other", NamedTextColor.GRAY),
                 Component.empty(),
-            ) + memberLines(master()) + listOf(Component.empty(), text("Click to see the full chain", NamedTextColor.YELLOW)),
+            ) + memberLines(masterBlocks()) + listOf(Component.empty(), text("Click to see the full chain", NamedTextColor.YELLOW)),
         )
 
     /** Home page: one icon per chain. */
@@ -160,7 +177,7 @@ object ConverterBrowse {
     /** Every block in the chain(s) of [material]. */
     internal fun members(material: Material): List<ItemStack> {
         if (material == masterIcon) {
-            return master().map {
+            return masterBlocks().map {
                 ItemStack.of(it).withCustomName(fancy(it)).withLore(
                     listOf(
                         text("Master Chain", NamedTextColor.LIGHT_PURPLE),

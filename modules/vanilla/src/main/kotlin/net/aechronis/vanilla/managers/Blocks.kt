@@ -32,6 +32,8 @@ object Blocks {
     private val cycleByMaterial: MutableMap<Material, Set<Material>> = mutableMapOf()
     private val converterPages: MutableMap<Inventory, Int> = mutableMapOf()
     private val browseListings: MutableMap<Inventory, List<ItemStack>> = mutableMapOf()
+    private val masterOnly: MutableSet<Inventory> = mutableSetOf()
+    private val masterViews: MutableSet<Inventory> = mutableSetOf()
 
     fun openConverter(
         player: Player,
@@ -53,7 +55,13 @@ object Blocks {
     private fun converterOptions(inv: Inventory): List<Material> {
         val inputs = inputStacks(inv)
         val firstInput = inputs.firstOrNull()?.material() ?: return emptyList()
-        val cycle = cycleByMaterial[firstInput] ?: outputsByInput[firstInput].orEmpty().toSet()
+        val master = ConverterBrowse.masterBlocks()
+        val cycle =
+            if (inv in masterOnly && firstInput in master) {
+                master.toSet()
+            } else {
+                cycleByMaterial[firstInput] ?: outputsByInput[firstInput].orEmpty().toSet()
+            }
         val depositedMaterials = inputs.map(ItemStack::material).toSet()
         return cycle.filter { output -> depositedMaterials.any { it != output } }
     }
@@ -119,7 +127,17 @@ object Blocks {
         }
         if (home) inv.setItemStack(MASTER_SLOT, ConverterBrowse.masterEntry())
         inv.setItemStack(HELP_SLOT, ConverterBrowse.helpItem)
-        inv.setItemStack(SEARCH_SLOT, if (browsing) ConverterBrowse.searchItem else ItemStack.AIR)
+        val firstInput = inputStacks(inv).firstOrNull()?.material()
+        val canToggle = firstInput != null && firstInput in ConverterBrowse.masterBlocks()
+        if (!canToggle) masterOnly.remove(inv)
+        inv.setItemStack(
+            SEARCH_SLOT,
+            when {
+                browsing -> ConverterBrowse.searchItem
+                canToggle -> ConverterBrowse.masterToggleItem(inv in masterOnly)
+                else -> ItemStack.AIR
+            },
+        )
         inv.setItemStack(BACK_SLOT, if (browsing && inv in browseListings) ConverterBrowse.backItem else ItemStack.AIR)
 
         inv.setItemStack(
@@ -193,7 +211,19 @@ object Blocks {
         refreshConverter(inv)
     }
 
+    /** True when the input row is empty, so the search slot is the search button rather than the master toggle. */
+    internal fun isBrowsing(inv: Inventory): Boolean = inputStacks(inv).isEmpty()
+
+    /** Switches between a master block's full outputs and just the master chain's. */
+    internal fun toggleMasterOnly(inv: Inventory) {
+        if (!masterOnly.remove(inv)) masterOnly.add(inv)
+        converterPages[inv] = 0
+        refreshConverter(inv)
+    }
+
     internal fun closeConverter(inv: Inventory) {
+        masterOnly.remove(inv)
+        masterViews.remove(inv)
         stonecutters.remove(inv)
         converterPages.remove(inv)
         browseListings.remove(inv)
@@ -204,6 +234,7 @@ object Blocks {
         inv: Inventory,
         listing: List<ItemStack>?,
     ) {
+        masterViews.remove(inv)
         if (listing == null) browseListings.remove(inv) else browseListings[inv] = listing
         converterPages[inv] = 0
         refreshConverter(inv)
@@ -215,8 +246,13 @@ object Blocks {
         slot: Int,
     ): Boolean {
         if (inputStacks(inv).isNotEmpty()) return false
+        // The master chain view is read-only: its blocks convert from the top row, not by clicking here.
+        if (inv in masterViews) return true
+
         val clicked = inv.getItemStack(slot)
-        if (!clicked.isAir) showListing(inv, ConverterBrowse.members(clicked.material()))
+        if (clicked.isAir) return true
+        showListing(inv, ConverterBrowse.members(clicked.material()))
+        if (ConverterBrowse.isMasterIcon(clicked.material())) masterViews.add(inv)
         return true
     }
 
