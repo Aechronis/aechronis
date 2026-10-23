@@ -39,6 +39,9 @@ private val BLOCKED_MATERIAL_KEYS: Set<String> = setOf(
 )
 
 private fun isBlockedKey(key: String): Boolean = key in BLOCKED_MATERIAL_KEYS ||
+    // Infested blocks spawn silverfish when broken; the petrified slab is a legacy block.
+    key.startsWith("infested_") ||
+    key.startsWith("petrified_") ||
     key.endsWith("_ore") ||
     key.endsWith("_bucket") ||
     // Portable storage: every colour of shulker box, plus the ender chest.
