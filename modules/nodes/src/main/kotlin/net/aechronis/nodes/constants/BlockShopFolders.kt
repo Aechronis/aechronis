@@ -14,6 +14,9 @@ class BlockFolder(
     val materials: List<Material>,
 )
 
+/** The root screen's interior holds seven columns by four rows of folders. */
+private const val MAX_FOLDERS = 28
+
 private fun materialOf(key: String): Material? = Material.fromKey("minecraft:$key")
 
 private class FolderSpec(
@@ -173,18 +176,6 @@ private val FOLDER_SPECS: List<FolderSpec> =
                 "smooth_sandstone", "sandstone_stairs", "sandstone_slab", "sandstone_wall", "cut_sandstone_slab", "smooth_sandstone_stairs",
                 "red_sandstone", "chiseled_red_sandstone", "cut_red_sandstone", "smooth_red_sandstone", "red_sandstone_stairs", "red_sandstone_slab",
                 "red_sandstone_wall", "cut_red_sandstone_slab", "smooth_red_sandstone_stairs",
-            ),
-        ),
-        FolderSpec(
-            "Glass",
-            "glass",
-            listOf(
-                "glass", "glass_pane", "tinted_glass", "white_stained_glass", "white_stained_glass_pane", "orange_stained_glass",
-                "orange_stained_glass_pane", "magenta_stained_glass", "magenta_stained_glass_pane", "light_blue_stained_glass", "light_blue_stained_glass_pane", "yellow_stained_glass",
-                "yellow_stained_glass_pane", "lime_stained_glass", "lime_stained_glass_pane", "pink_stained_glass", "pink_stained_glass_pane", "gray_stained_glass",
-                "gray_stained_glass_pane", "light_gray_stained_glass", "light_gray_stained_glass_pane", "cyan_stained_glass", "cyan_stained_glass_pane", "purple_stained_glass",
-                "purple_stained_glass_pane", "blue_stained_glass", "blue_stained_glass_pane", "brown_stained_glass", "brown_stained_glass_pane", "green_stained_glass",
-                "green_stained_glass_pane", "red_stained_glass", "red_stained_glass_pane", "black_stained_glass", "black_stained_glass_pane",
             ),
         ),
         FolderSpec(
@@ -377,18 +368,83 @@ private val FOLDER_SPECS: List<FolderSpec> =
         ),
     )
 
+/**
+ * Blocks that belong in a folder but were never part of an old converter chain. They are appended to the folder
+ * with the same label; labels that match no chain become new folders at the end of the list.
+ */
+private val EXTRA_FOLDER_KEYS: Map<String, List<String>> =
+    mapOf(
+        "Plants & Foliage" to
+            listOf(
+                "acacia_sapling", "birch_sapling", "cherry_sapling", "dark_oak_sapling", "jungle_sapling", "oak_sapling",
+                "pale_oak_sapling", "spruce_sapling", "mangrove_propagule", "mangrove_roots", "muddy_mangrove_roots",
+                "cobweb", "melon", "pumpkin", "carved_pumpkin", "jack_o_lantern", "wheat", "crimson_fungus", "warped_fungus",
+                "frogspawn", "turtle_egg", "sniffer_egg", "cake",
+            ),
+        "Nether Terrain" to listOf("nether_wart", "crimson_nylium", "warped_nylium"),
+        "Dirt & Moss" to listOf("farmland"),
+        "Wood Blocks" to listOf("ladder"),
+        "Coral" to listOf("dead_brain_coral_fan", "dead_bubble_coral_fan", "dead_fire_coral_fan", "dead_horn_coral_fan", "dead_tube_coral_fan"),
+        "Copper" to
+            listOf(
+                "copper_bulb",
+                "exposed_copper_bulb",
+                "weathered_copper_bulb",
+                "oxidized_copper_bulb",
+                "waxed_copper_bulb",
+                "waxed_exposed_copper_bulb",
+                "waxed_weathered_copper_bulb",
+                "waxed_oxidized_copper_bulb",
+            ),
+        "Clay & Crystals" to listOf("budding_amethyst"),
+        "Sulfur" to listOf("potent_sulfur"),
+        "Cinnabar" to listOf("chiseled_cinnabar"),
+        "Resin" to listOf("resin_clump"),
+        "Quartz" to listOf("smooth_quartz_slab"),
+        "Sand & Sandstone" to listOf("smooth_sandstone_slab", "smooth_red_sandstone_slab", "glass", "glass_pane", "tinted_glass"),
+        "Redstone & Mechanisms" to
+            listOf(
+                "rail", "powered_rail", "detector_rail", "activator_rail", "piston", "sticky_piston", "dispenser", "dropper", "hopper",
+                "observer", "comparator", "repeater", "daylight_detector", "lever", "note_block", "redstone_lamp", "redstone_torch",
+                "target", "tripwire_hook", "crafter", "stone_button", "stone_pressure_plate", "polished_blackstone_button",
+                "polished_blackstone_pressure_plate", "light_weighted_pressure_plate", "heavy_weighted_pressure_plate",
+            ),
+        "Sculk & Heads" to
+            listOf(
+                "sculk", "sculk_catalyst", "sculk_sensor", "calibrated_sculk_sensor", "sculk_shrieker", "sculk_vein",
+                "creeper_head", "dragon_head", "piglin_head", "player_head", "skeleton_skull", "zombie_head",
+                "suspicious_sand", "suspicious_gravel",
+            ),
+    )
+
+private val NEW_FOLDER_ICONS: Map<String, String> =
+    mapOf("Redstone & Mechanisms" to "piston", "Sculk & Heads" to "sculk")
+
 /** The folders shown at the top of /blockshop, in order, each limited to blocks that are actually for sale. */
 val BLOCK_FOLDERS: List<BlockFolder> =
     run {
         val purchasable = PURCHASABLE_BLOCKS.toSet()
         val claimed = mutableSetOf<Material>()
         val folders = mutableListOf<BlockFolder>()
-        for (spec in FOLDER_SPECS) {
+        val specs =
+            FOLDER_SPECS.map { spec -> FolderSpec(spec.label, spec.icon, spec.keys + EXTRA_FOLDER_KEYS[spec.label].orEmpty()) } +
+                EXTRA_FOLDER_KEYS.keys
+                    .filter { label -> FOLDER_SPECS.none { it.label == label } }
+                    .map { label -> FolderSpec(label, NEW_FOLDER_ICONS.getValue(label), EXTRA_FOLDER_KEYS.getValue(label)) }
+        for (spec in specs) {
             val materials = spec.keys.mapNotNull(::materialOf).filter { it in purchasable && claimed.add(it) }
             val icon = materialOf(spec.icon)?.takeIf { it in purchasable } ?: materials.firstOrNull()
             if (materials.isNotEmpty() && icon != null) folders += BlockFolder(spec.label, icon, materials)
         }
         val rest = PURCHASABLE_BLOCKS.filter { it !in claimed }
-        if (rest.isNotEmpty()) folders += BlockFolder("Other Blocks", Material.BRICKS, rest)
+        if (rest.isNotEmpty()) {
+            if (folders.size < MAX_FOLDERS) {
+                folders += BlockFolder("Other Blocks", Material.BRICKS, rest)
+            } else {
+                // The root screen has no room for another folder, so new blocks join the last one.
+                val last = folders.removeLast()
+                folders += BlockFolder(last.label, last.icon, last.materials + rest)
+            }
+        }
         folders
     }
