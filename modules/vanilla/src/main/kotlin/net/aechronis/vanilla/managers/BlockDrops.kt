@@ -40,7 +40,12 @@ object BlockDrops {
         instance: Instance,
         stack: ItemStack,
     ) {
-        if (player.inventory.addItemStack(stack)) return
-        Items.spawn(instance, player.position, stack)
+        // Boosted drops can exceed one stack, so hand them over a stack at a time.
+        var remaining = stack.amount()
+        while (remaining > 0) {
+            val part = stack.withAmount(minOf(remaining, stack.maxStackSize()))
+            if (!player.inventory.addItemStack(part)) Items.spawn(instance, player.position, part)
+            remaining -= part.amount()
+        }
     }
 }
