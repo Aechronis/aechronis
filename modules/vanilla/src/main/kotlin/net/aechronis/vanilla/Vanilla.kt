@@ -7,7 +7,6 @@ import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.vanilla.commands.Back
 import net.aechronis.vanilla.commands.Broadcast
 import net.aechronis.vanilla.commands.Clear
-import net.aechronis.vanilla.commands.Convert
 import net.aechronis.vanilla.commands.Craft
 import net.aechronis.vanilla.commands.Disc
 import net.aechronis.vanilla.commands.EnderChest
@@ -40,7 +39,6 @@ import net.aechronis.vanilla.listeners.PlayerActivityListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.listeners.ServerLinksListener
 import net.aechronis.vanilla.listeners.WarpListener
-import net.aechronis.vanilla.managers.Blocks
 import net.aechronis.vanilla.managers.Boats
 import net.aechronis.vanilla.managers.Bundles
 import net.aechronis.vanilla.managers.Combat
@@ -124,7 +122,6 @@ object Vanilla {
                         Warp(),
                     )
                 if (config.musicEnabled) commands += Disc()
-                if (config.blocksEnabled) commands += Convert()
                 if (config.recipesEnabled) commands += Craft()
                 if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
                 if (config.shopEnabled) commands += Shop()
@@ -147,7 +144,6 @@ object Vanilla {
         if (config.saplingsEnabled) measure("Saplings") { Saplings.init() }
         if (config.elevatorEnabled) measure("Elevator") { Elevator.init() }
         if (config.mannequinEnabled) measure("Mannequin") { Mannequin.init() }
-        if (config.blocksEnabled) measure("Blocks") { Blocks.init() }
         if (config.treeFellerEnabled) measure("Tree Feller") { TreeFeller.init() }
         if (config.foodEnabled) measure("Food") { Food.init() }
         if (config.shopEnabled) measure("Shop") { KillShop.init() }

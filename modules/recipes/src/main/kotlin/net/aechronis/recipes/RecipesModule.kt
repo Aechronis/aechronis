@@ -15,9 +15,6 @@ class RecipesModule : AechronisModule {
     override val reloadTogether = setOf("vanilla")
 
     override fun configure(context: ModuleContext) {
-        VanillaModule.addRecipes(
-            Blocks.list + Tools.list + Smelting.list + Ingredients.list + Food.list,
-            Blocks.converterCycles,
-        )
+        VanillaModule.addRecipes(Blocks.list + Tools.list + Smelting.list + Ingredients.list + Food.list)
     }
 }

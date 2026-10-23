@@ -96,11 +96,6 @@ private val IronPickaxeBlocks =
     }
 
 data class BlocksConfig(
-    /**
-     * Conversion groups for the block converter. Every material in a cycle can be converted
-     * into every other material in that cycle.
-     */
-    val converterCycles: List<List<Material>> = listOf(),
     val blockDrops: Map<Material, List<ItemStack>> =
         mapOf(
             Material.STONE to listOf(ItemStack.of(Material.COBBLESTONE)),
