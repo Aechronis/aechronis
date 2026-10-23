@@ -67,6 +67,7 @@ class Resident(val uuid: UUID, val name: String) {
             minimapNorthLocked: Boolean = true,
             minimapLegacy: Boolean = false,
             townJoinLockedUntil: Long? = null,
+            blockCoins: Long = 0L,
         ) {
             val resident = Resident(uuid, name)
             resident.trusted = trusted
@@ -76,6 +77,7 @@ class Resident(val uuid: UUID, val name: String) {
             resident.minimapNorthLocked = minimapNorthLocked
             resident.minimapLegacy = minimapLegacy
             resident.townJoinLockedUntil = townJoinLockedUntil?.takeIf { it > System.currentTimeMillis() }
+            resident.blockCoins = blockCoins.coerceAtLeast(0L)
             resident.waypointVisibility.putAll(waypointVisibility)
             waypoints.forEach { waypoint -> resident.loadPermanentWaypoint(waypoint) }
             resident.needsUpdate()
@@ -239,6 +241,10 @@ class Resident(val uuid: UUID, val name: String) {
     // town teleport thread
     var teleportThread: Task? = null
 
+    // Block shop currency, earned by selling blocks with /sell and spent in /blockshop.
+    var blockCoins: Long = 0L
+        private set
+
     var townJoinLockedUntil: Long? = null
         private set
 
@@ -248,6 +254,22 @@ class Resident(val uuid: UUID, val name: String) {
         needsUpdate()
         Nodes.markWorldDirty()
         return townJoinLockedUntil
+    }
+
+    fun addBlockCoins(amount: Long) {
+        if (amount <= 0) return
+        blockCoins += amount
+        needsUpdate()
+        Nodes.markWorldDirty()
+    }
+
+    /** Removes [amount] coins and returns whether the resident had enough. Nothing is taken on false. */
+    fun removeBlockCoins(amount: Long): Boolean {
+        if (amount <= 0 || blockCoins < amount) return false
+        blockCoins -= amount
+        needsUpdate()
+        Nodes.markWorldDirty()
+        return true
     }
 
     fun clearTownJoinCooldown() {
@@ -549,6 +571,7 @@ class Resident(val uuid: UUID, val name: String) {
         val minimapNorthLocked = r.minimapNorthLocked
         val minimapLegacy = r.minimapLegacy
         val townJoinLockedUntil = r.townJoinLockedUntil
+        val blockCoins = r.blockCoins
         val waypoints = r.permanentWaypoints.snapshotList()
         val waypointVisibility = r.waypointVisibility.snapshotMap()
 

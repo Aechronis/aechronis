@@ -59,6 +59,7 @@ internal data class TownsLoadState(
                 minimapNorthLocked = resident.minimapNorthLocked,
                 minimapLegacy = resident.minimapLegacy,
                 townJoinLockedUntil = resident.townJoinLockedUntil,
+                blockCoins = resident.blockCoins,
             )
         }
         // The domain loaders intentionally skip absent optional residents, claims and member towns.
@@ -93,6 +94,7 @@ internal data class ResidentLoadState(
     val minimapNorthLocked: Boolean,
     val minimapLegacy: Boolean,
     val townJoinLockedUntil: Long?,
+    val blockCoins: Long,
 )
 
 internal data class TownLoadState(
