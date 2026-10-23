@@ -7,6 +7,7 @@ import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.Task
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 internal data class TerritoryOccupationState(
     val occupierId: UUID?,
@@ -37,14 +38,14 @@ internal class FlagWarState {
     val flagBlocks: MutableSet<Block> = mutableSetOf()
     var skyBeaconSize: Int = 6
 
-    val attackers: HashMap<UUID, ArrayList<Attack>> = hashMapOf()
+    val attackers: ConcurrentHashMap<UUID, CopyOnWriteArrayList<Attack>> = ConcurrentHashMap()
     val chunkToAttacker: ConcurrentHashMap<Coord, Attack> = ConcurrentHashMap()
-    val blockToAttacker: HashMap<BlockVec, Attack> = hashMapOf()
+    val blockToAttacker: ConcurrentHashMap<BlockVec, Attack> = ConcurrentHashMap()
     val occupiedChunks: MutableSet<Coord> = ConcurrentHashMap.newKeySet()
     val colonizedChunks: MutableSet<Coord> = ConcurrentHashMap.newKeySet()
-    val territoryOccupations: MutableMap<TerritoryId, TerritoryOccupationState> = hashMapOf()
-    val skirmishTargetsByNation: MutableMap<UUID, TerritoryId> = hashMapOf()
-    val townsDefeatedThisWar: MutableSet<UUID> = hashSetOf()
+    val territoryOccupations: MutableMap<TerritoryId, TerritoryOccupationState> = ConcurrentHashMap()
+    val skirmishTargetsByNation: MutableMap<UUID, TerritoryId> = ConcurrentHashMap()
+    val townsDefeatedThisWar: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
     var territoryOccupationJournalDirty: Boolean = false
 
     @Volatile

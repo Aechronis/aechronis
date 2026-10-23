@@ -74,7 +74,19 @@ internal fun isAttackActive(attack: Attack): Boolean = FlagWar.chunkToAttacker[a
 internal fun closestActiveAttack(
     session: DefenseSession,
     position: Pos,
-): Attack? = session.attacks
-    .asSequence()
-    .filter(::isAttackActive)
-    .minByOrNull { attack -> position.distanceSquared(attack.flagBlock.add(0.5, 0.5, 0.5)) }
+): Attack? {
+    var closest: Attack? = null
+    var closestDistance = Double.MAX_VALUE
+    for (attack in session.attacks) {
+        if (!isAttackActive(attack)) continue
+        val dx = attack.flagBlock.blockX + 0.5 - position.x
+        val dy = attack.flagBlock.blockY + 0.5 - position.y
+        val dz = attack.flagBlock.blockZ + 0.5 - position.z
+        val distance = dx * dx + dy * dy + dz * dz
+        if (distance < closestDistance) {
+            closest = attack
+            closestDistance = distance
+        }
+    }
+    return closest
+}

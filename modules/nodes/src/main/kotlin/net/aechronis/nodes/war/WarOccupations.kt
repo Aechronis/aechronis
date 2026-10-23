@@ -65,13 +65,18 @@ internal class WarOccupations(
         occupierId: UUID?,
         colonized: Boolean,
     ) {
-        state.territoryOccupations[territoryId] = TerritoryOccupationState(occupierId, colonized)
-        val territory = Territory.fromId(territoryId) ?: return
+        val territory = Territory.fromId(territoryId)
+        if (territory == null) {
+            System.err.println("[Nodes] Ignoring territory occupation for unknown territory $territoryId")
+            return
+        }
         val occupier = occupierId?.let(Town::fromUuid)
         if (occupierId != null && occupier == null) {
             System.err.println("[Nodes] Ignoring unknown town $occupierId in territory occupation $territoryId")
             return
         }
+        // Only valid entries are kept, so towns.json and war.json cannot keep disagreeing about them.
+        state.territoryOccupations[territoryId] = TerritoryOccupationState(occupierId, colonized)
         Town.restoreOccupation(territory, occupier)
     }
 

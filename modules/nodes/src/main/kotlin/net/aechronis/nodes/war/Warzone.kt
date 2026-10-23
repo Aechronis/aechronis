@@ -164,7 +164,13 @@ object Warzone {
             }
             finishLocked(state, nowMillis)
         }
-        outcome?.let(::award)
+        // The zone is already removed, so report an award failure instead of throwing past the command.
+        outcome?.let { result ->
+            runCatching { award(result) }.onFailure { error ->
+                System.err.println("[Nodes] Failed to award warzone ${result.territory.id}: ${error.message}")
+                return Result.failure(error)
+            }
+        }
         return Result.success(Unit)
     }
 

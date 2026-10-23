@@ -52,7 +52,9 @@ internal class WarCapture(
         // out during attack and chunks were modified in new territory
         val chunk = TerritoryChunk.fromCoord(attack.coord)
         if (chunk == null || chunk.territory !== attack.targetTerritory) {
-            println("finishAttack(): TerritoryChunk at ${attack.coord} is null")
+            println("finishAttack(): TerritoryChunk at ${attack.coord} is null or moved to another territory")
+            // The attack's references are already gone; a stale marker would block the chunk forever.
+            chunk?.attacker = null
             presentation.requestMinimapRefresh()
             return
         }
@@ -132,8 +134,8 @@ internal class WarCapture(
 
             chunk.attacker = null
 
-            if (town === attack.town) {
-                // re-capturing territory from occupier
+            if (town != null && Town.areAllied(attack.town, town)) {
+                // re-capturing territory from occupier; nation-mates and allies liberate it for the owner
                 if (occupier !== null) {
                     chunk.occupier = town
                     state.occupiedChunks.add(chunk.coord)
@@ -153,12 +155,12 @@ internal class WarCapture(
                         presentation.defendedChunk(attack.mode, attacker, chunk, chunkOccupier)
                     }
                 }
-            } else if (occupier === attack.town && chunk.occupier !== null) {
+            } else if (occupier != null && Town.areAllied(attack.town, occupier) && chunk.occupier !== null) {
                 val chunkOccupier = chunk.occupier
                 if (attack.mode == AttackMode.COLONIZATION) {
                     // restore explicit provenance for a recaptured piece of a
                     // full colony so its control still works outside global war
-                    chunk.occupier = attack.town
+                    chunk.occupier = occupier
                     state.occupiedChunks.add(chunk.coord)
                     state.colonizedChunks.add(chunk.coord)
                 } else {

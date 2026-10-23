@@ -9,13 +9,20 @@ import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.utils.ChatColor
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.CommandSender
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.entity.Player
+import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.timer.Task
+import net.minestom.server.timer.TaskSchedule
+
+// Minimap renders are expensive per player, so bursts of attack changes share one refresh.
+private const val MINIMAP_REFRESH_DELAY_TICKS = 5
 
 private val SKY_BEACON_FRAME_BLOCK = Block.SEA_LANTERN
 private val SKY_BEACON_BLOCK = Block.BLACK_WOOL
@@ -29,6 +36,7 @@ internal class WarPresentation(private val state: FlagWarState) {
     // Core captures can cancel many flags; refresh all minimaps once afterward.
     private var minimapRefreshDeferrals: Int = 0
     private var minimapRefreshPending: Boolean = false
+    private var minimapRefreshTask: Task? = null
 
     fun printInfo(sender: CommandSender, detailed: Boolean = false) {
         val status = if (state.enabled) "enabled" else "${ChatColor.GRAY}disabled"
@@ -75,6 +83,24 @@ internal class WarPresentation(private val state: FlagWarState) {
         return BossBar.bossBar(Component.text("$action ${territory.town?.name ?: "territory ${territory.id}"} at ($flagBaseX, $flagBaseY, $flagBaseZ)"), 1f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS)
     }
 
+    private class BeaconBounds(
+        val x0: Int,
+        val y0: Int,
+        val z0: Int,
+        val xEnd: Int,
+        val yEnd: Int,
+        val zEnd: Int,
+    )
+
+    private fun beaconBounds(coord: Coord, flagBaseY: Int): BeaconBounds {
+        val size = state.skyBeaconSize
+        val startPositionInChunk: Int = (16 - size) / 2
+        val x0: Int = coord.x * 16 + startPositionInChunk
+        val z0: Int = coord.z * 16 + startPositionInChunk
+        val y0: Int = maxOf(flagBaseY + Nodes.config.flagBeaconSkyLevel, Nodes.config.flagBeaconMinSkyLevel)
+        return BeaconBounds(x0, y0, z0, x0 + size - 1, minOf(255, y0 + size - 1), z0 + size - 1) // beacon is size blocks high
+    }
+
     /**
      * Create/update a flag attack beacon. Coordinates are recorded so only
      * blocks owned by this attack are removed during cleanup.
@@ -85,15 +111,13 @@ internal class WarPresentation(private val state: FlagWarState) {
         coord: Coord,
         flagBaseY: Int,
     ) {
-        // get starting corner
-        val size = state.skyBeaconSize
-        val startPositionInChunk: Int = (16 - size) / 2
-        val x0: Int = coord.x * 16 + startPositionInChunk
-        val z0: Int = coord.z * 16 + startPositionInChunk
-        val y0: Int = maxOf(flagBaseY + Nodes.config.flagBeaconSkyLevel, Nodes.config.flagBeaconMinSkyLevel)
-        val xEnd: Int = x0 + size - 1
-        val zEnd: Int = z0 + size - 1
-        val yEnd: Int = minOf(255, y0 + size - 1) // beacon is size blocks high
+        val bounds = beaconBounds(coord, flagBaseY)
+        val x0 = bounds.x0
+        val y0 = bounds.y0
+        val z0 = bounds.z0
+        val xEnd = bounds.xEnd
+        val yEnd = bounds.yEnd
+        val zEnd = bounds.zEnd
         val instance = MinecraftServer.getInstanceManager().instances.first()
 
         for (y in y0..yEnd) {
@@ -118,6 +142,45 @@ internal class WarPresentation(private val state: FlagWarState) {
         }
     }
 
+    /**
+     * Remove the flag and beacon an attack left behind when the server stopped
+     * without cancelling it. The saved flag position comes from war.json.
+     */
+    fun sweepOrphanedAttack(coord: Coord, flagBase: BlockVec) {
+        val instance = MinecraftServer.getInstanceManager().instances.firstOrNull() ?: return
+        instance.loadChunk(coord.x, coord.z)
+            .thenRun { ModuleScheduler.scheduleNextTick { removeOrphanedAttackBlocks(instance, coord, flagBase) } }
+            .exceptionally { error ->
+                System.err.println("[Nodes] Could not sweep leftover flag at ${flagBase.blockX}, ${flagBase.blockY}, ${flagBase.blockZ}: ${error.message}")
+                null
+            }
+    }
+
+    private fun removeOrphanedAttackBlocks(instance: Instance, coord: Coord, flagBase: BlockVec) {
+        // A live attack on this chunk owns the blocks.
+        if (state.chunkToAttacker.containsKey(coord)) return
+
+        // Only a flag block still in place proves the attack was left behind; a
+        // clean shutdown already cleared it, and players may have built there since.
+        val flagBlock = flagBase.add(0, 1, 0)
+        if (instance.getBlock(flagBlock) != Block.DEEPSLATE) return
+
+        val flagTorch = flagBase.add(0, 2, 0)
+        if (instance.getBlock(flagTorch) == Block.TORCH) instance.setBlock(flagTorch, Block.AIR)
+        instance.setBlock(flagBlock, Block.AIR)
+        if (Nodes.config.flagBlocks.contains(instance.getBlock(flagBase))) instance.setBlock(flagBase, Block.AIR)
+
+        val bounds = beaconBounds(coord, flagBase.blockY)
+        for (y in bounds.y0..bounds.yEnd) {
+            for (x in bounds.x0..bounds.xEnd) {
+                for (z in bounds.z0..bounds.zEnd) {
+                    if (instance.getBlock(x, y, z) in SKY_BEACON_BLOCKS) instance.setBlock(x, y, z, Block.AIR)
+                }
+            }
+        }
+        System.err.println("[Nodes] Removed leftover flag at ${flagBase.blockX}, ${flagBase.blockY}, ${flagBase.blockZ}")
+    }
+
     fun clearAttackBlocks(attack: Attack) {
         val instance = MinecraftServer.getInstanceManager().instances.first()
         instance.setBlock(attack.flagTorch, Block.AIR)
@@ -131,7 +194,7 @@ internal class WarPresentation(private val state: FlagWarState) {
         if (minimapRefreshDeferrals > 0) {
             minimapRefreshPending = true
         } else {
-            Resident.renderMinimaps()
+            scheduleMinimapRefresh()
         }
     }
 
@@ -143,9 +206,19 @@ internal class WarPresentation(private val state: FlagWarState) {
             minimapRefreshDeferrals--
             if (minimapRefreshDeferrals == 0 && minimapRefreshPending) {
                 minimapRefreshPending = false
-                Resident.renderMinimaps()
+                scheduleMinimapRefresh()
             }
         }
+    }
+
+    private fun scheduleMinimapRefresh() {
+        if (minimapRefreshTask != null) return
+        minimapRefreshTask = ModuleScheduler
+            .buildTask {
+                minimapRefreshTask = null
+                Resident.renderMinimaps()
+            }.delay(TaskSchedule.tick(MINIMAP_REFRESH_DELAY_TICKS))
+            .schedule()
     }
 
     // Intended to run on PlayerJoin to restore a player's active progress bars.

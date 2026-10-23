@@ -19,6 +19,7 @@ import net.minestom.server.timer.Task
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Flag-based chunk conquest, conceptually based on
@@ -83,11 +84,11 @@ object FlagWar {
             state.skyBeaconSize = value
         }
 
-    internal val attackers: HashMap<UUID, ArrayList<Attack>> get() = state.attackers
+    internal val attackers: ConcurrentHashMap<UUID, CopyOnWriteArrayList<Attack>> get() = state.attackers
 
     internal val chunkToAttacker: ConcurrentHashMap<Coord, Attack> get() = state.chunkToAttacker
 
-    internal val blockToAttacker: HashMap<BlockVec, Attack> get() = state.blockToAttacker
+    internal val blockToAttacker: ConcurrentHashMap<BlockVec, Attack> get() = state.blockToAttacker
 
     internal val occupiedChunks: MutableSet<Coord> get() = state.occupiedChunks
 
@@ -250,8 +251,10 @@ object FlagWar {
         destructionEnabled: Boolean,
         deathWar: Boolean = false,
     ) {
-        skirmishTargetsByNation.clear()
-        townsDefeatedThisWar.clear()
+        // Changing the mode of a running war must not re-arm defeats or reset a skirmish's selected targets.
+        val alreadyEnabled = enabled
+        if (!alreadyEnabled) townsDefeatedThisWar.clear()
+        if (!alreadyEnabled || FlagWar.canOnlyAttackBorders != canOnlyAttackBorders) skirmishTargetsByNation.clear()
         enabled = true
         FlagWar.deathWar = deathWar
         FlagWar.canAnnexTerritories = canAnnexTerritories
@@ -286,6 +289,8 @@ object FlagWar {
         for (coord in occupiedChunks.toList()) {
             if (coord in colonizedChunks) continue
             val chunk = TerritoryChunk.fromCoord(coord)
+            // Warzone captures belong to the zone's own scoring, not to the global war.
+            if (chunk !== null && Warzone.isRegistered(chunk.territory)) continue
             if (chunk !== null) {
                 chunk.attacker = null
                 chunk.occupier = null
@@ -437,6 +442,8 @@ object FlagWar {
         coord: Coord,
         flagBaseY: Int,
     ) = presentation.createAttackBeacon(skyBeaconColorBlocks, skyBeaconWireframeBlocks, coord, flagBaseY)
+
+    internal fun sweepOrphanedAttack(coord: Coord, flagBase: BlockVec) = presentation.sweepOrphanedAttack(coord, flagBase)
 
     internal fun requestMinimapRefresh() = presentation.requestMinimapRefresh()
 

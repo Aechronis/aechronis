@@ -522,6 +522,9 @@ object Nodes {
                 FlagWar.load()
                 Warzone.load()
                 buildings.forEach(Building::register)
+            } else {
+                // Warzones only need territories; skipping them would let the next save overwrite their file.
+                Warzone.load()
             }
             Building.all().forEach { it.getSaveState() }
             loaded = true
