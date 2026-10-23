@@ -9,8 +9,8 @@ import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.MinecraftServer
-import net.minestom.server.component.DataComponents
 import net.minestom.server.dialog.Dialog
 import net.minestom.server.dialog.DialogAction
 import net.minestom.server.dialog.DialogActionButton
@@ -33,17 +33,32 @@ import kotlin.math.max
 import kotlin.math.min
 
 private const val COST_PER_BLOCK = 1L
-private const val ITEMS_PER_PAGE = 45
+private const val QUERY_INPUT_KEY = "query"
+private const val SEARCH_SESSION_TOKEN_KEY = "session"
+private const val MAX_QUERY_LENGTH = 32
+
+// Layout: a glass frame around rows 0 and 5 and columns 0 and 8. The seven-by-four interior
+// (rows 1-4, columns 1-7) holds the entries and the bottom row holds the controls.
+private val CONTENT_SLOTS: List<Int> = (1..4).flatMap { row -> (1..7).map { column -> row * 9 + column } }
+private val CONTENT_SLOT_INDEX: Map<Int, Int> = CONTENT_SLOTS.withIndex().associate { (index, slot) -> slot to index }
+private val ITEMS_PER_PAGE = CONTENT_SLOTS.size
+
+// Root categories sit centred in the interior: two rows of five.
+private val ROOT_CATEGORY_SLOTS: List<Int> = listOf(20, 21, 22, 23, 24, 29, 30, 31, 32, 33)
+
 private const val BACK_SLOT = 45
 private const val PREVIOUS_PAGE_SLOT = 46
 private const val SEARCH_SLOT = 47
 private const val CLEAR_SEARCH_SLOT = 48
-private const val BALANCE_SLOT = 50
+private const val BALANCE_SLOT = 49
+private const val HELP_SLOT = 50
+private const val PAGE_SLOT = 51
 private const val NEXT_PAGE_SLOT = 53
-private const val ROOT_SEARCH_ALL_SLOT = 49
-private const val QUERY_INPUT_KEY = "query"
-private const val SEARCH_SESSION_TOKEN_KEY = "session"
-private const val MAX_QUERY_LENGTH = 32
+
+private const val ROOT_SEARCH_ALL_SLOT = 47
+private const val ROOT_BALANCE_SLOT = 49
+private const val ROOT_HELP_SLOT = 51
+
 private val BLOCKSHOP_SEARCH_ACTION = Key.key("nodes", "blockshop_search")
 private val BLOCKSHOP_CANCEL_SEARCH_ACTION = Key.key("nodes", "blockshop_cancel_search")
 private val CATEGORY_ORDER = BlockCategory.entries.toList()
@@ -78,10 +93,10 @@ private data class SearchShopSession(
  * Server-side block shop: a root screen of category folders (Wood, Stone, ...), each
  * opening a paginated/searchable list of that category's blocks, plus a global search that
  * cuts across every category. Buys any [PURCHASABLE_BLOCKS] material for [COST_PER_BLOCK]
- * block coins each, earned via /sell. Every purchase attempts to give the item first and
- * only deducts coins if that succeeds -- see the plan doc's anti-dupe section. Structured
- * like WaypointMenu.kt (session-per-player map, cancel-all-clicks inventory, native dialog
- * for text search instead of an anvil-rename hack).
+ * stone coin each, earned by mining stone or with /sell. Every purchase attempts to give the
+ * item first and only deducts coins if that succeeds, so a full inventory never costs
+ * anything. Structured like WaypointMenu.kt (session-per-player map, cancel-all-clicks
+ * inventory, native dialog for text search instead of an anvil-rename hack).
  */
 object BlockShop {
     private val initialized = AtomicBoolean()
@@ -96,22 +111,26 @@ object BlockShop {
 
     fun openRoot(player: Player, resident: Resident) {
         val inventory = Inventory(InventoryType.CHEST_6_ROW, Component.text("Block Shop", NamedTextColor.DARK_AQUA))
-        CATEGORY_ORDER.forEachIndexed { slot, category ->
+        fillFrame(inventory)
+        CATEGORY_ORDER.zip(ROOT_CATEGORY_SLOTS).forEach { (category, slot) ->
             val count = CATEGORY_BLOCKS[category]?.size ?: 0
             inventory.setItemStack(
                 slot,
-                namedItem(category.icon, category.label, NamedTextColor.GOLD)
-                    .withLore(listOf(Component.text("$count blocks", NamedTextColor.GRAY), Component.text("Click to browse", NamedTextColor.DARK_GRAY))),
+                namedItem(category.icon, category.label, NamedTextColor.GOLD).withLore(
+                    listOf(
+                        lore("$count blocks", NamedTextColor.GRAY),
+                        Component.empty(),
+                        lore("Click to browse", NamedTextColor.YELLOW),
+                    ),
+                ),
             )
         }
         inventory.setItemStack(
             ROOT_SEARCH_ALL_SLOT,
-            namedItem(Material.NAME_TAG, "Search all blocks", NamedTextColor.AQUA),
+            namedItem(Material.COMPASS, "Search all blocks", NamedTextColor.AQUA).withLore(listOf(lore("Click to search every category", NamedTextColor.GRAY))),
         )
-        inventory.setItemStack(
-            BALANCE_SLOT,
-            namedItem(Material.EMERALD, "Balance: ${resident.blockCoins} block coin${if (resident.blockCoins == 1L) "" else "s"}", NamedTextColor.GREEN),
-        )
+        inventory.setItemStack(ROOT_BALANCE_SLOT, balanceItem(resident))
+        inventory.setItemStack(ROOT_HELP_SLOT, helpItem())
 
         val session = CategoryRootSession(inventory, resident)
         sessions[player.uuid] = session
@@ -128,23 +147,24 @@ object BlockShop {
         val title = category?.label ?: "All Blocks"
         val inventory = Inventory(
             InventoryType.CHEST_6_ROW,
-            Component.text("$title ${clampedPage + 1}/${lastPage + 1} (${entries.size})", NamedTextColor.DARK_AQUA),
+            Component.text("$title (${entries.size})", NamedTextColor.DARK_AQUA),
         )
-        pageEntries.forEachIndexed { slot, material -> inventory.setItemStack(slot, shopItem(material)) }
+        fillFrame(inventory)
+        pageEntries.forEachIndexed { index, material -> inventory.setItemStack(CONTENT_SLOTS[index], shopItem(material)) }
+
         inventory.setItemStack(BACK_SLOT, namedItem(Material.ARROW, "Back to categories", NamedTextColor.YELLOW))
         if (clampedPage > 0) inventory.setItemStack(PREVIOUS_PAGE_SLOT, navItem(Material.ARROW, "Previous page"))
         inventory.setItemStack(
             SEARCH_SLOT,
-            namedItem(Material.NAME_TAG, "Search", NamedTextColor.AQUA)
-                .withLore(listOf(Component.text(if (query.isBlank()) "Click to search" else "Current: \"$query\"", NamedTextColor.GRAY))),
+            namedItem(Material.COMPASS, "Search", NamedTextColor.AQUA)
+                .withLore(listOf(lore(if (query.isBlank()) "Click to search" else "Current: \"$query\"", NamedTextColor.GRAY))),
         )
         if (query.isNotBlank()) {
             inventory.setItemStack(CLEAR_SEARCH_SLOT, namedItem(Material.BARRIER, "Clear search", NamedTextColor.RED))
         }
-        inventory.setItemStack(
-            BALANCE_SLOT,
-            namedItem(Material.EMERALD, "Balance: ${resident.blockCoins} block coin${if (resident.blockCoins == 1L) "" else "s"}", NamedTextColor.GREEN),
-        )
+        inventory.setItemStack(BALANCE_SLOT, balanceItem(resident))
+        inventory.setItemStack(HELP_SLOT, helpItem())
+        inventory.setItemStack(PAGE_SLOT, namedItem(Material.PAPER, "Page ${clampedPage + 1}/${lastPage + 1}", NamedTextColor.WHITE))
         if (clampedPage < lastPage) inventory.setItemStack(NEXT_PAGE_SLOT, navItem(Material.ARROW, "Next page"))
 
         val session = BrowseShopSession(inventory, resident, category, query, clampedPage, pageEntries, clampedPage < lastPage)
@@ -189,7 +209,7 @@ object BlockShop {
             }
             return
         }
-        val category = CATEGORY_ORDER.getOrNull(slot) ?: return
+        val category = ROOT_CATEGORY_SLOTS.indexOf(slot).takeIf { it >= 0 }?.let(CATEGORY_ORDER::getOrNull) ?: return
         openNextTick(player, session.resident, category, "", 0)
     }
 
@@ -202,22 +222,24 @@ object BlockShop {
             }
             CLEAR_SEARCH_SLOT -> if (session.query.isNotBlank()) openNextTick(player, session.resident, session.category, "", 0)
             NEXT_PAGE_SLOT -> if (session.hasNextPage) openNextTick(player, session.resident, session.category, session.query, session.page + 1)
-            in 0 until session.entries.size -> handlePurchase(player, session, slot, event.click)
-            else -> Unit
+            else -> {
+                val index = CONTENT_SLOT_INDEX[slot] ?: return
+                if (index < session.entries.size) handlePurchase(player, session, index, event.click)
+            }
         }
     }
 
     // Attempts to give the item BEFORE spending any coins -- a full inventory means the
     // purchase silently doesn't happen and nothing is deducted. Never spend coins first.
-    private fun handlePurchase(player: Player, session: BrowseShopSession, slot: Int, click: Click) {
+    private fun handlePurchase(player: Player, session: BrowseShopSession, index: Int, click: Click) {
         val resident = session.resident
-        val material = session.entries[slot]
+        val material = session.entries[index]
         val shiftClick = click is Click.LeftShift || click is Click.RightShift
         val requested = if (shiftClick) material.maxStackSize() else 1
         val affordable = min(resident.blockCoins / COST_PER_BLOCK, Int.MAX_VALUE.toLong()).toInt()
         val amount = min(requested, affordable)
         if (amount <= 0) {
-            Message.error(player, "Not enough block coins")
+            Message.error(player, "Not enough stone coins")
             return
         }
         if (!player.inventory.addItemStack(ItemStack.of(material, amount))) {
@@ -226,7 +248,7 @@ object BlockShop {
         }
         val cost = amount * COST_PER_BLOCK
         resident.removeBlockCoins(cost)
-        Message.print(player, "Bought $amount ${prettyName(material)} for $cost block coin${if (cost == 1L) "" else "s"} (balance: ${resident.blockCoins})")
+        Message.print(player, "Bought $amount ${prettyName(material)} for ${coins(cost)} (balance: ${coins(resident.blockCoins)})")
         openNextTick(player, resident, session.category, session.query, session.page)
     }
 
@@ -307,16 +329,55 @@ object BlockShop {
         .split('_')
         .joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
 
-    private fun shopItem(material: Material): ItemStack = namedItem(material, prettyName(material), NamedTextColor.WHITE)
+    private fun coins(amount: Long): String = "$amount stone coin${if (amount == 1L) "" else "s"}"
+
+    private fun shopItem(material: Material): ItemStack = ItemStack.of(material)
+        .withCustomName(Component.text(prettyName(material), NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false))
         .withLore(
             listOf(
-                Component.text("Cost: $COST_PER_BLOCK block coin", NamedTextColor.GRAY),
-                Component.text("Left-click: buy 1", NamedTextColor.DARK_GRAY),
-                Component.text("Shift-click: buy a stack", NamedTextColor.DARK_GRAY),
+                lore("Cost: $COST_PER_BLOCK stone coin", NamedTextColor.GRAY),
+                Component.empty(),
+                lore("Left-click: buy 1", NamedTextColor.YELLOW),
+                lore("Shift-click: buy a stack", NamedTextColor.YELLOW),
             ),
         )
 
+    private fun balanceItem(resident: Resident): ItemStack = namedItem(Material.EMERALD, "Stone Coins: ${resident.blockCoins}", NamedTextColor.GREEN)
+        .withLore(
+            listOf(
+                lore("Mine stone to earn coins", NamedTextColor.GRAY),
+                lore("or sell blocks with /sell.", NamedTextColor.GRAY),
+                lore("Check anytime with /balance.", NamedTextColor.GRAY),
+            ),
+        )
+
+    private fun helpItem(): ItemStack = namedItem(Material.BOOK, "How it works", NamedTextColor.GOLD).withLore(
+        listOf(
+            lore("1. Earn stone coins:", NamedTextColor.GRAY),
+            lore("    mine stone, or /sell cobblestone,", NamedTextColor.DARK_GRAY),
+            lore("    dirt and logs for 1 coin each.", NamedTextColor.DARK_GRAY),
+            lore("2. Pick a category or search.", NamedTextColor.GRAY),
+            lore("3. Click a block to buy 1,", NamedTextColor.GRAY),
+            lore("    shift-click to buy a stack.", NamedTextColor.DARK_GRAY),
+            Component.empty(),
+            lore("Every block costs 1 stone coin.", NamedTextColor.DARK_GRAY),
+        ),
+    )
+
     private fun navItem(material: Material, name: String): ItemStack = namedItem(material, name, NamedTextColor.AQUA)
 
-    private fun namedItem(material: Material, name: String, color: NamedTextColor): ItemStack = ItemStack.of(material).with(DataComponents.CUSTOM_NAME, Component.text(name, color))
+    private fun lore(text: String, color: NamedTextColor): Component = Component.text(text, color).decoration(TextDecoration.ITALIC, false)
+
+    private fun namedItem(material: Material, name: String, color: NamedTextColor): ItemStack = ItemStack.of(material)
+        .withCustomName(Component.text(name, color).decoration(TextDecoration.ITALIC, false))
+
+    /** Fills the border (rows 0 and 5, columns 0 and 8) with blank glass; the interior stays empty. */
+    private fun fillFrame(inventory: Inventory) {
+        val glass = ItemStack.of(Material.GRAY_STAINED_GLASS_PANE).withCustomName(Component.text(" "))
+        for (slot in 0 until inventory.size) {
+            val row = slot / 9
+            val column = slot % 9
+            if (row == 0 || row == 5 || column == 0 || column == 8) inventory.setItemStack(slot, glass)
+        }
+    }
 }

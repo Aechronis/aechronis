@@ -6,7 +6,7 @@ import net.aechronis.nodes.objects.NodesCommand
 import net.minestom.server.item.ItemStack
 
 /**
- * Sells every cobblestone/dirt/log(-derived) block in the sender's inventory for 1 block
+ * Sells every cobblestone/dirt/log(-derived) block in the sender's inventory for 1 stone
  * coin each. Tallies the whole inventory in one synchronous pass and only credits coins
  * after -- see BlockShop.kt's kdoc / the plan doc's anti-dupe section.
  */
@@ -28,7 +28,8 @@ class SellCommand : NodesCommand("sell", null) {
             }
 
             resident.addBlockCoins(sold.toLong())
-            Message.print(player, "Sold $sold block${if (sold == 1) "" else "s"} for $sold block coin${if (sold == 1) "" else "s"} (balance: ${resident.blockCoins})")
+            val coins = if (sold == 1) "stone coin" else "stone coins"
+            Message.print(player, "Sold $sold block${if (sold == 1) "" else "s"} for $sold $coins (balance: ${resident.blockCoins})")
         }
     }
 }

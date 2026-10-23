@@ -16,6 +16,7 @@ import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.ColonizationMenu
 import net.aechronis.nodes.commands.AllyChatCommand
 import net.aechronis.nodes.commands.AllyCommand
+import net.aechronis.nodes.commands.BalanceCommand
 import net.aechronis.nodes.commands.BlockShopCommand
 import net.aechronis.nodes.commands.ColonizeCommand
 import net.aechronis.nodes.commands.FlagsCommand
@@ -87,6 +88,7 @@ import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
+import net.aechronis.vanilla.managers.BlockDrops
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Files
@@ -182,6 +184,12 @@ object Nodes {
             WaypointMenu.init()
             FlagsMenu.init()
             BlockShop.init()
+            BlockDrops.coinCredit = { player, amount ->
+                Resident.fromPlayer(player)?.let { resident ->
+                    resident.addBlockCoins(amount.toLong())
+                    resident.blockCoins
+                }
+            }
             TestTownSelection.init()
         }
         measure("Trains") { Trains.initialize(config.pathTrains) }
@@ -207,6 +215,7 @@ object Nodes {
                     ColonizeCommand(),
                     WarzoneCommand(),
                     BlockShopCommand(),
+                    BalanceCommand(),
                     SellCommand(),
                 )
             val globalEventHandler = MinecraftServer.getGlobalEventHandler()
