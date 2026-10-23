@@ -2,8 +2,8 @@ package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
-import net.aechronis.nodes.constants.BlockCategory
-import net.aechronis.nodes.constants.CATEGORY_BLOCKS
+import net.aechronis.nodes.constants.BLOCK_FOLDERS
+import net.aechronis.nodes.constants.BlockFolder
 import net.aechronis.nodes.constants.PURCHASABLE_BLOCKS
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.CompoundBinaryTag
@@ -43,9 +43,6 @@ private val CONTENT_SLOTS: List<Int> = (1..4).flatMap { row -> (1..7).map { colu
 private val CONTENT_SLOT_INDEX: Map<Int, Int> = CONTENT_SLOTS.withIndex().associate { (index, slot) -> slot to index }
 private val ITEMS_PER_PAGE = CONTENT_SLOTS.size
 
-// Root categories sit centred in the interior: two rows of five.
-private val ROOT_CATEGORY_SLOTS: List<Int> = listOf(20, 21, 22, 23, 24, 29, 30, 31, 32, 33)
-
 private const val BACK_SLOT = 45
 private const val PREVIOUS_PAGE_SLOT = 46
 private const val SEARCH_SLOT = 47
@@ -61,7 +58,6 @@ private const val ROOT_HELP_SLOT = 51
 
 private val BLOCKSHOP_SEARCH_ACTION = Key.key("nodes", "blockshop_search")
 private val BLOCKSHOP_CANCEL_SEARCH_ACTION = Key.key("nodes", "blockshop_cancel_search")
-private val CATEGORY_ORDER = BlockCategory.entries.toList()
 
 private sealed interface ShopSession
 
@@ -70,11 +66,11 @@ private data class CategoryRootSession(
     val resident: Resident,
 ) : ShopSession
 
-/** [category] null means "search across every category" (reached via /blockshop <query> or the root's Search All button). */
+/** [folder] null means "search across every folder" (reached via /blockshop <query> or the root's Search All button). */
 private data class BrowseShopSession(
     val inventory: Inventory,
     val resident: Resident,
-    val category: BlockCategory?,
+    val folder: BlockFolder?,
     val query: String,
     val page: Int,
     val entries: List<Material>,
@@ -83,16 +79,16 @@ private data class BrowseShopSession(
 
 private data class SearchShopSession(
     val resident: Resident,
-    val category: BlockCategory?,
+    val folder: BlockFolder?,
     val previousQuery: String,
     val previousPage: Int,
     val token: String = UUID.randomUUID().toString(),
 ) : ShopSession
 
 /**
- * Server-side block shop: a root screen of category folders (Wood, Stone, ...), each
- * opening a paginated/searchable list of that category's blocks, plus a global search that
- * cuts across every category. Buys any [PURCHASABLE_BLOCKS] material for [COST_PER_BLOCK]
+ * Server-side block shop: a root screen of folder folders (Wood, Stone, ...), each
+ * opening a paginated/searchable list of that folder's blocks, plus a global search that
+ * cuts across every folder. Buys any [PURCHASABLE_BLOCKS] material for [COST_PER_BLOCK]
  * stone coin each, earned by mining stone or with /sell. Every purchase attempts to give the
  * item first and only deducts coins if that succeeds, so a full inventory never costs
  * anything. Structured like WaypointMenu.kt (session-per-player map, cancel-all-clicks
@@ -112,22 +108,23 @@ object BlockShop {
     fun openRoot(player: Player, resident: Resident) {
         val inventory = Inventory(InventoryType.CHEST_6_ROW, Component.text("Block Shop", NamedTextColor.DARK_AQUA))
         fillFrame(inventory)
-        CATEGORY_ORDER.zip(ROOT_CATEGORY_SLOTS).forEach { (category, slot) ->
-            val count = CATEGORY_BLOCKS[category]?.size ?: 0
+        BLOCK_FOLDERS.zip(CONTENT_SLOTS).forEach { (folder, slot) ->
             inventory.setItemStack(
                 slot,
-                namedItem(category.icon, category.label, NamedTextColor.GOLD).withLore(
-                    listOf(
-                        lore("$count blocks", NamedTextColor.GRAY),
-                        Component.empty(),
-                        lore("Click to browse", NamedTextColor.YELLOW),
+                ItemStack.of(folder.icon)
+                    .withCustomName(Component.text(folder.label, NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false))
+                    .withLore(
+                        listOf(
+                            lore("${folder.materials.size} blocks", NamedTextColor.GRAY),
+                            Component.empty(),
+                            lore("Click to browse", NamedTextColor.YELLOW),
+                        ),
                     ),
-                ),
             )
         }
         inventory.setItemStack(
             ROOT_SEARCH_ALL_SLOT,
-            namedItem(Material.COMPASS, "Search all blocks", NamedTextColor.AQUA).withLore(listOf(lore("Click to search every category", NamedTextColor.GRAY))),
+            namedItem(Material.COMPASS, "Search all blocks", NamedTextColor.AQUA).withLore(listOf(lore("Click to search every folder", NamedTextColor.GRAY))),
         )
         inventory.setItemStack(ROOT_BALANCE_SLOT, balanceItem(resident))
         inventory.setItemStack(ROOT_HELP_SLOT, helpItem())
@@ -137,14 +134,14 @@ object BlockShop {
         if (!player.openInventory(inventory)) sessions.remove(player.uuid, session)
     }
 
-    fun open(player: Player, resident: Resident, category: BlockCategory?, query: String = "", page: Int = 0) {
-        val base = if (category != null) CATEGORY_BLOCKS[category].orEmpty() else PURCHASABLE_BLOCKS
+    fun open(player: Player, resident: Resident, folder: BlockFolder?, query: String = "", page: Int = 0) {
+        val base = folder?.materials ?: PURCHASABLE_BLOCKS
         val entries = filterEntries(base, query)
         val lastPage = max(0, (entries.size - 1) / ITEMS_PER_PAGE)
         val clampedPage = page.coerceIn(0, lastPage)
         val pageEntries = entries.drop(clampedPage * ITEMS_PER_PAGE).take(ITEMS_PER_PAGE)
 
-        val title = category?.label ?: "All Blocks"
+        val title = folder?.label ?: "All Blocks"
         val inventory = Inventory(
             InventoryType.CHEST_6_ROW,
             Component.text("$title (${entries.size})", NamedTextColor.DARK_AQUA),
@@ -152,7 +149,7 @@ object BlockShop {
         fillFrame(inventory)
         pageEntries.forEachIndexed { index, material -> inventory.setItemStack(CONTENT_SLOTS[index], shopItem(material)) }
 
-        inventory.setItemStack(BACK_SLOT, namedItem(Material.ARROW, "Back to categories", NamedTextColor.YELLOW))
+        inventory.setItemStack(BACK_SLOT, namedItem(Material.ARROW, "Back to all folders", NamedTextColor.YELLOW))
         if (clampedPage > 0) inventory.setItemStack(PREVIOUS_PAGE_SLOT, navItem(Material.ARROW, "Previous page"))
         inventory.setItemStack(
             SEARCH_SLOT,
@@ -167,7 +164,7 @@ object BlockShop {
         inventory.setItemStack(PAGE_SLOT, namedItem(Material.PAPER, "Page ${clampedPage + 1}/${lastPage + 1}", NamedTextColor.WHITE))
         if (clampedPage < lastPage) inventory.setItemStack(NEXT_PAGE_SLOT, navItem(Material.ARROW, "Next page"))
 
-        val session = BrowseShopSession(inventory, resident, category, query, clampedPage, pageEntries, clampedPage < lastPage)
+        val session = BrowseShopSession(inventory, resident, folder, query, clampedPage, pageEntries, clampedPage < lastPage)
         sessions[player.uuid] = session
         if (!player.openInventory(inventory)) sessions.remove(player.uuid, session)
     }
@@ -205,23 +202,23 @@ object BlockShop {
         val slot = event.slot
         if (slot == ROOT_SEARCH_ALL_SLOT) {
             MinecraftServer.getSchedulerManager().scheduleNextTick {
-                if (player.isOnline) openSearchDialog(player, session.resident, category = null, previousQuery = "", previousPage = 0)
+                if (player.isOnline) openSearchDialog(player, session.resident, folder = null, previousQuery = "", previousPage = 0)
             }
             return
         }
-        val category = ROOT_CATEGORY_SLOTS.indexOf(slot).takeIf { it >= 0 }?.let(CATEGORY_ORDER::getOrNull) ?: return
-        openNextTick(player, session.resident, category, "", 0)
+        val folder = CONTENT_SLOT_INDEX[slot]?.let(BLOCK_FOLDERS::getOrNull) ?: return
+        openNextTick(player, session.resident, folder, "", 0)
     }
 
     private fun handleShopClick(player: Player, session: BrowseShopSession, event: InventoryPreClickEvent) {
         when (val slot = event.slot) {
             BACK_SLOT -> openRootNextTick(player, session.resident)
-            PREVIOUS_PAGE_SLOT -> if (session.page > 0) openNextTick(player, session.resident, session.category, session.query, session.page - 1)
+            PREVIOUS_PAGE_SLOT -> if (session.page > 0) openNextTick(player, session.resident, session.folder, session.query, session.page - 1)
             SEARCH_SLOT -> MinecraftServer.getSchedulerManager().scheduleNextTick {
-                if (player.isOnline) openSearchDialog(player, session.resident, session.category, session.query, session.page)
+                if (player.isOnline) openSearchDialog(player, session.resident, session.folder, session.query, session.page)
             }
-            CLEAR_SEARCH_SLOT -> if (session.query.isNotBlank()) openNextTick(player, session.resident, session.category, "", 0)
-            NEXT_PAGE_SLOT -> if (session.hasNextPage) openNextTick(player, session.resident, session.category, session.query, session.page + 1)
+            CLEAR_SEARCH_SLOT -> if (session.query.isNotBlank()) openNextTick(player, session.resident, session.folder, "", 0)
+            NEXT_PAGE_SLOT -> if (session.hasNextPage) openNextTick(player, session.resident, session.folder, session.query, session.page + 1)
             else -> {
                 val index = CONTENT_SLOT_INDEX[slot] ?: return
                 if (index < session.entries.size) handlePurchase(player, session, index, event.click)
@@ -249,12 +246,12 @@ object BlockShop {
         val cost = amount * COST_PER_BLOCK
         resident.removeBlockCoins(cost)
         Message.print(player, "Bought $amount ${prettyName(material)} for ${coins(cost)} (balance: ${coins(resident.blockCoins)})")
-        openNextTick(player, resident, session.category, session.query, session.page)
+        openNextTick(player, resident, session.folder, session.query, session.page)
     }
 
-    private fun openSearchDialog(player: Player, resident: Resident, category: BlockCategory?, previousQuery: String, previousPage: Int) {
+    private fun openSearchDialog(player: Player, resident: Resident, folder: BlockFolder?, previousQuery: String, previousPage: Int) {
         if (player.openInventory != null) player.closeInventory()
-        val session = SearchShopSession(resident, category, previousQuery, previousPage)
+        val session = SearchShopSession(resident, folder, previousQuery, previousPage)
         sessions[player.uuid] = session
         player.showDialog(searchDialog(session.token, previousQuery))
     }
@@ -297,16 +294,16 @@ object BlockShop {
         if (Resident.fromPlayer(player) !== session.resident) return
 
         if (event.key == BLOCKSHOP_CANCEL_SEARCH_ACTION) {
-            openNextTick(player, session.resident, session.category, session.previousQuery, session.previousPage)
+            openNextTick(player, session.resident, session.folder, session.previousQuery, session.previousPage)
             return
         }
         val query = payload.getString(QUERY_INPUT_KEY).take(MAX_QUERY_LENGTH)
-        openNextTick(player, session.resident, session.category, query, 0)
+        openNextTick(player, session.resident, session.folder, query, 0)
     }
 
-    private fun openNextTick(player: Player, resident: Resident, category: BlockCategory?, query: String, page: Int) {
+    private fun openNextTick(player: Player, resident: Resident, folder: BlockFolder?, query: String, page: Int) {
         MinecraftServer.getSchedulerManager().scheduleNextTick {
-            if (player.isOnline) open(player, resident, category, query, page)
+            if (player.isOnline) open(player, resident, folder, query, page)
         }
     }
 
@@ -356,7 +353,7 @@ object BlockShop {
             lore("1. Earn stone coins:", NamedTextColor.GRAY),
             lore("    mine stone, or /sell cobblestone,", NamedTextColor.DARK_GRAY),
             lore("    dirt and logs for 1 coin each.", NamedTextColor.DARK_GRAY),
-            lore("2. Pick a category or search.", NamedTextColor.GRAY),
+            lore("2. Pick a folder or search.", NamedTextColor.GRAY),
             lore("3. Click a block to buy 1,", NamedTextColor.GRAY),
             lore("    shift-click to buy a stack.", NamedTextColor.DARK_GRAY),
             Component.empty(),
