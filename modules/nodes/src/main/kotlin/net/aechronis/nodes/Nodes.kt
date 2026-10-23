@@ -16,6 +16,7 @@ import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.ColonizationMenu
 import net.aechronis.nodes.commands.AllyChatCommand
 import net.aechronis.nodes.commands.AllyCommand
+import net.aechronis.nodes.commands.BlockShopCommand
 import net.aechronis.nodes.commands.ColonizeCommand
 import net.aechronis.nodes.commands.FlagsCommand
 import net.aechronis.nodes.commands.GlobalChatCommand
@@ -25,6 +26,7 @@ import net.aechronis.nodes.commands.NodesAdminCommand
 import net.aechronis.nodes.commands.PlayerCommand
 import net.aechronis.nodes.commands.PortCommand
 import net.aechronis.nodes.commands.RatesCommand
+import net.aechronis.nodes.commands.SellCommand
 import net.aechronis.nodes.commands.TerritoryCommand
 import net.aechronis.nodes.commands.TownChatCommand
 import net.aechronis.nodes.commands.TownCommand
@@ -44,6 +46,7 @@ import net.aechronis.nodes.listeners.NodesVanillaStorageBridge
 import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.listeners.TrainsListener
 import net.aechronis.nodes.objects.ActiveBuildings
+import net.aechronis.nodes.objects.BlockShop
 import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.FlagsMenu
 import net.aechronis.nodes.objects.MinimapPassengerTracker
@@ -177,6 +180,7 @@ object Nodes {
             ActiveBuildings.init()
             WaypointMenu.init()
             FlagsMenu.init()
+            BlockShop.init()
             TestTownSelection.init()
         }
         measure("Trains") { Trains.initialize(config.pathTrains) }
@@ -201,6 +205,8 @@ object Nodes {
                     TrainCommand(),
                     ColonizeCommand(),
                     WarzoneCommand(),
+                    BlockShopCommand(),
+                    SellCommand(),
                 )
             val globalEventHandler = MinecraftServer.getGlobalEventHandler()
             ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)
