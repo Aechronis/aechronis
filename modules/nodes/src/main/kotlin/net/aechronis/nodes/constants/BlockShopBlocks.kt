@@ -54,6 +54,12 @@ val SELLABLE_BLOCKS: Set<Material> = buildSet {
     }
 }
 
+// Dyes are items, not blocks, but they are part of the shop (the Dyes folder) so builders can colour things.
+private val SHOP_DYE_KEYS: Set<String> = listOf(
+    "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
+    "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black",
+).map { "minecraft:${it}_dye" }.toSet()
+
 /**
  * Every material purchasable from the block shop for 1 block coin each: every placeable
  * block item (matched against the Block registry, so tools/food/spawn-eggs/etc. are
@@ -63,7 +69,7 @@ val SELLABLE_BLOCKS: Set<Material> = buildSet {
 val PURCHASABLE_BLOCKS: List<Material> = run {
     val blockKeys = Block.values().map { it.key().asString() }.toSet()
     Material.values()
-        .filter { material -> material.key().asString() in blockKeys }
+        .filter { material -> material.key().asString() in blockKeys || material.key().asString() in SHOP_DYE_KEYS }
         .filterNot { material -> isBlockedKey(material.key().asString().substringAfter(':')) }
         .sortedBy { material -> material.key().asString() }
 }
