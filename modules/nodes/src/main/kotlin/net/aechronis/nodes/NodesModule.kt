@@ -11,6 +11,7 @@ import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.stats.Stats
+import net.aechronis.vanilla.managers.BlockDrops
 import java.util.concurrent.CompletableFuture
 
 class NodesModule : AechronisModule {
@@ -44,6 +45,8 @@ class NodesModule : AechronisModule {
     }
 
     override fun shutdown(context: ModuleContext) {
+        // Vanilla outlives a Nodes reload, so it must not keep crediting a registry that no longer exists.
+        BlockDrops.coinCredit = null
         Stats.nationOf = { null }
         Stats.warActive = { false }
         Stats.areFriendly = { _, _ -> false }
