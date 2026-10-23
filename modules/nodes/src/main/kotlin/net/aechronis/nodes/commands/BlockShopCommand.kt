@@ -13,7 +13,7 @@ class BlockShopCommand : NodesCommand("blockshop", null, "shop") {
 
         val queryArg = ArgumentType.StringArray("query")
         addSyntax({ player, resident, context ->
-            BlockShop.open(player, resident, category = null, query = context[queryArg].joinToString(" "))
+            BlockShop.open(player, resident, folder = null, query = context[queryArg].joinToString(" "))
         }, queryArg)
     }
 }
