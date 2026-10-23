@@ -21,6 +21,8 @@ private val BLOCKED_MATERIAL_KEYS: Set<String> = setOf(
     "beacon", "conduit", "dragon_egg",
     "end_portal_frame", "end_portal", "end_gateway", "nether_portal",
     "respawn_anchor", "tnt", "ender_chest",
+    // Has no visible item, so it would show up as an empty slot in the shop.
+    "air",
     // Smelted/refined ore-storage blocks -- each one vanilla-crafts back into 9 ingots/gems,
     // so leaving these purchasable would let 1 dirt-block's worth of coin buy the equivalent
     // of 9 mined ores, completely bypassing the mining economy this shop is meant to sit
