@@ -126,7 +126,7 @@ private data class PreparedMinimapRender(
 class Minimap(
     val resident: Resident,
     val player: Player,
-) {
+) : MinimapView {
     var scale: Int = scaleForPlayer()
         private set
 
@@ -170,7 +170,7 @@ class Minimap(
             .schedule()
     }
 
-    fun render(centerX: Int, centerZ: Int, force: Boolean = false) {
+    override fun render(centerX: Int, centerZ: Int, force: Boolean) {
         if (destroyed || !player.isOnline) return
         val instance = player.instance ?: return
         if (force) lastMarkerHash = null
@@ -227,12 +227,12 @@ class Minimap(
         render(position.blockX(), position.blockZ(), force)
     }
 
-    fun updateWaypointDisplayTransforms(position: Pos) {
+    override fun updateWaypointDisplayTransforms(position: Pos) {
         if (destroyed) return
         waypointDisplays.updateTransforms(position)
     }
 
-    fun updateSettings() {
+    override fun updateSettings() {
         if (destroyed || !player.isOnline) return
         val newScale = scaleForPlayer()
         if (scale != newScale) scale = newScale
@@ -241,7 +241,7 @@ class Minimap(
     }
 
     /** Recreates virtual entities after a respawn or instance switch. */
-    fun respawn() {
+    override fun respawn() {
         if (destroyed) return
         removeEntities()
         spawnEntities()
@@ -249,7 +249,7 @@ class Minimap(
         renderCurrent(force = true)
     }
 
-    fun destroy() {
+    override fun destroy() {
         if (destroyed) return
         destroyed = true
         renderGeneration++
@@ -258,7 +258,7 @@ class Minimap(
         removeEntities()
     }
 
-    fun refresh() {
+    override fun refresh() {
         invalidateRasterPosition()
         // A deliberate scale/settings change, not incidental movement -- must not sit behind the
         // movement-coalescing cooldown or a sneak toggle / settings change could take up to

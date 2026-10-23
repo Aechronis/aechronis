@@ -65,6 +65,7 @@ class Resident(val uuid: UUID, val name: String) {
             minimapPosition: MinimapPosition = MinimapPosition.DEFAULT,
             minimapShiftEnabled: Boolean = true,
             minimapNorthLocked: Boolean = true,
+            minimapLegacy: Boolean = false,
             townJoinLockedUntil: Long? = null,
         ) {
             val resident = Resident(uuid, name)
@@ -73,6 +74,7 @@ class Resident(val uuid: UUID, val name: String) {
             resident.minimapPosition = minimapPosition
             resident.minimapShiftEnabled = minimapShiftEnabled
             resident.minimapNorthLocked = minimapNorthLocked
+            resident.minimapLegacy = minimapLegacy
             resident.townJoinLockedUntil = townJoinLockedUntil?.takeIf { it > System.currentTimeMillis() }
             resident.waypointVisibility.putAll(waypointVisibility)
             waypoints.forEach { waypoint -> resident.loadPermanentWaypoint(waypoint) }
@@ -268,7 +270,8 @@ class Resident(val uuid: UUID, val name: String) {
     var minimapPosition: MinimapPosition = MinimapPosition.DEFAULT
     var minimapShiftEnabled: Boolean = true
     var minimapNorthLocked: Boolean = true
-    var minimap: Minimap? = null
+    var minimapLegacy: Boolean = false
+    var minimap: MinimapView? = null
         private set
 
     private val permanentWaypointsByName = linkedMapOf<String, Waypoint>()
@@ -359,16 +362,25 @@ class Resident(val uuid: UUID, val name: String) {
     // and only viewable by player
     // ===================================
 
-    fun createMinimap(player: Player): Minimap? {
+    fun createMinimap(player: Player): MinimapView? {
         destroyMinimap()
         if (!minimapEnabled) return null
-        return Minimap(this, player).also { minimap = it }
+        val view = if (minimapLegacy) LegacyMinimap(this, player) else Minimap(this, player)
+        return view.also { minimap = it }
     }
 
-    fun setMinimapEnabled(enabled: Boolean): Boolean {
-        if (minimapEnabled == enabled) return false
-        minimapEnabled = enabled
-        if (enabled) player()?.let(::createMinimap) else destroyMinimap()
+    val minimapMode: MinimapMode
+        get() = when {
+            !minimapEnabled -> MinimapMode.OFF
+            minimapLegacy -> MinimapMode.LEGACY
+            else -> MinimapMode.MODERN
+        }
+
+    fun setMinimapMode(mode: MinimapMode): Boolean {
+        if (minimapMode == mode) return false
+        minimapEnabled = mode != MinimapMode.OFF
+        if (mode != MinimapMode.OFF) minimapLegacy = mode == MinimapMode.LEGACY
+        if (minimapEnabled) player()?.let(::createMinimap) else destroyMinimap()
         needsUpdate()
         Nodes.markWorldDirty()
         return true
@@ -535,6 +547,7 @@ class Resident(val uuid: UUID, val name: String) {
         val minimapPosition = r.minimapPosition
         val minimapShiftEnabled = r.minimapShiftEnabled
         val minimapNorthLocked = r.minimapNorthLocked
+        val minimapLegacy = r.minimapLegacy
         val townJoinLockedUntil = r.townJoinLockedUntil
         val waypoints = r.permanentWaypoints.snapshotList()
         val waypointVisibility = r.waypointVisibility.snapshotMap()

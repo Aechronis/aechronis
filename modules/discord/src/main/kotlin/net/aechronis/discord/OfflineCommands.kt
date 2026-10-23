@@ -18,7 +18,7 @@ internal object OfflineCommands {
         """
         town town.help town.promote town.demote town.accept town.deny town.kick
         town.list town.info town.online town.income.info town.permissions town.trust town.untrust
-        town.minimap town.minimap.toggle town.minimap.position town.minimap.shift town.minimap.northlock
+        town.minimap town.minimap.mode town.minimap.position town.minimap.shift town.minimap.northlock
         town.plot town.plot.permissions town.plot.list town.plot.delete
         nation nation.help nation.list nation.online nation.info
         ally unally player port port.list port.info warzone
