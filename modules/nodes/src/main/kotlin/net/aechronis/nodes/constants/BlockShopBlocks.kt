@@ -20,7 +20,7 @@ private val BLOCKED_MATERIAL_KEYS: Set<String> = setOf(
     "spawner", "trial_spawner", "vault",
     "beacon", "conduit", "dragon_egg",
     "end_portal_frame", "end_portal", "end_gateway", "nether_portal",
-    "respawn_anchor", "tnt",
+    "respawn_anchor", "tnt", "ender_chest",
     // Smelted/refined ore-storage blocks -- each one vanilla-crafts back into 9 ingots/gems,
     // so leaving these purchasable would let 1 dirt-block's worth of coin buy the equivalent
     // of 9 mined ores, completely bypassing the mining economy this shop is meant to sit
@@ -36,7 +36,9 @@ private val BLOCKED_MATERIAL_KEYS: Set<String> = setOf(
 
 private fun isBlockedKey(key: String): Boolean = key in BLOCKED_MATERIAL_KEYS ||
     key.endsWith("_ore") ||
-    key.endsWith("_bucket")
+    key.endsWith("_bucket") ||
+    // Portable storage: every colour of shulker box, plus the ender chest.
+    key.endsWith("shulker_box")
 
 /** Every material a player can sell to the block shop for 1 block coin each. */
 val SELLABLE_BLOCKS: Set<Material> = buildSet {
