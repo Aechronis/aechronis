@@ -21,6 +21,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerCustomClickEvent
+import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.inventory.click.Click
@@ -89,9 +90,8 @@ private data class SearchShopSession(
  * Server-side block shop: a root screen of folder folders (Wood, Stone, ...), each
  * opening a paginated/searchable list of that folder's blocks, plus a global search that
  * cuts across every folder. Buys any [PURCHASABLE_BLOCKS] material for [COST_PER_BLOCK]
- * stone coin each, earned by mining stone or with /sell. Every purchase attempts to give the
- * item first and only deducts coins if that succeeds, so a full inventory never costs
- * anything. Structured like WaypointMenu.kt (session-per-player map, cancel-all-clicks
+ * stone coin each, earned by mining stone or with /sell. Every purchase takes the coins first
+ * and refunds them if the items do not fit, so a full inventory never costs anything. Structured like WaypointMenu.kt (session-per-player map, cancel-all-clicks
  * inventory, native dialog for text search instead of an anvil-rename hack).
  */
 object BlockShop {
@@ -103,6 +103,8 @@ object BlockShop {
         Nodes.eventNode.addListener(PlayerCustomClickEvent::class.java, this::onCustomClick)
         Nodes.eventNode.addListener(InventoryPreClickEvent::class.java, this::onInventoryClick)
         Nodes.eventNode.addListener(InventoryCloseEvent::class.java, this::onInventoryClose)
+        // A closed search dialog sends no event, so drop any session left behind when the player leaves.
+        Nodes.eventNode.addListener(PlayerDisconnectEvent::class.java) { event -> sessions.remove(event.player.uuid) }
     }
 
     fun openRoot(player: Player, resident: Resident) {
@@ -226,10 +228,15 @@ object BlockShop {
         }
     }
 
-    // Attempts to give the item BEFORE spending any coins -- a full inventory means the
-    // purchase silently doesn't happen and nothing is deducted. Never spend coins first.
+    // The coins are the gate: they are taken first, so a stale or doubled click can never hand out free items,
+    // and they are refunded when the items do not fit. A resident that is no longer registered (after a
+    // reload) gets the menu closed instead of spending a balance that would not be saved.
     private fun handlePurchase(player: Player, session: BrowseShopSession, index: Int, click: Click) {
         val resident = session.resident
+        if (Resident.fromPlayer(player) !== resident) {
+            player.closeInventory()
+            return
+        }
         val material = session.entries[index]
         val shiftClick = click is Click.LeftShift || click is Click.RightShift
         val requested = if (shiftClick) material.maxStackSize() else 1
@@ -239,12 +246,16 @@ object BlockShop {
             Message.error(player, "Not enough stone coins")
             return
         }
+        val cost = amount * COST_PER_BLOCK
+        if (!resident.removeBlockCoins(cost)) {
+            Message.error(player, "Not enough stone coins")
+            return
+        }
         if (!player.inventory.addItemStack(ItemStack.of(material, amount))) {
+            resident.addBlockCoins(cost)
             Message.error(player, "Not enough inventory space")
             return
         }
-        val cost = amount * COST_PER_BLOCK
-        resident.removeBlockCoins(cost)
         Message.print(player, "Bought $amount ${prettyName(material)} for ${coins(cost)} (balance: ${coins(resident.blockCoins)})")
         openNextTick(player, resident, session.folder, session.query, session.page)
     }

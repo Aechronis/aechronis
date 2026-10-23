@@ -16,7 +16,8 @@ class SellCommand : NodesCommand("sell", null) {
             var sold = 0
             for (slot in 0 until player.inventory.size) {
                 val item = player.inventory.getItemStack(slot)
-                if (!item.isAir && item.material() in SELLABLE_BLOCKS) {
+                // Only plain blocks sell; named, enchanted or otherwise customised items are kept.
+                if (!item.isAir && item.material() in SELLABLE_BLOCKS && item.isSimilar(ItemStack.of(item.material()))) {
                     sold += item.amount()
                     player.inventory.setItemStack(slot, ItemStack.AIR)
                 }
