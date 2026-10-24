@@ -145,7 +145,7 @@ vec3 aechronis_profile_muzzle(int profile) {
     if (profile == 12) return vec3(8.0, 8.5, -16.2109375);
     if (profile == 9) return vec3(8.0, 8.5, -11.44921875);
     if (profile == 13) return vec3(8.0, 8.5, -9.73046875);
-    if (profile == 14) return vec3(8.0, 8.55078125, -0.94140625);
+    if (profile == 14) return vec3(8.0, 9.0390625, -0.94140625);
     if (profile == 15) return vec3(8.0, 8.5, -15.55859375);
     return vec3(0.0);
 }
