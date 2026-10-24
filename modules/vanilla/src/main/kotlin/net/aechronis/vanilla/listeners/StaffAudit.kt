@@ -15,9 +15,8 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 /**
- * Posts what staff do to a Discord channel, one thread per staff member, plus a pinned index sorted by staff level.
+ * Posts what staff do to a Discord channel, one thread per staff member, plus a pinned index of the threads.
  * Needs DISCORD_BOT_TOKEN and DISCORD_STAFF_LOG_CHANNEL_ID; silently off without them.
- * Staff level is the highest N (1-5) with permission `vanilla.audit.level.N`, 0 when none (same scheme as vanish levels).
  */
 object StaffAudit {
     private const val PERMISSION = "vanilla.audit"
@@ -32,7 +31,7 @@ object StaffAudit {
     private val file = Path.of("staff-audit-threads.properties")
     private val LOG = Path.of("staff-audit.log")
 
-    // uuid -> "threadId|level|name"; INDEX_KEY -> id of the pinned index message
+    // uuid -> "threadId|name"; INDEX_KEY -> id of the pinned index message
     private val store = Properties().apply { if (Files.exists(file)) Files.newBufferedReader(file).use(::load) }
     private val http = HttpClient.newHttpClient()
 
@@ -44,7 +43,6 @@ object StaffAudit {
 
     private class Entry(
         val thread: String,
-        val level: Int,
         val name: String,
     )
 
@@ -61,8 +59,6 @@ object StaffAudit {
         material: String,
     ) = post(player, CREATIVE_COLOR, "Creative inventory", "Took **${amount}x** `$material`", "creative: took ${amount}x $material")
 
-    private fun level(player: Player) = (5 downTo 1).firstOrNull { player.hasPermission("vanilla.audit.level.$it") } ?: 0
-
     private fun post(
         player: Player,
         color: Int,
@@ -72,13 +68,12 @@ object StaffAudit {
     ) {
         val name = player.username
         val uuid = player.uuid
-        val level = level(player)
         val pos = player.position
         val where = "%d, %d, %d".format(pos.blockX(), pos.blockY(), pos.blockZ())
         val embed =
             """{"author":{"name":${json(name)},"icon_url":"https://mc-heads.net/avatar/$uuid/32"},""" +
                 """"title":${json(title)},"description":${json(description)},"color":$color,""" +
-                """"footer":{"text":${json("L$level  ·  $where")}},"timestamp":"${Instant.now()}"}"""
+                """"footer":{"text":${json(where)}},"timestamp":"${Instant.now()}"}"""
         val body = """{"allowed_mentions":{"parse":[]},"embeds":[$embed]}"""
         // Tab-separated: epoch millis, uuid, name, text. Read by the Discord /audit search command.
         val line = "${System.currentTimeMillis()}\t$uuid\t$name\t${plain.replace(Regex("\\s+"), " ").take(1_900)}\n"
@@ -87,30 +82,29 @@ object StaffAudit {
                 .onFailure { System.err.println("[StaffAudit] log write failed: ${it.message}") }
             runCatching {
                 try {
-                    send("POST", "/channels/${sync(uuid, name, level)}/messages", body)
+                    send("POST", "/channels/${sync(uuid, name)}/messages", body)
                 } catch (_: Missing) {
                     // Thread was deleted in Discord: forget it, make a fresh one and re-list it in the index.
                     store.remove(uuid.toString())
-                    send("POST", "/channels/${sync(uuid, name, level)}/messages", body)
+                    send("POST", "/channels/${sync(uuid, name)}/messages", body)
                 }
             }.onFailure { System.err.println("[StaffAudit] ${it.message}") }
         }
     }
 
-    /** Creates or renames the staff member's thread when new or their level/name changed, then refreshes the index. */
+    /** Creates or renames the staff member's thread when new or their name changed, then refreshes the index. */
     private fun sync(
         uuid: UUID,
         name: String,
-        level: Int,
     ): String {
         val known = entry(uuid.toString())
-        if (known != null && known.level == level && known.name == name) {
+        if (known != null && known.name == name) {
             // First post per session also repairs a deleted index message.
             if (seen.add(uuid)) refreshIndex()
             return known.thread
         }
         seen.add(uuid)
-        val threadName = json("L$level | $name")
+        val threadName = json(name)
         val thread =
             if (known == null) {
                 val body = """{"name":$threadName,"type":11,"auto_archive_duration":10080}"""
@@ -119,7 +113,7 @@ object StaffAudit {
                 send("PATCH", "/channels/${known.thread}", """{"name":$threadName}""")
                 known.thread
             }
-        store.setProperty(uuid.toString(), "$thread|$level|$name")
+        store.setProperty(uuid.toString(), "$thread|$name")
         refreshIndex()
         return thread
     }
@@ -130,11 +124,11 @@ object StaffAudit {
                 .stringPropertyNames()
                 .filter { it != INDEX_KEY }
                 .mapNotNull { entry(it) }
-                .sortedWith(compareByDescending<Entry> { it.level }.thenBy { it.name.lowercase() })
-                .joinToString("\n") { "`L${it.level}`  <#${it.thread}>" }
+                .sortedBy { it.name.lowercase() }
+                .joinToString("\n") { "<#${it.thread}>" }
         val body =
             """{"allowed_mentions":{"parse":[]},"embeds":[{"title":"Staff audit threads","color":$INDEX_COLOR,""" +
-                """"description":${json(lines.take(4_000))},"footer":{"text":"Sorted by staff level, then name"}}]}"""
+                """"description":${json(lines.take(4_000))},"footer":{"text":"Sorted by name"}}]}"""
         val existing = store.getProperty(INDEX_KEY)
         val edited = existing != null && runCatching { send("PATCH", "/channels/$channel/messages/$existing", body) }.isSuccess
         if (!edited) {
@@ -150,9 +144,9 @@ object StaffAudit {
     private fun entry(key: String): Entry? =
         store
             .getProperty(key)
-            ?.split('|', limit = 3)
-            ?.takeIf { it.size == 3 }
-            ?.let { Entry(it[0], it[1].toIntOrNull() ?: 0, it[2]) }
+            ?.split('|', limit = 2)
+            ?.takeIf { it.size == 2 }
+            ?.let { Entry(it[0], it[1]) }
 
     private fun idOf(response: String) = Regex("\"id\"\\s*:\\s*\"(\\d+)\"").find(response)!!.groupValues[1]
 
