@@ -5,7 +5,6 @@ import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
-import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.scoreboard.Sidebar
@@ -63,7 +62,7 @@ internal object LegacyMinimapRenderer {
 
     private fun glyph(viewer: MinimapViewerSnapshot, coord: Coord, isPlayer: Boolean, waypoint: Boolean, death: Boolean): Component {
         val chunk = TerritoryChunk.fromCoord(coord)
-        if (isPlayer) return Component.text(PLAYER, NamedTextColor.WHITE, TextDecoration.BOLD)
+        if (isPlayer) return Component.text(PLAYER, NamedTextColor.WHITE)
         val attack = FlagWar.chunkToAttacker[coord]
         if (attack != null) {
             return Component.text(ATTACK, relationshipColor(MinimapMarkerRenderer.relationshipToTown(viewer, attack.town), false))
