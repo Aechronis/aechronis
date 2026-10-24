@@ -1,122 +1,122 @@
 {
   "dreyse-needle-gun.fire": {
     "sounds": [
-      "aechronis:rifle-kar98-fire"
+      "aechronis:rifle-1-fire"
     ]
   },
   "dreyse-needle-gun.reload": {
     "sounds": [
-      "aechronis:rifle-kar98-reload"
+      "aechronis:rifle-1-reload"
     ]
   },
   "chassepot.fire": {
     "sounds": [
-      "aechronis:rifle-kar98-fire"
+      "aechronis:rifle-1-fire"
     ]
   },
   "chassepot.reload": {
     "sounds": [
-      "aechronis:rifle-kar98-reload"
+      "aechronis:rifle-1-reload"
     ]
   },
   "chassepot-carbine.fire": {
     "sounds": [
-      "aechronis:rifle-kar98-fire"
+      "aechronis:rifle-1-fire"
     ]
   },
   "chassepot-carbine.reload": {
     "sounds": [
-      "aechronis:rifle-kar98-reload"
+      "aechronis:rifle-1-reload"
     ]
   },
   "mauser-model-1871.fire": {
     "sounds": [
-      "aechronis:rifle-kar98-fire"
+      "aechronis:rifle-1-fire"
     ]
   },
   "mauser-model-1871.reload": {
     "sounds": [
-      "aechronis:rifle-kar98-reload"
+      "aechronis:rifle-1-reload"
     ]
   },
   "mauser-model-1871-jaegerbuechse.fire": {
     "sounds": [
-      "aechronis:rifle-kar98-fire"
+      "aechronis:rifle-1-fire"
     ]
   },
   "mauser-model-1871-jaegerbuechse.reload": {
     "sounds": [
-      "aechronis:rifle-kar98-reload"
+      "aechronis:rifle-1-reload"
     ]
   },
   "martini-henry.fire": {
     "sounds": [
-      "aechronis:rifle-lee-enfield-fire"
+      "aechronis:rifle-2-fire"
     ]
   },
   "martini-henry.reload": {
     "sounds": [
-      "aechronis:rifle-lee-enfield-reload"
+      "aechronis:rifle-2-reload"
     ]
   },
   "enfield-pattern-1853.fire": {
     "sounds": [
-      "aechronis:rifle-lee-enfield-fire"
+      "aechronis:rifle-2-fire"
     ]
   },
   "enfield-pattern-1853.reload": {
     "sounds": [
-      "aechronis:rifle-lee-enfield-reload"
+      "aechronis:rifle-2-reload"
     ]
   },
   "m1867-werndl-holub.fire": {
     "sounds": [
-      "aechronis:rifle-lee-enfield-fire"
+      "aechronis:rifle-2-fire"
     ]
   },
   "m1867-werndl-holub.reload": {
     "sounds": [
-      "aechronis:rifle-lee-enfield-reload"
+      "aechronis:rifle-2-reload"
     ]
   },
   "berdan-ii-rifle.fire": {
     "sounds": [
-      "aechronis:rifle-lee-enfield-fire"
+      "aechronis:rifle-2-fire"
     ]
   },
   "berdan-ii-rifle.reload": {
     "sounds": [
-      "aechronis:rifle-lee-enfield-reload"
+      "aechronis:rifle-2-reload"
     ]
   },
   "vetterli-model-1870.fire": {
     "sounds": [
-      "aechronis:rifle-m1903-fire"
+      "aechronis:rifle-3-fire"
     ]
   },
   "vetterli-model-1870.reload": {
     "sounds": [
-      "aechronis:rifle-m1903-reload"
+      "aechronis:rifle-3-reload"
     ]
   },
   "winchester-model-1873.fire": {
     "sounds": [
-      "aechronis:rifle-m1903-fire"
+      "aechronis:rifle-3-fire"
     ]
   },
   "winchester-model-1873.reload": {
     "sounds": [
-      "aechronis:rifle-m1903-reload"
+      "aechronis:rifle-3-reload"
     ]
   },
   "spencer-model-1860.fire": {
     "sounds": [
-      "aechronis:rifle-m1903-fire"
+      "aechronis:rifle-3-fire"
     ]
   },
   "spencer-model-1860.reload": {
     "sounds": [
-      "aechronis:rifle-m1903-reload"
+      "aechronis:rifle-3-reload"
     ]
   },
   "adams-mkiii-revolver.fire": {
@@ -161,22 +161,22 @@
   },
   "maxim-gun.fire": {
     "sounds": [
-      "aechronis:maxim-fire"
+      "aechronis:machine-gun-fire"
     ]
   },
   "maxim-gun.reload": {
     "sounds": [
-      "aechronis:maxim-reload"
+      "aechronis:machine-gun-reload"
     ]
   },
   "gatling-gun.fire": {
     "sounds": [
-      "aechronis:maxim-fire"
+      "aechronis:machine-gun-fire"
     ]
   },
   "gatling-gun.reload": {
     "sounds": [
-      "aechronis:maxim-reload"
+      "aechronis:machine-gun-reload"
     ]
   },
   "krupp-c64-field-gun.fire": {
