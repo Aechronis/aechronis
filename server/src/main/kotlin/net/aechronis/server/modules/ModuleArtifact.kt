@@ -69,101 +69,155 @@ internal class ModuleArtifact(
             sources: List<Path>,
             previous: Collection<ModuleArtifact> = emptyList(),
         ): List<ModuleArtifact> {
-            val copies = mutableListOf<Pair<Path, Path>>()
+            // Reused artifacts remain owned by the manager, including if this stage fails.
+            val copies = mutableListOf<Path>()
+            val reused = mutableMapOf<Path, ModuleArtifact>()
+            val knownSources = previous.associateBy { it.sourceName }
             val knownContent = previous.associateBy { it.fingerprint }
             try {
-                sources.forEach { source ->
-                    val directory = Files.createTempDirectory("aechronis-module-")
-                    val target = directory.resolve(source.fileName)
-                    copies += directory to target
-                    val before = Files.readAttributes(source, BasicFileAttributes::class.java)
-                    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
-                    val after = Files.readAttributes(source, BasicFileAttributes::class.java)
-                    require(
-                        before.size() == after.size() &&
-                            before.lastModifiedTime() == after.lastModifiedTime() &&
-                            before.fileKey() == after.fileKey(),
-                    ) {
-                        "Module JAR changed while being staged: $source"
+                val jars =
+                    sources.map { source ->
+                        val before = Files.readAttributes(source, BasicFileAttributes::class.java)
+                        val known = knownSources[source.fileName.toString()]
+                        if (known != null && fingerprint(source) == known.fingerprint) {
+                            requireStableSource(source, before)
+                            reused[known.jar] = known
+                            known.jar
+                        } else {
+                            val directory = Files.createTempDirectory("aechronis-module-")
+                            copies.add(directory)
+                            val target = directory.resolve(source.fileName)
+                            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+                            requireStableSource(source, before)
+                            target
+                        }
                     }
+                if (copies.isEmpty()) {
+                    return jars.map(reused::getValue).also { requireUniqueIds(it) }
                 }
                 // Providers expose metadata only. Never configure/initialize probe instances.
+                // Inspect the full generation so a changed JAR cannot shadow an unchanged provider.
                 val probeLoader =
                     URLClassLoader(
-                        copies.map { it.second.toUri().toURL() }.toTypedArray(),
+                        jars.map { it.toUri().toURL() }.toTypedArray(),
                         AechronisModule::class.java.classLoader,
                     )
-                probeLoader.use { probe ->
-                    val modules = withContextClassLoader(probe) { ServiceLoader.load(AechronisModule::class.java, probe).toList() }
-                    require(modules.map { it.id }.distinct().size == modules.size) { "Duplicate module ids" }
-                    return copies.map { (directory, jar) ->
-                        val providers =
-                            modules.filter {
-                                Path.of(
-                                    it.javaClass.protectionDomain.codeSource.location
-                                        .toURI(),
-                                ) == jar
-                            }
-                        require(
-                            providers.size == 1,
-                        ) { "Module JAR '${jar.fileName}' must declare exactly one AechronisModule provider (found ${providers.size})" }
-                        val module = providers.single()
-                        val definition =
-                            ModuleDefinition(
-                                module.id,
-                                module.dependencies.toSet(),
-                                module.conflicts.toSet(),
-                                module.reloadTogether.toSet(),
-                                module.javaClass.name,
-                                module.reloadTogetherInputs.mapValues { it.value.toSet() },
-                            )
-                        require(
-                            (
-                                definition.dependencies + definition.conflicts + definition.reloadTogether +
-                                    definition.reloadTogetherInputs.keys +
-                                    definition.id
-                            ).all {
-                                it.matches(Regex("[a-z0-9][a-z0-9_-]*"))
-                            },
-                        ) { "Invalid module ID in ${definition.id}" }
-                        require(
-                            definition.reloadTogether.all {
-                                it in definition.dependencies
-                            },
-                        ) { "${definition.id}: reloadTogether must name direct dependencies" }
-                        require(
-                            definition.reloadTogetherInputs.all { (dependency, inputs) ->
-                                dependency in definition.dependencies && inputs.isNotEmpty() && inputs.none { it.isBlank() }
-                            },
-                        ) { "${definition.id}: reloadTogetherInputs must name direct dependencies and nonempty JAR inputs" }
-                        val digest = MessageDigest.getInstance("SHA-256")
-                        Files.newInputStream(jar).use { input ->
-                            val buffer = ByteArray(65536)
-                            while (true) {
-                                val count = input.read(buffer)
-                                if (count < 0) break
-                                digest.update(buffer, 0, count)
-                            }
+                return probeLoader.use { probe ->
+                    val providersByJar =
+                        withContextClassLoader(probe) {
+                            ServiceLoader
+                                .load(AechronisModule::class.java, probe)
+                                .stream()
+                                .toList()
+                                .groupBy {
+                                    Path.of(
+                                        it
+                                            .type()
+                                            .protectionDomain
+                                            .codeSource
+                                            .location
+                                            .toURI(),
+                                    )
+                                }
                         }
-                        val fingerprint = digest.digest().toHexString()
-                        val known = knownContent[fingerprint]
-                        val (codeFingerprint, resourcePackFingerprint) =
-                            if (known == null) contentFingerprints(jar) else known.codeFingerprint to known.resourcePackFingerprint
-                        ModuleArtifact(
-                            directory,
-                            jar,
-                            jar.fileName.toString(),
-                            fingerprint,
-                            definition,
-                            codeFingerprint,
-                            resourcePackFingerprint,
-                        ).also { artifact -> definition.reloadTogetherInputs.keys.forEach(artifact::dependencyFingerprint) }
-                    }
+                    val inheritedIds =
+                        providersByJar.filterKeys { it !in jars }.values.flatten().map { provider ->
+                            withContextClassLoader(probe) { provider.get().id }
+                        }
+                    jars
+                        .map { jar ->
+                            val providers = providersByJar[jar].orEmpty()
+                            require(
+                                providers.size == 1,
+                            ) { "Module JAR '${jar.fileName}' must declare exactly one AechronisModule provider (found ${providers.size})" }
+                            reused[jar]?.let { known ->
+                                require(providers.single().type().name == known.definition.provider) {
+                                    "Module provider changed while reusing ${jar.fileName}"
+                                }
+                                return@map known
+                            }
+                            val module = withContextClassLoader(probe) { providers.single().get() }
+                            val definition =
+                                ModuleDefinition(
+                                    module.id,
+                                    module.dependencies.toSet(),
+                                    module.conflicts.toSet(),
+                                    module.reloadTogether.toSet(),
+                                    module.javaClass.name,
+                                    module.reloadTogetherInputs.mapValues { it.value.toSet() },
+                                )
+                            require(
+                                (
+                                    definition.dependencies + definition.conflicts + definition.reloadTogether +
+                                        definition.reloadTogetherInputs.keys +
+                                        definition.id
+                                ).all {
+                                    it.matches(Regex("[a-z0-9][a-z0-9_-]*"))
+                                },
+                            ) { "Invalid module ID in ${definition.id}" }
+                            require(
+                                definition.reloadTogether.all {
+                                    it in definition.dependencies
+                                },
+                            ) { "${definition.id}: reloadTogether must name direct dependencies" }
+                            require(
+                                definition.reloadTogetherInputs.all { (dependency, inputs) ->
+                                    dependency in definition.dependencies && inputs.isNotEmpty() && inputs.none { it.isBlank() }
+                                },
+                            ) { "${definition.id}: reloadTogetherInputs must name direct dependencies and nonempty JAR inputs" }
+                            // Hash the private copy, not the mutable source used for the reuse check.
+                            val fingerprint = fingerprint(jar)
+                            val known = knownContent[fingerprint]
+                            val (codeFingerprint, resourcePackFingerprint) =
+                                if (known == null) contentFingerprints(jar) else known.codeFingerprint to known.resourcePackFingerprint
+                            ModuleArtifact(
+                                jar.parent,
+                                jar,
+                                jar.fileName.toString(),
+                                fingerprint,
+                                definition,
+                                codeFingerprint,
+                                resourcePackFingerprint,
+                            ).also { artifact -> definition.reloadTogetherInputs.keys.forEach(artifact::dependencyFingerprint) }
+                        }.also { requireUniqueIds(it, inheritedIds) }
                 }
             } catch (error: Throwable) {
-                copies.forEach { deleteModuleTree(it.first) }
+                copies.forEach(::deleteModuleTree)
                 throw error
             }
+        }
+
+        private fun requireUniqueIds(
+            artifacts: List<ModuleArtifact>,
+            inheritedIds: List<String> = emptyList(),
+        ) {
+            val ids = artifacts.map { it.definition.id } + inheritedIds
+            require(ids.distinct().size == ids.size) { "Duplicate module ids" }
+        }
+
+        private fun requireStableSource(
+            source: Path,
+            before: BasicFileAttributes,
+        ) {
+            val after = Files.readAttributes(source, BasicFileAttributes::class.java)
+            require(
+                before.size() == after.size() &&
+                    before.lastModifiedTime() == after.lastModifiedTime() &&
+                    before.fileKey() == after.fileKey(),
+            ) { "Module JAR changed while being staged: $source" }
+        }
+
+        private fun fingerprint(jar: Path): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            Files.newInputStream(jar).use { input ->
+                val buffer = ByteArray(65536)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+            }
+            return digest.digest().toHexString()
         }
 
         /** ZIP timestamps/compression do not change code or pack content identity. */
