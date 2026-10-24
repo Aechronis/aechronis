@@ -1,136 +1,197 @@
 {
   "dreyse-needle-gun.fire": {
     "sounds": [
-      "aechronis:rifle-fire"
+      "aechronis:generic-rifle-1-fire"
+    ]
+  },
+  "dreyse-needle-gun.reload": {
+    "sounds": [
+      "aechronis:generic-rifle-1-reload"
     ]
   },
   "chassepot.fire": {
     "sounds": [
-      "aechronis:rifle-fire"
+      "aechronis:generic-rifle-1-fire"
     ]
   },
-  "martini-henry.fire": {
+  "chassepot.reload": {
     "sounds": [
-      "aechronis:rifle-fire"
-    ]
-  },
-  "m1867-werndl-holub.fire": {
-    "sounds": [
-      "aechronis:rifle-fire"
-    ]
-  },
-  "vetterli-model-1870.fire": {
-    "sounds": [
-      "aechronis:rifle-fire"
-    ]
-  },
-  "berdan-ii-rifle.fire": {
-    "sounds": [
-      "aechronis:rifle-fire"
-    ]
-  },
-  "mauser-model-1871-jaegerbuechse.fire": {
-    "sounds": [
-      "aechronis:rifle-fire"
-    ]
-  },
-  "mauser-model-1871-jaegerbuechse.reload": {
-    "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
+      "aechronis:generic-rifle-1-reload"
     ]
   },
   "chassepot-carbine.fire": {
     "sounds": [
-      "aechronis:rifle-fire"
+      "aechronis:generic-rifle-1-fire"
     ]
   },
   "chassepot-carbine.reload": {
     "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
+      "aechronis:generic-rifle-1-reload"
     ]
   },
   "mauser-model-1871.fire": {
     "sounds": [
-      "aechronis:rifle-fire"
+      "aechronis:generic-rifle-1-fire"
     ]
   },
   "mauser-model-1871.reload": {
     "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
+      "aechronis:generic-rifle-1-reload"
     ]
   },
-  "winchester-model-1873.fire": {
+  "mauser-model-1871-jaegerbuechse.fire": {
     "sounds": [
-      "aechronis:rifle-fire"
+      "aechronis:generic-rifle-1-fire"
     ]
   },
-  "winchester-model-1873.reload": {
+  "mauser-model-1871-jaegerbuechse.reload": {
     "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
+      "aechronis:generic-rifle-1-reload"
     ]
   },
-  "spencer-model-1860.fire": {
+  "martini-henry.fire": {
     "sounds": [
-      "aechronis:rifle-fire"
+      "aechronis:generic-rifle-2-fire"
     ]
   },
-  "spencer-model-1860.reload": {
+  "martini-henry.reload": {
     "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
-    ]
-  },
-  "colt-single-action-army.fire": {
-    "sounds": [
-      "aechronis:rifle-fire"
-    ]
-  },
-  "colt-single-action-army.reload": {
-    "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
+      "aechronis:generic-rifle-2-reload"
     ]
   },
   "enfield-pattern-1853.fire": {
     "sounds": [
-      "aechronis:rifle-fire"
+      "aechronis:generic-rifle-2-fire"
     ]
   },
   "enfield-pattern-1853.reload": {
     "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
+      "aechronis:generic-rifle-2-reload"
+    ]
+  },
+  "m1867-werndl-holub.fire": {
+    "sounds": [
+      "aechronis:generic-rifle-2-fire"
+    ]
+  },
+  "m1867-werndl-holub.reload": {
+    "sounds": [
+      "aechronis:generic-rifle-2-reload"
+    ]
+  },
+  "berdan-ii-rifle.fire": {
+    "sounds": [
+      "aechronis:generic-rifle-2-fire"
+    ]
+  },
+  "berdan-ii-rifle.reload": {
+    "sounds": [
+      "aechronis:generic-rifle-2-reload"
+    ]
+  },
+  "vetterli-model-1870.fire": {
+    "sounds": [
+      "aechronis:generic-rifle-3-fire"
+    ]
+  },
+  "vetterli-model-1870.reload": {
+    "sounds": [
+      "aechronis:generic-rifle-3-reload"
+    ]
+  },
+  "winchester-model-1873.fire": {
+    "sounds": [
+      "aechronis:generic-rifle-3-fire"
+    ]
+  },
+  "winchester-model-1873.reload": {
+    "sounds": [
+      "aechronis:generic-rifle-3-reload"
+    ]
+  },
+  "spencer-model-1860.fire": {
+    "sounds": [
+      "aechronis:generic-rifle-3-fire"
+    ]
+  },
+  "spencer-model-1860.reload": {
+    "sounds": [
+      "aechronis:generic-rifle-3-reload"
+    ]
+  },
+  "adams-mkiii-revolver.fire": {
+    "sounds": [
+      "aechronis:revolver-fire"
+    ]
+  },
+  "adams-mkiii-revolver.reload": {
+    "sounds": [
+      "aechronis:shotgun-reload"
+    ]
+  },
+  "colt-1851-navy-revolver.fire": {
+    "sounds": [
+      "aechronis:revolver-fire"
+    ]
+  },
+  "colt-1851-navy-revolver.reload": {
+    "sounds": [
+      "aechronis:shotgun-reload"
+    ]
+  },
+  "colt-single-action-army.fire": {
+    "sounds": [
+      "aechronis:revolver-fire"
+    ]
+  },
+  "colt-single-action-army.reload": {
+    "sounds": [
+      "aechronis:shotgun-reload"
+    ]
+  },
+  "coach-gun.fire": {
+    "sounds": [
+      "aechronis:shotgun-fire"
+    ]
+  },
+  "coach-gun.reload": {
+    "sounds": [
+      "aechronis:shotgun-reload"
     ]
   },
   "maxim-gun.fire": {
     "sounds": [
-      "aechronis:rifle-fire"
+      "aechronis:machine-gun-fire"
     ]
   },
   "maxim-gun.reload": {
     "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
+      "aechronis:machine-gun-reload"
+    ]
+  },
+  "gatling-gun.fire": {
+    "sounds": [
+      "aechronis:machine-gun-fire"
+    ]
+  },
+  "gatling-gun.reload": {
+    "sounds": [
+      "aechronis:machine-gun-reload"
+    ]
+  },
+  "krupp-c64-field-gun.fire": {
+    "sounds": [
+      "aechronis:cannon-medium-fire"
+    ]
+  },
+  "krupp-c64-field-gun.reload": {
+    "sounds": [
+      "aechronis:cannon-medium-reload"
+    ]
+  },
+  "out-of-ammo": {
+    "sounds": [
+      "aechronis:out-of-ammo"
     ]
   }
 }
