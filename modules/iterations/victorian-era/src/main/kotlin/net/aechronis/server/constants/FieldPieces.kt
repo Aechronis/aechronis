@@ -141,7 +141,7 @@ object FieldPieces {
         )
 
     // Late-1880s belt-fed Maxim; the field piece owns the magazine and reload state.
-    private val maximGunWeapon =
+    val maximGunWeapon =
         Gun(
             name = "maxim-gun",
             itemName = Component.text("Maxim Gun", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),

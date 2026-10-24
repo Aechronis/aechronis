@@ -7,6 +7,7 @@ import net.aechronis.combat.utils.Particles
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.withCombatAttribution
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
@@ -89,6 +90,10 @@ internal class GunShot(
             if (entity.instance != instance || entity in ignoredEntities) continue
             if (validVehicles != null && entity !in validVehicles) continue
             val position = entity.position
+            val roll = vehicle.hitboxRoll(entity)
+            // a shooter standing inside a vehicle (e.g. in a balloon basket) fires out through its hull
+            val origin = Vec(ray.origin.x(), ray.origin.y(), ray.origin.z())
+            if (vehicle.hitbox.containsPoint(origin, position, position.yaw, position.pitch, roll) != null) continue
             val distance =
                 vehicle.hitbox.firstIntersection(
                     ray.origin,
@@ -96,7 +101,7 @@ internal class GunShot(
                     position,
                     position.yaw,
                     position.pitch,
-                    vehicle.hitboxRoll(entity),
+                    roll,
                 ) ?: continue
             if (closest == null || distance < closest.t) {
                 closest = Ray.Hit(distance, ray.origin.add(ray.direction.mul(distance)), entity to vehicle)

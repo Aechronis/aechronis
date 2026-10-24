@@ -71,11 +71,23 @@ open class Vehicle(
         ) { "Vehicle model scale must be positive and finite on every axis" }
     }
 
+    /** Client ticks the hull, its parts and seats glide between position updates; fewer keeps fast movers tight to carried riders. */
+    open val interpolationTicks: Int = 3
+
     /** Whether live instances of this vehicle are included in vehicle saves. */
     open val persistent: Boolean = true
 
     /** Whether the driver uses a vehicle-owned camera, viewmodel, and shader clock. */
     open val customDriverView: Boolean = false
+
+    /** Extra area that counts as the vehicle when looking to board it, for decks and cabins below the damage hitbox. */
+    open val boardingHitbox: Hitbox? = null
+
+    /** Extra pilot telemetry, shown beside health in the action bar. */
+    open fun movementTelemetry(entity: Entity): String? = null
+
+    /** Temporary control tips for a pilot, shown after the telemetry. */
+    open fun controlsHint(player: Player): Component? = null
 
     /** Current and maximum health for vehicle telemetry. */
     open fun healthStatus(entity: Entity): Pair<Float, Float>? {
@@ -84,6 +96,12 @@ open class Vehicle(
     }
 
     protected fun driverEntity(player: Player): Entity? = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this }?.entity
+
+    /** Everyone riding [entity], driver included. */
+    protected fun occupants(entity: Entity): List<Player> = VehicleRegistry.ridesOf(entity).map { it.player }
+
+    /** The vehicle entity [player] is riding, if it is this vehicle. */
+    protected fun entityOf(player: Player): Entity? = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this }?.entity
 
     protected fun driverSeat(player: Player): Entity? = VehicleRegistry.driver(player)?.takeIf { it.vehicle === this }?.seat
 
@@ -237,8 +255,10 @@ open class Vehicle(
 
         val meta = entity.entityMeta as ItemDisplayMeta
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(model)
-        meta.posRotInterpolationDuration = 3
+        meta.posRotInterpolationDuration = interpolationTicks
         meta.scale = modelScale
+        // huge models would otherwise be culled once the viewer is more than 64 blocks from the model centre
+        meta.viewRange = 10f
         meta.isHasNoGravity = true
 
         entity.spawn()
@@ -246,6 +266,27 @@ open class Vehicle(
         VehicleRegistry.register(entity, this).spawnParts()
 
         return entity
+    }
+
+    /** Lifts anyone the new hull's decks overlap onto the highest deck there, instead of letting the resolver crush them into the ground. */
+    protected fun liftPlayersOntoDecks(entity: Entity) {
+        val instance = entity.instance ?: return
+        val boxes = collisionHitbox.at(entity.position, hitboxRoll(entity)).boxes
+        for (player in instance.players) {
+            val start = player.position.asVec().add(player.boundingBox.relativeStart())
+            val end = player.position.asVec().add(player.boundingBox.relativeEnd())
+            val top =
+                boxes
+                    .filter { box ->
+                        start.x < box.max.x &&
+                            end.x > box.min.x &&
+                            start.y < box.max.y &&
+                            end.y > box.min.y &&
+                            start.z < box.max.z &&
+                            end.z > box.min.z
+                    }.maxOfOrNull { it.max.y } ?: continue
+            player.teleport(player.position.withY(top + 0.01))
+        }
     }
 
     private val crew = VehicleCrew(this, ::getSeatWorldPos, ::getGunnerSeatWorldPos)
@@ -274,10 +315,19 @@ open class Vehicle(
         crew.leave(ride)
     }
 
+    /** Whether holding sneak dismounts a crew seat; flying vehicles use it to descend instead. */
+    open val exitsOnSneak: Boolean = true
+
+    /** Whether the swap-hands key dismounts a crew seat. */
+    open val exitsOnSwapHands: Boolean = false
+
+    /** Whether the crew decks sit inside the damage hitbox, so a dismount onto a deck may overlap it. */
+    open val decksInsideHitbox: Boolean = false
+
     // Called after the driving controller has moved the hull.
     open fun onTick(player: Player) {
         val ride = VehicleRegistry.driver(player) ?: return
-        if (KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
+        if (exitsOnSneak && KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
             onExit(player)
             return
         }
@@ -295,7 +345,7 @@ open class Vehicle(
     /** Weapon operators tick after hull movement, including without a driver. */
     open fun onGunnerTick(player: Player) {
         val ride = VehicleRegistry.gunner(player)?.takeIf { it.vehicle === this } ?: return
-        if (KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
+        if (exitsOnSneak && KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
             onGunnerExit(player)
             return
         }

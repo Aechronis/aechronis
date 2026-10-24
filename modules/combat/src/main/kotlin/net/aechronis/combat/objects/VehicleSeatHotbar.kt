@@ -177,6 +177,12 @@ internal object VehicleSeatHotbar {
             }
             is ClientPlayerActionPacket -> {
                 event.isCancelled = true
+                if (packet.status == ClientPlayerActionPacket.Status.SWAP_ITEM_HAND &&
+                    VehicleRegistry.ride(player)?.vehicle?.exitsOnSwapHands == true
+                ) {
+                    Vehicle.exit(player)
+                    return
+                }
                 if (packet.status in
                     setOf(ClientPlayerActionPacket.Status.STARTED_DIGGING, ClientPlayerActionPacket.Status.FINISHED_DIGGING)
                 ) {

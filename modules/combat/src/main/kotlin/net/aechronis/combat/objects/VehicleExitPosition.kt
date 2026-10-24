@@ -58,15 +58,18 @@ internal object VehicleExitPosition {
         val safe =
             candidates.firstOrNull { candidate ->
                 isSafeExitPosition(player, candidate, instance) &&
-                    vehicle.hitbox.resolveCollision(
-                        entity.position,
-                        entity.position.yaw,
-                        entity.position.pitch,
-                        vehicle.hitboxRoll(entity),
-                        candidate,
-                        player.boundingBox.relativeStart(),
-                        player.boundingBox.relativeEnd(),
-                    ) == null
+                    (
+                        vehicle.decksInsideHitbox ||
+                            vehicle.hitbox.resolveCollision(
+                                entity.position,
+                                entity.position.yaw,
+                                entity.position.pitch,
+                                vehicle.hitboxRoll(entity),
+                                candidate,
+                                player.boundingBox.relativeStart(),
+                                player.boundingBox.relativeEnd(),
+                            ) == null
+                    )
             }
         if (safe != null) player.teleport(safe) else moveToSafeExit(player, vehicle, entity)
     }

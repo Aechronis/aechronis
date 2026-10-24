@@ -139,7 +139,7 @@ internal class VehicleCrew(
             seat.setInstance(instance, position.withView(player.position.yaw, player.position.pitch))
             val meta = seat.entityMeta as ItemDisplayMeta
             meta.itemStack = ItemStack.AIR
-            meta.posRotInterpolationDuration = 3
+            meta.posRotInterpolationDuration = vehicle.interpolationTicks
             meta.isHasNoGravity = true
             seat.spawn()
             VehicleRegistry.enter(player, entity, seat, definition)

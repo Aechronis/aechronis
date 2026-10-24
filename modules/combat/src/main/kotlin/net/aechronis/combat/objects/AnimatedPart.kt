@@ -136,7 +136,7 @@ internal class AnimatedPartRuntime(
         display.setInstance(requireNotNull(body.instance), position(body.position, roll))
         val meta = display.entityMeta as ItemDisplayMeta
         meta.itemStack = ItemStack.of(Material.BONE).withItemModel(part.model)
-        meta.posRotInterpolationDuration = 3
+        meta.posRotInterpolationDuration = owner.vehicle.interpolationTicks
         meta.transformationInterpolationDuration = 1
         meta.scale = owner.vehicle.modelScale
         meta.isHasNoGravity = true

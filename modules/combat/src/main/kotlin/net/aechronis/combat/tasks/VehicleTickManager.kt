@@ -31,6 +31,7 @@ object VehicleTickManager {
     private const val MIN_IMPACT_SPEED = 0.08
     private const val MAX_IMPACT_DAMAGE = 8F
     private const val MAX_CARRY_HEIGHT = 5.0
+    private const val SUNK_TELEPORT_DISTANCE = 0.15
 
     private data class ImpactKey(
         val vehicle: Entity,
@@ -263,7 +264,10 @@ object VehicleTickManager {
                     it.resolveCollision(player.position, player.boundingBox.relativeStart(), player.boundingBox.relativeEnd())
                 } ?: return@forEachCandidate
 
-            if (player in supports) player.refreshPosition(collision.position) else player.teleport(collision.position)
+            // The client normally stands on the shulkers, so a supported player is corrected silently. If it has
+            // already sunk into the deck (shulkers late or missing client-side) it must be told, or it keeps falling.
+            val sunk = collision.normal.y > 0.5 && collision.position.y - player.position.y > SUNK_TELEPORT_DISTANCE
+            if (player in supports && !sunk) player.refreshPosition(collision.position) else player.teleport(collision.position)
             if (supported) return@forEachCandidate
             // The top is a walkable surface, not a side impact. Do not launch or
             // damage someone landing on a vehicle or being lifted by its deck.

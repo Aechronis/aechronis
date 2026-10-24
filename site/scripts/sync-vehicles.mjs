@@ -3,13 +3,14 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'nod
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { exportItemModel } from './export-item-model.mjs'
-import { callArguments, constructorDefaults, definitions, displayName, namedArguments, number, splitArguments, string, stripComments } from '../../tools/kotlin-source.cjs'
+import { callArguments, constantValue, maskSource, constructorDefaults, definitions, displayName, namedArguments, number, splitArguments, string, stripComments } from '../../tools/kotlin-source.cjs'
 import { ammunitionNames, defaultsFor, readConstants } from '../../tools/combat-source.cjs'
 
 const site = fileURLToPath(new URL('../', import.meta.url))
 const modules = join(site, '../modules')
-const types = ['Car', 'Boat', 'Tank', 'Plane', 'Drone', 'Cannon', 'AutomaticFieldPiece']
+const types = ['Car', 'Boat', 'Tank', 'Plane', 'Drone', 'Cannon', 'AutomaticFieldPiece', 'Balloon', 'Airship']
 const fieldPieces = ['Cannon', 'AutomaticFieldPiece']
+const flying = ['Balloon', 'Airship']
 const catalogues = {}
 const read = path => readFileSync(path, 'utf8')
 const format = value => Number(value.toFixed(3)).toString()
@@ -30,6 +31,39 @@ function modelScale(expression, source, label) {
   const axes = splitArguments(constructorArgs(expression, 'Vec')).map(value => number(value, label))
   if (axes.length !== 3 || axes.some(value => value <= 0)) throw new Error(`Invalid model scale: ${label}`)
   return axes
+}
+
+// Seats may be written inline or point at a `val seats = listOf(...)` in the same file, optionally inside `object Owner`.
+function seatList(expression, source) {
+  if (/^listOf\s*\(/.test(expression)) return splitArguments(constructorArgs(expression, 'listOf'))
+  const [owner, name] = expression.includes('.') ? expression.split('.') : [null, expression]
+  const code = maskSource(source, true)
+  const from = owner ? code.search(new RegExp(`\\bobject\\s+${owner}\\b`)) : 0
+  const match = code.slice(Math.max(from, 0)).match(new RegExp(`\\bval\\s+${name}\\s*=\\s*listOf\\s*\\(`))
+  if (!match) throw new Error(`Missing seats: ${expression}`)
+  const open = Math.max(from, 0) + match.index + match[0].length - 1
+  return splitArguments(callArguments(source, open))
+}
+
+// Seat roles are the second positional argument of VehicleSeat(...) and maximSeat(...).
+function seatName(expression, label) {
+  const call = expression.match(/^(?:VehicleSeat|maximSeat)\s*\(/)
+  if (!call) throw new Error(`Unsupported seat: ${expression}`)
+  const body = callArguments(expression, call[0].length - 1)
+  return string(namedArguments(body).name ?? splitArguments(body)[1], label)
+}
+
+// Flying vehicles size their health in rifle hits: health = rifleShots * RIFLE_HIT.
+function flyingHealth(expression, id, flyingVehicles) {
+  const match = expression.match(/^vehicleHealth\s*\(/)
+  if (!match) throw new Error(`Unsupported flying vehicle health: ${expression}`)
+  const shots = number(namedArguments(callArguments(expression, match[0].length - 1)).rifleShots, `${id}/rifleShots`)
+  return shots * number(constantValue(flyingVehicles, 'RIFLE_HIT'), 'RIFLE_HIT')
+}
+
+function titleName(expression) {
+  const match = expression?.match(/^vehicleTitle\s*\(\s*("(?:\\.|[^"\\])*")/)
+  return match ? string(match[1], 'vehicle title') : displayName(expression)
 }
 
 for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
@@ -55,6 +89,39 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
     const itemName = args.itemName?.match(/^(\w+)\.itemName$/) ? localGuns.get(args.itemName.split('.')[0])?.itemName : args.itemName
     if (!/^[a-z0-9_-]+$/.test(id) || ids.has(id)) throw new Error(`Invalid or duplicate vehicle ID: ${iterationId}/${id}`)
     ids.add(id)
+    if (flying.includes(type)) {
+      const flyingVehicles = read(join(iteration, 'src/main/kotlin/net/aechronis/server/constants/FlyingVehicles.kt'))
+      const balloon = constructorDefaults(read(join(iteration, 'src/main/kotlin/net/aechronis/server/objects/Balloon.kt')), 'Balloon')
+      const field = name => args[name] ?? balloon[name]
+      const flightStats = []
+      const put = (label, value) => flightStats.push({ label, value: String(value) })
+      put('Type', type)
+      put('Health', flyingHealth(args.health, id, flyingVehicles))
+      put('Top speed', `${format(number(field('horizontalSpeed'), `${id}/horizontalSpeed`) * 20)} blocks/s`)
+      put('Climb speed', `${format(number(field('climbSpeed'), `${id}/climbSpeed`) * 20)} blocks/s`)
+      put('Descent speed', `${format(number(field('descendSpeed'), `${id}/descendSpeed`) * 20)} blocks/s`)
+      put('Maximum altitude', `${format(number(field('maxAltitude'), `${id}/maxAltitude`))} blocks`)
+      const seats = args.seats ? seatList(args.seats, source) : [`VehicleSeat("driver", "Pilot", VehicleSeatRole.DRIVER)`]
+      put('Crew seats', seats.length)
+      put('Crew positions', seats.map(seat => seatName(seat, `${id}/seat`)).join(', '))
+      const gun = args.gun ? guns.get(args.gun) : null
+      if (args.gun && !gun) throw new Error(`Unknown mounted gun: ${args.gun}`)
+      if (gun) {
+        const ammo = ammoNames.get(gun.ammo)
+        if (!ammo) throw new Error(`Unknown ammunition: ${gun.ammo}`)
+        put('Ammunition', ammo)
+        put('Capacity', number(gun.maxAmmo, `${id}/maxAmmo`))
+        put('Armament', displayName(gun.itemName))
+        put('Gun damage', number(gun.damage, `${id}/gun damage`))
+        put('Gun fire rate', `${Math.round(60_000 / number(gun.cooldown, `${id}/gun cooldown`))} RPM`)
+        put('Reload time', `${format(number(gun.reloadTime, `${id}/reloadTime`) / 1000)} s`)
+      }
+      const flyingModel = string(args.model ?? args.itemModel, `${id}/model`)
+      const [flyingNamespace, flyingModelId] = flyingModel.split(':')
+      exportItemModel(join(iteration, 'resource-pack/assets', flyingNamespace), flyingModelId, output, id)
+      catalogue.push({ id, name: titleName(args.itemName), stats: flightStats, model: `/iterations/${iterationId}/vehicles/${id}.json` })
+      continue
+    }
     const defaults = defaultsFor(type, source, iteration)
     const value = field => args[field] ?? defaults[field]
     const stat = field => number(value(field), `${id}/${field}`)
