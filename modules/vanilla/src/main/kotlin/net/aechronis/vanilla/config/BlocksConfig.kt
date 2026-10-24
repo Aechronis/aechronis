@@ -97,10 +97,10 @@ private val IronPickaxeBlocks =
 
 data class BlocksConfig(
     /**
-     * Conversion groups for the block converter. Every material in a cycle can be converted
-     * into every other material in that cycle.
+     * Blocks that pay stone coins when mined instead of dropping an item, and how many coins each pays.
+     * Only applies while a module provides a coin balance; silk touch still drops the block.
      */
-    val converterCycles: List<List<Material>> = listOf(),
+    val coinBlocks: Map<Material, Int> = mapOf(Material.STONE to 1),
     val blockDrops: Map<Material, List<ItemStack>> =
         mapOf(
             Material.STONE to listOf(ItemStack.of(Material.COBBLESTONE)),

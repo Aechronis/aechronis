@@ -1,6 +1,7 @@
 package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
+import net.aechronis.vanilla.managers.BlockDrops
 import net.aechronis.vanilla.managers.Items
 import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.GameMode
@@ -39,15 +40,20 @@ object PlayerBreakListener {
             }
         }
 
-        val drops =
-            if (silkTouchApplies) {
-                listOf(ItemStack.of(material))
-            } else {
-                config.blocksConfig.blockDrops[material] ?: listOf(ItemStack.of(material))
+        val paidInCoins = !silkTouchApplies && BlockDrops.tryCredit(player, material)
+        if (!paidInCoins) {
+            val drops =
+                if (silkTouchApplies) {
+                    listOf(ItemStack.of(material))
+                } else {
+                    config.blocksConfig.blockDrops[material] ?: listOf(ItemStack.of(material))
+                }
+            val dropPos = event.blockPosition.add(0.5, 0.5, 0.5).asPos()
+            val direct = BlockDrops.isOre(material)
+            for (stack in drops) {
+                if (stack.isAir || stack.amount() <= 0) continue
+                if (direct) BlockDrops.giveOrDrop(player, instance, stack) else Items.spawn(instance, dropPos, stack)
             }
-        val dropPos = event.blockPosition.add(0.5, 0.5, 0.5).asPos()
-        for (stack in drops) {
-            if (!stack.isAir && stack.amount() > 0) Items.spawn(instance, dropPos, stack)
         }
 
         val damagedTool = heldItem.damage(1)

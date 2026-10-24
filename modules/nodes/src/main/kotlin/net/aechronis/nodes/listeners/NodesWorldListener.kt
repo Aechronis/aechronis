@@ -47,12 +47,12 @@ import net.aechronis.nodes.war.Warzone
 import net.aechronis.stats.Stat
 import net.aechronis.stats.Stats
 import net.aechronis.utils.OreSounds
+import net.aechronis.vanilla.managers.BlockDrops
 import net.aechronis.vanilla.managers.StorageAccess
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Point
-import net.minestom.server.entity.ItemEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
@@ -403,10 +403,11 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
             }
             // else, drop items normally
             else {
+                // Boosted hidden ore goes straight into the inventory, and only falls to the ground when it is full.
+                val instance = player.instance ?: MinecraftServer.getInstanceManager().instances.first()
                 var dropped = false
                 for (itemStack in itemDrops) {
-                    val itemEntity = ItemEntity(itemStack)
-                    itemEntity.setInstance(MinecraftServer.getInstanceManager().instances.first(), block)
+                    BlockDrops.giveOrDrop(player, instance, itemStack)
                     dropped = true
                 }
                 if (dropped) player.playSound(OreSounds.DING)

@@ -238,7 +238,7 @@ object Ores {
         var dropped = false
         for (stack in drops) {
             if (!stack.isAir && stack.amount() > 0) {
-                Items.spawn(instance, dropPos, stack)
+                BlockDrops.giveOrDrop(player, instance, stack)
                 dropped = true
             }
         }
