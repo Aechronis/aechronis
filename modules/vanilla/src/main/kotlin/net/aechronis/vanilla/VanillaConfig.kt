@@ -114,6 +114,8 @@ data class VanillaConfig(
         ),
     // Warps
     val warpCooldownSeconds: Long = 15L,
+    // Spawn
+    val spawnDelaySeconds: Long = 10L,
     // Horses
     val horseMountCooldownMs: Long = 3_000L,
     // Combat

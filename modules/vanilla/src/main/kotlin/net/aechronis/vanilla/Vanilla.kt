@@ -26,6 +26,7 @@ import net.aechronis.vanilla.commands.Recpies
 import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Shutdown
+import net.aechronis.vanilla.commands.Spawn
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
 import net.aechronis.vanilla.commands.Vanish
@@ -64,6 +65,7 @@ import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Shelves
 import net.aechronis.vanilla.managers.Signs
+import net.aechronis.vanilla.managers.SpawnTeleport
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.TreeFeller
 import net.aechronis.vanilla.managers.VoteLinks
@@ -122,6 +124,7 @@ object Vanilla {
                         Vanish(),
                         Vote(),
                         Warp(),
+                        Spawn(),
                     )
                 if (config.musicEnabled) commands += Disc()
                 if (config.blocksEnabled) commands += Convert()
@@ -216,6 +219,7 @@ object Vanilla {
             "storage" to Storage::shutdown,
             "sign editors" to Signs::shutdown,
             "pending warps" to Warps::shutdown,
+            "pending spawn teleports" to SpawnTeleport::shutdown,
             "shop inventories" to KillShop::shutdown,
             "command inventories" to Commands::shutdown,
             "horses" to { if (config.horsesEnabled) Horses.shutdown() },
