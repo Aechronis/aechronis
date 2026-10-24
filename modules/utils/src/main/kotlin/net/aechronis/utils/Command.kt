@@ -132,6 +132,7 @@ open class Command(
             CommandOutput.send(sender, Component.text(PERMISSION_DENIED_MESSAGE, NamedTextColor.RED))
             return false
         }
+        if (permission == null) PublicCommands.mark(sender.uuid)
         return canExecute(sender)
     }
 
@@ -150,6 +151,7 @@ open class Command(
             return null
         }
 
+        if (permission == null) PublicCommands.mark(sender.uuid)
         return sender.takeIf(::canExecute)
     }
 

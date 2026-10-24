@@ -81,7 +81,7 @@ internal object DiscordBot {
                     }?.let { PasteLog(it, http, scope) }
             val slots = Semaphore(8)
             val names =
-                nodes.names + setOf("link", "unlink", "account") +
+                nodes.names + setOf("link", "unlink", "account", "audit") +
                     setOfNotNull("paste".takeIf { pastes != null }, "repaste".takeIf { pastes != null })
             if (pastes != null) {
                 client.on<SelectMenuInteractionCreateEvent>(scope = scope) {
@@ -243,6 +243,20 @@ internal object DiscordBot {
                                                 links.player(id)?.let { "Linked Minecraft UUID: $it. Use /unlink to revoke access." }
                                                     ?: "Not linked. Run /discord link in Minecraft, then /link code:<code> here.",
                                             )
+                                        "audit" ->
+                                            if (AuditSearch.allowed(
+                                                    interaction.data.member.value
+                                                        ?.roles
+                                                        .orEmpty(),
+                                                )
+                                            ) {
+                                                println(
+                                                    "[Discord] /audit search '${command.strings["search"]}' hours=${command.integers["hours"]}",
+                                                )
+                                                AuditSearch.search(command.strings["search"].orEmpty(), command.integers["hours"] ?: 168)
+                                            } else {
+                                                CommandReply("Only staff can search the audit log.")
+                                            }
                                         "paste" -> submitPaste(pastes!!, http, interaction, command, repaste = false) { pickerDraft = it }
                                         "repaste" -> submitPaste(pastes!!, http, interaction, command, repaste = true) { pickerDraft = it }
                                         else -> nodes.execute(id, command.rootName, command.strings["arguments"].orEmpty())
@@ -304,6 +318,7 @@ internal object DiscordBot {
                         "paste" -> "Buy a schematic paste in your town and pick the chunks (50 gems per chunk)"
                         "unlink" -> "Revoke this Discord account's access to your Minecraft account"
                         "account" -> "Show your linked Minecraft account"
+                        "audit" -> "Staff only: find every logged use of a command or item, and who did it"
                         else -> "Run the in-game /$name command as your linked player"
                     }
                 val options: ChatInputCreateBuilder.() -> Unit = {
@@ -326,6 +341,16 @@ internal object DiscordBot {
                             integer("x", "Block X where the schematic's origin lands") { required = true }
                             integer("y", "Block Y where the schematic's origin lands") { required = true }
                             integer("z", "Block Z where the schematic's origin lands") { required = true }
+                        }
+                        "audit" -> {
+                            string("search", "Text to find, e.g. give, nodesadmin town delete, minecraft:diamond") {
+                                required = true
+                                maxLength = 100
+                            }
+                            integer("hours", "How far back to look (default 168 = 7 days)") {
+                                minValue = 1
+                                maxValue = 720
+                            }
                         }
                         "unlink", "account" -> Unit
                         else ->
