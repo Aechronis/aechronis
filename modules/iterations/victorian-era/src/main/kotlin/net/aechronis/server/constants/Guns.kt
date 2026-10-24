@@ -183,24 +183,27 @@ object Guns {
             mountable = true,
         )
 
-    // Two shots per reload; uses the existing single-projectile Gun behavior.
     val coachGun =
         Gun(
             name = "coach-gun",
             animatedViewModelProfile = 8,
-            itemName = Component.text("Coach Gun (Short Double Barrel)", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+            itemName = Component.text("Coach Gun", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
             ammo = Ammo.shotgunShell,
             maxAmmo = 2,
-            damage = 48F,
+            damage = 12F,
+            bulletsPerShot = 8,
             automatic = false,
             sniper = false,
             cooldown = 350,
             reloadTime = 4000,
             recoilMin = 4F,
             recoilMax = 7F,
-            spreadMin = 2F,
-            spreadMax = 6F,
+            spreadMin = 5F,
+            spreadMax = 8F,
             maxRange = 32.0,
+            falloffStart = 0.0,
+            falloffEnd = 32.0,
+            falloffMinMultiplier = 0.25F,
             bulletTrailParticle = Particle.SMOKE,
             bulletTrailOffset = Vec(-0.3, -0.1, 1.0),
             mountable = true,
