@@ -16,7 +16,7 @@ class Gm : Command("gmc", "vanilla.gamemode", "gms", "gmsp", "gma") {
                     else -> return@setDefaultExecutor
                 }
 
-            if (mayUse(player, gameMode)) player.gameMode = gameMode
+            player.gameMode = gameMode
         }
     }
 }
