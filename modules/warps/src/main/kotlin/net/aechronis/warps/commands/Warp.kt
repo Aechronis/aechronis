@@ -1,8 +1,7 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.warps.commands
 
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.managers.Warps
+import net.aechronis.warps.Warps
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
@@ -36,7 +35,7 @@ class Warp : Command("warp", "vanilla.warp") {
             when (Warps.teleport(sender, context[nameArg]) { name -> sender.message("Warped to $name.") }) {
                 Warps.TeleportResult.SUCCESS -> sender.message("Warped to ${context[nameArg]}.")
                 Warps.TeleportResult.WARPING -> {
-                    val delay = Vanilla.config.warpCooldownSeconds.coerceAtLeast(0)
+                    val delay = Warps.config.warpCooldownSeconds.coerceAtLeast(0)
                     sender.message("Warping to ${context[nameArg]} in ${delay}s.")
                 }
                 Warps.TeleportResult.ALREADY_WARPING -> sender.error("You are already waiting to warp.")

@@ -2,7 +2,6 @@ package net.aechronis.vanilla.managers
 
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
-import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.inventory.Inventory
@@ -15,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap
 
 object Commands {
     const val MIRRORED_SLOTS = 41
-    val lastLocation = HashMap<UUID, Pos>()
     val playerLastSender = HashMap<Player, Player>()
     val ignored = HashMap<UUID, MutableSet<UUID>>()
     private val viewing = ConcurrentHashMap<Inventory, Player>()
@@ -50,7 +48,6 @@ object Commands {
     }
 
     internal fun clearPlayerReferences(player: Player) {
-        lastLocation.remove(player.uuid)
         ignored.remove(player.uuid)
         removeLastSenderReferences(player)
     }
@@ -83,12 +80,6 @@ object Commands {
             playerLastSender[sender] = receiver
         }
     }
-
-    fun saveLastLocation(player: Player) {
-        lastLocation[player.uuid] = player.position
-    }
-
-    fun getLastLocation(player: Player): Pos? = lastLocation[player.uuid]
 
     fun open(
         viewer: Player,
@@ -202,7 +193,6 @@ object Commands {
         synchronizingInventories.clear()
         enderChests.clear()
         closingEnderChests.clear()
-        lastLocation.clear()
         playerLastSender.clear()
         ignored.clear()
     }

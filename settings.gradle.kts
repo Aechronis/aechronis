@@ -44,6 +44,7 @@ include(
     ":modules:elevators",
     ":modules:treefeller",
     ":modules:bundles",
+    ":modules:warps",
     ":modules:hats",
     ":modules:nodes",
     ":modules:discord",

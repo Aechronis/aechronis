@@ -4,7 +4,6 @@ import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
-import net.aechronis.vanilla.commands.Back
 import net.aechronis.vanilla.commands.Broadcast
 import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.Craft
@@ -28,7 +27,6 @@ import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
 import net.aechronis.vanilla.commands.Vanish
 import net.aechronis.vanilla.commands.Vote
-import net.aechronis.vanilla.commands.Warp
 import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
 import net.aechronis.vanilla.listeners.CombatInventoryListener
@@ -37,7 +35,6 @@ import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerActivityListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.listeners.ServerLinksListener
-import net.aechronis.vanilla.listeners.WarpListener
 import net.aechronis.vanilla.managers.Boats
 import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Commands
@@ -60,7 +57,6 @@ import net.aechronis.vanilla.managers.Shelves
 import net.aechronis.vanilla.managers.Signs
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.VoteLinks
-import net.aechronis.vanilla.managers.Warps
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import net.minestom.server.instance.Instance
@@ -88,14 +84,12 @@ object Vanilla {
         measure("Player Activity Listener") { PlayerActivityListener.init() }
         measure("Block Placement Cooldown Listener") { BlockPlacementCooldownListener.init() }
         measure("Combat Inventory Listener") { CombatInventoryListener.init() }
-        measure("Warp Listener") { WarpListener.init() }
         measure("Filter") { Filter.init() }
 
         if (config.commandsEnabled) {
             measure("Commands") {
                 val commands =
                     mutableListOf(
-                        Back(),
                         Message(),
                         Reply(),
                         GameMode(),
@@ -114,7 +108,6 @@ object Vanilla {
                         Shutdown(),
                         Vanish(),
                         Vote(),
-                        Warp(),
                     )
                 if (config.musicEnabled) commands += Disc()
                 if (config.recipesEnabled) commands += Craft()
@@ -161,7 +154,6 @@ object Vanilla {
         if (config.musicEnabled) measure("Music") { MusicManager.init(Path.of(config.path, config.musicPath)) }
         if (config.oresEnabled) measure("Ores") { Ores.init(Path.of(config.path, config.oresPath)) }
         measure("Vote Links") { VoteLinks.init(Path.of(config.path, config.votePath)) }
-        measure("Warps") { Warps.init(Path.of(config.path, config.warpsPath)) }
         if (config.horsesEnabled) {
             val world = requireNotNull(instance) { "Horses need the world instance" }
             measure("Horses") { Horses.init(Path.of(config.path, config.horsesPath), world) }
@@ -177,7 +169,6 @@ object Vanilla {
         runSaveStages(
             "checkpoint" to { context.captureLive(::saveCheckpoint).join() },
             "ores" to { if (config.oresEnabled) Ores.saveAll() },
-            "warps" to Warps::saveAll,
             "horses" to { if (config.horsesEnabled) Horses.save() },
         )
         println("Vanilla: data saved.")
@@ -199,7 +190,6 @@ object Vanilla {
             "recipes" to Recipes::shutdown,
             "storage" to Storage::shutdown,
             "sign editors" to Signs::shutdown,
-            "pending warps" to Warps::shutdown,
             "shop inventories" to KillShop::shutdown,
             "command inventories" to Commands::shutdown,
             "horses" to { if (config.horsesEnabled) Horses.shutdown() },

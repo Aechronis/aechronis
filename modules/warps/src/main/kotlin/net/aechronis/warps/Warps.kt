@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.warps
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -7,7 +7,7 @@ import net.aechronis.server.hasPermission
 import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.JsonRegistryFile
-import net.aechronis.vanilla.Vanilla
+import net.aechronis.warps.listeners.WarpListener
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
@@ -20,6 +20,9 @@ import java.util.concurrent.ConcurrentHashMap
 /** Named player teleport destinations persisted as JSON. */
 object Warps {
     const val COOLDOWN_BYPASS_PERMISSION = "warp.cooldown.bypass"
+
+    lateinit var config: WarpsConfig
+        private set
 
     @Serializable
     data class SavedWarp(
@@ -49,9 +52,14 @@ object Warps {
     private val warps = linkedMapOf<String, SavedWarp>()
     private val lastUse = ConcurrentHashMap<UUID, Long>()
     private val pendingWarps = ConcurrentHashMap<UUID, PendingWarp>()
+    private val lastLocation = ConcurrentHashMap<UUID, Pos>()
     private val storage = JsonRegistryFile("warps")
 
-    fun init(path: Path) {
+    fun init(
+        path: Path,
+        config: WarpsConfig,
+    ) {
+        this.config = config
         ModulePermissions.register(COOLDOWN_BYPASS_PERMISSION)
         storage.load(path, warps) { contents ->
             val loaded = linkedMapOf<String, SavedWarp>()
@@ -61,6 +69,7 @@ object Warps {
             }
             loaded
         }
+        WarpListener.init()
     }
 
     fun saveAll() = save()
@@ -68,6 +77,7 @@ object Warps {
     fun shutdown() {
         pendingWarps.clear()
         lastUse.clear()
+        lastLocation.clear()
         synchronized(warps) { warps.clear() }
     }
 
@@ -105,6 +115,17 @@ object Warps {
     }
 
     fun cancelPending(player: Player): Boolean = pendingWarps.remove(player.uuid) != null
+
+    fun saveLastLocation(player: Player) {
+        lastLocation[player.uuid] = player.position
+    }
+
+    fun getLastLocation(player: Player): Pos? = lastLocation[player.uuid]
+
+    fun disconnect(player: Player) {
+        pendingWarps.remove(player.uuid)
+        lastLocation.remove(player.uuid)
+    }
 
     fun teleport(
         player: Player,
@@ -151,7 +172,7 @@ object Warps {
     }
 
     private fun cooldownMillis(player: Player): Long =
-        if (player.hasPermission(COOLDOWN_BYPASS_PERMISSION)) 0 else Vanilla.config.warpCooldownSeconds.coerceAtLeast(0) * 1_000L
+        if (player.hasPermission(COOLDOWN_BYPASS_PERMISSION)) 0 else config.warpCooldownSeconds.coerceAtLeast(0) * 1_000L
 
     private fun onCooldown(player: Player): Boolean = remainingCooldownMillis(player) > 0
 

@@ -48,7 +48,6 @@ data class VanillaConfig(
     val spawnPath: String = "spawn",
     val oresPath: String = "ores.json",
     val votePath: String = "vote.txt",
-    val warpsPath: String = "warps.json",
     val horsesPath: String = "horses.json",
     val musicPath: String = "music",
     // Blocks
@@ -92,8 +91,6 @@ data class VanillaConfig(
             "Discord" to "https://discord.gg/aechronis",
             "Store" to "https://shop.aechronis.net",
         ),
-    // Warps
-    val warpCooldownSeconds: Long = 15L,
     // Horses
     val horseMountCooldownMs: Long = 3_000L,
     // Combat
