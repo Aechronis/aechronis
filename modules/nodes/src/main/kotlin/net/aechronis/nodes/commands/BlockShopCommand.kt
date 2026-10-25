@@ -5,7 +5,7 @@ import net.aechronis.nodes.objects.NodesCommand
 import net.minestom.server.command.builder.arguments.ArgumentType
 
 /** Opens the block shop, optionally pre-filtered: /blockshop [search terms...]. */
-class BlockShopCommand : NodesCommand("blockshop", null, "shop") {
+class BlockShopCommand : NodesCommand("blockshop", null, "stoneshop") {
     init {
         setDefaultExecutor { player, resident, _ ->
             BlockShop.openRoot(player, resident)
