@@ -13,9 +13,7 @@ internal data class ModuleDefinition(
     override val id: String,
     override val dependencies: Set<String>,
     override val conflicts: Set<String>,
-    override val reloadTogether: Set<String>,
     val provider: String,
-    override val reloadTogetherInputs: Map<String, Set<String>> = emptyMap(),
 ) : AechronisModule
 
 /** A private, immutable JAR copy survives deployment replacement and supports fresh rollback loaders. */
@@ -29,40 +27,6 @@ internal class ModuleArtifact(
     val resourcePackFingerprint: String? = null,
 ) : AutoCloseable {
     override fun close() = deleteModuleTree(directory)
-
-    private val dependencyFingerprints = mutableMapOf<String, String>()
-
-    internal fun dependencyFingerprint(dependency: String): String? {
-        val inputs = definition.reloadTogetherInputs[dependency] ?: return null
-        return dependencyFingerprints.getOrPut(dependency) {
-            val digest = MessageDigest.getInstance("SHA-256")
-            JarFile(jar.toFile()).use { archive ->
-                val entries =
-                    archive
-                        .entries()
-                        .asSequence()
-                        .filterNot { it.isDirectory }
-                        .toList()
-
-                fun matches(
-                    name: String,
-                    input: String,
-                ): Boolean =
-                    name == input ||
-                        (input.endsWith('/') && name.startsWith(input)) ||
-                        (input.endsWith(".class") && name.startsWith(input.removeSuffix(".class") + "$"))
-                require(inputs.all { input -> entries.any { matches(it.name, input) } }) {
-                    "${definition.id}: missing reload configuration input for $dependency"
-                }
-                entries.filter { entry -> inputs.any { matches(entry.name, it) } }.sortedBy { it.name }.forEach { entry ->
-                    digest.update(entry.name.toByteArray(Charsets.UTF_8))
-                    digest.update(0.toByte())
-                    archive.getInputStream(entry).use { digest.update(it.readAllBytes()) }
-                }
-            }
-            digest.digest().toHexString()
-        }
-    }
 
     companion object {
         fun stage(
@@ -142,29 +106,13 @@ internal class ModuleArtifact(
                                     module.id,
                                     module.dependencies.toSet(),
                                     module.conflicts.toSet(),
-                                    module.reloadTogether.toSet(),
                                     module.javaClass.name,
-                                    module.reloadTogetherInputs.mapValues { it.value.toSet() },
                                 )
                             require(
-                                (
-                                    definition.dependencies + definition.conflicts + definition.reloadTogether +
-                                        definition.reloadTogetherInputs.keys +
-                                        definition.id
-                                ).all {
+                                (definition.dependencies + definition.conflicts + definition.id).all {
                                     it.matches(Regex("[a-z0-9][a-z0-9_-]*"))
                                 },
                             ) { "Invalid module ID in ${definition.id}" }
-                            require(
-                                definition.reloadTogether.all {
-                                    it in definition.dependencies
-                                },
-                            ) { "${definition.id}: reloadTogether must name direct dependencies" }
-                            require(
-                                definition.reloadTogetherInputs.all { (dependency, inputs) ->
-                                    dependency in definition.dependencies && inputs.isNotEmpty() && inputs.none { it.isBlank() }
-                                },
-                            ) { "${definition.id}: reloadTogetherInputs must name direct dependencies and nonempty JAR inputs" }
                             // Hash the private copy, not the mutable source used for the reuse check.
                             val fingerprint = fingerprint(jar)
                             val known = knownContent[fingerprint]
@@ -178,7 +126,7 @@ internal class ModuleArtifact(
                                 definition,
                                 codeFingerprint,
                                 resourcePackFingerprint,
-                            ).also { artifact -> definition.reloadTogetherInputs.keys.forEach(artifact::dependencyFingerprint) }
+                            )
                         }.also { requireUniqueIds(it, inheritedIds) }
                 }
             } catch (error: Throwable) {

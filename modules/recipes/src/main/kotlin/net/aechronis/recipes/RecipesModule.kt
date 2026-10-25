@@ -12,7 +12,6 @@ import net.aechronis.vanilla.VanillaModule
 class RecipesModule : AechronisModule {
     override val id = "recipes"
     override val dependencies = setOf("vanilla")
-    override val reloadTogether = setOf("vanilla")
 
     override fun configure(context: ModuleContext) {
         VanillaModule.addRecipes(Blocks.list + Tools.list + Smelting.list + Ingredients.list + Food.list)

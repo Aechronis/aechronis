@@ -75,23 +75,6 @@ class ModuleContext(
         transientState.remove(key)
     }
 
-    private var startingModules: Set<String> = emptySet()
-
-    fun isModuleStarting(id: String): Boolean = id in startingModules
-
-    internal fun <T> withStartingModules(
-        ids: Set<String>,
-        action: () -> T,
-    ): T {
-        val previous = startingModules
-        startingModules = ids
-        return try {
-            action()
-        } finally {
-            startingModules = previous
-        }
-    }
-
     /** Read the currently published assets, including asset-only updates to a surviving module. */
     fun readResourcePackAsset(
         moduleId: String,

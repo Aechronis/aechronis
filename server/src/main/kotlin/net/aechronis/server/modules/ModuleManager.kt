@@ -162,10 +162,7 @@ class ModuleManager private constructor(
                     artifacts[key]?.codeFingerprint != proposed[key]?.codeFingerprint || (key in loaded) != (key in nextPlan)
                 }
             if (action == Action.RESTART) seeds += checkNotNull(id)
-            val forced =
-                (loaded.keys - nextPlan.toSet()) + (nextPlan.toSet() - loaded.keys) +
-                    if (action == Action.RESTART) setOf(checkNotNull(id)) else emptySet()
-            changed = reloadClosure(seeds, artifacts, proposed, loaded.keys + nextPlan, forced)
+            changed = reloadClosure(seeds, artifacts, proposed, loaded.keys + nextPlan)
             val oldAffected = loaded.filterKeys { it in changed }.values.toList()
             val survivors = loaded.filterKeys { it !in changed }
             // Unchanged modules retain the exact original loader and object graph.
@@ -393,17 +390,15 @@ class ModuleManager private constructor(
             }
             // Initializers can synchronously announce services and receive replies (e.g. vote rewards).
             // Background game callbacks remain gated until the whole affected graph is ready.
-            context.withStartingModules(modules.mapTo(hashSetOf()) { it.module.id }) {
-                ModuleRuntime.withLifecycleCallbacks {
-                    ModuleStartupTimings.measure("Configuration") {
-                        modules.asReversed().forEach { module ->
-                            ModuleStartupTimings.measure(module.module.id) { module.configure(context) }
-                        }
+            ModuleRuntime.withLifecycleCallbacks {
+                ModuleStartupTimings.measure("Configuration") {
+                    modules.asReversed().forEach { module ->
+                        ModuleStartupTimings.measure(module.module.id) { module.configure(context) }
                     }
-                    ModuleStartupTimings.measure("Initialization") {
-                        modules.forEach { module ->
-                            ModuleStartupTimings.measure(module.module.id) { module.start(context) }
-                        }
+                }
+                ModuleStartupTimings.measure("Initialization") {
+                    modules.forEach { module ->
+                        ModuleStartupTimings.measure(module.module.id) { module.start(context) }
                     }
                 }
             }
@@ -666,32 +661,27 @@ class ModuleManager private constructor(
             return result - ids
         }
 
+        // Everything outside these independent services belongs to one gameplay generation.
+        // New gameplay modules join automatically instead of maintaining another module list.
+        private val infrastructureModules = setOf("luckperms", "spark", "viaversion", "grimac")
+
         internal fun reloadClosure(
             seeds: Set<String>,
             old: Map<String, ModuleArtifact>,
             staged: Map<String, ModuleArtifact>,
             active: Set<String>,
-            forced: Set<String> = emptySet(),
         ): Set<String> {
             val result = seeds.toMutableSet()
+            val gameplay = active - infrastructureModules
             do {
                 val before = result.size
+                // Use both graphs so removed dependencies also invalidate their old consumers.
                 listOf(old, staged).forEach { graph ->
                     graph.forEach { (id, artifact) ->
                         if (id in active && artifact.definition.dependencies.any { it in result }) result += id
-                        if (id in active && id in result) {
-                            result += artifact.definition.reloadTogether.filter { it in active }
-                            result +=
-                                artifact.definition.reloadTogetherInputs.keys.filter { dependency ->
-                                    dependency in active &&
-                                        (
-                                            id in forced ||
-                                                old[id]?.dependencyFingerprint(dependency) != staged[id]?.dependencyFingerprint(dependency)
-                                        )
-                                }
-                        }
                     }
                 }
+                if (result.any { it in gameplay }) result += gameplay
             } while (result.size != before)
             return result
         }

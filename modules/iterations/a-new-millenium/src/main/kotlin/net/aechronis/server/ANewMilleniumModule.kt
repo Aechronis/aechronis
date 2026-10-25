@@ -43,7 +43,6 @@ class ANewMilleniumModule : AechronisModule {
                 .build(),
         )
     override val dependencies = setOf("combat", "vanilla", "recipes", "nodes")
-    override val reloadTogether = setOf("combat", "vanilla", "nodes")
 
     override fun configure(context: ModuleContext) {
         measure("Item catalogue") { registerItems() }

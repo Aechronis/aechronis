@@ -17,9 +17,7 @@ internal class LoadedModule(
                 check(it.javaClass.classLoader === classLoader) { "Module provider was supplied by a dependency" }
                 check(
                     it.id == artifact.definition.id &&
-                        it.dependencies == artifact.definition.dependencies &&
-                        it.reloadTogether == artifact.definition.reloadTogether &&
-                        it.reloadTogetherInputs == artifact.definition.reloadTogetherInputs,
+                        it.dependencies == artifact.definition.dependencies,
                 ) {
                     "Module metadata changed between discovery and loading"
                 }

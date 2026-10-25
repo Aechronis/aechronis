@@ -10,18 +10,6 @@ interface AechronisModule {
     val dependencies: Set<String>
         get() = emptySet()
 
-    /** Dependencies that retain objects/configuration supplied by this module; reload as a unit. */
-    val reloadTogether: Set<String>
-        get() = emptySet()
-
-    /**
-     * Dependencies holding stable configuration need restart only when its producing classes
-     * change. Inputs are exact JAR paths (including nested classes) or directory prefixes ending
-     * in '/'. Enable, disable and explicit restart still refresh these dependencies.
-     */
-    val reloadTogetherInputs: Map<String, Set<String>>
-        get() = emptyMap()
-
     /** Remote base packs placed before every module's automatically discovered embedded pack. */
     val externalResourcePacks: List<ResourcePackInfo>
         get() = emptyList()
