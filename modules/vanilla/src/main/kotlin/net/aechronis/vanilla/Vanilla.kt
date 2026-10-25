@@ -45,7 +45,6 @@ import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.Crates
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Efficiency
-import net.aechronis.vanilla.managers.Elevator
 import net.aechronis.vanilla.managers.EnvironmentalDamage
 import net.aechronis.vanilla.managers.Filter
 import net.aechronis.vanilla.managers.Food
@@ -139,7 +138,6 @@ object Vanilla {
         if (config.recipesEnabled) measure("Recipes") { Recipes.init() }
         if (config.cropsEnabled) measure("Crops") { Crops.init() }
         if (config.saplingsEnabled) measure("Saplings") { Saplings.init() }
-        if (config.elevatorEnabled) measure("Elevator") { Elevator.init() }
         if (config.mannequinEnabled) measure("Mannequin") { Mannequin.init() }
         if (config.treeFellerEnabled) measure("Tree Feller") { TreeFeller.init() }
         if (config.foodEnabled) measure("Food") { Food.init() }

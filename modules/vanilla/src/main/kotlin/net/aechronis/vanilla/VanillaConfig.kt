@@ -20,7 +20,6 @@ data class VanillaConfig(
     val recipesEnabled: Boolean = true,
     val cropsEnabled: Boolean = true,
     val saplingsEnabled: Boolean = true,
-    val elevatorEnabled: Boolean = true,
     val mannequinEnabled: Boolean = true,
     val blocksEnabled: Boolean = true,
     val treeFellerEnabled: Boolean = true,
@@ -89,8 +88,6 @@ data class VanillaConfig(
     val dropMagnetSpeed: Double = 3.0,
     // Bundles
     val bundleMaxItemStacks: Int = 16,
-    // Elevator
-    val elevatorMaxSearch: Int = 120,
     // TreeFeller
     val treeFellerMaxSize: Int = 300,
     val treeFellerMaxHeight: Int = 50,

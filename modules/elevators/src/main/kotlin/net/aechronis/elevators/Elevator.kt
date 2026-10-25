@@ -1,8 +1,10 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.elevators
 
-import net.aechronis.vanilla.Vanilla
+import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.vanilla.listeners.FallDamageListener
+import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerInputEvent
@@ -14,6 +16,8 @@ import kotlin.math.abs
 
 // based on ccnet elevators
 object Elevator {
+    private var config = ElevatorConfig()
+    private val eventNode = EventNode.all("elevators").setPriority(1)
     private val IRON = Block.IRON_BLOCK
     private val TYPE = Block.Getter.Condition.TYPE
     private val columns = HashMap<UUID, HashMap<Long, TreeSet<Int>>>()
@@ -56,7 +60,7 @@ object Elevator {
 
         val col = getOrScanColumn(instance, bx, bz)
         val targetY = if (step > 0) col.higher(floorY) else col.lower(floorY)
-        if (targetY == null || abs(targetY - floorY) > Vanilla.config.elevatorMaxSearch) return
+        if (targetY == null || abs(targetY - floorY) > config.maxSearch) return
 
         if (instance.getBlock(bx, targetY + 1, bz, TYPE)?.air() == true &&
             instance.getBlock(bx, targetY + 2, bz, TYPE)?.air() == true
@@ -66,21 +70,28 @@ object Elevator {
         }
     }
 
-    fun init() {
-        Vanilla.eventNode.addListener(PlayerInputEvent::class.java, Elevator::onInput)
-        Vanilla.eventNode.addListener(PlayerBlockPlaceEvent::class.java) { event ->
+    fun init(config: ElevatorConfig = ElevatorConfig()) {
+        this.config = config
+        if (!config.enabled) return
+        eventNode.addListener(PlayerInputEvent::class.java, Elevator::onInput)
+        eventNode.addListener(PlayerBlockPlaceEvent::class.java) { event ->
             if (!event.isCancelled && event.block === IRON) {
                 val iid = event.player.instance?.uuid ?: return@addListener
                 val key = columnKey(event.blockPosition.blockX(), event.blockPosition.blockZ())
                 columns[iid]?.get(key)?.add(event.blockPosition.blockY())
             }
         }
-        Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java) { event ->
+        eventNode.addListener(PlayerBlockBreakEvent::class.java) { event ->
             if (!event.isCancelled && event.block === IRON) {
                 val iid = event.player.instance?.uuid ?: return@addListener
                 val key = columnKey(event.blockPosition.blockX(), event.blockPosition.blockZ())
                 columns[iid]?.get(key)?.remove(event.blockPosition.blockY())
             }
         }
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
+    }
+
+    fun shutdown() {
+        columns.clear()
     }
 }
