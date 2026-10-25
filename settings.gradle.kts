@@ -42,6 +42,7 @@ include(
     ":modules:combat",
     ":modules:koth",
     ":modules:elevators",
+    ":modules:treefeller",
     ":modules:hats",
     ":modules:nodes",
     ":modules:discord",

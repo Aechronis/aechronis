@@ -22,7 +22,6 @@ data class VanillaConfig(
     val saplingsEnabled: Boolean = true,
     val mannequinEnabled: Boolean = true,
     val blocksEnabled: Boolean = true,
-    val treeFellerEnabled: Boolean = true,
     val foodEnabled: Boolean = true,
     val shopEnabled: Boolean = true,
     val cratesEnabled: Boolean = true,
@@ -88,16 +87,6 @@ data class VanillaConfig(
     val dropMagnetSpeed: Double = 3.0,
     // Bundles
     val bundleMaxItemStacks: Int = 16,
-    // TreeFeller
-    val treeFellerMaxSize: Int = 300,
-    val treeFellerMaxHeight: Int = 50,
-    val treeFellerBreakLeaves: Boolean = true,
-    val treeFellerLeafMaxDistance: Int = 10,
-    val treeFellerMaxLeaves: Int = 1000,
-    val treeFellerBlocksPerTick: Int = 8,
-    val treeFellerTickInterval: Int = 1,
-    val treeFellerSaplingChance: Double = 0.05,
-    val treeFellerStickChance: Double = 0.02,
     // Server Links
     val serverLinks: List<Pair<String, String>> =
         listOf(

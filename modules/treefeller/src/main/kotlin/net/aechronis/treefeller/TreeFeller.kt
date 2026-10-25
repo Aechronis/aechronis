@@ -1,8 +1,8 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.treefeller
 
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.TreeFellerListener
+import net.aechronis.treefeller.listeners.TreeFellerListener
+import net.aechronis.vanilla.managers.Items
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Point
@@ -23,6 +23,9 @@ import kotlin.math.max
 
 // https://github.com/IDev-mc/TreeFeller
 object TreeFeller {
+    internal var config = TreeFellerConfig()
+        private set
+
     private data class FellingPosition(
         val instance: Instance,
         val x: Int,
@@ -85,8 +88,8 @@ object TreeFeller {
         logBlock: Block,
     ): Boolean {
         if (!isLog(logBlock)) return false
-        val maxDistance = Vanilla.config.treeFellerMaxHeight.coerceAtLeast(0)
-        val maxSize = Vanilla.config.treeFellerMaxSize.coerceAtLeast(1)
+        val maxDistance = config.maxHeight.coerceAtLeast(0)
+        val maxSize = config.maxSize.coerceAtLeast(1)
         val originPosition = Triple(origin.blockX(), origin.blockY(), origin.blockZ())
         val visited = hashSetOf(originPosition)
         val queue = ArrayDeque<Pair<Triple<Int, Int, Int>, Int>>()
@@ -114,7 +117,7 @@ object TreeFeller {
         logBlock: Block,
     ): List<Triple<Int, Int, Int>> {
         if (!isLog(logBlock)) return emptyList()
-        val maxSize = Vanilla.config.treeFellerMaxSize
+        val maxSize = config.maxSize
         val found = mutableListOf(Triple(origin.blockX(), origin.blockY(), origin.blockZ()))
         val visited = HashSet(found)
         var i = 0
@@ -137,8 +140,8 @@ object TreeFeller {
         logs: List<Triple<Int, Int, Int>>,
         instance: Instance,
     ): List<Triple<Int, Int, Int>> {
-        val maxDistance = Vanilla.config.treeFellerLeafMaxDistance
-        val maxLeaves = Vanilla.config.treeFellerMaxLeaves
+        val maxDistance = config.leafMaxDistance
+        val maxLeaves = config.maxLeaves
         val logSet = HashSet(logs)
 
         fun distanceToNearestLog(
@@ -191,8 +194,8 @@ object TreeFeller {
     fun saplingMaterial(logBlock: Block): Material? = saplingsByLogTag.firstOrNull { (tag, _) -> blockIsInTag(logBlock, tag) }?.second
 
     private fun rollLeafDrop(saplingMaterial: Material?): List<ItemStack> {
-        val saplingChance = Vanilla.config.treeFellerSaplingChance
-        val stickChance = Vanilla.config.treeFellerStickChance
+        val saplingChance = config.saplingChance
+        val stickChance = config.stickChance
         val roll = ThreadLocalRandom.current().nextDouble()
         return when {
             saplingMaterial != null && roll < saplingChance -> listOf(ItemStack.of(saplingMaterial))
@@ -229,8 +232,8 @@ object TreeFeller {
         if (ordered.isEmpty()) return
 
         val saplingMaterial = saplingMaterial(logBlock)
-        val perTick = Vanilla.config.treeFellerBlocksPerTick.coerceAtLeast(1)
-        val interval = Vanilla.config.treeFellerTickInterval.coerceAtLeast(1)
+        val perTick = config.blocksPerTick.coerceAtLeast(1)
+        val interval = config.tickInterval.coerceAtLeast(1)
 
         var index = 0
         ModuleScheduler.submitTask {
@@ -269,7 +272,12 @@ object TreeFeller {
         }
     }
 
-    fun init() {
-        TreeFellerListener.init()
+    fun init(config: TreeFellerConfig = TreeFellerConfig()) {
+        this.config = config
+        if (config.enabled) TreeFellerListener.init()
+    }
+
+    fun shutdown() {
+        activePositions.clear()
     }
 }

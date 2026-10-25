@@ -99,6 +99,7 @@ val runtimeModuleProjects =
         ":modules:combat",
         ":modules:koth",
         ":modules:elevators",
+        ":modules:treefeller",
         ":modules:hats",
         ":modules:vanilla",
         ":modules:recipes",

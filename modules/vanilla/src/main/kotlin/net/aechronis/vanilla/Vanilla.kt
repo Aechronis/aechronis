@@ -60,7 +60,6 @@ import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Shelves
 import net.aechronis.vanilla.managers.Signs
 import net.aechronis.vanilla.managers.Storage
-import net.aechronis.vanilla.managers.TreeFeller
 import net.aechronis.vanilla.managers.VoteLinks
 import net.aechronis.vanilla.managers.Warps
 import net.minestom.server.MinecraftServer
@@ -139,7 +138,6 @@ object Vanilla {
         if (config.cropsEnabled) measure("Crops") { Crops.init() }
         if (config.saplingsEnabled) measure("Saplings") { Saplings.init() }
         if (config.mannequinEnabled) measure("Mannequin") { Mannequin.init() }
-        if (config.treeFellerEnabled) measure("Tree Feller") { TreeFeller.init() }
         if (config.foodEnabled) measure("Food") { Food.init() }
         if (config.shopEnabled) measure("Shop") { KillShop.init() }
         if (config.cratesEnabled) measure("Crates") { Crates.init() }
