@@ -232,6 +232,7 @@ data class NodesConfig(
     val pathTowns: Path get() = Paths.get(path, "towns.json").normalize()
     val pathWar: Path get() = Paths.get(path, "war.json").normalize()
     val pathWarzone: Path get() = Paths.get(path, "warzone.json").normalize()
+    val pathOutposts: Path get() = Paths.get(path, "outposts.json").normalize()
     val pathBuildings: Path get() = Paths.get(path, "buildings.json").normalize()
     val pathTrains: Path get() = Paths.get(path, "trains.json").normalize()
     val pathOtherFlags: Path get() = Paths.get(path, "other-flags.json").normalize()

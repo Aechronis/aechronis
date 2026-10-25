@@ -5,6 +5,7 @@ import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.constants.INTERACTIVE_BLOCKS
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
+import net.aechronis.nodes.objects.Outposts
 import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
@@ -41,6 +42,7 @@ private class WorldLandAccessContext(
 
     override val hasTown: Boolean get() = town != null
     override val hasResident: Boolean get() = resident != null
+    override val outpost: Boolean get() = Outposts.contains(territory)
     override val wildernessAllowed: Boolean get() = hasWildernessPermissions(territory)
     override val bypass: Boolean get() = checkNotNull(resident).hasTownPermissionBypass()
     override val interactiveBlock: Boolean get() = INTERACTIVE_BLOCKS.any { checkNotNull(block).compare(it) }

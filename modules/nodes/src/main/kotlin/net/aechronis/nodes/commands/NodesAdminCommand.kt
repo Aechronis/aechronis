@@ -25,6 +25,7 @@ class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
         addSubcommand(NodesAdminRunIncomeCommand())
         addSubcommand(NodesAdminMiningBoostCommand())
         addSubcommand(NodesAdminWarzoneCommand())
+        addSubcommand(NodesAdminOutpostCommand())
     }
 }
 

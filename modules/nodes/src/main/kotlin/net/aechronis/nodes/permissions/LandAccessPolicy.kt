@@ -47,6 +47,7 @@ internal interface LandAccessContext {
     val wildernessAllowed: Boolean
     val bypass: Boolean
     val interactiveBlock: Boolean
+    val outpost: Boolean
 
     /** Null means there is no settled warzone occupier; false is a terminal denial. */
     val warzonePermission: Boolean?
@@ -58,8 +59,14 @@ internal interface LandAccessContext {
     val flagPlacementAllowed: Boolean
 }
 
+private val OUTPOST_LOCKED_ACTIONS = setOf(LandAccessAction.BREAK, LandAccessAction.STORAGE_BREAK, LandAccessAction.PLACE)
+
 internal object LandAccessPolicy {
     fun evaluate(action: LandAccessAction, context: LandAccessContext): LandAccessDecision {
+        // Mining outposts are read-only for everyone except admins with the bypass permission.
+        if (context.outpost && action in OUTPOST_LOCKED_ACTIONS) {
+            return if (context.hasResident && context.bypass) LandAccessDecision.ALLOW else action.denial
+        }
         if (!context.hasTown) {
             return if (action.allowsUnclaimed || context.wildernessAllowed) LandAccessDecision.ALLOW else action.denial
         }

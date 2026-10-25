@@ -52,6 +52,7 @@ import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.OreBlockCache
 import net.aechronis.nodes.objects.OreSampler
+import net.aechronis.nodes.objects.Outposts
 import net.aechronis.nodes.objects.RelationshipHitbox
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.ResourceNode
@@ -301,7 +302,10 @@ object Nodes {
         cleanupStage(CleanupStage.ALLIANCE, Alliance::cleanup)
         cleanupStage(CleanupStage.TRAINS) { Trains.cleanup(persistState) }
         cleanupStage(CleanupStage.FLAG_WAR) { FlagWar.cleanup(persistState) }
-        cleanupStage(CleanupStage.WARZONE) { Warzone.cleanup(persistState) }
+        cleanupStage(CleanupStage.WARZONE) {
+            Warzone.cleanup(persistState)
+            Outposts.cleanup()
+        }
         cleanupStage(CleanupStage.COLONIZATION, Colonization::cleanup)
         // A generation whose initialize call failed may contain cleared or partially loaded maps.
         // Tear it down, but never let that candidate overwrite the last valid snapshot used by rollback.
@@ -499,6 +503,7 @@ object Nodes {
 
         FlagWar.resetForReload()
         Warzone.resetForReload()
+        Outposts.resetForReload()
         Colonization.resetForReload()
         TownMembershipRequests.clear()
         Resident.all().forEach { it.destroyMinimap() }
@@ -521,6 +526,7 @@ object Nodes {
                 Nation.all().forEach { it.getSaveState() }
                 FlagWar.load()
                 Warzone.load()
+                Outposts.load()
                 buildings.forEach(Building::register)
             } else {
                 // Warzones only need territories; skipping them would let the next save overwrite their file.

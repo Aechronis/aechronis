@@ -10,6 +10,7 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.colonization.AiTownConfig
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.constants.ErrorPlayerHasTown
+import net.aechronis.nodes.constants.ErrorTerritoryIsOutpost
 import net.aechronis.nodes.constants.ErrorTerritoryIsTownHome
 import net.aechronis.nodes.constants.ErrorTerritoryIsWarzone
 import net.aechronis.nodes.constants.ErrorTerritoryNotInTown
@@ -127,6 +128,7 @@ class Town(
             val spawnpoint = leader?.player()?.position ?: Territory.defaultSpawnLocation(territory)
             if (fromName(name) != null) return Result.failure(ErrorTownExists)
             if (territory.town != null) return Result.failure(ErrorTerritoryOwned)
+            if (Outposts.contains(territory)) return Result.failure(ErrorTerritoryIsOutpost)
             if (Warzone.isRegistered(territory)) return Result.failure(ErrorTerritoryIsWarzone)
             if (leader?.town != null) return Result.failure(ErrorPlayerHasTown)
             val town = Town(UUID.randomUUID(), name, territory.id, leader, spawnpoint)
@@ -288,6 +290,7 @@ class Town(
 
         fun addTerritory(town: Town, territory: Territory): Result<Territory> {
             if (territory.town != null) return Result.failure(ErrorTerritoryOwned)
+            if (Outposts.contains(territory)) return Result.failure(ErrorTerritoryIsOutpost)
             if (Warzone.isRegistered(territory)) return Result.failure(ErrorTerritoryIsWarzone)
             town.mutableTerritories.add(territory.id)
             territory.town = town
