@@ -53,12 +53,14 @@ void main() {
     vec4 texel = texture(Sampler0, texCoord0);
     // ModelManager sends this before changing the held item's aiming material.
     float tickGameTime = floor(GameTime * 24000.0 + 0.008);
-    bool aiming = tickGameTime >= 11500.0 && tickGameTime < 12003.0;
-    bool combat = tickGameTime >= 11000.0 && tickGameTime < 12003.0;
+    // Each 500-tick phase has 500 ticks of grace for late clock refreshes.
+    // Aiming precedes idle/combat, so their clocks cannot advance into it.
+    bool aiming = tickGameTime >= 9000.0 && tickGameTime < 10000.0;
+    bool combat = aiming || (tickGameTime >= 11000.0 && tickGameTime < 12000.0);
     // Only crosshair.png uses this RGBA marker. Restore its vanilla white when
     // visible; checking the texel before tinting leaves other HUD sprites alone.
     if (all(lessThan(abs(texel * 255.0 - vec4(17.0, 143.0, 79.0, 254.0)), vec4(0.5)))) {
-        // ModelManager sends the 11500..11999 aiming band plus a partial tick.
+        // ModelManager sends the 9000..9499 aiming band plus a partial tick.
         // Other gun states use separate bands; drone cameras own their telemetry.
         if (aiming) {
             discard;

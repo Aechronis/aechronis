@@ -55,10 +55,11 @@ void main() {
     encodedLineEndpoint.y = lineVertex == 0 || lineVertex == 3 ? 1.0 : 0.0;
     sourceLineWidth = LineWidth;
 	
-	// ModelManager sends 11000..11499 (combat) or 11500..11999 (aiming). Hide
+	// Match ModelManager's aiming/combat bands, including late-refresh grace. Hide
 	// Minecraft's translucent black selection outline around its fake sculk veins.
 	float tickGameTime = floor(GameTime * 24000.0 + 0.008);
-	if (tickGameTime >= 11000.0 && tickGameTime < 12003.0) {
+	bool combat = (tickGameTime >= 9000.0 && tickGameTime < 10000.0) || (tickGameTime >= 11000.0 && tickGameTime < 12000.0);
+	if (combat) {
 		if (Color == vec4(0, 0, 0, .4)) {
 			vertexColor = vec4(0, 0, 0, 0);
 			gl_Position = vec4(0);

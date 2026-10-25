@@ -39,16 +39,17 @@ object ModelManager {
 
     // Client world age carries shader flags plus a 0..499 animation phase; the
     // dimension clocks remain unchanged. Partial ticks keep the phase smooth.
-    // both active values stay in 11xxx so rendertype_lines also hides fake block outlines.
+    // Put aiming below idle/combat so their advancing clocks cannot enter ADS.
+    // Shaders reserve another 500 ticks after each active band for late refreshes.
+    // Keep all bands in 8000..11999, reserved by the drone telemetry decoder.
+    private const val SHADER_AIMING_TIME = 9000L
     private const val SHADER_IDLE_TIME = 10000L
     private const val SHADER_COMBAT_TIME = 11000L
-    private const val SHADER_AIMING_TIME = 11500L
 
     private data class ShaderClock(
         val instance: Instance,
         val band: Long,
         val worldAge: Long,
-        val sentAtNanos: Long = System.nanoTime(),
     ) {
         fun needsRefresh(
             instance: Instance,
@@ -58,15 +59,9 @@ object ModelManager {
             this.instance !== instance ||
                 this.band != band ||
                 worldAge < this.worldAge ||
-                Math.floorDiv(worldAge, GUN_ANIMATION_CLOCK_TICKS) != Math.floorDiv(this.worldAge, GUN_ANIMATION_CLOCK_TICKS) ||
-                // The client keeps ticking during server lag. Do not let its HUD band expire while
-                // waiting for the server to reach the phase wrap. Each resend re-bases the client
-                // clock by that packet's jitter, so this is the only periodic refresh.
-                // A packet sent in the last ticks of the band is not chased by another: the shader's HUD
-                // band tolerates 3 ticks past the wrap, which the server's own phase wrap covers.
-                (GUN_ANIMATION_CLOCK_TICKS - gunAnimationPhase(this.worldAge)).let { remaining ->
-                    remaining > 3 && System.nanoTime() - sentAtNanos >= (remaining - 2) * 50_000_000L
-                }
+                // Each resend re-bases the client clock by that packet's jitter, so the only periodic refresh is
+                // the server's phase wrap; the shaders tolerate a late one for 500 ticks past the band.
+                Math.floorDiv(worldAge, GUN_ANIMATION_CLOCK_TICKS) != Math.floorDiv(this.worldAge, GUN_ANIMATION_CLOCK_TICKS)
     }
 
     private val shaderClocks = ConcurrentHashMap<Player, ShaderClock>()

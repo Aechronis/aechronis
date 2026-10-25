@@ -47,6 +47,8 @@ void main() {
     // window's ceil-rounded GUI dimensions when the division is fractional.
     guiExtent = ceil(projectionExtent - 0.001);
     float clock = floor(GameTime * 24000.0 + 0.008);
+    // Match ModelManager's aiming/combat bands, including late-refresh grace.
+    bool combat = (clock >= 9000.0 && clock < 10000.0) || (clock >= 11000.0 && clock < 12000.0);
     bool orthographic = abs(ProjMat[2][3]) < 0.000001 && abs(ProjMat[3][3] - 1.0) < 0.000001;
-    combatCooldownPass = clock >= 11000.0 && clock < 12003.0 && orthographic ? 1.0 : 0.0;
+    combatCooldownPass = combat && orthographic ? 1.0 : 0.0;
 }
