@@ -58,7 +58,25 @@ object Ores {
         val ore: OreLocation,
     )
 
+    @Serializable
+    private data class SavedCooldown(
+        val player: String,
+        val world: String,
+        val x: Int,
+        val y: Int,
+        val z: Int,
+        val expiresAt: Long,
+    )
+
     val ores = ConcurrentHashMap<OreLocation, Ore>()
+
+    /** Set by nodes: true when (world, blockX, blockZ) lies in a mining outpost, where every ore regenerates per player. */
+    @Volatile
+    var autoOreArea: ((String, Int, Int) -> Boolean)? = null
+
+    @Volatile
+    private var lastCooldownSave = 0L
+    private val cooldownStorage = JsonRegistryFile("ore cooldowns")
 
     // This must run before Guard (-1000) and Nodes' protection node (-999) so configured ores are mineable everywhere.
     private val eventNode = EventNode.all("vanilla-ores").setPriority(-1001)
@@ -66,7 +84,13 @@ object Ores {
     private val storage = JsonRegistryFile("ores")
 
     fun init(path: Path) {
-        cooldowns.clear()
+        cooldownStorage.load(path.resolveSibling("ore-cooldowns.json"), cooldowns) { contents ->
+            val now = System.currentTimeMillis()
+            Json
+                .decodeFromString<List<SavedCooldown>>(contents)
+                .filter { it.expiresAt > now }
+                .associate { Cooldown(UUID.fromString(it.player), OreLocation(it.world, it.x, it.y, it.z)) to it.expiresAt }
+        }
         storage.load(path, ores) { contents ->
             val loaded = linkedMapOf<OreLocation, Ore>()
             Json.decodeFromString<List<SavedOre>>(contents).filter { it.timeSeconds > 0 }.forEach { entry ->
@@ -88,7 +112,10 @@ object Ores {
         println("Ores enabled (${ores.size} configured)")
     }
 
-    fun saveAll() = save()
+    fun saveAll() {
+        save()
+        saveCooldowns()
+    }
 
     internal fun captureTransientState(): ByteArray {
         val entries = cooldowns.entries.toList()
@@ -121,7 +148,7 @@ object Ores {
             val playersById = onlinePlayers.associateBy { it.uuid }
             cooldowns.clear()
             records.forEach { (cooldown, expiresAt) ->
-                val valid = expiresAt > now && ores.containsKey(cooldown.ore)
+                val valid = expiresAt > now
                 if (valid) cooldowns[cooldown] = expiresAt
 
                 val player = playersById[cooldown.player] ?: return@forEach
@@ -139,6 +166,7 @@ object Ores {
     }
 
     fun shutdown(onlinePlayers: Collection<Player> = MinecraftServer.getConnectionManager().onlinePlayers) {
+        saveCooldowns()
         val playersById = onlinePlayers.associateBy { it.uuid }
         cooldowns.keys.forEach { cooldown ->
             val player = playersById[cooldown.player] ?: return@forEach
@@ -195,7 +223,7 @@ object Ores {
         val player = event.player
         val instance = player.instance ?: return
         val location = location(instance, event.blockPosition)
-        val ore = ores[location] ?: return
+        val ore = oreAt(location, event.block) ?: return
 
         val original = ore.originalBlock
         if (original != null && !event.block.compare(original)) return
@@ -238,7 +266,8 @@ object Ores {
         var dropped = false
         for (stack in drops) {
             if (!stack.isAir && stack.amount() > 0) {
-                Items.spawn(instance, dropPos, stack)
+                // Straight to the inventory; only a full inventory drops the item on the ground.
+                if (!Items.pickup(player, stack)) Items.spawn(instance, dropPos, stack)
                 dropped = true
             }
         }
@@ -254,9 +283,12 @@ object Ores {
     private fun onChunkLoad(event: PlayerChunkLoadEvent) {
         val player = event.player
         val world = player.instance?.getDimensionName() ?: return
-        for ((location, ore) in ores) {
-            if (location.world != world || location.x shr 4 != event.chunkX || location.z shr 4 != event.chunkZ) continue
-            refresh(player, location, ore)
+        // ponytail: scans every cooldown per chunk load; index cooldowns by chunk if this shows up in profiles
+        for (cooldown in cooldowns.keys) {
+            val location = cooldown.ore
+            if (cooldown.player != player.uuid || location.world != world) continue
+            if (location.x shr 4 != event.chunkX || location.z shr 4 != event.chunkZ) continue
+            refresh(player, location)
         }
     }
 
@@ -269,18 +301,24 @@ object Ores {
         val now = System.currentTimeMillis()
         for ((cooldown, expiresAt) in cooldowns) {
             if (cooldown.player != player.uuid || expiresAt <= now || cooldown.ore.world != world) continue
-            ores[cooldown.ore]?.let { refresh(player, cooldown.ore, it) }
+            refresh(player, cooldown.ore)
         }
     }
 
     private fun refresh(
         player: Player,
         location: OreLocation,
-        ore: Ore,
     ) {
         val cooldown = Cooldown(player.uuid, location)
         val expiresAt = cooldowns[cooldown] ?: return
         if (expiresAt <= System.currentTimeMillis()) return
+        val instance = player.instance ?: return
+        if (!instance.isChunkLoaded(location.x shr 4, location.z shr 4)) return
+        // A cooldown whose ore was removed (or whose outpost was removed) is stale.
+        if (oreAt(location, instance.getBlock(location.x, location.y, location.z)) == null) {
+            cooldowns.remove(cooldown)
+            return
+        }
         sendBlock(player, location, Block.BEDROCK)
     }
 
@@ -289,17 +327,44 @@ object Ores {
         for ((cooldown, expiresAt) in cooldowns) {
             if (expiresAt > now || !cooldowns.remove(cooldown, expiresAt)) continue
             val player = MinecraftServer.getConnectionManager().onlinePlayers.firstOrNull { it.uuid == cooldown.player }
-            val ore = ores[cooldown.ore]
+            val location = cooldown.ore
             val instance = player?.instance
-            if (player != null && instance != null && instance.getDimensionName() == cooldown.ore.world && ore != null) {
-                val block = ore.originalBlock ?: instance.getBlock(cooldown.ore.x, cooldown.ore.y, cooldown.ore.z)
+            val loaded = instance != null && instance.isChunkLoaded(location.x shr 4, location.z shr 4)
+            if (player != null && instance != null && loaded && instance.getDimensionName() == location.world) {
+                val ore = ores[location]
+                val block = ore?.originalBlock ?: instance.getBlock(location.x, location.y, location.z)
                 if (isOre(block)) {
-                    ore.originalBlock = block
-                    sendBlock(player, cooldown.ore, block)
+                    ore?.originalBlock = block
+                    sendBlock(player, location, block)
                 }
             }
         }
+        if (now - lastCooldownSave >= COOLDOWN_SAVE_INTERVAL_MILLIS) saveCooldowns()
     }
+
+    private fun saveCooldowns() {
+        lastCooldownSave = System.currentTimeMillis()
+        cooldownStorage.save {
+            Json.encodeToString(
+                cooldowns.entries.filter { it.value > lastCooldownSave }.map { (cooldown, expiresAt) ->
+                    val ore = cooldown.ore
+                    SavedCooldown(cooldown.player.toString(), ore.world, ore.x, ore.y, ore.z, expiresAt)
+                },
+            )
+        }
+    }
+
+    /** A configured ore, or any ore inside a mining outpost (6 hour cooldown). */
+    private fun oreAt(
+        location: OreLocation,
+        block: Block,
+    ): Ore? =
+        ores[location]
+            ?: if (isOre(block) && autoOreArea?.invoke(location.world, location.x, location.z) == true) {
+                Ore(OUTPOST_ORE_SECONDS, block)
+            } else {
+                null
+            }
 
     private fun decodeTransientState(payload: ByteArray): List<Pair<Cooldown, Long>> =
         DataInputStream(ByteArrayInputStream(payload)).use { input ->
@@ -431,6 +496,8 @@ object Ores {
         }
     }
 
+    private const val OUTPOST_ORE_SECONDS = 6L * 60 * 60
+    private const val COOLDOWN_SAVE_INTERVAL_MILLIS = 60_000L
     private const val MAX_REACH = 6.0
     private const val TRANSIENT_STATE_VERSION = 1
     private const val MAX_TRANSIENT_ENTRIES = 1_000_000
