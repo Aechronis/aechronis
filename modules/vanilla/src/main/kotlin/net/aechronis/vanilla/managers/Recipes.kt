@@ -77,10 +77,7 @@ object Recipes {
 
     private fun refreshRecipeBrowser(inventory: Inventory) {
         val entries =
-            recipeBrowserEntries(
-                if (Vanilla.config.recipesEnabled) recipes else emptyList(),
-                if (Vanilla.config.blocksEnabled) Vanilla.config.blocksConfig.converterCycles else emptyList(),
-            )
+            recipeBrowserEntries(if (Vanilla.config.recipesEnabled) recipes else emptyList())
         val pageCount = maxOf(1, (entries.size + BROWSER_ENTRIES_PER_PAGE - 1) / BROWSER_ENTRIES_PER_PAGE)
         val page = (recipeBrowsers[inventory] ?: 0).coerceIn(0, pageCount - 1)
         recipeBrowsers[inventory] = page
@@ -105,14 +102,7 @@ object Recipes {
         }
     }
 
-    internal fun recipeBrowserEntries(
-        configuredRecipes: List<Recipe>,
-        converterCycles: List<List<Material>>,
-    ): List<ItemStack> =
-        buildList {
-            configuredRecipes.mapNotNullTo(this, ::recipeBrowserEntry)
-            converterCycles.mapNotNullTo(this, ::converterCycleBrowserEntry)
-        }
+    internal fun recipeBrowserEntries(configuredRecipes: List<Recipe>): List<ItemStack> = configuredRecipes.mapNotNull(::recipeBrowserEntry)
 
     private fun recipeBrowserEntry(recipe: Recipe): ItemStack? =
         when (recipe) {
@@ -136,20 +126,6 @@ object Recipes {
                     )
             else -> null
         }
-
-    private fun converterCycleBrowserEntry(cycle: List<Material>): ItemStack? {
-        val materials = cycle.distinct()
-        if (materials.size < 2) return null
-
-        return ItemStack
-            .of(materials.first())
-            .withCustomName(Component.text("Converter cycle", NamedTextColor.AQUA))
-            .withLore(
-                listOf(
-                    Component.text("Convert any material into another:", NamedTextColor.GRAY),
-                ) + materials.map { Component.text(materialName(it), NamedTextColor.WHITE) },
-            )
-    }
 
     private fun ingredientLine(ingredient: RecipesIngredient): Component =
         Component.text("- ${ingredient.materials.joinToString(" / ", transform = ::materialName)}", NamedTextColor.WHITE)

@@ -15,7 +15,6 @@ import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Vanish
 import net.aechronis.vanilla.objects.Recipe
 import net.minestom.server.event.player.AsyncPlayerPreLoginEvent
-import net.minestom.server.item.Material
 import java.util.concurrent.CompletableFuture
 
 class VanillaModule : AechronisModule {
@@ -76,7 +75,6 @@ class VanillaModule : AechronisModule {
     companion object {
         private var configured: VanillaConfig? = null
         private val additionalRecipes = mutableListOf<Recipe>()
-        private val additionalConverterCycles = mutableListOf<List<Material>>()
 
         fun configure(config: VanillaConfig) {
             check(configured == null) { "Vanilla was configured by more than one active composition module" }
@@ -84,12 +82,8 @@ class VanillaModule : AechronisModule {
         }
 
         /** Contributes shared recipes during configuration, independently of the active iteration. */
-        fun addRecipes(
-            recipes: List<Recipe>,
-            converterCycles: List<List<Material>> = emptyList(),
-        ) {
+        fun addRecipes(recipes: List<Recipe>) {
             additionalRecipes.addAll(recipes)
-            additionalConverterCycles.addAll(converterCycles)
         }
 
         private fun takeConfiguration(): VanillaConfig {
@@ -97,14 +91,9 @@ class VanillaModule : AechronisModule {
             val combined =
                 config.copy(
                     recipesConfig = config.recipesConfig.copy(recpies = additionalRecipes + config.recipesConfig.recpies),
-                    blocksConfig =
-                        config.blocksConfig.copy(
-                            converterCycles = additionalConverterCycles + config.blocksConfig.converterCycles,
-                        ),
                 )
             configured = null
             additionalRecipes.clear()
-            additionalConverterCycles.clear()
             return combined
         }
 

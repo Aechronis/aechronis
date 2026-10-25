@@ -94,6 +94,10 @@ object Deserializer {
             runCatching { value.jsonPrimitive.long }.getOrNull()
         }
 
+        val blockCoins = resident.get("blockCoins")?.takeUnless { it is JsonNull }?.let { value ->
+            runCatching { value.jsonPrimitive.long }.getOrNull()
+        } ?: 0L
+
         val waypointVisibility = resident.get("waypointVisibility")?.takeIf { it is JsonObject }?.jsonObject?.let { visibility ->
             buildMap {
                 visibility.entries.forEach { (key, value) ->
@@ -130,6 +134,7 @@ object Deserializer {
             minimapNorthLocked = minimapNorthLocked,
             minimapLegacy = minimapLegacy,
             townJoinLockedUntil = townJoinLockedUntil,
+            blockCoins = blockCoins,
         )
     }
 
