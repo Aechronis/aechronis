@@ -167,6 +167,8 @@ class Gun(
 
     fun hasAmmo(player: Player): Boolean = getAmmo(player) > 0
 
+// bye bye
+
     fun toEmptyItemStack(): ItemStack {
         val item = toItemStack().with(DataComponents.DAMAGE, ammoToDamage(0))
         return item.withItemModel("$itemModelEmpty-equip")

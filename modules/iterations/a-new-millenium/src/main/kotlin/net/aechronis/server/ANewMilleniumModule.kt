@@ -1,7 +1,13 @@
 package net.aechronis.server
 
+import net.aechronis.combat.objects.ArmorPiece
+import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.utils.GunHandSkins
+import net.aechronis.duels.Kit
+import net.aechronis.duels.KitContents
+import net.aechronis.duels.MapDef
+import net.aechronis.duels.SpawnPos
 import net.aechronis.killshop.KillShopModule
 import net.aechronis.killshop.ShopConfig
 import net.aechronis.nodes.NodesConfig
@@ -31,8 +37,11 @@ import net.aechronis.vanilla.VanillaConfig
 import net.aechronis.vanilla.VanillaModule
 import net.aechronis.vanilla.config.RecipesConfig
 import net.kyori.adventure.resource.ResourcePackInfo
+import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import java.net.URI
+import net.aechronis.duels.Kits as DuelKits
+import net.aechronis.duels.Maps as DuelMaps
 
 class ANewMilleniumModule : AechronisModule {
     override val id = "a-new-millenium"
@@ -44,10 +53,12 @@ class ANewMilleniumModule : AechronisModule {
                 .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build(),
         )
-    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "bundles", "killshop")
+    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "bundles", "killshop", "duels")
 
     override fun configure(context: ModuleContext) {
         measure("Item catalogue") { registerItems() }
+        measure("Duel kits") { registerDuelKits() }
+        measure("Duel maps") { registerDuelMaps() }
         val hands by lazy {
             checkNotNull(EmbeddedResourcePack.readAsset(javaClass, GunHandSkins.HAND_TEXTURE)) { "Missing iteration hand atlas" }
         }
@@ -132,6 +143,53 @@ class ANewMilleniumModule : AechronisModule {
             Drones.kamikazeDrone,
         )
     }
+
+    private fun registerDuelMaps() {
+        DuelMaps.register(
+            MapDef(
+                "flatlands",
+                "Flatlands",
+                listOf(SpawnPos(-15.5, 64.0, 0.5, -90f), SpawnPos(15.5, 64.0, 0.5, 90f)),
+                icon = "grass_block",
+            ),
+            MapDef("pit", "The Pit", listOf(SpawnPos(-7.5, 64.0, 0.5, -90f), SpawnPos(7.5, 64.0, 0.5, 90f)), icon = "stone"),
+        )
+    }
+
+    private fun registerDuelKits() {
+        val usMarine = listOf(Armor.usMarineJacket, Armor.usMarineTrousers, Armor.usMarineBoots)
+        val idf = listOf(Armor.idfJacket, Armor.idfTrousers, Armor.idfBoots)
+        DuelKits.register(
+            duelKit("m4a1", "M4A1 Rifleman", Guns.m4a1, Guns.glock17, usMarine),
+            duelKit("ak12", "AK-12 Rifleman", Guns.ak12, Guns.vz61, idf),
+            duelKit("awp", "AWP Sniper", Guns.awp, Guns.glock17, usMarine),
+            duelKit("mp5", "MP5 Breacher", Guns.mp5, Guns.vz61, idf),
+        )
+    }
+
+    /** Slot 0 primary, 1 secondary, 2 baton, then ammo for each; armor is jacket/trousers/boots. */
+    private fun duelKit(
+        id: String,
+        name: String,
+        primary: Gun,
+        secondary: Gun,
+        armor: List<ArmorPiece>,
+    ): Kit =
+        Kit(id, name, { primary.toItemStack() }) {
+            KitContents(
+                mapOf(
+                    0 to primary.toItemStack(),
+                    1 to secondary.toItemStack(),
+                    2 to Melees.baton.toItemStack(),
+                    3 to primary.ammo.toItemStack().withAmount(64),
+                    4 to secondary.ammo.toItemStack().withAmount(32),
+                    8 to ItemStack.of(Material.COOKED_BEEF, 16),
+                ),
+                chestplate = armor[0].toItemStack(),
+                leggings = armor[1].toItemStack(),
+                boots = armor[2].toItemStack(),
+            )
+        }
 
     override fun shutdown(context: ModuleContext) {
         var failure: Throwable? = null

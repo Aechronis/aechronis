@@ -1,7 +1,16 @@
 package net.aechronis.server
 
+import net.aechronis.combat.objects.ArmorPiece
+import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
+import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.utils.GunHandSkins
+import net.aechronis.duels.Kit
+import net.aechronis.duels.KitContents
+import net.aechronis.duels.Kits
+import net.aechronis.duels.MapDef
+import net.aechronis.duels.Maps
+import net.aechronis.duels.SpawnPos
 import net.aechronis.killshop.KillShopModule
 import net.aechronis.killshop.ShopConfig
 import net.aechronis.nodes.NodesConfig
@@ -25,6 +34,7 @@ import net.aechronis.vanilla.VanillaConfig
 import net.aechronis.vanilla.VanillaModule
 import net.aechronis.vanilla.config.RecipesConfig
 import net.kyori.adventure.resource.ResourcePackInfo
+import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import java.net.URI
 
@@ -38,10 +48,12 @@ class VictorianEraModule : AechronisModule {
                 .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build(),
         )
-    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "killshop")
+    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "killshop", "duels")
 
     override fun configure(context: ModuleContext) {
         measure("Item catalogue") { registerItems() }
+        measure("Duel kits") { registerDuelsKits() }
+        measure("Duel maps") { registerDuelsMaps() }
         val hands by lazy {
             checkNotNull(EmbeddedResourcePack.readAsset(javaClass, GunHandSkins.HAND_TEXTURE)) { "Missing iteration hand atlas" }
         }
@@ -103,6 +115,84 @@ class VictorianEraModule : AechronisModule {
             FieldPieces.maximGun,
         )
     }
+
+    private fun registerDuelsMaps() {
+        Maps.register(
+            MapDef(
+                "victorian-field",
+                "Open Field",
+                listOf(SpawnPos(-15.5, 64.0, 0.5, -90f), SpawnPos(15.5, 64.0, 0.5, 90f)),
+                icon = "grass_block",
+            ),
+        )
+    }
+
+    private fun registerDuelsKits() {
+        Kits.register(
+            kit(
+                "rifleman",
+                "Rifleman",
+                Guns.dreyseNeedleGun,
+                listOf(Guns.dreyseNeedleGun to 64),
+                Melees.cavalrySabre,
+                listOf(Armor.prussiaJacket, Armor.prussiaTrousers, Armor.prussiaBoots),
+            ),
+            kit(
+                "marksman",
+                "Marksman",
+                Guns.berdanII,
+                listOf(Guns.berdanII to 64, Guns.adamsMkIII to 24),
+                null,
+                listOf(Armor.franceJacket, Armor.franceTrousers, Armor.franceBoots),
+                sidearm = Guns.adamsMkIII,
+            ),
+            kit(
+                "gunslinger",
+                "Gunslinger",
+                Guns.coltSingleActionArmy,
+                listOf(Guns.coltSingleActionArmy to 48, Guns.coachGun to 24),
+                null,
+                listOf(Armor.britainJacket, Armor.britainTrousers, Armor.britainBoots),
+                sidearm = Guns.coachGun,
+            ),
+            kit(
+                "skirmisher",
+                "Skirmisher",
+                Guns.chassepotCarbine,
+                listOf(Guns.chassepotCarbine to 48),
+                Melees.navalCutlass,
+                listOf(Armor.austriaJacket, Armor.austriaTrousers, Armor.austriaBoots),
+            ),
+        )
+    }
+
+    /** Slot 0 melee (if any), then the guns, then the ammo for each gun; armor is jacket/trousers/boots. */
+    private fun kit(
+        id: String,
+        name: String,
+        icon: Gun,
+        ammo: List<Pair<Gun, Int>>,
+        melee: Melee?,
+        armor: List<ArmorPiece>,
+        sidearm: Gun? = null,
+    ): Kit =
+        Kit(id, name, { icon.toItemStack() }) {
+            val items = LinkedHashMap<Int, ItemStack>()
+            var slot = 0
+            melee?.let { items[slot++] = it.toItemStack() }
+            items[slot++] = icon.toItemStack()
+            sidearm?.let { items[slot++] = it.toItemStack() }
+            ammo.map { it.first.ammo to it.second }.distinctBy { it.first.name }.forEach { (a, n) ->
+                items[slot++] = a.toItemStack().withAmount(n.coerceAtMost(64))
+            }
+            items[8] = ItemStack.of(Material.COOKED_BEEF, 16)
+            KitContents(
+                items,
+                chestplate = armor[0].toItemStack(),
+                leggings = armor[1].toItemStack(),
+                boots = armor[2].toItemStack(),
+            )
+        }
 
     override fun shutdown(context: ModuleContext) {
         TabManager.shutdown()
