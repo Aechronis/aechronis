@@ -34,25 +34,9 @@
       "aechronis:rifle-fire"
     ]
   },
-  "mauser-model-1871-jaegerbuechse.reload": {
-    "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
-    ]
-  },
   "chassepot-carbine.fire": {
     "sounds": [
       "aechronis:rifle-fire"
-    ]
-  },
-  "chassepot-carbine.reload": {
-    "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
     ]
   },
   "mauser-model-1871.fire": {
@@ -60,25 +44,9 @@
       "aechronis:rifle-fire"
     ]
   },
-  "mauser-model-1871.reload": {
-    "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
-    ]
-  },
   "winchester-model-1873.fire": {
     "sounds": [
       "aechronis:rifle-fire"
-    ]
-  },
-  "winchester-model-1873.reload": {
-    "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
     ]
   },
   "spencer-model-1860.fire": {
@@ -86,38 +54,14 @@
       "aechronis:rifle-fire"
     ]
   },
-  "spencer-model-1860.reload": {
-    "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
-    ]
-  },
   "colt-single-action-army.fire": {
     "sounds": [
       "aechronis:rifle-fire"
     ]
   },
-  "colt-single-action-army.reload": {
-    "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
-    ]
-  },
   "enfield-pattern-1853.fire": {
     "sounds": [
       "aechronis:rifle-fire"
-    ]
-  },
-  "enfield-pattern-1853.reload": {
-    "sounds": [
-      {
-        "name": "minecraft:item.crossbow.loading_start",
-        "type": "event"
-      }
     ]
   },
   "maxim-gun.fire": {
@@ -130,6 +74,134 @@
       {
         "name": "minecraft:item.crossbow.loading_start",
         "type": "event"
+      }
+    ]
+  },
+  "adams-mkiii-revolver.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:adams-mkiii-revolver-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "berdan-ii-rifle.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:berdan-ii-rifle-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "chassepot.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:chassepot-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "chassepot-carbine.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:chassepot-carbine-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "coach-gun.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:coach-gun-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "colt-1851-navy-revolver.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:colt-1851-navy-revolver-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "colt-single-action-army.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:colt-single-action-army-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "dreyse-needle-gun.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:dreyse-needle-gun-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "enfield-pattern-1853.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:enfield-pattern-1853-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "m1867-werndl-holub.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:m1867-werndl-holub-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "martini-henry.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:martini-henry-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "mauser-model-1871.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:mauser-model-1871-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "mauser-model-1871-jaegerbuechse.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:mauser-model-1871-jaegerbuechse-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "spencer-model-1860.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:spencer-model-1860-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "vetterli-model-1870.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:vetterli-model-1870-reload",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "winchester-model-1873.reload": {
+    "sounds": [
+      {
+        "name": "aechronis:winchester-model-1873-reload",
+        "attenuation_distance": 10
       }
     ]
   }

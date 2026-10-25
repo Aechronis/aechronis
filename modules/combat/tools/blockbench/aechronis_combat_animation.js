@@ -2,7 +2,12 @@
     'use strict';
 
     const ID = 'aechronis_combat_animation';
-    const ROLES = {body: 0, magazine: 1, bolt: 2, dominant_hand: 3, support_hand: 4};
+    // Bone 7 is reserved for the procedural muzzle flash. Optional parts remain
+    // siblings so their authored pivots and motion have one unambiguous space.
+    const ROLES = {body: 0, magazine: 1, bolt: 2, dominant_hand: 3, support_hand: 4,
+        cartridge: 5, spent_cartridge: 6, action: 8, loader: 9, gate: 10, cartridge2: 11, spent_cartridge2: 12};
+    const REQUIRED_ROLES = ['body', 'magazine', 'bolt', 'dominant_hand', 'support_hand'];
+    const AMMO_ROLES = ['cartridge', 'spent_cartridge', 'cartridge2', 'spent_cartridge2'];
     const CLIPS = {
         idle: {id: 0, name: 'Idle', ticks: 25, loop: true},
         fire: {id: 1, name: 'Fire', ticks: 2},
@@ -90,13 +95,13 @@
         const uuids = new Set();
         for (const group of groups) {
             const role = group.aechronis_combat_role;
-            if (!Object.hasOwn(ROLES, role) || roles[role]) fail('The rig needs exactly one of each combat bone.');
+            if (!Object.hasOwn(ROLES, role) || roles[role]) fail('Use a supported combat role once per rig.');
             if (typeof group.uuid !== 'string' || !group.uuid || uuids.has(group.uuid)) fail('Combat bones must have distinct UUIDs.');
             uuids.add(group.uuid);
             if (!same(vector(group.rotation || zero, `${role} rest rotation`), zero)) fail(`${role}: rest rotation must remain zero; animate rotation on the timeline.`);
             roles[role] = group;
         }
-        if (Object.keys(roles).length !== 5) fail('Missing combat bones. The body, magazine, bolt and both hand targets are required.');
+        if (REQUIRED_ROLES.some(role => !roles[role])) fail('Missing combat bones. The body, magazine, bolt and both hand targets are required.');
         if (!same(vector(roles.body.origin, 'Body pivot'), [8, 6, 12])) fail('The body pivot must stay at [8, 6, 12].');
         const settings = profileFor(config);
         const handOrigins = [settings.dominant_hand, settings.support_hand];
@@ -115,12 +120,14 @@
         walk(model.outliner, null);
         for (const [role, group] of Object.entries(roles)) {
             if (parents[group.uuid] !== (role === 'body' ? null : roles.body.uuid)) {
-                fail(`${role}: keep the four part/hand bones directly beneath the body bone.`);
+                fail(`${role}: keep part and hand bones directly beneath the body bone.`);
             }
         }
         const byUuid = Object.fromEntries(Object.entries(roles).map(([role, group]) => [group.uuid, role]));
         const result = {profile: config.profile, reload_ticks: config.reload_ticks, fire_ticks: settings.fire_ticks ?? 2, pivots: {}, clips: {}, warnings: []};
-        for (const role of ['magazine', 'bolt']) result.pivots[ROLES[role]] = vector(roles[role].origin, `${role} pivot`);
+        for (const role of Object.keys(roles).filter(role => role !== 'body' && !role.endsWith('_hand'))) {
+            result.pivots[ROLES[role]] = vector(roles[role].origin, `${role} pivot`);
+        }
         let count = 0;
         for (const animation of model.animations || []) {
             const clip = animation.aechronis_combat_clip;
@@ -141,16 +148,19 @@
                 const keys = animator.keyframes || [];
                 if (!keys.length) continue;
                 const role = byUuid[uuid];
-                if (!role || (animator.type && animator.type !== 'bone')) fail(`${clip}: only the five combat bones can be animated; effects and extra bones cannot be exported.`);
+                if (!role || (animator.type && animator.type !== 'bone')) fail(`${clip}: animate supported combat bones; effects cannot be exported.`);
                 if (animator.rotation_global || animator.quaternion_interpolation) fail(`${clip}/${role}: use local Euler XYZ rotation.`);
                 if (Object.values(animator.muted || {}).some(Boolean)) fail(`${clip}/${role}: unmute channels before exporting.`);
                 for (const key of keys) if (!['position', 'rotation', 'scale'].includes(key.channel)) fail(`${clip}/${role}: unsupported ${key.channel} channel.`);
                 for (const channel of ['position', 'rotation', 'scale']) {
                     const label = `${clip}/${role}/${channel}`;
                     const track = readTrack(keys, channel, length, label);
-                    if (channel === 'scale') {
+                    if (channel === 'scale' && !AMMO_ROLES.includes(role)) {
                         if (track.some(key => !same(key.value, [1, 1, 1]))) fail(`${label}: scaling is not supported by the shader rig.`);
                         continue;
+                    }
+                    if (channel === 'scale' && track.some(key => key.value.some(v => v < 0 || v > 1) || !same(key.value, [key.value[0], key.value[0], key.value[0]]))) {
+                        fail(`${label}: ammunition visibility uses uniform scale from zero to one.`);
                     }
                     if (role.endsWith('_hand') && channel === 'rotation' && track.some(key => !same(key.value, zero))) {
                         fail(`${label}: animate hand target Position only. The shader keeps each arm rigid and points it toward the shoulder.`);
@@ -169,7 +179,7 @@
                     const offsetAt = time => sampleTrack(track, time).map((value, axis) => value - sampleTrack(reference, time)[axis]);
                     if (!same(offsetAt(0), offsetAt(1)) && CLIPS[clip].loop) result.warnings.push(`${label}: loop endpoints differ and will jump.`);
                     if (!CLIPS[clip].loop && !same(offsetAt(1), zero)) result.warnings.push(`${label}: final offset is nonzero and will snap when the server clears the action.`);
-                    tracks.push({bone: ROLES[role], channel: channel === 'position' ? 0 : 1, keys: track, reference});
+                    tracks.push({bone: ROLES[role], channel: {position: 0, rotation: 1, scale: 2}[channel], keys: track, reference});
                 }
             }
             result.clips[clip] = tracks;
@@ -259,8 +269,9 @@
             }
         }
         const pivots = Object.fromEntries(Object.entries(project.pivots).sort(([a], [b]) => Number(a) - Number(b)).map(([bone, pivot]) => [bone, pivot.slice()]));
-        const result = {version: 1, starts, ends, tracks, pivots};
-        return {version: 1, key: curveDataKey(result), starts, ends, tracks, pivots};
+        const version = tracks.some(track => track.bone > 4 || track.channel > 1) || Object.keys(pivots).some(bone => Number(bone) > 4) ? 2 : 1;
+        const result = {version, starts, ends, tracks, pivots};
+        return {version, key: curveDataKey(result), starts, ends, tracks, pivots};
     }
 
     function compileShader(project) {
@@ -498,7 +509,7 @@
                         const pose = combatPreviewPose(profileFor(config), clip, time, config.reload_ticks, false);
                         // Show camera placement on Gun's curves as well as its
                         // local motion. AWP's hidden scope mesh is not a motion.
-                        const value = pose[role][channel].map((v, axis) => v +
+                        const value = (pose[role]?.[channel] || zero).map((v, axis) => v +
                             (role === 'body' ? pose.view[channel][axis] : 0));
                         return {channel, time, interpolation: 'linear', data_points: [{x: value[0], y: value[1], z: value[2]}]};
                     });
@@ -876,7 +887,7 @@
             return;
         }
         const groups = Object.fromEntries(Group.all.map(group => [group.aechronis_combat_role, group]));
-        if (Object.keys(ROLES).some(role => !groups[role]?.mesh?.fix_position)) {
+        if (REQUIRED_ROLES.some(role => !groups[role]?.mesh?.fix_position)) {
             clearPreview();
             return;
         }
@@ -1302,6 +1313,7 @@
             disposables.push(new Property(Animation, 'string', 'aechronis_combat_clip', {default: '', exposed: false, condition: active}));
             disposables.push(new Property(Animation, 'object', 'aechronis_combat_reference', {default: () => ({}), exposed: false, condition: active}));
             disposables.push(new Property(Cube, 'string', 'aechronis_combat_marker', {default: '', exposed: false, condition: active}));
+            disposables.push(new Property(Mesh, 'boolean', 'aechronis_combat_prop', {default: false, exposed: false, condition: active}));
             Codecs.project.on('compile', compileCombatProject);
             for (const event of ['finished_edit', 'undo', 'redo']) Blockbench.on(event, syncRigMarkers);
             format = new ModelFormat(ID, {

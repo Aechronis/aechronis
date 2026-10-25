@@ -37,6 +37,7 @@ vec3 aechronis_magazine_shift(float t, float hand, int profile) {
 vec3 aechronis_magazine_point(vec3 p, float t, float hand, int profile, out mat3 rotation) {
     rotation = aechronis_rotation(aechronis_magazine_angles(t, hand, profile));
     vec3 pivot = aechronis_profile_magazine(profile);
+    pivot.x = 8.0 + (pivot.x - 8.0) * hand;
     return pivot + rotation * (p - pivot) + aechronis_magazine_shift(t, hand, profile);
 }
 
@@ -49,7 +50,9 @@ vec3 aechronis_hand_point(bool support, float hand, int action, float t, int pro
     center.x = 8.0 + (center.x - 8.0) * hand;
     if (support && !aechronis_launcher(profile) && (action == 2 || action == 5)) {
         mat3 rotation;
-        vec3 grip = aechronis_profile_magazine(profile) + vec3(-0.7 * hand, -1.0, 0.0);
+        vec3 grip = aechronis_profile_magazine(profile);
+        grip.x = 8.0 + (grip.x - 8.0) * hand;
+        grip += vec3(-0.7 * hand, -1.0, 0.0);
         vec3 magazine = aechronis_magazine_point(grip, t, hand, profile, rotation);
         float weight = aechronis_ramp(t, 0.03, 0.17) * (1.0 - aechronis_ramp(t, 0.75, 0.95));
         center = mix(center, magazine, weight);
@@ -73,7 +76,13 @@ bool aechronis_animate_gun(
     int profile = int((options.z & 1u) | ((options.z >> 2u) << 1u));
     aechronis_begin_curves(atlasOrigin + ivec2(0, 192), 1024, aechronis_authored_key(profile));
     bool empty = (options.z & 2u) != 0u;
+    float hand = (options.x & 1u) != 0u ? -1.0 : 1.0;
+    int bone = int(aechronis_texel(header + ivec2(5, 0)).y);
     int corner = vertexId & 3;
+    // Reflect the complete asymmetric model, including pivots and normals.
+    // Reverse its vertex order as well so mirrored faces keep outward winding.
+    // Hands already construct their own handed frame and skin coordinates.
+    if (hand < 0.0 && bone != 3 && bone != 4) corner = 3 - corner;
     ivec2 record = header + ivec2(3 + corner * 4, 0);
     uvec4 a = aechronis_texel(record);
     uvec4 b = aechronis_texel(record + ivec2(1, 0));
@@ -81,7 +90,10 @@ bool aechronis_animate_gun(
     uvec4 d = aechronis_texel(record + ivec2(3, 0));
     vec3 p = (vec3(aechronis_u16(a.xy), aechronis_u16(a.zw), aechronis_u16(b.xy)) - 32768.0) / 256.0;
     vec3 n = normalize(vec3(b.zw, c.x) / 127.5 - 1.0);
-    int bone = int(c.y);
+    if (bone != 3 && bone != 4) {
+        p.x = 8.0 + (p.x - 8.0) * hand;
+        n.x *= hand;
+    }
     textureUV = (vec2(atlasOrigin) + vec2(aechronis_u16(c.zw), aechronis_u16(d.xy)) / (options.y == 2u ? 32.0 : 128.0)) / vec2(atlasSize);
     bool slimArms = false;
     if (bone == 3 || bone == 4) {
@@ -136,6 +148,7 @@ bool aechronis_animate_gun(
         uvec4 pivotXY = aechronis_texel(header + ivec2(19, 0));
         uvec4 pivotZ = aechronis_texel(header + ivec2(20, 0));
         vec3 muzzle = (vec3(aechronis_u16(pivotXY.xy), aechronis_u16(pivotXY.zw), aechronis_u16(pivotZ.xy)) - 32768.0) / 256.0;
+        muzzle.x = 8.0 + (muzzle.x - 8.0) * hand;
         vec3 scale = vec3(sqrt(pulse), sqrt(pulse), pulse * mix(0.4, 1.0, aechronis_ramp(elapsed, 0.0, 0.6)));
         p = muzzle + (p - muzzle) * scale;
         n = normalize(n / scale);
@@ -150,10 +163,22 @@ bool aechronis_animate_gun(
         viewNormal = vec3(0.0, 0.0, 1.0);
         return true;
     }
-    float hand = gunPose.hand;
-    if (bone == 1 || bone == 2) {
+    if (bone == 1 || bone == 2 || bone == 5 || bone == 6 || bone >= 8) {
         vec3 shift = aechronis_authored_channels(profile, action, bone, 0, t, gunPose.aim, gait, clock, equip, gunPose.aimAction, gunPose.aimTime);
         vec3 angles = aechronis_authored_channels(profile, action, bone, 1, t, gunPose.aim, gait, clock, equip, gunPose.aimAction, gunPose.aimTime);
+        vec3 pivot = aechronis_authored_pivot(profile, bone);
+        pivot.x = 8.0 + (pivot.x - 8.0) * hand;
+        if (bone == 5 || bone == 6 || bone == 11 || bone == 12) {
+            // Ammunition is animation-only geometry. Hidden outside its authored
+            // handling interval; collapse behind the camera before any projection.
+            float visible = clamp(aechronis_authored_channels(profile, action, bone, 2, t, gunPose.aim, gait, clock, equip, gunPose.aimAction, gunPose.aimTime).x, 0.0, 1.0);
+            if (visible <= 0.0001) {
+                viewPosition = vec3(0.0, 0.0, 1.0);
+                viewNormal = vec3(0.0, 0.0, 1.0);
+                return true;
+            }
+            p = pivot + (p - pivot) * visible;
+        }
         shift.x *= hand;
         angles.yz *= hand;
         // Timeline values are local Euler channels. Combine their offsets with
@@ -175,7 +200,6 @@ bool aechronis_animate_gun(
         }
         if (any(notEqual(shift, vec3(0.0))) || any(notEqual(angles, vec3(0.0)))) {
             mat3 rotation = aechronis_rotation(angles);
-            vec3 pivot = aechronis_authored_pivot(profile, bone);
             p = pivot + rotation * (p - pivot) + shift;
             n = rotation * n;
         }

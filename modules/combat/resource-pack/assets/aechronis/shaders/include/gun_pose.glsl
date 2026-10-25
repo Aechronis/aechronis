@@ -148,6 +148,7 @@ AechronisGunPose aechronis_gun_pose(int mode, int action, float t, float gait, f
     hipRoot.x *= pose.hand;
     vec3 sight = aechronis_profile_sight(profile);
     vec3 adsRoot = vec3(-(sight.x - 8.0) / 16.0, -(sight.y - 8.0) / 16.0, sight.z);
+    adsRoot.x *= pose.hand;
     pose.armOffset = vec3(pose.hand * 0.12, -1.2, 0.20) * lowered;
     pose.viewRoot = mix(hipRoot, adsRoot, pose.aim) + pose.armOffset;
     return pose;
@@ -163,6 +164,7 @@ vec3 aechronis_muzzle_view(int mode, float elapsed, float startLevel, int target
     // Source barrel-opening centres, quantized exactly as the item's fixed-point
     // face metadata so the particle pass follows the same authored muzzle.
     vec3 muzzle = aechronis_profile_muzzle(profile);
+    if ((mode & 1) != 0) muzzle.x = 16.0 - muzzle.x;
     float gait = aechronis_gait(startLevel, target, elapsed);
     return aechronis_gun_view(muzzle, aechronis_gun_pose(mode, 1, clamp(elapsed / aechronis_profile_fire_ticks(profile), 0.0, 1.0), gait, clock, 0.0, profile, fireAimTime));
 }

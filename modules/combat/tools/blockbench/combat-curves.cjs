@@ -4,6 +4,7 @@
 // the page origin; an atlas may place the page anywhere without rewriting it.
 const {canonicalCurveData: canonical, curveDataKey: keyFor} = require('./aechronis_combat_animation.js');
 const HEADER_PIXELS = 2, CHANNELS = 100, SEGMENT_PIXELS = 12;
+const EXTENDED_BONES = 13, EXTENDED_CHANNELS = 390;
 const MAX_OFFSET = 0xffffff, MAX_SEGMENTS = 0x10000, MAX_TRACK_SEGMENTS = 192;
 const fail = message => { throw new Error(`Combat curve data: ${message}`); };
 const integer = (value, minimum, maximum, label) => {
@@ -11,22 +12,24 @@ const integer = (value, minimum, maximum, label) => {
 };
 
 function validate(data) {
-    if (!data || data.version !== 1) fail('unsupported version.');
+    if (!data || ![1, 2].includes(data.version)) fail('unsupported version.');
+    const bones = data.version === 2 ? EXTENDED_BONES : 5, dimensions = data.version === 2 ? 3 : 2;
     integer(data.key, 1, MAX_OFFSET, 'content key');
     if (!Array.isArray(data.starts) || !Array.isArray(data.ends) || data.starts.length !== data.ends.length || data.starts.length > MAX_SEGMENTS) fail('invalid segment arrays.');
     for (const [index, point] of [...data.starts, ...data.ends].entries()) {
         if (!Array.isArray(point) || point.length !== 4 || point.some(value => typeof value !== 'number' || !Number.isFinite(value) || !Number.isFinite(Math.fround(value)))) fail(`invalid float32 endpoint ${index}.`);
         if (point[3] < 0 || point[3] > 1) fail('segment time is outside the clip.');
     }
-    if (!Array.isArray(data.tracks) || data.tracks.length > CHANNELS) fail('invalid channel directory.');
+    if (!Array.isArray(data.tracks) || data.tracks.length > 10 * bones * dimensions) fail('invalid channel directory.');
     const slots = new Set();
     for (const track of data.tracks) {
         integer(track.clip, 0, 9, 'clip');
-        integer(track.bone, 0, 4, 'bone');
-        integer(track.channel, 0, 1, 'channel');
+        integer(track.bone, 0, bones - 1, 'bone');
+        if (track.bone === 7) fail('bone 7 is reserved for muzzle flash.');
+        integer(track.channel, 0, dimensions - 1, 'channel');
         integer(track.first, 0, MAX_SEGMENTS - 1, 'first segment');
         integer(track.count, 1, MAX_TRACK_SEGMENTS, 'segment count');
-        const slot = (track.clip * 5 + track.bone) * 2 + track.channel;
+        const slot = (track.clip * bones + track.bone) * dimensions + track.channel;
         if (slots.has(slot)) fail('duplicate channel.');
         slots.add(slot);
         if (track.first + track.count > data.starts.length) fail('channel exceeds its segment arrays.');
@@ -39,7 +42,7 @@ function validate(data) {
     }
     if (!data.pivots || typeof data.pivots !== 'object' || Array.isArray(data.pivots)) fail('missing pivots.');
     for (const [bone, pivot] of Object.entries(data.pivots)) {
-        if (!/^[0-4]$/.test(bone) || !Array.isArray(pivot) || pivot.length !== 3 || pivot.some(value => typeof value !== 'number' || !Number.isFinite(value))) fail('invalid pivot.');
+        if (!/^\d+$/.test(bone) || Number(bone) >= bones || Number(bone) === 7 || !Array.isArray(pivot) || pivot.length !== 3 || pivot.some(value => typeof value !== 'number' || !Number.isFinite(value))) fail('invalid pivot.');
     }
     if (keyFor(data) !== data.key) fail('content key does not match the data.');
     return data;
@@ -62,7 +65,9 @@ function encode(datasets, {width = 1024, maxHeight = 0x10000} = {}) {
     integer(width, 1, 0x10000, 'page width');
     integer(maxHeight, 1, 0x10000, 'maximum height');
     const entries = normalize(datasets);
-    const pixels = HEADER_PIXELS + entries.length * 2 + entries.reduce((total, data) => total + CHANNELS + data.starts.length * SEGMENT_PIXELS, 0);
+    const extended = entries.some(data => data.version === 2), bones = extended ? EXTENDED_BONES : 5, dimensions = extended ? 3 : 2;
+    const channels = extended ? EXTENDED_CHANNELS : CHANNELS;
+    const pixels = HEADER_PIXELS + entries.length * 2 + entries.reduce((total, data) => total + channels + data.starts.length * SEGMENT_PIXELS, 0);
     if (pixels - 1 > MAX_OFFSET) fail('page exceeds 24-bit offsets.');
     const height = Math.ceil(pixels / width);
     if (height > maxHeight) fail(`page needs ${height} rows, but only ${maxHeight} are available.`);
@@ -76,20 +81,20 @@ function encode(datasets, {width = 1024, maxHeight = 0x10000} = {}) {
         for (let offset = 0; offset < 6; offset++) pixel(index + offset, bytes.subarray(offset * 3, offset * 3 + 3));
     };
     pixel(0, [65, 67, 86]);
-    pixel(1, [1, entries.length >>> 8, entries.length & 255]);
+    pixel(1, [extended ? 2 : 1, entries.length >>> 8, entries.length & 255]);
     let block = HEADER_PIXELS + entries.length * 2;
     for (const [index, data] of entries.entries()) {
         pixel(HEADER_PIXELS + index * 2, u24(data.key));
         pixel(HEADER_PIXELS + index * 2 + 1, u24(block));
         for (const track of data.tracks) {
-            const slot = (track.clip * 5 + track.bone) * 2 + track.channel;
+            const slot = (track.clip * bones + track.bone) * dimensions + track.channel;
             pixel(block + slot, [track.first >>> 8, track.first & 255, track.count]);
         }
         for (let segment = 0; segment < data.starts.length; segment++) {
-            vector(block + CHANNELS + segment * SEGMENT_PIXELS, data.starts[segment]);
-            vector(block + CHANNELS + segment * SEGMENT_PIXELS + 6, data.ends[segment]);
+            vector(block + channels + segment * SEGMENT_PIXELS, data.starts[segment]);
+            vector(block + channels + segment * SEGMENT_PIXELS + 6, data.ends[segment]);
         }
-        block += CHANNELS + data.starts.length * SEGMENT_PIXELS;
+        block += channels + data.starts.length * SEGMENT_PIXELS;
     }
     return image;
 }

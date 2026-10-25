@@ -34,25 +34,26 @@ function decode(page) {
     };
     assert.deepEqual(pixel(0), [65, 67, 86, 255]);
     const header = pixel(1);
-    assert.equal(header[0], 1);
+    assert([1, 2].includes(header[0]));
+    const bones = header[0] === 2 ? 13 : 5, dimensions = header[0] === 2 ? 3 : 2, channelCount = 10 * bones * dimensions;
     const count = header[1] * 256 + header[2], directory = new Map();
     let previous = 0;
     for (let entry = 0; entry < count; entry++) {
         const key = uint24(pixel(2 + entry * 2)), block = uint24(pixel(3 + entry * 2));
         assert(key > previous); previous = key;
-        const channels = Array.from({length: 100}, (_, slot) => {
+        const channels = Array.from({length: channelCount}, (_, slot) => {
             const record = pixel(block + slot), first = record[0] * 256 + record[1];
             return Array.from({length: record[2]}, (_, segment) => ({
-                a: vector(block + 100 + (first + segment) * 12),
-                b: vector(block + 106 + (first + segment) * 12)
+                a: vector(block + channelCount + (first + segment) * 12),
+                b: vector(block + channelCount + 6 + (first + segment) * 12)
             }));
         });
         directory.set(key, channels);
     }
     return (key, clip, bone, channel, time) => {
         const channels = directory.get(key);
-        if (!channels || clip < 0 || clip > 9 || bone < 0 || bone > 4 || channel < 0 || channel > 1) return [0, 0, 0];
-        const segments = channels[(clip * 5 + bone) * 2 + channel];
+        if (!channels || clip < 0 || clip > 9 || bone < 0 || bone >= bones || channel < 0 || channel >= dimensions) return [0, 0, 0];
+        const segments = channels[(clip * bones + bone) * dimensions + channel];
         if (!segments.length) return [0, 0, 0];
         const {a, b} = segments.findLast(segment => segment.a[3] <= time) ?? segments[0];
         const fraction = b[3] === a[3] ? 0 : Math.min(1, Math.max(0, (time - a[3]) / (b[3] - a[3])));
@@ -137,6 +138,14 @@ for (let index = 0; index < 20; index++) {
 }
 for (const [index, [keys, reference]] of cases.entries()) check({profile: `synthetic${index}`, reload_ticks: 60, pivots: {},
     clips: {reload: [{bone: 1, channel: 0, keys, reference}], reload_aim: [{bone: 1, channel: 0, keys, reference}]}});
+// Optional action parts and two independently visible pairs of live/spent
+// rounds use the extended page. Include step transitions at nonbinary times.
+check({profile: 'ammunition', reload_ticks: 80, pivots: {5: [8, 8, 8], 12: [9, 8, 8]}, clips: {
+    reload: [
+        {bone: 5, channel: 2, keys: [key(0, [0, 0, 0], 'step'), key(1/3, [1, 1, 1], 'step'), key(.79, [0, 0, 0], 'step'), key(1, [0, 0, 0])]},
+        {bone: 12, channel: 0, keys: [key(0, [0, 0, 0]), key(.4, [3, 2, 1]), key(.7, [12, -8, 5]), key(1, [0, 0, 0])]},
+        {bone: 10, channel: 1, keys: [key(0, [0, 0, 0]), key(.2, [0, 65, 0]), key(.8, [0, 65, 0]), key(1, [0, 0, 0])]}
+    ]}});
 
 let models = 0;
 const iterations = path.join(root, 'modules/iterations');
@@ -156,7 +165,15 @@ assert(models > 0, 'No combat models found.');
 const combined = codec.encode([...datasets].reverse().concat(datasets[0]));
 const restored = png.read(png.write(combined));
 assert.deepEqual(restored.data, combined.data);
-decode(restored);
+const combinedSample = decode(restored);
+for (const data of datasets) {
+    const standalone = decode(codec.encode([data]));
+    for (const track of data.tracks) {
+        for (const time of [0, .13, .5, .91, 1]) assert.deepEqual(
+            combinedSample(data.key, track.clip, track.bone, track.channel, time),
+            standalone(data.key, track.clip, track.bone, track.channel, time), 'Mixed legacy/extended page routing');
+    }
+}
 assert.equal(codec.normalize([datasets[0], datasets[0]]).length, 1);
 assert.throws(() => codec.encode(datasets, {width: 256, maxHeight: 1}), /only 1 are available/);
 assert.throws(() => codec.encode(datasets, {width: 0}), /page width/);
@@ -166,4 +183,4 @@ const collision = value => {
     return {...data, key: codec.keyFor(data)};
 };
 assert.throws(() => codec.encode([collision(246.15), collision(409.41)]), /collision/);
-console.log(`${models} combat models and ${cases.length} synthetic curve pairs: ${comparisons} source samples, max error ${largestError}; both texture widths max float32 error ${largestFloatError}; ${bytes} generated shader bytes.`);
+console.log(`${models} combat models, ${cases.length} synthetic curve pairs and ammunition tracks: ${comparisons} source samples, max error ${largestError}; both texture widths max float32 error ${largestFloatError}; ${bytes} generated shader bytes.`);

@@ -4,6 +4,9 @@ ivec2 aechronis_curve_origin = ivec2(0);
 int aechronis_curve_width = 1;
 int aechronis_curve_capacity = 0;
 int aechronis_curve_block = -1;
+int aechronis_curve_bones = 5;
+int aechronis_curve_dimensions = 2;
+int aechronis_curve_channels = 100;
 
 uvec4 aechronis_curve_texel(int pixel) {
     ivec2 address = aechronis_curve_origin + ivec2(pixel % aechronis_curve_width, pixel / aechronis_curve_width);
@@ -24,7 +27,10 @@ void aechronis_begin_curves(ivec2 origin, int width, int key) {
     aechronis_curve_capacity = (size.y - origin.y) * width;
     if (any(notEqual(aechronis_curve_texel(0), uvec4(65, 67, 86, 255)))) return;
     uvec4 header = aechronis_curve_texel(1);
-    if (header.x != 1u || header.w != 255u) return;
+    if ((header.x != 1u && header.x != 2u) || header.w != 255u) return;
+    aechronis_curve_bones = header.x == 2u ? 13 : 5;
+    aechronis_curve_dimensions = header.x == 2u ? 3 : 2;
+    aechronis_curve_channels = 10 * aechronis_curve_bones * aechronis_curve_dimensions;
     int count = int((header.y << 8u) | header.z);
     if (count == 0 || 2 + count * 2 > aechronis_curve_capacity) return;
     int low = 0;
@@ -36,7 +42,7 @@ void aechronis_begin_curves(ivec2 origin, int width, int key) {
         int candidate = aechronis_curve_u24(aechronis_curve_texel(2 + middle * 2).rgb);
         if (candidate == key) {
             int block = aechronis_curve_u24(aechronis_curve_texel(3 + middle * 2).rgb);
-            if (block >= 2 + count * 2 && block + 100 <= aechronis_curve_capacity) aechronis_curve_block = block;
+            if (block >= 2 + count * 2 && block + aechronis_curve_channels <= aechronis_curve_capacity) aechronis_curve_block = block;
             return;
         }
         if (candidate < key) low = middle + 1;
@@ -67,12 +73,12 @@ float aechronis_curve_time(int pixel) {
 }
 
 vec3 aechronis_sample_curve(int clip, int bone, int channel, float t) {
-    if (aechronis_curve_block < 0 || clip < 0 || clip > 9 || bone < 0 || bone > 4 || channel < 0 || channel > 1) return vec3(0.0);
-    uvec4 range = aechronis_curve_texel(aechronis_curve_block + (clip * 5 + bone) * 2 + channel);
+    if (aechronis_curve_block < 0 || clip < 0 || clip > 9 || bone < 0 || bone >= aechronis_curve_bones || channel < 0 || channel >= aechronis_curve_dimensions) return vec3(0.0);
+    uvec4 range = aechronis_curve_texel(aechronis_curve_block + (clip * aechronis_curve_bones + bone) * aechronis_curve_dimensions + channel);
     int count = int(range.z);
     if (count == 0 || count > 192 || range.w != 255u) return vec3(0.0);
     int first = int((range.x << 8u) | range.y);
-    int base = aechronis_curve_block + 100 + first * 12;
+    int base = aechronis_curve_block + aechronis_curve_channels + first * 12;
     if (base + count * 12 > aechronis_curve_capacity) return vec3(0.0);
     int low = 0;
     int high = count - 1;

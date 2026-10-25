@@ -3,6 +3,7 @@
 // Rest-pose conversion and byte-exact shader metadata. No editor globals or processes.
 const png = require('pngjs').PNG.sync;
 const ROLES = ['body', 'magazine', 'bolt', 'dominant_hand', 'support_hand'];
+const BONE_IDS = require('./aechronis_combat_animation.js').ROLES;
 const RIG_FIELDS = ['magazine', 'dominant_hand', 'support_hand', 'sight', 'hipRoot', 'muzzle'];
 const FACE_CORNERS = {
     down: [[0,0,1],[0,0,0],[1,0,0],[1,0,1]], up: [[0,1,0],[0,1,1],[1,1,1],[1,1,0]],
@@ -127,8 +128,8 @@ function projectSource(model, base) {
     for (const [index,element] of (model.elements || []).entries()) {
         if (element.export === false || element.aechronis_combat_marker) continue;
         const role = groups.get(parents.get(element.uuid))?.aechronis_combat_role;
-        if (ROLES.slice(3).includes(role)) fail('Hand targets may contain helpers only; move gun geometry to Gun, Magazine, or Bolt.');
-        if (!ROLES.slice(0,3).includes(role)) fail(`${element.name}: assign geometry directly to Gun, Magazine, or Bolt.`);
+        if (role === 'dominant_hand' || role === 'support_hand') fail('Hand targets may contain helpers only; move gun geometry to a part bone.');
+        if (!Object.hasOwn(BONE_IDS, role)) fail(`${element.name}: assign geometry directly to a combat part bone.`);
         const origin = vector(element.origin || [0,0,0]), rotation = vector(element.rotation || [0,0,0]);
         let transform = {rotation: {origin, x: rotation[0], y: rotation[1], z: rotation[2]}};
         const kind = element.type || 'cube';
@@ -160,7 +161,7 @@ function projectSource(model, base) {
                 }
             }
             positions = positions.map(p => transformVertex(p,transform));
-            faces.push({element:index, face:name, bone:ROLES.indexOf(role), positions, normal:faceNormal(positions),
+            faces.push({element:index, face:name, bone:BONE_IDS[role], positions, normal:faceNormal(positions),
                 uvs: uvs.map(([u,v]) => [region[0]+u*region[2]/region[4], region[1]+v*region[3]/region[5]])});
         }
     }

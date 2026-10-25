@@ -74,17 +74,17 @@ vec3 aechronis_profile_sight(int profile) {
     return vec3(0.0);
 }
 vec3 aechronis_profile_magazine(int profile) {
-    if (profile == 0) return vec3(8.0, 8.37879, 8.4);
-    if (profile == 1) return vec3(8.0, 8.37879, 8.4);
+    if (profile == 0) return vec3(8.0, 7.98687, 9.28282);
+    if (profile == 1) return vec3(8.0, 8.37879, 9.99888);
     if (profile == 2) return vec3(8.0, 7.00245, 10.08749);
     if (profile == 3) return vec3(8.0, 8.37879, 8.4);
     if (profile == 4) return vec3(8.294, 8.52343, 11.30179);
     if (profile == 5) return vec3(8.0, 8.5, 9.15);
-    if (profile == 6) return vec3(8.0, 8.31, 9.87);
-    if (profile == 7) return vec3(8.0, 8.3, 9.8);
-    if (profile == 8) return vec3(8.0, 8.12, 10.15);
+    if (profile == 6) return vec3(8.0, 7.37, 10.13);
+    if (profile == 7) return vec3(8.0, 7.43, 10.18);
+    if (profile == 8) return vec3(7.14, 8.1, 10.15);
     if (profile == 10) return vec3(8.0, 8.5, 9.15);
-    if (profile == 11) return vec3(8.0, 8.37879, 8.4);
+    if (profile == 11) return vec3(8.0, 8.37879, 9.99888);
     if (profile == 12) return vec3(8.0, 8.5, 9.15);
     if (profile == 9) return vec3(8.0, 6.9, 10.5);
     if (profile == 13) return vec3(8.0, 7.1, 9.4);
