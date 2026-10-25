@@ -21,7 +21,6 @@ import java.util.concurrent.TimeoutException
 import kotlin.math.floor
 
 object VehiclePersistence {
-    private const val FORMAT_VERSION = 2
     private val LIFECYCLE_TIMEOUT = Duration.ofSeconds(10)
 
     private lateinit var path: Path
@@ -30,7 +29,6 @@ object VehiclePersistence {
 
     @Serializable
     private data class PersistedVehicles(
-        val version: Int,
         val vehicles: List<PersistedVehicle>,
     )
 
@@ -43,8 +41,7 @@ object VehiclePersistence {
         val yaw: Float,
         val pitch: Float,
         val health: Float? = null,
-        val ammo: Int? = null,
-        val weaponAmmo: Map<String, Int>? = null,
+        val weaponAmmo: Map<String, Int>,
     )
 
     @Synchronized
@@ -107,11 +104,10 @@ object VehiclePersistence {
                     yaw = position.yaw,
                     pitch = position.pitch,
                     health = runtime.health,
-                    ammo = runtime.ammo,
-                    weaponAmmo = vehicle.snapshotWeaponAmmo(entity).takeIf { it.isNotEmpty() },
+                    weaponAmmo = vehicle.snapshotWeaponAmmo(entity),
                 )
             }
-        write(PersistedVehicles(version = FORMAT_VERSION, vehicles = vehicles))
+        write(PersistedVehicles(vehicles = vehicles))
     }
 
     private fun load(deadline: VehicleLifecycleDeadline) {
@@ -123,10 +119,6 @@ object VehiclePersistence {
             } catch (exception: Exception) {
                 throw IllegalStateException("Failed to load vehicles from $path", exception)
             }
-
-        require(saved.version in 1..FORMAT_VERSION) {
-            "Unsupported vehicle save version ${saved.version} in $path"
-        }
 
         val terrainPositions =
             saved.vehicles.flatMap { savedVehicle ->
@@ -192,8 +184,8 @@ object VehiclePersistence {
         val placementPosition = entityPosition.add(0.0, -vehicle.hitbox.getGroundOffset(), 0.0)
         val entity = vehicle.spawn(instance, placementPosition)
 
-        VehicleRegistry.runtime(entity)?.restore(saved.health, saved.ammo)
-        vehicle.restoreWeaponAmmo(entity, saved.weaponAmmo, saved.ammo)
+        VehicleRegistry.runtime(entity)?.restore(saved.health, null)
+        vehicle.restoreWeaponAmmo(entity, saved.weaponAmmo)
     }
 
     private fun groundPlane(

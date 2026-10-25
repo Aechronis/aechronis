@@ -419,16 +419,11 @@ open class Boat(
 
     override fun restoreWeaponAmmo(
         entity: Entity,
-        saved: Map<String, Int>?,
-        legacyAmmo: Int?,
+        saved: Map<String, Int>,
     ) {
         val runtime = runtimes?.get(entity) ?: return
         runtime.mounts.forEachIndexed { index, state ->
-            // A legacy shared breech represents at most one round, not one per new station.
-            state.magazine.restoreAmmo(
-                (saved?.get(weapons[index].id) ?: saved?.get(weapons[index].model))
-                    ?: if (saved == null && index == 0) legacyAmmo ?: 0 else 0,
-            )
+            state.magazine.restoreAmmo(saved[weapons[index].id] ?: 0)
             state.magazine.cancelReload()
         }
     }

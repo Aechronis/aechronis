@@ -404,11 +404,10 @@ open class Vehicle(
 
     internal open fun restoreWeaponAmmo(
         entity: Entity,
-        saved: Map<String, Int>?,
-        legacyAmmo: Int?,
+        saved: Map<String, Int>,
     ) {
         val id = seats.firstOrNull { it.role.usesWeapon }?.weaponId ?: "main"
-        VehicleRegistry.runtime(entity)?.restore(null, saved?.get(id) ?: legacyAmmo)
+        VehicleRegistry.runtime(entity)?.restore(null, saved[id] ?: 0)
     }
 
     // called when the vehicle takes damage
