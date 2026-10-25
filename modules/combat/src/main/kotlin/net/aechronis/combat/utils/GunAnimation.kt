@@ -371,7 +371,7 @@ internal object GunAnimation {
         val clipAge = startAge ?: age
         val current = ensureHeld(player, gun)
         val tint = recordClip(player, current, action, durationTicks, age, clipAge)
-        publish(player, age, withGunAnimationTint(activeGunItem(gun, player.itemInMainHand), tint))
+        publish(player, age, withGunAnimationTint(activeGunItem(gun, player.itemInMainHand), tint), newClip = true)
     }
 
     private fun recordClip(
@@ -409,11 +409,16 @@ internal object GunAnimation {
         player: Player,
         age: Long,
         item: ItemStack,
+        newClip: Boolean = false,
     ) {
         if (item == player.itemInMainHand) return
-        if (!ModelManager.syncShaderTime(player, age)) return
+        // Only a new clip needs its start phase pinned to the client clock. Motion-only tint updates inside
+        // a running clip must not re-send the time: each packet re-bases the clock by that packet's jitter.
+        if (!ModelManager.syncShaderTime(player, age, force = newClip)) return
         for (viewer in player.viewers) {
-            if (viewer !== player && viewer.isOnline && viewer.instance === player.instance) ModelManager.syncShaderTime(viewer, age)
+            if (viewer !== player && viewer.isOnline && viewer.instance === player.instance) {
+                ModelManager.syncShaderTime(viewer, age, force = newClip)
+            }
         }
         held[player]?.activated = true
         player.itemInMainHand = item

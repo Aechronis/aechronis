@@ -31,13 +31,15 @@ object AimingListener {
         state.aiming = true
         state.cancelAimingReset()
 
-        // right click repeats every four ticks, including during automatic fire
+        // right click repeats every four ticks, including during automatic fire. The repeats arrive with
+        // the connection's jitter, so a 2-tick margin drops ADS on any 100 ms stall; widen it with latency.
+        val jitterMarginTicks = (player.latency / 100).coerceIn(0, 4)
         state.aimingResetTask =
             ModuleScheduler
                 .buildTask {
                     Combat.playerStates[player]?.aimingResetTask = null
                     Combat.playerStates.getOrCreate(player).aiming = player.isSneaking
-                }.delay(TaskSchedule.tick(6))
+                }.delay(TaskSchedule.tick(6 + jitterMarginTicks))
                 .schedule()
     }
 

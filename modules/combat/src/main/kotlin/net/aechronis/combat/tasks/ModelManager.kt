@@ -43,7 +43,6 @@ object ModelManager {
     private const val SHADER_IDLE_TIME = 10000L
     private const val SHADER_COMBAT_TIME = 11000L
     private const val SHADER_AIMING_TIME = 11500L
-    private const val SHADER_CLOCK_REFRESH_TICKS = 100L
 
     private data class ShaderClock(
         val instance: Instance,
@@ -58,12 +57,16 @@ object ModelManager {
         ): Boolean =
             this.instance !== instance ||
                 this.band != band ||
-                worldAge - this.worldAge !in 0 until SHADER_CLOCK_REFRESH_TICKS ||
+                worldAge < this.worldAge ||
                 Math.floorDiv(worldAge, GUN_ANIMATION_CLOCK_TICKS) != Math.floorDiv(this.worldAge, GUN_ANIMATION_CLOCK_TICKS) ||
-                // The client keeps ticking during server lag. Do not let its HUD
-                // band expire while waiting for the server to reach the phase wrap.
-                System.nanoTime() - sentAtNanos >=
-                minOf(SHADER_CLOCK_REFRESH_TICKS, GUN_ANIMATION_CLOCK_TICKS - gunAnimationPhase(this.worldAge)) * 50_000_000L
+                // The client keeps ticking during server lag. Do not let its HUD band expire while
+                // waiting for the server to reach the phase wrap. Each resend re-bases the client
+                // clock by that packet's jitter, so this is the only periodic refresh.
+                // A packet sent in the last ticks of the band is not chased by another: the shader's HUD
+                // band tolerates 3 ticks past the wrap, which the server's own phase wrap covers.
+                (GUN_ANIMATION_CLOCK_TICKS - gunAnimationPhase(this.worldAge)).let { remaining ->
+                    remaining > 3 && System.nanoTime() - sentAtNanos >= (remaining - 2) * 50_000_000L
+                }
     }
 
     private val shaderClocks = ConcurrentHashMap<Player, ShaderClock>()
@@ -191,12 +194,9 @@ object ModelManager {
 
     private fun shaderTimeBand(player: Player): Long {
         val gun = if (VehicleSeatHotbar.isActive(player)) null else Item.getFromItemStack(player.itemInMainHand) as? Gun
-        val hideCrosshair =
-            gun != null &&
-                Combat.playerStates[player]?.aiming == true &&
-                Combat.playerStates[player]?.reloadTask == null
+        // Handheld guns keep the crosshair in every state; only the turret scope hides it.
         return when {
-            TurretScope.isActive(player) || hideCrosshair -> SHADER_AIMING_TIME
+            TurretScope.isActive(player) -> SHADER_AIMING_TIME
             gun != null ||
                 VehicleSeatHotbar.isActive(
                     player,
