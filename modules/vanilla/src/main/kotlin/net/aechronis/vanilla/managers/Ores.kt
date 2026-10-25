@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleScheduler
+import net.aechronis.utils.JsonRegistryFile
 import net.aechronis.utils.OreSounds
 import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.text.Component

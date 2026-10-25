@@ -4,6 +4,7 @@ gems
 guard
 hats
 grimac
+koth
 logger
 luckperms
 spark

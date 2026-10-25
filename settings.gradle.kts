@@ -40,6 +40,7 @@ include(
     ":modules:viaversion",
     ":modules:utils",
     ":modules:combat",
+    ":modules:koth",
     ":modules:hats",
     ":modules:nodes",
     ":modules:discord",

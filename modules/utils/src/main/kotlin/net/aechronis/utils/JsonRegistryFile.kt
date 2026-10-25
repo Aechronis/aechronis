@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.utils
 
 import net.aechronis.server.io.AtomicFiles
 import java.nio.file.Files
@@ -6,7 +6,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 
 /** Publishes fully decoded registries and preserves unreadable files until a successful reload. */
-internal class JsonRegistryFile(
+class JsonRegistryFile(
     private val name: String,
 ) {
     private var path: Path? = null

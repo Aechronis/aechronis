@@ -40,7 +40,6 @@ data class VanillaConfig(
     val combatEnabled: Boolean = true,
     val musicEnabled: Boolean = true,
     val spawnEnabled: Boolean = true,
-    val kothEnabled: Boolean = true,
     val oresEnabled: Boolean = true,
     val horsesEnabled: Boolean = false,
     // Player defaults
@@ -51,7 +50,6 @@ data class VanillaConfig(
     val whitelistPath: String = "whitelist.json",
     val spawnPath: String = "spawn",
     val oresPath: String = "ores.json",
-    val kothsPath: String = "koth.json",
     val votePath: String = "vote.txt",
     val warpsPath: String = "warps.json",
     val horsesPath: String = "horses.json",

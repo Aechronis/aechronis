@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.objects
+package net.aechronis.koth.objects
 
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos

@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.koth
 
 import com.cronutils.model.CronType
 import com.cronutils.model.definition.CronDefinitionBuilder
@@ -6,9 +6,10 @@ import com.cronutils.model.time.ExecutionTime
 import com.cronutils.parser.CronParser
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import net.aechronis.koth.listeners.KothListener
+import net.aechronis.koth.objects.KothZone
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.vanilla.listeners.KothListener
-import net.aechronis.vanilla.objects.KothZone
+import net.aechronis.utils.JsonRegistryFile
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -29,7 +30,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.UUID
 
-/** Command-configured King of the Hill events persisted in vanilla/koth.json. */
+/** Command-configured King of the Hill events persisted in koth/koth.json. */
 object Koth {
     @Serializable
     internal data class SavedPosition(

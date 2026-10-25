@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import net.aechronis.server.hasPermission
 import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.ModuleScheduler
+import net.aechronis.utils.JsonRegistryFile
 import net.aechronis.vanilla.Vanilla
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos

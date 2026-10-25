@@ -17,7 +17,6 @@ import net.aechronis.vanilla.commands.Gm
 import net.aechronis.vanilla.commands.Ignore
 import net.aechronis.vanilla.commands.InventorySee
 import net.aechronis.vanilla.commands.Kill
-import net.aechronis.vanilla.commands.KothCommand
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Message
 import net.aechronis.vanilla.commands.Ore
@@ -54,7 +53,6 @@ import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.ItemFrames
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.KillShop
-import net.aechronis.vanilla.managers.Koth
 import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.PlayerData
@@ -126,7 +124,6 @@ object Vanilla {
                 if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
                 if (config.shopEnabled) commands += Shop()
                 if (config.whitelistEnabled) commands += Whitelist()
-                if (config.kothEnabled) commands += KothCommand()
                 if (config.oresEnabled) commands += Ore()
                 ModuleCommands
                     .register(*commands.toTypedArray())
@@ -168,7 +165,6 @@ object Vanilla {
         if (config.serverLinksEnabled) measure("Server Links Listener") { ServerLinksListener.init() }
         if (config.combatEnabled) measure("Combat") { Combat.init() }
         if (config.musicEnabled) measure("Music") { MusicManager.init(Path.of(config.path, config.musicPath)) }
-        if (config.kothEnabled) measure("Koth") { Koth.init(Path.of(config.path, config.kothsPath)) }
         if (config.oresEnabled) measure("Ores") { Ores.init(Path.of(config.path, config.oresPath)) }
         measure("Vote Links") { VoteLinks.init(Path.of(config.path, config.votePath)) }
         measure("Warps") { Warps.init(Path.of(config.path, config.warpsPath)) }
@@ -187,7 +183,6 @@ object Vanilla {
         runSaveStages(
             "checkpoint" to { context.captureLive(::saveCheckpoint).join() },
             "ores" to { if (config.oresEnabled) Ores.saveAll() },
-            "koth" to { if (config.kothEnabled) Koth.saveAll() },
             "warps" to Warps::saveAll,
             "horses" to { if (config.horsesEnabled) Horses.save() },
         )
@@ -200,7 +195,6 @@ object Vanilla {
             "crate rolls" to Crates::shutdown,
             "corpse loot" to Mannequin::shutdown,
             "item frames" to ItemFrames::shutdown,
-            "koth state" to Koth::shutdown,
             "combat bars" to Combat::shutdown,
             "tps bars" to TpsBarManager::shutdown,
             "vanish state" to VanishManager::shutdown,

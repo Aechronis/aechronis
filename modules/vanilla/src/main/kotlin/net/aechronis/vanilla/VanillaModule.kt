@@ -8,7 +8,6 @@ import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.KillShop
-import net.aechronis.vanilla.managers.Koth
 import net.aechronis.vanilla.managers.Music
 import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.Saplings
@@ -30,8 +29,6 @@ class VanillaModule : AechronisModule {
             if (Vanilla.config.combatEnabled) Combat.restoreTransientState(context.peekTransientState(COMBAT_TAGS_STATE_KEY))
             if (Vanilla.config.commandsEnabled) Vanish.restoreTransientState(context.peekTransientState(VANISH_STATE_KEY))
             if (Vanilla.config.shopEnabled) KillShop.restoreTransientState(context.peekTransientState(SHOP_COOLDOWNS_STATE_KEY))
-            // Vanish must restore first so KOTH remembers its glow as a pre-existing visibility state.
-            if (Vanilla.config.kothEnabled) Koth.restoreTransientState(context.peekTransientState(KOTH_ACTIVE_STATE_KEY))
         }
         if (Vanilla.config.musicEnabled) Music.registerResourcePack(context)
         if (Vanilla.config.whitelistEnabled) {
@@ -54,7 +51,6 @@ class VanillaModule : AechronisModule {
         publishOrClear(context, COMBAT_TAGS_STATE_KEY, Vanilla.config.combatEnabled, Combat::captureTransientState)
         publishOrClear(context, VANISH_STATE_KEY, Vanilla.config.commandsEnabled, Vanish::captureTransientState)
         publishOrClear(context, SHOP_COOLDOWNS_STATE_KEY, Vanilla.config.shopEnabled, KillShop::captureTransientState)
-        publishOrClear(context, KOTH_ACTIVE_STATE_KEY, Vanilla.config.kothEnabled, Koth::captureTransientState)
     }
 
     override fun shutdown(context: ModuleContext) = Vanilla.shutdown()
@@ -103,6 +99,5 @@ class VanillaModule : AechronisModule {
         const val COMBAT_TAGS_STATE_KEY = "vanilla:combat-tags:v1"
         const val VANISH_STATE_KEY = "vanilla:vanish:v1"
         const val SHOP_COOLDOWNS_STATE_KEY = "vanilla:shop-cooldowns:v1"
-        const val KOTH_ACTIVE_STATE_KEY = "vanilla:koth-active:v1"
     }
 }

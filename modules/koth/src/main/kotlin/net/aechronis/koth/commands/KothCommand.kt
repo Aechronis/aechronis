@@ -1,7 +1,7 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.koth.commands
 
+import net.aechronis.koth.Koth
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.managers.Koth
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.CommandContext

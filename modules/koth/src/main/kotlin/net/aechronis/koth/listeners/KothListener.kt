@@ -1,13 +1,18 @@
-package net.aechronis.vanilla.listeners
+package net.aechronis.koth.listeners
 
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.managers.Koth
+import net.aechronis.koth.Koth
+import net.aechronis.server.modules.ModuleEvents
+import net.minestom.server.MinecraftServer
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerRespawnEvent
 
 object KothListener {
+    // Vanilla must finish death and combat-logout handling before KOTH reconciles capture state.
+    private val eventNode = EventNode.all("koth").setPriority(1)
+
     fun onMove(event: PlayerMoveEvent) {
         val player = event.player
         val now = System.currentTimeMillis()
@@ -51,9 +56,10 @@ object KothListener {
     }
 
     fun init() {
-        Vanilla.eventNode.addListener(PlayerMoveEvent::class.java, ::onMove)
-        Vanilla.eventNode.addListener(PlayerDeathEvent::class.java, ::onDeath)
-        Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, ::onDisconnect)
-        Vanilla.eventNode.addListener(PlayerRespawnEvent::class.java, ::onRespawn)
+        eventNode.addListener(PlayerMoveEvent::class.java, ::onMove)
+        eventNode.addListener(PlayerDeathEvent::class.java, ::onDeath)
+        eventNode.addListener(PlayerDisconnectEvent::class.java, ::onDisconnect)
+        eventNode.addListener(PlayerRespawnEvent::class.java, ::onRespawn)
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
     }
 }
