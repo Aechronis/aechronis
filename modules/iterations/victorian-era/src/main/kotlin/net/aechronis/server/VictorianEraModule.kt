@@ -3,9 +3,10 @@ package net.aechronis.server
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.utils.GunHandSkins
+import net.aechronis.nodes.NodesConfig
 import net.aechronis.nodes.NodesModule
-import net.aechronis.server.config.VictorianNodesConfiguration
-import net.aechronis.server.config.VictorianVanillaConfiguration
+import net.aechronis.nodes.objects.OreDeposit
+import net.aechronis.nodes.objects.TerritoryResources
 import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.Boats
@@ -13,13 +14,17 @@ import net.aechronis.server.constants.FieldPieces
 import net.aechronis.server.constants.Grenades
 import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Melees
+import net.aechronis.server.craft.HorseRecipes
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.tasks.TabManager
+import net.aechronis.vanilla.VanillaConfig
 import net.aechronis.vanilla.VanillaModule
+import net.aechronis.vanilla.config.RecipesConfig
 import net.kyori.adventure.resource.ResourcePackInfo
+import net.minestom.server.item.Material
 import java.net.URI
 
 class VictorianEraModule : AechronisModule {
@@ -38,13 +43,11 @@ class VictorianEraModule : AechronisModule {
             "vanilla" to
                 setOf(
                     "net/aechronis/server/VictorianEraModule.class",
-                    "net/aechronis/server/config/VictorianVanillaConfiguration.class",
                     "net/aechronis/server/craft/",
                 ),
             "nodes" to
                 setOf(
                     "net/aechronis/server/VictorianEraModule.class",
-                    "net/aechronis/server/config/VictorianNodesConfiguration.class",
                 ),
         )
 
@@ -55,10 +58,40 @@ class VictorianEraModule : AechronisModule {
         }
         GunHandSkins.registerTemplate { hands }
         if (context.isModuleStarting("vanilla")) {
-            measure("Vanilla configuration") { VanillaModule.configure(VictorianVanillaConfiguration.create()) }
+            measure("Vanilla configuration") {
+                VanillaModule.configure(
+                    VanillaConfig(
+                        shopEnabled = false,
+                        horsesEnabled = true,
+                        recipesConfig = RecipesConfig(recpies = HorseRecipes.list),
+                    ),
+                )
+            }
         }
         if (context.isModuleStarting("nodes")) {
-            measure("Nodes configuration") { NodesModule.configure(VictorianNodesConfiguration.create(context.spawnPoint)) }
+            measure("Nodes configuration") {
+                NodesModule.configure(
+                    NodesConfig(
+                        defaultRespawnPoint = context.spawnPoint,
+                        chunkAttackTime = 120_000,
+                        chunkAttackFromWastelandMultiplier = 1.25,
+                        chunkAttackHomeMultiplier = 1.25,
+                        globalResources =
+                            TerritoryResources(
+                                ores =
+                                    mutableMapOf(
+                                        Material.IRON_ORE to OreDeposit(Material.IRON_ORE, 0.0405, 1, 1),
+                                        Material.GOLD_ORE to OreDeposit(Material.GOLD_ORE, 0.0225, 1, 1),
+                                        Material.DIAMOND_ORE to OreDeposit(Material.DIAMOND_ORE, 0.015, 1, 1),
+                                        Material.COPPER_ORE to OreDeposit(Material.COPPER_ORE, 0.0045, 1, 1),
+                                        Material.COAL to OreDeposit(Material.COAL, 0.055, 1, 1),
+                                        Material.REDSTONE to OreDeposit(Material.REDSTONE, 0.0125, 1, 1),
+                                        Material.BLAZE_POWDER to OreDeposit(Material.BLAZE_POWDER, 0.0125, 1, 1),
+                                    ),
+                            ),
+                    ),
+                )
+            }
         }
     }
 
