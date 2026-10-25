@@ -111,6 +111,9 @@ internal class WarCapture(
                             colonized = attack.mode == AttackMode.COLONIZATION,
                         )
                         presentation.capturedTerritory(attack.mode, attacker, territory, territoryTown)
+                        if (territoryTown != null && attack.mode == AttackMode.WAR && territory.id == territoryTown.home) {
+                            HomeCaptureBan.kickResidents(territoryTown)
+                        }
                         // Scheduled or running warzones do not trigger town-wide
                         // occupation or life loss; Warzone scores whoever holds the core.
                         if (territoryTown != null && !Warzone.isRegistered(territory) && rules.shouldAnnexTown(territoryTown, territory)) {

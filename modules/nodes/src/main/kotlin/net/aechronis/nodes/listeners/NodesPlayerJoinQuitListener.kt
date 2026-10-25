@@ -17,6 +17,7 @@ import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.nodes.war.HomeCaptureBan
 import net.aechronis.nodes.war.Warzone
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
@@ -101,6 +102,10 @@ object NodesPlayerJoinQuitListener {
         Resident.create(player)
 
         val resident: Resident = Resident.fromPlayer(player)!!
+        HomeCaptureBan.reason(player.uuid)?.let { reason ->
+            player.kick(Component.text(reason))
+            return
+        }
         RallyCapAdmission.consume(player.uuid)?.let { reason ->
             player.kick(Component.text(reason))
             return
