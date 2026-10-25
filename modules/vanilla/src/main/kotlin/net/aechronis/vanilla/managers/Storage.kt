@@ -7,7 +7,6 @@ import net.aechronis.vanilla.objects.StorageContents
 import net.aechronis.vanilla.serdes.StorageDeserializer
 import net.aechronis.vanilla.serdes.StorageSerializer
 import net.kyori.adventure.key.Key
-import net.kyori.adventure.nbt.BinaryTagIO
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.ListBinaryTag
 import net.minestom.server.MinecraftServer
@@ -18,9 +17,6 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockHandler
 import net.minestom.server.inventory.Inventory
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 
@@ -38,7 +34,6 @@ object Storage {
         object : BlockHandler {
             override fun getKey(): Key = barrelKey
         }
-    private var legacyRoot: Path? = null
 
     @Volatile
     private var accessChecker: ((Player, Point, StorageAccess) -> Boolean)? = null
@@ -53,8 +48,7 @@ object Storage {
         access: StorageAccess,
     ): Boolean = accessChecker?.invoke(player, position, access) ?: true
 
-    fun init(legacyRoot: Path) {
-        this.legacyRoot = legacyRoot
+    fun init() {
         ModuleBlocks.registerHandlerIfAbsent(barrelKey) { defaultBarrelHandler }
         StorageListener.init()
     }
@@ -67,21 +61,12 @@ object Storage {
     fun loadOrCreate(key: BlockKey): StorageContents {
         val block = key.instance.getBlock(key.pos)
         val blockNbt = block.nbtOrEmpty()
-        val file = legacyFileFor(key)
         var created = false
-        var migratedFile: Path? = null
         val contents =
             barrels.computeIfAbsent(key) {
                 created = true
                 if (blockNbt.contains(StorageSerializer.ITEMS_KEY, BinaryTagTypes.LIST)) {
                     StorageDeserializer.deserialize(blockNbt)
-                } else if (file != null && Files.exists(file)) {
-                    runCatching {
-                        Files.newInputStream(file).use { input ->
-                            val named = BinaryTagIO.reader().readNamed(input, BinaryTagIO.Compression.GZIP)
-                            StorageDeserializer.deserialize(named.value)
-                        }
-                    }.onSuccess { migratedFile = file }.getOrElse { StorageContents() }
                 } else {
                     StorageContents()
                 }
@@ -89,7 +74,6 @@ object Storage {
         inventoryToKey.putIfAbsent(contents.inventory, key)
         if (created && block.compare(Block.BARREL) && !blockNbt.contains(StorageSerializer.ITEMS_KEY, BinaryTagTypes.LIST)) {
             writeToBlock(key)
-            migratedFile?.let { persistAndArchiveMigration(key, it) }
         }
         return contents
     }
@@ -155,7 +139,6 @@ object Storage {
         inventoryToKey.keys.forEach { inventory -> inventory.viewers.toList().forEach { it.closeInventory() } }
         inventoryToKey.clear()
         barrels.clear()
-        legacyRoot = null
     }
 
     private fun withItems(
@@ -169,28 +152,5 @@ object Storage {
         return block
             .withNbt(block.nbtOrEmpty().put(StorageSerializer.ITEMS_KEY, items))
             .withHandler(handler)
-    }
-
-    private fun persistAndArchiveMigration(
-        key: BlockKey,
-        file: Path,
-    ) {
-        val chunk = key.instance.getChunkAt(key.pos) ?: return
-        key.instance.saveChunkToStorage(chunk).join()
-        Files.move(
-            file,
-            file.resolveSibling("${file.fileName}.migrated"),
-            StandardCopyOption.REPLACE_EXISTING,
-        )
-    }
-
-    private fun legacyFileFor(key: BlockKey): Path? {
-        val root = legacyRoot ?: return null
-        val x = key.pos.x().toInt()
-        val y = key.pos.y().toInt()
-        val z = key.pos.z().toInt()
-        return root
-            .resolve(key.instance.uuid.toString())
-            .resolve("${x}_${y}_$z.dat")
     }
 }

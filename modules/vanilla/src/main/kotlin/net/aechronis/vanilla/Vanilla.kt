@@ -134,7 +134,7 @@ object Vanilla {
         }
         val playerDataEventNode =
             if (config.playerDataEnabled) measure("Player data") { PlayerData.init(Path.of(config.path, config.playerDataPath)) } else null
-        if (config.storageEnabled) measure("Storage") { Storage.init(Path.of(config.path, config.storagePath)) }
+        if (config.storageEnabled) measure("Storage") { Storage.init() }
         if (config.signsEnabled) measure("Signs") { Signs.init() }
         if (config.shelvesEnabled) measure("Shelves") { Shelves.init() }
         if (config.itemFramesEnabled) measure("Item Frames") { ItemFrames.init() }

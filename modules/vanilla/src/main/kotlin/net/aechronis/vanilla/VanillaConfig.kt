@@ -48,7 +48,6 @@ data class VanillaConfig(
     // Paths
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",
-    val storagePath: String = "storage",
     val whitelistPath: String = "whitelist.json",
     val spawnPath: String = "spawn",
     val oresPath: String = "ores.json",
