@@ -106,6 +106,21 @@ object ModelManager {
 
     private val fakeBlocks = HashMap<Player, FakeBlocks>()
 
+    // Origin the fake-block set was computed for; positions are rescanned when the player
+    // changes block or every FAKE_BLOCK_RESCAN_TICKS, not every tick.
+    private data class FakeBlockScan(
+        val instance: Instance,
+        val origin: BlockVec,
+        val automaticGun: Boolean,
+        val tick: Long,
+    )
+
+    private const val FAKE_BLOCK_RESCAN_TICKS = 5L
+    private const val STOWED_GUN_SCAN_TICKS = 4L
+    private val fakeBlockScans = HashMap<Player, FakeBlockScan>()
+    private val blockBreakLocked = HashMap<Player, Boolean>()
+    private val stowedScans = HashMap<Player, Pair<Int, Long>>()
+
     private val sniperScopeModifier =
         AttributeModifier(
             "aechronis:sniper_scope",
@@ -230,6 +245,7 @@ object ModelManager {
             instance,
             !turretScopeActive && (gun?.automatic == true || isLookingAtVehicle),
             automaticGun = gun?.automatic == true,
+            firing = gun != null && GunAnimation.isFiring(player, gun),
         )
         if (gun == null || turretScopeActive) restoreSniperScope(player)
         // Let the client clock advance between state changes and occasional drift
@@ -282,25 +298,50 @@ object ModelManager {
         instance: Instance,
         enabled: Boolean,
         automaticGun: Boolean,
+        firing: Boolean,
     ) {
+        if (!enabled && fakeBlocks[player] == null) {
+            fakeBlockScans.remove(player)
+            return
+        }
+        val origin = player.position.asBlockVec()
+        val age = instance.worldAge
+        val scan = fakeBlockScans[player]
+        val rescan =
+            scan == null ||
+                scan.instance !== instance ||
+                scan.origin != origin ||
+                scan.automaticGun != automaticGun ||
+                age - scan.tick !in 0 until FAKE_BLOCK_RESCAN_TICKS
+        val current = fakeBlocks[player]
+        // The client removes these on each shot; otherwise the last send still stands.
+        if (!rescan && enabled && !firing && current != null && current.instance === instance) return
+        if (rescan) fakeBlockScans[player] = FakeBlockScan(instance, origin, automaticGun, age)
+
         val positions =
             if (enabled) {
-                (if (automaticGun) automaticGunFakeBlockOffsets else fakeBlockOffsets)
-                    .map { player.position.add(it).asBlockVec() }
-                    .filter { instance.isChunkLoaded(it) && instance.getBlock(it).air() }
-                    .toSet()
+                val offsets = if (automaticGun) automaticGunFakeBlockOffsets else fakeBlockOffsets
+                val result = HashSet<BlockVec>(offsets.size * 2)
+                for (offset in offsets) {
+                    val position = player.position.add(offset).asBlockVec()
+                    if (instance.isChunkLoaded(position) && instance.getBlock(position).air()) result.add(position)
+                }
+                result
             } else {
                 emptySet()
             }
         val previous = fakeBlocks.remove(player)
         if (previous?.instance === instance) {
-            for (position in previous.positions - positions) {
-                if (instance.isChunkLoaded(position)) {
+            for (position in previous.positions) {
+                if (position !in positions && instance.isChunkLoaded(position)) {
                     player.sendPacket(BlockChangePacket(position, instance.getBlock(position)))
                 }
             }
         }
-        if (positions.isEmpty()) return
+        if (positions.isEmpty()) {
+            fakeBlockScans.remove(player)
+            return
+        }
         // resend even unchanged positions as the client removes these on each shot
         // restore only positions we leave, avoiding an air gap between refreshes
         for (position in positions) player.sendPacket(BlockChangePacket(position, Block.SCULK_VEIN))
@@ -308,6 +349,12 @@ object ModelManager {
     }
 
     private fun restoreStowedGuns(player: Player) {
+        // Inventory walk is costly; rerun on hotbar change or every few ticks.
+        val held = player.heldSlot.toInt()
+        val age = player.instance?.worldAge ?: return
+        val last = stowedScans[player]
+        if (last != null && last.first == held && age - last.second in 0 until STOWED_GUN_SCAN_TICKS) return
+        stowedScans[player] = held to age
         for (slot in 0 until player.inventory.size) {
             if (slot == player.heldSlot.toInt()) continue
             GunAnimation.restoreSlot(player, slot)
@@ -335,6 +382,9 @@ object ModelManager {
         }
         player.getAttribute(Attribute.MOVEMENT_SPEED).removeModifier(sniperScopeModifier)
         hitAnimationDisabledPlayers.remove(player)
+        fakeBlockScans.remove(player)
+        blockBreakLocked.remove(player)
+        stowedScans.remove(player)
         player.getAttribute(Attribute.ATTACK_SPEED).removeModifier(attackSpeedModifier)
         player.getAttribute(Attribute.BLOCK_BREAK_SPEED).removeModifier(blockBreakSpeedModifier)
         HasteEffectManager.clear(player, HIT_ANIMATION_HASTE_SOURCE)
@@ -376,6 +426,9 @@ object ModelManager {
         customViewPlayers.clear()
         shaderClocks.clear()
         fakeBlocks.clear()
+        fakeBlockScans.clear()
+        blockBreakLocked.clear()
+        stowedScans.clear()
         GunAnimation.shutdown()
         try {
             HasteEffectManager.shutdown()
@@ -396,11 +449,16 @@ object ModelManager {
     ) {
         // guns use a tool rule that only mines sculk veins, other combat interactions
         // keep the old blanket mining lock - update this even when animations stay disabled.
-        val blockBreakSpeed = player.getAttribute(Attribute.BLOCK_BREAK_SPEED)
-        if (disabled && !allowInstantBreaking) {
-            blockBreakSpeed.addModifier(blockBreakSpeedModifier)
-        } else {
-            blockBreakSpeed.removeModifier(blockBreakSpeedModifier)
+        val lockBreaking = disabled && !allowInstantBreaking
+        if (blockBreakLocked.put(player, lockBreaking) != lockBreaking) {
+            val blockBreakSpeed = player.getAttribute(Attribute.BLOCK_BREAK_SPEED)
+            if (lockBreaking) {
+                blockBreakSpeed.addModifier(
+                    blockBreakSpeedModifier,
+                )
+            } else {
+                blockBreakSpeed.removeModifier(blockBreakSpeedModifier)
+            }
         }
         if (disabled) {
             if (!hitAnimationDisabledPlayers.add(player)) return
