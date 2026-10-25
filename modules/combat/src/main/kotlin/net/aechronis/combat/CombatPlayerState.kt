@@ -9,6 +9,8 @@ import net.minestom.server.timer.Task
 internal class CombatPlayerState {
     var aiming = false
     var aimingResetTask: Task? = null
+    var lastAimUseNanos = 0L
+    var aimUseGapTicks = 0
     var reloadTask: Task? = null
     var placeTask: Task? = null
     var armedGrenade: Grenade? = null

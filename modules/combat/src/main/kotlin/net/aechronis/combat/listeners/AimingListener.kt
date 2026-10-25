@@ -31,15 +31,21 @@ object AimingListener {
         state.aiming = true
         state.cancelAimingReset()
 
-        // right click repeats every four ticks, including during automatic fire. The repeats arrive with
-        // the connection's jitter, so a 2-tick margin drops ADS on any 100 ms stall; widen it with latency.
-        val jitterMarginTicks = (player.latency / 100).coerceIn(0, 4)
+        // Right click repeats every four ticks, but the repeats arrive with the connection's jitter. Track the
+        // largest recent gap between them (player.latency is too stale to size this) and wait that long plus a margin.
+        val now = System.nanoTime()
+        val gap = ((now - state.lastAimUseNanos) / 50_000_000L).toInt()
+        // The block and air use events of one click can land on the same tick; they are not a gap.
+        if (gap >= 1) {
+            state.aimUseGapTicks = if (gap <= 20) maxOf(gap, state.aimUseGapTicks - 1) else 4
+            state.lastAimUseNanos = now
+        }
         state.aimingResetTask =
             ModuleScheduler
                 .buildTask {
                     Combat.playerStates[player]?.aimingResetTask = null
                     Combat.playerStates.getOrCreate(player).aiming = player.isSneaking
-                }.delay(TaskSchedule.tick(6 + jitterMarginTicks))
+                }.delay(TaskSchedule.tick((state.aimUseGapTicks + 3).coerceIn(6, 20)))
                 .schedule()
     }
 
