@@ -17,7 +17,6 @@ data class VanillaConfig(
     val recipesEnabled: Boolean = true,
     val cropsEnabled: Boolean = true,
     val saplingsEnabled: Boolean = true,
-    val mannequinEnabled: Boolean = true,
     val blocksEnabled: Boolean = true,
     val foodEnabled: Boolean = true,
     val itemsEnabled: Boolean = true,
@@ -29,7 +28,6 @@ data class VanillaConfig(
     val drowningEnabled: Boolean = true,
     val voidDamageEnabled: Boolean = true,
     val serverLinksEnabled: Boolean = true,
-    val combatEnabled: Boolean = true,
     val spawnEnabled: Boolean = true,
     val oresEnabled: Boolean = true,
     val horsesEnabled: Boolean = false,
@@ -58,8 +56,6 @@ data class VanillaConfig(
     val saplingGrowthMs: Long = 600_000L,
     val saplingGrowthCheckSeconds: Long = 20L,
     val saplingBoneMealAmount: Int = 3,
-    // Mannequins
-    val mannequinDespawnTime: Int = 300,
     // Items (drop & pickup)
     val itemPickupDelayMs: Long = 500L,
     val dropPickupDelayMs: Long = 2_000L,
@@ -80,9 +76,6 @@ data class VanillaConfig(
         ),
     // Horses
     val horseMountCooldownMs: Long = 3_000L,
-    // Combat
-    val combatDurationSeconds: Long = 10L,
-    val combatTickSeconds: Long = 1L,
     // EnviromentalDmg
     val maxAirTicks: Int = 300,
     val fireTicks: Int = 160,

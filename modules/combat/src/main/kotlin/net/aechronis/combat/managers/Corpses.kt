@@ -1,16 +1,18 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.combat.managers
 
-import net.aechronis.vanilla.listeners.MannequinListener
+import net.aechronis.combat.listeners.CorpseListener
 import net.kyori.adventure.text.Component
 import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.EntityCreature
 import net.minestom.server.entity.EquipmentSlot
+import net.minestom.server.entity.ItemEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
+import java.time.Duration
 
-object Mannequin {
+object Corpses {
     val inventories = mutableMapOf<EntityCreature, Inventory>()
     private val corpses = mutableMapOf<Inventory, EntityCreature>()
 
@@ -80,7 +82,7 @@ object Mannequin {
         get() = get(DataComponents.EQUIPPABLE)?.slot()
 
     fun init() {
-        MannequinListener.init()
+        CorpseListener.init()
     }
 
     /** Preserves corpse loot as normal world drops before the module classloader is released. */
@@ -90,7 +92,10 @@ object Mannequin {
             val instance = corpse.instance
             if (instance != null) {
                 inventory.itemStacks.filterNot(ItemStack::isAir).forEach { stack ->
-                    Items.spawn(instance, corpse.position, stack)
+                    val item = ItemEntity(stack.withMaxStackSize(stack.material().maxStackSize()))
+                    item.setPickupDelay(Duration.ofMillis(500))
+                    item.setInstance(instance, corpse.position)
+                    item.scheduleRemove(Duration.ofSeconds(60))
                 }
             }
             corpse.remove()

@@ -19,6 +19,8 @@ import net.aechronis.combat.listeners.ReloadListener
 import net.aechronis.combat.listeners.RespawnProtectionListener
 import net.aechronis.combat.listeners.VehicleListener
 import net.aechronis.combat.listeners.WeaponLoreListener
+import net.aechronis.combat.managers.CombatTags
+import net.aechronis.combat.managers.Corpses
 import net.aechronis.combat.objects.Hat
 import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Item
@@ -185,6 +187,8 @@ object Combat {
                 GrenadeListener.init()
                 MeleeListener.init()
                 PlayerDeathListener.init()
+                Corpses.init()
+                CombatTags.init()
                 PlayerDisconnectListener.init()
                 CooldownResetListener.init()
                 ArmorProtectionListener.init()
@@ -236,6 +240,8 @@ object Combat {
         val failures = ArrayList<Throwable>()
 
         cleanup(failures, "task cancellation") { playerStates.cancelActions() }
+        cleanup(failures, "corpse loot") { Corpses.shutdown() }
+        cleanup(failures, "combat tags") { CombatTags.shutdown() }
         cleanup(failures, "projectile removal") { Projectile.shutdown() }
         cleanup(failures, "vehicle removal") { VehiclePersistence.shutdown() }
         cleanup(failures, "turret scope restoration") { TurretScope.shutdown() }

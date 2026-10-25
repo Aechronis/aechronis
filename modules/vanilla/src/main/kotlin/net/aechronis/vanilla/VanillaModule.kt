@@ -4,7 +4,6 @@ import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.vanilla.listeners.WhitelistListener
-import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.Ores
@@ -24,7 +23,6 @@ class VanillaModule : AechronisModule {
             if (Vanilla.config.cropsEnabled) Crops.restoreTransientState(context.peekTransientState(CROPS_STATE_KEY))
             if (Vanilla.config.saplingsEnabled) Saplings.restoreTransientState(context.peekTransientState(SAPLINGS_STATE_KEY))
             if (Vanilla.config.oresEnabled) Ores.restoreTransientState(context.peekTransientState(ORE_COOLDOWNS_STATE_KEY))
-            if (Vanilla.config.combatEnabled) Combat.restoreTransientState(context.peekTransientState(COMBAT_TAGS_STATE_KEY))
             if (Vanilla.config.commandsEnabled) Vanish.restoreTransientState(context.peekTransientState(VANISH_STATE_KEY))
         }
         if (Vanilla.config.whitelistEnabled) {
@@ -44,7 +42,6 @@ class VanillaModule : AechronisModule {
         publishOrClear(context, CROPS_STATE_KEY, Vanilla.config.cropsEnabled, Crops::captureTransientState)
         publishOrClear(context, SAPLINGS_STATE_KEY, Vanilla.config.saplingsEnabled, Saplings::captureTransientState)
         publishOrClear(context, ORE_COOLDOWNS_STATE_KEY, Vanilla.config.oresEnabled, Ores::captureTransientState)
-        publishOrClear(context, COMBAT_TAGS_STATE_KEY, Vanilla.config.combatEnabled, Combat::captureTransientState)
         publishOrClear(context, VANISH_STATE_KEY, Vanilla.config.commandsEnabled, Vanish::captureTransientState)
     }
 
@@ -91,7 +88,6 @@ class VanillaModule : AechronisModule {
         const val CROPS_STATE_KEY = "vanilla:crops:v1"
         const val SAPLINGS_STATE_KEY = "vanilla:saplings:v1"
         const val ORE_COOLDOWNS_STATE_KEY = "vanilla:ore-cooldowns:v1"
-        const val COMBAT_TAGS_STATE_KEY = "vanilla:combat-tags:v1"
         const val VANISH_STATE_KEY = "vanilla:vanish:v1"
     }
 }

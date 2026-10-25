@@ -1,8 +1,8 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.combat.managers
 
+import net.aechronis.combat.Combat
+import net.aechronis.combat.listeners.CombatTagListener
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.CombatListener
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -16,16 +16,16 @@ import java.io.DataOutputStream
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-object Combat {
+object CombatTags {
     // player uuid -> epoch millis when the combat tag expires
     private val expiresAt = ConcurrentHashMap<UUID, Long>()
     private val bossBars = ConcurrentHashMap<UUID, BossBar>()
 
     fun init() {
-        CombatListener.init()
+        CombatTagListener.init()
         ModuleScheduler
             .buildTask(::tick)
-            .repeat(TaskSchedule.seconds(Vanilla.config.combatTickSeconds))
+            .repeat(TaskSchedule.seconds(1))
             .schedule()
     }
 
@@ -93,10 +93,10 @@ object Combat {
 
     private fun tagOne(player: Player) {
         val wasInCombat = isInCombat(player)
-        expiresAt[player.uuid] = System.currentTimeMillis() + Vanilla.config.combatDurationSeconds * 1000
+        expiresAt[player.uuid] = System.currentTimeMillis() + Combat.config.combatDurationSeconds * 1000
 
         if (!wasInCombat) {
-            val bar = createBossBar(Vanilla.config.combatDurationSeconds * 1000)
+            val bar = createBossBar(Combat.config.combatDurationSeconds * 1000)
             bossBars[player.uuid] = bar
             player.showBossBar(bar)
         }
@@ -104,7 +104,7 @@ object Combat {
 
     private fun tick() {
         val now = System.currentTimeMillis()
-        val durationMs = Vanilla.config.combatDurationSeconds * 1000
+        val durationMs = Combat.config.combatDurationSeconds * 1000
 
         for ((uuid, expiry) in expiresAt) {
             val player =
@@ -129,7 +129,7 @@ object Combat {
     }
 
     private fun createBossBar(remainingMillis: Long): BossBar {
-        val durationMillis = (Vanilla.config.combatDurationSeconds * 1000).coerceAtLeast(1L)
+        val durationMillis = (Combat.config.combatDurationSeconds * 1000).coerceAtLeast(1L)
         return BossBar.bossBar(
             Component.text("Combat: ${(remainingMillis / 1000) + 1}s", NamedTextColor.RED),
             (remainingMillis.toFloat() / durationMillis).coerceIn(0f, 1f),

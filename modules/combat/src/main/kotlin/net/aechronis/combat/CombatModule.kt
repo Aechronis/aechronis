@@ -1,5 +1,6 @@
 package net.aechronis.combat
 
+import net.aechronis.combat.managers.CombatTags
 import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.combat.utils.GunHandSkins
@@ -13,7 +14,8 @@ class CombatModule : AechronisModule {
     override val dependencies = setOf("utils")
 
     override fun initialize(context: ModuleContext) {
-        Combat.initialize()
+        Combat.initialize(takeConfiguration())
+        measure("Restore combat tags") { CombatTags.restoreTransientState(context.peekTransientState(COMBAT_TAGS_STATE_KEY)) }
         measure("Hand skins") { GunHandSkins.initialize(context) }
         measure("Vehicle persistence") {
             try {
@@ -32,10 +34,31 @@ class CombatModule : AechronisModule {
         VehiclePersistence.prepareForShutdown()
     }
 
-    override fun saveState(context: ModuleContext) = VehiclePersistence.save()
+    override fun saveState(context: ModuleContext) {
+        context.publishTransientState(COMBAT_TAGS_STATE_KEY, CombatTags.captureTransientState())
+        VehiclePersistence.save()
+    }
 
     override fun shutdown(context: ModuleContext) {
         GunHandSkins.shutdown()
         Combat.shutdown()
+    }
+
+    companion object {
+        private var configured: CombatConfig? = null
+
+        fun configure(config: CombatConfig) {
+            check(configured == null) { "Combat was configured by more than one active composition module" }
+            configured = config
+        }
+
+        private fun takeConfiguration(): CombatConfig {
+            val config = configured ?: CombatConfig()
+            configured = null
+            return config
+        }
+
+        // Keep the snapshot key compatible with active tags from before the ownership move.
+        const val COMBAT_TAGS_STATE_KEY = "vanilla:combat-tags:v1"
     }
 }

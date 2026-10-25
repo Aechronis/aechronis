@@ -1,9 +1,8 @@
-package net.aechronis.vanilla.listeners
+package net.aechronis.combat.listeners
 
+import net.aechronis.combat.Combat
+import net.aechronis.combat.managers.Corpses
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.utils.EntityTags
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.managers.Mannequin
 import net.minestom.server.collision.BoundingBox
 import net.minestom.server.entity.EntityCreature
 import net.minestom.server.entity.EntityPose
@@ -11,7 +10,6 @@ import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.metadata.avatar.MannequinMeta
 import net.minestom.server.event.entity.EntityAttackEvent
-import net.minestom.server.event.entity.EntityDamageEvent
 import net.minestom.server.event.inventory.InventoryItemChangeEvent
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerEntityInteractEvent
@@ -19,23 +17,14 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.network.player.ResolvableProfile
 import net.minestom.server.timer.TaskSchedule
 
-object MannequinListener {
-    fun onEntityDamage(event: EntityDamageEvent) {
-        if (
-            event.entity.entityType == EntityType.MANNEQUIN &&
-            event.entity.getTag(EntityTags.DAMAGEABLE_MANNEQUIN) != true
-        ) {
-            event.isCancelled = true
-        }
-    }
-
+object CorpseListener {
     fun onInteract(event: PlayerEntityInteractEvent) {
         if (event.hand != PlayerHand.MAIN) return
         val target = event.target as? EntityCreature ?: return
         if (target.entityType != EntityType.MANNEQUIN) return
-        val inv = Mannequin.inventories[target] ?: return
+        val inv = Corpses.inventories[target] ?: return
         if (event.player.isSneaking) {
-            Mannequin.claim(target, event.player)
+            Corpses.claim(target, event.player)
         } else {
             event.player.openInventory(inv)
         }
@@ -46,13 +35,13 @@ object MannequinListener {
         if (!player.isSneaking) return
         val target = event.target as? EntityCreature ?: return
         if (target.entityType != EntityType.MANNEQUIN) return
-        Mannequin.claim(target, player)
+        Corpses.claim(target, player)
     }
 
     fun onInventoryChange(event: InventoryItemChangeEvent) {
         val inventory = event.inventory as? Inventory ?: return
-        if (Mannequin.despawnIfEmpty(inventory)) return
-        Mannequin.syncArmor(inventory)
+        if (Corpses.despawnIfEmpty(inventory)) return
+        Corpses.syncArmor(inventory)
     }
 
     fun onDeath(event: PlayerDeathEvent) {
@@ -65,12 +54,12 @@ object MannequinListener {
             meta.profile = ResolvableProfile(player.skin)
         }
 
-        val loot = Mannequin.newLootInventory(player.username)
+        val loot = Corpses.newLootInventory(player.username)
         for (slot in 0..<player.inventory.size) {
             val stack = player.inventory.getItemStack(slot)
             if (!stack.isAir) loot.setItemStack(slot, stack)
         }
-        Mannequin.register(corpse, loot)
+        Corpses.register(corpse, loot)
         player.inventory.clear()
 
         corpse.setInstance(instance, player.position)
@@ -88,16 +77,15 @@ object MannequinListener {
 
         ModuleScheduler
             .buildTask {
-                Mannequin.despawn(loot)
-            }.delay(TaskSchedule.seconds(Vanilla.config.mannequinDespawnTime.toLong()))
+                Corpses.despawn(loot)
+            }.delay(TaskSchedule.seconds(Combat.config.corpseDespawnSeconds.toLong()))
             .schedule()
     }
 
     fun init() {
-        Vanilla.eventNode.addListener(PlayerDeathEvent::class.java, MannequinListener::onDeath)
-        Vanilla.eventNode.addListener(EntityDamageEvent::class.java, MannequinListener::onEntityDamage)
-        Vanilla.eventNode.addListener(EntityAttackEvent::class.java, MannequinListener::onAttack)
-        Vanilla.eventNode.addListener(InventoryItemChangeEvent::class.java, MannequinListener::onInventoryChange)
-        Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, MannequinListener::onInteract)
+        Combat.eventNode.addListener(PlayerDeathEvent::class.java, CorpseListener::onDeath)
+        Combat.eventNode.addListener(EntityAttackEvent::class.java, CorpseListener::onAttack)
+        Combat.eventNode.addListener(InventoryItemChangeEvent::class.java, CorpseListener::onInventoryChange)
+        Combat.eventNode.addListener(PlayerEntityInteractEvent::class.java, CorpseListener::onInteract)
     }
 }

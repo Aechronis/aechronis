@@ -34,7 +34,6 @@ import net.aechronis.vanilla.listeners.PlayerActivityListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.listeners.ServerLinksListener
 import net.aechronis.vanilla.managers.Boats
-import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Efficiency
@@ -45,7 +44,6 @@ import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.ItemFrames
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.Jukeboxes
-import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.PlayerData
 import net.aechronis.vanilla.managers.Recipes
@@ -123,7 +121,6 @@ object Vanilla {
         if (config.recipesEnabled) measure("Recipes") { Recipes.init() }
         if (config.cropsEnabled) measure("Crops") { Crops.init() }
         if (config.saplingsEnabled) measure("Saplings") { Saplings.init() }
-        if (config.mannequinEnabled) measure("Mannequin") { Mannequin.init() }
         if (config.foodEnabled) measure("Food") { Food.init() }
         if (config.itemsEnabled) measure("Items") { Items.init() }
         if (config.boatsEnabled) measure("Boats") { Boats.init() }
@@ -142,7 +139,6 @@ object Vanilla {
             measure("Environmental Damage") { EnvironmentalDamage.init() }
         }
         if (config.serverLinksEnabled) measure("Server Links Listener") { ServerLinksListener.init() }
-        if (config.combatEnabled) measure("Combat") { Combat.init() }
         if (config.oresEnabled) measure("Ores") { Ores.init(Path.of(config.path, config.oresPath)) }
         measure("Vote Links") { VoteLinks.init(Path.of(config.path, config.votePath)) }
         if (config.horsesEnabled) {
@@ -168,9 +164,7 @@ object Vanilla {
     fun shutdown() {
         runSaveStages(
             "player data writer" to PlayerData::shutdown,
-            "corpse loot" to Mannequin::shutdown,
             "item frames" to ItemFrames::shutdown,
-            "combat bars" to Combat::shutdown,
             "tps bars" to TpsBarManager::shutdown,
             "vanish state" to VanishManager::shutdown,
             "efficiency attributes" to Efficiency::shutdown,
