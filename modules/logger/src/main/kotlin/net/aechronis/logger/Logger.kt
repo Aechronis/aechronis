@@ -9,7 +9,6 @@ import net.aechronis.logger.listeners.EntityChangeListener
 import net.aechronis.logger.listeners.EntityListener
 import net.aechronis.logger.listeners.InventoryListener
 import net.aechronis.logger.listeners.InventorySnapshotListener
-import net.aechronis.logger.listeners.LastInteractionTracker
 import net.aechronis.logger.listeners.LootListener
 import net.aechronis.logger.listeners.WorldEditListener
 import net.aechronis.logger.objects.FeatureLogEntry
@@ -221,7 +220,6 @@ object Logger {
         active = false
         PendingRollbackRegistry.clear()
         RollbackSafety.clear()
-        LastInteractionTracker.clear()
         FeatureSourceRegistry.clear()
         playerInspectMode.clear()
     }

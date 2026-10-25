@@ -177,7 +177,6 @@ object ParamManager {
         when (value.lowercase()) {
             "break" -> setOf(BlockAction.BREAK)
             "place" -> setOf(BlockAction.PLACE)
-            "interact", "use" -> setOf(BlockAction.INTERACT)
             "block" -> setOf(BlockAction.BREAK, BlockAction.PLACE)
             else -> null
         }

@@ -88,37 +88,6 @@ object BlockListener {
         )
     }
 
-    private fun onInteract(event: PlayerBlockInteractEvent) {
-        if (event.isCancelled) return
-        val pos = event.blockPosition
-        val blockKey = event.block.key().asString()
-
-        LastInteractionTracker.record(event.player.uuid, pos.blockX(), pos.blockY(), pos.blockZ(), blockKey)
-
-        if (!isLoggedInteraction(blockKey)) return
-
-        record(
-            BlockLogEntry(
-                timestamp = System.currentTimeMillis(),
-                playerUuid = event.player.uuid,
-                playerName = event.player.username,
-                x = pos.blockX(),
-                y = pos.blockY(),
-                z = pos.blockZ(),
-                blockOld = blockKey,
-                blockNew = blockKey,
-                action = BlockAction.INTERACT,
-                instanceUuid = event.instance.uuid,
-                blockOldState = event.block.state(),
-                blockNewState = event.block.state(),
-            ),
-        )
-    }
-
-    private val loggedInteractSuffixes = listOf("_door", "_trapdoor", "_fence_gate")
-
-    private fun isLoggedInteraction(blockKey: String): Boolean = loggedInteractSuffixes.any { blockKey.endsWith(it) }
-
     private fun record(entry: BlockLogEntry) {
         Logger.repository.insertAsync(entry).exceptionally { exception ->
             println("failed to record block log entry: $exception")
@@ -144,7 +113,6 @@ object BlockListener {
                 .build(),
         )
         postNode.addListener(PlayerBlockPlaceEvent::class.java, ::onPlace)
-        postNode.addListener(PlayerBlockInteractEvent::class.java, ::onInteract)
         ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), postNode)
         postEventNode = postNode
     }

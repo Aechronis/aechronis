@@ -5,7 +5,6 @@ enum class BlockAction(
 ) {
     BREAK(0),
     PLACE(1),
-    INTERACT(2),
     ;
 
     companion object {

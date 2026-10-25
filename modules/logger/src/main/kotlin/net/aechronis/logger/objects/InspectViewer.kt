@@ -66,13 +66,11 @@ private fun line(
         when (entry.action) {
             BlockAction.BREAK -> "broke"
             BlockAction.PLACE -> "placed"
-            BlockAction.INTERACT -> "used"
         }
     val target =
         when (entry.action) {
             BlockAction.BREAK -> entry.blockOld
             BlockAction.PLACE -> entry.blockNew
-            BlockAction.INTERACT -> entry.blockNew
         }
     var component =
         Component

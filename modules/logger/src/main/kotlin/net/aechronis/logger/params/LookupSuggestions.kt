@@ -20,7 +20,6 @@ object LookupSuggestions {
             "entity",
             "spawn",
             "kill",
-            "interact",
         )
     private val timeHints = listOf("1h", "30m", "7d")
     private val radiusHints = listOf("10", "#global")
