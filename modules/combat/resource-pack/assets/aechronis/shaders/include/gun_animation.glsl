@@ -119,7 +119,7 @@ bool aechronis_animate_gun(
     float start = float(control.x + ((control.y & 1u) << 8u));
     bool reload = action == 2 || action == 5;
     float duration = reload ? max(float(control.z), 1.0) : (action == 1 ? aechronis_profile_fire_ticks(profile) : 7.0);
-    // All three HUD state bases (10000/11000/11500) are divisible by 500.
+    // All three HUD state bases (9000/10000/11000) are divisible by 500.
     // Keep the fractional tick: flooring here would turn this back into 20 FPS.
     float clock = GameTime * 24000.0;
     float elapsed = mod(clock - start, 500.0);

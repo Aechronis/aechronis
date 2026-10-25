@@ -39,10 +39,12 @@ object ModelManager {
 
     // Client world age carries shader flags plus a 0..499 animation phase; the
     // dimension clocks remain unchanged. Partial ticks keep the phase smooth.
-    // both active values stay in 11xxx so rendertype_lines also hides fake block outlines.
+    // Put aiming below idle/combat so their advancing clocks cannot enter ADS.
+    // Shaders reserve another 500 ticks after each active band for late refreshes.
+    // Keep all bands in 8000..11999, reserved by the drone telemetry decoder.
+    private const val SHADER_AIMING_TIME = 9000L
     private const val SHADER_IDLE_TIME = 10000L
     private const val SHADER_COMBAT_TIME = 11000L
-    private const val SHADER_AIMING_TIME = 11500L
     private const val SHADER_CLOCK_REFRESH_TICKS = 100L
 
     private data class ShaderClock(

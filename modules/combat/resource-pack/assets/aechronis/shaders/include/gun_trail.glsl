@@ -49,8 +49,9 @@ bool aechronis_render_trail(vec3 position, vec2 uv, vec4 color,
     float clock = GameTime * 24000.0;
     float elapsed = mod(clock - float(startPhase), 500.0);
     // Leaving combat switches the owner's clock band and removes the carrier.
-    // Allow the final ADS phase 499 shot to finish across its 12000 clock edge.
-    if (clock < 11000.0 || clock >= 12003.0 || elapsed >= 2.016) return true;
+    // Match the HUD's grace ranges so phase 499 shots survive a late refresh.
+    bool combat = (clock >= 9000.0 && clock < 10000.0) || (clock >= 11000.0 && clock < 12000.0);
+    if (!combat || elapsed >= 2.016) return true;
 
     // Native Flash uses alpha=.725-.125*(integer age+partial tick). Alpha is
     // quantized to a byte, but the shared render partial recovers integer age.
