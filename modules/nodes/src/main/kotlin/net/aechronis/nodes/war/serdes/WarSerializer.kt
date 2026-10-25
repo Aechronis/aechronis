@@ -19,7 +19,7 @@
  *   "defeatedTowns": ["town-uuid"],
  *   "townLives": {"town-uuid":{"lives":1,"capitalGranted":true,"revision":2}},
  *   "attacks": [            // ongoing war, colony, and warzone flags
- *     {"id":"resident-uuid","c":[0,1],"b":[0,64,16],"m":"WAR","t":123},
+ *     {"id":"resident-uuid","c":[0,1],"b":[0,64,16],"m":"WAR","s":100.0,"e":123.0},
  *     {attackJsonObject1},
  *     ...
  *   ]

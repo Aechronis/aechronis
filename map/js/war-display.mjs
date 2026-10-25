@@ -22,7 +22,7 @@ export function buildAttackChunks(war, towns, index, nowSec = Date.now() / 1000)
       color: attackerStyle ? attackerStyle.color : hit.style.color,
       defColor: hit.style.color,
       s: typeof a.s === 'number' ? a.s : null,
-      e: typeof a.e === 'number' ? a.e : typeof a.t === 'number' ? a.t : null,
+      e: typeof a.e === 'number' ? a.e : null,
     });
   }
   return out;
