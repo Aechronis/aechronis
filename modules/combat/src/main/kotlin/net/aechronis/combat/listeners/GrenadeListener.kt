@@ -4,6 +4,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Grenade
 import net.aechronis.combat.objects.Item
 import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerHandAnimationEvent
@@ -32,11 +33,17 @@ object GrenadeListener {
         if (Combat.playerStates[event.player]?.armedGrenade != null) event.isCancelled = true
     }
 
+    private fun onItemDrop(event: ItemDropEvent) {
+        if (Combat.playerStates[event.player]?.armedGrenade != null) event.isCancelled = true
+    }
+
     fun init() {
         Combat.eventNode.addListener(PlayerHandAnimationEvent::class.java, GrenadeListener::onPlayerHandAnimation)
         Combat.eventNode.addListener(PlayerDeathEvent::class.java, GrenadeListener::onPlayerDeath)
         Combat.eventNode.addListener(PlayerChangeHeldSlotEvent::class.java, GrenadeListener::onHeldSlotChange)
         Combat.eventNode.addListener(PlayerSwapItemEvent::class.java, GrenadeListener::onSwapItem)
         Combat.eventNode.addListener(InventoryPreClickEvent::class.java, GrenadeListener::onInventoryClick)
+        // Cancel before Vanilla's drop listener can spawn a reusable grenade item.
+        Combat.highPriorityEventNode.addListener(ItemDropEvent::class.java, GrenadeListener::onItemDrop)
     }
 }
