@@ -222,6 +222,17 @@ internal object VehicleInteractionTracker {
                             ),
                         ),
                     )
+                    vehicle.boardingHitbox?.let { boarding ->
+                        add(
+                            VehicleLookCandidate(
+                                entity,
+                                vehicle,
+                                position,
+                                boarding.boundingRadius,
+                                boarding.prepare(position, position.yaw, position.pitch, vehicle.hitboxRoll(entity)),
+                            ),
+                        )
+                    }
                     if (vehicle is Boat) {
                         for (target in vehicle.weaponInteractionTargets(entity)) {
                             add(

@@ -347,6 +347,9 @@ class ViaPlayerConnection internal constructor(
                 .writeAndFlush(Unpooled.wrappedBuffer(bytes))
                 .addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE)
             if (next != state) serverState = next
+        } catch (error: IllegalStateException) {
+            // Play packet queued while still in configuration (e.g. Grim brand alert): drop it, don't kill the join.
+            if (error.message?.contains("cannot be sent in state") != true) transport.pipeline().fireExceptionCaught(error)
         } catch (error: Exception) {
             transport.pipeline().fireExceptionCaught(error)
         }

@@ -71,7 +71,7 @@ object ActionBarManager {
                             vehicle.maxThrottle,
                         )
                     is Car -> formatCarTelemetry(vehicle.currentSpeed(player))
-                    else -> null
+                    else -> vehicle.movementTelemetry(entity)
                 }
             } else {
                 null
@@ -91,7 +91,8 @@ object ActionBarManager {
                 else -> null
             }
         val text = listOfNotNull(ride.definition.name, movementTelemetry, healthText, ammoText).joinToString(" ")
-        return Component.text(text, NamedTextColor.GRAY)
+        val telemetry = Component.text(text, NamedTextColor.GRAY)
+        return vehicle.controlsHint(player)?.takeIf { ride.role.drives }?.let { telemetry.append(it) } ?: telemetry
     }
 
     internal fun formatPlaneTelemetry(

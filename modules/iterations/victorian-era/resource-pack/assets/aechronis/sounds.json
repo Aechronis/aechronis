@@ -204,5 +204,45 @@
         "attenuation_distance": 10
       }
     ]
+  },
+  "zeppelin.engine.0": {
+    "sounds": [
+      "aechronis:zeppelin-engine"
+    ]
+  },
+  "zeppelin.engine.1": {
+    "sounds": [
+      "aechronis:zeppelin-engine"
+    ]
+  },
+  "zeppelin.engine.2": {
+    "sounds": [
+      "aechronis:zeppelin-engine"
+    ]
+  },
+  "zeppelin.engine.3": {
+    "sounds": [
+      "aechronis:zeppelin-engine"
+    ]
+  },
+  "zeppelin.engine.4": {
+    "sounds": [
+      "aechronis:zeppelin-engine"
+    ]
+  },
+  "zeppelin.engine.5": {
+    "sounds": [
+      "aechronis:zeppelin-engine"
+    ]
+  },
+  "zeppelin.engine.6": {
+    "sounds": [
+      "aechronis:zeppelin-engine"
+    ]
+  },
+  "zeppelin.engine.7": {
+    "sounds": [
+      "aechronis:zeppelin-engine"
+    ]
   }
 }
