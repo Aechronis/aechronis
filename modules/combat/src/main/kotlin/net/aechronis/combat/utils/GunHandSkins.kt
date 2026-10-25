@@ -1,7 +1,6 @@
 package net.aechronis.combat.utils
 
 import net.aechronis.server.modules.ModuleContext
-import net.aechronis.server.modules.ModuleResources
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerSkin
 import net.minestom.server.event.player.PlayerDisconnectEvent
@@ -38,7 +37,6 @@ object GunHandSkins {
         check(template == null) { "A gun hand atlas is already registered" }
         // Retain bytes, never a callback into an iteration's retiring classloader.
         replaceTemplate(readTemplate())
-        ModuleResources.own(AutoCloseable { template = null })
     }
 
     fun replaceTemplate(bytes: ByteArray) {

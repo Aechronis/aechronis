@@ -1,7 +1,6 @@
 package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
-import net.aechronis.server.modules.ModuleResources
 import net.kyori.adventure.text.Component
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
@@ -30,7 +29,6 @@ open class Item(
             for (item in items) {
                 registeredItems[item.name] = item
             }
-            ModuleResources.own(AutoCloseable { items.forEach { registeredItems.remove(it.name, it) } })
         }
 
         fun getFromName(name: String): Item? = registeredItems[name]

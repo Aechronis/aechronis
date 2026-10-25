@@ -40,7 +40,6 @@ internal class RuntimeRegistrations(
 
     fun cleanup() {
         detachInputs()
-        scope.closeResources()
         EventNodeCachePruner.prune(scope.classLoader)
         scope.recipes.forEach(ModuleRecipes::removeRecipe)
         scope.recipes.clear()

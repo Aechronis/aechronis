@@ -30,25 +30,6 @@ internal class ModuleResourceScope(
 
     val commands = ConcurrentHashMap.newKeySet<net.minestom.server.command.builder.Command>()
     val recipes = ConcurrentHashMap.newKeySet<net.minestom.server.recipe.Recipe>()
-    private val resources = mutableListOf<AutoCloseable>()
-
-    fun own(resource: AutoCloseable) {
-        synchronized(lifecycleLock) {
-            check(acceptingTasks) { "Module generation is unloading" }
-            resources += resource
-        }
-    }
-
-    fun closeResources() {
-        val owned = synchronized(lifecycleLock) { resources.toList().asReversed().also { resources.clear() } }
-        var failure: Throwable? = null
-        owned.forEach { resource ->
-            runCatching(resource::close).onFailure { error ->
-                failure?.addSuppressed(error) ?: run { failure = error }
-            }
-        }
-        failure?.let { throw it }
-    }
 
     fun detachInputs() {
         commands.forEach(ModuleCommands::unregister)
@@ -469,27 +450,6 @@ object ModuleScheduler {
 /** Runs module-owned background work while keeping it inside generation quiescence. */
 object ModuleAsync {
     fun runAsync(callback: Runnable): CompletableFuture<Void> = ModuleRuntime.runAsync(callback)
-}
-
-/** Contributions to a surviving dependency are removed even if configuration/startup fails. */
-object ModuleResources {
-    fun <T : AutoCloseable> own(resource: T): T {
-        val owner = ModuleRuntime.captureScope(preferContext = true)
-        if (owner != null) {
-            try {
-                owner.own(resource)
-            } catch (error: Throwable) {
-                runCatching(resource::close).onFailure(error::addSuppressed)
-                throw error
-            }
-        } else {
-            if (ModuleRuntime.isManagedRuntime()) {
-                resource.close()
-                error("No module generation is active")
-            }
-        }
-        return resource
-    }
 }
 
 class ModuleTaskBuilder internal constructor(
