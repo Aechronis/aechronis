@@ -1,7 +1,6 @@
 package net.aechronis.nodes.war
 
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
@@ -47,7 +46,7 @@ object Warzone {
     data class Summary(
         val territoryId: TerritoryId,
         val startMillis: Long,
-        val endMillis: Long?,
+        val endMillis: Long,
         val started: Boolean,
         val leader: NationScore?,
     )
@@ -55,8 +54,7 @@ object Warzone {
     private class State(
         val territoryId: TerritoryId,
         val startMillis: Long,
-        // null only for zones migrated from the old open-ended format; those end on an admin stop
-        val endMillis: Long?,
+        val endMillis: Long,
         var started: Boolean = false,
         val scores: MutableMap<UUID, Long> = linkedMapOf(),
         // last time each nation held the zone, used to break ties
@@ -200,7 +198,6 @@ object Warzone {
         clearRuntimeLocked()
         states.clear()
         if (Files.notExists(Nodes.config.pathWarzone)) return@synchronized
-        val nowMillis = System.currentTimeMillis()
         try {
             val root = Files.newBufferedReader(Nodes.config.pathWarzone).use { reader ->
                 Json.parseToJsonElement(reader.readText()).jsonObject
@@ -208,7 +205,7 @@ object Warzone {
             val zones = requireNotNull(root["zones"]) { "Missing 'zones' object" }.jsonObject
             zones.entries.forEach { (idText, value) ->
                 try {
-                    val state = parseZone(TerritoryId(idText.toInt()), value.jsonObject, nowMillis) ?: return@forEach
+                    val state = parseZone(TerritoryId(idText.toInt()), value.jsonObject)
                     if (Territory.fromId(state.territoryId) != null) states[state.territoryId] = state
                 } catch (error: Exception) {
                     throw IllegalArgumentException("Invalid warzone '$idText'", error)
@@ -234,22 +231,13 @@ object Warzone {
         clearRuntimeLocked()
     }
 
-    private fun parseZone(territoryId: TerritoryId, zone: JsonObject, nowMillis: Long): State? {
-        val start = zone["start"]?.takeUnless { it is JsonNull }?.jsonPrimitive?.long
-        val state = if (start != null) {
-            State(
-                territoryId,
-                startMillis = start,
-                endMillis = zone["end"]?.takeUnless { it is JsonNull }?.jsonPrimitive?.long,
-                started = zone["started"]?.jsonPrimitive?.boolean ?: false,
-            )
-        } else {
-            // Old format: manually started zones with no schedule. Stopped
-            // ones are finished, and running ones continue until an admin stops them.
-            if (zone["stopped"]?.jsonPrimitive?.boolean == true) return null
-            System.err.println("[Nodes] Warzone $territoryId has no end time; it runs until /nda warzone stop")
-            State(territoryId, startMillis = nowMillis, endMillis = null, started = true)
-        }
+    private fun parseZone(territoryId: TerritoryId, zone: JsonObject): State {
+        val state = State(
+            territoryId,
+            startMillis = zone.getValue("start").jsonPrimitive.long,
+            endMillis = zone.getValue("end").jsonPrimitive.long,
+            started = zone["started"]?.jsonPrimitive?.boolean ?: false,
+        )
         zone["scores"]?.jsonObject?.entries?.forEach { (nationId, score) ->
             state.scores[UUID.fromString(nationId)] = score.jsonPrimitive.long.coerceAtLeast(0L)
         }
@@ -293,8 +281,7 @@ object Warzone {
                     started += state
                 }
                 accrueLocked(state, nowMillis)
-                val end = state.endMillis
-                if (state.started && end != null && nowMillis >= end) {
+                if (state.started && nowMillis >= state.endMillis) {
                     finishLocked(state, nowMillis)?.let(outcomes::add)
                 }
             }
@@ -307,8 +294,8 @@ object Warzone {
             outcomes
         }
         // A zone whose whole window passed while the server was down ends without an announcement.
-        started.filter { state -> state.endMillis.let { it == null || it > nowMillis } }.forEach { state ->
-            val end = state.endMillis?.let { " for ${formatDuration(it - nowMillis)}" } ?: ""
+        started.filter { state -> state.endMillis > nowMillis }.forEach { state ->
+            val end = " for ${formatDuration(state.endMillis - nowMillis)}"
             Message.broadcast("${ChatColor.DARK_RED}[Warzone] Territory ${state.territoryId} is now a warzone$end")
         }
         outcomes.forEach { outcome ->
@@ -378,8 +365,7 @@ object Warzone {
      */
     private fun accrueLocked(state: State, nowMillis: Long) {
         if (!state.started) return
-        val end = state.endMillis
-        val until = if (end == null) nowMillis else minOf(nowMillis, end)
+        val until = minOf(nowMillis, state.endMillis)
         val since = state.lastTickMillis
         state.lastTickMillis = until
         if (since == null) return
@@ -444,7 +430,7 @@ object Warzone {
 
     private fun updateBossBarLocked(state: State, nowMillis: Long): BossBar {
         val leader = rankingLocked(state).firstOrNull()
-        val remaining = state.endMillis?.let { " | ends in ${formatDuration((it - nowMillis).coerceAtLeast(0L))}" } ?: ""
+        val remaining = " | ends in ${formatDuration((state.endMillis - nowMillis).coerceAtLeast(0L))}"
         val title = if (leader == null) {
             "Warzone: no nation has held this territory$remaining"
         } else {
@@ -452,7 +438,7 @@ object Warzone {
         }
         // The bar drains as the zone's time runs out.
         val end = state.endMillis
-        val progress = if (end == null || end <= state.startMillis) {
+        val progress = if (end <= state.startMillis) {
             1f
         } else {
             ((end - nowMillis).toDouble() / (end - state.startMillis)).coerceIn(0.0, 1.0).toFloat()

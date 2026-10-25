@@ -154,13 +154,10 @@ private fun formatInstant(millis: Long): String = timeFormat.format(Instant.ofEp
 
 private fun describeWindow(summary: Warzone.Summary, now: Long): String {
     val end = summary.endMillis
-    return when {
-        !summary.started -> "starts in ${Warzone.formatDuration(summary.startMillis - now)} (${formatInstant(summary.startMillis)})" +
-            (end?.let { ", ends ${formatInstant(it)}" } ?: "")
-
-        end == null -> "running until an admin stops it"
-
-        else -> "ends in ${Warzone.formatDuration((end - now).coerceAtLeast(0L))} (${formatInstant(end)})"
+    return if (!summary.started) {
+        "starts in ${Warzone.formatDuration(summary.startMillis - now)} (${formatInstant(summary.startMillis)}), ends ${formatInstant(end)}"
+    } else {
+        "ends in ${Warzone.formatDuration((end - now).coerceAtLeast(0L))} (${formatInstant(end)})"
     }
 }
 
