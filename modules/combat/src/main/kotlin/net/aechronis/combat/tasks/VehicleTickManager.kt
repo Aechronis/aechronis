@@ -57,8 +57,9 @@ object VehicleTickManager {
         ModuleScheduler
             .buildTask {
                 Vehicle.reconcileOccupants()
+                val initialVehicles = VehicleRegistry.all()
                 // Newly spawned vehicles need a baseline before their first movement.
-                for (runtime in VehicleRegistry.all()) {
+                for (runtime in initialVehicles) {
                     previousVehiclePoses.putIfAbsent(
                         runtime.entity,
                         VehiclePose(runtime.entity.position, runtime.vehicle.hitboxRoll(runtime.entity), runtime.entity.instance),
@@ -66,23 +67,29 @@ object VehicleTickManager {
                 }
 
                 // Select the carried viewers before any hull or part sends movement.
-                collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)
-                val playerSupports = findPlayerSupports(VehicleRegistry.all())
+                // No vehicles means no collisions or carrying, so skip the per-player index work.
+                if (initialVehicles.isNotEmpty()) collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)
+                val playerSupports = if (initialVehicles.isEmpty()) emptyMap() else findPlayerSupports(initialVehicles)
 
                 // tick occupied vehicles
-                for (ride in VehicleRegistry.rides().filter { it.role.drives }) {
+                for (ride in VehicleRegistry.rides()) {
+                    if (!ride.role.drives) continue
                     if (ride.role.usesWeapon) ride.vehicle.updateAmmoReload(ride.player)
                     ride.vehicle.onTick(ride.player)
                 }
 
+                // One pass over rides instead of a driverOf scan per vehicle.
+                val drivenEntities = HashSet<Entity>()
+                for (ride in VehicleRegistry.rides()) if (ride.role.drives) drivenEntities.add(ride.entity)
                 for (runtime in VehicleRegistry.all()) {
-                    if (VehicleRegistry.driverOf(runtime.entity) == null) {
+                    if (runtime.entity !in drivenEntities) {
                         runtime.vehicle.onUnoccupiedTick(runtime.entity)
                     }
                 }
 
                 // Weapon operators remain active without a helmsman and follow the final hull pose.
-                for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.GUNNER }) {
+                for (ride in VehicleRegistry.rides()) {
+                    if (ride.role != VehicleSeatRole.GUNNER) continue
                     ride.vehicle.updateAmmoReload(ride.player)
                     ride.vehicle.onGunnerTick(ride.player)
                 }
@@ -96,7 +103,7 @@ object VehicleTickManager {
                 val activeEntities = vehicles.map { it.entity }.toSet()
                 val supports = carryStandingPlayers(vehicles, playerSupports)
                 // Carrying may move a player into another collision-index cell.
-                collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)
+                if (playerSupports.isNotEmpty()) collisionIndex.rebuild(MinecraftServer.getConnectionManager().onlinePlayers)
 
                 // Clients collide with the shulkers. Resolve overlaps/moving impacts
                 // against those same cubes, independently of interaction/damage hitboxes.
