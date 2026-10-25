@@ -7,7 +7,6 @@ import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.vanilla.commands.Broadcast
 import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.Craft
-import net.aechronis.vanilla.commands.Disc
 import net.aechronis.vanilla.commands.EnderChest
 import net.aechronis.vanilla.commands.Fly
 import net.aechronis.vanilla.commands.GameMode
@@ -45,6 +44,7 @@ import net.aechronis.vanilla.managers.Food
 import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.ItemFrames
 import net.aechronis.vanilla.managers.Items
+import net.aechronis.vanilla.managers.Jukeboxes
 import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.PlayerData
@@ -59,7 +59,6 @@ import net.minestom.server.event.EventNode
 import net.minestom.server.instance.Instance
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
-import net.aechronis.vanilla.managers.Music as MusicManager
 import net.aechronis.vanilla.managers.Shutdown as ShutdownManager
 import net.aechronis.vanilla.managers.TpsBar as TpsBarManager
 import net.aechronis.vanilla.managers.Vanish as VanishManager
@@ -106,7 +105,6 @@ object Vanilla {
                         Vanish(),
                         Vote(),
                     )
-                if (config.musicEnabled) commands += Disc()
                 if (config.recipesEnabled) commands += Craft()
                 if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
                 if (config.whitelistEnabled) commands += Whitelist()
@@ -145,7 +143,6 @@ object Vanilla {
         }
         if (config.serverLinksEnabled) measure("Server Links Listener") { ServerLinksListener.init() }
         if (config.combatEnabled) measure("Combat") { Combat.init() }
-        if (config.musicEnabled) measure("Music") { MusicManager.init(Path.of(config.path, config.musicPath)) }
         if (config.oresEnabled) measure("Ores") { Ores.init(Path.of(config.path, config.oresPath)) }
         measure("Vote Links") { VoteLinks.init(Path.of(config.path, config.votePath)) }
         if (config.horsesEnabled) {
@@ -185,7 +182,7 @@ object Vanilla {
             "sign editors" to Signs::shutdown,
             "command inventories" to Commands::shutdown,
             "horses" to { if (config.horsesEnabled) Horses.shutdown() },
-            "music pack" to MusicManager::shutdown,
+            "jukebox playback" to Jukeboxes::shutdown,
         )
     }
 

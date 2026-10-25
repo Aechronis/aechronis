@@ -2,7 +2,6 @@ package net.aechronis.vanilla
 
 import net.aechronis.vanilla.config.BlocksConfig
 import net.aechronis.vanilla.config.FoodConfig
-import net.aechronis.vanilla.config.MusicConfig
 import net.aechronis.vanilla.config.RecipesConfig
 import net.minestom.server.entity.GameMode
 
@@ -31,7 +30,6 @@ data class VanillaConfig(
     val voidDamageEnabled: Boolean = true,
     val serverLinksEnabled: Boolean = true,
     val combatEnabled: Boolean = true,
-    val musicEnabled: Boolean = true,
     val spawnEnabled: Boolean = true,
     val oresEnabled: Boolean = true,
     val horsesEnabled: Boolean = false,
@@ -45,13 +43,10 @@ data class VanillaConfig(
     val oresPath: String = "ores.json",
     val votePath: String = "vote.txt",
     val horsesPath: String = "horses.json",
-    val musicPath: String = "music",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),
     // Food
     val foodConfig: FoodConfig = FoodConfig(),
-    // Music
-    val musicConfig: MusicConfig = MusicConfig(),
     // Recipes
     val recipesConfig: RecipesConfig = RecipesConfig(),
     // Crops

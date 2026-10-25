@@ -6,7 +6,6 @@ import net.aechronis.vanilla.managers.Items
 import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.GameMode
 import net.minestom.server.event.player.PlayerBlockBreakEvent
-import net.minestom.server.instance.block.Block
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.component.EnchantmentList
 import net.minestom.server.item.enchant.Enchantment
@@ -20,8 +19,6 @@ object PlayerBreakListener {
             event.isCancelled = true
             return
         }
-        // MusicListener owns jukebox drops when the music feature is enabled.
-        if (Vanilla.config.musicEnabled && event.block.compare(Block.JUKEBOX)) return
         if (player.gameMode == GameMode.CREATIVE) return
         val instance = player.instance ?: return
         val material = event.block.registry()?.material() ?: return

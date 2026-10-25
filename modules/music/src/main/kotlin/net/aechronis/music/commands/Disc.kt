@@ -1,7 +1,7 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.music.commands
 
+import net.aechronis.music.managers.DiscMenu
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.managers.DiscMenu
 import net.minestom.server.entity.Player
 
 class Disc : Command("disc", null, "discs") {

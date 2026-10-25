@@ -7,7 +7,6 @@ import net.aechronis.vanilla.listeners.WhitelistListener
 import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Horses
-import net.aechronis.vanilla.managers.Music
 import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Vanish
@@ -28,7 +27,6 @@ class VanillaModule : AechronisModule {
             if (Vanilla.config.combatEnabled) Combat.restoreTransientState(context.peekTransientState(COMBAT_TAGS_STATE_KEY))
             if (Vanilla.config.commandsEnabled) Vanish.restoreTransientState(context.peekTransientState(VANISH_STATE_KEY))
         }
-        if (Vanilla.config.musicEnabled) Music.registerResourcePack(context)
         if (Vanilla.config.whitelistEnabled) {
             context.addListener(AsyncPlayerPreLoginEvent::class.java, WhitelistListener::onPreLogin)
         }

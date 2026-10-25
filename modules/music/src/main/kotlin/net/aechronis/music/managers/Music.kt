@@ -1,33 +1,24 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.music.managers
 
+import net.aechronis.music.listeners.JukeboxListener
+import net.aechronis.music.objects.MusicDisc
 import net.aechronis.server.modules.ModuleContext
-import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.MusicListener
-import net.aechronis.vanilla.objects.MusicDisc
+import net.aechronis.vanilla.managers.Jukeboxes
 import net.kyori.adventure.key.Key
-import net.kyori.adventure.sound.Sound
-import net.kyori.adventure.sound.SoundStop
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
-import net.minestom.server.coordinate.Point
-import net.minestom.server.instance.Instance
-import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.jukebox.JukeboxSong
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.sound.SoundEvent
 import net.minestom.server.tag.Tag
-import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Path
 
 object Music {
     const val SOUND_NAMESPACE = "aechronis"
-    val RECORD_ITEM_TAG: Tag<ItemStack> = Tag.ItemStack("RecordItem")
-    val PLAYING_TAG: Tag<Boolean> = Tag.Boolean("aechronis_playing")
 
     // Minestom 2026.09.12 still writes jukebox_playable in the pre-26.2 format, which disconnects clients, so custom discs carry their song here
     private val SONG_TAG: Tag<String> = Tag.String("aechronis_song")
@@ -36,17 +27,23 @@ object Music {
     private val registeredSongNames = HashSet<Key>()
     private var folderSongs: List<MusicFolder.Song> = emptyList()
     private var packRegistration: AutoCloseable? = null
+    private var songResolver: AutoCloseable? = null
 
     /** Configured discs first, then one per file in the music folder. */
     var discs: List<MusicDisc> = emptyList()
         private set
 
-    fun init(directory: Path) {
+    fun init(
+        directory: Path,
+        configuredDiscs: List<MusicDisc>,
+    ) {
         folderSongs = MusicFolder.load(directory)
-        discs = Vanilla.config.musicConfig.musicDiscs + folderSongs.map { it.disc }
+        discs = configuredDiscs + folderSongs.map { it.disc }
         registerSongs()
-        MusicListener.init()
+        songResolver = Jukeboxes.registerSongResolver(::songFor)
         DiscMenu.init()
+        JukeboxListener.init()
+        Jukeboxes.init()
         println("[Music] Loaded ${folderSongs.size} song(s) from $directory")
     }
 
@@ -65,9 +62,16 @@ object Music {
     }
 
     fun shutdown() {
+        Jukeboxes.shutdown()
         DiscMenu.closeAll()
         packRegistration?.close()
         packRegistration = null
+        songResolver?.close()
+        songResolver = null
+        keysByDisc.clear()
+        registeredSongNames.clear()
+        folderSongs = emptyList()
+        discs = emptyList()
     }
 
     private val packMetadata =
@@ -90,6 +94,7 @@ object Music {
                     disc.length,
                     0,
                 )
+            // Keep stable registry IDs across reloads; entries contain only core-owned values.
             val registryKey = registry.getKey(key) ?: registry.register(key, song)
             keysByDisc[disc] = registryKey
         }
@@ -114,43 +119,10 @@ object Music {
             ).withMaxStackSize(1)
     }
 
-    // Any jukebox-playable item, so vanilla discs play alongside the configured ones
-    fun songFor(item: ItemStack): JukeboxSong? {
-        val registry = MinecraftServer.getJukeboxSongRegistry()
-        item.getTag(SONG_TAG)?.let { return registry.get(Key.key(it)) }
-        val key = item.get(DataComponents.JUKEBOX_PLAYABLE) ?: return null
-        return registry.get(key)
-    }
-
-    fun songIn(block: Block): JukeboxSong? = songFor(block.getTag(RECORD_ITEM_TAG) ?: return null)
-
-    fun play(
-        instance: Instance,
-        position: Point,
-        song: JukeboxSong,
-        item: ItemStack,
-    ) {
-        val soundInstance = Sound.sound(song.soundEvent(), Sound.Source.RECORD, 4f, 1f)
-        instance.playSound(soundInstance, position.add(0.5, 0.5, 0.5))
-
-        ModuleScheduler
-            .buildTask {
-                val current = instance.getBlock(position)
-                if (current.getTag(PLAYING_TAG) != true) return@buildTask
-                if (current.getTag(RECORD_ITEM_TAG)?.isSimilar(item) != true) return@buildTask
-                instance.setBlock(position, current.withTag(PLAYING_TAG, false))
-            }.delay(TaskSchedule.millis((song.lengthInSeconds() * 1000).toLong()))
-            .schedule()
-    }
-
-    fun stop(
-        instance: Instance,
-        position: Point,
-        song: JukeboxSong,
-    ) {
-        val stop = SoundStop.named(song.soundEvent())
-        for (player in instance.players) {
-            if (player.position.distanceSquared(position) <= 64.0 * 64.0) player.stopSound(stop)
-        }
+    private fun songFor(item: ItemStack): JukeboxSong? {
+        val song = item.getTag(SONG_TAG) ?: return null
+        val key = runCatching { Key.key(song) }.getOrNull() ?: return null
+        if (key !in registeredSongNames) return null
+        return MinecraftServer.getJukeboxSongRegistry().get(key)
     }
 }

@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.objects
+package net.aechronis.music.objects
 
 data class MusicDisc(
     val name: String,

@@ -1,6 +1,6 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.music.managers
 
-import net.aechronis.vanilla.objects.MusicDisc
+import net.aechronis.music.objects.MusicDisc
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.file.Files

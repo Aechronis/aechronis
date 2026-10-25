@@ -1,11 +1,12 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.music.managers
 
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.objects.MusicDisc
+import net.aechronis.music.objects.MusicDisc
+import net.aechronis.server.modules.ModuleEvents
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.inventory.Inventory
@@ -23,12 +24,14 @@ private data class DiscMenuSession(
 
 /** `/disc` browser: any player can grab any custom music disc, with a cooldown between grabs. */
 object DiscMenu {
+    private val eventNode = EventNode.all("music-discs").setPriority(1)
     private val sessions = ConcurrentHashMap<UUID, DiscMenuSession>()
     private val cooldowns = ConcurrentHashMap<UUID, Long>()
 
     fun init() {
-        Vanilla.eventNode.addListener(InventoryPreClickEvent::class.java, this::onClick)
-        Vanilla.eventNode.addListener(InventoryCloseEvent::class.java, this::onClose)
+        eventNode.addListener(InventoryPreClickEvent::class.java, this::onClick)
+        eventNode.addListener(InventoryCloseEvent::class.java, this::onClose)
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
     }
 
     fun open(player: Player) {
@@ -51,6 +54,7 @@ object DiscMenu {
             }
         }
         sessions.clear()
+        cooldowns.clear()
     }
 
     private fun onClick(event: InventoryPreClickEvent) {

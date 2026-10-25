@@ -47,6 +47,7 @@ include(
     ":modules:warps",
     ":modules:crates",
     ":modules:killshop",
+    ":modules:music",
     ":modules:hats",
     ":modules:nodes",
     ":modules:discord",
