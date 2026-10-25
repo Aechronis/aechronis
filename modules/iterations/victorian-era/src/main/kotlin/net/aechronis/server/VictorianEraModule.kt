@@ -1,6 +1,5 @@
 package net.aechronis.server
 
-import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.utils.GunHandSkins
 import net.aechronis.nodes.NodesConfig
@@ -80,7 +79,6 @@ class VictorianEraModule : AechronisModule {
     }
 
     override fun initialize(context: ModuleContext) {
-        measure("Restore item catalogue") { Combat.restoreItemCatalogue(context) }
         measure("Tab list") { TabManager.start() }
     }
 
@@ -88,10 +86,6 @@ class VictorianEraModule : AechronisModule {
         GunHandSkins.replaceTemplate(
             checkNotNull(context.readResourcePackAsset(id, GunHandSkins.HAND_TEXTURE)) { "Missing iteration hand atlas" },
         )
-    }
-
-    override fun prepareForShutdown(context: ModuleContext) {
-        Combat.prepareItemCatalogueReload()
     }
 
     private fun registerItems() {

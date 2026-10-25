@@ -71,10 +71,6 @@ internal class CombatPlayerStates {
         states.values.forEach(CombatPlayerState::cancelActions)
     }
 
-    fun clearAiming() {
-        states.values.forEach { it.aiming = false }
-    }
-
     fun clear() {
         try {
             cancelActions()
