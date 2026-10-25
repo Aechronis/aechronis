@@ -5,7 +5,6 @@ import net.aechronis.logger.commands.playerInspectMode
 import net.aechronis.logger.db.Database
 import net.aechronis.logger.listeners.BlockListener
 import net.aechronis.logger.listeners.EntityChangeListener
-import net.aechronis.logger.listeners.EntityListener
 import net.aechronis.logger.listeners.InventoryListener
 import net.aechronis.logger.listeners.InventorySnapshotListener
 import net.aechronis.logger.listeners.LootListener
@@ -121,7 +120,6 @@ object Logger {
             measure("Listeners") {
                 BlockListener.init()
                 WorldEditListener.init()
-                EntityListener.init()
                 EntityChangeListener.init()
                 InventoryListener.init()
                 InventorySnapshotListener.init()
