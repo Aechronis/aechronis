@@ -10,7 +10,6 @@ import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Metadata
 import net.minestom.server.entity.MetadataDef
 import net.minestom.server.entity.attribute.AttributeInstance
-import net.minestom.server.entity.metadata.LivingEntityMeta
 import net.minestom.server.item.ItemStack
 import net.minestom.server.network.NetworkBuffer
 import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
@@ -20,8 +19,7 @@ import java.util.UUID
 /**
  * Persists the common state needed to reconstruct logged entities.
  *
- * The envelope remains in the existing `tag_data` blob. Blobs written before
- * the envelope was introduced are treated as the entity's custom tags.
+ * The versioned envelope is stored in the `tag_data` blob.
  * Application-specific subclasses and AI groups cannot be serialized by
  * Minestom, so they restore as the closest standard entity class.
  */
@@ -64,7 +62,7 @@ internal object EntityStateCodec {
     }
 
     internal data class State(
-        val kind: Kind? = null,
+        val kind: Kind,
         val tags: CompoundBinaryTag = CompoundBinaryTag.empty(),
         val metadataData: ByteArray? = null,
         val attributeData: ByteArray? = null,
@@ -135,11 +133,10 @@ internal object EntityStateCodec {
     }
 
     fun decode(data: ByteArray?): State {
-        val root = runCatching { ItemCodec.decodeBlockNbt(data) }.getOrNull() ?: return State()
-        if (!root.contains(VERSION_KEY)) return State(tags = root)
+        val root = requireNotNull(ItemCodec.decodeBlockNbt(data)) { "Entity state is missing" }
+        require(root.getInt(VERSION_KEY) == CURRENT_VERSION) { "Unsupported entity state version" }
 
         val tags = root.getCompound(TAGS_KEY)
-        if (root.getInt(VERSION_KEY) != CURRENT_VERSION) return State(tags = tags)
 
         val equipmentTag = root.getCompound(EQUIPMENT_KEY)
         val equipment =
@@ -183,18 +180,12 @@ internal object EntityStateCodec {
         type: EntityType,
         uuid: UUID,
         state: State,
-    ): Entity {
-        val storedKind = state.kind
-        if (storedKind == null) {
-            val baseEntity = Entity(type, uuid)
-            return if (baseEntity.entityMeta is LivingEntityMeta) LivingEntity(type, uuid) else baseEntity
-        }
-        return when (storedKind) {
+    ): Entity =
+        when (state.kind) {
             Kind.ENTITY -> Entity(type, uuid)
             Kind.LIVING -> LivingEntity(type, uuid)
             Kind.CREATURE -> EntityCreature(type, uuid)
         }
-    }
 
     fun restore(
         entity: Entity,
