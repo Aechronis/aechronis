@@ -1,6 +1,6 @@
-package net.aechronis.vanilla.objects
+package net.aechronis.bundles.objects
 
-import net.aechronis.vanilla.managers.Bundles
+import net.aechronis.bundles.Bundles
 import net.minestom.server.item.ItemStack
 
 data class Bundle(

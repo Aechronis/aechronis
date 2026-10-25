@@ -1,8 +1,8 @@
 package net.aechronis.server.constants
 
+import net.aechronis.bundles.objects.Bundle
 import net.aechronis.combat.objects.ArmorPiece
 import net.aechronis.combat.objects.Gun
-import net.aechronis.vanilla.objects.Bundle
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration

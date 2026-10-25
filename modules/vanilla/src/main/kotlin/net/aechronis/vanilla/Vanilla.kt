@@ -39,7 +39,6 @@ import net.aechronis.vanilla.listeners.PlayerBreakListener
 import net.aechronis.vanilla.listeners.ServerLinksListener
 import net.aechronis.vanilla.listeners.WarpListener
 import net.aechronis.vanilla.managers.Boats
-import net.aechronis.vanilla.managers.Bundles
 import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.Crates
@@ -142,7 +141,6 @@ object Vanilla {
         if (config.shopEnabled) measure("Shop") { KillShop.init() }
         if (config.cratesEnabled) measure("Crates") { Crates.init() }
         if (config.itemsEnabled) measure("Items") { Items.init() }
-        if (config.bundlesEnabled) measure("Bundles") { Bundles.init() }
         if (config.boatsEnabled) measure("Boats") { Boats.init() }
         if (config.efficiencyEnabled) measure("Efficiency") { Efficiency.init() }
         if (config.commandsEnabled) {

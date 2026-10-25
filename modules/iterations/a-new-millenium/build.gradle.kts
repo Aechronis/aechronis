@@ -10,6 +10,7 @@ dependencies {
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:combat"))
     compileOnly(project(":modules:vanilla"))
+    compileOnly(project(":modules:bundles"))
     compileOnly(project(":modules:worldedit"))
     compileOnly(project(":modules:nodes"))
     compileOnly(project(":modules:logger"))

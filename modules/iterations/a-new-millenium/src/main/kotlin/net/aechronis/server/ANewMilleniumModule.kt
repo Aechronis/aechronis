@@ -42,7 +42,7 @@ class ANewMilleniumModule : AechronisModule {
                 .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build(),
         )
-    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes")
+    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "bundles")
 
     override fun configure(context: ModuleContext) {
         measure("Item catalogue") { registerItems() }

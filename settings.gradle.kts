@@ -43,6 +43,7 @@ include(
     ":modules:koth",
     ":modules:elevators",
     ":modules:treefeller",
+    ":modules:bundles",
     ":modules:hats",
     ":modules:nodes",
     ":modules:discord",

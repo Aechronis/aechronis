@@ -1,6 +1,6 @@
 package net.aechronis.vanilla.serdes
 
-import net.aechronis.vanilla.managers.Bundles
+import net.aechronis.utils.ItemTransport
 import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.KillShop
 import net.kyori.adventure.nbt.BinaryTagTypes
@@ -41,7 +41,7 @@ object PlayerDataDeserializer {
         if (cursorItem.keySet().isNotEmpty()) {
             runCatching { ItemStack.fromItemNBT(cursorItem) }
                 .getOrNull()
-                ?.takeIf(Bundles::isSafeForTransport)
+                ?.takeIf(ItemTransport::isSafeForTransport)
                 ?.let { player.inventory.cursorItem = it }
         }
 
@@ -101,7 +101,7 @@ object PlayerDataDeserializer {
                 }
             }
             val item = runCatching { ItemStack.fromItemNBT(itemBuilder.build()) }.getOrNull() ?: continue
-            if (!Bundles.isSafeForTransport(item)) continue
+            if (!ItemTransport.isSafeForTransport(item)) continue
             target.setItemStack(slot.toInt(), item)
         }
     }

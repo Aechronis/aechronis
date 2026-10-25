@@ -1,8 +1,8 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.bundles
 
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.BundleListener
-import net.kyori.adventure.nbt.BinaryTagIO
+import net.aechronis.bundles.listeners.BundleListener
+import net.aechronis.utils.ItemTransport.MAX_ITEM_NBT_BYTES
+import net.aechronis.utils.ItemTransport.isSafeForTransport
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
@@ -13,14 +13,12 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.item.component.CustomData
 import net.minestom.server.tag.Tag
-import java.io.ByteArrayOutputStream
 
 object Bundles {
+    private var config = BundlesConfig()
     private const val DATA_KEY = "VanillaBundleKit"
     private const val ITEMS_KEY = "Items"
     private const val SLOT_KEY = "Slot"
-
-    private const val MAX_ITEM_NBT_BYTES = 32 * 1024
 
     private val previewSlots =
         (0..8).toList() +
@@ -53,13 +51,6 @@ object Bundles {
         }
         return bundle
     }
-
-    fun isSafeForTransport(item: ItemStack): Boolean =
-        runCatching {
-            val output = ByteArrayOutputStream()
-            BinaryTagIO.writer().writeNameless(item.toItemNBT(), output)
-            output.size() <= MAX_ITEM_NBT_BYTES
-        }.getOrDefault(false)
 
     fun use(
         player: Player,
@@ -97,7 +88,7 @@ object Bundles {
                 .filterNot { it.item.isAir }
                 .toList()
 
-        if (stored.isEmpty() || stored.size > Vanilla.config.bundleMaxItemStacks) return
+        if (stored.isEmpty() || stored.size > config.maxItemStacks) return
         if (stored.any { !isSafeForTransport(it.item) }) return
 
         val filled = makeBundle(held, stored.associate { it.slot to it.item })
@@ -207,9 +198,11 @@ object Bundles {
         return stored
     }
 
-    fun init() {
-        require(Vanilla.config.bundleMaxItemStacks > 0) {
-            "bundleMaxItemStacks must be greater than zero"
+    fun init(config: BundlesConfig = BundlesConfig()) {
+        this.config = config
+        if (!config.enabled) return
+        require(config.maxItemStacks > 0) {
+            "maxItemStacks must be greater than zero"
         }
         BundleListener.init()
     }
