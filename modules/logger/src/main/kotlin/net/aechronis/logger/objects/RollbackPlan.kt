@@ -10,7 +10,6 @@ enum class RollbackOperationKind(
     RESTORE("restore"),
     CHUNK_RESTORE("chunk_restore"),
     SNAPSHOT("snapshot"),
-    LEGACY("legacy"),
     ;
 
     companion object {

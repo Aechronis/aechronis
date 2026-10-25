@@ -386,7 +386,7 @@ class RollbackService(
                 val requiredStatus = if (undo) RollbackStatus.APPLIED else RollbackStatus.UNDONE
                 when {
                     lookupFailure != null -> result.completeExceptionally(lookupFailure)
-                    operation == null || operation.status != requiredStatus || operation.kind == RollbackOperationKind.LEGACY -> {
+                    operation == null || operation.status != requiredStatus -> {
                         result.completeExceptionally(IllegalStateException(if (undo) "nothing to undo" else "nothing to redo"))
                     }
 

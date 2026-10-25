@@ -52,10 +52,6 @@ internal class RollbackPlanner(
                         error("unreachable")
                     }
 
-                    RollbackOperationKind.LEGACY -> {
-                        error("unreachable")
-                    }
-
                     RollbackOperationKind.SNAPSHOT -> {
                         error("unreachable")
                     }

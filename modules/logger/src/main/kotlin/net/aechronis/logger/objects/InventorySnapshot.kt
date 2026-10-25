@@ -18,7 +18,6 @@ enum class InventorySnapshotAction(
     DEATH("death"),
     LOGIN("login"),
     LOGOUT("logout"),
-    LEGACY("legacy"),
     ;
 
     companion object {
