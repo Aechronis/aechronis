@@ -102,6 +102,7 @@ val runtimeModuleProjects =
         ":modules:treefeller",
         ":modules:bundles",
         ":modules:warps",
+        ":modules:crates",
         ":modules:hats",
         ":modules:vanilla",
         ":modules:recipes",

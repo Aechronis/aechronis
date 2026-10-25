@@ -5,7 +5,7 @@ import net.aechronis.server.modules.ModuleContext
 
 class VotifierModule : AechronisModule {
     override val id = "votifier"
-    override val dependencies = setOf("gems", "vanilla")
+    override val dependencies = setOf("crates", "gems")
 
     override fun initialize(context: ModuleContext) = VotifierIntegration.initialize()
 

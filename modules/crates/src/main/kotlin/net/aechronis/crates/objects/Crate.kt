@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.objects
+package net.aechronis.crates.objects
 
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material

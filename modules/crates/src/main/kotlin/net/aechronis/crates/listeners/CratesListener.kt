@@ -1,8 +1,10 @@
-package net.aechronis.vanilla.listeners
+package net.aechronis.crates.listeners
 
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.managers.Crates
+import net.aechronis.crates.Crates
+import net.aechronis.server.modules.ModuleEvents
+import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.PlayerHand
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
@@ -10,6 +12,9 @@ import net.minestom.server.event.player.PlayerHandAnimationEvent
 import net.minestom.server.inventory.Inventory
 
 object CratesListener {
+    // Finish a disconnected player's reward before vanilla applies combat penalties and saves inventory.
+    private val eventNode = EventNode.all("crates").setPriority(-1)
+
     fun onHandAnimation(event: PlayerHandAnimationEvent) {
         if (event.isCancelled || event.hand != PlayerHand.MAIN) return
 
@@ -35,9 +40,10 @@ object CratesListener {
     }
 
     fun init() {
-        Vanilla.eventNode.addListener(PlayerHandAnimationEvent::class.java, CratesListener::onHandAnimation)
-        Vanilla.eventNode.addListener(InventoryPreClickEvent::class.java, CratesListener::onPreClick)
-        Vanilla.eventNode.addListener(InventoryCloseEvent::class.java, CratesListener::onClose)
-        Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, CratesListener::onDisconnect)
+        eventNode.addListener(PlayerHandAnimationEvent::class.java, CratesListener::onHandAnimation)
+        eventNode.addListener(InventoryPreClickEvent::class.java, CratesListener::onPreClick)
+        eventNode.addListener(InventoryCloseEvent::class.java, CratesListener::onClose)
+        eventNode.addListener(PlayerDisconnectEvent::class.java, CratesListener::onDisconnect)
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
     }
 }

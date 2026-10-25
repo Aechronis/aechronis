@@ -1,9 +1,8 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.crates
 
+import net.aechronis.crates.listeners.CratesListener
+import net.aechronis.crates.objects.Crate
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.CratesListener
-import net.aechronis.vanilla.objects.Crate
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -39,8 +38,8 @@ object Crates {
         var step: Int = 0,
     )
 
-    fun init() {
-        val configured = Vanilla.config.cratesConfig.crates
+    fun init(config: CratesConfig) {
+        val configured = config.crates
         configured.forEach(Crate::validate)
         require(configured.map { it.id }.toSet().size == configured.size) {
             "Crate ids must be unique"
@@ -196,7 +195,7 @@ object Crates {
             1.0f,
         )
 
-    fun shutdown() {
+    fun finishPendingRolls() {
         activeRolls.values.toList().forEach { roll ->
             if (roll.player.openInventory === roll.inventory) roll.player.closeInventory()
             finishRoll(roll, showResult = false)
@@ -204,6 +203,10 @@ object Crates {
         inventoryOwners.keys.forEach { inventory -> inventory.viewers.toList().forEach { it.closeInventory() } }
         activeRolls.clear()
         inventoryOwners.clear()
+    }
+
+    fun shutdown() {
+        finishPendingRolls()
         definitions.clear()
     }
 }

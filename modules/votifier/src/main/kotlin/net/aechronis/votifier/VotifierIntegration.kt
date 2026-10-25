@@ -1,9 +1,9 @@
 package net.aechronis.votifier
 
 import com.vexsoftware.votifier.model.Vote
+import net.aechronis.crates.Crates
 import net.aechronis.gems.Gems
 import net.aechronis.server.modules.ModuleEvents
-import net.aechronis.vanilla.managers.Crates
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.Event

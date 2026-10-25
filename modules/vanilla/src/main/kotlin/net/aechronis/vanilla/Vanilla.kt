@@ -38,7 +38,6 @@ import net.aechronis.vanilla.listeners.ServerLinksListener
 import net.aechronis.vanilla.managers.Boats
 import net.aechronis.vanilla.managers.Combat
 import net.aechronis.vanilla.managers.Commands
-import net.aechronis.vanilla.managers.Crates
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Efficiency
 import net.aechronis.vanilla.managers.EnvironmentalDamage
@@ -132,7 +131,6 @@ object Vanilla {
         if (config.mannequinEnabled) measure("Mannequin") { Mannequin.init() }
         if (config.foodEnabled) measure("Food") { Food.init() }
         if (config.shopEnabled) measure("Shop") { KillShop.init() }
-        if (config.cratesEnabled) measure("Crates") { Crates.init() }
         if (config.itemsEnabled) measure("Items") { Items.init() }
         if (config.boatsEnabled) measure("Boats") { Boats.init() }
         if (config.efficiencyEnabled) measure("Efficiency") { Efficiency.init() }
@@ -177,7 +175,6 @@ object Vanilla {
     fun shutdown() {
         runSaveStages(
             "player data writer" to PlayerData::shutdown,
-            "crate rolls" to Crates::shutdown,
             "corpse loot" to Mannequin::shutdown,
             "item frames" to ItemFrames::shutdown,
             "combat bars" to Combat::shutdown,

@@ -1,6 +1,6 @@
-package net.aechronis.vanilla.config
+package net.aechronis.crates
 
-import net.aechronis.vanilla.objects.Crate
+import net.aechronis.crates.objects.Crate
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 
