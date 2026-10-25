@@ -54,14 +54,20 @@ class Database(
                 ts BIGINT NOT NULL,
                 player_uuid VARCHAR NOT NULL,
                 player_name VARCHAR NOT NULL,
+a                instance_uuid VARCHAR,
                 x INTEGER NOT NULL,
                 y INTEGER NOT NULL,
                 z INTEGER NOT NULL,
                 block_old VARCHAR NOT NULL,
                 block_new VARCHAR NOT NULL,
+                block_old_state VARCHAR,
+                block_new_state VARCHAR,
+                block_old_nbt BLOB,
+                block_new_nbt BLOB,
                 action INTEGER NOT NULL,
                 source VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}',
-                origin VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}'
+                origin VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}',
+                rolled_back BOOLEAN NOT NULL DEFAULT FALSE
             )
             """.trimIndent()
         pool.connection.use { conn ->
@@ -69,25 +75,6 @@ class Database(
                 stmt.execute(ddl)
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_pos ON \"$table\" (x, y, z, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_player ON \"$table\" (player_uuid, ts)")
-            }
-        }
-    }
-
-    /**
-     * Adds block-state, source, and origin columns to the block log table.
-     */
-    fun migrateBlockLog() {
-        val table = config.tableName
-        pool.connection.use { conn ->
-            addColumnIfMissing(conn, table, "instance_uuid", "VARCHAR")
-            addColumnIfMissing(conn, table, "block_old_state", "VARCHAR")
-            addColumnIfMissing(conn, table, "block_new_state", "VARCHAR")
-            addColumnIfMissing(conn, table, "block_old_nbt", "BLOB")
-            addColumnIfMissing(conn, table, "block_new_nbt", "BLOB")
-            addColumnIfMissing(conn, table, "source", "VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}'")
-            addColumnIfMissing(conn, table, "origin", "VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}'")
-            addColumnIfMissing(conn, table, "rolled_back", "BOOLEAN NOT NULL DEFAULT FALSE")
-            conn.createStatement().use { stmt ->
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_instance ON \"$table\" (instance_uuid, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_source ON \"$table\" (source, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_origin ON \"$table\" (origin, ts)")
@@ -121,15 +108,6 @@ class Database(
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_source ON \"$table\" (source, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_player ON \"$table\" (player_uuid, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_pos ON \"$table\" (x, y, z, ts)")
-            }
-        }
-    }
-
-    fun migrateFeatureLog() {
-        val table = config.featureTableName
-        pool.connection.use { conn ->
-            addColumnIfMissing(conn, table, "origin", "VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}'")
-            conn.createStatement().use { stmt ->
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_feature_origin ON \"$table\" (origin, ts)")
             }
         }
@@ -146,11 +124,12 @@ class Database(
                 player_name VARCHAR,
                 storage_id VARCHAR NOT NULL,
                 action VARCHAR NOT NULL,
-                        item_data BLOB NOT NULL,
-                        amount INTEGER NOT NULL,
-                        slot INTEGER,
+                item_data BLOB NOT NULL,
+                amount INTEGER NOT NULL,
+                slot INTEGER,
                 source VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}',
-                origin VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}'
+                origin VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}',
+                rolled_back BOOLEAN NOT NULL DEFAULT FALSE
             )
             """.trimIndent()
         pool.connection.use { conn ->
@@ -159,16 +138,6 @@ class Database(
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_player ON \"$table\" (player_uuid, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_id ON \"$table\" (storage_id, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_origin ON \"$table\" (origin, ts)")
-            }
-        }
-    }
-
-    fun migrateStorageChangeLog() {
-        val table = config.storageTableName
-        pool.connection.use { conn ->
-            addColumnIfMissing(conn, table, "rolled_back", "BOOLEAN NOT NULL DEFAULT FALSE")
-            addColumnIfMissing(conn, table, "slot", "INTEGER")
-            conn.createStatement().use { stmt ->
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_storage_rollback ON \"$table\" (rolled_back, ts, id)")
             }
         }
@@ -192,24 +161,6 @@ class Database(
         pool.connection.use { conn ->
             conn.createStatement().use { stmt ->
                 stmt.execute(ddl)
-            }
-        }
-    }
-
-    fun migrateInventorySnapshotLog() {
-        val table = config.inventorySnapshotTableName
-        pool.connection.use { conn ->
-            addColumnIfMissing(conn, table, "player_name", "VARCHAR NOT NULL DEFAULT ''")
-            addColumnIfMissing(conn, table, "action", "VARCHAR NOT NULL DEFAULT 'legacy'")
-            addColumnIfMissing(conn, table, "inventory_data", "BLOB")
-            addColumnIfMissing(conn, table, "source", "VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}'")
-            addColumnIfMissing(conn, table, "origin", "VARCHAR NOT NULL DEFAULT '${LogMetadata.LOGGER}'")
-            if (columnExists(conn, table, "data")) {
-                conn.createStatement().use { stmt ->
-                    stmt.execute("UPDATE \"$table\" SET inventory_data = data WHERE inventory_data IS NULL")
-                }
-            }
-            conn.createStatement().use { stmt ->
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_inventory_snapshot_player ON \"$table\" (player_uuid, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_inventory_snapshot_action ON \"$table\" (action, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_inventory_snapshot_origin ON \"$table\" (origin, ts)")
@@ -348,40 +299,6 @@ class Database(
             conn.createStatement().use { stmt ->
                 stmt.execute(operationDdl)
                 stmt.execute(changeDdl)
-                stmt.execute("ALTER TABLE rollback_operation ADD COLUMN IF NOT EXISTS operation_kind VARCHAR NOT NULL DEFAULT 'legacy'")
-                stmt.execute("ALTER TABLE rollback_operation ADD COLUMN IF NOT EXISTS safe_mode BOOLEAN NOT NULL DEFAULT FALSE")
-                stmt.execute("ALTER TABLE rollback_operation ADD COLUMN IF NOT EXISTS skipped_change_count INTEGER NOT NULL DEFAULT 0")
-                stmt.execute("ALTER TABLE rollback_operation ADD COLUMN IF NOT EXISTS completed_ts BIGINT")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS sequence_no INTEGER NOT NULL DEFAULT 0")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS block_log_id BIGINT")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS storage_log_id BIGINT")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS inventory_log_id BIGINT")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_log_id BIGINT")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS applied BOOLEAN NOT NULL DEFAULT FALSE")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS storage_source VARCHAR")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS storage_id VARCHAR")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS storage_action VARCHAR")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS item_data BLOB")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS amount INTEGER")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS storage_slot INTEGER")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS inventory_player_uuid VARCHAR")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS inventory_slot INTEGER")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS before_item_data BLOB")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS after_item_data BLOB")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_uuid VARCHAR")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_type VARCHAR")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_action VARCHAR")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_x DOUBLE PRECISION")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_y DOUBLE PRECISION")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_z DOUBLE PRECISION")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_yaw REAL")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_pitch REAL")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_velocity_x DOUBLE PRECISION")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_velocity_y DOUBLE PRECISION")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_velocity_z DOUBLE PRECISION")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS entity_tag_data BLOB")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS before_block_handler VARCHAR")
-                stmt.execute("ALTER TABLE rollback_change ADD COLUMN IF NOT EXISTS after_block_handler VARCHAR")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_rollback_actor ON rollback_operation (actor_uuid, ts)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_rollback_change_op ON rollback_change (operation_id)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_rollback_change_log ON rollback_change (block_log_id)")
@@ -389,35 +306,6 @@ class Database(
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_rollback_change_inventory ON rollback_change (inventory_log_id)")
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_rollback_change_entity ON rollback_change (entity_log_id)")
             }
-        }
-    }
-
-    private fun columnExists(
-        conn: java.sql.Connection,
-        table: String,
-        column: String,
-    ): Boolean {
-        conn.metaData.getColumns(null, conn.schema, null, null).use { columns ->
-            while (columns.next()) {
-                if (
-                    columns.getString("TABLE_NAME").equals(table, ignoreCase = true) &&
-                    columns.getString("COLUMN_NAME").equals(column, ignoreCase = true)
-                ) {
-                    return true
-                }
-            }
-        }
-        return false
-    }
-
-    private fun addColumnIfMissing(
-        conn: java.sql.Connection,
-        table: String,
-        column: String,
-        ddlType: String,
-    ) {
-        conn.createStatement().use { stmt ->
-            stmt.execute("ALTER TABLE \"$table\" ADD COLUMN IF NOT EXISTS $column $ddlType")
         }
     }
 

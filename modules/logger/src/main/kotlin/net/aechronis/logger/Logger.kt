@@ -81,16 +81,12 @@ object Logger {
                 database = Database(config)
                 resources += database
             }
-            measure("Database schema and migrations") {
+            measure("Database schema") {
                 database.create()
-                database.migrateBlockLog()
                 database.createFeatureLog()
-                database.migrateFeatureLog()
                 database.createRollbackTables()
                 database.createStorageChangeLog()
-                database.migrateStorageChangeLog()
                 database.createInventorySnapshotLog()
-                database.migrateInventorySnapshotLog()
                 database.createInventoryChangeLog()
                 database.createEntityChangeLog()
             }
