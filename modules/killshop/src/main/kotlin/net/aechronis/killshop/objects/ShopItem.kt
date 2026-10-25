@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.objects
+package net.aechronis.killshop.objects
 
 import net.minestom.server.item.ItemStack
 

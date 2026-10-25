@@ -1,7 +1,7 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.killshop.commands
 
+import net.aechronis.killshop.KillShop
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.managers.KillShop
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType

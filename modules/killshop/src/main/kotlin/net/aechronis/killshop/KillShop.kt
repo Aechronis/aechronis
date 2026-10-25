@@ -1,8 +1,7 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.killshop
 
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.ShopListener
-import net.aechronis.vanilla.objects.ShopItem
+import net.aechronis.killshop.listeners.ShopListener
+import net.aechronis.killshop.objects.ShopItem
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.component.DataComponents
@@ -23,14 +22,18 @@ object KillShop {
     val openInventories = ConcurrentHashMap<Inventory, UUID>()
     val playerCooldowns = ConcurrentHashMap<UUID, ConcurrentHashMap<Int, Long>>()
 
-    fun init() {
-        ShopListener.init()
+    var config = ShopConfig()
+        private set
+
+    fun init(config: ShopConfig) {
+        this.config = config
+        if (config.enabled) ShopListener.init()
     }
 
     fun openShop(player: Player) {
-        val items = Vanilla.config.shopConfig.shopItems
+        val items = KillShop.config.shopItems
         val inv = Inventory(InventoryType.CHEST_6_ROW, Component.text("Shop"))
-        val points = player.getTag(POINTS_TAG) ?: 0
+        val points = KillShopPoints.balance(player)
         val cooldowns = playerCooldowns.getOrPut(player.uuid) { ConcurrentHashMap() }
         val now = System.currentTimeMillis()
 

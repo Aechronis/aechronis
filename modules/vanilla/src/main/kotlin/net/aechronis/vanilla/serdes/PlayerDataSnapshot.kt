@@ -1,7 +1,6 @@
 package net.aechronis.vanilla.serdes
 
 import net.aechronis.vanilla.managers.Commands
-import net.aechronis.vanilla.managers.KillShop
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
@@ -15,7 +14,6 @@ class PlayerDataSnapshot private constructor(
     val health: Float,
     val food: Int,
     val foodSaturation: Float,
-    val points: Int,
     val gameMode: GameMode,
     val allowFlying: Boolean,
     val flying: Boolean,
@@ -32,7 +30,6 @@ class PlayerDataSnapshot private constructor(
                 health = player.health,
                 food = player.food,
                 foodSaturation = player.foodSaturation,
-                points = player.getTag(KillShop.POINTS_TAG) ?: 0,
                 gameMode = player.gameMode,
                 allowFlying = player.isAllowFlying,
                 flying = player.isFlying,

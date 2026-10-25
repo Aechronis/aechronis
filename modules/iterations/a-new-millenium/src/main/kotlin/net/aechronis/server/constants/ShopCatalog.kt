@@ -1,6 +1,6 @@
 package net.aechronis.server.constants
 
-import net.aechronis.vanilla.objects.ShopItem
+import net.aechronis.killshop.objects.ShopItem
 
 object ShopCatalog {
     private const val KIT_COOLDOWN_TICKS = 300L

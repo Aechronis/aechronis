@@ -2,6 +2,8 @@ package net.aechronis.server
 
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.utils.GunHandSkins
+import net.aechronis.killshop.KillShopModule
+import net.aechronis.killshop.ShopConfig
 import net.aechronis.nodes.NodesConfig
 import net.aechronis.nodes.NodesModule
 import net.aechronis.nodes.objects.OreDeposit
@@ -36,7 +38,7 @@ class VictorianEraModule : AechronisModule {
                 .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build(),
         )
-    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes")
+    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "killshop")
 
     override fun configure(context: ModuleContext) {
         measure("Item catalogue") { registerItems() }
@@ -44,10 +46,10 @@ class VictorianEraModule : AechronisModule {
             checkNotNull(EmbeddedResourcePack.readAsset(javaClass, GunHandSkins.HAND_TEXTURE)) { "Missing iteration hand atlas" }
         }
         GunHandSkins.registerTemplate { hands }
+        KillShopModule.configure(ShopConfig(enabled = false))
         measure("Vanilla configuration") {
             VanillaModule.configure(
                 VanillaConfig(
-                    shopEnabled = false,
                     horsesEnabled = true,
                     recipesConfig = RecipesConfig(recpies = HorseRecipes.list),
                 ),

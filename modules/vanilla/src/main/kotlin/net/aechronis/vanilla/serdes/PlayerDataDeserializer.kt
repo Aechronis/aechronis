@@ -2,7 +2,6 @@ package net.aechronis.vanilla.serdes
 
 import net.aechronis.utils.ItemTransport
 import net.aechronis.vanilla.managers.Commands
-import net.aechronis.vanilla.managers.KillShop
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
@@ -24,8 +23,6 @@ object PlayerDataDeserializer {
         player.food = data.getInt("Food", 20)
 
         player.foodSaturation = data.getFloat("FoodSaturation", 20f)
-
-        player.setTag(KillShop.POINTS_TAG, data.getInt("Points", 0))
 
         player.gameMode =
             runCatching { GameMode.valueOf(data.getString("GameMode")) }

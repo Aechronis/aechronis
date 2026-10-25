@@ -21,7 +21,6 @@ import net.aechronis.vanilla.commands.Message
 import net.aechronis.vanilla.commands.Ore
 import net.aechronis.vanilla.commands.Recpies
 import net.aechronis.vanilla.commands.Reply
-import net.aechronis.vanilla.commands.Shop
 import net.aechronis.vanilla.commands.Shutdown
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
@@ -46,7 +45,6 @@ import net.aechronis.vanilla.managers.Food
 import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.ItemFrames
 import net.aechronis.vanilla.managers.Items
-import net.aechronis.vanilla.managers.KillShop
 import net.aechronis.vanilla.managers.Mannequin
 import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.PlayerData
@@ -111,7 +109,6 @@ object Vanilla {
                 if (config.musicEnabled) commands += Disc()
                 if (config.recipesEnabled) commands += Craft()
                 if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
-                if (config.shopEnabled) commands += Shop()
                 if (config.whitelistEnabled) commands += Whitelist()
                 if (config.oresEnabled) commands += Ore()
                 ModuleCommands
@@ -130,7 +127,6 @@ object Vanilla {
         if (config.saplingsEnabled) measure("Saplings") { Saplings.init() }
         if (config.mannequinEnabled) measure("Mannequin") { Mannequin.init() }
         if (config.foodEnabled) measure("Food") { Food.init() }
-        if (config.shopEnabled) measure("Shop") { KillShop.init() }
         if (config.itemsEnabled) measure("Items") { Items.init() }
         if (config.boatsEnabled) measure("Boats") { Boats.init() }
         if (config.efficiencyEnabled) measure("Efficiency") { Efficiency.init() }
@@ -187,7 +183,6 @@ object Vanilla {
             "recipes" to Recipes::shutdown,
             "storage" to Storage::shutdown,
             "sign editors" to Signs::shutdown,
-            "shop inventories" to KillShop::shutdown,
             "command inventories" to Commands::shutdown,
             "horses" to { if (config.horsesEnabled) Horses.shutdown() },
             "music pack" to MusicManager::shutdown,

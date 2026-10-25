@@ -15,7 +15,6 @@ object PlayerDataSerializer {
                 .putFloat("Health", snapshot.health)
                 .putInt("Food", snapshot.food)
                 .putFloat("FoodSaturation", snapshot.foodSaturation)
-                .putInt("Points", snapshot.points)
                 .putString("GameMode", snapshot.gameMode.name)
                 .putBoolean("AllowFlying", snapshot.allowFlying)
                 .putBoolean("Flying", snapshot.flying)

@@ -1,10 +1,13 @@
-package net.aechronis.vanilla.listeners
+package net.aechronis.killshop.listeners
 
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.managers.KillShop
+import net.aechronis.killshop.KillShop
+import net.aechronis.killshop.KillShopPoints
+import net.aechronis.server.modules.ModuleEvents
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerDeathEvent
@@ -13,6 +16,8 @@ import net.minestom.server.inventory.Inventory
 import java.util.concurrent.ConcurrentHashMap
 
 object ShopListener {
+    private val eventNode = EventNode.all("killshop").setPriority(1)
+
     fun onPreClick(event: InventoryPreClickEvent) {
         val inv = event.inventory as? Inventory ?: return
         if (!KillShop.openInventories.containsKey(inv)) return
@@ -20,7 +25,7 @@ object ShopListener {
 
         val player = event.player
         val slot = event.slot
-        val items = Vanilla.config.shopConfig.shopItems
+        val items = KillShop.config.shopItems
         if (slot < 0 || slot >= items.size) return
 
         val shopItem = items[slot]
@@ -36,7 +41,7 @@ object ShopListener {
         }
         if (expiry != null) cooldowns.remove(slot, expiry)
 
-        val points = player.getTag(KillShop.POINTS_TAG) ?: 0
+        val points = KillShopPoints.balance(player)
         if (points < shopItem.cost) {
             player.sendMessage(Component.text("You need ${shopItem.cost} points but only have $points", NamedTextColor.RED))
             return
@@ -47,7 +52,7 @@ object ShopListener {
             return
         }
 
-        player.setTag(KillShop.POINTS_TAG, points - shopItem.cost)
+        KillShopPoints.setBalance(player, points - shopItem.cost)
         cooldowns[slot] = now + cooldownMs
     }
 
@@ -59,19 +64,23 @@ object ShopListener {
     fun onDisconnect(event: PlayerDisconnectEvent) {
         KillShop.playerCooldowns.remove(event.player.uuid)
         KillShop.openInventories.entries.removeIf { it.value == event.player.uuid }
+        KillShopPoints.save(KillShopPoints.snapshot()).whenComplete { _, error ->
+            if (error != null) System.err.println("Failed to save kill-shop points: ${error.message}")
+        }
     }
 
     fun onDeath(event: PlayerDeathEvent) {
         val victim = event.player
         val killer = event.player.lastDamageSource?.attacker as? Player ?: return
         if (killer.uuid == victim.uuid) return
-        killer.setTag(KillShop.POINTS_TAG, (killer.getTag(KillShop.POINTS_TAG) ?: 0) + 1)
+        KillShopPoints.setBalance(killer, KillShopPoints.balance(killer) + 1)
     }
 
     fun init() {
-        Vanilla.eventNode.addListener(PlayerDeathEvent::class.java, ShopListener::onDeath)
-        Vanilla.eventNode.addListener(InventoryPreClickEvent::class.java, ShopListener::onPreClick)
-        Vanilla.eventNode.addListener(InventoryCloseEvent::class.java, ShopListener::onClose)
-        Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, ShopListener::onDisconnect)
+        eventNode.addListener(PlayerDeathEvent::class.java, ShopListener::onDeath)
+        eventNode.addListener(InventoryPreClickEvent::class.java, ShopListener::onPreClick)
+        eventNode.addListener(InventoryCloseEvent::class.java, ShopListener::onClose)
+        eventNode.addListener(PlayerDisconnectEvent::class.java, ShopListener::onDisconnect)
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
     }
 }
