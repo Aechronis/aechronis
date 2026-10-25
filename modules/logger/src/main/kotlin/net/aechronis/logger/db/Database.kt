@@ -54,7 +54,7 @@ class Database(
                 ts BIGINT NOT NULL,
                 player_uuid VARCHAR NOT NULL,
                 player_name VARCHAR NOT NULL,
-a                instance_uuid VARCHAR,
+                instance_uuid VARCHAR,
                 x INTEGER NOT NULL,
                 y INTEGER NOT NULL,
                 z INTEGER NOT NULL,
