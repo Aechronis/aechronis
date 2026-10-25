@@ -5,7 +5,7 @@ import net.aechronis.server.modules.ModuleContext
 
 class LoggerModule : AechronisModule {
     override val id = "logger"
-    override val dependencies = setOf("utils", "combat", "vanilla", "worldedit")
+    override val dependencies = setOf("utils", "vanilla", "worldedit")
 
     override fun initialize(context: ModuleContext) = Logger.init(LoggerConfig(limit = 999999999))
 

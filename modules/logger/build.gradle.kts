@@ -4,7 +4,6 @@ plugins {
 
 dependencies {
     compileOnly(project(":modules:utils"))
-    compileOnly(project(":modules:combat"))
     compileOnly(project(":modules:vanilla"))
     compileOnly(project(":modules:worldedit"))
 
