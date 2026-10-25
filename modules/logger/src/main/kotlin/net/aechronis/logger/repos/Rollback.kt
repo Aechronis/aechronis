@@ -1,7 +1,6 @@
 package net.aechronis.logger.repos
 
 import net.aechronis.logger.db.Database
-import net.aechronis.logger.objects.EntityChangeAction
 import net.aechronis.logger.objects.RollbackChange
 import net.aechronis.logger.objects.RollbackChangeKind
 import net.aechronis.logger.objects.RollbackOperation
@@ -13,8 +12,6 @@ import net.aechronis.logger.utils.setNullableBytes
 import net.aechronis.logger.utils.setNullableInt
 import net.aechronis.logger.utils.setNullableString
 import net.aechronis.logger.utils.shutdownExecutor
-import net.minestom.server.coordinate.Pos
-import net.minestom.server.coordinate.Vec
 import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.Statement
@@ -31,7 +28,6 @@ class Rollback(
     private val blockTable = database.tableName
     private val storageTable = database.storageTableName
     private val inventoryTable = database.inventoryChangeTableName
-    private val entityTable = database.entityChangeTableName
 
     fun insertOperationAsync(
         operation: RollbackOperation,
@@ -98,14 +94,12 @@ class Rollback(
             .prepareStatement(
                 """
                 INSERT INTO rollback_change
-                    (operation_id, sequence_no, block_log_id, storage_log_id, inventory_log_id, entity_log_id, change_kind, applied, x, y, z,
+                    (operation_id, sequence_no, block_log_id, storage_log_id, inventory_log_id, change_kind, applied, x, y, z,
                      before_block_state, before_block_nbt, after_block_state, after_block_nbt,
                       storage_source, storage_id, storage_action, item_data, amount, storage_slot,
                      inventory_player_uuid, inventory_slot, before_item_data, after_item_data,
-                     entity_uuid, entity_type, entity_action, entity_x, entity_y, entity_z, entity_yaw, entity_pitch,
-                      entity_velocity_x, entity_velocity_y, entity_velocity_z, entity_tag_data,
                       before_block_handler, after_block_handler)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
             ).use { statement ->
                 for (change in changes) {
@@ -114,40 +108,27 @@ class Rollback(
                     if (change.blockLogId == null) statement.setNull(3, Types.BIGINT) else statement.setLong(3, change.blockLogId)
                     if (change.storageLogId == null) statement.setNull(4, Types.BIGINT) else statement.setLong(4, change.storageLogId)
                     if (change.inventoryLogId == null) statement.setNull(5, Types.BIGINT) else statement.setLong(5, change.inventoryLogId)
-                    if (change.entityLogId == null) statement.setNull(6, Types.BIGINT) else statement.setLong(6, change.entityLogId)
-                    statement.setString(7, change.changeKind.value)
-                    statement.setBoolean(8, change.applied)
-                    statement.setNullableInt(9, change.x)
-                    statement.setNullableInt(10, change.y)
-                    statement.setNullableInt(11, change.z)
-                    statement.setNullableString(12, change.beforeBlockState)
-                    statement.setNullableBytes(13, change.beforeBlockNbt)
-                    statement.setNullableString(14, change.afterBlockState)
-                    statement.setNullableBytes(15, change.afterBlockNbt)
-                    statement.setNullableString(16, change.storageSource)
-                    statement.setNullableString(17, change.storageId)
-                    statement.setNullableString(18, change.storageAction?.value)
-                    statement.setNullableBytes(19, change.itemData)
-                    statement.setNullableInt(20, change.amount)
-                    statement.setNullableInt(21, change.storageSlot)
-                    statement.setNullableString(22, change.inventoryPlayerUuid?.toString())
-                    statement.setNullableInt(23, change.inventorySlot)
-                    statement.setNullableBytes(24, change.beforeItemData)
-                    statement.setNullableBytes(25, change.afterItemData)
-                    statement.setNullableString(26, change.entityUuid?.toString())
-                    statement.setNullableString(27, change.entityType)
-                    statement.setNullableString(28, change.entityAction?.value)
-                    statement.setObject(29, change.entityPosition?.x())
-                    statement.setObject(30, change.entityPosition?.y())
-                    statement.setObject(31, change.entityPosition?.z())
-                    statement.setObject(32, change.entityPosition?.yaw())
-                    statement.setObject(33, change.entityPosition?.pitch())
-                    statement.setObject(34, change.entityVelocity?.x())
-                    statement.setObject(35, change.entityVelocity?.y())
-                    statement.setObject(36, change.entityVelocity?.z())
-                    statement.setNullableBytes(37, change.entityTagData)
-                    statement.setNullableString(38, change.beforeBlockHandler)
-                    statement.setNullableString(39, change.afterBlockHandler)
+                    statement.setString(6, change.changeKind.value)
+                    statement.setBoolean(7, change.applied)
+                    statement.setNullableInt(8, change.x)
+                    statement.setNullableInt(9, change.y)
+                    statement.setNullableInt(10, change.z)
+                    statement.setNullableString(11, change.beforeBlockState)
+                    statement.setNullableBytes(12, change.beforeBlockNbt)
+                    statement.setNullableString(13, change.afterBlockState)
+                    statement.setNullableBytes(14, change.afterBlockNbt)
+                    statement.setNullableString(15, change.storageSource)
+                    statement.setNullableString(16, change.storageId)
+                    statement.setNullableString(17, change.storageAction?.value)
+                    statement.setNullableBytes(18, change.itemData)
+                    statement.setNullableInt(19, change.amount)
+                    statement.setNullableInt(20, change.storageSlot)
+                    statement.setNullableString(21, change.inventoryPlayerUuid?.toString())
+                    statement.setNullableInt(22, change.inventorySlot)
+                    statement.setNullableBytes(23, change.beforeItemData)
+                    statement.setNullableBytes(24, change.afterItemData)
+                    statement.setNullableString(25, change.beforeBlockHandler)
+                    statement.setNullableString(26, change.afterBlockHandler)
                     statement.addBatch()
                 }
                 statement.executeBatch()
@@ -340,7 +321,6 @@ class Rollback(
         updateTableMarkers(connection, blockTable, changes.mapNotNull { it.blockLogId }, target)
         updateTableMarkers(connection, storageTable, changes.mapNotNull { it.storageLogId }, target)
         updateTableMarkers(connection, inventoryTable, changes.mapNotNull { it.inventoryLogId }, target)
-        updateTableMarkers(connection, entityTable, changes.mapNotNull { it.entityLogId }, target)
     }
 
     private fun checkMarkers(
@@ -351,7 +331,6 @@ class Rollback(
         checkTableMarkers(connection, blockTable, changes.mapNotNull { it.blockLogId }, expected)
         checkTableMarkers(connection, storageTable, changes.mapNotNull { it.storageLogId }, expected)
         checkTableMarkers(connection, inventoryTable, changes.mapNotNull { it.inventoryLogId }, expected)
-        checkTableMarkers(connection, entityTable, changes.mapNotNull { it.entityLogId }, expected)
     }
 
     private fun checkTableMarkers(
@@ -514,7 +493,6 @@ class Rollback(
             blockLogId = results.getLong("block_log_id").takeUnless { results.wasNull() },
             storageLogId = results.getLong("storage_log_id").takeUnless { results.wasNull() },
             inventoryLogId = results.getLong("inventory_log_id").takeUnless { results.wasNull() },
-            entityLogId = results.getLong("entity_log_id").takeUnless { results.wasNull() },
             changeKind = RollbackChangeKind.fromValue(results.getString("change_kind")),
             applied = results.getBoolean("applied"),
             x = results.getNullableInt("x"),
@@ -536,36 +514,6 @@ class Rollback(
             inventorySlot = results.getNullableInt("inventory_slot"),
             beforeItemData = results.getBytes("before_item_data"),
             afterItemData = results.getBytes("after_item_data"),
-            entityUuid = results.getString("entity_uuid")?.let(UUID::fromString),
-            entityType = results.getString("entity_type"),
-            entityAction = results.getString("entity_action")?.let(EntityChangeAction::fromValue),
-            entityPosition =
-                results.getDouble("entity_x").let { x ->
-                    if (results.wasNull()) {
-                        null
-                    } else {
-                        Pos(
-                            x,
-                            results.getDouble("entity_y"),
-                            results.getDouble("entity_z"),
-                            results.getFloat("entity_yaw"),
-                            results.getFloat("entity_pitch"),
-                        )
-                    }
-                },
-            entityVelocity =
-                results.getDouble("entity_velocity_x").let { x ->
-                    if (results.wasNull()) {
-                        null
-                    } else {
-                        Vec(
-                            x,
-                            results.getDouble("entity_velocity_y"),
-                            results.getDouble("entity_velocity_z"),
-                        )
-                    }
-                },
-            entityTagData = results.getBytes("entity_tag_data"),
         )
 
     private fun <T> transaction(block: (Connection) -> T): T =
@@ -590,13 +538,11 @@ class Rollback(
             "id, ts, completed_ts, actor_uuid, actor_name, instance_uuid, operation_kind, query_desc, " +
                 "target_ts, safe_mode, status, block_change_count, skipped_change_count"
         const val CHANGE_COLUMNS =
-            "id, operation_id, sequence_no, block_log_id, storage_log_id, inventory_log_id, entity_log_id, " +
+            "id, operation_id, sequence_no, block_log_id, storage_log_id, inventory_log_id, " +
                 "change_kind, applied, x, y, z, " +
                 "before_block_state, before_block_nbt, after_block_state, after_block_nbt, " +
                 "storage_source, storage_id, storage_action, item_data, amount, storage_slot, " +
                 "inventory_player_uuid, inventory_slot, before_item_data, after_item_data, " +
-                "entity_uuid, entity_type, entity_action, entity_x, entity_y, entity_z, entity_yaw, entity_pitch, " +
-                "entity_velocity_x, entity_velocity_y, entity_velocity_z, entity_tag_data, " +
                 "before_block_handler, after_block_handler"
     }
 }

@@ -83,31 +83,15 @@ internal class RollbackPlanner(
             } else {
                 CompletableFuture.completedFuture(emptyList())
             }
-        val entityRowsFuture =
-            if (RollbackDomain.ENTITY in selection.domains) {
-                Logger.entityChange.searchForOperationAsync(
-                    params,
-                    targetTs,
-                    selection.entityActions,
-                    rolledBack = kind == RollbackOperationKind.RESTORE,
-                    instanceUuid = instanceUuid,
-                    center = center,
-                    limit = Int.MAX_VALUE,
-                )
-            } else {
-                CompletableFuture.completedFuture(emptyList())
-            }
         return CompletableFuture
             .allOf(
                 blockRowsFuture,
                 storageRowsFuture,
                 inventoryRowsFuture,
-                entityRowsFuture,
             ).thenApplyAsync({
                 val rows = blockRowsFuture.join()
                 val storageRows = storageRowsFuture.join()
                 val inventoryRows = inventoryRowsFuture.join()
-                val entityRows = entityRowsFuture.join()
                 val selected = rows
                 val blockChanges =
                     selected.map { row ->
@@ -165,18 +149,6 @@ internal class RollbackPlanner(
                             targetItem = if (kind == RollbackOperationKind.ROLLBACK) row.oldItem else row.newItem,
                         )
                     }
-                val entityChanges =
-                    entityRows.map { row ->
-                        EntityChangePlan(
-                            entityLogId = row.id,
-                            entityUuid = row.entityUuid,
-                            entityType = row.entityType,
-                            targetAction = if (kind == RollbackOperationKind.ROLLBACK) row.action.inverse() else row.action,
-                            position = row.position,
-                            velocity = row.velocity,
-                            tagData = row.tagData,
-                        )
-                    }
                 RollbackPlan(
                     kind = kind,
                     instanceUuid = instanceUuid,
@@ -186,7 +158,6 @@ internal class RollbackPlanner(
                     blockChanges = blockChanges,
                     storageChanges = storageChanges,
                     inventoryChanges = inventoryChanges,
-                    entityChanges = entityChanges,
                     skippedBlockCount = 0,
                 )
             }, executor)

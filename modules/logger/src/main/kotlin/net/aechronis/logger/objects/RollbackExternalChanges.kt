@@ -1,10 +1,8 @@
 package net.aechronis.logger.objects
 
-import net.aechronis.logger.utils.EntityStateCodec
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.MinecraftServer
-import net.minestom.server.instance.Instance
 import java.util.concurrent.CompletableFuture
 
 private data class InventoryWrite(
@@ -14,7 +12,7 @@ private data class InventoryWrite(
     val after: net.minestom.server.item.ItemStack,
 )
 
-/** Applies storage, inventory, and entity changes while recording successful mutations. */
+/** Applies storage and inventory changes while recording successful mutations. */
 internal class RollbackExternalChanges(
     private val lifecycle: RollbackLifecycle,
 ) {
@@ -129,72 +127,6 @@ internal class RollbackExternalChanges(
                         }
                     }
                     future
-                }
-        }
-        return chain
-    }
-
-    fun applyEntities(
-        instance: Instance,
-        changes: List<RollbackChange>,
-        reverse: Boolean,
-        applied: MutableList<RollbackChange>,
-    ): CompletableFuture<Void> {
-        var chain = CompletableFuture.completedFuture<Void>(null)
-        for (change in changes) {
-            chain =
-                chain.thenCompose {
-                    if (lifecycle.isClosing) {
-                        return@thenCompose CompletableFuture.failedFuture(
-                            IllegalStateException("rollback service is closing"),
-                        )
-                    }
-                    val entityUuid =
-                        change.entityUuid
-                            ?: return@thenCompose CompletableFuture.failedFuture(IllegalStateException("entity UUID is missing"))
-                    val action =
-                        change.entityAction
-                            ?: return@thenCompose CompletableFuture.failedFuture(IllegalStateException("entity action is missing"))
-                    val effectiveAction = if (reverse) action.inverse() else action
-                    if (effectiveAction == EntityChangeAction.DESPAWN) {
-                        val entity =
-                            instance.getEntityByUuid(entityUuid)
-                                ?: return@thenCompose CompletableFuture.failedFuture(
-                                    IllegalStateException("entity $entityUuid no longer exists"),
-                                )
-                        RollbackMutationGuard.suppressEntity(entityUuid) { entity.remove() }
-                        applied += change
-                        CompletableFuture.completedFuture(null)
-                    } else {
-                        if (instance.getEntityByUuid(entityUuid) != null) {
-                            return@thenCompose CompletableFuture.failedFuture(IllegalStateException("entity $entityUuid already exists"))
-                        }
-                        val typeKey =
-                            change.entityType
-                                ?: return@thenCompose CompletableFuture.failedFuture(IllegalStateException("entity type is missing"))
-                        val type =
-                            net.minestom.server.entity.EntityType
-                                .fromKey(typeKey)
-                                ?: return@thenCompose CompletableFuture.failedFuture(
-                                    IllegalStateException("unknown entity type '$typeKey'"),
-                                )
-                        val position =
-                            change.entityPosition
-                                ?: return@thenCompose CompletableFuture.failedFuture(IllegalStateException("entity position is missing"))
-                        val state = EntityStateCodec.decode(change.entityTagData)
-                        val entity = EntityStateCodec.create(type, entityUuid, state)
-                        change.entityVelocity?.let(entity::setVelocity)
-                        EntityStateCodec.restore(entity, state)
-                        RollbackMutationGuard.beginEntity(entityUuid)
-                        lifecycle
-                            .trackedStage(
-                                start = { entity.setInstance(instance, position) },
-                                onSettled = { _, _ -> RollbackMutationGuard.endEntity(entityUuid) },
-                            ).thenApply {
-                                applied += change
-                                null
-                            }
-                    }
                 }
         }
         return chain

@@ -1,6 +1,5 @@
 package net.aechronis.logger.utils
 
-import net.aechronis.logger.objects.EntityChangeAction
 import net.aechronis.logger.objects.RollbackDomain
 import net.aechronis.logger.objects.RollbackSelection
 import net.aechronis.logger.objects.StorageChangeAction
@@ -25,7 +24,6 @@ internal fun parseMutation(tokens: Array<String>): MutationParse {
     val domains = mutableSetOf<RollbackDomain>()
     val blockActions = mutableListOf<String>()
     var storageActions: MutableSet<StorageChangeAction>? = null
-    var entityActions: MutableSet<EntityChangeAction>? = null
     for (action in actionTokens) {
         when (action) {
             "block" -> {
@@ -58,21 +56,6 @@ internal fun parseMutation(tokens: Array<String>): MutationParse {
                 storageActions = (storageActions ?: mutableSetOf()).apply { add(StorageChangeAction.WITHDRAW) }
             }
 
-            "entity" -> {
-                domains += RollbackDomain.ENTITY
-                entityActions = (entityActions ?: mutableSetOf()).apply { addAll(EntityChangeAction.entries) }
-            }
-
-            "despawn" -> {
-                domains += RollbackDomain.ENTITY
-                entityActions = (entityActions ?: mutableSetOf()).apply { add(EntityChangeAction.DESPAWN) }
-            }
-
-            "spawn" -> {
-                domains += RollbackDomain.ENTITY
-                entityActions = (entityActions ?: mutableSetOf()).apply { add(EntityChangeAction.SPAWN) }
-            }
-
             else -> {
                 return MutationParse(tokens, RollbackSelection(), "Invalid rollback action: '$action'")
             }
@@ -87,6 +70,6 @@ internal fun parseMutation(tokens: Array<String>): MutationParse {
     if (blockActions.isNotEmpty()) parserTokens += "a:${blockActions.joinToString(",")}"
     return MutationParse(
         parserTokens.toTypedArray(),
-        RollbackSelection(domains = domains, storageActions = storageActions, entityActions = entityActions),
+        RollbackSelection(domains = domains, storageActions = storageActions),
     )
 }

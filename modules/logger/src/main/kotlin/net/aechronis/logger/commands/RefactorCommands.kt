@@ -106,7 +106,6 @@ open class LoggerMutationCommand(
                     if (
                         effectiveParams.global &&
                         effectiveParams.users.isEmpty() &&
-                        mutation.selection.domains != setOf(RollbackDomain.ENTITY) &&
                         !sourceScopedStorage
                     ) {
                         sender.sendMessage(Component.text("[Logger] global operations require u:<user>", NamedTextColor.RED))

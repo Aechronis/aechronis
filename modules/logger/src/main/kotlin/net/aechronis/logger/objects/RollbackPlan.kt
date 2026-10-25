@@ -37,14 +37,12 @@ enum class RollbackDomain {
     BLOCK,
     STORAGE,
     INVENTORY,
-    ENTITY,
 }
 
 data class RollbackSelection(
     val domains: Set<RollbackDomain> = setOf(RollbackDomain.BLOCK),
     val storageActions: Set<StorageChangeAction>? = null,
     val inventoryActions: Set<InventoryChangeAction>? = null,
-    val entityActions: Set<EntityChangeAction>? = null,
 )
 
 data class StorageChangePlan(
@@ -66,16 +64,6 @@ data class InventoryChangePlan(
     val targetItem: ItemStack,
 )
 
-data class EntityChangePlan(
-    val entityLogId: Long,
-    val entityUuid: UUID,
-    val entityType: String,
-    val targetAction: EntityChangeAction,
-    val position: net.minestom.server.coordinate.Pos,
-    val velocity: net.minestom.server.coordinate.Vec,
-    val tagData: ByteArray?,
-)
-
 data class RollbackPlan(
     val kind: RollbackOperationKind,
     val instanceUuid: UUID,
@@ -85,10 +73,9 @@ data class RollbackPlan(
     val blockChanges: List<BlockChangePlan>,
     val storageChanges: List<StorageChangePlan> = emptyList(),
     val inventoryChanges: List<InventoryChangePlan> = emptyList(),
-    val entityChanges: List<EntityChangePlan> = emptyList(),
     val skippedBlockCount: Int,
 ) {
-    val totalChangeCount: Int get() = blockChanges.size + storageChanges.size + inventoryChanges.size + entityChanges.size
+    val totalChangeCount: Int get() = blockChanges.size + storageChanges.size + inventoryChanges.size
 }
 
 enum class RollbackStatus(
@@ -115,7 +102,6 @@ enum class RollbackChangeKind(
     BLOCK("block"),
     STORAGE("storage"),
     INVENTORY("inventory"),
-    ENTITY("entity"),
     ;
 
     companion object {
@@ -147,7 +133,6 @@ data class RollbackChange(
     val blockLogId: Long? = null,
     val storageLogId: Long? = null,
     val inventoryLogId: Long? = null,
-    val entityLogId: Long? = null,
     val applied: Boolean = false,
     val x: Int? = null,
     val y: Int? = null,
@@ -168,10 +153,4 @@ data class RollbackChange(
     val inventorySlot: Int? = null,
     val beforeItemData: ByteArray? = null,
     val afterItemData: ByteArray? = null,
-    val entityUuid: UUID? = null,
-    val entityType: String? = null,
-    val entityAction: EntityChangeAction? = null,
-    val entityPosition: net.minestom.server.coordinate.Pos? = null,
-    val entityVelocity: net.minestom.server.coordinate.Vec? = null,
-    val entityTagData: ByteArray? = null,
 )

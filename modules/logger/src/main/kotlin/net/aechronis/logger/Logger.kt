@@ -4,7 +4,6 @@ import net.aechronis.logger.commands.LoggerCommand
 import net.aechronis.logger.commands.playerInspectMode
 import net.aechronis.logger.db.Database
 import net.aechronis.logger.listeners.BlockListener
-import net.aechronis.logger.listeners.EntityChangeListener
 import net.aechronis.logger.listeners.InventoryListener
 import net.aechronis.logger.listeners.InventorySnapshotListener
 import net.aechronis.logger.listeners.LootListener
@@ -18,7 +17,6 @@ import net.aechronis.logger.objects.SnapshotViewer
 import net.aechronis.logger.objects.VanillaStorage
 import net.aechronis.logger.params.FeatureSourceRegistry
 import net.aechronis.logger.repos.BlockLog
-import net.aechronis.logger.repos.EntityChange
 import net.aechronis.logger.repos.FeatureLog
 import net.aechronis.logger.repos.InventoryChange
 import net.aechronis.logger.repos.InventorySnapshot
@@ -41,7 +39,6 @@ object Logger {
     lateinit var storageChange: StorageChange
     lateinit var inventorySnapshot: InventorySnapshot
     lateinit var inventoryChange: InventoryChange
-    lateinit var entityChange: EntityChange
     lateinit var rollbackService: RollbackService
     lateinit var originalChunkService: OriginalChunkService
     lateinit var config: LoggerConfig
@@ -85,7 +82,6 @@ object Logger {
                 database.createStorageChangeLog()
                 database.createInventorySnapshotLog()
                 database.createInventoryChangeLog()
-                database.createEntityChangeLog()
             }
 
             measure("Repositories and recovery services") {
@@ -109,8 +105,6 @@ object Logger {
                 resources += inventorySnapshot
                 inventoryChange = InventoryChange(database)
                 resources += inventoryChange
-                entityChange = EntityChange(database)
-                resources += entityChange
                 rollbackService = RollbackService()
                 resources += rollbackService
                 originalChunkService = OriginalChunkService(Path.of(config.originalWorldPath))
@@ -120,7 +114,6 @@ object Logger {
             measure("Listeners") {
                 BlockListener.init()
                 WorldEditListener.init()
-                EntityChangeListener.init()
                 InventoryListener.init()
                 InventorySnapshotListener.init()
                 LootListener.init()

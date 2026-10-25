@@ -247,7 +247,6 @@ class RollbackService(
             plan.kind == RollbackOperationKind.CHUNK_RESTORE &&
             plan.storageChanges.isEmpty() &&
             plan.inventoryChanges.isEmpty() &&
-            plan.entityChanges.isEmpty() &&
             preparedChunkRestore == null
         ) {
             lifecycle.observeStage(
@@ -574,10 +573,8 @@ class RollbackService(
                 it.changeKind == RollbackChangeKind.BLOCK || it.changeKind == RollbackChangeKind.STORAGE
             }
         val inventoryChanges = changes.filter { it.changeKind == RollbackChangeKind.INVENTORY }
-        val entityChanges = changes.filter { it.changeKind == RollbackChangeKind.ENTITY }
         val appliedWorld = mutableListOf<RollbackChange>()
         val appliedInventory = mutableListOf<RollbackChange>()
-        val appliedEntities = mutableListOf<RollbackChange>()
 
         fun compensate(
             failure: Throwable,
@@ -589,7 +586,6 @@ class RollbackService(
                     instance,
                     appliedWorld,
                     appliedInventory,
-                    appliedEntities,
                     reverseExternal = !mode.reverse,
                 ),
                 forceRecovery,
@@ -629,30 +625,20 @@ class RollbackService(
                     compensate(inventoryFailure)
                     return@whenComplete
                 }
-                stateWriter.applyEntities(instance, entityChanges, reverse = mode.reverse, appliedEntities).whenComplete {
-                    _,
-                    entityFailure,
-                    ->
-                    if (result.isDone) return@whenComplete
-                    if (entityFailure != null) {
-                        compensate(entityFailure)
-                        return@whenComplete
-                    }
-                    val applied = appliedWorld + appliedInventory + appliedEntities
-                    timing?.applied()
-                    lifecycle.observeStage(
-                        isAbandoned = result::isDone,
-                        start = { persist(applied, runtimeSkipped) },
-                        onComplete = { _, failure ->
-                            if (failure == null) {
-                                result.complete(completed(applied, runtimeSkipped))
-                            } else {
-                                compensate(failure, forceRecovery = true)
-                            }
-                        },
-                        onFailure = result::completeExceptionally,
-                    )
-                }
+                val applied = appliedWorld + appliedInventory
+                timing?.applied()
+                lifecycle.observeStage(
+                    isAbandoned = result::isDone,
+                    start = { persist(applied, runtimeSkipped) },
+                    onComplete = { _, failure ->
+                        if (failure == null) {
+                            result.complete(completed(applied, runtimeSkipped))
+                        } else {
+                            compensate(failure, forceRecovery = true)
+                        }
+                    },
+                    onFailure = result::completeExceptionally,
+                )
             }
         }
     }

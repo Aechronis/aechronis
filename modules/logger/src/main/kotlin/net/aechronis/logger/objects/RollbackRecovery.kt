@@ -14,18 +14,10 @@ internal class RollbackRecovery(
         instance: Instance,
         worldChanges: List<RollbackChange>,
         inventoryChanges: List<RollbackChange>,
-        entityChanges: List<RollbackChange>,
         reverseExternal: Boolean,
     ): CompletableFuture<Void> {
         val failures = mutableListOf<Throwable>()
         var chain = CompletableFuture.completedFuture<Void>(null)
-        chain =
-            chain.thenCompose {
-                captureCompensation(
-                    stateWriter.applyEntities(instance, entityChanges.asReversed(), reverseExternal, mutableListOf()),
-                    failures,
-                )
-            }
         chain =
             chain.thenCompose {
                 captureCompensation(

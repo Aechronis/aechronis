@@ -33,13 +33,6 @@ fun showRollbackPreview(
                 NamedTextColor.GRAY,
             )
     }
-    plan.entityChanges.forEach { change ->
-        lines +=
-            Component.text(
-                "  entity ${change.entityUuid}: ${change.targetAction.value} ${change.entityType}",
-                NamedTextColor.GRAY,
-            )
-    }
     if (plan.skippedBlockCount > 0) {
         lines +=
             Component.text(

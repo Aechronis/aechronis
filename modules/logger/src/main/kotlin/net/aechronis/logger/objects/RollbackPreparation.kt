@@ -1,6 +1,5 @@
 package net.aechronis.logger.objects
 
-import net.aechronis.logger.utils.EntityStateCodec
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
 import net.minestom.server.MinecraftServer
@@ -46,7 +45,6 @@ internal class RollbackPreparation {
         preparedChunkRestore: PreparedRollbackChanges? = null,
     ): PreparedRollbackChanges {
         val simulatedInventory = mutableMapOf<Pair<UUID, Int>, net.minestom.server.item.ItemStack>()
-        val simulatedEntities = mutableMapOf<UUID, Boolean>()
         val changes = mutableListOf<RollbackChange>()
         var skipped = plan.skippedBlockCount
 
@@ -81,29 +79,6 @@ internal class RollbackPreparation {
                     afterItemData = ItemCodec.encodeItem(candidate.targetItem),
                 )
             simulatedInventory[key] = candidate.targetItem
-        }
-        for (candidate in plan.entityChanges) {
-            val currentEntity = instance.getEntityByUuid(candidate.entityUuid)
-            val currentExists = simulatedEntities[candidate.entityUuid] ?: (currentEntity != null)
-            val expectedExists = candidate.targetAction == EntityChangeAction.DESPAWN
-            if (plan.safeMode && currentExists != expectedExists) {
-                skipped++
-                continue
-            }
-            changes +=
-                RollbackChange(
-                    operationId = 0,
-                    sequence = changes.size,
-                    entityLogId = candidate.entityLogId,
-                    changeKind = RollbackChangeKind.ENTITY,
-                    entityUuid = candidate.entityUuid,
-                    entityType = currentEntity?.entityType?.key()?.asString() ?: candidate.entityType,
-                    entityAction = candidate.targetAction,
-                    entityPosition = currentEntity?.position ?: candidate.position,
-                    entityVelocity = currentEntity?.velocity ?: candidate.velocity,
-                    entityTagData = currentEntity?.let(EntityStateCodec::encode) ?: candidate.tagData,
-                )
-            simulatedEntities[candidate.entityUuid] = candidate.targetAction == EntityChangeAction.SPAWN
         }
         return PreparedRollbackChanges(changes, skipped)
     }

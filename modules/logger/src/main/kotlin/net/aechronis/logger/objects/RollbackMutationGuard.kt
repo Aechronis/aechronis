@@ -5,7 +5,6 @@ import java.util.concurrent.ConcurrentHashMap
 
 object RollbackMutationGuard {
     private val inventoryPlayers = ConcurrentHashMap.newKeySet<UUID>()
-    private val entities = ConcurrentHashMap.newKeySet<UUID>()
     private val storages = ConcurrentHashMap.newKeySet<String>()
 
     fun inventorySuppressed(playerUuid: UUID): Boolean = playerUuid in inventoryPlayers
@@ -33,28 +32,6 @@ object RollbackMutationGuard {
             block()
         } finally {
             storages -= storageId
-        }
-    }
-
-    fun entitySuppressed(entityUuid: UUID): Boolean = entityUuid in entities
-
-    fun beginEntity(entityUuid: UUID) {
-        entities += entityUuid
-    }
-
-    fun endEntity(entityUuid: UUID) {
-        entities -= entityUuid
-    }
-
-    fun <T> suppressEntity(
-        entityUuid: UUID,
-        block: () -> T,
-    ): T {
-        entities += entityUuid
-        return try {
-            block()
-        } finally {
-            entities -= entityUuid
         }
     }
 }
