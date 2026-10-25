@@ -36,7 +36,6 @@ object ItemFrames {
     private const val FRAME_OFFSET_FROM_SUPPORT = 0.53125
 
     private val frameAnchorsTag: Tag<BinaryTag> = Tag.NBT("aechronis:item_frame_anchors")
-    private val frameAnchorsIndexedTag = Tag.Boolean("aechronis:item_frame_anchors_indexed")
 
     private data class Frame(
         val instance: Instance,
@@ -59,8 +58,8 @@ object ItemFrames {
         Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, ::onInteract)
         Vanilla.eventNode.addListener(EntityAttackEvent::class.java, ::onAttack)
         Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java, ::onSupportBreak)
-        // Anvil loads chunks on virtual threads. Restore only this chunk's indexed frame anchors
-        // on the next instance tick; never scan while a player is being sent a chunk.
+        // Anvil loads chunks on virtual threads. Restore this chunk's indexed frame anchors
+        // on the next instance tick.
         Vanilla.eventNode.addListener(InstanceChunkLoadEvent::class.java, ::onChunkLoad)
         Vanilla.eventNode.addListener(InstanceChunkUnloadEvent::class.java, ::onChunkUnload)
         MinecraftServer.getInstanceManager().instances.forEach { instance ->
@@ -137,11 +136,10 @@ object ItemFrames {
 
     private fun onChunkLoad(event: InstanceChunkLoadEvent) {
         val chunk = event.chunk
-        val (indexed, anchors) = anchorsForLoad(chunk)
+        val anchors = anchorsForLoad(chunk)
         val instance = event.instance
         ModuleScheduler.scheduleNextTick {
             if (!chunk.isLoaded || instance.getChunk(chunk.chunkX, chunk.chunkZ) !== chunk) return@scheduleNextTick
-            if (!indexed) writeAnchors(chunk, anchors)
             restoreAnchors(chunk, anchors)
         }
     }
@@ -190,14 +188,10 @@ object ItemFrames {
         updateAnchorIndex(frame.instance, frame.support, present = true)
     }
 
-    /** Returns the persisted index, or discovers legacy anchors once off the tick thread. */
-    private fun anchorsForLoad(chunk: Chunk): Pair<Boolean, Set<BlockVec>> {
+    private fun anchorsForLoad(chunk: Chunk): Set<BlockVec> {
         chunk.lockReadLock()
         try {
-            if (chunk.getTag(frameAnchorsIndexedTag) == true) return true to indexedAnchors(chunk)
-            // Compatibility for existing item frames. The scan is done by Anvil's virtual loader
-            // thread, never by Player#sendPendingChunks or an instance tick.
-            return false to scanFrameAnchors(chunk)
+            return indexedAnchors(chunk)
         } finally {
             chunk.unlockReadLock()
         }
@@ -212,27 +206,6 @@ object ItemFrames {
                 val z = record.getInt("z", Int.MIN_VALUE)
                 if (x == Int.MIN_VALUE || y == Int.MIN_VALUE || z == Int.MIN_VALUE) null else BlockVec(x, y, z)
             }.filterTo(mutableSetOf()) { it.chunkX() == chunk.chunkX && it.chunkZ() == chunk.chunkZ }
-
-    private fun scanFrameAnchors(chunk: Chunk): Set<BlockVec> {
-        val anchors = mutableSetOf<BlockVec>()
-        for (x in chunk.chunkX * 16..<chunk.chunkX * 16 + 16) {
-            for (z in chunk.chunkZ * 16..<chunk.chunkZ * 16 + 16) {
-                for (y in chunk.minSection * 16..<chunk.maxSection * 16) {
-                    val support = BlockVec(x, y, z)
-                    if (
-                        !chunk
-                            .getBlock(support)
-                            .nbtOrEmpty()
-                            .getList(FRAME_DATA, BinaryTagTypes.COMPOUND)
-                            .isEmpty()
-                    ) {
-                        anchors += support
-                    }
-                }
-            }
-        }
-        return anchors
-    }
 
     private fun writeAnchors(
         chunk: Chunk,
@@ -250,7 +223,6 @@ object ItemFrames {
             )
         }
         chunk.setTag(frameAnchorsTag, records.build())
-        chunk.setTag(frameAnchorsIndexedTag, true)
     }
 
     private fun updateAnchorIndex(
