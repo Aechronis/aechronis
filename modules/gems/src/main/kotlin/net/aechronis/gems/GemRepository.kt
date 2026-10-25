@@ -3,6 +3,7 @@ package net.aechronis.gems
 import java.nio.file.Files
 import java.nio.file.Path
 import java.sql.DriverManager
+import java.sql.SQLException
 import java.util.UUID
 
 class GemRepository(
@@ -51,12 +52,27 @@ class GemRepository(
         DriverManager.getConnection(url).use { connection ->
             connection
                 .prepareStatement(
-                    "MERGE INTO gems (player_uuid, player_name, gem_amount) KEY(player_uuid) VALUES (?, ?, COALESCE((SELECT gem_amount FROM gems WHERE player_uuid = ?), 0))",
-                ).use { statement ->
-                    statement.setString(1, uuid.toString())
-                    statement.setString(2, name)
-                    statement.setString(3, uuid.toString())
-                    statement.executeUpdate()
+                    "UPDATE gems SET player_name = ? WHERE player_uuid = ?",
+                ).use { update ->
+                    update.setString(1, name)
+                    update.setString(2, uuid.toString())
+                    // Refreshing an existing identity must never rewrite its balance.
+                    if (update.executeUpdate() == 0) {
+                        try {
+                            connection
+                                .prepareStatement(
+                                    "INSERT INTO gems (player_uuid, player_name, gem_amount) VALUES (?, ?, 0)",
+                                ).use { insert ->
+                                    insert.setString(1, uuid.toString())
+                                    insert.setString(2, name)
+                                    insert.executeUpdate()
+                                }
+                        } catch (exception: SQLException) {
+                            if (exception.sqlState != "23505") throw exception
+                            // Another connection created the account after our initial update.
+                            update.executeUpdate()
+                        }
+                    }
                 }
         }
     }
