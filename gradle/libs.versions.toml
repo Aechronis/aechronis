@@ -25,7 +25,7 @@ cronutils = "9.2.1"
 profanity-filter = "1.0.1"
 via = "5.11.0"
 nuvotifier = "2.7.1"
-worldedit = "7.4.5"
+worldedit = "7.4.6"
 
 [libraries]
 minestom = { module = "net.minestom:minestom", version.ref = "minestom" }
