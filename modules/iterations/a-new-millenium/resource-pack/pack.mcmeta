@@ -1,14 +1,23 @@
 {
   "pack": {
-    "pack_format": 88,
+    "pack_format": 97,
     "min_format": [
       75,
       0
     ],
     "max_format": [
-      88,
-      0
+      97,
+      1
     ],
     "description": "\u00a76\u00a7lAechronis\n\u00a77A New Millennium"
+  },
+  "overlays": {
+    "entries": [
+      {
+        "directory": "overlay_26_3",
+        "min_format": [97, 1],
+        "max_format": [97, 1]
+      }
+    ]
   }
 }

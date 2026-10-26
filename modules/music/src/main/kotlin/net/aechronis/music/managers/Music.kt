@@ -75,7 +75,7 @@ object Music {
     }
 
     private val packMetadata =
-        """{"pack":{"description":"§6§lAechronis\n§7Music","min_format":[75,0],"max_format":[88,0]}}"""
+        """{"pack":{"description":"§6§lAechronis\n§7Music","min_format":[75,0],"max_format":[97,1]}}"""
             .toByteArray()
 
     private fun registerSongs() {

@@ -1,8 +1,8 @@
 {
   "pack": {
-    "pack_format": 88,
+    "pack_format": 97,
     "min_format": [75,0],
-    "max_format": [88,0],
+    "max_format": [97,1],
     "description": "§6§lAechronis\n§7Nodes"
   },
   "overlays": {
@@ -16,6 +16,11 @@
         "directory": "overlay_26_2",
         "min_format": [88,0],
         "max_format": [88,0]
+      },
+      {
+        "directory": "overlay_26_3",
+        "min_format": [97,1],
+        "max_format": [97,1]
       }
     ]
   }
