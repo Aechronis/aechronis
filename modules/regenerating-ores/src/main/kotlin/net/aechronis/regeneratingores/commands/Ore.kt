@@ -1,7 +1,7 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.regeneratingores.commands
 
+import net.aechronis.regeneratingores.Ores
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.managers.Ores
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType

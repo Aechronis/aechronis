@@ -16,7 +16,7 @@ import java.util.concurrent.CompletableFuture
 
 class NodesModule : AechronisModule {
     override val id = "nodes"
-    override val dependencies = setOf("utils", "combat", "vanilla", "worldedit", "stats")
+    override val dependencies = setOf("utils", "combat", "vanilla", "regenerating-ores", "worldedit", "stats")
 
     override fun initialize(context: ModuleContext) {
         ModulePermissions.register("nodes.bypass", "*")

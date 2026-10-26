@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.regeneratingores
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -7,6 +7,7 @@ import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.JsonRegistryFile
 import net.aechronis.utils.OreSounds
 import net.aechronis.vanilla.Vanilla
+import net.aechronis.vanilla.managers.BlockDrops
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
@@ -80,7 +81,8 @@ object Ores {
     private val cooldownStorage = JsonRegistryFile("ore cooldowns")
 
     // This must run before Guard (-1000) and Nodes' protection node (-999) so configured ores are mineable everywhere.
-    private val eventNode = EventNode.all("vanilla-ores").setPriority(-1001)
+    private val breakEventNode = EventNode.all("regenerating-ores-break").setPriority(-1001)
+    private val eventNode = EventNode.all("regenerating-ores")
     internal val cooldowns = ConcurrentHashMap<Cooldown, Long>()
     private val storage = JsonRegistryFile("ores")
 
@@ -100,9 +102,10 @@ object Ores {
             loaded
         }
 
-        eventNode.addListener(PlayerBlockBreakEvent::class.java, Ores::onBreak)
-        Vanilla.eventNode.addListener(PlayerChunkLoadEvent::class.java, Ores::onChunkLoad)
-        Vanilla.eventNode.addListener(PlayerSpawnEvent::class.java, Ores::onSpawn)
+        breakEventNode.addListener(PlayerBlockBreakEvent::class.java, Ores::onBreak)
+        eventNode.addListener(PlayerChunkLoadEvent::class.java, Ores::onChunkLoad)
+        eventNode.addListener(PlayerSpawnEvent::class.java, Ores::onSpawn)
+        ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), breakEventNode)
         ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
 
         ModuleScheduler

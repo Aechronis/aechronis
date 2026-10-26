@@ -2,8 +2,8 @@ package net.aechronis.nodes.objects
 
 import kotlinx.serialization.json.Json
 import net.aechronis.nodes.Nodes
+import net.aechronis.regeneratingores.Ores
 import net.aechronis.server.io.AtomicFiles
-import net.aechronis.vanilla.managers.Ores
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
 

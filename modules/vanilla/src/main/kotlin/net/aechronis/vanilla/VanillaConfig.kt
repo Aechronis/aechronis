@@ -29,7 +29,6 @@ data class VanillaConfig(
     val voidDamageEnabled: Boolean = true,
     val serverLinksEnabled: Boolean = true,
     val spawnEnabled: Boolean = true,
-    val oresEnabled: Boolean = true,
     val horsesEnabled: Boolean = false,
     // Player defaults
     val defaultGameMode: GameMode = GameMode.SURVIVAL,
@@ -38,7 +37,6 @@ data class VanillaConfig(
     val playerDataPath: String = "playerdata",
     val whitelistPath: String = "whitelist.json",
     val spawnPath: String = "spawn",
-    val oresPath: String = "ores.json",
     val votePath: String = "vote.txt",
     val horsesPath: String = "horses.json",
     // Blocks

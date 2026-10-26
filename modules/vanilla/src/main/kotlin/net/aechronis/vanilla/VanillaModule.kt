@@ -6,7 +6,6 @@ import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.vanilla.listeners.WhitelistListener
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Horses
-import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Vanish
 import net.aechronis.vanilla.objects.Recipe
@@ -22,7 +21,6 @@ class VanillaModule : AechronisModule {
         measure("Restore transient state") {
             if (Vanilla.config.cropsEnabled) Crops.restoreTransientState(context.peekTransientState(CROPS_STATE_KEY))
             if (Vanilla.config.saplingsEnabled) Saplings.restoreTransientState(context.peekTransientState(SAPLINGS_STATE_KEY))
-            if (Vanilla.config.oresEnabled) Ores.restoreTransientState(context.peekTransientState(ORE_COOLDOWNS_STATE_KEY))
             if (Vanilla.config.commandsEnabled) Vanish.restoreTransientState(context.peekTransientState(VANISH_STATE_KEY))
         }
         if (Vanilla.config.whitelistEnabled) {
@@ -41,7 +39,6 @@ class VanillaModule : AechronisModule {
         Vanilla.saveBeforeShutdown(context)
         publishOrClear(context, CROPS_STATE_KEY, Vanilla.config.cropsEnabled, Crops::captureTransientState)
         publishOrClear(context, SAPLINGS_STATE_KEY, Vanilla.config.saplingsEnabled, Saplings::captureTransientState)
-        publishOrClear(context, ORE_COOLDOWNS_STATE_KEY, Vanilla.config.oresEnabled, Ores::captureTransientState)
         publishOrClear(context, VANISH_STATE_KEY, Vanilla.config.commandsEnabled, Vanish::captureTransientState)
     }
 
@@ -87,7 +84,6 @@ class VanillaModule : AechronisModule {
 
         const val CROPS_STATE_KEY = "vanilla:crops:v1"
         const val SAPLINGS_STATE_KEY = "vanilla:saplings:v1"
-        const val ORE_COOLDOWNS_STATE_KEY = "vanilla:ore-cooldowns:v1"
         const val VANISH_STATE_KEY = "vanilla:vanish:v1"
     }
 }

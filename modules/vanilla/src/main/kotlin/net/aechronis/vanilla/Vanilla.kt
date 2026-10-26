@@ -17,7 +17,6 @@ import net.aechronis.vanilla.commands.InventorySee
 import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Message
-import net.aechronis.vanilla.commands.Ore
 import net.aechronis.vanilla.commands.Recpies
 import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shutdown
@@ -44,7 +43,6 @@ import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.ItemFrames
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.Jukeboxes
-import net.aechronis.vanilla.managers.Ores
 import net.aechronis.vanilla.managers.PlayerData
 import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Saplings
@@ -106,7 +104,6 @@ object Vanilla {
                 if (config.recipesEnabled) commands += Craft()
                 if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
                 if (config.whitelistEnabled) commands += Whitelist()
-                if (config.oresEnabled) commands += Ore()
                 ModuleCommands
                     .register(*commands.toTypedArray())
             }
@@ -139,7 +136,6 @@ object Vanilla {
             measure("Environmental Damage") { EnvironmentalDamage.init() }
         }
         if (config.serverLinksEnabled) measure("Server Links Listener") { ServerLinksListener.init() }
-        if (config.oresEnabled) measure("Ores") { Ores.init(Path.of(config.path, config.oresPath)) }
         measure("Vote Links") { VoteLinks.init(Path.of(config.path, config.votePath)) }
         if (config.horsesEnabled) {
             val world = requireNotNull(instance) { "Horses need the world instance" }
@@ -155,7 +151,6 @@ object Vanilla {
         println("Vanilla: saving data before shutdown...")
         runSaveStages(
             "checkpoint" to { context.captureLive(::saveCheckpoint).join() },
-            "ores" to { if (config.oresEnabled) Ores.saveAll() },
             "horses" to { if (config.horsesEnabled) Horses.save() },
         )
         println("Vanilla: data saved.")
@@ -168,7 +163,6 @@ object Vanilla {
             "tps bars" to TpsBarManager::shutdown,
             "vanish state" to VanishManager::shutdown,
             "efficiency attributes" to Efficiency::shutdown,
-            "ore cooldowns" to { if (config.oresEnabled) Ores.shutdown() },
             "crop growth" to { if (config.cropsEnabled) Crops.shutdown() },
             "sapling growth" to { if (config.saplingsEnabled) Saplings.shutdown() },
             "recipes" to Recipes::shutdown,
