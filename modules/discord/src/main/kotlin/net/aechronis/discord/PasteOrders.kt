@@ -30,7 +30,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import net.aechronis.gems.Gems
+import net.aechronis.economy.Economy
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.minestom.server.instance.InstanceContainer
@@ -313,7 +313,7 @@ internal class PasteOrders(
                     ?: return "Cancelled: the original schematic is missing or unreadable.".also { discard(order.file) }
             }
             if (order.cost > 0) {
-                Gems.charge(order.player, "discord-paste:${order.chunks}", order.cost)
+                Economy.charge(order.player, "discord-paste:${order.chunks}", order.cost)
                     ?: return "Cancelled: not enough gems.".also { discard(order.file) }
                 journal("charged", order, by)
             }
@@ -325,7 +325,7 @@ internal class PasteOrders(
             val result = if (queued) done.await() else Result.failure(IllegalStateException("WorldEdit is shutting down"))
             if (result.isFailure) {
                 if (order.cost > 0) {
-                    Gems.refund(order.player, order.cost)
+                    Economy.refund(order.player, order.cost)
                     journal("refunded", order, by)
                 } else {
                     journal("paste failed", order, by)
@@ -458,7 +458,7 @@ internal class PasteOrders(
             }
         }
         if (order.cost > 0) {
-            val balance = Gems.balance(order.player) ?: error("No gem balance found; join the server once first.")
+            val balance = Economy.balance(order.player) ?: error("No gem balance found; join the server once first.")
             if (balance < order.cost) error("Not enough gems: need ${order.cost}, have $balance.")
         }
         return town.name

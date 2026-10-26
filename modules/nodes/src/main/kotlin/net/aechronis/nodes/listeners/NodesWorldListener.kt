@@ -8,6 +8,7 @@
 
 package net.aechronis.nodes.listeners
 
+import net.aechronis.economy.MiningBoostManager
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.colonization.Colonization
@@ -30,7 +31,6 @@ import net.aechronis.nodes.constants.ErrorTownBlacklisted
 import net.aechronis.nodes.constants.ErrorTownNotWhitelisted
 import net.aechronis.nodes.constants.PROTECTED_BLOCKS
 import net.aechronis.nodes.objects.Coord
-import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryChunk

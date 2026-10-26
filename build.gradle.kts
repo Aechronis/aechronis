@@ -114,7 +114,7 @@ val runtimeModuleProjects =
         ":modules:discord",
         ":modules:logger",
         ":modules:guard",
-        ":modules:gems",
+        ":modules:economy",
         ":modules:tebex",
         ":modules:votifier",
         ":modules:stats",

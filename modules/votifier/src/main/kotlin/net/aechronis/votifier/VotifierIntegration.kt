@@ -2,7 +2,7 @@ package net.aechronis.votifier
 
 import com.vexsoftware.votifier.model.Vote
 import net.aechronis.crates.Crates
-import net.aechronis.gems.Gems
+import net.aechronis.economy.Economy
 import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
@@ -123,7 +123,7 @@ object VotifierIntegration {
 
     private fun giveReward(player: Player): Boolean {
         val crate = runCatching { Crates.itemFor(VOTE_CRATE_ID) }.getOrNull() ?: return false
-        return Gems.grantReward(player, GEM_REWARD) {
+        return Economy.grantReward(player, GEM_REWARD) {
             player.inventory.addItemStack(crate) || player.dropItem(crate)
         }
     }

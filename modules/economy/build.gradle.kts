@@ -4,7 +4,8 @@ plugins {
 
 dependencies {
     compileOnly(libs.h2)
-    compileOnly(project(":modules:nodes"))
+    compileOnly(libs.kotlinx.serialization.json)
+    compileOnly(project(":modules:combat"))
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:vanilla"))
 }

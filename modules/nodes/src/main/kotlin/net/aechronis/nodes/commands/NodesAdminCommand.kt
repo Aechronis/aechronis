@@ -23,7 +23,6 @@ class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
         addSubcommand(NodesAdminSaveCommand())
         addSubcommand(NodesAdminLoadCommand())
         addSubcommand(NodesAdminRunIncomeCommand())
-        addSubcommand(NodesAdminMiningBoostCommand())
         addSubcommand(NodesAdminWarzoneCommand())
         addSubcommand(NodesAdminOutpostCommand())
     }
@@ -51,7 +50,6 @@ private fun printNodesAdminHelp(sender: Player) {
     Message.print(sender, "/nodesadmin save${ChatColor.WHITE}: Force save world")
     Message.print(sender, "/nodesadmin load${ChatColor.WHITE}: Force load world")
     Message.print(sender, "/nodesadmin runincome${ChatColor.WHITE}: Runs income for all towns")
-    Message.print(sender, "/nodesadmin miningboost${ChatColor.WHITE}: Configure global mining boosts")
     Message.print(sender, "/nodesadmin resident removecooldown <player-names>${ChatColor.WHITE}: Clear town-join cooldowns")
     Message.print(sender, "/nda resident leavepenalty <allow|deny>${ChatColor.WHITE}: Toggle the global town-leave cooldown")
 }

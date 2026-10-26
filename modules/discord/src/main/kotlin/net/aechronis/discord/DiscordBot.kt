@@ -49,7 +49,7 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import net.aechronis.gems.Gems
+import net.aechronis.economy.Economy
 import java.net.URLEncoder
 import java.nio.file.Files
 
@@ -258,7 +258,7 @@ internal object DiscordBot {
                             }
                         }
                     pickerDraft?.let { draft ->
-                        val balance = withContext(Dispatchers.IO) { Gems.balance(draft.player) }
+                        val balance = withContext(Dispatchers.IO) { Economy.balance(draft.player) }
                         val png = withContext(Dispatchers.Default) { draft.map.png(draft.selected, draft.paid, draft.blocked) }
                         response.respond {
                             allowedMentions { }
@@ -547,7 +547,7 @@ private suspend fun handlePicker(
                 }
             }
         }
-        val balance = withContext(Dispatchers.IO) { Gems.balance(draft.player) }
+        val balance = withContext(Dispatchers.IO) { Economy.balance(draft.player) }
         val png = withContext(Dispatchers.Default) { map.png(draft.selected, draft.paid, draft.blocked) }
         response.edit {
             // Drop the previous render so only the current one stays on the message.

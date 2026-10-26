@@ -58,7 +58,6 @@ object Serializer {
         // Metadata (for web editor)
         // ===============================
         jsonString.append("{\"meta\":{\"type\":\"towns\"},")
-        jsonString.append("\"miningBoost\":${snapshot.miningBoost.toJsonString()},")
 
         // ===============================
         // Residents

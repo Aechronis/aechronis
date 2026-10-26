@@ -56,7 +56,7 @@ include(
     ":modules:recipes",
     ":modules:worldedit",
     ":modules:logger",
-    ":modules:gems",
+    ":modules:economy",
     ":modules:tebex",
     ":modules:votifier",
     ":modules:stats",

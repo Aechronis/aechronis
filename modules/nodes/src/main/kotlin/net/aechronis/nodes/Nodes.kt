@@ -16,8 +16,6 @@ import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.ColonizationMenu
 import net.aechronis.nodes.commands.AllyChatCommand
 import net.aechronis.nodes.commands.AllyCommand
-import net.aechronis.nodes.commands.BalanceCommand
-import net.aechronis.nodes.commands.BlockShopCommand
 import net.aechronis.nodes.commands.ColonizeCommand
 import net.aechronis.nodes.commands.FlagsCommand
 import net.aechronis.nodes.commands.GlobalChatCommand
@@ -27,7 +25,6 @@ import net.aechronis.nodes.commands.NodesAdminCommand
 import net.aechronis.nodes.commands.PlayerCommand
 import net.aechronis.nodes.commands.PortCommand
 import net.aechronis.nodes.commands.RatesCommand
-import net.aechronis.nodes.commands.SellCommand
 import net.aechronis.nodes.commands.TerritoryCommand
 import net.aechronis.nodes.commands.TownChatCommand
 import net.aechronis.nodes.commands.TownCommand
@@ -47,11 +44,9 @@ import net.aechronis.nodes.listeners.NodesVanillaStorageBridge
 import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.listeners.TrainsListener
 import net.aechronis.nodes.objects.ActiveBuildings
-import net.aechronis.nodes.objects.BlockShop
 import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.FlagsMenu
 import net.aechronis.nodes.objects.MinimapPassengerTracker
-import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.OreBlockCache
@@ -88,7 +83,6 @@ import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
-import net.aechronis.vanilla.managers.BlockDrops
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import java.nio.file.Files
@@ -183,13 +177,6 @@ object Nodes {
             ActiveBuildings.init()
             WaypointMenu.init()
             FlagsMenu.init()
-            BlockShop.init()
-            BlockDrops.coinCredit = { player, amount ->
-                Resident.fromPlayer(player)?.let { resident ->
-                    resident.addBlockCoins(amount.toLong())
-                    resident.blockCoins
-                }
-            }
             TestTownSelection.init()
         }
         measure("Trains") { Trains.initialize(config.pathTrains) }
@@ -214,9 +201,6 @@ object Nodes {
                     TrainCommand(),
                     ColonizeCommand(),
                     WarzoneCommand(),
-                    BlockShopCommand(),
-                    BalanceCommand(),
-                    SellCommand(),
                 )
             val globalEventHandler = MinecraftServer.getGlobalEventHandler()
             ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)
@@ -228,7 +212,6 @@ object Nodes {
         measure("Managers") {
             lastBackupTime = loadLongFromFile(config.pathLastBackupTime) ?: System.currentTimeMillis()
             reloadManagers()
-            MiningBoostManager.start()
         }
         measure("Online players") { initializeOnlinePlayers() }
         initializationComplete = true
@@ -266,7 +249,6 @@ object Nodes {
             Resident.create(player)
             val resident = Resident.fromPlayer(player)!!
             Resident.setOnline(resident, player)
-            MiningBoostManager.onPlayerJoin(player)
             Warzone.onPlayerTerritoryChanged(player, Territory.fromPlayer(player))
             if (resident.minimap == null) resident.createMinimap(player)
         }
@@ -292,7 +274,6 @@ object Nodes {
         cleanupStage(CleanupStage.SAVE_MANAGER, SaveManager::stop)
         cleanupStage(CleanupStage.INCOME_MANAGER, IncomeManager::stop)
         cleanupStage(CleanupStage.NAMETAG, Nametag::stop)
-        cleanupStage(CleanupStage.MINING_BOOST, MiningBoostManager::stop)
         cleanupStage(CleanupStage.COLONIZATION_MENUS, ColonizationMenu::closeAll)
         cleanupStage(CleanupStage.WAYPOINT_MENUS, WaypointMenu::closeAll)
         cleanupStage(CleanupStage.FLAGS_MENU, FlagsMenu::closeAll)
@@ -354,7 +335,6 @@ object Nodes {
         SAVE_MANAGER,
         INCOME_MANAGER,
         NAMETAG,
-        MINING_BOOST,
         COLONIZATION_MENUS,
         WAYPOINT_MENUS,
         FLAGS_MENU,
@@ -522,7 +502,6 @@ object Nodes {
         Colonization.resetForReload()
         TownMembershipRequests.clear()
         Resident.all().forEach { it.destroyMinimap() }
-        MiningBoostManager.reset()
 
         var loaded = false
         try {
@@ -556,7 +535,6 @@ object Nodes {
                     Resident.create(player)
                     val resident = Resident.fromPlayer(player)!!
                     Resident.setOnline(resident, player)
-                    MiningBoostManager.onPlayerJoin(player)
                     Warzone.onPlayerTerritoryChanged(player, Territory.fromPlayer(player))
                     resident.createMinimap(player)
                 }
@@ -604,7 +582,6 @@ object Nodes {
                                     Resident.all().map { it.getSaveState() },
                                     Town.all().map { it.getSaveState() },
                                     Nation.all().map { it.getSaveState() },
-                                    MiningBoostManager.getSaveState(),
                                 ),
                                 config.pathTowns,
                                 backupTask,

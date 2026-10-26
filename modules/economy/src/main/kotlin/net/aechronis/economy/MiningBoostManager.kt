@@ -1,12 +1,9 @@
-package net.aechronis.nodes.objects
+package net.aechronis.economy
 
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
 import net.aechronis.combat.tasks.HasteEffectManager
-import net.aechronis.nodes.Nodes
-import net.aechronis.nodes.serdes.MiningBoostSaveState
+import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
@@ -15,9 +12,12 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
+import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.nio.file.Path
 
 object MiningBoostManager {
-    private const val HASTE_EFFECT_SOURCE = "nodes:mining_boost"
+    private const val HASTE_EFFECT_SOURCE = "economy:mining_boost"
     private const val HASTE_MAX_MULTIPLIER = 2
     private const val MINING_BOOST_MAX_MULTIPLIER = 5
     private const val MILLIS_PER_TICK = 50L
@@ -36,49 +36,83 @@ object MiningBoostManager {
     private var bossBar: BossBar? = null
     private var lastEffectUpdate: Long = 0L
 
-    fun start() {
-        if (task != null) return
+    private var path: Path? = null
+    private var generation = 0L
 
-        bossBar = BossBar.bossBar(
-            Component.empty(),
-            1f,
-            BossBar.Color.GREEN,
-            BossBar.Overlay.PROGRESS,
-        )
-        task = ModuleScheduler
-            .buildTask { update(System.currentTimeMillis()) }
-            .delay(TaskSchedule.tick(1))
-            .repeat(TaskSchedule.tick(20))
-            .schedule()
+    /** A failed load never enables saving over the unreadable file. */
+    @Synchronized
+    fun initialize(path: Path = Path.of("economy", "mining-boosts.json")) {
+        stop()
+        this.path = null
+        haste = null
+        miningBoost = null
+        val state =
+            if (Files.notExists(path, LinkOption.NOFOLLOW_LINKS)) {
+                MiningBoostSaveState(null, null)
+            } else {
+                val root = Json.parseToJsonElement(Files.readString(path))
+                require(root is JsonObject) { "Mining boosts must be a JSON object" }
+                decode(root)
+            }
+        load(state)
+        this.path = path
+        start()
     }
 
+    @Synchronized
+    fun save() {
+        val target = path ?: return
+        expire(System.currentTimeMillis())
+        AtomicFiles.writeString(target, MiningBoostJsonCodec.encode(getSaveState()), preservePermissions = true)
+    }
+
+    private fun start() {
+        if (task != null) return
+        val currentGeneration = generation
+
+        bossBar =
+            BossBar.bossBar(
+                Component.empty(),
+                1f,
+                BossBar.Color.GREEN,
+                BossBar.Overlay.PROGRESS,
+            )
+        task =
+            ModuleScheduler
+                .buildTask { tick(currentGeneration) }
+                .delay(TaskSchedule.tick(1))
+                .repeat(TaskSchedule.tick(20))
+                .schedule()
+    }
+
+    @Synchronized
     fun stop() {
+        generation++
         task?.cancel()
         task = null
         clearEffectsAndBossBar()
         bossBar = null
-    }
-
-    /** Clear runtime state before a world reload. */
-    @Synchronized
-    fun reset() {
-        haste = null
-        miningBoost = null
         lastEffectUpdate = 0L
-        clearEffectsAndBossBar()
     }
 
+    @Synchronized
     fun onPlayerJoin(player: Player) {
+        if (task == null) return
         updatePlayer(player, System.currentTimeMillis())
     }
 
+    @Synchronized
     fun onPlayerQuit(player: Player) {
         HasteEffectManager.clear(player, HASTE_EFFECT_SOURCE)
         bossBar?.let(player::hideBossBar)
     }
 
     @Synchronized
-    fun addBoost(type: String, multiplier: Int, durationMillis: Long): Result<ActiveBoostInfo> {
+    fun addBoost(
+        type: String,
+        multiplier: Int,
+        durationMillis: Long,
+    ): Result<ActiveBoostInfo> {
         require(durationMillis > 0) { "Boost duration must be positive" }
         val maxMultiplier = if (type == "haste") HASTE_MAX_MULTIPLIER else MINING_BOOST_MAX_MULTIPLIER
         if (type != "haste" && type != "boost") return Result.failure(IllegalArgumentException("Unknown boost type"))
@@ -97,11 +131,12 @@ object MiningBoostManager {
             return Result.failure(IllegalArgumentException("The new multiplier cannot be lower than the active multiplier"))
         }
 
-        val retained = when {
-            old == null || old.expiresAt <= now -> 0L
-            multiplier == old.multiplier -> remaining
-            else -> remaining / (multiplier - old.multiplier + 1L)
-        }
+        val retained =
+            when {
+                old == null || old.expiresAt <= now -> 0L
+                multiplier == old.multiplier -> remaining
+                else -> remaining / (multiplier - old.multiplier + 1L)
+            }
         if (durationMillis > Long.MAX_VALUE - retained || now > Long.MAX_VALUE - (retained + durationMillis)) {
             return Result.failure(IllegalArgumentException("Boost duration is too large"))
         }
@@ -110,7 +145,6 @@ object MiningBoostManager {
         lastEffectUpdate = 0L
         if (type == "haste") haste = updated else miningBoost = updated
 
-        Nodes.markWorldDirty()
         update(now)
         return Result.success(updated.toInfo(now))
     }
@@ -125,17 +159,22 @@ object MiningBoostManager {
     @Synchronized
     fun getSaveState(): MiningBoostSaveState = MiningBoostSaveState(haste.toSaveState(), miningBoost.toSaveState())
 
-    /** Decode the optional global boost object without changing the active boosts. */
-    internal fun decode(json: JsonObject?): MiningBoostSaveState = MiningBoostSaveState(
-        (json?.get("haste") as? JsonObject)?.toActiveBoost(HASTE_MAX_MULTIPLIER).toSaveState(),
-        (json?.get("boost") as? JsonObject)?.toActiveBoost(MINING_BOOST_MAX_MULTIPLIER).toSaveState(),
-    )
+    /** Decode without changing live state; invalid records fail the complete load. */
+    internal fun decode(json: JsonObject): MiningBoostSaveState =
+        MiningBoostJsonCodec.decode(json, HASTE_MAX_MULTIPLIER, MINING_BOOST_MAX_MULTIPLIER)
 
     @Synchronized
     internal fun load(state: MiningBoostSaveState) {
         haste = state.haste?.let { ActiveBoost(it.multiplier, it.startedAt, it.expiresAt) }
         miningBoost = state.boost?.let { ActiveBoost(it.multiplier, it.startedAt, it.expiresAt) }
+        lastEffectUpdate = 0L
         expire(System.currentTimeMillis())
+    }
+
+    @Synchronized
+    private fun tick(expectedGeneration: Long) {
+        if (task == null || generation != expectedGeneration) return
+        update(System.currentTimeMillis())
     }
 
     @Synchronized
@@ -157,18 +196,26 @@ object MiningBoostManager {
     }
 
     @Synchronized
-    private fun updatePlayer(player: Player, now: Long) {
+    private fun updatePlayer(
+        player: Player,
+        now: Long,
+    ) {
         expire(now)
         haste?.let { updatePlayerEffect(player, it, now) }
             ?: HasteEffectManager.clear(player, HASTE_EFFECT_SOURCE)
         updateBossBar(now)
     }
 
-    private fun updatePlayerEffect(player: Player, boost: ActiveBoost, now: Long) {
-        val remainingTicks = ((boost.remaining(now) + MILLIS_PER_TICK - 1L) / MILLIS_PER_TICK)
-            .coerceAtLeast(1L)
-            .coerceAtMost(Int.MAX_VALUE.toLong())
-            .toInt()
+    private fun updatePlayerEffect(
+        player: Player,
+        boost: ActiveBoost,
+        now: Long,
+    ) {
+        val remainingTicks =
+            ((boost.remaining(now) + MILLIS_PER_TICK - 1L) / MILLIS_PER_TICK)
+                .coerceAtLeast(1L)
+                .coerceAtMost(Int.MAX_VALUE.toLong())
+                .toInt()
         HasteEffectManager.set(
             player,
             HASTE_EFFECT_SOURCE,
@@ -180,11 +227,9 @@ object MiningBoostManager {
     private fun expire(now: Long) {
         if (haste?.expiresAt?.let { it <= now } == true) {
             haste = null
-            Nodes.markWorldDirty()
         }
         if (miningBoost?.expiresAt?.let { it <= now } == true) {
             miningBoost = null
-            Nodes.markWorldDirty()
         }
     }
 
@@ -197,20 +242,21 @@ object MiningBoostManager {
             return
         }
 
-        val title = buildList {
-            activeHaste?.let { add("Haste ${it.multiplier}x (${formatTime(it.remaining(now))})") }
-            activeMiningBoost?.let { add("Mining Boost ${it.multiplier}x (${formatTime(it.remaining(now))})") }
-        }.joinToString(" | ")
+        val title =
+            buildList {
+                activeHaste?.let { add("Haste ${it.multiplier}x (${formatTime(it.remaining(now))})") }
+                activeMiningBoost?.let { add("Mining Boost ${it.multiplier}x (${formatTime(it.remaining(now))})") }
+            }.joinToString(" | ")
         bar.name(Component.text(title, NamedTextColor.GREEN))
 
-        val progress = listOfNotNull(activeHaste, activeMiningBoost)
-            .map { boost ->
-                val total = (boost.expiresAt - boost.startedAt).coerceAtLeast(1L)
-                boost.remaining(now).toFloat() / total.toFloat()
-            }
-            .minOrNull()
-            ?.coerceIn(0f, 1f)
-            ?: 1f
+        val progress =
+            listOfNotNull(activeHaste, activeMiningBoost)
+                .map { boost ->
+                    val total = (boost.expiresAt - boost.startedAt).coerceAtLeast(1L)
+                    boost.remaining(now).toFloat() / total.toFloat()
+                }.minOrNull()
+                ?.coerceIn(0f, 1f)
+                ?: 1f
         bar.progress(progress)
         MinecraftServer.getConnectionManager().onlinePlayers.forEach { it.showBossBar(bar) }
     }
@@ -239,15 +285,8 @@ object MiningBoostManager {
         }
     }
 
-    private fun ActiveBoost?.toSaveState(): MiningBoostSaveState.BoostSaveState? = this?.let {
-        MiningBoostSaveState.BoostSaveState(it.multiplier, it.startedAt, it.expiresAt)
-    }
-
-    private fun JsonObject.toActiveBoost(maxMultiplier: Int): ActiveBoost? {
-        val multiplier = get("multiplier")?.jsonPrimitive?.int ?: return null
-        val expiresAt = get("expiresAt")?.jsonPrimitive?.long ?: return null
-        if (multiplier !in 1..maxMultiplier || expiresAt <= System.currentTimeMillis()) return null
-        val startedAt = get("startedAt")?.jsonPrimitive?.long ?: System.currentTimeMillis()
-        return ActiveBoost(multiplier, startedAt.coerceAtMost(expiresAt), expiresAt)
-    }
+    private fun ActiveBoost?.toSaveState(): MiningBoostSaveState.BoostSaveState? =
+        this?.let {
+            MiningBoostSaveState.BoostSaveState(it.multiplier, it.startedAt, it.expiresAt)
+        }
 }

@@ -26,7 +26,6 @@ import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.MinimapPosition
-import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.OilRig
 import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Port
@@ -66,7 +65,7 @@ object Deserializer {
         return WorldJsonState(jsonNodes, jsonTerritories)
     }
 
-    /** Decode the complete file without publishing residents, towns, boosts or diplomacy. */
+    /** Decode the complete file without publishing residents, towns or diplomacy. */
     internal fun townsFromJson(path: Path): TownsLoadState {
         val json = Json.parseToJsonElement(Files.readString(path)).jsonObject
         require(json["towns"] is JsonObject) { "Invalid towns file at $path: 'towns' must be an object" }
@@ -74,7 +73,6 @@ object Deserializer {
             residents = json["residents"]?.jsonObject?.mapNotNull { (uuid, resident) -> residentFromJson(uuid, resident.jsonObject) }.orEmpty(),
             towns = json.getValue("towns").jsonObject.map { (name, town) -> townFromJson(name, town.jsonObject, path) },
             nations = json["nations"]?.jsonObject?.map { (name, nation) -> nationFromJson(name, nation.jsonObject) }.orEmpty(),
-            miningBoost = MiningBoostManager.decode(json["miningBoost"] as? JsonObject),
         )
     }
 
@@ -93,10 +91,6 @@ object Deserializer {
         val townJoinLockedUntil = resident.get("townJoinLockedUntil")?.takeUnless { it is JsonNull }?.let { value ->
             runCatching { value.jsonPrimitive.long }.getOrNull()
         }
-
-        val blockCoins = resident.get("blockCoins")?.takeUnless { it is JsonNull }?.let { value ->
-            runCatching { value.jsonPrimitive.long }.getOrNull()
-        } ?: 0L
 
         val waypointVisibility = resident.get("waypointVisibility")?.takeIf { it is JsonObject }?.jsonObject?.let { visibility ->
             buildMap {
@@ -134,7 +128,6 @@ object Deserializer {
             minimapNorthLocked = minimapNorthLocked,
             minimapLegacy = minimapLegacy,
             townJoinLockedUntil = townJoinLockedUntil,
-            blockCoins = blockCoins,
         )
     }
 

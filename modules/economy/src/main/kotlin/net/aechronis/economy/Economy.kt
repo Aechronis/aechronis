@@ -1,6 +1,9 @@
-package net.aechronis.gems
+package net.aechronis.economy
 
-import net.aechronis.nodes.objects.MiningBoostManager
+import net.aechronis.economy.commands.BalanceCommand
+import net.aechronis.economy.commands.BlockShopCommand
+import net.aechronis.economy.commands.MiningBoostCommand
+import net.aechronis.economy.commands.SellCommand
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
@@ -49,8 +52,27 @@ private val BOOST_CONFIRM_ACTION = Key.key("gems", "boost_confirm")
 private val CANCEL_ACTION = Key.key("gems", "cancel")
 private val transactionTimeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
 
-object Gems {
-    fun rememberPlayer(player: Player) = repository.rememberPlayer(player.uuid, player.username)
+object Economy {
+    fun rememberPlayer(player: Player) {
+        repository.rememberPlayer(player.uuid, player.username)
+        coins.rememberPlayer(player.uuid)
+    }
+
+    fun coinBalance(uuid: UUID): Long? = coins.balance(uuid)
+
+    fun addCoins(
+        player: Player,
+        amount: Long,
+    ): Long {
+        require(amount > 0L) { "Coin reward must be positive" }
+        rememberPlayer(player)
+        return checkNotNull(coins.add(player.uuid, amount)) { "Could not credit coins to ${player.username}" }
+    }
+
+    fun removeCoins(
+        uuid: UUID,
+        amount: Long,
+    ): Boolean = coins.remove(uuid, amount)
 
     /** Offline-safe, keyed by UUID. Null if the player has never joined. */
     fun balance(uuid: UUID): Long? = repository.balance(uuid)
@@ -93,6 +115,7 @@ object Gems {
     private val initialized = AtomicBoolean()
     private val sessions = ConcurrentHashMap<UUID, ShopSession>()
     private val repository = GemRepository()
+    private val coins = CoinRepository()
     lateinit var eventNode: EventNode<net.minestom.server.event.Event>
         private set
     private var commands: List<Command> = emptyList()
@@ -102,14 +125,22 @@ object Gems {
         if (!initialized.compareAndSet(false, true)) return
         try {
             measure("Shop listeners") {
-                eventNode = EventNode.all("gems")
+                eventNode = EventNode.all("economy")
                 eventNode.addListener(InventoryPreClickEvent::class.java, ::onInventoryClick)
                 eventNode.addListener(InventoryCloseEvent::class.java, ::onInventoryClose)
                 eventNode.addListener(PlayerCustomClickEvent::class.java, ::onCustomClick)
                 ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
             }
             measure("Commands") {
-                commands = listOf(GemCommand(repository), GemShopCommand())
+                commands =
+                    listOf(
+                        GemCommand(repository),
+                        GemShopCommand(),
+                        BalanceCommand(repository),
+                        BlockShopCommand(),
+                        MiningBoostCommand(),
+                        SellCommand(),
+                    )
                 commands.forEach(ModuleCommands::register)
             }
         } catch (error: Throwable) {
@@ -136,6 +167,8 @@ object Gems {
             }
         }
         sessions.clear()
+        coins.close()
+        repository.close()
         initialized.set(false)
     }
 
@@ -640,9 +673,6 @@ private class GemCommand(
             net.minestom.server.command.builder.arguments.ArgumentType
                 .Word("action")
                 .from("give", "take")
-        val balanceAction =
-            net.minestom.server.command.builder.arguments.ArgumentType
-                .Literal("balance")
         val transactionsAction =
             net.minestom.server.command.builder.arguments.ArgumentType
                 .Literal("transactions")
@@ -664,19 +694,11 @@ private class GemCommand(
         setSenderDefaultExecutor { sender, _ ->
             sender.sendMessage(
                 Component.text(
-                    "Usage: /gem balance <player> | /gem transactions <player> | /gem <give|take> <player> <amount>",
+                    "Usage: /gem transactions <player> | /gem <give|take> <player> <amount>",
                     NamedTextColor.LIGHT_PURPLE,
                 ),
             )
         }
-        addSenderSyntax("gems.admin", { sender, context ->
-            val target = repository.findPlayer(context[player])
-            if (target == null) {
-                sender.sendMessage(Component.text("No gem account exists for '${context[player]}'.", NamedTextColor.RED))
-                return@addSenderSyntax
-            }
-            sender.sendMessage(Component.text("${target.name}'s gem balance: ${target.balance}", NamedTextColor.GREEN))
-        }, balanceAction, player)
         addSenderSyntax("gems.admin", { sender, context ->
             val target = repository.findPlayer(context[player])
             if (target == null) {
@@ -725,6 +747,6 @@ private class GemCommand(
 
 private class GemShopCommand : Command("gemshop") {
     init {
-        setDefaultExecutor { player, _ -> Gems.openShop(player) }
+        setDefaultExecutor { player, _ -> Economy.openShop(player) }
     }
 }

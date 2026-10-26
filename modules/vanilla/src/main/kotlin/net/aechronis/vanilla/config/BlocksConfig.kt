@@ -96,11 +96,6 @@ private val IronPickaxeBlocks =
     }
 
 data class BlocksConfig(
-    /**
-     * Blocks that pay stone coins when mined instead of dropping an item, and how many coins each pays.
-     * Only applies while a module provides a coin balance; silk touch still drops the block.
-     */
-    val coinBlocks: Map<Material, Int> = mapOf(Material.STONE to 1),
     val blockDrops: Map<Material, List<ItemStack>> =
         mapOf(
             Material.STONE to listOf(ItemStack.of(Material.COBBLESTONE)),

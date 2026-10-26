@@ -1,20 +1,16 @@
-package net.aechronis.gems
+package net.aechronis.economy
 
-import java.nio.file.Files
 import java.nio.file.Path
-import java.sql.DriverManager
 import java.sql.SQLException
 import java.util.UUID
 
 class GemRepository(
-    databasePath: Path = Path.of("gems", "gems").toAbsolutePath().normalize(),
-) {
-    private val url: String
+    databasePath: Path = Path.of("economy", "gems").toAbsolutePath().normalize(),
+) : AutoCloseable {
+    private val database = EconomyDatabase(databasePath)
 
     init {
-        databasePath.parent?.let(Files::createDirectories)
-        url = "jdbc:h2:file:${databasePath.toString().replace('\\', '/')};DB_CLOSE_ON_EXIT=FALSE;LOCK_TIMEOUT=5000"
-        DriverManager.getConnection(url).use { connection ->
+        database.connection().use { connection ->
             connection.createStatement().use { statement ->
                 statement.execute(
                     """
@@ -45,11 +41,13 @@ class GemRepository(
         }
     }
 
+    override fun close() = database.close()
+
     fun rememberPlayer(
         uuid: UUID,
         name: String,
     ) {
-        DriverManager.getConnection(url).use { connection ->
+        database.connection().use { connection ->
             connection
                 .prepareStatement(
                     "UPDATE gems SET player_name = ? WHERE player_uuid = ?",
@@ -78,7 +76,7 @@ class GemRepository(
     }
 
     fun playersMatching(prefix: String): List<GemPlayer> =
-        DriverManager.getConnection(url).use { connection ->
+        database.connection().use { connection ->
             connection
                 .prepareStatement(
                     "SELECT player_uuid, player_name, gem_amount FROM gems WHERE LOWER(player_name) LIKE ? ORDER BY player_name LIMIT 100",
@@ -101,7 +99,7 @@ class GemRepository(
         }
 
     fun findPlayer(name: String): GemPlayer? =
-        DriverManager.getConnection(url).use { connection ->
+        database.connection().use { connection ->
             connection
                 .prepareStatement(
                     "SELECT player_uuid, player_name, gem_amount FROM gems WHERE LOWER(player_name) = LOWER(?)",
@@ -127,7 +125,7 @@ class GemRepository(
         limit: Int = 20,
     ): List<GemTransaction> {
         require(limit in 1..100) { "Transaction limit must be between 1 and 100" }
-        return DriverManager.getConnection(url).use { connection ->
+        return database.connection().use { connection ->
             connection
                 .prepareStatement(
                     "SELECT transaction_id, product, amount, created_at FROM gem_transactions WHERE player_uuid = ? ORDER BY created_at DESC, transaction_id DESC LIMIT ?",
@@ -157,7 +155,7 @@ class GemRepository(
         amount: Long,
     ): Long? {
         require(amount != 0L) { "Amount must not be zero" }
-        return DriverManager.getConnection(url).use { connection ->
+        return database.connection().use { connection ->
             connection.autoCommit = false
             try {
                 val changed =
@@ -186,7 +184,7 @@ class GemRepository(
         cost: Long,
     ): UUID? {
         require(cost > 0L) { "Cost must be positive" }
-        return DriverManager.getConnection(url).use { connection ->
+        return database.connection().use { connection ->
             connection.autoCommit = false
             try {
                 val debited =
@@ -224,7 +222,7 @@ class GemRepository(
         }
     }
 
-    fun balance(uuid: UUID): Long? = DriverManager.getConnection(url).use { balance(it, uuid) }
+    fun balance(uuid: UUID): Long? = database.connection().use { balance(it, uuid) }
 
     private fun balance(
         connection: java.sql.Connection,

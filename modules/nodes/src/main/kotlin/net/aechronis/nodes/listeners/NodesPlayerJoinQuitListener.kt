@@ -11,7 +11,6 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.chat.Chat
 import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.ColonizationMenu
-import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.TestTownSelection
@@ -112,7 +111,6 @@ object NodesPlayerJoinQuitListener {
         }
         Resident.setOnline(resident, player)
         Nametag.onPlayerJoin(player)
-        MiningBoostManager.onPlayerJoin(player)
         resident.createMinimap(player)
         Warzone.onPlayerTerritoryChanged(player, net.aechronis.nodes.objects.Territory.fromPlayer(player))
         ModuleScheduler.scheduleNextTick {
@@ -161,7 +159,6 @@ object NodesPlayerJoinQuitListener {
         RallyCapAdmission.release(player.uuid)
         val resident = Resident.fromPlayer(player)
         Nametag.onPlayerQuit(player)
-        MiningBoostManager.onPlayerQuit(player)
         Warzone.onPlayerQuit(player)
         if (resident != null) {
             resident.destroyMinimap()

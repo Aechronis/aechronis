@@ -1,38 +1,22 @@
 package net.aechronis.vanilla.managers
 
-import net.aechronis.vanilla.Vanilla
-import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
+import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
+import java.util.Collections
+import java.util.WeakHashMap
 
-/** Where mined blocks send their drops: straight into the inventory for ores, or into the coin balance for stone. */
+/** Inventory delivery with overflow spawned at the player's feet. */
 object BlockDrops {
-    /**
-     * Set by the module that owns the stone coin balance. Adds the amount for the player and returns the
-     * new balance, or null when the player has no balance. Without it, coin blocks drop their items normally.
-     */
-    @Volatile
-    var coinCredit: ((Player, Int) -> Long?)? = null
+    private val suppressed = Collections.synchronizedMap(WeakHashMap<PlayerBlockBreakEvent, Boolean>())
 
-    fun isOre(material: Material): Boolean = material.name().endsWith("_ore") || material == Material.ANCIENT_DEBRIS
-
-    /** Credits the coins for mining [material] and returns true, or false when it should drop items instead. */
-    fun tryCredit(
-        player: Player,
-        material: Material,
-    ): Boolean {
-        val amount = Vanilla.config.blocksConfig.coinBlocks[material] ?: return false
-        val balance = coinCredit?.invoke(player, amount) ?: return false
-        player.sendActionBar(
-            Component
-                .text("+$amount stone coin${if (amount == 1) "" else "s"} ", NamedTextColor.GOLD)
-                .append(Component.text("(balance: $balance)", NamedTextColor.GRAY)),
-        )
-        return true
+    /** Marks drops handled by another listener without cancelling the block break. */
+    fun suppress(event: PlayerBlockBreakEvent) {
+        suppressed[event] = true
     }
+
+    internal fun consumeSuppression(event: PlayerBlockBreakEvent): Boolean = suppressed.remove(event) == true
 
     /** Puts [stack] in the inventory, and only falls back to the ground at the player's feet when it is full. */
     fun giveOrDrop(

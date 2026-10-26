@@ -4,7 +4,6 @@ import net.aechronis.nodes.colonization.AiTownConfig
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.objects.MinimapPosition
-import net.aechronis.nodes.objects.MiningBoostManager
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Resident
@@ -23,7 +22,6 @@ internal data class TownsLoadState(
     val residents: List<ResidentLoadState>,
     val towns: List<TownLoadState>,
     val nations: List<NationLoadState>,
-    val miningBoost: MiningBoostSaveState,
 ) {
     fun prepare(territories: List<Territory>): TownsLoadState {
         val territoriesById = territories.associateBy { it.id }
@@ -45,7 +43,6 @@ internal data class TownsLoadState(
 
     /** Required references were validated against the replacement world, not the old registries. */
     fun install() {
-        MiningBoostManager.load(miningBoost)
         residents.forEach { resident ->
             Resident.load(
                 uuid = resident.uuid,
@@ -59,7 +56,6 @@ internal data class TownsLoadState(
                 minimapNorthLocked = resident.minimapNorthLocked,
                 minimapLegacy = resident.minimapLegacy,
                 townJoinLockedUntil = resident.townJoinLockedUntil,
-                blockCoins = resident.blockCoins,
             )
         }
         // The domain loaders intentionally skip absent optional residents, claims and member towns.
@@ -94,7 +90,6 @@ internal data class ResidentLoadState(
     val minimapNorthLocked: Boolean,
     val minimapLegacy: Boolean,
     val townJoinLockedUntil: Long?,
-    val blockCoins: Long,
 )
 
 internal data class TownLoadState(
