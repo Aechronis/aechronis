@@ -3,14 +3,17 @@ package net.aechronis.combat.tasks
 import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
+import net.minestom.server.coordinate.Vec
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 internal const val BLOCK_RESTORE_DELAY_MILLIS = 10 * 60 * 1_000L
+private const val RETRY_MILLIS = 5_000L
 
 private data class BlockPosition(
     val instanceId: UUID,
@@ -131,7 +134,12 @@ object BlockRestoreManager {
         if (pending[restore.position] !== restore) return
 
         val position = restore.position
-        val current = instance.getBlock(position.x, position.y, position.z)
+        // Unloaded chunk (auto-load off) throws; nothing was written, so keep the restore and retry.
+        val current = runCatching { instance.getBlock(position.x, position.y, position.z) }.getOrNull()
+        if (current == null) {
+            schedule(instance, restore, RETRY_MILLIS)
+            return
+        }
         if (sameBlock(current, restore.temporaryBlock)) {
             // Minestom commits the block to its chunk before running neighbour placement-rule
             // cascades, so a throw here (e.g. a pre-existing neighbour whose block state a
@@ -146,6 +154,15 @@ object BlockRestoreManager {
                             "${position.instanceId}/${position.x},${position.y},${position.z}: ${error.message}",
                     )
                 }
+            // A throwing neighbour rule skips Minestom's BlockChangePacket, so clients may still show the
+            // temporary block. If the write landed, resend it; if it did not, try again later.
+            val now = runCatching { instance.getBlock(position.x, position.y, position.z) }.getOrNull()
+            if (now == null || !sameBlock(now, restore.originalBlock)) {
+                schedule(instance, restore, RETRY_MILLIS)
+                return
+            }
+            val packet = BlockChangePacket(Vec(position.x.toDouble(), position.y.toDouble(), position.z.toDouble()), now)
+            instance.getChunkAt(position.x.toDouble(), position.z.toDouble())?.viewers?.forEach { it.sendPacket(packet) }
         }
         finish(position)
     }

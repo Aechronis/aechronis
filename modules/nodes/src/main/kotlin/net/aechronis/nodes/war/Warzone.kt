@@ -181,8 +181,8 @@ object Warzone {
             saveLocked()
         }
         FlagWar.cancelWarzoneAttacks(territory)
-        // Unclaimed land cannot stay occupied once its warzone is gone.
-        if (territory.town == null) Town.release(territory)
+        // Occupation held through the warzone ends with it, claimed land or not.
+        Town.release(territory)
         return Result.success(Unit)
     }
 
@@ -326,8 +326,8 @@ object Warzone {
         FlagWar.cancelWarzoneAttacks(territory)
         when (outcome) {
             is Outcome.NoWinner -> {
-                // Unclaimed land cannot stay occupied once its warzone is gone.
-                if (territory.town == null) Town.release(territory)
+                // Occupation held through the warzone ends with it, claimed land or not.
+                Town.release(territory)
                 Message.broadcast(
                     "${ChatColor.DARK_RED}[Warzone] Territory ${territory.id} ended with no nation holding it",
                 )
