@@ -31,6 +31,7 @@ bool isMarkerControlPixel =
     ((idTex & 0xffff) == 0x0100);
 int markerType = 0;
 bool isMarker = false;
+vec2 territorySize = vec2(1.0);
 if (isMarkerControlPixel)
 {
     corner = corners[controlVertex - 1];
@@ -38,7 +39,10 @@ if (isMarkerControlPixel)
         texelFetch(Sampler0, uv + ivec2(0, 1 - int(corner.y) * 2), 0) * 255.0
     ));
     markerType = markerData.r;
-    isMarker = markerData.a == 3 && markerData.b == 0 && markerType >= 2 && markerType <= 16;
+    bool isTerritoryRectangle = markerType == 3 && markerData.b == 1;
+    isMarker = markerData.a == 3 && (markerData.b == 0 || isTerritoryRectangle) && markerType >= 2 && markerType <= 16;
+    if (isTerritoryRectangle)
+        territorySize = vec2(markerData.g % 16 + 1, markerData.g / 16 + 1);
 }
 
 if (isMarker) // Markers
@@ -82,8 +86,8 @@ if (isMarker) // Markers
         ? vec2(0.0)
         : isWaypoint
             ? (vec2(chunkDelta * 16 + waypointBlockPosition) + vec2(0.5) - cameraPositionInChunk) * (2.0 / mapScale)
-            : (vec2(chunkDelta) * 16.0 + vec2(8.0) - cameraPositionInChunk) * (2.0 / mapScale);
-    vec2 scaleData = markerType == 4 ? vec2(2.5) : vec2(8.0 / mapScale);
+            : (vec2(chunkDelta) * 16.0 + territorySize * 8.0 - cameraPositionInChunk) * (2.0 / mapScale);
+    vec2 scaleData = markerType == 4 ? vec2(2.5) : territorySize * (8.0 / mapScale);
     if (isWaypoint)
     {
         float waypointDistance = length(markerCoordinate);

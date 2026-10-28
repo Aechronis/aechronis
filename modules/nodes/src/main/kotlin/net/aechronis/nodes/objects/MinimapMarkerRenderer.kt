@@ -95,18 +95,26 @@ internal object MinimapMarkerRenderer {
 
         val visibleChunksX = cachedVisibleChunkRange(centerX, scale)
         val visibleChunksZ = cachedVisibleChunkRange(centerZ, scale)
+        val territoryCells = if (scale == 12) {
+            Array(visibleChunksZ.count()) { arrayOfNulls<MinimapTerritoryCell>(visibleChunksX.count()) }
+        } else {
+            null
+        }
         for (chunkX in visibleChunksX) {
             for (chunkZ in visibleChunksZ) {
+                if (!minimapChunkMayBeVisible(chunkX, chunkZ, centerX, centerZ, scale)) continue
                 val coord = Coord(chunkX, chunkZ)
                 TerritoryChunk.fromCoord(coord)?.let { territoryChunk ->
                     val territory = territoryChunk.territory
-                    appendChunkMarker(
-                        MinimapIcons.territoryIconCodepoint(territoryRelationship(viewer, territoryChunk)),
-                        chunkX,
-                        chunkZ,
-                        territoryBorderMask(territoryChunk),
-                        territory.town?.home == territory.id,
-                    )
+                    val codepoint = MinimapIcons.territoryIconCodepoint(territoryRelationship(viewer, territoryChunk))
+                    val borders = territoryBorderMask(territoryChunk)
+                    val home = territory.town?.home == territory.id
+                    if (territoryCells != null) {
+                        territoryCells[chunkZ - visibleChunksZ.first][chunkX - visibleChunksX.first] =
+                            MinimapTerritoryCell(territory.id, codepoint, home, borders)
+                    } else {
+                        appendChunkMarker(codepoint, chunkX, chunkZ, borders, home)
+                    }
                     if (territory.core == territoryChunk.coord) {
                         appendChunkMarker(MinimapIcons.coreIconCodepoint(), chunkX, chunkZ)
                     }
@@ -123,6 +131,18 @@ internal object MinimapMarkerRenderer {
                 Building.getForMinimap(coord)?.minimapIconCodepoint?.let { codepoint ->
                     appendChunkMarker(codepoint, chunkX, chunkZ)
                 }
+            }
+        }
+
+        if (territoryCells != null) {
+            for (rectangle in mergeMinimapTerritories(territoryCells)) {
+                appendChunkMarker(
+                    MinimapIcons.territoryRectangleCodepoint(rectangle.cell.codepoint, rectangle.width, rectangle.height),
+                    visibleChunksX.first + rectangle.x,
+                    visibleChunksZ.first + rectangle.z,
+                    rectangle.cell.borders,
+                    rectangle.cell.home,
+                )
             }
         }
 

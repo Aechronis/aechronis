@@ -55,5 +55,20 @@ internal object MinimapIcons {
         null -> 0xEC5A
     }
 
+    /** F000..F5FF: six fills, each with all 1..16 chunk width/height combinations. */
+    fun territoryRectangleCodepoint(codepoint: Int, width: Int, height: Int): Int {
+        require(width in 1..16 && height in 1..16)
+        val fill = when (codepoint) {
+            0xEC86 -> 0 // town
+            0xEC1E -> 1 // nation
+            0xECDE -> 2 // ally
+            0xEC7A -> 3 // neutral
+            0xEC12 -> 4 // enemy
+            0xEC5A -> 5 // unclaimed
+            else -> error("Not a territory glyph: $codepoint")
+        }
+        return 0xF000 + fill * 256 + (height - 1) * 16 + width - 1
+    }
+
     fun coreIconCodepoint(): Int = CORE_ICON_CODEPOINT
 }
