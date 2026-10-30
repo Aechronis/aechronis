@@ -20,6 +20,7 @@ class NodesModule : AechronisModule {
     override fun initialize(context: ModuleContext) {
         ModulePermissions.register("nodes.bypass", "*")
         Nodes.initialize(takeConfiguration(context))
+        MapPositionApi.start(Nodes.config.mapApiPort)
         Stats.nationOf = { Resident.fromUuid(it)?.town?.nation?.name }
         Stats.warActive = { FlagWar.enabled }
         Stats.areFriendly = { a, b ->
@@ -44,6 +45,7 @@ class NodesModule : AechronisModule {
     }
 
     override fun shutdown(context: ModuleContext) {
+        MapPositionApi.stop()
         Stats.nationOf = { null }
         Stats.warActive = { false }
         Stats.areFriendly = { _, _ -> false }
