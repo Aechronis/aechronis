@@ -872,6 +872,48 @@ function bootMap(initial) {
     });
   }
 
+  // The viewer's own player, matched by IP on the server.
+  let selfPlayer = null;
+  // Skins come from Mojang, which already sees every player's IP at login.
+  // Players without a custom skin get Steve.
+  const STEVE_SKIN = '1a4af718455d4aab528e7a61f86fa25e6a369d1768dcb13f7df319a713eb810b';
+  const faceIcons = new Map();
+
+  // Cut the 8x8 face, with its hat layer, out of the skin texture.
+  function faceIcon(skin) {
+    if (!faceIcons.has(skin)) {
+      faceIcons.set(skin, null);
+      const image = new Image();
+      image.crossOrigin = 'anonymous';
+      image.src = `https://textures.minecraft.net/texture/${skin}`;
+      image.decode().then(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 8;
+        const context = canvas.getContext('2d');
+        context.drawImage(image, 8, 8, 8, 8, 0, 0, 8, 8);
+        context.drawImage(image, 40, 8, 8, 8, 0, 0, 8, 8);
+        faceIcons.set(skin, { id: skin, url: canvas.toDataURL(), width: 8, height: 8, anchorX: 4, anchorY: 4 });
+        redraw();
+      }).catch(error => console.warn(`Skin ${skin}:`, error));
+    }
+    return faceIcons.get(skin);
+  }
+
+  function selfPlayerLayer() {
+    const icon = selfPlayer && faceIcon(selfPlayer.skin || STEVE_SKIN);
+    if (!icon) return null;
+    return new IconLayer({
+      id: 'self-player',
+      data: [selfPlayer],
+      getPosition: (d) => [d.x, d.z],
+      getIcon: () => icon,
+      sizeUnits: 'pixels',
+      getSize: 28,
+      textureParameters: PIXELATED,
+      pickable: false,
+    });
+  }
+
   function nationCapitalsLayer() {
     return new IconLayer({
       id: 'nation-capitals',
@@ -1024,6 +1066,7 @@ function bootMap(initial) {
         ? townDetailLayers() : []),
       ...resourceLayers(),
       buildingLabelLayer(),
+      selfPlayerLayer(),
     ].filter(Boolean);
     // Preserve overlay order across all visible copies of the world.
     const copyProps = (layer, copy) => ({
@@ -1352,6 +1395,19 @@ function bootMap(initial) {
   }
 
   setInterval(checkForUpdates, REFRESH_INTERVAL_MS);
+
+  // Players move far more often than town data changes, so their position has
+  // its own short poll. Any failure (no match, no endpoint) hides the marker.
+  async function refreshSelfPlayer() {
+    if (document.hidden) return;
+    const response = await fetch('api/me', { cache: 'no-store' }).catch(() => null);
+    const next = response?.status === 200 ? await response.json().catch(() => null) : null;
+    if (JSON.stringify(next) === JSON.stringify(selfPlayer)) return;
+    selfPlayer = next;
+    redraw();
+  }
+  setInterval(refreshSelfPlayer, 1500);
+  refreshSelfPlayer();
 
   const attackAnimTimer = new AttackAnimationTimer(tickAttackAnim);
   function attackIsVisible(attack) {

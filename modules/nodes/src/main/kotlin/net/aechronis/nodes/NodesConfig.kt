@@ -35,6 +35,9 @@ data class NodesConfig(
     // 2 hour = 7200000 ms
     val backupPeriod: Long = 3600000, // 1 hour
 
+    // localhost port for the web map's own-position endpoint, 0 disables it
+    val mapApiPort: Int = 8125,
+
     // ===================================
     // resource configs
     // ===================================
