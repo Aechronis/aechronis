@@ -290,7 +290,11 @@ class Gun(
         if (now - lastAction < cooldown && !ignoreCooldown) return false
         if (Combat.playerStates[player]?.reloadTask != null) return false
         Combat.playerStates.getOrCreate(player).lastActionTime = now
-        if (!hasAmmo(player) && !ignoreAmmo) return false
+        if (!hasAmmo(player) && !ignoreAmmo) {
+            // lastActionTime was just set, so the click is rate-limited by the gun's cooldown
+            player.playSound(SOUND_OUT_OF_AMMO, Sound.Emitter.self())
+            return false
+        }
 
         // Calculate position to fire bullets (rays) from. ADS only affects handheld shots,
         // matching the state which displays the aiming animation.
@@ -539,6 +543,8 @@ class Gun(
 }
 
 internal const val AIMING_REDUCTION_MULTIPLIER = 0.67F
+
+private val SOUND_OUT_OF_AMMO: Sound = Sound.sound(Key.key("${Tags.NAMESPACE}:out-of-ammo"), Sound.Source.PLAYER, 1f, 1f)
 
 internal fun aimingMultiplier(aiming: Boolean): Float = if (aiming) AIMING_REDUCTION_MULTIPLIER else 1F
 
