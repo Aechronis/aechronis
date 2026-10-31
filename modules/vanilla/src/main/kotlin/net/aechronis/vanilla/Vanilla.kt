@@ -20,6 +20,7 @@ import net.aechronis.vanilla.commands.Message
 import net.aechronis.vanilla.commands.Recpies
 import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shutdown
+import net.aechronis.vanilla.commands.Spawn
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
 import net.aechronis.vanilla.commands.Vanish
@@ -48,6 +49,7 @@ import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Shelves
 import net.aechronis.vanilla.managers.Signs
+import net.aechronis.vanilla.managers.SpawnTeleport
 import net.aechronis.vanilla.managers.Storage
 import net.aechronis.vanilla.managers.VoteLinks
 import net.minestom.server.MinecraftServer
@@ -100,6 +102,7 @@ object Vanilla {
                         Shutdown(),
                         Vanish(),
                         Vote(),
+                        Spawn(),
                     )
                 if (config.recipesEnabled) commands += Craft()
                 if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
@@ -168,6 +171,7 @@ object Vanilla {
             "recipes" to Recipes::shutdown,
             "storage" to Storage::shutdown,
             "sign editors" to Signs::shutdown,
+            "pending spawn teleports" to SpawnTeleport::shutdown,
             "command inventories" to Commands::shutdown,
             "horses" to { if (config.horsesEnabled) Horses.shutdown() },
             "jukebox playback" to Jukeboxes::shutdown,

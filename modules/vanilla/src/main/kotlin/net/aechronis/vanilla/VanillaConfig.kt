@@ -72,6 +72,8 @@ data class VanillaConfig(
             "Discord" to "https://discord.gg/aechronis",
             "Store" to "https://shop.aechronis.net",
         ),
+    // Spawn
+    val spawnDelaySeconds: Long = 10L,
     // Horses
     val horseMountCooldownMs: Long = 3_000L,
     // EnviromentalDmg

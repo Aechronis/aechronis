@@ -458,7 +458,7 @@ open class Vehicle(
         internal fun shutdown() = VehicleCrew.shutdown()
 
         /** Routes a normal exit through the vehicle's occupied station hook. */
-        internal fun exit(player: Player) = VehicleCrew.exit(player)
+        fun exit(player: Player) = VehicleCrew.exit(player)
 
         fun isVehicleOccupant(player: Player): Boolean = VehicleCrew.activeRide(player) != null
 
