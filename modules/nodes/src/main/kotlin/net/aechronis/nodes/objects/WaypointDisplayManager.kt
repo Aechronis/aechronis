@@ -1,6 +1,7 @@
 package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.constants.DiplomaticRelationship
+import net.aechronis.nodes.war.FlagWar
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.coordinate.Pos
@@ -26,6 +27,10 @@ private const val WAYPOINT_DISPLAY_RENDER_DISTANCE_MARGIN = 2.0
 private const val WAYPOINT_DISPLAY_BACKGROUND_COLOR = 0x66000000
 private const val TEXT_DISPLAY_SHADOW_AND_SEE_THROUGH_FLAGS: Byte = 0x03
 private const val FULL_BRIGHT = 0x00F000F0
+private const val FLAG_WAYPOINT_NAME = "⚑ War Flag"
+
+// Keeps the label above the flag's own progress text display.
+private const val FLAG_WAYPOINT_Y_ABOVE_TORCH = 2
 
 private data class WaypointDisplayKey(
     val ownerId: UUID,
@@ -71,6 +76,12 @@ internal class WaypointDisplayManager(
                     WaypointDisplayKey(resident.uuid, waypoint.key, true),
                     WaypointDisplay(0, waypoint, true),
                 )
+            }
+            // Only the resident who placed a flag sees its waypoint; it goes away with the attack.
+            FlagWar.attackers[resident.uuid]?.forEach { attack ->
+                val torch = attack.flagTorch
+                val waypoint = Waypoint(FLAG_WAYPOINT_NAME, torch.blockX, torch.blockY + FLAG_WAYPOINT_Y_ABOVE_TORCH, torch.blockZ)
+                put(WaypointDisplayKey(resident.uuid, "flag:${attack.coord}", false), WaypointDisplay(0, waypoint, false))
             }
         }
 
