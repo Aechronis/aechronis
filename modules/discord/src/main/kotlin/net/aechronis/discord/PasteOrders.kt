@@ -34,6 +34,8 @@ import net.aechronis.economy.Economy
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Territory
 import net.minestom.server.instance.InstanceContainer
+import java.io.BufferedInputStream
+import java.io.DataInputStream
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -171,6 +173,12 @@ internal class PasteOrders(
             if (!withContext(Dispatchers.IO) { inflatedWithinLimit(file) }) {
                 discard(file)
                 return fail("That schematic is too large once unpacked.")
+            }
+            // WorldEdit allocates for the declared volume, so judge the header before loading.
+            val dims = withContext(Dispatchers.IO) { declaredSize(file) }
+            if (dims != null && (dims[0] > MAX_SIDE || dims[2] > MAX_SIDE || dims[1] > MAX_HEIGHT)) {
+                discard(file)
+                return fail("Too large: at most $MAX_SIDE x $MAX_HEIGHT x $MAX_SIDE blocks.")
             }
             val clipboard =
                 load(file) ?: run {
@@ -546,9 +554,83 @@ internal class PasteOrders(
             false
         }
 
+    /**
+     * Uploaded schematics lose their block-entity data and entities: Storage reads barrel
+     * contents from the block's `Items` NBT, so a schematic could otherwise carry free loot.
+     */
     private fun load(file: Path): Clipboard? {
         val format = ClipboardFormats.findByFile(file.toFile()) ?: return null
-        return Files.newInputStream(file).use { format.getReader(it).read() }
+        val clipboard = Files.newInputStream(file).use { format.getReader(it).read() }
+        for (pos in clipboard.region) {
+            val block = clipboard.getFullBlock(pos)
+            if (block.nbt != null) clipboard.setBlock(pos, block.toImmutableState())
+        }
+        clipboard.entities.toList().forEach { it.remove() }
+        return clipboard
+    }
+
+    /** Width, height, length from the schematic header without loading it, or null if unreadable. */
+    private fun declaredSize(file: Path): IntArray? =
+        try {
+            DataInputStream(BufferedInputStream(GZIPInputStream(Files.newInputStream(file)))).use { input ->
+                val dims = IntArray(3) { -1 }
+                if (input.readByte().toInt() != 10) return null
+                input.readUTF()
+                findDims(input, dims, 0)
+                if (dims.any { it < 0 }) null else dims
+            }
+        } catch (_: IOException) {
+            null
+        }
+
+    private fun findDims(
+        input: DataInputStream,
+        dims: IntArray,
+        depth: Int,
+    ) {
+        while (dims.any { it < 0 }) {
+            val type = input.readByte().toInt()
+            if (type == 0) return
+            val index = listOf("Width", "Height", "Length").indexOf(input.readUTF())
+            when {
+                type == 2 && index >= 0 -> dims[index] = input.readShort().toInt() and 0xffff
+                type == 10 && depth < 2 -> findDims(input, dims, depth + 1)
+                else -> skipPayload(input, type)
+            }
+        }
+    }
+
+    private fun skipPayload(
+        input: DataInputStream,
+        type: Int,
+    ) {
+        fun skip(bytes: Long) {
+            if (bytes < 0) throw IOException("Bad NBT length")
+            input.skipNBytes(bytes)
+        }
+        when (type) {
+            1 -> skip(1)
+            2 -> skip(2)
+            3, 5 -> skip(4)
+            4, 6 -> skip(8)
+            7 -> skip(input.readInt().toLong())
+            8 -> skip(input.readUnsignedShort().toLong())
+            9 -> {
+                val element = input.readByte().toInt()
+                repeat(input.readInt()) { skipPayload(input, element) }
+            }
+            10 -> {
+                while (true) {
+                    val inner = input.readByte().toInt()
+                    if (inner == 0) break
+                    skip(input.readUnsignedShort().toLong())
+                    skipPayload(input, inner)
+                }
+            }
+            11 -> skip(input.readInt() * 4L)
+            12 -> skip(input.readInt() * 8L)
+            else -> throw IOException("Bad NBT tag $type")
+        }
     }
 
     private fun discard(file: Path) {
