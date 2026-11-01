@@ -1294,6 +1294,7 @@ function bootMap(initial) {
   async function fetchIfChanged(name) {
     const update = await fetchJsonUpdate(`nodes/${name}.json`, fileMeta[name], {
       optional: REFRESH_OPTIONAL.has(name),
+      timeoutMs: REFRESH_INTERVAL_MS,
     });
     if (!update) return null;
     fileMeta[name] = update.meta;
