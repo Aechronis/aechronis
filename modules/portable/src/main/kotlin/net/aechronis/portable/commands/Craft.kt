@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.portable.commands
 
 import net.aechronis.utils.Command
 import net.aechronis.vanilla.managers.Recipes
@@ -8,7 +8,7 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import kotlin.collections.set
 
-class Craft : Command("craft", "vanilla.craft") {
+class Craft : Command("craft", "portable.craft") {
     init {
         setDefaultExecutor { player, _ ->
             val craftingInv =

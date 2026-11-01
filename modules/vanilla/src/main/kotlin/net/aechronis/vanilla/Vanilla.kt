@@ -5,8 +5,6 @@ import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.vanilla.commands.Clear
-import net.aechronis.vanilla.commands.Craft
-import net.aechronis.vanilla.commands.EnderChest
 import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
 import net.aechronis.vanilla.commands.Gm
@@ -74,14 +72,12 @@ object Vanilla {
                         Teleport(),
                         Kill(),
                         Clear(),
-                        EnderChest(),
                         Gm(),
                         List(),
                         TpsBar(),
                         Vote(),
                         Spawn(),
                     )
-                if (config.recipesEnabled) commands += Craft()
                 if (config.whitelistEnabled) commands += Whitelist()
                 ModuleCommands
                     .register(*commands.toTypedArray())
