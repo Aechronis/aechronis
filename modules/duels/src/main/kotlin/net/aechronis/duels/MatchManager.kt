@@ -83,6 +83,8 @@ object MatchManager {
             teams.flatMapIndexed { i, roster ->
                 roster.map { player ->
                     Vehicle.exit(player)
+                    // Close world storage before capturing state or giving out arena items.
+                    player.closeInventory()
                     SnapshotStore.save(player)
                     byPlayer[player.uuid] = match
                     player.setInstance(instance, map.spawnFor(i)).thenRun {

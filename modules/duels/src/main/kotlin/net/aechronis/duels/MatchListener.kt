@@ -7,6 +7,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
 import net.minestom.server.event.entity.EntityDamageEvent
+import net.minestom.server.event.inventory.InventoryOpenEvent
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
@@ -26,6 +27,7 @@ object MatchListener {
         context.addListener(PlayerBlockPlaceEvent::class.java) { if (MatchManager.inMatch(it.player)) it.isCancelled = true }
         context.addListener(PlayerBlockInteractEvent::class.java) { if (MatchManager.inMatch(it.player)) it.isCancelled = true }
         context.addListener(ItemDropEvent::class.java) { if (MatchManager.inMatch(it.player)) it.isCancelled = true }
+        context.addListener(InventoryOpenEvent::class.java) { if (MatchManager.inMatch(it.player)) it.isCancelled = true }
         context.addListener(PlayerCommandEvent::class.java) {
             if (MatchManager.inMatch(it.player) && !it.player.hasPermission(BYPASS_PERMISSION)) {
                 it.isCancelled = true
