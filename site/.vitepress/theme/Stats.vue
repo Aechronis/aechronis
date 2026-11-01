@@ -400,6 +400,7 @@ watch(() => scope.value === 'war' && Boolean(chart.value), on => { if (on) nextT
 let timer
 onMounted(async () => {
   window.addEventListener('keydown', slashFocus)
+  timer = setInterval(() => { if (!document.hidden) load() }, 30000)
   load()
   try {
     const [nations, war] = await Promise.all([request({ sort: 'kills', type: 'nation' }), request({ sort: 'kills', scope: 'war' })])
@@ -407,7 +408,6 @@ onMounted(async () => {
     weeks.value = war.weeks
     if (selected.value && !history.value.length) loadProfile(true)
   } catch { /* the leaderboard load reports errors */ }
-  timer = setInterval(() => { if (!document.hidden) load() }, 30000)
 })
 onUnmounted(() => {
   clearInterval(timer)
