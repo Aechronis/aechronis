@@ -1,7 +1,8 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.chat.commands
 
+import net.aechronis.chat.Chat
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.managers.Commands
+import net.aechronis.vanilla.commands.PlayerTargets
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
@@ -27,15 +28,7 @@ class Ignore : Command("ignore", "vanilla.ignore") {
                 return@addSyntax
             }
 
-            val set = Commands.getIgnored(sender)
-            var ignored = 0
-            targets.forEach { target ->
-                if (set.remove(target.uuid)) {
-                    ignored++
-                } else {
-                    set.add(target.uuid)
-                }
-            }
+            val ignored = Chat.toggleIgnored(sender, targets.map { it.uuid })
             sender.sendMessage(
                 Component.text(
                     "Toggled ignore for ${targets.size} player(s); $ignored no longer ignored.",

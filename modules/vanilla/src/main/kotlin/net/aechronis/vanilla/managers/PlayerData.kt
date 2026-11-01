@@ -76,7 +76,7 @@ object PlayerData {
      * Adopts players that survived a module-generation replacement. Their live Minestom state is
      * authoritative, so only module-owned state is restored from the old generation's checkpoint.
      * A failed restore aborts generation startup rather than allowing a later save to overwrite
-     * valid ender-chest or ignore-list data with empty state.
+     * valid ender-chest data with empty state.
      */
     internal fun adoptOnlinePlayers(
         players: Collection<Player>,
@@ -163,7 +163,6 @@ object PlayerData {
             }
         } finally {
             Commands.removeEnderChest(player)
-            Commands.clearPlayerReferences(player)
         }
     }
 }

@@ -12,13 +12,10 @@ import net.aechronis.vanilla.commands.Fly
 import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
 import net.aechronis.vanilla.commands.Gm
-import net.aechronis.vanilla.commands.Ignore
 import net.aechronis.vanilla.commands.InventorySee
 import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
-import net.aechronis.vanilla.commands.Message
 import net.aechronis.vanilla.commands.Recpies
-import net.aechronis.vanilla.commands.Reply
 import net.aechronis.vanilla.commands.Shutdown
 import net.aechronis.vanilla.commands.Spawn
 import net.aechronis.vanilla.commands.Teleport
@@ -82,8 +79,6 @@ object Vanilla {
             measure("Commands") {
                 val commands =
                     mutableListOf(
-                        Message(),
-                        Reply(),
                         GameMode(),
                         Give(),
                         Teleport(),
@@ -93,7 +88,6 @@ object Vanilla {
                         Clear(),
                         EnderChest(),
                         InventorySee(),
-                        Ignore(),
                         Gm(),
                         List(),
                         TpsBar(),

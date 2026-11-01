@@ -1,8 +1,9 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.chat.commands
 
+import net.aechronis.chat.Chat.isBlocked
+import net.aechronis.chat.Chat.sendMessage
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.managers.Commands.isBlocked
-import net.aechronis.vanilla.managers.Commands.sendMessage
+import net.aechronis.vanilla.commands.PlayerTargets
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType

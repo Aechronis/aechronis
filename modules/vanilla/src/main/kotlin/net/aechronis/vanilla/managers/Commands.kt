@@ -1,7 +1,6 @@
 package net.aechronis.vanilla.managers
 
 import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.inventory.Inventory
@@ -14,72 +13,12 @@ import java.util.concurrent.ConcurrentHashMap
 
 object Commands {
     const val MIRRORED_SLOTS = 41
-    val playerLastSender = HashMap<Player, Player>()
-    val ignored = HashMap<UUID, MutableSet<UUID>>()
     private val viewing = ConcurrentHashMap<Inventory, Player>()
     private val viewingLock = Any()
     private val synchronizingInventories =
         Collections.newSetFromMap(IdentityHashMap<AbstractInventory, Boolean>())
     private val enderChests = ConcurrentHashMap<UUID, Inventory>()
     private val closingEnderChests = ConcurrentHashMap.newKeySet<UUID>()
-
-    fun getIgnored(player: Player): MutableSet<UUID> = ignored.getOrPut(player.uuid) { mutableSetOf() }
-
-    fun setIgnored(
-        player: Player,
-        uuids: Set<UUID>,
-    ) {
-        ignored[player.uuid] = uuids.toMutableSet()
-    }
-
-    fun isBlocked(
-        a: Player,
-        b: Player,
-    ): Boolean =
-        ignored[a.uuid]?.contains(b.uuid) == true ||
-            ignored[b.uuid]?.contains(a.uuid) == true
-
-    internal fun getLastSender(player: Player): Player? = synchronized(playerLastSender) { playerLastSender[player] }
-
-    internal fun removeLastSenderReferences(player: Player) {
-        synchronized(playerLastSender) {
-            playerLastSender.entries.removeIf { (sender, receiver) -> sender === player || receiver === player }
-        }
-    }
-
-    internal fun clearPlayerReferences(player: Player) {
-        ignored.remove(player.uuid)
-        removeLastSenderReferences(player)
-    }
-
-    fun sendMessage(
-        sender: Player,
-        receiver: Player?,
-        message: String,
-    ) {
-        if (receiver == null) {
-            sender.sendMessage(Component.text("Player not found.", NamedTextColor.RED))
-            return
-        }
-
-        if (isBlocked(sender, receiver)) {
-            sender.sendMessage(Component.text("You can't message this player.", NamedTextColor.RED))
-            return
-        }
-
-        sender.sendMessage(
-            Component.text("You Whispered to ${receiver.username}: $message").color(NamedTextColor.LIGHT_PURPLE),
-        )
-
-        receiver.sendMessage(
-            Component.text("${sender.username} Whispered: $message").color(NamedTextColor.LIGHT_PURPLE),
-        )
-
-        synchronized(playerLastSender) {
-            playerLastSender[receiver] = sender
-            playerLastSender[sender] = receiver
-        }
-    }
 
     fun open(
         viewer: Player,
@@ -193,7 +132,5 @@ object Commands {
         synchronizingInventories.clear()
         enderChests.clear()
         closingEnderChests.clear()
-        playerLastSender.clear()
-        ignored.clear()
     }
 }

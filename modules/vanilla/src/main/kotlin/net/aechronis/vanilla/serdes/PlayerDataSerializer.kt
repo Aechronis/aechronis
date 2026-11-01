@@ -3,7 +3,6 @@ package net.aechronis.vanilla.serdes
 import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
-import net.kyori.adventure.nbt.StringBinaryTag
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.ItemStack
 
@@ -24,13 +23,6 @@ object PlayerDataSerializer {
 
         val cursorItem = snapshot.cursorItem
         if (!cursorItem.isAir) builder.put("CursorItem", cursorItem.toItemNBT())
-
-        val ignored = snapshot.ignored
-        if (ignored.isNotEmpty()) {
-            val list = ListBinaryTag.builder(BinaryTagTypes.STRING)
-            ignored.forEach { list.add(StringBinaryTag.stringBinaryTag(it.toString())) }
-            builder.put("Ignored", list.build())
-        }
 
         return builder.build()
     }

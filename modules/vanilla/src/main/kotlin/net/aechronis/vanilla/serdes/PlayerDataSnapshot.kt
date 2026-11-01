@@ -21,7 +21,6 @@ class PlayerDataSnapshot private constructor(
     val inventory: List<ItemStack>,
     val enderChest: List<ItemStack>,
     val cursorItem: ItemStack,
-    val ignored: Set<UUID>,
 ) {
     companion object {
         fun capture(player: Player): PlayerDataSnapshot =
@@ -37,7 +36,6 @@ class PlayerDataSnapshot private constructor(
                 inventory = captureInventory(player.inventory),
                 enderChest = captureInventory(Commands.getEnderChest(player)),
                 cursorItem = player.inventory.cursorItem,
-                ignored = java.util.Collections.unmodifiableSet(LinkedHashSet(Commands.getIgnored(player))),
             )
 
         // ItemStack and Pos are immutable Minestom values; only the slot collection needs copying.

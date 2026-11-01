@@ -107,6 +107,7 @@ val runtimeModuleProjects =
         ":modules:music",
         ":modules:hats",
         ":modules:vanilla",
+        ":modules:chat",
         ":modules:regenerating-ores",
         ":modules:recipes",
         ":modules:worldedit",

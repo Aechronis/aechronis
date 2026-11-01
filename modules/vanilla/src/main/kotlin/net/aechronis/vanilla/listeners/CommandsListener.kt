@@ -26,11 +26,9 @@ object CommandsListener {
     }
 
     fun onDisconnect(event: PlayerDisconnectEvent) {
-        Commands.removeLastSenderReferences(event.player)
         if (!Vanilla.config.playerDataEnabled) {
             Commands.closeViewsOf(event.player)
             Commands.removeEnderChest(event.player)
-            Commands.clearPlayerReferences(event.player)
         }
     }
 

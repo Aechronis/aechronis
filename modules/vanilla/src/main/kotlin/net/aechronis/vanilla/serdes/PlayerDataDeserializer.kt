@@ -2,16 +2,13 @@ package net.aechronis.vanilla.serdes
 
 import net.aechronis.utils.ItemTransport
 import net.aechronis.vanilla.managers.Commands
-import net.kyori.adventure.nbt.BinaryTagTypes
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.nbt.ListBinaryTag
-import net.kyori.adventure.nbt.StringBinaryTag
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.item.ItemStack
-import java.util.UUID
 
 object PlayerDataDeserializer {
     fun deserialize(
@@ -51,14 +48,6 @@ object PlayerDataDeserializer {
         data: CompoundBinaryTag,
     ) {
         deserializeInventory(Commands.getEnderChest(player), data.getList("EnderChest"))
-
-        val ignored = mutableSetOf<UUID>()
-        for (tag in data.getList("Ignored", BinaryTagTypes.STRING)) {
-            runCatching { UUID.fromString((tag as StringBinaryTag).value()) }
-                .getOrNull()
-                ?.let(ignored::add)
-        }
-        Commands.setIgnored(player, ignored)
     }
 
     private fun deserializePosition(
