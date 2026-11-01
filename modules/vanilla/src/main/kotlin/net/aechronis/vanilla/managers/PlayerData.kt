@@ -142,7 +142,7 @@ object PlayerData {
 
     internal fun saveAndUntrackPlayer(player: Player) {
         val shouldSave = tracked.remove(player)
-        Commands.closeViewsOf(player)
+        Commands.closeEnderChest(player)
         try {
             if (!shouldSave) return
 

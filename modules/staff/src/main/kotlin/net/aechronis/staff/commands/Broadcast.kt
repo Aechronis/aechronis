@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.staff.commands
 
 import net.aechronis.utils.Command
 import net.kyori.adventure.text.Component
@@ -7,7 +7,7 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class Broadcast : Command("broadcast", "vanilla.broadcast") {
+class Broadcast : Command("broadcast", "staff.broadcast") {
     val messageArg = ArgumentType.StringArray("message")
 
     init {

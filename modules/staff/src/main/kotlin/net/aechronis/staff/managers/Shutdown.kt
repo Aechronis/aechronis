@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.staff.managers
 
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component

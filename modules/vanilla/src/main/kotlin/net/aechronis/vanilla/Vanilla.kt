@@ -4,7 +4,6 @@ import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
-import net.aechronis.vanilla.commands.Broadcast
 import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.Craft
 import net.aechronis.vanilla.commands.EnderChest
@@ -12,15 +11,12 @@ import net.aechronis.vanilla.commands.Fly
 import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
 import net.aechronis.vanilla.commands.Gm
-import net.aechronis.vanilla.commands.InventorySee
 import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Recpies
-import net.aechronis.vanilla.commands.Shutdown
 import net.aechronis.vanilla.commands.Spawn
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
-import net.aechronis.vanilla.commands.Vanish
 import net.aechronis.vanilla.commands.Vote
 import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
@@ -53,9 +49,7 @@ import net.minestom.server.event.EventNode
 import net.minestom.server.instance.Instance
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
-import net.aechronis.vanilla.managers.Shutdown as ShutdownManager
 import net.aechronis.vanilla.managers.TpsBar as TpsBarManager
-import net.aechronis.vanilla.managers.Vanish as VanishManager
 import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
 object Vanilla {
@@ -65,11 +59,9 @@ object Vanilla {
 
     fun init(
         c: VanillaConfig = VanillaConfig(),
-        shutdownAction: () -> Unit = { MinecraftServer.stopCleanly() },
         instance: Instance? = null,
     ) {
         config = c
-        ShutdownManager.configure(shutdownAction)
 
         measure("Player Activity Listener") { PlayerActivityListener.init() }
         measure("Block Placement Cooldown Listener") { BlockPlacementCooldownListener.init() }
@@ -84,15 +76,11 @@ object Vanilla {
                         Teleport(),
                         Fly(),
                         Kill(),
-                        Broadcast(),
                         Clear(),
                         EnderChest(),
-                        InventorySee(),
                         Gm(),
                         List(),
                         TpsBar(),
-                        Shutdown(),
-                        Vanish(),
                         Vote(),
                         Spawn(),
                     )
@@ -119,7 +107,6 @@ object Vanilla {
         if (config.efficiencyEnabled) measure("Efficiency") { Efficiency.init() }
         if (config.commandsEnabled) {
             measure("Command listeners") { CommandsListener.init() }
-            measure("Vanish") { VanishManager.init() }
             measure("TPS bar") { TpsBarManager.init() }
         }
         if (config.blockDropsEnabled) measure("Player Break Listener") { PlayerBreakListener.init() }
@@ -156,7 +143,6 @@ object Vanilla {
             "player data writer" to PlayerData::shutdown,
             "item frames" to ItemFrames::shutdown,
             "tps bars" to TpsBarManager::shutdown,
-            "vanish state" to VanishManager::shutdown,
             "efficiency attributes" to Efficiency::shutdown,
             "crop growth" to { if (config.cropsEnabled) Crops.shutdown() },
             "sapling growth" to { if (config.saplingsEnabled) Saplings.shutdown() },

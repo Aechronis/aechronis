@@ -1,8 +1,8 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.staff.commands
 
 import net.aechronis.utils.Command
 import net.minestom.server.entity.Player
-import net.aechronis.vanilla.managers.Vanish as VanishManager
+import net.aechronis.staff.managers.Vanish as VanishManager
 
 class Vanish : Command("vanish") {
     override fun hasPermission(

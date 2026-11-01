@@ -1,10 +1,10 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.staff.managers
 
 import net.aechronis.server.hasPermission
+import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.VisibilityRules
-import net.aechronis.vanilla.Vanilla
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
@@ -22,7 +22,7 @@ import java.util.UUID
 
 object Vanish {
     private const val DOUBLE_SHIFT_WINDOW_MILLIS = 500L
-    private const val VISIBILITY_RULE_OWNER = "vanilla:vanish"
+    private const val VISIBILITY_RULE_OWNER = "staff:vanish"
     private val vanished = mutableMapOf<UUID, State>()
 
     private data class State(
@@ -31,7 +31,7 @@ object Vanish {
         var lastShiftPress: Long = 0,
     )
 
-    fun level(player: Player): Int = (5 downTo 1).firstOrNull { player.hasPermission("vanilla.vanish.$it") } ?: 0
+    fun level(player: Player): Int = (5 downTo 1).firstOrNull { player.hasPermission("staff.vanish.$it") } ?: 0
 
     fun isVanished(player: Player): Boolean = player.uuid in vanished
 
@@ -169,15 +169,15 @@ object Vanish {
 
     private fun onDisconnect(event: PlayerDisconnectEvent) {
         vanished.remove(event.player.uuid)
-        VisibilityRules.clear(event.player)
+        VisibilityRules.remove(event.player, VISIBILITY_RULE_OWNER)
     }
 
-    fun init() {
-        ModulePermissions.register(*(1..5).map { "vanilla.vanish.$it" }.toTypedArray())
-        Vanilla.eventNode.addListener(PlayerInputEvent::class.java, ::onInput)
-        Vanilla.eventNode.addListener(PlayerGameModeChangeEvent::class.java, ::onGameModeChange)
-        Vanilla.eventNode.addListener(PlayerSpawnEvent::class.java, ::onSpawn)
-        Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, ::onDisconnect)
+    fun init(context: ModuleContext) {
+        ModulePermissions.register(*(1..5).map { "staff.vanish.$it" }.toTypedArray())
+        context.addListener(PlayerInputEvent::class.java, ::onInput)
+        context.addListener(PlayerGameModeChangeEvent::class.java, ::onGameModeChange)
+        context.addListener(PlayerSpawnEvent::class.java, ::onSpawn)
+        context.addListener(PlayerDisconnectEvent::class.java, ::onDisconnect)
         MinecraftServer.getConnectionManager().onlinePlayers.forEach(::updateVisibility)
     }
 
@@ -190,6 +190,7 @@ object Vanish {
                 VisibilityRules.remove(player, VISIBILITY_RULE_OWNER)
             }
         }
+        players.values.forEach { VisibilityRules.remove(it, VISIBILITY_RULE_OWNER) }
         vanished.clear()
     }
 

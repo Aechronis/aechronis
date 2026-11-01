@@ -7,7 +7,6 @@ import net.aechronis.vanilla.listeners.WhitelistListener
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.Saplings
-import net.aechronis.vanilla.managers.Vanish
 import net.aechronis.vanilla.objects.Recipe
 import net.minestom.server.event.player.AsyncPlayerPreLoginEvent
 import java.util.concurrent.CompletableFuture
@@ -17,11 +16,10 @@ class VanillaModule : AechronisModule {
     override val dependencies = setOf("utils", "combat")
 
     override fun initialize(context: ModuleContext) {
-        Vanilla.init(c = takeConfiguration(), shutdownAction = context::shutdownServer, instance = context.instance)
+        Vanilla.init(c = takeConfiguration(), instance = context.instance)
         measure("Restore transient state") {
             if (Vanilla.config.cropsEnabled) Crops.restoreTransientState(context.peekTransientState(CROPS_STATE_KEY))
             if (Vanilla.config.saplingsEnabled) Saplings.restoreTransientState(context.peekTransientState(SAPLINGS_STATE_KEY))
-            if (Vanilla.config.commandsEnabled) Vanish.restoreTransientState(context.peekTransientState(VANISH_STATE_KEY))
         }
         if (Vanilla.config.whitelistEnabled) {
             context.addListener(AsyncPlayerPreLoginEvent::class.java, WhitelistListener::onPreLogin)
@@ -39,7 +37,6 @@ class VanillaModule : AechronisModule {
         Vanilla.saveBeforeShutdown(context)
         publishOrClear(context, CROPS_STATE_KEY, Vanilla.config.cropsEnabled, Crops::captureTransientState)
         publishOrClear(context, SAPLINGS_STATE_KEY, Vanilla.config.saplingsEnabled, Saplings::captureTransientState)
-        publishOrClear(context, VANISH_STATE_KEY, Vanilla.config.commandsEnabled, Vanish::captureTransientState)
     }
 
     override fun shutdown(context: ModuleContext) = Vanilla.shutdown()
@@ -84,6 +81,5 @@ class VanillaModule : AechronisModule {
 
         const val CROPS_STATE_KEY = "vanilla:crops:v1"
         const val SAPLINGS_STATE_KEY = "vanilla:saplings:v1"
-        const val VANISH_STATE_KEY = "vanilla:vanish:v1"
     }
 }

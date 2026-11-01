@@ -1,13 +1,14 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.staff.commands
 
+import net.aechronis.staff.managers.InventoryViews
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.managers.Commands
+import net.aechronis.vanilla.commands.PlayerTargets
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
 
-class InventorySee : Command("invsee", "vanilla.invsee", "inventorysee") {
+class InventorySee : Command("invsee", "staff.invsee", "inventorysee") {
     private val playerArg = PlayerTargets.argument()
     private val inventoryArg = ArgumentType.Word("inventory").from("inv", "ec").setDefaultValue("inv")
 
@@ -25,8 +26,8 @@ class InventorySee : Command("invsee", "vanilla.invsee", "inventorysee") {
             }
             val target = targets.single()
             when (context[inventoryArg]) {
-                "ec" -> Commands.openEnderChest(player, target)
-                else -> Commands.open(player, target)
+                "ec" -> InventoryViews.openEnderChest(player, target)
+                else -> InventoryViews.open(player, target)
             }
         }, playerArg, inventoryArg)
     }

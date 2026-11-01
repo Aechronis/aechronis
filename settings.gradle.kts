@@ -53,6 +53,7 @@ include(
     ":modules:discord",
     ":modules:vanilla",
     ":modules:chat",
+    ":modules:staff",
     ":modules:regenerating-ores",
     ":modules:recipes",
     ":modules:worldedit",
