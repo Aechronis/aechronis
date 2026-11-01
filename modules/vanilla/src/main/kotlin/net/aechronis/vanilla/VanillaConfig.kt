@@ -52,8 +52,6 @@ data class VanillaConfig(
     val dropThrowVelocity: Double = 6.0,
     val dropThrowUpwardVelocity: Double = 2.0,
     val dropSpawnHeight: Double = 1.3,
-    val dropMagnetRadius: Double = 4.0,
-    val dropMagnetSpeed: Double = 3.0,
     // EnviromentalDmg
     val maxAirTicks: Int = 300,
     val fireTicks: Int = 160,
