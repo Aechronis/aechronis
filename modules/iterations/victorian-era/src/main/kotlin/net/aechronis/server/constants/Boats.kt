@@ -197,7 +197,8 @@ object Boats {
     // Geometry follows tools/blockbench/boats/build-hms-devastation.cjs; model waterline is Y=0.
     // 307 ft overall and 62 ft 3 in beam; one block represents one metre.
     // https://en.wikipedia.org/wiki/HMS_Devastation_(1871)
-    private val hmsDevastationScale = Vec(93.5736 * 16 / 46)
+    // Uniform scale: 93.5736 metres * 16 / 46 model units.
+    private val hmsDevastationScale = Vec(32.547339130434786, 32.547339130434786, 32.547339130434786)
     private val hmsDevastationHalfBeam = 18.9738 * 8 / hmsDevastationScale.x
 
     // The upper works occupy the 150 ft central breastwork, leaving long clear
@@ -350,7 +351,92 @@ object Boats {
             armament =
                 BoatArmament(
                     ammo = Ammo.artilleryShell,
-                    weapons = listOf(hmsDevastationTurret("fore", -5.5, false), hmsDevastationTurret("aft", 21.0, true)),
+                    // Keep weapon constructors literal for the website catalogue exporter.
+                    weapons =
+                        listOf(
+                            BoatWeapon(
+                                name = "Forward twin 12-inch turret",
+                                id = "fore-turret",
+                                model = "aechronis:hms-devastation-turret-fore",
+                                pivotOffset = point(hmsDevastationScale, 8.0, 1.8, hmsDevastationUpperZ(-5.5)),
+                                muzzleOffsets =
+                                    listOf(
+                                        vector(hmsDevastationScale, -0.55, 0.7, 3.52),
+                                        vector(
+                                            hmsDevastationScale,
+                                            0.55,
+                                            0.7,
+                                            3.52,
+                                        ),
+                                    ),
+                                operatorOffset = point(hmsDevastationScale, 8.0, 1.8, hmsDevastationUpperZ(-5.5)),
+                                interactionHitbox =
+                                    Hitbox(
+                                        listOf(
+                                            HitboxPart(
+                                                vector(hmsDevastationScale, 0.0, 0.8, 0.0),
+                                                vector(hmsDevastationScale, 2.4, 0.85, 2.4),
+                                            ),
+                                            HitboxPart(
+                                                vector(hmsDevastationScale, 0.0, 0.7, 2.9),
+                                                vector(hmsDevastationScale, 0.8, 0.35, 0.65),
+                                            ),
+                                        ),
+                                    ),
+                                neutralYaw = 0F,
+                                maxYaw = 135F,
+                                scopeEyeDistance = 3.5,
+                                traverseSpeed = 0.65F,
+                                minPitch = -10F,
+                                maxPitch = 5F,
+                                reloadTime = 12000,
+                                projectileSpeed = 4.0,
+                                projectileExplosionRadius = 4,
+                                projectileExplosionDamage = 110F,
+                                projectileMaxRange = 288.0,
+                            ),
+                            BoatWeapon(
+                                name = "Aft twin 12-inch turret",
+                                id = "aft-turret",
+                                model = "aechronis:hms-devastation-turret-aft",
+                                pivotOffset = point(hmsDevastationScale, 8.0, 1.8, hmsDevastationUpperZ(21.0)),
+                                muzzleOffsets =
+                                    listOf(
+                                        vector(hmsDevastationScale, -0.55, 0.7, -3.52),
+                                        vector(
+                                            hmsDevastationScale,
+                                            0.55,
+                                            0.7,
+                                            -3.52,
+                                        ),
+                                    ),
+                                operatorOffset = point(hmsDevastationScale, 8.0, 1.8, hmsDevastationUpperZ(21.0)),
+                                interactionHitbox =
+                                    Hitbox(
+                                        listOf(
+                                            HitboxPart(
+                                                vector(hmsDevastationScale, 0.0, 0.8, 0.0),
+                                                vector(hmsDevastationScale, 2.4, 0.85, 2.4),
+                                            ),
+                                            HitboxPart(
+                                                vector(hmsDevastationScale, 0.0, 0.7, -2.9),
+                                                vector(hmsDevastationScale, 0.8, 0.35, 0.65),
+                                            ),
+                                        ),
+                                    ),
+                                neutralYaw = 180F,
+                                maxYaw = 135F,
+                                scopeEyeDistance = 3.5,
+                                traverseSpeed = 0.65F,
+                                minPitch = -10F,
+                                maxPitch = 5F,
+                                reloadTime = 12000,
+                                projectileSpeed = 4.0,
+                                projectileExplosionRadius = 4,
+                                projectileExplosionDamage = 110F,
+                                projectileMaxRange = 288.0,
+                            ),
+                        ),
                 ),
             animatedParts =
                 listOf(6.5, 9.5).map { x ->
@@ -459,49 +545,6 @@ object Boats {
                         }
                     }.build(),
         )
-
-    private fun hmsDevastationTurret(
-        id: String,
-        z: Double,
-        aft: Boolean,
-    ): BoatWeapon {
-        val direction = if (aft) -1.0 else 1.0
-        return BoatWeapon(
-            name = "${if (aft) "Aft" else "Forward"} twin 12-inch turret",
-            id = "$id-turret",
-            model = "aechronis:hms-devastation-turret-$id",
-            pivotOffset = point(hmsDevastationScale, 8.0, 1.8, hmsDevastationUpperZ(z)),
-            muzzleOffsets =
-                listOf(
-                    vector(hmsDevastationScale, -0.55, 0.7, direction * 3.52),
-                    vector(
-                        hmsDevastationScale,
-                        0.55,
-                        0.7,
-                        direction * 3.52,
-                    ),
-                ),
-            operatorOffset = point(hmsDevastationScale, 8.0, 1.8, hmsDevastationUpperZ(z)),
-            interactionHitbox =
-                Hitbox(
-                    listOf(
-                        HitboxPart(vector(hmsDevastationScale, 0.0, 0.8, 0.0), vector(hmsDevastationScale, 2.4, 0.85, 2.4)),
-                        HitboxPart(vector(hmsDevastationScale, 0.0, 0.7, direction * 2.9), vector(hmsDevastationScale, 0.8, 0.35, 0.65)),
-                    ),
-                ),
-            neutralYaw = if (aft) 180F else 0F,
-            maxYaw = 135F,
-            scopeEyeDistance = 3.5,
-            traverseSpeed = 0.65F,
-            minPitch = -10F,
-            maxPitch = 5F,
-            reloadTime = 12000,
-            projectileSpeed = 4.0,
-            projectileExplosionRadius = 4,
-            projectileExplosionDamage = 110F,
-            projectileMaxRange = 288.0,
-        )
-    }
 
     private fun hmsDevastationOutline(stations: List<Pair<Double, Double>>): List<Pair<Double, Double>> =
         stations.map { (z, width) -> (8.0 + width) to z } +
