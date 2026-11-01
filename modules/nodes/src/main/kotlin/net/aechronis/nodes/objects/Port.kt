@@ -46,7 +46,7 @@ class Port(
         fun getOwner(port: Port): Town? {
             if (port.isPublic) return null
             val chunk = TerritoryChunk.fromCoord(Coord(port.chunkX, port.chunkZ)) ?: return null
-            return chunk.occupier ?: chunk.territory.town
+            return chunk.occupier ?: chunk.territory.occupier ?: chunk.territory.town
         }
     }
 
