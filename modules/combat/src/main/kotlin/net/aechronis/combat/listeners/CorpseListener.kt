@@ -49,7 +49,8 @@ object CorpseListener {
         val player = event.player
         val instance = player.instance ?: return
         val lootSlots = (0..<player.inventory.size).filter { it != PlayerInventoryUtils.CRAFT_RESULT }
-        if (lootSlots.all { player.inventory.getItemStack(it).isAir }) return
+        val cursorItem = player.inventory.cursorItem
+        if (cursorItem.isAir && lootSlots.all { player.inventory.getItemStack(it).isAir }) return
 
         val corpse = EntityCreature(EntityType.MANNEQUIN)
         corpse.editEntityMeta(MannequinMeta::class.java) { meta ->
@@ -61,6 +62,8 @@ object CorpseListener {
             val stack = player.inventory.getItemStack(slot)
             if (!stack.isAir) loot.setItemStack(slot, stack)
         }
+        // The larger corpse inventory has spare slots after the player's mapped equipment slots.
+        if (!cursorItem.isAir) loot.setItemStack(player.inventory.size, cursorItem)
         Corpses.register(corpse, loot)
         player.inventory.clear()
 
