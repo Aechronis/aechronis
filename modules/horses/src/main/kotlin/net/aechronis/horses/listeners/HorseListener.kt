@@ -1,7 +1,7 @@
-package net.aechronis.vanilla.listeners
+package net.aechronis.horses.listeners
 
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.managers.Horses
+import net.aechronis.horses.managers.Horses
+import net.aechronis.server.modules.ModuleContext
 import net.aechronis.vanilla.managers.Items
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -137,17 +137,17 @@ object HorseListener {
         Horses.onChunkUnload(event.instance, event.chunkX, event.chunkZ)
     }
 
-    fun init() {
-        Vanilla.eventNode.addListener(PlayerUseItemOnBlockEvent::class.java, HorseListener::onUseEgg)
-        Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, HorseListener::onInteract)
-        Vanilla.eventNode.addListener(PlayerInputEvent::class.java, HorseListener::onInput)
-        Vanilla.eventNode.addListener(PlayerPacketEvent::class.java, HorseListener::onPacket)
-        Vanilla.eventNode.addListener(InventoryPreClickEvent::class.java, HorseListener::onPreClick)
-        Vanilla.eventNode.addListener(EntityDamageEvent::class.java, HorseListener::onDamage)
-        Vanilla.eventNode.addListener(EntityDeathEvent::class.java, HorseListener::onHorseDeath)
-        Vanilla.eventNode.addListener(PlayerDeathEvent::class.java, HorseListener::onPlayerDeath)
-        Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, HorseListener::onDisconnect)
-        Vanilla.eventNode.addListener(InstanceChunkLoadEvent::class.java, HorseListener::onChunkLoad)
-        Vanilla.eventNode.addListener(InstanceChunkUnloadEvent::class.java, HorseListener::onChunkUnload)
+    fun init(context: ModuleContext) {
+        context.addListener(PlayerUseItemOnBlockEvent::class.java, HorseListener::onUseEgg)
+        context.addListener(PlayerEntityInteractEvent::class.java, HorseListener::onInteract)
+        context.addListener(PlayerInputEvent::class.java, HorseListener::onInput)
+        context.addListener(PlayerPacketEvent::class.java, HorseListener::onPacket)
+        context.addListener(InventoryPreClickEvent::class.java, HorseListener::onPreClick)
+        context.addListener(EntityDamageEvent::class.java, HorseListener::onDamage)
+        context.addListener(EntityDeathEvent::class.java, HorseListener::onHorseDeath)
+        context.addListener(PlayerDeathEvent::class.java, HorseListener::onPlayerDeath)
+        context.addListener(PlayerDisconnectEvent::class.java, HorseListener::onDisconnect)
+        context.addListener(InstanceChunkLoadEvent::class.java, HorseListener::onChunkLoad)
+        context.addListener(InstanceChunkUnloadEvent::class.java, HorseListener::onChunkUnload)
     }
 }

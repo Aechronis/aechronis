@@ -48,7 +48,7 @@ class VictorianEraModule : AechronisModule {
                 .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build(),
         )
-    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "killshop", "duels")
+    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "killshop", "duels", "horses")
 
     override fun configure(context: ModuleContext) {
         measure("Item catalogue") { registerItems() }
@@ -62,7 +62,6 @@ class VictorianEraModule : AechronisModule {
         measure("Vanilla configuration") {
             VanillaModule.configure(
                 VanillaConfig(
-                    horsesEnabled = true,
                     recipesConfig = RecipesConfig(recpies = HorseRecipes.list),
                 ),
             )

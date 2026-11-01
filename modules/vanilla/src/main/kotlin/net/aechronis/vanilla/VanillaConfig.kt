@@ -27,13 +27,11 @@ data class VanillaConfig(
     val drowningEnabled: Boolean = true,
     val voidDamageEnabled: Boolean = true,
     val serverLinksEnabled: Boolean = true,
-    val horsesEnabled: Boolean = false,
     // Player defaults
     val defaultGameMode: GameMode = GameMode.SURVIVAL,
     // Paths
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",
-    val horsesPath: String = "horses.json",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),
     // Food
@@ -66,8 +64,6 @@ data class VanillaConfig(
             "Discord" to "https://discord.gg/aechronis",
             "Store" to "https://shop.aechronis.net",
         ),
-    // Horses
-    val horseMountCooldownMs: Long = 3_000L,
     // EnviromentalDmg
     val maxAirTicks: Int = 300,
     val fireTicks: Int = 160,

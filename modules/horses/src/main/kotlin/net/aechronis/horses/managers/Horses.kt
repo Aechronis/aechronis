@@ -1,12 +1,11 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.horses.managers
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.aechronis.server.io.AtomicFiles
 import net.aechronis.server.modules.ModuleScheduler
-import net.aechronis.vanilla.Vanilla
-import net.aechronis.vanilla.listeners.HorseListener
+import net.aechronis.vanilla.managers.Items
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.ServerFlag
@@ -48,6 +47,7 @@ import kotlin.random.Random
  * and, like other non-player entities, live only while their chunk is loaded.
  */
 object Horses {
+    private const val MOUNT_COOLDOWN_MS = 3_000L
     private const val FORMAT_VERSION = 1
     private const val STAT_MULTIPLIER = 1.2
     private const val TICK_MS = 1_000L
@@ -131,7 +131,6 @@ object Horses {
         file = path
         world = instance
         load()
-        HorseListener.init()
         tickTask =
             ModuleScheduler
                 .buildTask { tick() }
@@ -296,7 +295,7 @@ object Horses {
     }
 
     fun blockMounting(player: Player) {
-        mountBlockedUntil[player.uuid] = System.currentTimeMillis() + Vanilla.config.horseMountCooldownMs
+        mountBlockedUntil[player.uuid] = System.currentTimeMillis() + MOUNT_COOLDOWN_MS
     }
 
     fun mountCooldownMillis(player: Player): Long {

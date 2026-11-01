@@ -56,6 +56,7 @@ include(
     ":modules:staff",
     ":modules:portable",
     ":modules:whitelist",
+    ":modules:horses",
     ":modules:regenerating-ores",
     ":modules:recipes",
     ":modules:worldedit",

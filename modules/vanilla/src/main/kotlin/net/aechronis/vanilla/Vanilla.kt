@@ -23,7 +23,6 @@ import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Efficiency
 import net.aechronis.vanilla.managers.EnvironmentalDamage
 import net.aechronis.vanilla.managers.Food
-import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.ItemFrames
 import net.aechronis.vanilla.managers.Items
 import net.aechronis.vanilla.managers.Jukeboxes
@@ -35,7 +34,6 @@ import net.aechronis.vanilla.managers.Signs
 import net.aechronis.vanilla.managers.Storage
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
-import net.minestom.server.instance.Instance
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 
@@ -44,10 +42,7 @@ object Vanilla {
     lateinit var config: VanillaConfig
         private set
 
-    fun init(
-        c: VanillaConfig = VanillaConfig(),
-        instance: Instance? = null,
-    ) {
+    fun init(c: VanillaConfig = VanillaConfig()) {
         config = c
 
         measure("Player Activity Listener") { PlayerActivityListener.init() }
@@ -94,10 +89,6 @@ object Vanilla {
             measure("Environmental Damage") { EnvironmentalDamage.init() }
         }
         if (config.serverLinksEnabled) measure("Server Links Listener") { ServerLinksListener.init() }
-        if (config.horsesEnabled) {
-            val world = requireNotNull(instance) { "Horses need the world instance" }
-            measure("Horses") { Horses.init(Path.of(config.path, config.horsesPath), world) }
-        }
         val globalEventHandler = MinecraftServer.getGlobalEventHandler()
         ModuleEvents.addChild(globalEventHandler, eventNode)
         playerDataEventNode?.let { node -> ModuleEvents.addChild(globalEventHandler, node) }
@@ -108,7 +99,6 @@ object Vanilla {
         println("Vanilla: saving data before shutdown...")
         runSaveStages(
             "checkpoint" to { context.captureLive(::saveCheckpoint).join() },
-            "horses" to { if (config.horsesEnabled) Horses.save() },
         )
         println("Vanilla: data saved.")
     }
@@ -124,7 +114,6 @@ object Vanilla {
             "storage" to Storage::shutdown,
             "sign editors" to Signs::shutdown,
             "command inventories" to Commands::shutdown,
-            "horses" to { if (config.horsesEnabled) Horses.shutdown() },
             "jukebox playback" to Jukeboxes::shutdown,
         )
     }
@@ -137,7 +126,6 @@ object Vanilla {
                 runSaveStages(
                     "player data" to { if (config.playerDataEnabled) playerSave = PlayerData.saveAll() },
                     "storage" to { if (config.storageEnabled) Storage.flushToWorld() },
-                    "horses" to { if (config.horsesEnabled) Horses.save() },
                 )
             }.exceptionOrNull()
         // Even a failed container capture must not hide a still-running player write from unload.
