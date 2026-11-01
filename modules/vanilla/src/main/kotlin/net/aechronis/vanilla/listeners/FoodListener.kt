@@ -2,8 +2,13 @@ package net.aechronis.vanilla.listeners
 
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.Food
+import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.Player
+import net.minestom.server.event.entity.EntityAttackEvent
+import net.minestom.server.event.entity.EntityDamageEvent
 import net.minestom.server.event.item.PlayerFinishItemUseEvent
+import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
@@ -54,6 +59,25 @@ object FoodListener {
         }
     }
 
+    fun onAttack(event: EntityAttackEvent) {
+        val player = event.entity as? Player ?: return
+        if (player.gameMode == GameMode.CREATIVE || player.gameMode == GameMode.SPECTATOR) return
+        Food.addExhaustion(player, 0.1f)
+    }
+
+    fun onDamage(event: EntityDamageEvent) {
+        val player = event.entity as? Player ?: return
+        if (event.isCancelled || player.gameMode == GameMode.CREATIVE || player.gameMode == GameMode.SPECTATOR) return
+        // each damage type carries its own exhaustion value (0 for starvation, drowning, falling, ...)
+        val exhaustion = MinecraftServer.getDamageTypeRegistry().get(event.damage.type)?.exhaustion() ?: 0.1f
+        if (exhaustion > 0f) Food.addExhaustion(player, exhaustion)
+    }
+
+    fun onBreak(event: PlayerBlockBreakEvent) {
+        if (event.player.gameMode == GameMode.CREATIVE) return
+        Food.addExhaustion(event.player, 0.005f)
+    }
+
     fun onDisconnect(event: PlayerDisconnectEvent) {
         val player = event.player
         wasOnGround.remove(player.uuid)
@@ -63,6 +87,9 @@ object FoodListener {
     fun init() {
         Vanilla.eventNode.addListener(PlayerMoveEvent::class.java, FoodListener::onMove)
         Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, FoodListener::onDisconnect)
+        Vanilla.eventNode.addListener(EntityAttackEvent::class.java, FoodListener::onAttack)
+        Vanilla.eventNode.addListener(EntityDamageEvent::class.java, FoodListener::onDamage)
+        Vanilla.eventNode.addListener(PlayerBlockBreakEvent::class.java, FoodListener::onBreak)
         Vanilla.eventNode.addListener(PlayerUseItemEvent::class.java, FoodListener::onUseItem)
         Vanilla.eventNode.addListener(PlayerFinishItemUseEvent::class.java, FoodListener::onEat)
     }

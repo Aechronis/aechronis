@@ -22,7 +22,7 @@ object PlayerDataDeserializer {
 
         player.food = data.getInt("Food", 20)
 
-        player.foodSaturation = data.getFloat("FoodSaturation", 20f)
+        player.foodSaturation = data.getFloat("FoodSaturation", 5f)
 
         player.gameMode =
             runCatching { GameMode.valueOf(data.getString("GameMode")) }

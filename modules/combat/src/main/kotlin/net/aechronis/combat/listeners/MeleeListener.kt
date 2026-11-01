@@ -18,6 +18,7 @@ import net.minestom.server.event.entity.EntityAttackEvent
 import net.minestom.server.event.player.PlayerHandAnimationEvent
 import net.minestom.server.network.packet.server.play.EntityAnimationPacket
 import net.minestom.server.particle.Particle
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -154,12 +155,17 @@ object MeleeListener {
         val currentTime = System.currentTimeMillis()
         val nearbyEntities =
             attacker.instance
-                ?.entities
+                ?.getNearbyEntities(targetPos, 3.0)
                 ?.filter { entity ->
                     if (entity == attacker || entity == primaryTarget) return@filter false
                     if (entity !is LivingEntity) return@filter false
-                    if (entity.position.distanceSquared(targetPos) > 4.0) return@filter false
-                    entity.intersectBox(targetPos, primaryTarget.boundingBox.grow(1.0, 0.25, 1.0))
+                    // vanilla sweep zone: the target's hitbox inflated by 1 block horizontally and 0.25 vertically
+                    val reachX = (primaryTarget.boundingBox.width() + entity.boundingBox.width()) / 2.0 + 1.0
+                    val reachZ = (primaryTarget.boundingBox.depth() + entity.boundingBox.depth()) / 2.0 + 1.0
+                    abs(entity.position.x - targetPos.x) < reachX &&
+                        abs(entity.position.z - targetPos.z) < reachZ &&
+                        entity.position.y < targetPos.y + primaryTarget.boundingBox.height() + 0.25 &&
+                        entity.position.y + entity.boundingBox.height() > targetPos.y - 0.25
                 }
 
         nearbyEntities?.forEach { entity ->

@@ -30,10 +30,4 @@ data class FoodConfig(
             FoodItem(Material.MUTTON, hunger = 2, saturation = 1.2f),
             FoodItem(Material.RABBIT, hunger = 3, saturation = 1.8f),
         ),
-    val foodTickSeconds: Long = 1L,
-    val foodExhaustionPerTick: Float = 0.1f,
-    val foodSprintExhaustionMultiplier: Float = 2.0f,
-    val foodHealAmount: Float = 1.0f,
-    val foodHealSaturationCost: Float = 1.0f,
-    val foodStarvationDamage: Float = 1.0f,
 )

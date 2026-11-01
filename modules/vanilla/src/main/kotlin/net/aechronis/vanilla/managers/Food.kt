@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap
 object Food {
     val foodItems = mutableMapOf<Material, FoodItem>()
     private val exhaustion = ConcurrentHashMap<UUID, Float>()
+    private val tickTimer = ConcurrentHashMap<UUID, Int>()
     private val STARVE: RegistryKey<DamageType> = DamageType.STARVE
 
     fun init() {
@@ -28,7 +29,7 @@ object Food {
         FoodListener.init()
         ModuleScheduler
             .buildTask(::tick)
-            .repeat(TaskSchedule.seconds(config.foodConfig.foodTickSeconds))
+            .repeat(TaskSchedule.tick(1))
             .schedule()
     }
 
@@ -57,38 +58,51 @@ object Food {
 
     internal fun removePlayer(player: Player) {
         exhaustion.remove(player.uuid)
+        tickTimer.remove(player.uuid)
     }
 
+    // Vanilla FoodData.tick, run every game tick.
     private fun tick() {
-        val config = Vanilla.config
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
             if (player.gameMode == GameMode.CREATIVE || player.gameMode == GameMode.SPECTATOR) continue
-            applyHealing(player, config.foodConfig.foodHealAmount, config.foodConfig.foodHealSaturationCost)
-            applyStarvation(player, config.foodConfig.foodStarvationDamage)
+            if (player.isDead) {
+                removePlayer(player)
+                continue
+            }
+            val food = player.food
+            val starving = food <= 0
+            // idle players (not hurt, not starving) clear their timer; skips the attribute read below 18 food
+            val maxHealth = if (food >= 18) player.getAttributeValue(Attribute.MAX_HEALTH).toFloat() else 0f
+            val hurt = food >= 18 && player.health < maxHealth
+            if (!hurt && !starving) {
+                tickTimer.remove(player.uuid)
+                continue
+            }
+            var timer = (tickTimer[player.uuid] ?: 0) + 1
+            when {
+                hurt && food >= 20 && player.foodSaturation > 0f -> {
+                    if (timer >= 10) {
+                        val spent = minOf(player.foodSaturation, 6f)
+                        player.health = (player.health + spent / 6f).coerceAtMost(maxHealth)
+                        addExhaustion(player, spent)
+                        timer = 0
+                    }
+                }
+                hurt -> {
+                    if (timer >= 80) {
+                        player.health = (player.health + 1f).coerceAtMost(maxHealth)
+                        addExhaustion(player, 6f)
+                        timer = 0
+                    }
+                }
+                else -> {
+                    if (timer >= 80) {
+                        if (player.health > 1f) player.damage(STARVE, 1f)
+                        timer = 0
+                    }
+                }
+            }
+            tickTimer[player.uuid] = timer
         }
-    }
-
-    private fun applyHealing(
-        player: Player,
-        healAmount: Float,
-        saturationCost: Float,
-    ) {
-        if (player.food < 18 || player.health >= player.getAttributeValue(Attribute.MAX_HEALTH)) return
-        player.health = (player.health + healAmount).coerceAtMost(player.getAttributeValue(Attribute.MAX_HEALTH).toFloat())
-        if (player.foodSaturation >= saturationCost) {
-            player.foodSaturation -= saturationCost
-        } else {
-            player.foodSaturation = 0f
-            if (player.food > 0) player.food -= 1
-        }
-    }
-
-    private fun applyStarvation(
-        player: Player,
-        damage: Float,
-    ) {
-        if (player.food > 0) return
-        if (player.health <= 1f) return
-        player.damage(STARVE, damage)
     }
 }
