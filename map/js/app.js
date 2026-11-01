@@ -45,7 +45,7 @@ const PORT_RANGE_BY_TIER = [2500, 5000, 10000];
 const MAP_FONT = "'Times New Roman', Times, serif";
 const NATION_FONT = 'Cormorant Garamond';
 
-// Zoom limits are relative to a 1920px-wide viewport; map coordinates remain Minecraft blocks.
+// Maximum zoom and fine-detail thresholds use CSS pixels per Minecraft block.
 const VIEW_MAX_ZOOM = 0;
 const NATIVE_VIEW_ZOOM = 0;
 const SCROLL_ZOOM_SPEED = 0.00135;
@@ -338,8 +338,7 @@ function bootMap(initial) {
   }
 
   let zoomViewportWidth = window.innerWidth;
-  let zoomOffset = screenZoomOffset(zoomViewportWidth);
-  let viewZoom = NATIVE_VIEW_ZOOM + zoomOffset;
+  let viewZoom = NATIVE_VIEW_ZOOM;
   let viewTarget = [0, 0];
   function visibleWorldCopies() {
     const halfWidth = window.innerWidth / 2 / 2 ** viewZoom + 64;
@@ -710,8 +709,8 @@ function bootMap(initial) {
     return spatialOverlays.updateVisible(
       intervals,
       viewTarget[1] - halfH, viewTarget[1] + halfH, {
-        grid: chunkDetailOpacity(viewZoom, NATIVE_VIEW_ZOOM + zoomOffset) > 0,
-        outlines: viewZoom >= (mapMode === 'resources' ? -4 : -2) + zoomOffset,
+        grid: chunkDetailOpacity(viewZoom, NATIVE_VIEW_ZOOM) > 0,
+        outlines: viewZoom >= (mapMode === 'resources' ? -4 : -2),
         zoom: viewZoom,
       });
   }
@@ -966,7 +965,7 @@ function bootMap(initial) {
   }
 
   function nationLabelsLayer() {
-    const opacity = 1 - zoomDetailOpacity(viewZoom, -1 + zoomOffset);
+    const opacity = 1 - zoomDetailOpacity(viewZoom, -1);
     if (!nationLabels.length || opacity <= 0) return null;
     return new TextLayer({
       id: 'nation-labels',
@@ -1038,9 +1037,9 @@ function bootMap(initial) {
   }
 
   function getLayers() {
-    const chunkOpacity = chunkDetailOpacity(viewZoom, NATIVE_VIEW_ZOOM + zoomOffset);
+    const chunkOpacity = chunkDetailOpacity(viewZoom, NATIVE_VIEW_ZOOM);
     const showChunkDetail = chunkOpacity > 0;
-    const territoryOpacity = zoomDetailOpacity(viewZoom, (mapMode === 'resources' ? -4 : -2) + zoomOffset);
+    const territoryOpacity = zoomDetailOpacity(viewZoom, (mapMode === 'resources' ? -4 : -2));
     const fadeDetail = (layer, opacity) => layer?.clone({ opacity });
     const copies = visibleWorldCopies();
     const layers = [
@@ -1253,15 +1252,13 @@ function bootMap(initial) {
   document.getElementById('map').addEventListener('pointercancel', cancelCameraInteraction);
   window.addEventListener('blur', cancelCameraInteraction);
 
-  // Preserve the current map width when resizing, including at either limit.
-  // Recompute detail visibility as well: physical zoom can now be negative
-  // at maximum zoom-in on a narrow display.
+  // Preserve map coverage when resizing, subject to the physical zoom limits.
+  // Recompute detail visibility for the resulting scale.
   window.addEventListener('resize', () => {
     const newWidth = window.innerWidth;
     const resized = resizeScreenZoom(viewState, zoomViewportWidth, newWidth,
       minimumViewZoom(newWidth, window.innerHeight), VIEW_MAX_ZOOM);
     zoomViewportWidth = newWidth;
-    zoomOffset = screenZoomOffset(newWidth);
     viewState = clampTarget({ ...resized, transitionDuration: 0 });
     viewZoom = viewState.zoom;
     viewTarget = viewState.target;

@@ -1,4 +1,4 @@
-// Zoom settings describe map coverage on a 1920 CSS-pixel-wide viewport.
+// Responsive coverage is measured against a 1920 CSS-pixel-wide viewport.
 // CSS pixels, rather than device pixels, keep high-DPI displays consistent.
 export const ZOOM_REFERENCE_WIDTH = 1920;
 
@@ -13,7 +13,8 @@ function currentZoom(viewState) {
 export function clampScreenZoom(viewState, width, baseMin, baseMax) {
   const offset = screenZoomOffset(width);
   const minZoom = baseMin + offset;
-  const maxZoom = baseMax + offset;
+  // Close-up detail needs the same pixels per block on every screen size.
+  const maxZoom = baseMax;
   const zoom = Math.min(maxZoom, Math.max(minZoom, currentZoom(viewState)));
   // OrthographicController emits axis-specific values and constraints. They
   // take precedence over the scalar props in both the controller and viewport.
