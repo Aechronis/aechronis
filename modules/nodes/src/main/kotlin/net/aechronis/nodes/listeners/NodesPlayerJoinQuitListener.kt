@@ -14,6 +14,7 @@ import net.aechronis.nodes.colonization.ColonizationMenu
 import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.TestTownSelection
+import net.aechronis.nodes.objects.TownFly
 import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.HomeCaptureBan
@@ -129,6 +130,7 @@ object NodesPlayerJoinQuitListener {
     }
 
     fun onPlayerSpawn(event: PlayerSpawnEvent) {
+        TownFly.disableDuringWar(event.player)
         Resident.fromPlayer(event.player)?.minimap?.respawn()
     }
 

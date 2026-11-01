@@ -8,8 +8,10 @@ import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.TerritoryId
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TownFly
 import net.aechronis.nodes.war.serdes.WarDeserializer
 import net.aechronis.nodes.war.serdes.WarSerializer
+import net.minestom.server.MinecraftServer
 import net.minestom.server.adventure.audience.Audiences
 import net.minestom.server.command.CommandSender
 import net.minestom.server.coordinate.BlockVec
@@ -256,6 +258,7 @@ object FlagWar {
         if (!alreadyEnabled) townsDefeatedThisWar.clear()
         if (!alreadyEnabled || FlagWar.canOnlyAttackBorders != canOnlyAttackBorders) skirmishTargetsByNation.clear()
         enabled = true
+        MinecraftServer.getConnectionManager().onlinePlayers.forEach { TownFly.disableDuringWar(it) }
         FlagWar.deathWar = deathWar
         FlagWar.canAnnexTerritories = canAnnexTerritories
         FlagWar.canOnlyAttackBorders = canOnlyAttackBorders

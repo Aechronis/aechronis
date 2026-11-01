@@ -17,6 +17,7 @@ import net.minestom.server.event.player.PlayerMoveEvent
 object NodesPlayerMoveListener {
     private fun onPlayerMove(event: PlayerMoveEvent) {
         val player = event.player
+        TownFly.disableDuringWar(player)
         val resident = Resident.fromPlayer(player) ?: return
         resident.minimap?.let { minimap ->
             minimap.updateWaypointDisplayTransforms(event.newPosition)
@@ -55,6 +56,7 @@ object NodesPlayerMoveListener {
     // handle player teleport (e.g. /t spawn)
     private fun onPlayerTeleport(event: EntityTeleportEvent) {
         val player = event.entity as? Player ?: return
+        TownFly.disableDuringWar(player)
         val resident = Resident.fromPlayer(player) ?: return
         resident.minimap?.let { minimap ->
             minimap.updateWaypointDisplayTransforms(event.newPosition)
