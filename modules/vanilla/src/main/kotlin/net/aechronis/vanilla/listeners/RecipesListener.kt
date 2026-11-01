@@ -79,8 +79,6 @@ object RecipesListener {
     }
 
     fun onInvClick(event: InventoryPreClickEvent) {
-        if (Recipes.handleRecipeBrowserClick(event)) return
-
         val click = event.click
         val slot = event.slot
         val player = event.player
@@ -216,8 +214,6 @@ object RecipesListener {
     }
 
     fun onInvClose(event: InventoryCloseEvent) {
-        Recipes.closeRecipeBrowser(event.inventory)
-
         val closedInv = event.inventory
         if (closedInv !is Inventory) return
         if (closedInv.inventoryType != InventoryType.CRAFTING) return
