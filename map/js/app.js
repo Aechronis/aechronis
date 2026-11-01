@@ -8,7 +8,7 @@ import earthOverviewUrl from '../assets/earth-overview.jpg';
 import capitalStarUrl from '../assets/capital-star.svg';
 import { buildNationCapitals, buildOtherTowns } from './nation-capitals.mjs';
 import { Deck } from '@deck.gl/core';
-import { memoize, resolveSelection, buildingIconUrl } from './map-selection.mjs';
+import { memoize, resolveSelection, sourceCoordinate, buildingIconUrl } from './map-selection.mjs';
 import { buildIndex, hydrateIndex, chunkCanvas, packCoord } from './data-index.mjs';
 import { Matrix4 } from '@math.gl/core';
 import { fetchJsonUpdate, ownershipChanged } from './data-refresh.mjs';
@@ -345,10 +345,6 @@ function bootMap(initial) {
     const halfWidth = window.innerWidth / 2 / 2 ** viewZoom + 64;
     return worldCopies(viewTarget[0] - halfWidth, viewTarget[0] + halfWidth,
       PAN_BOUNDS[0], PAN_BOUNDS[2]);
-  }
-  function canonicalCoordinate(coordinate) {
-    return coordinate && [wrapX(coordinate[0], PAN_BOUNDS[0], PAN_BOUNDS[2]),
-      ...coordinate.slice(1)];
   }
   let relationNation = null;
   const mapModeSelect = document.getElementById('map-mode');
@@ -1148,8 +1144,9 @@ function bootMap(initial) {
       const coordinate = info.layer?.id.startsWith('buildings-world-') && info.object
         ? info.object.center
         : info.layer?.id.startsWith('resource-icons-world-') && info.object
-          ? info.object.position : info.coordinate;
-      if (coordinate) selectAt(canonicalCoordinate(coordinate));
+          ? info.object.position
+          : sourceCoordinate(info.coordinate, index, buildingsByChunk, visibleWorldCopies());
+      if (coordinate) selectAt(coordinate);
     },
     onHover: ({ x, y }) => {
       hoverPixel = x >= 0 && y >= 0 ? [x, y] : null;
@@ -1178,7 +1175,7 @@ function bootMap(initial) {
   function updateHover() {
     const viewport = deck.getViewports()[0];
     const coordinate = hoverPixel && viewport
-      ? canonicalCoordinate(viewport.unproject(hoverPixel)) : null;
+      ? sourceCoordinate(viewport.unproject(hoverPixel), index, buildingsByChunk, visibleWorldCopies()) : null;
     // Pick the rendered silhouette, including its minimum screen size and
     // wrapped world copies, rather than just the underlying chunk.
     const next = showBuildings() && hoverPixel
@@ -1232,9 +1229,9 @@ function bootMap(initial) {
     const viewport = deck.getViewports()[0];
     if (!viewport) return;
     const bounds = deck.getCanvas().getBoundingClientRect();
-    const coordinate = canonicalCoordinate(viewport.unproject([
+    const coordinate = sourceCoordinate(viewport.unproject([
       event.clientX - bounds.left, event.clientY - bounds.top,
-    ]));
+    ]), index, buildingsByChunk, visibleWorldCopies());
     const { hit } = resolveSelection(coordinate, index, buildingsByChunk);
     selectedCoordinate = coordinate;
     if (hit?.style.nation) {
