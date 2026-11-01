@@ -11,7 +11,6 @@ import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Spawn
 import net.aechronis.vanilla.commands.Teleport
-import net.aechronis.vanilla.commands.TpsBar
 import net.aechronis.vanilla.commands.Vote
 import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
@@ -44,7 +43,6 @@ import net.minestom.server.event.EventNode
 import net.minestom.server.instance.Instance
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
-import net.aechronis.vanilla.managers.TpsBar as TpsBarManager
 import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
 object Vanilla {
@@ -72,7 +70,6 @@ object Vanilla {
                         Kill(),
                         Clear(),
                         List(),
-                        TpsBar(),
                         Vote(),
                         Spawn(),
                     )
@@ -97,7 +94,6 @@ object Vanilla {
         if (config.efficiencyEnabled) measure("Efficiency") { Efficiency.init() }
         if (config.commandsEnabled) {
             measure("Command listeners") { CommandsListener.init() }
-            measure("TPS bar") { TpsBarManager.init() }
         }
         if (config.blockDropsEnabled) measure("Player Break Listener") { PlayerBreakListener.init() }
         if (config.fallDamageEnabled) measure("Fall Damage Listener") { FallDamageListener.init() }
@@ -132,7 +128,6 @@ object Vanilla {
         runSaveStages(
             "player data writer" to PlayerData::shutdown,
             "item frames" to ItemFrames::shutdown,
-            "tps bars" to TpsBarManager::shutdown,
             "efficiency attributes" to Efficiency::shutdown,
             "crop growth" to { if (config.cropsEnabled) Crops.shutdown() },
             "sapling growth" to { if (config.saplingsEnabled) Saplings.shutdown() },
