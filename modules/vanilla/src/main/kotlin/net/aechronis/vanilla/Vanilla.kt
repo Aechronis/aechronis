@@ -15,7 +15,6 @@ import net.aechronis.vanilla.listeners.CommandsListener
 import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerActivityListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
-import net.aechronis.vanilla.listeners.ServerLinksListener
 import net.aechronis.vanilla.managers.Boats
 import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.Crops
@@ -86,7 +85,6 @@ object Vanilla {
         ) {
             measure("Environmental Damage") { EnvironmentalDamage.init() }
         }
-        if (config.serverLinksEnabled) measure("Server Links Listener") { ServerLinksListener.init() }
         val globalEventHandler = MinecraftServer.getGlobalEventHandler()
         ModuleEvents.addChild(globalEventHandler, eventNode)
         playerDataEventNode?.let { node -> ModuleEvents.addChild(globalEventHandler, node) }

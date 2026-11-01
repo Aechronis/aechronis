@@ -26,7 +26,6 @@ data class VanillaConfig(
     val fireDamageEnabled: Boolean = true,
     val drowningEnabled: Boolean = true,
     val voidDamageEnabled: Boolean = true,
-    val serverLinksEnabled: Boolean = true,
     // Player defaults
     val defaultGameMode: GameMode = GameMode.SURVIVAL,
     // Paths
@@ -56,14 +55,6 @@ data class VanillaConfig(
     val dropSpawnHeight: Double = 1.3,
     val dropMagnetRadius: Double = 4.0,
     val dropMagnetSpeed: Double = 3.0,
-    // Server Links
-    val serverLinks: List<Pair<String, String>> =
-        listOf(
-            "Map" to "https://map.aechronis.net",
-            "Website" to "https://aechronis.net",
-            "Discord" to "https://discord.gg/aechronis",
-            "Store" to "https://shop.aechronis.net",
-        ),
     // EnviromentalDmg
     val maxAirTicks: Int = 300,
     val fireTicks: Int = 160,

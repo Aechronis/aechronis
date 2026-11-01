@@ -112,6 +112,7 @@ val runtimeModuleProjects =
         ":modules:portable",
         ":modules:whitelist",
         ":modules:horses",
+        ":modules:server-links",
         ":modules:regenerating-ores",
         ":modules:recipes",
         ":modules:worldedit",
