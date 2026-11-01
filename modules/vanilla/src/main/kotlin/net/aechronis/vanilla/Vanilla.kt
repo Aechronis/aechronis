@@ -7,7 +7,6 @@ import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
-import net.aechronis.vanilla.commands.Gm
 import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Spawn
@@ -72,7 +71,6 @@ object Vanilla {
                         Teleport(),
                         Kill(),
                         Clear(),
-                        Gm(),
                         List(),
                         TpsBar(),
                         Vote(),
