@@ -40,7 +40,7 @@ class Grenade(
 
     fun use(player: Player): Boolean {
         val armed = Combat.playerStates[player]?.armedGrenade
-        if (armed == null && Mounts.isMounted(player)) {
+        if (armed == null && (Mounts.isMounted(player) || Vehicle.isVehicleOccupant(player))) {
             Mounts.showBlocked(player)
             return false
         }

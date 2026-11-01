@@ -1,5 +1,6 @@
 package net.aechronis.combat.objects
 
+import net.aechronis.combat.Combat
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.VehicleCameraDistance
 import net.aechronis.utils.VisibilityRules
@@ -117,6 +118,7 @@ internal class VehicleCrew(
         reconcileOccupant(player)
         return !isForcedExit(player) &&
             !player.isDead &&
+            Combat.playerStates[player]?.armedGrenade == null &&
             VehicleRegistry.ride(player) == null &&
             VehicleRegistry.runtime(entity)?.vehicle === vehicle &&
             !entity.isRemoved &&
