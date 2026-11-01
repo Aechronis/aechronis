@@ -7,7 +7,6 @@ import net.aechronis.server.modules.ModuleStartupTimings.measure
 import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.Craft
 import net.aechronis.vanilla.commands.EnderChest
-import net.aechronis.vanilla.commands.Fly
 import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
 import net.aechronis.vanilla.commands.Gm
@@ -74,7 +73,6 @@ object Vanilla {
                         GameMode(),
                         Give(),
                         Teleport(),
-                        Fly(),
                         Kill(),
                         Clear(),
                         EnderChest(),
