@@ -3,6 +3,7 @@ package net.aechronis.duels
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.server.Server
 import net.aechronis.server.io.AtomicFiles
+import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.serdes.PlayerDataDeserializer
 import net.aechronis.vanilla.serdes.PlayerDataSerializer
@@ -13,6 +14,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
+import net.minestom.server.coordinate.ChunkRange
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.timer.TaskSchedule
@@ -219,31 +221,82 @@ object MatchManager {
             } else {
                 player.setInstance(Server.instance, spawn)
             }
-        return moved.thenRun {
+        return moved.thenCompose {
+            val restored = CompletableFuture<Void>()
             ModuleScheduler.scheduleNextTick {
-                if (!player.isOnline) return@scheduleNextTick
-                player.inventory.cursorItem = net.minestom.server.item.ItemStack.AIR
-                if (saved != null) {
-                    PlayerDataDeserializer.deserialize(player, saved)
-                    SnapshotStore.delete(player.uuid)
-                } else {
-                    // Unreadable or missing snapshot: strip the kit, keep any file on disk for manual recovery.
-                    player.inventory.clear()
-                    player.gameMode = GameMode.SURVIVAL
-                    System.err.println("[Duels] No readable snapshot for ${player.username}; cleared kit")
+                try {
+                    if (player.isOnline) {
+                        restoreSnapshot(player, saved)
+                        player.teleport(spawn)
+                    }
+                    restored.complete(null)
+                } catch (error: Throwable) {
+                    restored.completeExceptionally(error)
                 }
-                player.teleport(spawn)
             }
+            restored
+        }
+    }
+
+    private fun restoreSnapshot(
+        player: Player,
+        saved: CompoundBinaryTag?,
+    ) {
+        player.inventory.cursorItem = net.minestom.server.item.ItemStack.AIR
+        if (saved != null) {
+            // Duel returns go to spawn, never the pre-match position in another instance.
+            PlayerDataDeserializer.deserialize(player, saved.remove("Position"))
+            SnapshotStore.delete(player.uuid)
+        } else {
+            // Keep an unreadable file on disk for manual recovery.
+            player.inventory.clear()
+            player.gameMode = GameMode.SURVIVAL
+            System.err.println("[Duels] No readable snapshot for ${player.username}; cleared kit")
         }
     }
 
     /** Shutdown/reload: end everything now and hand every player back their state. */
-    fun abortAll() {
-        matches.toList().forEach { match ->
-            match.state = MatchState.ENDING
-            match.members.forEach { byPlayer.remove(it, match) }
-            match.players().filter { it.instance === match.instance }.forEach { returnToSpawn(it) }
+    fun abortAll(context: ModuleContext) {
+        val ending = context.captureLive { matches.toList().onEach { it.state = MatchState.ENDING } }
+        if (ending.isEmpty()) return
+        val players = context.captureLive { ending.flatMap(Match::players).distinctBy { it.uuid } }
+        val snapshots = players.associateWith { SnapshotStore.load(it.uuid) }
+        val snapshotFiles = players.filter { snapshots[it] != null || SnapshotStore.exists(it.uuid) }.toSet()
+        val spawn = context.spawnPoint
+
+        // setInstance otherwise queues its completion on the ordinary scheduler, which is parked
+        // during reload. Load its entire destination view before moving players on the live tick.
+        val chunks =
+            context.captureLive {
+                val loads = mutableListOf<CompletableFuture<*>>()
+                val distance = players.maxOfOrNull { minOf(it.settings.viewDistance().toInt(), context.instance.viewDistance()) + 1 }
+                if (distance != null) {
+                    ChunkRange.chunksInRange(spawn, distance) { x, z -> loads += context.instance.loadOptionalChunk(x, z) }
+                }
+                loads
+            }
+        CompletableFuture.allOf(*chunks.toTypedArray()).join()
+
+        context.captureLive {
+            for (player in players) {
+                if (!player.isOnline) continue
+                // finish() may already have moved a member home before its restore task was cancelled.
+                if (player !in snapshotFiles && ending.none { player.instance === it.instance }) continue
+                val moved =
+                    if (player.instance === context.instance) {
+                        player.teleport(spawn)
+                    } else {
+                        player.setInstance(context.instance, spawn)
+                    }
+                check(moved.isDone) { "Duel return requires loaded spawn chunks" }
+                moved.join()
+                restoreSnapshot(player, snapshots[player])
+            }
+            ending.forEach { match ->
+                match.members.forEach { byPlayer.remove(it, match) }
+                MinecraftServer.getInstanceManager().unregisterInstance(match.instance)
+                matches -= match
+            }
         }
-        matches.clear()
     }
 }

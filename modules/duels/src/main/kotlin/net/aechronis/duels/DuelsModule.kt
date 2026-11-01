@@ -16,13 +16,13 @@ class DuelsModule : AechronisModule {
 
     override fun prepareForShutdown(context: ModuleContext) {
         // Players get their inventories back before their data is saved.
-        MatchManager.abortAll()
+        MatchManager.abortAll(context)
         DuelMenus.closeAll()
         Invites.clear()
     }
 
     override fun shutdown(context: ModuleContext) {
-        MatchManager.abortAll()
+        MatchManager.abortAll(context)
         DuelMenus.closeAll()
         Invites.clear()
     }
