@@ -13,7 +13,6 @@ data class VanillaConfig(
     val signsEnabled: Boolean = true,
     val shelvesEnabled: Boolean = true,
     val itemFramesEnabled: Boolean = true,
-    val whitelistEnabled: Boolean = true,
     val recipesEnabled: Boolean = true,
     val cropsEnabled: Boolean = true,
     val saplingsEnabled: Boolean = true,
@@ -34,7 +33,6 @@ data class VanillaConfig(
     // Paths
     val path: String = "vanilla",
     val playerDataPath: String = "playerdata",
-    val whitelistPath: String = "whitelist.json",
     val horsesPath: String = "horses.json",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),

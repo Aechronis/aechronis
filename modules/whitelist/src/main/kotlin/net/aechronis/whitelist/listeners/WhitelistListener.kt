@@ -1,6 +1,6 @@
-package net.aechronis.vanilla.listeners
+package net.aechronis.whitelist.listeners
 
-import net.aechronis.vanilla.managers.Whitelist
+import net.aechronis.whitelist.managers.Whitelist
 import net.kyori.adventure.text.Component
 import net.minestom.server.event.player.AsyncPlayerPreLoginEvent
 

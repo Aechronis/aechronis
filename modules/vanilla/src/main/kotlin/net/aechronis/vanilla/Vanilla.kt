@@ -10,7 +10,6 @@ import net.aechronis.vanilla.commands.Give
 import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Teleport
-import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
 import net.aechronis.vanilla.listeners.CombatInventoryListener
 import net.aechronis.vanilla.listeners.CommandsListener
@@ -39,7 +38,6 @@ import net.minestom.server.event.EventNode
 import net.minestom.server.instance.Instance
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
-import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
 
 object Vanilla {
     val eventNode = EventNode.all("vanilla")
@@ -67,7 +65,6 @@ object Vanilla {
                         Clear(),
                         List(),
                     )
-                if (config.whitelistEnabled) commands += Whitelist()
                 ModuleCommands
                     .register(*commands.toTypedArray())
             }
@@ -78,7 +75,6 @@ object Vanilla {
         if (config.signsEnabled) measure("Signs") { Signs.init() }
         if (config.shelvesEnabled) measure("Shelves") { Shelves.init() }
         if (config.itemFramesEnabled) measure("Item Frames") { ItemFrames.init() }
-        if (config.whitelistEnabled) measure("Whitelist") { WhitelistManager.init(Path.of(config.path, config.whitelistPath)) }
         if (config.recipesEnabled) measure("Recipes") { Recipes.init() }
         if (config.cropsEnabled) measure("Crops") { Crops.init() }
         if (config.saplingsEnabled) measure("Saplings") { Saplings.init() }

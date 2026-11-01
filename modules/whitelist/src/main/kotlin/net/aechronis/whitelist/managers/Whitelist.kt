@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.whitelist.managers
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap
 object Whitelist {
     const val WEAK_TIER = 1
     const val SUPER_ADMIN_TIER = 2
-    const val BYPASS_PERMISSION = "vanilla.whitelist"
+    const val BYPASS_PERMISSION = "whitelist.bypass"
 
     @Serializable
     data class Entry(

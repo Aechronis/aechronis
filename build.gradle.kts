@@ -110,6 +110,7 @@ val runtimeModuleProjects =
         ":modules:chat",
         ":modules:staff",
         ":modules:portable",
+        ":modules:whitelist",
         ":modules:regenerating-ores",
         ":modules:recipes",
         ":modules:worldedit",

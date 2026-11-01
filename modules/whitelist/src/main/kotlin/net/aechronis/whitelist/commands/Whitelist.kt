@@ -1,14 +1,15 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.whitelist.commands
 
 import net.aechronis.utils.Command
+import net.aechronis.vanilla.commands.PlayerTargets
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
-import net.aechronis.vanilla.managers.Whitelist as WhitelistManager
+import net.aechronis.whitelist.managers.Whitelist as WhitelistManager
 
-class Whitelist : Command("whitelist", "vanilla.whitelists") {
+class Whitelist : Command("whitelist", "whitelist.manage") {
     init {
         setDefaultExecutor { player: Player, _ ->
             player.sendMessage(Component.text("Usage:", NamedTextColor.LIGHT_PURPLE))

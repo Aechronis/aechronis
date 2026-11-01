@@ -3,12 +3,10 @@ package net.aechronis.vanilla
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleStartupTimings.measure
-import net.aechronis.vanilla.listeners.WhitelistListener
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.objects.Recipe
-import net.minestom.server.event.player.AsyncPlayerPreLoginEvent
 import java.util.concurrent.CompletableFuture
 
 class VanillaModule : AechronisModule {
@@ -20,9 +18,6 @@ class VanillaModule : AechronisModule {
         measure("Restore transient state") {
             if (Vanilla.config.cropsEnabled) Crops.restoreTransientState(context.peekTransientState(CROPS_STATE_KEY))
             if (Vanilla.config.saplingsEnabled) Saplings.restoreTransientState(context.peekTransientState(SAPLINGS_STATE_KEY))
-        }
-        if (Vanilla.config.whitelistEnabled) {
-            context.addListener(AsyncPlayerPreLoginEvent::class.java, WhitelistListener::onPreLogin)
         }
     }
 
