@@ -16,6 +16,7 @@ import net.minestom.server.event.player.PlayerEntityInteractEvent
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.network.player.ResolvableProfile
 import net.minestom.server.timer.TaskSchedule
+import net.minestom.server.utils.inventory.PlayerInventoryUtils
 
 object CorpseListener {
     fun onInteract(event: PlayerEntityInteractEvent) {
@@ -47,7 +48,8 @@ object CorpseListener {
     fun onDeath(event: PlayerDeathEvent) {
         val player = event.player
         val instance = player.instance ?: return
-        if ((0..<player.inventory.size).all { player.inventory.getItemStack(it).isAir }) return
+        val lootSlots = (0..<player.inventory.size).filter { it != PlayerInventoryUtils.CRAFT_RESULT }
+        if (lootSlots.all { player.inventory.getItemStack(it).isAir }) return
 
         val corpse = EntityCreature(EntityType.MANNEQUIN)
         corpse.editEntityMeta(MannequinMeta::class.java) { meta ->
@@ -55,7 +57,7 @@ object CorpseListener {
         }
 
         val loot = Corpses.newLootInventory(player.username)
-        for (slot in 0..<player.inventory.size) {
+        for (slot in lootSlots) {
             val stack = player.inventory.getItemStack(slot)
             if (!stack.isAir) loot.setItemStack(slot, stack)
         }
