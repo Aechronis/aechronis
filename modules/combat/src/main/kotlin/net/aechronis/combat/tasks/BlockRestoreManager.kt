@@ -1,9 +1,11 @@
 package net.aechronis.combat.tasks
 
+import net.aechronis.combat.Combat
 import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.network.packet.server.play.BlockChangePacket
@@ -53,6 +55,7 @@ object BlockRestoreManager {
     fun initialize() {
         if (initialized) return
         initialized = true
+        Combat.lowPriorityEventNode.addListener(PlayerBlockPlaceEvent::class.java, ::onPlace)
     }
 
     @Synchronized
@@ -112,6 +115,24 @@ object BlockRestoreManager {
     }
 
     internal fun isLeaf(block: Block): Boolean = leaves.any { it.key() == block.key() }
+
+    @Synchronized
+    private fun onPlace(event: PlayerBlockPlaceEvent) {
+        if (!initialized || event.isCancelled) return
+        val instance = event.player.instance
+        val position = event.blockPosition
+        val key = BlockPosition(instance.uuid, position.blockX, position.blockY, position.blockZ)
+        val pendingRestore = pending[key] ?: return
+        if (!sameBlock(instance.getBlock(position), pendingRestore.temporaryBlock)) {
+            finish(key)
+            return
+        }
+
+        // Repair the saved block directly, preserving its state and data and leaving the
+        // held item untouched. Reuse restoration's retry and neighbour-update handling.
+        event.isCancelled = true
+        restore(instance, pendingRestore)
+    }
 
     private fun schedule(
         instance: Instance,
