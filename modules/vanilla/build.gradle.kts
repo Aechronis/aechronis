@@ -5,7 +5,6 @@ plugins {
 
 dependencies {
     compileOnly(libs.kotlinx.serialization.json)
-    add("moduleImplementation", libs.profanity.filter)
     compileOnly(libs.blocksandstuff.blocks)
     compileOnly(libs.blocksandstuff.common)
     compileOnly(project(":modules:utils"))

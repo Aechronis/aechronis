@@ -22,7 +22,6 @@ spark = "1.10.186-SNAPSHOT"
 guava = "33.7.2-jre"
 gson = "2.15.0"
 cronutils = "9.2.1"
-profanity-filter = "1.0.1"
 via = "5.11.0"
 nuvotifier = "2.7.1"
 worldedit = "7.4.6"
@@ -53,7 +52,6 @@ spark = { module = "me.lucko:spark-common", version.ref = "spark" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 cronutils = { module = "com.cronutils:cron-utils", version.ref = "cronutils" }
-profanity-filter = { module = "com.modernmt.text:profanity-filter", version.ref = "profanity-filter" }
 viaversion = { module = "com.viaversion:viaversion-common", version.ref = "via" }
 viabackwards = { module = "com.viaversion:viabackwards-common", version.ref = "via" }
 nuvotifier-api = { module = "com.github.NuVotifier.NuVotifier:nuvotifier-api", version.ref = "nuvotifier" }

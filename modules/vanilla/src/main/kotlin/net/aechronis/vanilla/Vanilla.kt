@@ -38,7 +38,6 @@ import net.aechronis.vanilla.managers.Commands
 import net.aechronis.vanilla.managers.Crops
 import net.aechronis.vanilla.managers.Efficiency
 import net.aechronis.vanilla.managers.EnvironmentalDamage
-import net.aechronis.vanilla.managers.Filter
 import net.aechronis.vanilla.managers.Food
 import net.aechronis.vanilla.managers.Horses
 import net.aechronis.vanilla.managers.ItemFrames
@@ -78,7 +77,6 @@ object Vanilla {
         measure("Player Activity Listener") { PlayerActivityListener.init() }
         measure("Block Placement Cooldown Listener") { BlockPlacementCooldownListener.init() }
         measure("Combat Inventory Listener") { CombatInventoryListener.init() }
-        measure("Filter") { Filter.init() }
 
         if (config.commandsEnabled) {
             measure("Commands") {
