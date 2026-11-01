@@ -16,6 +16,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
+import net.minestom.server.coordinate.Vec
 import net.minestom.server.dialog.Dialog
 import net.minestom.server.dialog.DialogAction
 import net.minestom.server.dialog.DialogActionButton
@@ -24,11 +25,15 @@ import net.minestom.server.dialog.DialogBody
 import net.minestom.server.dialog.DialogInput
 import net.minestom.server.dialog.DialogMetadata
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerHand
+import net.minestom.server.event.EventDispatcher
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerCustomClickEvent
 import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
@@ -423,9 +428,26 @@ object Economy {
             return
         }
 
-        // Only replace air: a shop purchase must never delete a player's block.
-        instance.setBlock(position, Storage.withContents(Block.BARREL, contents))
-        Storage.register(Storage.keyFor(instance, position), contents)
+        var placed = false
+        try {
+            // Run the same protection listeners as a normal player placement, without consuming a held item.
+            val placement = PlayerBlockPlaceEvent(player, instance, Block.BARREL, BlockFace.TOP, position, Vec.ZERO, PlayerHand.MAIN)
+            placement.consumeBlock(false)
+            EventDispatcher.call(placement)
+            if (placement.isCancelled || !placement.block.compare(Block.BARREL)) {
+                player.sendMessage(Component.text("You cannot place a barrel here.", NamedTextColor.RED))
+                return
+            }
+            // A placement listener may have changed the destination while checking the event.
+            if (player.instance !== instance || !instance.getBlock(position).air()) return
+            instance.setBlock(position, Storage.withContents(placement.block, contents), placement.shouldDoBlockUpdates())
+            Storage.register(Storage.keyFor(instance, position), contents)
+            placed = true
+        } finally {
+            if (!placed) {
+                check(refund(player.uuid, BLOCK_BARREL_COST)) { "Could not refund denied barrel purchase $transaction" }
+            }
+        }
         sessions.remove(player.uuid, session)
         player.closeInventory()
         player.sendMessage(
