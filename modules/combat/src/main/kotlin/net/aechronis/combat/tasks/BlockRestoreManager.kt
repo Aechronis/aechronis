@@ -75,7 +75,7 @@ object BlockRestoreManager {
         // neighbour-update failures). A genuinely unexpected failure here still retains the
         // remaining entries and initialized state so coordinated teardown can retry.
         restoreAllImmediately()
-        pending.clear()
+        check(pending.isEmpty()) { "Failed to restore ${pending.size} temporary block(s) before flushing" }
         ModuleScheduler.releaseCancelledTasks()
     }
 
@@ -196,7 +196,12 @@ object BlockRestoreManager {
 
         for (restore in pending.values.toList()) {
             val instance = instanceById[restore.position.instanceId] ?: fallback ?: continue
-            runCatching { restore(instance, restore) }.onFailure { error ->
+            runCatching {
+                // Teardown cannot defer unloaded chunks to a task in the departing module.
+                val position = restore.position
+                instance.loadChunk(position.x shr 4, position.z shr 4).join()
+                restore(instance, restore)
+            }.onFailure { error ->
                 if (failure == null) failure = error else failure.addSuppressed(error)
             }
         }
