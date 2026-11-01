@@ -10,7 +10,6 @@ import net.aechronis.vanilla.commands.Give
 import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Teleport
-import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
 import net.aechronis.vanilla.listeners.CombatInventoryListener
 import net.aechronis.vanilla.listeners.CommandsListener
 import net.aechronis.vanilla.listeners.FallDamageListener
@@ -46,7 +45,6 @@ object Vanilla {
         config = c
 
         measure("Player Activity Listener") { PlayerActivityListener.init() }
-        measure("Block Placement Cooldown Listener") { BlockPlacementCooldownListener.init() }
         measure("Combat Inventory Listener") { CombatInventoryListener.init() }
 
         if (config.commandsEnabled) {

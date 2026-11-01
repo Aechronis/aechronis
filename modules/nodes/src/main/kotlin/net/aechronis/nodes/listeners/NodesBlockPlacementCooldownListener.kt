@@ -3,7 +3,6 @@ package net.aechronis.nodes.listeners
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
-import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
 import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack

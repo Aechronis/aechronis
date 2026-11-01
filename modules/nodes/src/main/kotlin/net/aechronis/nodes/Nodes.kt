@@ -32,6 +32,7 @@ import net.aechronis.nodes.commands.TrainCommand
 import net.aechronis.nodes.commands.UnallyCommand
 import net.aechronis.nodes.commands.WarzoneCommand
 import net.aechronis.nodes.commands.WaypointCommand
+import net.aechronis.nodes.listeners.BlockPlacementCooldownListener
 import net.aechronis.nodes.listeners.NodesChatListener
 import net.aechronis.nodes.listeners.NodesChestProtectionDestroyListener
 import net.aechronis.nodes.listeners.NodesChestProtectionListener
@@ -170,6 +171,7 @@ object Nodes {
             NodesPlayerMoveListener.init()
             NodesPlotSelectionListener.init()
             NodesWorldListener.init()
+            BlockPlacementCooldownListener.init()
             NodesChestProtectionDestroyListener.init()
             NodesVanillaStorageBridge.init()
             ColonizationMenu.init()

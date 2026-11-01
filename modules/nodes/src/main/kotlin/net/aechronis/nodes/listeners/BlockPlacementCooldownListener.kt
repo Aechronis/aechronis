@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.listeners
+package net.aechronis.nodes.listeners
 
 import net.aechronis.server.modules.ModuleEvents
 import net.minestom.server.MinecraftServer
