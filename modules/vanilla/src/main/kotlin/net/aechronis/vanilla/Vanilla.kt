@@ -12,7 +12,6 @@ import net.aechronis.vanilla.commands.Give
 import net.aechronis.vanilla.commands.Gm
 import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
-import net.aechronis.vanilla.commands.Recpies
 import net.aechronis.vanilla.commands.Spawn
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.TpsBar
@@ -83,7 +82,6 @@ object Vanilla {
                         Spawn(),
                     )
                 if (config.recipesEnabled) commands += Craft()
-                if (config.recipesEnabled || config.blocksEnabled) commands += Recpies()
                 if (config.whitelistEnabled) commands += Whitelist()
                 ModuleCommands
                     .register(*commands.toTypedArray())
