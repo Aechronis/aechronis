@@ -1,7 +1,10 @@
 package net.aechronis.nodes.listeners
 
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.commands.TownIncomeCommand
+import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Town
+import net.aechronis.server.hasPermission
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryItemChangeEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
@@ -12,8 +15,15 @@ object NodesIncomeInventoryListener {
     // allow removing items from town income inventory, but not putting items in
     // for simplicity, just allow all shift clicks when clicking in the town income gui, else cancel event
     private fun onInventoryClick(event: InventoryPreClickEvent) {
-        val open = event.player.openInventory ?: return
-        if (Town.fromIncomeInventory(open) == null) return
+        val player = event.player
+        val open = player.openInventory ?: return
+        val town = Town.fromIncomeInventory(open) ?: return
+        val resident = Resident.fromPlayer(player)
+        if (!player.hasPermission("nodes.admin") && (resident == null || !TownIncomeCommand.canViewIncome(resident, town))) {
+            event.isCancelled = true
+            player.closeInventory()
+            return
+        }
         if (event.inventory !== open || event.click !is Click.LeftShift && event.click !is Click.RightShift) {
             event.isCancelled = true
         }
