@@ -225,6 +225,8 @@ async function loadProfile(withHistory = false) {
   if (!entry) return
   const id = ++profileLatest
   profileBusy.value = true
+  profile.value = null
+  if (withHistory) history.value = []
   try {
     const base = { sort: 'kills', player: entry.name }
     if (entry.type === 'nation') base.type = 'nation'
@@ -234,7 +236,6 @@ async function loadProfile(withHistory = false) {
     profile.value = data.player ? { stats: data.player, total: data.total } : { absent: true }
     if (data.player) selected.value = { ...entry, name: data.player.name }
     if (withHistory) {
-      history.value = []
       const data = await request({ player: entry.name, ...(entry.type === 'nation' ? { type: 'nation' } : {}) }, '/history')
       if (id !== profileLatest) return
       // One row per recent war; wars the profile has no entry for show as "Didn't play".
@@ -609,7 +610,8 @@ onUnmounted(() => {
             </select>
           </div>
           <div class="st-profile-scroll">
-            <p v-if="profile && profile.absent" class="st-empty">{{ selected.name }} has no stats for the war of {{ weekLabel(period) }}.</p>
+            <p v-if="profileBusy && !profile" class="st-empty">Loading profile…</p>
+            <p v-else-if="profile && profile.absent" class="st-empty">{{ selected.name }} has no stats for the war of {{ weekLabel(period) }}.</p>
             <dl v-else-if="profile" class="st-tiles" :class="{ busy: profileBusy }">
               <div v-for="key in profileKeys" :key="key" class="st-tile">
                 <dt>{{ COLUMNS[key] }}</dt>
