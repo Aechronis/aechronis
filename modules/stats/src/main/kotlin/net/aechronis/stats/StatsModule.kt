@@ -74,12 +74,13 @@ class StatsModule : AechronisModule {
 
     private fun handle(exchange: HttpExchange) =
         respond(exchange) { query ->
+            val nation = query["type"] == "nation"
             cached("stats|${query["sort"]}|${query["player"]}|${query["type"]}|${query["scope"]}|${query["week"]}") {
                 Stats.query(
                     query["sort"] ?: "kills",
                     20,
-                    query["player"]?.take(16)?.lowercase(),
-                    query["type"] == "nation",
+                    query["player"]?.take(if (nation) 32 else 16)?.lowercase(),
+                    nation,
                     query["scope"] == "war",
                     query["week"]?.also { w -> require(weekFormat.matches(w)) },
                 )
@@ -89,16 +90,16 @@ class StatsModule : AechronisModule {
     /** GET /stats/search?q=prefix: up to 8 matching players and nations. */
     private fun handleSearch(exchange: HttpExchange) =
         respond(exchange) { query ->
-            val q = (query["q"] ?: "").trim().take(16).lowercase()
+            val q = (query["q"] ?: "").trim().take(32).lowercase()
             if (q.isEmpty()) "{\"results\":[]}" else cached("search|$q") { Stats.search(q, 8) }
         }
 
     /** GET /stats/history?player=Name[&type=nation]: per war week stats, newest first. */
     private fun handleHistory(exchange: HttpExchange) =
         respond(exchange) { query ->
-            val name = (query["player"] ?: "").trim().take(16).lowercase()
-            require(name.isNotEmpty())
             val nation = query["type"] == "nation"
+            val name = (query["player"] ?: "").trim().take(if (nation) 32 else 16).lowercase()
+            require(name.isNotEmpty())
             cached("history|$nation|$name") { Stats.history(name, nation, 12) }
         }
 
