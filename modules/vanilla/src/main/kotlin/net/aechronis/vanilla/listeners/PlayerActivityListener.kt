@@ -26,9 +26,7 @@ object PlayerActivityListener {
 
     fun onCommand(event: PlayerCommandEvent) {
         val command = event.command.removePrefix("/")
-        val name = command.substringBefore(' ').lowercase()
-        val logged = if (name in SENSITIVE_COMMANDS) "$name [redacted]" else command
-        println("[Command] ${event.player.username}: /$logged")
+        println("[Command] ${event.player.username}: /$command")
     }
 
     fun onBlockBreak(event: PlayerBlockBreakEvent) {
@@ -42,8 +40,6 @@ object PlayerActivityListener {
         val component = Component.text(message, NamedTextColor.DARK_GRAY)
         MinecraftServer.getConnectionManager().onlinePlayers.forEach { it.sendMessage(component) }
     }
-
-    private val SENSITIVE_COMMANDS = setOf("login", "register", "password", "changepassword")
 
     fun init() {
         Vanilla.eventNode.addListener(AsyncPlayerConfigurationEvent::class.java, PlayerActivityListener::onPlayerConfiguration)
