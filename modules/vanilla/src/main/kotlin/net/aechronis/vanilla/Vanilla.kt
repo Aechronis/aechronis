@@ -9,7 +9,6 @@ import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
 import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
-import net.aechronis.vanilla.commands.Spawn
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
@@ -34,7 +33,6 @@ import net.aechronis.vanilla.managers.Recipes
 import net.aechronis.vanilla.managers.Saplings
 import net.aechronis.vanilla.managers.Shelves
 import net.aechronis.vanilla.managers.Signs
-import net.aechronis.vanilla.managers.SpawnTeleport
 import net.aechronis.vanilla.managers.Storage
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
@@ -68,7 +66,6 @@ object Vanilla {
                         Kill(),
                         Clear(),
                         List(),
-                        Spawn(),
                     )
                 if (config.whitelistEnabled) commands += Whitelist()
                 ModuleCommands
@@ -130,7 +127,6 @@ object Vanilla {
             "recipes" to Recipes::shutdown,
             "storage" to Storage::shutdown,
             "sign editors" to Signs::shutdown,
-            "pending spawn teleports" to SpawnTeleport::shutdown,
             "command inventories" to Commands::shutdown,
             "horses" to { if (config.horsesEnabled) Horses.shutdown() },
             "jukebox playback" to Jukeboxes::shutdown,
