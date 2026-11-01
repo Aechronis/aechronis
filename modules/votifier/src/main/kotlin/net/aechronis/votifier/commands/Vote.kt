@@ -1,7 +1,7 @@
-package net.aechronis.vanilla.commands
+package net.aechronis.votifier.commands
 
 import net.aechronis.utils.Command
-import net.aechronis.vanilla.managers.VoteLinks
+import net.aechronis.votifier.managers.VoteLinks
 
 class Vote : Command("vote") {
     init {

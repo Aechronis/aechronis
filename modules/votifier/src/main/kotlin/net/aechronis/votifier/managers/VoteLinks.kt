@@ -1,4 +1,4 @@
-package net.aechronis.vanilla.managers
+package net.aechronis.votifier.managers
 
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor

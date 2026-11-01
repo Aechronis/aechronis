@@ -11,7 +11,6 @@ import net.aechronis.vanilla.commands.Kill
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Spawn
 import net.aechronis.vanilla.commands.Teleport
-import net.aechronis.vanilla.commands.Vote
 import net.aechronis.vanilla.commands.Whitelist
 import net.aechronis.vanilla.listeners.BlockPlacementCooldownListener
 import net.aechronis.vanilla.listeners.CombatInventoryListener
@@ -37,7 +36,6 @@ import net.aechronis.vanilla.managers.Shelves
 import net.aechronis.vanilla.managers.Signs
 import net.aechronis.vanilla.managers.SpawnTeleport
 import net.aechronis.vanilla.managers.Storage
-import net.aechronis.vanilla.managers.VoteLinks
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.EventNode
 import net.minestom.server.instance.Instance
@@ -70,7 +68,6 @@ object Vanilla {
                         Kill(),
                         Clear(),
                         List(),
-                        Vote(),
                         Spawn(),
                     )
                 if (config.whitelistEnabled) commands += Whitelist()
@@ -104,7 +101,6 @@ object Vanilla {
             measure("Environmental Damage") { EnvironmentalDamage.init() }
         }
         if (config.serverLinksEnabled) measure("Server Links Listener") { ServerLinksListener.init() }
-        measure("Vote Links") { VoteLinks.init(Path.of(config.path, config.votePath)) }
         if (config.horsesEnabled) {
             val world = requireNotNull(instance) { "Horses need the world instance" }
             measure("Horses") { Horses.init(Path.of(config.path, config.horsesPath), world) }

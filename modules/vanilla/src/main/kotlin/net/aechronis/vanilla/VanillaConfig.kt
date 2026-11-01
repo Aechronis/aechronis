@@ -37,7 +37,6 @@ data class VanillaConfig(
     val playerDataPath: String = "playerdata",
     val whitelistPath: String = "whitelist.json",
     val spawnPath: String = "spawn",
-    val votePath: String = "vote.txt",
     val horsesPath: String = "horses.json",
     // Blocks
     val blocksConfig: BlocksConfig = BlocksConfig(),
