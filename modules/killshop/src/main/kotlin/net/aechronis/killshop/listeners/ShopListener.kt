@@ -62,7 +62,8 @@ object ShopListener {
     }
 
     fun onDisconnect(event: PlayerDisconnectEvent) {
-        KillShop.playerCooldowns.remove(event.player.uuid)
+        // Cooldowns belong to the account and must survive reconnects.
+        KillShop.playerCooldowns[event.player.uuid]?.entries?.removeIf { it.value <= System.currentTimeMillis() }
         KillShop.openInventories.entries.removeIf { it.value == event.player.uuid }
         KillShopPoints.save(KillShopPoints.snapshot()).whenComplete { _, error ->
             if (error != null) System.err.println("Failed to save kill-shop points: ${error.message}")
