@@ -1,4 +1,5 @@
 import { MapPreparation, buildPreparedRasters } from './map-preparation.mjs';
+import { serializeIndex } from './data-index.mjs';
 import { fetchJsonUpdate } from './data-refresh.mjs';
 import fontUrl from '../css/fonts/CormorantGaramond.woff2?url';
 
@@ -48,13 +49,12 @@ async function prepare(nextData, initial) {
       packedOutlines: packLines(bucket.mergedOutlines, transfer), packedGrid: packLines(bucket.grid, transfer),
     }]];
   }));
-  const owner = { ...prepared.index.owner };
-  // Source coordinates belong to the worker's index; UI lookups need only cells.
-  delete owner.sources;
-  if (stable) { delete owner.cells; delete owner.cellList; }
-  const wire = structuredClone({ index: { ...prepared.index, owner },
+  const wire = structuredClone({ index: serializeIndex(prepared.index, { includeCells: !stable }),
     opacity: Object.fromEntries(Object.entries(dirtyOpacity).map(([key, value]) => [key, value.state])),
     initial });
+  if (!wire?.index || !wire.opacity || (initial && !wire.initial?.data)) {
+    throw new Error('Map preparation data could not be cloned');
+  }
   collectBuffers(wire, transfer);
   lastIndex = prepared.index; lastOpacity = prepared.opacity; lastBuckets = prepared.buckets;
   for (const [boundary, image] of Object.entries(rasters.images)) {

@@ -90,6 +90,10 @@ class ChunkOwners {
     }
     for (const [chunks, record] of this.pending) this._addChunks(chunks, record);
     delete this.previous; delete this.pending;
+    this.linkNeighbors();
+  }
+
+  linkNeighbors() {
     for (const cell of this.cellList) {
       const x = cell.x / CELL_SIZE, z = cell.z / CELL_SIZE;
       cell.top = this.cells.get(packCoord(x, z - 1));
@@ -531,8 +535,22 @@ function buildOutlineSegments(index, bounds) {
 
 export { buildIndex, buildNationLabels, buildOutlineSegments, buildWorldImage, chunkCanvas, packCoord };
 
-// Structured cloning strips prototypes; restore the query API without rebuilding cells.
+// Neighbour links form a deeply nested graph that can exhaust the browser's
+// cloning stack. Send flat cells and reconnect them after the worker handoff.
+export function serializeIndex(index, { includeCells = true } = {}) {
+  const { sources, cells, cellList, ...owner } = index.owner;
+  if (includeCells) owner.cellList = cellList.map(({ x, z, index, ids }) => ({ x, z, index, ids }));
+  return { ...index, owner };
+}
+
+// Stable updates reuse already hydrated cells; full scenes rebuild only links.
 export function hydrateIndex(index) {
-  Object.setPrototypeOf(index.owner, ChunkOwners.prototype);
+  const owner = index.owner;
+  Object.setPrototypeOf(owner, ChunkOwners.prototype);
+  if (!owner.cells) {
+    owner.cells = new Map(owner.cellList.map(cell =>
+      [packCoord(cell.x / CELL_SIZE, cell.z / CELL_SIZE), cell]));
+    owner.linkNeighbors();
+  }
   return index;
 }

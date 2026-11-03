@@ -1446,6 +1446,9 @@ function bootMap(initial) {
   async function loadInitial(pending = preparation.call('initial', { base: document.baseURI })) {
     try {
       const [result] = await Promise.all([pending, fontsReady]);
+      if (!result?.initial?.data || !result.initial.meta) {
+        throw new Error('Map preparation returned incomplete startup data');
+      }
       data = result.initial.data;
       Object.assign(fileMeta, result.initial.meta);
       installPrepared(result);
