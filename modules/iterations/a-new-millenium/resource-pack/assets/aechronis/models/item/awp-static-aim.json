@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/awp",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3457,
+        7.495,
+        -5.7602
+      ],
+      "scale": [
+        0,
+        0,
+        0
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3457,
+        7.495,
+        -5.7602
+      ],
+      "scale": [
+        0,
+        0,
+        0
+      ]
+    }
+  }
+}

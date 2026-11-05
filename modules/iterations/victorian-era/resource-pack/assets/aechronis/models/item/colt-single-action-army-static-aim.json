@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/colt-single-action-army",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.568,
+        6.65,
+        -7.0207
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.568,
+        6.65,
+        -7.0207
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}

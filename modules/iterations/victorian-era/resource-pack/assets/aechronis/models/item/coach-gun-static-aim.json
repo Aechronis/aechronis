@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/coach-gun",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3457,
+        7.115,
+        -5.7602
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3457,
+        7.115,
+        -5.7602
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}

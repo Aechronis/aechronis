@@ -43,7 +43,6 @@ class TownCommand : NodesCommand("t", null, "town") {
         addSubcommand(TownTrustCommand())
         addSubcommand(TownUntrustCommand())
         addSubcommand(TownFlyCommand())
-        addSubcommand(TownMinimapCommand())
         addSubcommand(TownPlotCommand())
     }
 }
@@ -138,6 +137,6 @@ private fun printTownHelp(sender: Player) {
     Message.print(sender, "/town trust${ChatColor.WHITE}: Mark player as trusted")
     Message.print(sender, "/town untrust${ChatColor.WHITE}: Remove player from trusted")
     Message.print(sender, "/town fly${ChatColor.WHITE}: Fly inside your town or nation")
-    Message.print(sender, "/town minimap${ChatColor.WHITE}: Configure the resource map")
+    Message.print(sender, "/settings${ChatColor.WHITE}: Configure the resource map and other options")
     Message.print(sender, "/town plot${ChatColor.WHITE}: Protect areas with 3D plots")
 }

@@ -47,3 +47,21 @@ internal fun gunItemModel(
         result.without(DataComponents.CHARGED_PROJECTILES)
     }
 }
+
+/** CMD flag 0 makes every gun item definition use its plain, shader-free model in first person. */
+internal fun withStaticGunModel(
+    item: ItemStack,
+    static: Boolean,
+): ItemStack {
+    val data = item.get(DataComponents.CUSTOM_MODEL_DATA)
+    if ((data?.flags()?.firstOrNull() == true) == static) return item
+    val flags = if (static) listOf(true) else emptyList()
+    val floats = data?.floats() ?: emptyList()
+    val strings = data?.strings() ?: emptyList()
+    val colors = data?.colors() ?: emptyList()
+    return if (floats.isEmpty() && flags.isEmpty() && strings.isEmpty() && colors.isEmpty()) {
+        item.without(DataComponents.CUSTOM_MODEL_DATA)
+    } else {
+        item.with(DataComponents.CUSTOM_MODEL_DATA, CustomModelData(floats, flags, strings, colors))
+    }
+}

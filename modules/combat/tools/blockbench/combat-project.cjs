@@ -161,9 +161,47 @@ function fallbackAssets(root,model,settings) {
     }
     return {assets,items};
 }
+// Players with gun animations off (CMD flag 0) see plain models placed by vanilla.
+// Solve each display so it matches the shader's rest pose (gun_pose.glsl):
+// view = root + (grip + B*(m - grip) + T - 8)/16, B and T from the idle track at t=0.
+// Vanilla right hand (ItemInHandRenderer): origin, then the charged-crossbow ADS carrier's
+// shift and yaw, then the display's translate/rotateXYZ, then the model centred on 0.5.
+const NATIVE_HAND=[0.56,-0.52,-0.72], CROSSBOW_SHIFT=[-0.641864,0,0], CROSSBOW_YAW=10, GRIP=[8,6,12];
+const rotationXYZ=([x,y,z])=>{
+    const [cx,sx,cy,sy,cz,sz]=[x,y,z].flatMap(a=>[Math.cos(a*Math.PI/180),Math.sin(a*Math.PI/180)]);
+    return [[cy*cz,-cy*sz,sy],[sx*sy*cz+cx*sz,-sx*sy*sz+cx*cz,-sx*cy],[-cx*sy*cz+sx*sz,cx*sy*sz+sx*cz,cx*cy]];
+};
+const multiply=(a,b)=>a.map(row=>[0,1,2].map(j=>row.reduce((sum,v,k)=>sum+v*b[k][j],0)));
+const apply=(m,v)=>m.map(row=>row.reduce((sum,x,k)=>sum+x*v[k],0));
+const transpose=m=>[0,1,2].map(i=>m.map(row=>row[i]));
+const eulerXYZ=m=>[Math.atan2(-m[1][2],m[2][2]),Math.asin(Math.max(-1,Math.min(1,m[0][2]))),Math.atan2(-m[0][1],m[0][0])].map(a=>a*180/Math.PI);
+function staticDisplay(settings,curveData,aimed) {
+    const rest=channel=>{
+        const track=curveData.tracks.find(t=>t.clip===0 && t.bone===0 && t.channel===channel);
+        return track ? curveData.starts[track.first].slice(0,3) : [0,0,0];
+    };
+    const body=rotationXYZ(rest(1)), shift=rest(0), hip=settings.hipRoot;
+    const root=aimed ? [-(settings.sight[0]-8)/16,-(settings.sight[1]-8)/16,hip[2]] : hip;
+    const turned=apply(body,GRIP), half=apply(body,[.5,.5,.5]);
+    // Everything but B*m/16, in blocks, less the native hand origin.
+    const offset=[0,1,2].map(i=>root[i]+(GRIP[i]-turned[i]+shift[i]-8)/16-NATIVE_HAND[i]-(aimed ? CROSSBOW_SHIFT[i] : 0)+half[i]);
+    const carrier=aimed ? rotationXYZ([0,CROSSBOW_YAW,0]) : rotationXYZ([0,0,0]);
+    const fixed=n=>Number(n.toFixed(4))+0;
+    const transform={rotation:eulerXYZ(multiply(transpose(carrier),body)).map(fixed),
+        // Scoped optics replace the gun at full ADS, as the shader and pre-animation models did.
+        translation:apply(transpose(carrier),offset).map(v=>fixed(v*16)),scale:aimed && settings.scoped ? [0,0,0] : [1,1,1]};
+    return {firstperson_righthand:transform,firstperson_lefthand:structuredClone(transform)};
+}
+function staticModels(gun,settings,curveData) {
+    return Object.fromEntries(['hip','aim'].map(pose=>[`${gun}-static-${pose}`,
+        {parent:`aechronis:item/${gun}`,display:staticDisplay(settings,curveData,pose==='aim')}]));
+}
 function animatedItem(gun,source,aimed,equip,empty,reloading=false,locksOpen=false) {
     if (source.model?.type==='minecraft:select' && source.model.property==='minecraft:display_context'
-        && source.model.cases?.some(entry=>(entry.model?.model ?? entry.model?.fallback?.model)?.startsWith(`aechronis:item/${gun}-animation-`))) {
+        && source.model.cases?.some(entry=>{
+            const animated=entry.model?.on_false ?? entry.model;
+            return (animated?.model ?? animated?.fallback?.model)?.startsWith(`aechronis:item/${gun}-animation-`);
+        })) {
         source={...source,model:source.model.fallback};
     }
     const pose=aimed?'aim':'hip';
@@ -171,8 +209,11 @@ function animatedItem(gun,source,aimed,equip,empty,reloading=false,locksOpen=fal
         tints:[{type:'minecraft:custom_model_data',index:0,default:16777215}]});
     // Ammo is encoded as raw item damage; 99 is empty. Keep the bolt/slide locked
     // through an empty reload, while a magazine top-up starts with it closed.
-    const firstPerson=mode=>reloading && locksOpen ? {type:'minecraft:range_dispatch',property:'minecraft:damage',normalize:false,
+    const animated=mode=>reloading && locksOpen ? {type:'minecraft:range_dispatch',property:'minecraft:damage',normalize:false,
         entries:[{threshold:99,model:reference(mode,true)}],fallback:reference(mode,false)} : reference(mode);
+    // CMD flag 0 (set by the server for /gunanimations off) keeps the plain, shader-free model.
+    const plain={type:'minecraft:model',model:`aechronis:item/${gun}-static-${pose}`};
+    const firstPerson=mode=>({type:'minecraft:condition',property:'minecraft:custom_model_data',index:0,on_true:plain,on_false:animated(mode)});
     return {...source,hand_animation_on_swap:equip,swap_animation_scale:1,model:{type:'minecraft:select',property:'minecraft:display_context',
         cases:[{when:'firstperson_righthand',model:firstPerson(`${pose}-right`)},{when:'firstperson_lefthand',model:firstPerson(`${pose}-left`)}],fallback:source.model}};
 }
@@ -190,6 +231,7 @@ function buildAssets(root,model,source,firstBuild,tracks) {
             Buffer.from(prefix+',\n  "elements": [\n    '+elements.map(e=>JSON.stringify(e)).join(',\n    ')+'\n  ]\n}\n'));
     }
     assets.set(path.join(pack,`assets/aechronis/textures/item/${gun}-animation.png`),baked.atlas);
+    for (const [name,model] of Object.entries(staticModels(gun,settings,curveData))) assets.set(path.join(pack,`assets/aechronis/models/item/${name}.json`),json(model));
     if (!firstBuild) for (const suffix of ['','-empty','-reloading','-aiming']) {
         const file=path.join(pack,`assets/aechronis/items/${gun}${suffix}.json`);
         if (fs.existsSync(file)) items[gun+suffix]=readJSON(file);
@@ -198,8 +240,8 @@ function buildAssets(root,model,source,firstBuild,tracks) {
         const locksOpen=settings.hold_open ?? (settings.style==='pistol');
         const empty=locksOpen && name===gun+'-empty';
         assets.set(path.join(pack,`assets/aechronis/items/${name}.json`),json(animatedItem(gun,items[name],name===gun+'-aiming',false,empty,name===gun+'-reloading',locksOpen)));
-        if ([gun,gun+'-empty'].includes(name)) assets.set(path.join(pack,`assets/aechronis/items/${name}-equip.json`),json(animatedItem(gun,items[name],false,true,empty)));
+        if ([gun,gun+'-empty',gun+'-aiming'].includes(name)) assets.set(path.join(pack,`assets/aechronis/items/${name}-equip.json`),json(animatedItem(gun,items[name],name===gun+'-aiming',true,empty)));
     }
     return {assets,baked};
 }
-module.exports={TEMPLATES,packs,json,readJSON,catalog,options,definition,targetProfile,importJava,buildAssets};
+module.exports={TEMPLATES,packs,json,readJSON,catalog,options,definition,targetProfile,importJava,buildAssets,staticDisplay};

@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/mg3",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        1.5609,
+        7.8407,
+        -5.8986
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        1.5609,
+        7.8407,
+        -5.8986
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}
