@@ -164,7 +164,7 @@ class Projectile private constructor(
         entity.remove()
     }
 
-    private fun discard() {
+    internal fun discard() {
         isActive = false
         entity.remove()
     }

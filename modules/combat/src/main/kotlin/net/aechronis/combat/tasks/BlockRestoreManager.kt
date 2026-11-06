@@ -109,8 +109,14 @@ object BlockRestoreManager {
         val restore = PendingBlockRestore(key, original, temporaryBlock)
 
         pending[key] = restore
-        instance.setBlock(position, temporaryBlock)
-        schedule(instance, restore, restoreDelayMillis)
+        try {
+            // Temporary combat edits must not cascade into untracked neighbour changes or
+            // invoke placement rules that can fail partway through an explosion.
+            instance.setBlock(position, temporaryBlock, false)
+        } finally {
+            // A block handler can throw after the write has landed. Keep its recovery queued.
+            schedule(instance, restore, restoreDelayMillis)
+        }
         return true
     }
 
@@ -129,7 +135,7 @@ object BlockRestoreManager {
         }
 
         // Repair the saved block directly, preserving its state and data and leaving the
-        // held item untouched. Reuse restoration's retry and neighbour-update handling.
+        // held item untouched. Reuse restoration's retry handling.
         event.isCancelled = true
         restore(instance, pendingRestore)
     }
@@ -162,21 +168,17 @@ object BlockRestoreManager {
             return
         }
         if (sameBlock(current, restore.temporaryBlock)) {
-            // Minestom commits the block to its chunk before running neighbour placement-rule
-            // cascades, so a throw here (e.g. a pre-existing neighbour whose block state a
-            // placement-rule library can't parse) happens after our write already landed. Log it
-            // rather than letting it bubble up: propagating would leave this entry pending
-            // forever and fail module quiescing on every retry, since the corrupt neighbour never
-            // resolves itself.
-            runCatching { instance.setBlock(position.x, position.y, position.z, restore.originalBlock) }
+            // Restore the saved state without neighbouring placement-rule cascades, just like
+            // the temporary edit. A block handler may still throw after committing the write.
+            runCatching { instance.setBlock(position.x, position.y, position.z, restore.originalBlock, false) }
                 .onFailure { error ->
                     System.err.println(
-                        "[Combat] Block restore neighbour update failed at " +
+                        "[Combat] Block restore failed at " +
                             "${position.instanceId}/${position.x},${position.y},${position.z}: ${error.message}",
                     )
                 }
-            // A throwing neighbour rule skips Minestom's BlockChangePacket, so clients may still show the
-            // temporary block. If the write landed, resend it; if it did not, try again later.
+            // A throwing handler can skip Minestom's BlockChangePacket. If the write landed,
+            // resend it; if it did not, try again later.
             val now = runCatching { instance.getBlock(position.x, position.y, position.z) }.getOrNull()
             if (now == null || !sameBlock(now, restore.originalBlock)) {
                 schedule(instance, restore, RETRY_MILLIS)
