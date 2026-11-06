@@ -26,9 +26,7 @@ object ShopListener {
         val player = event.player
         val slot = event.slot
         val items = KillShop.config.shopItems
-        if (slot < 0 || slot >= items.size) return
-
-        val shopItem = items[slot]
+        val shopItem = items.withIndex().firstOrNull { (index, item) -> (item.slot ?: index) == slot }?.value ?: return
         val now = System.currentTimeMillis()
         val cooldowns = KillShop.playerCooldowns.getOrPut(player.uuid) { ConcurrentHashMap() }
         val expiry = cooldowns[slot]
