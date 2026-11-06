@@ -12,6 +12,7 @@ dependencies {
     compileOnly(project(":modules:vanilla"))
     compileOnly(project(":modules:horses"))
     compileOnly(project(":modules:killshop"))
+    compileOnly(project(":modules:bundles"))
     compileOnly(project(":modules:worldedit"))
     compileOnly(project(":modules:nodes"))
     compileOnly(project(":modules:logger"))
