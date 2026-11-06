@@ -17,6 +17,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 object CombatTags {
+    // Mutations share this object's monitor so expiry and bossbar cleanup cannot interleave.
     // player uuid -> epoch millis when the combat tag expires
     private val expiresAt = ConcurrentHashMap<UUID, Long>()
     private val bossBars = ConcurrentHashMap<UUID, BossBar>()
@@ -39,11 +40,13 @@ object CombatTags {
 
     fun isInCombat(player: Player): Boolean = (expiresAt[player.uuid] ?: 0L) > System.currentTimeMillis()
 
+    @Synchronized
     fun clear(player: Player) {
         expiresAt.remove(player.uuid)
         bossBars.remove(player.uuid)?.let { player.hideBossBar(it) }
     }
 
+    @Synchronized
     internal fun captureTransientState(now: Long = System.currentTimeMillis()): ByteArray {
         val active =
             expiresAt.entries
@@ -63,6 +66,7 @@ object CombatTags {
         }
     }
 
+    @Synchronized
     internal fun restoreTransientState(
         payload: ByteArray?,
         now: Long = System.currentTimeMillis(),
@@ -85,26 +89,30 @@ object CombatTags {
         }
     }
 
+    @Synchronized
     fun shutdown() {
         MinecraftServer.getConnectionManager().onlinePlayers.forEach(::clear)
         expiresAt.clear()
         bossBars.clear()
     }
 
+    @Synchronized
     private fun tagOne(player: Player) {
-        val wasInCombat = isInCombat(player)
-        expiresAt[player.uuid] = System.currentTimeMillis() + Combat.config.combatDurationSeconds * 1000
+        val durationMillis = Combat.config.combatDurationSeconds * 1000
+        expiresAt[player.uuid] = System.currentTimeMillis() + durationMillis
 
-        if (!wasInCombat) {
-            val bar = createBossBar(Combat.config.combatDurationSeconds * 1000)
-            bossBars[player.uuid] = bar
-            player.showBossBar(bar)
-        }
+        // An expired tag's bar can still be visible until the next tick. Reuse it, or it is orphaned.
+        val bar =
+            bossBars[player.uuid] ?: createBossBar(durationMillis).also {
+                bossBars[player.uuid] = it
+                player.showBossBar(it)
+            }
+        updateBossBar(bar, durationMillis)
     }
 
+    @Synchronized
     private fun tick() {
         val now = System.currentTimeMillis()
-        val durationMs = Combat.config.combatDurationSeconds * 1000
 
         for ((uuid, expiry) in expiresAt) {
             val player =
@@ -116,16 +124,22 @@ object CombatTags {
             val remaining = expiry - now
 
             if (remaining <= 0) {
-                expiresAt.remove(uuid)
-                bossBars.remove(uuid)
-                player.hideBossBar(bar)
+                clear(player)
                 player.sendMessage(Component.text("You have left combat", NamedTextColor.GREEN))
                 continue
             }
 
-            bar.progress((remaining.toFloat() / durationMs).coerceIn(0f, 1f))
-            bar.name(Component.text("Combat: ${(remaining / 1000) + 1}s", NamedTextColor.RED))
+            updateBossBar(bar, remaining)
         }
+    }
+
+    private fun updateBossBar(
+        bar: BossBar,
+        remainingMillis: Long,
+    ) {
+        val durationMillis = (Combat.config.combatDurationSeconds * 1000).coerceAtLeast(1L)
+        bar.progress((remainingMillis.toFloat() / durationMillis).coerceIn(0f, 1f))
+        bar.name(Component.text("Combat: ${(remainingMillis / 1000) + 1}s", NamedTextColor.RED))
     }
 
     private fun createBossBar(remainingMillis: Long): BossBar {
