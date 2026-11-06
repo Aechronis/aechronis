@@ -20,8 +20,10 @@ import net.minestom.server.color.Color
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
+import net.minestom.server.event.server.ServerListPingEvent
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.anvil.AnvilLoader
+import net.minestom.server.ping.Status
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.tag.Tag
 import net.minestom.server.world.DimensionType
@@ -157,6 +159,15 @@ private fun startMinecraftServer(
     Server.fullbrightKey = MinecraftServer.getDimensionTypeRegistry().register("aechronis:fullbright", fullbright)
 
     MinecraftServer.getGlobalEventHandler().addChild(Server.eventNode)
+    Server.eventNode.addListener(ServerListPingEvent::class.java) { event ->
+        // Minestom defaults to online + 1, so ajQueue's transfer reservation makes it appear full.
+        // Advertise the same fixed capacity as the proxy while keeping the actual online count.
+        event.status =
+            Status
+                .builder(event.status)
+                .playerInfo(MinecraftServer.getConnectionManager().onlinePlayerCount, 9999)
+                .build()
+    }
     Server.eventNode.addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
         // keep the server joinable when an iteration is intentionally disabled
         event.spawningInstance = Server.instance
