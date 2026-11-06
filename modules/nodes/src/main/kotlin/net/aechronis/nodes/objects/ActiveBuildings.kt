@@ -62,7 +62,7 @@ object ActiveBuildings {
         remaining.forEachIndexed { slot, stack -> building.inputInventory.setItemStack(slot, stack) }
         building.start(recipe, System.currentTimeMillis())
         TownBuildingsMenu.refresh(building)
-        Message.print(player, "Production started; output will drop at the building in one hour")
+        Message.print(player, "Production started; output will drop at the building in ${ActiveBuildings.durationText()}")
     }
 
     @Synchronized
@@ -127,6 +127,11 @@ object ActiveBuildings {
             lastMapProgress = progress
             Resident.renderMinimaps()
         }
+    }
+
+    internal fun durationText(): String {
+        val minutes = Nodes.config.activeBuildingDurationMs / 60_000
+        return if (minutes % 60 == 0L) "${minutes / 60} hour(s)" else "$minutes minutes"
     }
 
     internal fun formatItems(items: List<ItemStack>): Component = Component.join(

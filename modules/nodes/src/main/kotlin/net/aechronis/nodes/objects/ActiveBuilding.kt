@@ -10,7 +10,6 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
 
-const val ACTIVE_BUILDING_DURATION_MS = 3_600_000L
 internal const val BUILDING_INPUT_SLOTS = 27
 
 /** Shift-click deposits only visit the input area, never recipe or navigation buttons. */
@@ -44,8 +43,8 @@ class ActiveBuilding(
     }
 
     data class Production(val startedAt: Long, val recipeName: String, val output: List<ItemStack>) {
-        fun isComplete(now: Long): Boolean = now - startedAt >= ACTIVE_BUILDING_DURATION_MS
-        fun progress(now: Long): Int = ((now - startedAt).coerceIn(0, ACTIVE_BUILDING_DURATION_MS) * 100 / ACTIVE_BUILDING_DURATION_MS).toInt()
+        fun isComplete(now: Long): Boolean = now - startedAt >= Nodes.config.activeBuildingDurationMs
+        fun progress(now: Long): Int = ((now - startedAt).coerceIn(0, Nodes.config.activeBuildingDurationMs) * 100 / Nodes.config.activeBuildingDurationMs).toInt()
     }
 
     @Volatile
@@ -76,7 +75,7 @@ class ActiveBuilding(
     internal fun setProgress(percent: Int, now: Long): Boolean {
         require(percent in 0..100) { "Progress must be between 0 and 100" }
         val current = production ?: return false
-        production = current.copy(startedAt = now - ACTIVE_BUILDING_DURATION_MS * percent / 100)
+        production = current.copy(startedAt = now - Nodes.config.activeBuildingDurationMs * percent / 100)
         changed()
         return true
     }

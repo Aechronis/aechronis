@@ -23,6 +23,7 @@ import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
 import net.aechronis.nodes.objects.ActiveBuilding
 import net.aechronis.nodes.objects.Building
+import net.aechronis.nodes.objects.CoalFactory
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.MinimapPosition
@@ -476,6 +477,7 @@ object Deserializer {
                 "port" -> portFromJson(building)
                 "farm" -> farmFromJson(building)
                 "oil_rig" -> oilRigFromJson(building)
+                "coal_factory" -> coalFactoryFromJson(building)
                 "train" -> trainStationFromJson(building)
                 else -> {
                     System.err.println("Cannot create building: unknown type \"$type\"")
@@ -511,6 +513,16 @@ object Deserializer {
             return null
         }
         return OilRig(chunkX, chunkZ, oilRig.get("tier")?.jsonPrimitive?.int ?: 1)
+    }
+
+    private fun coalFactoryFromJson(coalFactory: JsonObject): CoalFactory? {
+        val chunkX = coalFactory.get("chunkX")?.jsonPrimitive?.int
+        val chunkZ = coalFactory.get("chunkZ")?.jsonPrimitive?.int
+        if (chunkX == null || chunkZ == null) {
+            System.err.println("Cannot create coal factory: missing chunkX or chunkZ coordinate")
+            return null
+        }
+        return CoalFactory(chunkX, chunkZ, coalFactory.get("tier")?.jsonPrimitive?.int ?: 1)
     }
 
     private fun trainStationFromJson(train: JsonObject): TrainStationBuilding? {
