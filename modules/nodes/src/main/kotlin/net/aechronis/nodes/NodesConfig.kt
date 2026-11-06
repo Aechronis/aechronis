@@ -113,6 +113,9 @@ data class NodesConfig(
     // Lock the larger town once it has at least this many more members.
     val testTownPopulationDifference: Int = 3,
 
+    // Minimum time between town changes in test town selection (milliseconds).
+    val testTownSwitchCooldown: Long = 600_000,
+
     // ===================================
     // nation settings
     // ===================================

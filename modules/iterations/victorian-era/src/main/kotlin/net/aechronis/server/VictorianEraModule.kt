@@ -25,6 +25,7 @@ import net.aechronis.server.constants.FieldPieces
 import net.aechronis.server.constants.Grenades
 import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Melees
+import net.aechronis.server.constants.ShopCatalog
 import net.aechronis.server.craft.HorseRecipes
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
@@ -49,7 +50,7 @@ class VictorianEraModule : AechronisModule {
                 .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build(),
         )
-    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "killshop", "duels", "horses")
+    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "killshop", "bundles", "duels", "horses")
 
     override fun configure(context: ModuleContext) {
         measure("Item catalogue") { registerItems() }
@@ -59,7 +60,7 @@ class VictorianEraModule : AechronisModule {
             checkNotNull(EmbeddedResourcePack.readAsset(javaClass, GunHandSkins.HAND_TEXTURE)) { "Missing iteration hand atlas" }
         }
         GunHandSkins.registerTemplate { hands }
-        KillShopModule.configure(ShopConfig(enabled = false))
+        KillShopModule.configure(ShopConfig(shopItems = ShopCatalog.items()))
         measure("Vanilla configuration") {
             VanillaModule.configure(
                 VanillaConfig(
@@ -74,6 +75,9 @@ class VictorianEraModule : AechronisModule {
                     activeBuildingDurationMs = 180 * 60_000L,
                     oilRigEnabled = false,
                     defaultRespawnPoint = context.spawnPoint,
+                    testTownSelectionEnabled = true,
+                    testTownRedName = "Sedan",
+                    testTownBlueName = "Berlin",
                     chunkAttackTime = 120_000,
                     chunkAttackFromWastelandMultiplier = 1.25,
                     chunkAttackHomeMultiplier = 1.25,
@@ -132,39 +136,42 @@ class VictorianEraModule : AechronisModule {
 
     private fun registerDuelsKits() {
         Kits.register(
+            // Every kit is a rifle, the Adams revolver and a cavalry sabre; only the rifle (and uniform) differs.
             kit(
                 "rifleman",
                 "Rifleman",
                 Guns.dreyseNeedleGun,
-                listOf(Guns.dreyseNeedleGun to 64),
+                listOf(Guns.dreyseNeedleGun to 64, Guns.adamsMkIII to 24),
                 Melees.cavalrySabre,
                 listOf(Armor.prussiaJacket, Armor.prussiaTrousers, Armor.prussiaBoots),
+                sidearm = Guns.adamsMkIII,
             ),
             kit(
                 "marksman",
                 "Marksman",
                 Guns.berdanII,
                 listOf(Guns.berdanII to 64, Guns.adamsMkIII to 24),
-                null,
+                Melees.cavalrySabre,
                 listOf(Armor.franceJacket, Armor.franceTrousers, Armor.franceBoots),
                 sidearm = Guns.adamsMkIII,
             ),
             kit(
-                "gunslinger",
-                "Gunslinger",
-                Guns.coltSingleActionArmy,
-                listOf(Guns.coltSingleActionArmy to 48, Guns.coachGun to 24),
-                null,
+                "repeater",
+                "Repeater",
+                Guns.winchesterModel1873,
+                listOf(Guns.winchesterModel1873 to 64, Guns.adamsMkIII to 24),
+                Melees.cavalrySabre,
                 listOf(Armor.britainJacket, Armor.britainTrousers, Armor.britainBoots),
-                sidearm = Guns.coachGun,
+                sidearm = Guns.adamsMkIII,
             ),
             kit(
                 "skirmisher",
                 "Skirmisher",
                 Guns.chassepotCarbine,
-                listOf(Guns.chassepotCarbine to 48),
-                Melees.navalCutlass,
+                listOf(Guns.chassepotCarbine to 64, Guns.adamsMkIII to 24),
+                Melees.cavalrySabre,
                 listOf(Armor.austriaJacket, Armor.austriaTrousers, Armor.austriaBoots),
+                sidearm = Guns.adamsMkIII,
             ),
         )
     }
@@ -188,6 +195,8 @@ class VictorianEraModule : AechronisModule {
             ammo.map { it.first.ammo to it.second }.distinctBy { it.first.name }.forEach { (a, n) ->
                 items[slot++] = a.toItemStack().withAmount(n.coerceAtMost(64))
             }
+            items[slot++] = ItemStack.of(Material.OAK_FENCE, 16) // attack flags
+            items[slot] = ItemStack.of(Material.DIAMOND_PICKAXE)
             items[8] = ItemStack.of(Material.COOKED_BEEF, 16)
             KitContents(
                 items,

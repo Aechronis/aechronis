@@ -6,9 +6,9 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
 
-class Shop : Command("shop") {
+class Shop : Command("killshop") {
     init {
-        setDefaultExecutor("vanilla.shop") { player, _ ->
+        setDefaultExecutor("killshop.shop") { player, _ ->
             KillShop.openShop(player)
         }
 

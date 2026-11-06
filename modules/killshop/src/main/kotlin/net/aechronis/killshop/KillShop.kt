@@ -38,10 +38,11 @@ object KillShop {
         val now = System.currentTimeMillis()
 
         for ((index, shopItem) in items.withIndex()) {
-            val expiry = cooldowns[index]
+            val slot = shopItem.slot ?: index
+            val expiry = cooldowns[slot]
             val remainingMs = expiry?.let { (it - now).coerceAtLeast(0L) } ?: 0L
-            if (expiry != null && remainingMs == 0L) cooldowns.remove(index, expiry)
-            inv.setItemStack(index, buildItemDisplay(shopItem, points, remainingMs))
+            if (expiry != null && remainingMs == 0L) cooldowns.remove(slot, expiry)
+            inv.setItemStack(slot, buildItemDisplay(shopItem, points, remainingMs))
         }
 
         openInventories[inv] = player.uuid
@@ -64,7 +65,8 @@ object KillShop {
                 Component.text("Ready to buy", NamedTextColor.GREEN)
             }
 
-        return shopItem.itemStack.with(
+        // Display copy only: guns share a use-cooldown group, which would flash the cooldown sweep on every gun in the menu.
+        return shopItem.itemStack.without(DataComponents.USE_COOLDOWN).with(
             DataComponents.LORE,
             listOf(
                 Component.text("Cost: ${shopItem.cost} points", costColor),

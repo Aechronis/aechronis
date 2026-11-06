@@ -30,7 +30,6 @@ internal fun testTownLockedSide(redPopulation: Int, bluePopulation: Int, differe
 /** Handles the optional two-town team selection mode. */
 object TestTownSelection {
     private val lockedTownAction = Key.key("nodes", "test_town_locked")
-    private val cancelAction = Key.key("nodes", "test_town_cancel")
 
     private data class Targets(
         val red: Town,
@@ -55,9 +54,13 @@ object TestTownSelection {
             "${requestedTown.name} is currently overpowered; join ${other(targets, requestedTown).name} instead"
         }
         check(currentTown?.leader !== resident) { "Transfer town leadership before switching towns" }
+        val remainingMillis = resident.townJoinCooldownRemainingMillis()
+        check(remainingMillis == 0L) { "You can change towns again in ${(remainingMillis + 59_999) / 60_000} minute(s)" }
 
         if (currentTown != null) Town.removeResident(currentTown, resident)
         check(Town.addResident(requestedTown, resident, bypassTestTownSelection = true)) { "Could not join ${requestedTown.name}" }
+        resident.lockTownJoining(Nodes.config.testTownSwitchCooldown)
+        player.closeDialog()
         player.teleport(requestedTown.spawnpoint)
         requestedTown
     }
@@ -99,21 +102,17 @@ object TestTownSelection {
         val metadata = DialogMetadata(
             Component.text("Choose your town", NamedTextColor.GOLD),
             null,
-            true,
             false,
-            DialogAfterAction.CLOSE,
+            false,
+            DialogAfterAction.NONE,
             body,
             emptyList(),
         )
+        // No escape and no cancel button: the dialog stays open until a join succeeds.
         return Dialog.MultiAction(
             metadata,
             listOf(townButton(targets.red, locked === targets.red), townButton(targets.blue, locked === targets.blue)),
-            DialogActionButton(
-                Component.text("Cancel", NamedTextColor.GRAY),
-                null,
-                120,
-                DialogAction.Custom(cancelAction, CompoundBinaryTag.empty()),
-            ),
+            null,
             2,
         )
     }
