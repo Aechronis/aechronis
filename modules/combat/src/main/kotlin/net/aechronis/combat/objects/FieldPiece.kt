@@ -9,6 +9,7 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
+import kotlin.math.ceil
 import kotlin.math.floor
 
 /**
@@ -37,7 +38,6 @@ open class FieldPiece(
                     -hitbox.getGroundOffset(),
                     (hitbox.parts.minOfOrNull { it.offset.z - it.size.z } ?: 0.0) - 0.5,
                 ),
-                standing = true,
             ),
         ),
     invisibleWhileRiding: Boolean = false,
@@ -92,8 +92,22 @@ open class FieldPiece(
         val position = entity.position
         val yaw = position.yaw + turn * turnSpeed
         val movement = rotatePoint(Vec(0.0, 0.0, forward * moveSpeed), yaw, 0f, 0f)
-        val candidate = position.add(movement).withView(yaw, 0f)
-        val operator = candidate.add(rotatePoint(seats.first { it.role.drives }.offset, yaw, 0f, 0f))
+        val flatCandidate = position.add(movement).withView(yaw, 0f)
+        val seatOffset = rotatePoint(seats.first { it.role.drives }.offset, yaw, 0f, 0f)
+        // Follow terrain: ride on the highest ground under the hull and operator, up one block or down MAX_STEP_DOWN per step.
+        val currentGround = position.y - hitbox.getGroundOffset()
+        var ground = Double.NEGATIVE_INFINITY
+        // Sample the operator's whole footprint too: lowering while its edge still overlaps higher ground would block the move.
+        val seat = flatCandidate.add(seatOffset)
+        val halfWidth = player.boundingBox.width() / 2
+        val halfDepth = player.boundingBox.depth() / 2
+        val operatorFootprint =
+            listOf(-1.0, 1.0).flatMap { x -> listOf(-1.0, 1.0).map { z -> seat.add(x * halfWidth, 0.0, z * halfDepth) } }
+        for (point in footprint(flatCandidate, yaw) + seat + operatorFootprint) {
+            ground = maxOf(ground, groundAt(instance, point.x(), point.z(), currentGround) ?: return)
+        }
+        val candidate = flatCandidate.withY(ground + hitbox.getGroundOffset())
+        val operator = candidate.add(seatOffset)
         val operatorBox =
             Hitbox(
                 listOf(
@@ -103,11 +117,6 @@ open class FieldPiece(
                     ),
                 ),
             )
-        // Both the carriage and operator need solid footing; do not roll over a ledge.
-        val corners = hitbox.getWorldCorners(candidate, yaw, 0f, 0f).flatten()
-        val groundY = candidate.y - hitbox.getGroundOffset()
-        if (corners.any { !hasFooting(instance, it.x, groundY, it.z) }) return
-        if (!hasFooting(instance, operator.x, operator.y, operator.z)) return
         if (blocked(instance, hitbox, candidate) || blocked(instance, operatorBox, operator.withYaw(0f))) return
         if (VehicleRegistry.all().any { runtime ->
                 runtime.entity !== entity &&
@@ -120,14 +129,39 @@ open class FieldPiece(
         entity.teleport(candidate)
     }
 
-    private fun hasFooting(
+    /** Points covering each hitbox part's floor at most half a block apart, so ground between the corners is seen too. */
+    private fun footprint(
+        position: Pos,
+        yaw: Float,
+    ): List<Vec> =
+        hitbox.parts.flatMap { part ->
+            val nx = ceil(part.size.x * 4).toInt().coerceAtLeast(1)
+            val nz = ceil(part.size.z * 4).toInt().coerceAtLeast(1)
+            (0..nx).flatMap { i ->
+                (0..nz).map { j ->
+                    val local = part.offset.add(-part.size.x + 2 * part.size.x * i / nx, 0.0, -part.size.z + 2 * part.size.z * j / nz)
+                    position.asVec().add(rotatePoint(local, yaw, 0f, 0f))
+                }
+            }
+        }
+
+    /** Ground top under (x, z) at most one block above [from] and MAX_STEP_DOWN below, or null (unloaded chunk, cliff, wall). */
+    private fun groundAt(
         instance: Instance,
         x: Double,
-        y: Double,
         z: Double,
-    ): Boolean {
-        val point = Pos(x, y - 0.01, z)
-        return instance.isChunkLoaded(point) && instance.getBlock(point).solid()
+        from: Double,
+    ): Double? {
+        if (!instance.isChunkLoaded(Pos(x, from, z))) return null
+        val base = floor(from).toInt()
+        for (y in base + 1 downTo base - MAX_STEP_DOWN) {
+            val block = instance.getBlock(floor(x).toInt(), y, floor(z).toInt())
+            if (!block.solid()) continue
+            val shape = block.registry().collisionShape()
+            val top = y + shape.relativeEnd().y()
+            if (top <= from + 1.0 + 1e-6) return top
+        }
+        return null
     }
 
     private fun overlaps(
@@ -169,5 +203,9 @@ open class FieldPiece(
             }
         }
         return false
+    }
+
+    private companion object {
+        const val MAX_STEP_DOWN = 4
     }
 }

@@ -52,7 +52,6 @@ class Cannon(
                     -hitbox.getGroundOffset(),
                     (hitbox.parts.minOfOrNull { it.offset.z - it.size.z } ?: 0.0) - 0.5,
                 ),
-                standing = true,
             ),
         ),
     invisibleWhileRiding: Boolean = false,
