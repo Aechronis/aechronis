@@ -200,8 +200,11 @@ object ModelManager {
 
     private fun shaderTimeBand(player: Player): Long {
         val gun = if (VehicleSeatHotbar.isActive(player)) null else Item.getFromItemStack(player.itemInMainHand) as? Gun
+        // Only scoped guns hide the crosshair (their scope has its own reticle); everything else keeps
+        // it in ADS. The combat band still hides the attack indicator for every gun.
         val hideCrosshair =
             gun != null &&
+                gun.sniper &&
                 Combat.playerStates[player]?.aiming == true &&
                 Combat.playerStates[player]?.reloadTask == null
         return when {
