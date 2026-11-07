@@ -198,7 +198,8 @@ object ModelManager {
                 Combat.playerStates[player]?.aiming == true &&
                 Combat.playerStates[player]?.reloadTask == null
         return when {
-            TurretScope.isActive(player) || hideCrosshair -> SHADER_AIMING_TIME
+            TurretScope.isActive(player) || Vehicle.drivenBy(player)?.hidesCrosshair(player) == true || hideCrosshair ->
+                SHADER_AIMING_TIME
             gun != null ||
                 VehicleSeatHotbar.isActive(
                     player,

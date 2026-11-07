@@ -13,6 +13,7 @@ import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
+import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -282,8 +283,24 @@ open class Vehicle(
             return
         }
         val view = player.position
-        VehicleCrew.follow(ride, getSeatWorldPos(ride.entity, ride.seatIndex).withView(view.yaw, view.pitch))
+        VehicleCrew.follow(
+            ride,
+            getSeatWorldPos(ride.entity, ride.seatIndex).withView(view.yaw, view.pitch),
+            cameraEye(player, ride.entity),
+        )
     }
+
+    /** Where the driver's eyes go instead of their crew station, such as a weapon sight; null keeps the station. */
+    protected open fun cameraEye(
+        player: Player,
+        entity: Entity,
+    ): Point? = null
+
+    /** A crew member's right-click. Clients repeat it every four ticks while the button is held. */
+    internal open fun onUseInput(player: Player) = Unit
+
+    /** Whether the driver is looking through a weapon sight, which replaces the crosshair. */
+    internal open fun hidesCrosshair(player: Player): Boolean = false
 
     open fun onUnoccupiedTick(entity: Entity) = Unit
 

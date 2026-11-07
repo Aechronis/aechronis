@@ -50,12 +50,15 @@ object FieldPieces {
             projectileExplosionFire = 0.0,
             projectileExplosionDamage = 80F,
             barrelTipOffset = Vec(0.0, 1.0, 1.8),
+            // 0.3 blocks behind the tangent rear sight, looking through its notch parallel to the bore, with the
+            // front blade's tip raised to the same line; further back reaches the trail at full elevation.
+            sightOffset = Vec(0.0, 1.2459375, -0.468125),
             reloadTime = 10000,
             projectileTrailParticle = Particle.SMOKE,
             projectileMaxRange = 256.0,
             moveSpeed = 0.035,
             turnSpeed = 1F,
-            maxYaw = 20F,
+            maxYaw = 30F,
             animatedParts =
                 listOf(
                     AnimatedPart.rollingWheel(
@@ -120,11 +123,14 @@ object FieldPieces {
             placeTime = 3000,
             barrelPivotOffset = Vec(0.0, 1.2109375, -0.021875),
             barrelTipOffset = Vec(0.0, 0.0, 1.721875),
+            // 0.5 blocks behind the rear notch, level with the front bead; both sights are parallel to the bore.
+            sightOffset = Vec(0.17109375, 0.28984375, -0.63984375),
             minPitch = -20F,
             maxPitch = 10F,
             moveSpeed = 0.035,
             turnSpeed = 1F,
-            maxYaw = 12F,
+            // Traverse stops short of the wheels: the right frame tie reaches a wheel at 34.1 degrees.
+            maxYaw = 30F,
             animatedParts =
                 listOf(
                     AnimatedPart.rollingWheel(
@@ -189,11 +195,13 @@ object FieldPieces {
             placeTime = 3000,
             barrelPivotOffset = Vec(0.0, 1.2109375, -0.021875),
             barrelTipOffset = Vec(0.0, 0.0, 1.371875),
+            // 0.5 blocks behind the ladder sight, sighting the front blade's tip through the frame below its sliding bar.
+            sightOffset = Vec(0.0, 0.19140625, -0.821875),
             minPitch = -20F,
             maxPitch = 10F,
             moveSpeed = 0.035,
             turnSpeed = 1F,
-            maxYaw = 12F,
+            maxYaw = 30F,
             animatedParts =
                 listOf(
                     AnimatedPart.rollingWheel(

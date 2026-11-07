@@ -6,6 +6,7 @@ import net.aechronis.combat.utils.VehicleCameraDistance
 import net.aechronis.utils.VisibilityRules
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
@@ -210,12 +211,22 @@ internal class VehicleCrew(
             position: Pos,
         ): Pos = if (definition.standing) position.sub(EntityUtils.getPassengerPositionOffset(seat, player, 0)) else position
 
-        /** Moves a crew seat and any stand-in to [position], the crew position carrying the crew member's view. */
+        /**
+         * Moves a crew seat and any stand-in to [position], the crew position carrying the crew member's view.
+         * An [eye] moves only the crew member's camera there; the stand-in stays at the crew position.
+         */
         fun follow(
             ride: VehicleRide,
             position: Pos,
+            eye: Point? = null,
         ) {
-            ride.seat.teleport(seatEntityPosition(ride.definition, ride.seat, ride.player, position))
+            val seat =
+                if (eye == null) {
+                    seatEntityPosition(ride.definition, ride.seat, ride.player, position)
+                } else {
+                    Pos.fromPoint(eye).sub(0.0, TurretScope.eyeHeight(ride.player), 0.0).withView(position.yaw, position.pitch)
+                }
+            ride.seat.teleport(seat)
             ride.standIn?.follow(position)
         }
 

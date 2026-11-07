@@ -5,6 +5,7 @@ import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.rotatePoint
 import net.kyori.adventure.text.Component
+import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -13,9 +14,11 @@ import net.minestom.server.instance.Instance
 
 /**
  * A pushable gun carriage: look to aim and hold jump to fire at [gun]'s configured cadence.
+ * Holding right-click looks along the barrel from [sightOffset], where the crosshair marks the bore.
  * Uses the gun's damage, spread, sound and tracers, with a separate magazine per carriage.
  * [barrelPivotOffset] places the barrel's model origin relative to the carriage.
- * [barrelTipOffset] is measured from that pivot in world units before aiming rotation.
+ * [barrelTipOffset] and [sightOffset] are measured from that pivot in world units before aiming rotation,
+ * and follow the barrel's traverse and elevation.
  */
 class AutomaticFieldPiece(
     name: String,
@@ -57,6 +60,8 @@ class AutomaticFieldPiece(
     val maxYaw: Float = 180f,
     val barrelPivotOffset: Vec = Vec.ZERO,
     collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
+    // On a line parallel to the bore, so the crosshair marks the firing direction.
+    val sightOffset: Vec = Vec(0.0, 0.25, -0.4),
 ) : FieldPiece(
         name = name,
         itemName = itemName,
@@ -136,6 +141,11 @@ class AutomaticFieldPiece(
             fire(player, body, runtime, barrelPos)
         }
     }
+
+    override fun sightEye(entity: Entity): Point? =
+        runtimes[entity]?.barrel?.position?.let { barrel ->
+            barrelOrigin(entity).add(rotatePoint(sightOffset, barrel.yaw, barrel.pitch, 0f))
+        }
 
     private fun barrelOrigin(body: Entity): Pos = body.position.add(rotatePoint(barrelPivotOffset, body.position.yaw, 0f, 0f))
 

@@ -188,12 +188,18 @@ internal object VehicleSeatHotbar {
             is ClientPlayerBlockPlacementPacket -> {
                 event.isCancelled = true
                 player.sendPacket(AcknowledgeBlockChangePacket(packet.sequence))
+                VehicleRegistry.ride(player)?.let { it.vehicle.onUseInput(player) }
             }
             is ClientUseItemPacket -> {
                 event.isCancelled = true
                 player.sendPacket(AcknowledgeBlockChangePacket(packet.sequence))
+                VehicleRegistry.ride(player)?.let { it.vehicle.onUseInput(player) }
             }
-            is ClientAnimationPacket, is ClientInteractEntityPacket -> event.isCancelled = true
+            is ClientInteractEntityPacket -> {
+                event.isCancelled = true
+                VehicleRegistry.ride(player)?.let { it.vehicle.onUseInput(player) }
+            }
+            is ClientAnimationPacket -> event.isCancelled = true
             else -> Unit
         }
     }
