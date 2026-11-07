@@ -48,6 +48,7 @@ import net.aechronis.stats.Stat
 import net.aechronis.stats.Stats
 import net.aechronis.utils.OreSounds
 import net.aechronis.vanilla.managers.BlockDrops
+import net.aechronis.vanilla.managers.ItemFrames
 import net.aechronis.vanilla.managers.StorageAccess
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
@@ -346,6 +347,17 @@ object NodesWorldListener {
         val blockPosition = BlockVec(position.blockX(), position.blockY(), position.blockZ())
         val action = if (access == StorageAccess.INTERACT) LandAccessAction.STORAGE_INTERACT else LandAccessAction.STORAGE_BREAK
         return LandAccess.check(player, blockPosition, action) == LandAccessDecision.ALLOW
+    }
+
+    fun hasItemFrameAccess(player: Player, support: BlockVec, action: ItemFrames.FrameAction): Boolean {
+        val landAction = when (action) {
+            ItemFrames.FrameAction.PLACE -> LandAccessAction.PLACE
+            ItemFrames.FrameAction.INTERACT -> LandAccessAction.INTERACT
+            ItemFrames.FrameAction.BREAK -> LandAccessAction.BREAK
+        }
+        val decision = LandAccess.check(player, support, landAction)
+        if (decision != LandAccessDecision.ALLOW) Message.error(player, checkNotNull(decision.message))
+        return decision == LandAccessDecision.ALLOW
     }
 
     fun init() {
