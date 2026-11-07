@@ -166,6 +166,7 @@ function fallbackAssets(root,model,settings) {
 // view = root + (grip + B*(m - grip) + T - 8)/16, B and T from the idle track at t=0.
 // Vanilla right hand (ItemInHandRenderer): origin, then the charged-crossbow ADS carrier's
 // shift and yaw, then the display's translate/rotateXYZ, then the model centred on 0.5.
+const ADS_LOWER=0.12;
 const NATIVE_HAND=[0.56,-0.52,-0.72], CROSSBOW_SHIFT=[-0.641864,0,0], CROSSBOW_YAW=10, GRIP=[8,6,12];
 const rotationXYZ=([x,y,z])=>{
     const [cx,sx,cy,sy,cz,sz]=[x,y,z].flatMap(a=>[Math.cos(a*Math.PI/180),Math.sin(a*Math.PI/180)]);
@@ -181,7 +182,7 @@ function staticDisplay(settings,curveData,aimed) {
         return track ? curveData.starts[track.first].slice(0,3) : [0,0,0];
     };
     const body=rotationXYZ(rest(1)), shift=rest(0), hip=settings.hipRoot;
-    const root=aimed ? [-(settings.sight[0]-8)/16,-(settings.sight[1]-8)/16,hip[2]] : hip;
+    const root=aimed ? [-(settings.sight[0]-8)/16,-(settings.sight[1]-8)/16-ADS_LOWER,hip[2]] : hip; // ADS_LOWER: see AECHRONIS_ADS_LOWER in gun_pose.glsl
     const turned=apply(body,GRIP), half=apply(body,[.5,.5,.5]);
     // Everything but B*m/16, in blocks, less the native hand origin.
     const offset=[0,1,2].map(i=>root[i]+(GRIP[i]-turned[i]+shift[i]-8)/16-NATIVE_HAND[i]-(aimed ? CROSSBOW_SHIFT[i] : 0)+half[i]);

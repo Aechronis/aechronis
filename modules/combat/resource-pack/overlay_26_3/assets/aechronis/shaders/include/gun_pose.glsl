@@ -52,6 +52,10 @@ float aechronis_gait(float startLevel, int target, float elapsed) {
     return clamp(level / 8.0, 0.0, 2.0);
 }
 
+// Blocks the gun sits below the sight line in ADS, so it is not dead centre.
+// Keep equal to ADS_LOWER in tools/blockbench/combat-project.cjs (animations-off models).
+const float AECHRONIS_ADS_LOWER = 0.12;
+
 struct AechronisGunPose {
     float hand;
     float aim;
@@ -147,7 +151,7 @@ AechronisGunPose aechronis_gun_pose(int mode, int action, float t, float gait, f
     vec3 hipRoot = aechronis_profile_hip(profile);
     hipRoot.x *= pose.hand;
     vec3 sight = aechronis_profile_sight(profile);
-    vec3 adsRoot = vec3(-(sight.x - 8.0) / 16.0, -(sight.y - 8.0) / 16.0, sight.z);
+    vec3 adsRoot = vec3(-(sight.x - 8.0) / 16.0, -(sight.y - 8.0) / 16.0 - AECHRONIS_ADS_LOWER, sight.z);
     adsRoot.x *= pose.hand;
     pose.armOffset = vec3(pose.hand * 0.12, -1.2, 0.20) * lowered;
     pose.viewRoot = mix(hipRoot, adsRoot, pose.aim) + pose.armOffset;
