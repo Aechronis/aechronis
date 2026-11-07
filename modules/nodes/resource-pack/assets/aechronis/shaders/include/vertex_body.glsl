@@ -158,13 +158,7 @@ if (isMarker) // Markers
     if (isWaypoint && !isDeathWaypoint) markerDepth += MARKER_DEPTH_FRONT_DIRECTION * 0.035; // Permanent waypoint
     if (isDeathWaypoint) markerDepth += MARKER_DEPTH_FRONT_DIRECTION * 0.037; // Death waypoint
     if (markerType == 4) markerDepth += MARKER_DEPTH_FRONT_DIRECTION * 0.04; // Player marker
-    // Combat's aim zoom redefines ProjMat as a function; read the raw matrix so the HUD map keeps its shape.
-#ifdef ProjMat
-    mat4 hudProjection = AechronisRawProjMat;
-#else
-    mat4 hudProjection = ProjMat;
-#endif
-    gl_Position = vec4(vec2(1, -hudProjection[1][1] / hudProjection[0][0]) * map + screenAnchor, markerDepth, 1);
+    gl_Position = vec4(vec2(1, -ProjMat[1][1]/ProjMat[0][0]) * map + screenAnchor, markerDepth, 1);
     vertexColor = vec4(1);
 
     sphericalVertexDistance = 0;

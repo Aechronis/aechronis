@@ -39,7 +39,6 @@ void main() {
         UV0, Color, gl_VertexID, position, normal, uv, emissive);
     if (animatedGun) {
         color = vec4(1.0);
-        // The held gun zooms with the world, so aiming pushes into its sights.
         gl_Position = ProjMat * vec4(position, 1.0);
     } else {
         // The helper's out parameters are undefined for ordinary item textures.

@@ -14,7 +14,6 @@ noperspective in vec2 guiPosition;
 noperspective in vec2 quadCorner;
 flat in vec2 guiExtent;
 flat in float combatCooldownPass;
-flat in float hotbarHiddenPass;
 
 out vec4 fragColor;
 
@@ -45,11 +44,6 @@ void main() {
             low.y >= guiExtent.y - 19.03 && low.y <= guiExtent.y - 3.97 &&
             abs(high.y - (guiExtent.y - 3.0)) < 0.03;
         if ((mainSlot || offhandSlot) && itemRectangle) discard;
-    }
-    // Hotbar, offhand slot and attack indicator: 22px tall plus the selection's extra pixel.
-    if (hotbarHiddenPass > 0.5 && guiPosition.y > guiExtent.y - 23.05 &&
-        abs(guiPosition.x - floor(guiExtent.x * 0.5 + 0.0001)) < 121.0) {
-        discard;
     }
     vec4 color = vertexColor;
     if (color.a == 0.0) {

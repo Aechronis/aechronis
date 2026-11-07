@@ -59,7 +59,7 @@ void main() {
 	// Match ModelManager's aiming/combat bands, including late-refresh grace. Hide
 	// Minecraft's translucent black selection outline around its fake sculk veins.
 	float tickGameTime = floor(GameTime * 24000.0 + 0.008);
-	bool combat = tickGameTime < 24000.0 && (tickGameTime < 10000.0 || tickGameTime >= 11000.0);
+	bool combat = (tickGameTime >= 9000.0 && tickGameTime < 10000.0) || (tickGameTime >= 11000.0 && tickGameTime < 12000.0);
 	if (combat) {
 		if (Color == vec4(0, 0, 0, .4)) {
 			vertexColor = vec4(0, 0, 0, 0);

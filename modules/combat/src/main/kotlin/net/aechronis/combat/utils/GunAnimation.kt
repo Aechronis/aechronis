@@ -165,8 +165,7 @@ private fun activeGunItem(
 internal object GunAnimation {
     private data class Held(
         val gun: Gun,
-        // GunZoom moves the held gun between hotbar slots while it follows the scroll wheel.
-        var slot: Byte,
+        val slot: Byte,
         val instance: Instance,
         val startAge: Long,
         var activated: Boolean = false,
@@ -255,14 +254,6 @@ internal object GunAnimation {
         player: Player,
         gun: Gun,
     ): Boolean = held[player]?.let { it.gun === gun && matches(player, it) && it.instance.worldAge < it.readyAge } == true
-
-    /** Keeps the held gun's animation state when GunZoom moves it to another hotbar slot. */
-    fun moveHeld(
-        player: Player,
-        slot: Byte,
-    ) {
-        held[player]?.slot = slot
-    }
 
     /** Validate ownership without delaying the client's predicted hotbar selection. */
     fun canUse(

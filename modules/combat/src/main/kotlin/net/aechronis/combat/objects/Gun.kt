@@ -10,7 +10,6 @@ import net.aechronis.combat.utils.GUN_SWING_ANIMATION
 import net.aechronis.combat.utils.GUN_USE_COOLDOWN
 import net.aechronis.combat.utils.GunAnimation
 import net.aechronis.combat.utils.GunAnimationAction
-import net.aechronis.combat.utils.GunZoom
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Mounts
@@ -212,8 +211,7 @@ class Gun(
 
     private fun runReloadTask(player: Player) {
         var time = reloadTime
-        // While aiming with scroll zoom the gun follows the selected slot; its home slot stays put.
-        val reloadSlot = GunZoom.homeSlot(player) ?: player.heldSlot
+        val reloadSlot = player.heldSlot
         val reloadInstance = player.instance
 
         Combat.playerStates.getOrCreate(player).reloadTask =
@@ -226,7 +224,7 @@ class Gun(
                     // or has no ammo in inventory
                     if (player.itemInMainHand.getTag(Tags.name) != name ||
                         ammo.get(player) == 0 ||
-                        (GunZoom.homeSlot(player) ?: player.heldSlot) != reloadSlot ||
+                        player.heldSlot != reloadSlot ||
                         player.instance !== reloadInstance ||
                         player.isDead ||
                         !player.isOnline

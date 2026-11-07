@@ -3,7 +3,6 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
-import net.aechronis.combat.utils.GunZoom
 import net.aechronis.server.modules.ModuleScheduler
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerHand
@@ -48,8 +47,6 @@ object AimingListener {
     }
 
     private fun onPlayerChangeHeldSlot(event: PlayerChangeHeldSlotEvent) {
-        // A scroll GunZoom follows is not a weapon switch; other slot listeners skip it via isFollowing.
-        if (GunZoom.onScroll(event)) return
         if (event.isCancelled || event.oldSlot == event.newSlot) return
         val state = Combat.playerStates.getOrCreate(event.player)
         state.cancelAimingReset()

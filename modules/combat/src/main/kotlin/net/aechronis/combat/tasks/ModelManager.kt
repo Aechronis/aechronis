@@ -9,7 +9,6 @@ import net.aechronis.combat.objects.VehicleSeatHotbar
 import net.aechronis.combat.utils.GUN_ANIMATION_CLOCK_TICKS
 import net.aechronis.combat.utils.GunAnimation
 import net.aechronis.combat.utils.GunHandSkins
-import net.aechronis.combat.utils.GunZoom
 import net.aechronis.combat.utils.gunAnimationPhase
 import net.aechronis.combat.utils.gunItemModel
 import net.aechronis.combat.utils.hasStaticGuns
@@ -44,9 +43,7 @@ object ModelManager {
     // dimension clocks remain unchanged. Partial ticks keep the phase smooth.
     // Put aiming below idle/combat so their advancing clocks cannot enter ADS.
     // Shaders reserve another 500 ticks after each active band for late refreshes.
-    // Keep these bands in 8000..11999, reserved by the drone telemetry decoder.
-    // GunZoom uses 8000 (aiming at 1x with the hotbar hidden), 19000..23999 (holding a zoom level)
-    // and 0..7999 plus 12000..18999 (easing between levels); see GunZoom.
+    // Keep all bands in 8000..11999, reserved by the drone telemetry decoder.
     private const val SHADER_AIMING_TIME = 9000L
     private const val SHADER_IDLE_TIME = 10000L
     private const val SHADER_COMBAT_TIME = 11000L
@@ -118,7 +115,7 @@ object ModelManager {
     private val fakeBlocks = HashMap<Player, FakeBlocks>()
 
     // Field of view walk speed saved while a sniper scope freezes movement. Walk speed 0 makes the
-    // client skip the movement FOV term, so the scope's 2x comes only from the shader zoom.
+    // client skip the movement FOV term, so freezing does not zoom the view.
     private val sniperScopeFieldViews = ConcurrentHashMap<Player, Float>()
 
     private val sniperScopeModifier =
@@ -159,9 +156,7 @@ object ModelManager {
         ModuleScheduler
             .buildTask {
                 for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
-                    GunZoom.tick(player)
                     updateModel(player)
-                    GunZoom.syncFakes(player)
                 }
             }.repeat(TaskSchedule.tick(1))
             .schedule()
@@ -212,7 +207,6 @@ object ModelManager {
         // Aiming any gun hides the crosshair: the sights or the scope's reticle replace it.
         val hideCrosshair = gun != null && Combat.playerStates[player]?.aiming == true
         if (TurretScope.isActive(player)) return SHADER_AIMING_TIME
-        GunZoom.band(player)?.let { return it }
         return when {
             Vehicle.drivenBy(player)?.hidesCrosshair(player) == true || hideCrosshair -> SHADER_AIMING_TIME
             gun != null ||
@@ -365,7 +359,6 @@ object ModelManager {
         }
         player.getAttribute(Attribute.MOVEMENT_SPEED).removeModifier(sniperScopeModifier)
         sniperScopeFieldViews.remove(player)?.let { player.fieldViewModifier = it }
-        GunZoom.clear(player)
         hitAnimationDisabledPlayers.remove(player)
         player.getAttribute(Attribute.ATTACK_SPEED).removeModifier(attackSpeedModifier)
         player.getAttribute(Attribute.BLOCK_BREAK_SPEED).removeModifier(blockBreakSpeedModifier)
@@ -407,7 +400,6 @@ object ModelManager {
         hitAnimationDisabledPlayers.clear()
         customViewPlayers.clear()
         sniperScopeFieldViews.clear()
-        GunZoom.clearAll()
         shaderClocks.clear()
         fakeBlocks.clear()
         GunAnimation.shutdown()
