@@ -457,6 +457,14 @@ open class Vehicle(
         @Synchronized
         internal fun shutdown() = VehicleCrew.shutdown()
 
+        /** Ejects riders and removes every live vehicle without destruction effects; returns the count removed. */
+        @Synchronized
+        fun removeAll(filter: (Entity) -> Boolean = { true }): Int {
+            val runtimes = VehicleRegistry.all().filter { filter(it.entity) }
+            runtimes.forEach { it.vehicle.unload(it.entity) }
+            return runtimes.size
+        }
+
         /** Routes a normal exit through the vehicle's occupied station hook. */
         fun exit(player: Player) = VehicleCrew.exit(player)
 
