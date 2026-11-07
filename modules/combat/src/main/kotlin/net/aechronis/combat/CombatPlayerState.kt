@@ -17,6 +17,9 @@ internal class CombatPlayerState {
     val previousPositions = ArrayDeque<Pos>()
     var speed = 0f
     var lastActionTime = 0L
+
+    /** Whether the aim-while-sprinting speed and jump modifiers are applied. */
+    var aimSprintBlocked = false
     var meleeLastAttackTime = 0L
     var lastMainHandType: String? = null
     var fallDistance = 0.0
