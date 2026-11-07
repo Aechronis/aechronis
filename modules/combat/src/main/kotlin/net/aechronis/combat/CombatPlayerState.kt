@@ -20,6 +20,9 @@ internal class CombatPlayerState {
 
     /** Gun name to the time any copy may fire again after one was emptied, so swapping copies can't skip the reload. */
     val gunReloadLocks = HashMap<String, Long>()
+
+    /** Whether the aim-while-sprinting speed and jump modifiers are applied. */
+    var aimSprintBlocked = false
     var meleeLastAttackTime = 0L
     var lastMainHandType: String? = null
     var fallDistance = 0.0
