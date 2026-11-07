@@ -1,5 +1,6 @@
 package net.aechronis.nodes.objects
 
+import net.aechronis.nodes.Nodes
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
@@ -43,7 +44,7 @@ internal object ActiveBuildingPresentation {
         fun update(building: ActiveBuilding, production: ActiveBuilding.Production, nearby: Set<Player>, now: Long) {
             val percent = production.progress(now)
             bar.name(building.displayName.append(Component.text(" • $percent%")))
-            bar.progress(((now - production.startedAt).toDouble() / ACTIVE_BUILDING_DURATION_MS).coerceIn(0.0, 1.0).toFloat())
+            bar.progress(((now - production.startedAt).toDouble() / Nodes.config.activeBuildingDurationMs).coerceIn(0.0, 1.0).toFloat())
             for (player in viewers - nearby) {
                 player.hideBossBar(bar)
                 restoreBeam(player)

@@ -43,6 +43,12 @@ data class NodesConfig(
     // ===================================
     val activeBuildings: List<net.aechronis.nodes.objects.ActiveBuildingDefinition> = emptyList(),
 
+    // how long one active building recipe takes to finish (ms)
+    val activeBuildingDurationMs: Long = 3_600_000,
+
+    // oil rigs can be created (off for iterations without oil)
+    val oilRigEnabled: Boolean = true,
+
     // territory income enabled
     val incomeEnabled: Boolean = true,
 

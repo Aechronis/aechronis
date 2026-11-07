@@ -6,6 +6,7 @@ import net.aechronis.nodes.commands.arguments.ArgumentSanitizedString
 import net.aechronis.nodes.objects.ActiveBuilding
 import net.aechronis.nodes.objects.ActiveBuildings
 import net.aechronis.nodes.objects.Building
+import net.aechronis.nodes.objects.CoalFactory
 import net.aechronis.nodes.objects.Farm
 import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.objects.OilRig
@@ -38,7 +39,8 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
             Message.print(player, "Usage:")
             Message.print(player, "/nodesadmin building create port <name> <public> [tier]")
             Message.print(player, "/nodesadmin building create farm [tier]")
-            Message.print(player, "/nodesadmin building create oilrig [tier]")
+            if (Nodes.config.oilRigEnabled) Message.print(player, "/nodesadmin building create oilrig [tier]")
+            Message.print(player, "/nodesadmin building create coalfactory [tier]")
             Message.print(player, "/nodesadmin building create train [tier]")
             Message.print(player, "/nodesadmin building create active <type> <tier> (stand at the output location)")
             Message.print(player, "Active types: ${Nodes.config.activeBuildings.joinToString { it.name }}")
@@ -49,6 +51,7 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
         val portLit = ArgumentType.Literal("port")
         val farmLit = ArgumentType.Literal("farm")
         val oilRigLit = ArgumentType.Literal("oilrig")
+        val coalFactoryLit = ArgumentType.Literal("coalfactory")
         val trainLit = ArgumentType.Literal("train")
         val nameArg = ArgumentSanitizedString.create("name")
         val publicArg = ArgumentBoolean("public")
@@ -98,6 +101,18 @@ class NodesAdminBuildingCreateCommand : NodesCommand("create", "nodes.admin") {
             }
             Message.print(player, "Created oil rig (tier $context[tierArg])")
         }, oilRigLit, tierArg)
+
+        addSyntax({ player, resident, context ->
+            CoalFactory.create(
+                Math.floorDiv(player.position.blockX(), 16),
+                Math.floorDiv(player.position.blockZ(), 16),
+                context[tierArg],
+            ).getOrElse { err ->
+                Message.error(player, "Failed to create coal factory: ${err.message}")
+                return@addSyntax
+            }
+            Message.print(player, "Created coal factory (tier ${context[tierArg]})")
+        }, coalFactoryLit, tierArg)
 
         addSyntax({ player, resident, context ->
             TrainStationBuilding.create(
