@@ -41,6 +41,7 @@ private const val PLAYER = "┼"
 
 /** Brightness drop per territory color index, so neighboring nodes of one town stay distinguishable. */
 private const val SHADE_STEP = 0.1f
+private const val MAX_SHADE = 7
 
 /**
  * Familiar sidebar territory map: an 11x11 grid of colored glyphs, one per chunk, north up.
@@ -76,9 +77,9 @@ internal object LegacyMinimapRenderer {
 
         val territory = chunk.territory
         val relationship = MinimapMarkerRenderer.territoryRelationship(viewer, chunk)
-        val dark = territory.color % 2 == 1
-        // Territory colors are a map coloring (neighbors never share one), so shading by it separates nodes.
-        val color = relationshipColor(relationship, territory.color)
+        val shade = shadeOf(territory)
+        val dark = shade % 2 == 1
+        val color = relationshipColor(relationship, shade)
         return when {
             Building.getForMinimap(coord) != null -> Component.text(BUILDING, NamedTextColor.GOLD)
             territory.core == coord -> Component.text(CORE, color)
@@ -86,6 +87,49 @@ internal object LegacyMinimapRenderer {
             territory.town?.home == territory.id -> Component.text(SOLID, color)
             else -> Component.text(if (dark) SHADE_DARK else SHADE_LIGHT, color)
         }
+    }
+
+    @Volatile
+    private var shades: Map<TerritoryId, Int> = emptyMap()
+
+    @Volatile
+    private var shadesVersion = -1
+
+    private fun shadeOf(territory: Territory): Int {
+        if (shadesVersion != Territory.registryVersion) {
+            synchronized(this) {
+                val version = Territory.registryVersion
+                if (shadesVersion != version) {
+                    shades = computeShades()
+                    shadesVersion = version
+                }
+            }
+        }
+        return shades[territory.id] ?: territory.color
+    }
+
+    /**
+     * Shade index per territory such that no two territories touching by an edge or a corner share one.
+     * Starts from the map's own coloring (edge neighbors already differ) and greedily repaints the rest.
+     * ponytail: scans every claimed chunk once per territory change (~1.5M chunks); cache incrementally if that shows up in profiles.
+     */
+    private fun computeShades(): Map<TerritoryId, Int> {
+        val territories = Territory.all().sortedBy { it.id.toInt() }
+        val shade = territories.associateTo(HashMap()) { it.id to it.color }
+        for (territory in territories) {
+            val touching = HashSet<TerritoryId>()
+            for (c in territory.chunks) {
+                for (dx in -1..1) {
+                    for (dz in -1..1) {
+                        val other = Territory.chunkAt(Coord(c.x + dx, c.z + dz))?.territory?.id ?: continue
+                        if (other != territory.id) touching.add(other)
+                    }
+                }
+            }
+            val used = touching.mapTo(HashSet()) { shade.getValue(it) }
+            if (shade.getValue(territory.id) in used) shade[territory.id] = generateSequence(0) { it + 1 }.first { it !in used }
+        }
+        return shade
     }
 
     private fun relationshipColor(relationship: DiplomaticRelationship?, shade: Int): TextColor {
@@ -97,7 +141,7 @@ internal object LegacyMinimapRenderer {
             DiplomaticRelationship.ENEMY -> NamedTextColor.RED
             null -> NamedTextColor.GRAY
         }
-        val factor = 1f - SHADE_STEP * shade.coerceIn(0, 5)
+        val factor = 1f - SHADE_STEP * shade.coerceIn(0, MAX_SHADE)
         return TextColor.color((base.red() * factor).toInt(), (base.green() * factor).toInt(), (base.blue() * factor).toInt())
     }
 }

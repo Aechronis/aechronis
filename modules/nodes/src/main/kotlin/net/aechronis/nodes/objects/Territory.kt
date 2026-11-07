@@ -324,6 +324,11 @@ data class Territory(
         private val territories = hashMapOf<TerritoryId, Territory>()
         private val chunks = java.util.concurrent.ConcurrentHashMap<Coord, TerritoryChunk>()
 
+        /** Bumped whenever the territory set changes, so derived caches know to rebuild. */
+        @Volatile
+        internal var registryVersion = 0
+            private set
+
         internal fun all(): List<Territory> = territories.values.toList()
 
         internal fun chunkAt(coord: Coord): TerritoryChunk? = chunks[coord]
@@ -337,11 +342,13 @@ data class Territory(
             }
             territories[territory.id] = territory
             territory.chunks.forEach { chunks[it] = TerritoryChunk(it, territory) }
+            registryVersion++
         }
 
         internal fun clearRegistry() {
             chunks.clear()
             territories.clear()
+            registryVersion++
         }
 
         fun count(): Int = territories.size
