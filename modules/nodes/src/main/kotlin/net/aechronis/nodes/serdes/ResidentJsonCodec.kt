@@ -17,6 +17,7 @@ internal object ResidentJsonCodec {
         put("minimapShift", snapshot.minimapShiftEnabled)
         put("minimapNorthLocked", snapshot.minimapNorthLocked)
         put("minimapLegacy", snapshot.minimapLegacy)
+        put("deathWaypoints", snapshot.deathWaypointsEnabled)
         put("townJoinLockedUntil", snapshot.townJoinLockedUntil)
         putJsonArray("waypoints") {
             snapshot.waypoints.forEach { waypoint ->

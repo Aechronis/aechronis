@@ -82,6 +82,16 @@ class NodesModule : AechronisModule {
                     true
                 },
             ),
+            PlayerSetting.toggle(
+                "Death waypoints",
+                Material.SKELETON_SKULL,
+                { Resident.fromPlayer(it)?.deathWaypointsEnabled ?: true },
+                { player, on ->
+                    val resident = Resident.fromPlayer(player) ?: return@toggle false
+                    resident.setDeathWaypointsEnabled(on)
+                    true
+                },
+            ),
         )
 
     override fun initialize(context: ModuleContext) {
