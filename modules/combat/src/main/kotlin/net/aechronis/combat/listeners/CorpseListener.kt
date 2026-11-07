@@ -53,8 +53,11 @@ object CorpseListener {
         if (cursorItem.isAir && lootSlots.all { player.inventory.getItemStack(it).isAir }) return
 
         val corpse = EntityCreature(EntityType.MANNEQUIN)
-        corpse.editEntityMeta(MannequinMeta::class.java) { meta ->
-            meta.profile = ResolvableProfile(player.skin)
+        // Offline/dev players can have no skin; keep the default mannequin look instead of failing the death.
+        player.skin?.let { skin ->
+            corpse.editEntityMeta(MannequinMeta::class.java) { meta ->
+                meta.profile = ResolvableProfile(skin)
+            }
         }
 
         val loot = Corpses.newLootInventory(player.username)
