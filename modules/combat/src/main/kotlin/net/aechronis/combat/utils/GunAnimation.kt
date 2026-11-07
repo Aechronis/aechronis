@@ -4,6 +4,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.TurretScope
+import net.aechronis.combat.storage.GunAnimationOptOut
 import net.aechronis.combat.tasks.ModelManager
 import net.minestom.server.color.Color
 import net.minestom.server.component.DataComponents
@@ -131,13 +132,20 @@ internal fun withoutGunAnimationTint(item: ItemStack): ItemStack {
 internal fun stowedGunItem(
     gun: Gun,
     item: ItemStack,
+    static: Boolean,
 ): ItemStack =
-    gunItemModel(
-        withoutGunAnimationTint(item),
-        gun.material,
-        "${if (gun.getAmmo(item) > 0) gun.itemModel else gun.itemModelEmpty}-equip",
+    withStaticGunModel(
+        gunItemModel(
+            withoutGunAnimationTint(item),
+            gun.material,
+            "${if (gun.getAmmo(item) > 0) gun.itemModel else gun.itemModelEmpty}-equip",
+        ),
+        static,
     ).with(DataComponents.SWING_ANIMATION, GUN_SWING_ANIMATION)
         .with(DataComponents.USE_COOLDOWN, GUN_USE_COOLDOWN)
+
+/** Players who opted out get plain models and no animation state, tints or clock packets. */
+internal fun hasStaticGuns(player: Player): Boolean = GunAnimationOptOut.disabled(player.uuid)
 
 private fun activeGunItem(
     gun: Gun,
@@ -172,6 +180,8 @@ internal object GunAnimation {
         val durationTicks: Int,
         val action: GunAnimationAction,
         var tint: Color,
+        // Recorded without a published tint, for players with gun animations off.
+        val plain: Boolean,
     )
 
     private data class AimTarget(
@@ -288,6 +298,12 @@ internal object GunAnimation {
         player: Player,
         current: Held,
     ) {
+        // Plain models only show the charged crossbow while aiming.
+        if (hasStaticGuns(player) && Combat.playerStates[player]?.aiming != true) {
+            if (current.lastUseCooldownAge != null) player.sendPacket(SetCooldownPacket(GUN_USE_COOLDOWN_GROUP, 0))
+            current.lastUseCooldownAge = null
+            return
+        }
         val age = current.instance.worldAge
         if (current.lastUseCooldownAge?.let { age - it in 0 until GUN_USE_COOLDOWN_REFRESH_TICKS } == true) return
         // Vanilla still sends use packets on cooldown, but skips crossbow use and
@@ -302,7 +318,7 @@ internal object GunAnimation {
         gun: Gun,
         finalItem: ItemStack,
     ): PreparedGunFire? {
-        if (!visible(player)) return null
+        if (!visible(player) || hasStaticGuns(player)) return null
         if (Item.getFromItemStack(player.itemInMainHand) !== gun) return null
         if (player.playerConnection !is PlayerSocketConnection) return null
         if (player.playerConnection.serverState != ConnectionState.PLAY ||
@@ -395,7 +411,8 @@ internal object GunAnimation {
                 null
             }
         val tint = gunAnimationTint(action, clipAge, durationTicks, motion, aimTicks)
-        active[player] = Active(current, clipAge, action.duration(durationTicks, current.gun.fireAnimationTicks), action, tint)
+        active[player] =
+            Active(current, clipAge, action.duration(durationTicks, current.gun.fireAnimationTicks), action, tint, hasStaticGuns(player))
         if (action == GunAnimationAction.FIRE && current.gun.sniper && current.gun.fireAnimationTicks > GUN_FIRE_ANIMATION_TICKS) {
             // The captured FIRE tint preserves the shot's incoming ADS transition.
             // The manual bolt cycle then exits to hip; remember that visual target
@@ -410,10 +427,13 @@ internal object GunAnimation {
         age: Long,
         item: ItemStack,
     ) {
-        if (item == player.itemInMainHand) return
+        // Players with gun animations off share the timing above, but never see its clips.
+        if (hasStaticGuns(player) || item == player.itemInMainHand) return
         if (!ModelManager.syncShaderTime(player, age)) return
         for (viewer in player.viewers) {
-            if (viewer !== player && viewer.isOnline && viewer.instance === player.instance) ModelManager.syncShaderTime(viewer, age)
+            if (viewer !== player && viewer.isOnline && viewer.instance === player.instance && !hasStaticGuns(viewer)) {
+                ModelManager.syncShaderTime(viewer, age)
+            }
         }
         held[player]?.activated = true
         player.itemInMainHand = item
@@ -429,7 +449,9 @@ internal object GunAnimation {
             if (player in held || player in active) cancel(player)
             return
         }
-        ensureHeld(player, gun)
+        val current = ensureHeld(player, gun)
+        // Plain models hold the equip definition, which must not read as a fresh swap.
+        if (hasStaticGuns(player)) current.activated = false
         // Do not touch the selected ItemStack while the client lowers and raises it.
         // The first update switches to a no-swap model and its tint together.
         if (isSettling(player, gun)) return
@@ -437,11 +459,18 @@ internal object GunAnimation {
         var completedManualCycle = false
         if (animation != null) {
             val elapsed = animation.held.instance.worldAge - animation.startAge
+            // Plain clips have no tint to compare. A toggle mid-clip drops the clip so the new mode
+            // starts clean; reloads keep running since cancelling would abort the reload itself.
             val changedItem =
-                player.itemInMainHand
-                    .get(DataComponents.CUSTOM_MODEL_DATA)
-                    ?.colors()
-                    ?.firstOrNull() != animation.tint
+                if (animation.plain != hasStaticGuns(player)) {
+                    !animation.action.isReload
+                } else {
+                    !animation.plain &&
+                        player.itemInMainHand
+                            .get(DataComponents.CUSTOM_MODEL_DATA)
+                            ?.colors()
+                            ?.firstOrNull() != animation.tint
+                }
             if (!matches(player, animation.held) || elapsed < 0 || changedItem) {
                 cancel(player)
                 return
@@ -469,6 +498,7 @@ internal object GunAnimation {
                             GunAnimationAction.AIM_IN.duration(),
                             if (it.aiming) GunAnimationAction.AIM_IN else GunAnimationAction.AIM_OUT,
                             previousTint,
+                            hasStaticGuns(player),
                         )
                     }
                 if (animation != null) active[player] = animation
@@ -543,7 +573,9 @@ internal object GunAnimation {
 
     fun cancel(player: Player) {
         if (active[player]?.action?.isReload == true) Combat.playerStates[player]?.cancelReload()
-        if (held.remove(player) != null && player.isOnline) player.sendPacket(SetCooldownPacket(GUN_USE_COOLDOWN_GROUP, 0))
+        if (held.remove(player)?.lastUseCooldownAge != null && player.isOnline) {
+            player.sendPacket(SetCooldownPacket(GUN_USE_COOLDOWN_GROUP, 0))
+        }
         aimTargets.remove(player)
         GunMotionTracker.clear(player)
         active.remove(player)
@@ -553,7 +585,7 @@ internal object GunAnimation {
         val cursor = player.inventory.cursorItem
         val gun = Item.getFromItemStack(cursor) as? Gun
         if (gun != null) {
-            val stowed = stowedGunItem(gun, cursor)
+            val stowed = stowedGunItem(gun, cursor, hasStaticGuns(player))
             if (stowed != cursor) player.inventory.cursorItem = stowed
         }
     }
@@ -564,7 +596,7 @@ internal object GunAnimation {
     ) {
         val item = player.inventory.getItemStack(slot)
         val gun = Item.getFromItemStack(item) as? Gun ?: return
-        val stowed = stowedGunItem(gun, item)
+        val stowed = stowedGunItem(gun, item, hasStaticGuns(player))
         if (stowed != item) player.inventory.setItemStack(slot, stowed)
     }
 

@@ -8,6 +8,7 @@ dependencies {
     compileOnly(project(":modules:combat"))
     compileOnly(project(":modules:economy"))
     compileOnly(project(":modules:regenerating-ores"))
+    compileOnly(project(":modules:settings"))
     compileOnly(project(":modules:stats"))
     compileOnly(project(":modules:utils"))
     compileOnly(project(":modules:vanilla"))

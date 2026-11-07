@@ -88,6 +88,7 @@ object Deserializer {
         val minimapShiftEnabled = resident.get("minimapShift")?.jsonPrimitive?.boolean ?: true
         val minimapNorthLocked = resident.get("minimapNorthLocked")?.jsonPrimitive?.boolean ?: true
         val minimapLegacy = resident.get("minimapLegacy")?.jsonPrimitive?.boolean ?: false
+        val deathWaypointsEnabled = resident.get("deathWaypoints")?.jsonPrimitive?.boolean ?: true
         val townJoinLockedUntil = resident.get("townJoinLockedUntil")?.takeUnless { it is JsonNull }?.let { value ->
             runCatching { value.jsonPrimitive.long }.getOrNull()
         }
@@ -127,6 +128,7 @@ object Deserializer {
             minimapShiftEnabled = minimapShiftEnabled,
             minimapNorthLocked = minimapNorthLocked,
             minimapLegacy = minimapLegacy,
+            deathWaypointsEnabled = deathWaypointsEnabled,
             townJoinLockedUntil = townJoinLockedUntil,
         )
     }

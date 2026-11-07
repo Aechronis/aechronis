@@ -49,6 +49,7 @@ include(
     ":modules:killshop",
     ":modules:music",
     ":modules:hats",
+    ":modules:settings",
     ":modules:nodes",
     ":modules:discord",
     ":modules:vanilla",

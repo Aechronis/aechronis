@@ -123,7 +123,7 @@ function checkSight(gun, source, model, iteration) {
 function checkEmptyReload(gun, iteration, source, model) {
     const item = read(path.join(iteration, `resource-pack/assets/aechronis/items/${gun}-reloading.json`));
     for (const hand of ['right', 'left']) {
-        const model = item.model.cases.find(entry => entry.when === `firstperson_${hand}hand`)?.model;
+        const model = item.model.cases.find(entry => entry.when === `firstperson_${hand}hand`)?.model?.on_false;
         assert.equal(model?.type, 'minecraft:range_dispatch', `${gun}: empty reload needs damage dispatch`);
         assert.equal(model.property, 'minecraft:damage');
         assert.equal(model.normalize, false);
@@ -132,7 +132,7 @@ function checkEmptyReload(gun, iteration, source, model) {
             [[99, `aechronis:item/${gun}-animation-hip-${hand}-empty`]]);
         for (const suffix of ['-empty', '-empty-equip']) {
             const emptyItem = read(path.join(iteration, `resource-pack/assets/aechronis/items/${gun}${suffix}.json`));
-            assert.equal(emptyItem.model.cases.find(entry => entry.when === `firstperson_${hand}hand`)?.model.model,
+            assert.equal(emptyItem.model.cases.find(entry => entry.when === `firstperson_${hand}hand`)?.model.on_false.model,
                 `aechronis:item/${gun}-animation-hip-${hand}-empty`, `${gun}${suffix}: hold-open carrier`);
         }
     }

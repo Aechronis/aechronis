@@ -11,7 +11,9 @@ import net.aechronis.combat.utils.GunAnimation
 import net.aechronis.combat.utils.GunHandSkins
 import net.aechronis.combat.utils.gunAnimationPhase
 import net.aechronis.combat.utils.gunItemModel
+import net.aechronis.combat.utils.hasStaticGuns
 import net.aechronis.combat.utils.scopeHelmet
+import net.aechronis.combat.utils.withStaticGunModel
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
@@ -51,21 +53,25 @@ object ModelManager {
         val instance: Instance,
         val band: Long,
         val worldAge: Long,
+        // Without gun animations the time only carries the HUD band, never the animation phase.
+        val animated: Boolean,
         val sentAtNanos: Long = System.nanoTime(),
     ) {
         fun needsRefresh(
             instance: Instance,
             band: Long,
             worldAge: Long,
-        ): Boolean =
-            this.instance !== instance ||
-                this.band != band ||
-                worldAge - this.worldAge !in 0 until SHADER_CLOCK_REFRESH_TICKS ||
-                Math.floorDiv(worldAge, GUN_ANIMATION_CLOCK_TICKS) != Math.floorDiv(this.worldAge, GUN_ANIMATION_CLOCK_TICKS) ||
-                // The client keeps ticking during server lag. Do not let its HUD
-                // band expire while waiting for the server to reach the phase wrap.
-                System.nanoTime() - sentAtNanos >=
-                minOf(SHADER_CLOCK_REFRESH_TICKS, GUN_ANIMATION_CLOCK_TICKS - gunAnimationPhase(this.worldAge)) * 50_000_000L
+            animated: Boolean,
+        ): Boolean {
+            if (this.instance !== instance || this.band != band || this.animated != animated) return true
+            if (worldAge - this.worldAge !in 0 until SHADER_CLOCK_REFRESH_TICKS) return true
+            if (!animated) return System.nanoTime() - sentAtNanos >= SHADER_CLOCK_REFRESH_TICKS * 50_000_000L
+            if (Math.floorDiv(worldAge, GUN_ANIMATION_CLOCK_TICKS) != Math.floorDiv(this.worldAge, GUN_ANIMATION_CLOCK_TICKS)) return true
+            // The client keeps ticking during server lag. Do not let its HUD
+            // band expire while waiting for the server to reach the phase wrap.
+            val ticks = minOf(SHADER_CLOCK_REFRESH_TICKS, GUN_ANIMATION_CLOCK_TICKS - gunAnimationPhase(this.worldAge))
+            return System.nanoTime() - sentAtNanos >= ticks * 50_000_000L
+        }
     }
 
     private val shaderClocks = ConcurrentHashMap<Player, ShaderClock>()
@@ -175,10 +181,11 @@ object ModelManager {
             return false
         }
         val band = shaderTimeBand(player)
-        if (!force && shaderClocks[player]?.needsRefresh(instance, band, worldAge) == false) return true
-        val packet = SetTimePacket(band + gunAnimationPhase(worldAge), instance.createTimePacket().clocks)
+        val animated = !hasStaticGuns(player)
+        if (!force && shaderClocks[player]?.needsRefresh(instance, band, worldAge, animated) == false) return true
+        val packet = SetTimePacket(band + if (animated) gunAnimationPhase(worldAge) else 0, instance.createTimePacket().clocks)
         player.sendPacket(packet)
-        shaderClocks[player] = ShaderClock(instance, band, worldAge)
+        shaderClocks[player] = ShaderClock(instance, band, worldAge, animated)
         return true
     }
 
@@ -187,14 +194,17 @@ object ModelManager {
         worldAge: Long,
     ): SetTimePacket? {
         val instance = player.instance ?: return null
-        if (hasCustomView(player)) return null
+        if (hasCustomView(player) || hasStaticGuns(player)) return null
         return SetTimePacket(shaderTimeBand(player) + gunAnimationPhase(worldAge), instance.createTimePacket().clocks)
     }
 
     private fun shaderTimeBand(player: Player): Long {
         val gun = if (VehicleSeatHotbar.isActive(player)) null else Item.getFromItemStack(player.itemInMainHand) as? Gun
+        // Only scoped guns hide the crosshair (their scope has its own reticle); everything else keeps
+        // it in ADS. The combat band still hides the attack indicator for every gun.
         val hideCrosshair =
             gun != null &&
+                gun.sniper &&
                 Combat.playerStates[player]?.aiming == true &&
                 Combat.playerStates[player]?.reloadTask == null
         return when {
@@ -243,11 +253,15 @@ object ModelManager {
         if (gun == null || turretScopeActive) return
 
         val hasAmmo = gun.hasAmmo(player)
-        val preserveAction = customViewOwnsShaderTime || GunAnimation.isSettling(player, gun) || GunAnimation.isFiring(player, gun)
+        // Plain models have no shader carrier to keep; updateAim still waits out the shot.
+        val staticGun = hasStaticGuns(player)
+        val preserveAction =
+            customViewOwnsShaderTime || GunAnimation.isSettling(player, gun) || (!staticGun && GunAnimation.isFiring(player, gun))
         if (!preserveAction) GunAnimation.updateAim(player, gun, showAim)
 
         // sniper scope
-        if (gun.sniper && showAim && GunAnimation.isFullyAimed(player, gun)) {
+        val fullyAimed = gun.sniper && showAim && GunAnimation.isFullyAimed(player, gun)
+        if (gun.sniper && showAim && fullyAimed) {
             player.sendPacket(
                 EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to scopeHelmet(player.helmet))),
             )
@@ -256,26 +270,32 @@ object ModelManager {
             restoreSniperScope(player)
         }
 
-        GunHandSkins.update(player)
+        if (!staticGun) GunHandSkins.update(player)
         // Keep the accepted action's carrier stable while its shader runs.
         // Manual scoped actions exit ADS within that carrier before re-aiming.
         if (preserveAction) return
         val model =
             when {
                 Combat.playerStates[player]?.reloadTask != null -> gun.itemModelReloading
-                showAim -> gun.itemModelAiming
-                !hasAmmo -> gun.itemModelEmpty
-                else -> gun.itemModel
+                // Equip definitions keep vanilla's re-equip animation for plain models.
+                // A plain scoped model hides at full aim, so it waits for the scope.
+                showAim && (!staticGun || !gun.sniper || fullyAimed) ->
+                    if (staticGun) "${gun.itemModelAiming}-equip" else gun.itemModelAiming
+                !hasAmmo -> if (staticGun) "${gun.itemModelEmpty}-equip" else gun.itemModelEmpty
+                else -> if (staticGun) "${gun.itemModel}-equip" else gun.itemModel
             }
         // These first-person models implement pose interpolation in the
         // shader; changing the vanilla material only supplies the F5 pose.
         player.itemInMainHand =
-            gunItemModel(
-                player.itemInMainHand,
-                gun.material,
-                model,
-                aiming = showAim,
-                crouching = player.pose == EntityPose.SNEAKING,
+            withStaticGunModel(
+                gunItemModel(
+                    player.itemInMainHand,
+                    gun.material,
+                    model,
+                    aiming = showAim,
+                    crouching = player.pose == EntityPose.SNEAKING,
+                ),
+                staticGun,
             )
     }
 
