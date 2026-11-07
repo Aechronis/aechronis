@@ -39,6 +39,9 @@ private const val WAYPOINT = "◆"
 private const val DEATH_WAYPOINT = "✖"
 private const val PLAYER = "┼"
 
+/** Brightness drop per territory color index, so neighboring nodes of one town stay distinguishable. */
+private const val SHADE_STEP = 0.1f
+
 /**
  * Familiar sidebar territory map: an 11x11 grid of colored glyphs, one per chunk, north up.
  * Needs no resource pack; shows the same relationship colors, homes, cores, occupations,
@@ -65,7 +68,7 @@ internal object LegacyMinimapRenderer {
         if (isPlayer) return Component.text(PLAYER, NamedTextColor.WHITE)
         val attack = FlagWar.chunkToAttacker[coord]
         if (attack != null) {
-            return Component.text(ATTACK, relationshipColor(MinimapMarkerRenderer.relationshipToTown(viewer, attack.town), false))
+            return Component.text(ATTACK, relationshipColor(MinimapMarkerRenderer.relationshipToTown(viewer, attack.town), 0))
         }
         if (death) return Component.text(DEATH_WAYPOINT, NamedTextColor.RED)
         if (waypoint) return Component.text(WAYPOINT, NamedTextColor.LIGHT_PURPLE)
@@ -74,7 +77,8 @@ internal object LegacyMinimapRenderer {
         val territory = chunk.territory
         val relationship = MinimapMarkerRenderer.territoryRelationship(viewer, chunk)
         val dark = territory.color % 2 == 1
-        val color = relationshipColor(relationship, dark)
+        // Territory colors are a map coloring (neighbors never share one), so shading by it separates nodes.
+        val color = relationshipColor(relationship, territory.color)
         return when {
             Building.getForMinimap(coord) != null -> Component.text(BUILDING, NamedTextColor.GOLD)
             territory.core == coord -> Component.text(CORE, color)
@@ -84,13 +88,17 @@ internal object LegacyMinimapRenderer {
         }
     }
 
-    private fun relationshipColor(relationship: DiplomaticRelationship?, dark: Boolean): TextColor = when (relationship) {
-        DiplomaticRelationship.TOWN -> if (dark) NamedTextColor.DARK_GREEN else NamedTextColor.GREEN
-        DiplomaticRelationship.NATION -> NamedTextColor.DARK_GREEN
-        DiplomaticRelationship.ALLY -> if (dark) NamedTextColor.DARK_AQUA else NamedTextColor.AQUA
-        DiplomaticRelationship.NEUTRAL -> if (dark) NamedTextColor.GOLD else NamedTextColor.YELLOW
-        DiplomaticRelationship.ENEMY -> if (dark) NamedTextColor.DARK_RED else NamedTextColor.RED
-        null -> if (dark) NamedTextColor.DARK_GRAY else NamedTextColor.GRAY
+    private fun relationshipColor(relationship: DiplomaticRelationship?, shade: Int): TextColor {
+        val base = when (relationship) {
+            DiplomaticRelationship.TOWN -> NamedTextColor.GREEN
+            DiplomaticRelationship.NATION -> NamedTextColor.DARK_GREEN
+            DiplomaticRelationship.ALLY -> NamedTextColor.AQUA
+            DiplomaticRelationship.NEUTRAL -> NamedTextColor.YELLOW
+            DiplomaticRelationship.ENEMY -> NamedTextColor.RED
+            null -> NamedTextColor.GRAY
+        }
+        val factor = 1f - SHADE_STEP * shade.coerceIn(0, 5)
+        return TextColor.color((base.red() * factor).toInt(), (base.green() * factor).toInt(), (base.blue() * factor).toInt())
     }
 }
 
