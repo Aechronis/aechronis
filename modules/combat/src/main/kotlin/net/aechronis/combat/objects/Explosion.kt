@@ -211,6 +211,8 @@ class Explosion private constructor(
 
         for (entity in instance.entities.toList()) {
             if (entity.entityType != EntityType.MANNEQUIN || entity !is LivingEntity) continue
+            // The crew member behind a stand-in is already damaged as a player above.
+            if (VehicleRegistry.standInOwner(entity) != null) continue
             val blastDamage = damageAtDistance(damage, radius, distanceToBoundingBox(entity, pos))
             if (blastDamage > 0f) applyDamage(entity, type, blastDamage)
         }
