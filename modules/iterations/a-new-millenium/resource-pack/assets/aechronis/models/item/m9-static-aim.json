@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/m9",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3464,
+        6.0519,
+        -7.0598
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3464,
+        6.0519,
+        -7.0598
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}

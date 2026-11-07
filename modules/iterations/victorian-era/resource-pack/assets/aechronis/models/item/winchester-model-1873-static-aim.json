@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/winchester-model-1873",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3457,
+        7.18,
+        -5.7602
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3457,
+        7.18,
+        -5.7602
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}

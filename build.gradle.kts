@@ -106,6 +106,7 @@ val runtimeModuleProjects =
         ":modules:killshop",
         ":modules:music",
         ":modules:hats",
+        ":modules:settings",
         ":modules:vanilla",
         ":modules:chat",
         ":modules:staff",

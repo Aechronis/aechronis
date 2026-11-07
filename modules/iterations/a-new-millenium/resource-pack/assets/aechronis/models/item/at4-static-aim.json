@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/at4",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        1.4899,
+        8.4585,
+        5.4617
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        1.4899,
+        8.4585,
+        5.4617
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}
