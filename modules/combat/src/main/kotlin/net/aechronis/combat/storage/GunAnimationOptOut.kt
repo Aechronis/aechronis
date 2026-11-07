@@ -3,6 +3,7 @@ package net.aechronis.combat.storage
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.aechronis.server.io.AtomicFiles
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
@@ -30,16 +31,23 @@ object GunAnimationOptOut {
 
     fun disabled(uuid: UUID): Boolean = uuid in players
 
+    /** Returns false, leaving the preference unchanged, when it could not be saved. */
     @Synchronized
     fun set(
         uuid: UUID,
         enabled: Boolean,
-    ) {
+    ): Boolean {
         val updated = if (enabled) players - uuid else players + uuid
-        if (updated == players) return
+        if (updated == players) return true
         val saved = Saved(disabled = updated.mapTo(sortedSetOf()) { it.toString() })
-        Files.createDirectories(file.parent)
-        AtomicFiles.writeString(file, json.encodeToString(saved), preservePermissions = true)
+        try {
+            Files.createDirectories(file.parent)
+            AtomicFiles.writeString(file, json.encodeToString(saved), preservePermissions = true)
+        } catch (error: IOException) {
+            System.err.println("Could not save gun animation preferences: $error")
+            return false
+        }
         players = updated
+        return true
     }
 }

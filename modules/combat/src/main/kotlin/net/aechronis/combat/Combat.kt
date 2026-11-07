@@ -60,10 +60,7 @@ object Combat {
             "Gun animations",
             Material.CROSSBOW,
             { !GunAnimationOptOut.disabled(it.uuid) },
-            { player, enabled ->
-                GunAnimationOptOut.set(player.uuid, enabled)
-                true
-            },
+            { player, enabled -> GunAnimationOptOut.set(player.uuid, enabled) },
         )
 
     var config: CombatConfig = CombatConfig()
