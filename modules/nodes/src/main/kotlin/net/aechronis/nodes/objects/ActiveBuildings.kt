@@ -131,7 +131,12 @@ object ActiveBuildings {
 
     internal fun durationText(): String {
         val minutes = Nodes.config.activeBuildingDurationMs / 60_000
-        return if (minutes % 60 == 0L) "${minutes / 60} hour(s)" else "$minutes minutes"
+        val hours = minutes / 60
+        return when {
+            minutes % 60 != 0L -> "$minutes minutes"
+            hours == 1L -> "1 hour"
+            else -> "$hours hours"
+        }
     }
 
     internal fun formatItems(items: List<ItemStack>): Component = Component.join(
