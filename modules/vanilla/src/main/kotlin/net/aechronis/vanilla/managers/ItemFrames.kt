@@ -11,6 +11,7 @@ import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.metadata.other.ItemFrameMeta
 import net.minestom.server.event.entity.EntityAttackEvent
@@ -53,6 +54,21 @@ object ItemFrames {
     private val frames = ConcurrentHashMap<Entity, Frame>()
     private val framesByAnchor = ConcurrentHashMap<FrameKey, Entity>()
 
+    @Volatile
+    private var accessChecker: ((Player, BlockVec, FrameAction) -> Boolean)? = null
+
+    enum class FrameAction { PLACE, INTERACT, BREAK }
+
+    fun setAccessChecker(checker: ((Player, BlockVec, FrameAction) -> Boolean)?) {
+        accessChecker = checker
+    }
+
+    private fun hasAccess(
+        player: Player,
+        support: BlockVec,
+        action: FrameAction,
+    ) = accessChecker?.invoke(player, support, action) ?: true
+
     fun init() {
         Vanilla.eventNode.addListener(PlayerUseItemOnBlockEvent::class.java, ::onUseOnBlock)
         Vanilla.eventNode.addListener(PlayerEntityInteractEvent::class.java, ::onInteract)
@@ -84,6 +100,7 @@ object ItemFrames {
         if (!instance.getBlock(support).solid()) return
         val key = FrameKey(instance, support, event.blockFace)
         if (framesByAnchor.containsKey(key)) return
+        if (!hasAccess(event.player, support, FrameAction.PLACE)) return
 
         val entity = createFrameEntity(glowing, event.blockFace)
         val position = framePosition(support, event.blockFace)
@@ -97,6 +114,7 @@ object ItemFrames {
 
     private fun onInteract(event: PlayerEntityInteractEvent) {
         val frame = frames[event.target] ?: return
+        if (!hasAccess(event.player, frame.support, FrameAction.INTERACT)) return
         val entity = event.target
         val meta = entity.entityMeta as? ItemFrameMeta ?: return
         val held = event.player.getItemInHand(event.hand)
@@ -112,11 +130,19 @@ object ItemFrames {
     }
 
     private fun onAttack(event: EntityAttackEvent) {
-        val entity = event.target
+        val frame = frames[event.target] ?: return
+        val attacker = event.entity as? Player
+        if (attacker != null && !hasAccess(attacker, frame.support, FrameAction.BREAK)) return
+        removeFrame(event.target, attacker)
+    }
+
+    private fun removeFrame(
+        entity: Entity,
+        player: Player?,
+    ) {
         val frame = frames.remove(entity) ?: return
         framesByAnchor.remove(FrameKey(frame.instance, frame.support, frame.face), entity)
         saveAnchor(frame)
-        val player = event.entity as? net.minestom.server.entity.Player
         val meta = entity.entityMeta as? ItemFrameMeta
         if (player?.gameMode != GameMode.CREATIVE) {
             val position = entity.position
@@ -131,7 +157,7 @@ object ItemFrames {
         val support = event.blockPosition
         frames.entries
             .filter { (entity, frame) -> frame.instance === event.instance && frame.support == support }
-            .forEach { (entity, _) -> onAttack(EntityAttackEvent(event.player, entity)) }
+            .forEach { (entity, _) -> removeFrame(entity, event.player) }
     }
 
     private fun onChunkLoad(event: InstanceChunkLoadEvent) {
@@ -271,7 +297,7 @@ object ItemFrames {
     }
 
     private fun consume(
-        player: net.minestom.server.entity.Player,
+        player: Player,
         hand: PlayerHand,
         stack: ItemStack,
     ) {
