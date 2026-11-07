@@ -9,6 +9,9 @@ layout(std140) uniform DynamicTransforms {
     vec4 ColorModulator;
     vec3 ModelOffset;
 };
+layout(std140) uniform Projection {
+    mat4 ProjMat;
+};
 layout(std140) uniform Globals {
     ivec3 CameraBlockPos;
     float GlintAlpha;
@@ -50,14 +53,30 @@ const vec3 ATTACK_INDICATOR_COLORS[19] = vec3[](
 );
 // END GENERATED ATTACK INDICATOR PALETTE
 
+// GUI-space hotbar region (hotbar, selection, offhand slot, attack indicator), from the
+// bottom-centre HUD anchor. Matches gui.fsh; GUI items are atlas blits through this shader.
+bool aechronis_hotbar_pixel() {
+    if (abs(ProjMat[3][3] - 1.0) > 0.000001) return false;
+    float scale = ScreenSize.x * abs(ProjMat[0][0]) * 0.5;
+    vec2 gui = gl_FragCoord.xy / scale;
+    float center = floor(ceil(ScreenSize.x / scale - 0.001) * 0.5 + 0.0001);
+    return gui.y < 23.05 && abs(gui.x - center) < 121.0;
+}
+
 void main() {
     vec4 texel = texture(Sampler0, texCoord0);
     // ModelManager sends this before changing the held item's aiming material.
     float tickGameTime = floor(GameTime * 24000.0 + 0.008);
     // Each 500-tick phase has 500 ticks of grace for late clock refreshes.
     // Aiming precedes idle/combat, so their clocks cannot advance into it.
-    bool aiming = tickGameTime >= 9000.0 && tickGameTime < 10000.0;
+    // GunZoom: 0..8999 and 12000..23999 are aiming with the zoom (hotbar hidden).
+    bool aiming = tickGameTime < 10000.0 || (tickGameTime >= 12000.0 && tickGameTime < 24000.0);
     bool combat = aiming || (tickGameTime >= 11000.0 && tickGameTime < 12000.0);
+    // GunZoom's aim bands hide the hotbar: its slots hold client-side copies of the gun.
+    bool hotbarHidden = tickGameTime < 9000.0 || (tickGameTime >= 12000.0 && tickGameTime < 24000.0);
+    if (hotbarHidden && aechronis_hotbar_pixel()) {
+        discard;
+    }
     // Only crosshair.png uses this RGBA marker. Restore its vanilla white when
     // visible; checking the texel before tinting leaves other HUD sprites alone.
     if (all(lessThan(abs(texel * 255.0 - vec4(17.0, 143.0, 79.0, 254.0)), vec4(0.5)))) {

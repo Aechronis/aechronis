@@ -50,7 +50,7 @@ bool aechronis_render_trail(vec3 position, vec2 uv, vec4 color,
     float elapsed = mod(clock - float(startPhase), 500.0);
     // Leaving combat switches the owner's clock band and removes the carrier.
     // Match the HUD's grace ranges so phase 499 shots survive a late refresh.
-    bool combat = (clock >= 9000.0 && clock < 10000.0) || (clock >= 11000.0 && clock < 12000.0);
+    bool combat = clock < 24000.0 && (clock < 10000.0 || clock >= 11000.0);
     if (!combat || elapsed >= 2.016) return true;
 
     // Native Flash uses alpha=.725-.125*(integer age+partial tick). Alpha is
@@ -75,6 +75,8 @@ bool aechronis_render_trail(vec3 position, vec2 uv, vec4 color,
     vec2 screen = max(ScreenSize, vec2(1.0));
     vec2 muzzleNdc = muzzle.xy / (-muzzle.z * tan(radians(35.0)));
     muzzleNdc.x *= screen.y / screen.x;
+    // The held gun zooms with the world (item.vsh), so its muzzle moves out by the aim zoom.
+    muzzleNdc *= ProjMat[1][1] / AechronisRawProjMat[1][1];
     vec4 reference = ProjMat * vec4(0.0, 0.0, muzzle.z, 1.0);
     vec4 startH = inverse(ProjMat) * vec4(muzzleNdc * reference.w, reference.z, reference.w);
     vec3 start = startH.xyz / startH.w;

@@ -27,6 +27,7 @@ import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Projectile
 import net.aechronis.combat.objects.TurretScope
 import net.aechronis.combat.storage.GunAnimationOptOut
+import net.aechronis.combat.storage.GunZoomPreferences
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.combat.tasks.ActionBarManager
@@ -37,6 +38,7 @@ import net.aechronis.combat.tasks.ProjectileTickManager
 import net.aechronis.combat.tasks.VehicleTickManager
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.GunAnimation
+import net.aechronis.combat.utils.GunZoom
 import net.aechronis.combat.utils.LagCompensation
 import net.aechronis.combat.utils.bypassesCombatDamageImmunity
 import net.aechronis.combat.utils.combatDamageKind
@@ -61,6 +63,32 @@ object Combat {
             Material.CROSSBOW,
             { !GunAnimationOptOut.disabled(it.uuid) },
             { player, enabled -> GunAnimationOptOut.set(player.uuid, enabled) },
+        )
+
+    private val zoomSetting =
+        PlayerSetting.toggle(
+            "Zoom while aiming",
+            Material.SPYGLASS,
+            { GunZoomPreferences.get(it.uuid).enabled },
+            { player, enabled -> GunZoomPreferences.update(player.uuid) { it.copy(enabled = enabled) } },
+        )
+
+    private val minZoomSetting =
+        PlayerSetting(
+            "Min aim zoom",
+            Material.SPYGLASS,
+            GunZoom.LEVELS,
+            { GunZoom.LEVELS[GunZoomPreferences.get(it.uuid).minSlot.coerceIn(GunZoom.LEVELS.indices)] },
+            { player, value -> GunZoomPreferences.update(player.uuid) { it.copy(minSlot = GunZoom.LEVELS.indexOf(value)) } },
+        )
+
+    private val maxZoomSetting =
+        PlayerSetting(
+            "Max aim zoom",
+            Material.SPYGLASS,
+            GunZoom.LEVELS,
+            { GunZoom.LEVELS[GunZoomPreferences.get(it.uuid).maxSlot.coerceIn(GunZoom.LEVELS.indices)] },
+            { player, value -> GunZoomPreferences.update(player.uuid) { it.copy(maxSlot = GunZoom.LEVELS.indexOf(value)) } },
         )
 
     var config: CombatConfig = CombatConfig()
@@ -187,6 +215,7 @@ object Combat {
             measure("Storage") {
                 HatCollection.initialize()
                 GunAnimationOptOut.initialize()
+                GunZoomPreferences.initialize()
                 BlockRestoreManager.initialize()
             }
 
@@ -226,7 +255,7 @@ object Combat {
                     .register(CombatAdminCommand())
                 ModuleCommands
                     .register(HatsCommand())
-                PlayerSettings.register(gunAnimationsSetting)
+                PlayerSettings.register(gunAnimationsSetting, zoomSetting, minZoomSetting, maxZoomSetting)
             }
 
             // run background schedulers/tasks
@@ -251,7 +280,7 @@ object Combat {
     @Synchronized
     fun shutdown() {
         initialized = false
-        PlayerSettings.unregister(gunAnimationsSetting)
+        PlayerSettings.unregister(gunAnimationsSetting, zoomSetting, minZoomSetting, maxZoomSetting)
         val failures = ArrayList<Throwable>()
 
         cleanup(failures, "task cancellation") { playerStates.cancelActions() }

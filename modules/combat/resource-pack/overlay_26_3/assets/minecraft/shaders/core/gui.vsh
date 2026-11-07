@@ -32,6 +32,7 @@ layout(location = 1) noperspective out vec2 guiPosition;
 layout(location = 2) noperspective out vec2 quadCorner;
 layout(location = 3) flat out vec2 guiExtent;
 layout(location = 4) flat out float combatCooldownPass;
+layout(location = 5) flat out float hotbarHiddenPass;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
@@ -49,7 +50,10 @@ void main() {
     guiExtent = ceil(projectionExtent - 0.001);
     float clock = floor(GameTime * 24000.0 + 0.008);
     // Match ModelManager's aiming/combat bands, including late-refresh grace.
-    bool combat = (clock >= 9000.0 && clock < 10000.0) || (clock >= 11000.0 && clock < 12000.0);
+    bool combat = clock < 24000.0 && (clock < 10000.0 || clock >= 11000.0);
     bool orthographic = abs(ProjMat[2][3]) < 0.000001 && abs(ProjMat[3][3] - 1.0) < 0.000001;
     combatCooldownPass = combat && orthographic ? 1.0 : 0.0;
+    // GunZoom's aim bands hide the hotbar: its slots hold client-side copies of the gun.
+    bool hotbarHidden = clock < 9000.0 || (clock >= 12000.0 && clock < 24000.0);
+    hotbarHiddenPass = hotbarHidden && orthographic ? 1.0 : 0.0;
 }
