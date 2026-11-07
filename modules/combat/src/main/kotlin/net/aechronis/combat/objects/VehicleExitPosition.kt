@@ -31,6 +31,11 @@ internal object VehicleExitPosition {
             }
         }
         val station = stationPosition()
+        // Standing crew step off where their stand-in figure was shown.
+        if (definition.standing && isSafeExitPosition(player, station, instance)) {
+            player.teleport(station.withView(player.position.yaw, player.position.pitch))
+            return
+        }
         val clearance = max(player.boundingBox.width(), player.boundingBox.depth()) / 2 + 0.05
         val candidates =
             vehicle.collisionHitbox

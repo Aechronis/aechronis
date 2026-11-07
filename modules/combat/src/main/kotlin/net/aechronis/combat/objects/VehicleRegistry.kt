@@ -236,6 +236,7 @@ internal class VehicleRide(
     val runtime: VehicleRuntime,
     val seat: Entity,
     val definition: VehicleSeat,
+    val standIn: CrewStandIn? = null,
 ) {
     val vehicle: Vehicle get() = runtime.vehicle
     val entity: Entity get() = runtime.entity
@@ -312,6 +313,19 @@ internal object VehicleRegistry {
         seatId: String,
     ): VehicleRide? = playerRides.values.firstOrNull { it.entity === entity && it.definition.id == seatId }
 
+    /** The crew member shown by a stand-in figure, if [entity] is one that others can see and hit. */
+    fun standInOwner(entity: Entity): Player? = playerRides.values.firstOrNull { it.standIn?.isBody(entity) == true }?.player
+
+    /** A vehicle with its crew and their stand-ins, which its own weapons must not hit. */
+    fun crewEntities(entity: Entity): Set<Entity> =
+        buildSet {
+            add(entity)
+            ridesOf(entity).forEach { ride ->
+                add(ride.player)
+                ride.standIn?.let { add(it.body) }
+            }
+        }
+
     fun weaponOperator(entity: Entity): VehicleRide? = ridesOf(entity).firstOrNull { it.role.usesWeapon }
 
     fun enter(
@@ -319,12 +333,13 @@ internal object VehicleRegistry {
         entity: Entity,
         seat: Entity,
         definition: VehicleSeat,
+        standIn: CrewStandIn? = null,
     ): VehicleRide {
         val runtime = requireNotNull(runtimes[entity]) { "Vehicle entity must be registered before entering" }
         require(player !in playerRides) { "Player is already riding a vehicle" }
         require(definition in runtime.vehicle.seats) { "Unknown crew seat" }
         require(occupant(entity, definition.id) == null) { "Crew seat is occupied" }
-        val ride = VehicleRide(player, runtime, seat, definition)
+        val ride = VehicleRide(player, runtime, seat, definition, standIn)
         playerRides[player] = ride
         runtime.removeCarriedPlayer(player)
         runtime.refreshCollisionViewers()

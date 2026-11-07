@@ -7,16 +7,12 @@ import net.aechronis.utils.VisibilityRules
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.coordinate.Pos
-import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
-import net.minestom.server.entity.RelativeFlags
-import net.minestom.server.entity.attribute.Attribute
-import net.minestom.server.entity.attribute.AttributeModifier
-import net.minestom.server.entity.attribute.AttributeOperation
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.item.ItemStack
+import net.minestom.server.utils.entity.EntityUtils
 
 /** Owns crew transitions and their temporary player state; occupancy stays in [VehicleRegistry]. */
 internal class VehicleCrew(
@@ -137,24 +133,21 @@ internal class VehicleCrew(
         val gunnerIndex = vehicle.gunnerSeats.indexOf(definition)
         val position = if (gunnerIndex >= 0) gunnerSeatWorldPosition(entity, gunnerIndex) else seatWorldPosition(entity, index)
         val seat = Entity(EntityType.ITEM_DISPLAY)
+        val standIn = if (definition.standing) CrewStandIn(player) else null
+        val view = position.withView(player.position.yaw, player.position.pitch)
         try {
-            seat.setInstance(instance, position.withView(player.position.yaw, player.position.pitch))
+            seat.setInstance(instance, seatEntityPosition(definition, seat, player, view))
             val meta = seat.entityMeta as ItemDisplayMeta
             meta.itemStack = ItemStack.AIR
             meta.posRotInterpolationDuration = 3
             meta.isHasNoGravity = true
             seat.spawn()
-            VehicleRegistry.enter(player, entity, seat, definition)
-            if (definition.standing) {
-                standingControlFieldViews.putIfAbsent(player, player.fieldViewModifier)
-                player.fieldViewModifier = 0f
-                standingControlAttributes.forEach { player.getAttribute(it).addModifier(standingControlModifier) }
-                player.velocity = Vec.ZERO
-                moveStandingDriver(player, position)
-            } else {
-                seat.addPassenger(player)
-            }
-            if (definition.invisible ?: vehicle.invisibleWhileRiding) {
+            standIn?.spawn(instance, view)
+            VehicleRegistry.enter(player, entity, seat, definition, standIn)
+            seat.addPassenger(player)
+            // The stand-in replaces the seated player for every viewer, including their own F5 view.
+            if (standIn != null) SelfInvisibility.hide(player, VISIBILITY_RULE_OWNER)
+            if (standIn != null || (definition.invisible ?: vehicle.invisibleWhileRiding)) {
                 hiddenOccupants.add(player)
                 VisibilityRules.set(player, VISIBILITY_RULE_OWNER) { false }
             }
@@ -165,6 +158,7 @@ internal class VehicleCrew(
             val cleanup = Cleanup(failure)
             cleanup.attempt { forceExit(player) }
             cleanup.attempt { if (!seat.isRemoved) seat.remove() }
+            cleanup.attempt { standIn?.remove() }
             throw failure
         }
     }
@@ -185,12 +179,6 @@ internal class VehicleCrew(
         private val hiddenOccupants = HashSet<Player>()
         private val forcedExitPlayers = HashSet<Player>()
         private val switchingPlayers = HashSet<Player>()
-        private val standingControlFieldViews = HashMap<Player, Float>()
-
-        // Multiplying the total by zero also suppresses sprint and equipment speed bonuses.
-        private val standingControlAttributes = listOf(Attribute.MOVEMENT_SPEED, Attribute.JUMP_STRENGTH, Attribute.GRAVITY)
-        private val standingControlModifier =
-            AttributeModifier("aechronis:standing_vehicle_control", -1.0, AttributeOperation.ADD_MULTIPLIED_TOTAL)
 
         /** Complete independent restoration steps without losing the first failure. */
         private class Cleanup(
@@ -214,22 +202,21 @@ internal class VehicleCrew(
             }
         }
 
-        private fun restoreStandingControl(player: Player) {
-            val cleanup = Cleanup()
-            standingControlAttributes.forEach { attribute ->
-                cleanup.attempt { player.getAttribute(attribute).removeModifier(standingControlModifier) }
-            }
-            cleanup.attempt { standingControlFieldViews.remove(player)?.let { player.fieldViewModifier = it } }
-            cleanup.throwIfFailed()
-        }
-
-        fun moveStandingDriver(
+        /** Standing crew ride a seat raised so their seated eyes match the stand-in's standing eyes. */
+        private fun seatEntityPosition(
+            definition: VehicleSeat,
+            seat: Entity,
             player: Player,
             position: Pos,
+        ): Pos = if (definition.standing) position.sub(EntityUtils.getPassengerPositionOffset(seat, player, 0)) else position
+
+        /** Moves a crew seat and any stand-in to [position], the crew position carrying the crew member's view. */
+        fun follow(
+            ride: VehicleRide,
+            position: Pos,
         ) {
-            // Zero relative view deltas preserve even mouse movement not yet received by the server.
-            // Continuous movement must not wait for teleport confirmations, which block incoming look updates.
-            player.teleport(position.withView(0f, 0f), Vec.ZERO, null, RelativeFlags.VIEW, false)
+            ride.seat.teleport(seatEntityPosition(ride.definition, ride.seat, ride.player, position))
+            ride.standIn?.follow(position)
         }
 
         /** Detach once, then attempt every restoration even when a prior step failed. */
@@ -243,7 +230,10 @@ internal class VehicleCrew(
 
             // Removing the seat can reenter lifecycle listeners. They must see no active ride.
             cleanup.attempt { VehicleRegistry.leave(player) }
-            if (ride.definition.standing) cleanup.attempt { restoreStandingControl(player) }
+            ride.standIn?.let { standIn ->
+                cleanup.attempt { standIn.remove() }
+                cleanup.attempt { SelfInvisibility.show(player, VISIBILITY_RULE_OWNER) }
+            }
             if (ride.role.usesWeapon) {
                 cleanup.attempt { ride.runtime.magazine?.cancelReload() }
                 cleanup.attempt { player.clearTitle() }
@@ -292,11 +282,8 @@ internal class VehicleCrew(
                     entity.instance != null &&
                     entity.instance === player.instance &&
                     seat.instance === player.instance &&
-                    if (ride.definition.standing) {
-                        player.vehicle == null && player.position.distanceSquared(seat.position) < 16.0
-                    } else {
-                        player.vehicle === seat && player in seat.passengers
-                    }
+                    player.vehicle === seat &&
+                    player in seat.passengers
             }
         }
 
@@ -336,12 +323,11 @@ internal class VehicleCrew(
             VehicleRegistry.rides().forEach { ride -> cleanup { forceExit(ride.player) } }
             cleanup(VehicleCameraDistance::shutdown)
             VehicleRegistry.rides().forEach { ride -> cleanup { ride.seat.remove() } }
+            VehicleRegistry.rides().forEach { ride -> cleanup { ride.standIn?.remove() } }
             VehicleRegistry.all().forEach { runtime -> cleanup { runtime.entity.remove() } }
             hiddenOccupants.toList().forEach { player -> cleanup { VisibilityRules.remove(player, VISIBILITY_RULE_OWNER) } }
-            standingControlFieldViews.keys.toList().forEach { player -> cleanup { restoreStandingControl(player) } }
             cleanup(VehicleRegistry::clear)
             hiddenOccupants.clear()
-            standingControlFieldViews.clear()
             forcedExitPlayers.clear()
             switchingPlayers.clear()
             cleanup(VehicleSeatHotbar::shutdown)

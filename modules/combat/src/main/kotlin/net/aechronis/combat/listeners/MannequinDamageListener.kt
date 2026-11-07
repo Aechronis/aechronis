@@ -2,6 +2,7 @@ package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Vehicle
+import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.utils.EntityTags
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
@@ -13,6 +14,13 @@ object MannequinDamageListener {
 
     fun onEntityDamage(event: EntityDamageEvent) {
         val entity = event.entity
+
+        // a seated crew member's stand-in takes hits for them; their own damage rules still apply
+        VehicleRegistry.standInOwner(entity)?.let { owner ->
+            event.isCancelled = true
+            Combat.applyDamage(owner, event.damage)
+            return
+        }
 
         // other mannequins (such as corpses) ignore damage entirely
         if (

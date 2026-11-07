@@ -7,6 +7,7 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
+import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import kotlin.math.floor
@@ -94,12 +95,13 @@ open class FieldPiece(
         val movement = rotatePoint(Vec(0.0, 0.0, forward * moveSpeed), yaw, 0f, 0f)
         val candidate = position.add(movement).withView(yaw, 0f)
         val operator = candidate.add(rotatePoint(seats.first { it.role.drives }.offset, yaw, 0f, 0f))
+        // The operator's own hitbox is empty while their stand-in occupies the station.
         val operatorBox =
             Hitbox(
                 listOf(
                     HitboxPart(
-                        Vec(0.0, player.boundingBox.height() / 2, 0.0),
-                        Vec(player.boundingBox.width() / 2, player.boundingBox.height() / 2, player.boundingBox.depth() / 2),
+                        Vec(0.0, EntityType.PLAYER.height() / 2, 0.0),
+                        Vec(EntityType.PLAYER.width() / 2, EntityType.PLAYER.height() / 2, EntityType.PLAYER.width() / 2),
                     ),
                 ),
             )

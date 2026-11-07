@@ -282,12 +282,7 @@ open class Vehicle(
             return
         }
         val view = player.position
-        val position = getSeatWorldPos(ride.entity, ride.seatIndex).withView(view.yaw, view.pitch)
-        ride.seat.teleport(position)
-        if (ride.definition.standing) {
-            if (player.velocity != Vec.ZERO) player.velocity = Vec.ZERO
-            if (player.position.distanceSquared(position) > 1.0e-8) VehicleCrew.moveStandingDriver(player, position)
-        }
+        VehicleCrew.follow(ride, getSeatWorldPos(ride.entity, ride.seatIndex).withView(view.yaw, view.pitch))
     }
 
     open fun onUnoccupiedTick(entity: Entity) = Unit
@@ -300,15 +295,15 @@ open class Vehicle(
             return
         }
         val view = player.position
-        ride.seat.teleport(getGunnerSeatWorldPos(ride.entity, requireNotNull(ride.stationIndex)).withView(view.yaw, view.pitch))
+        VehicleCrew.follow(ride, getGunnerSeatWorldPos(ride.entity, requireNotNull(ride.stationIndex)).withView(view.yaw, view.pitch))
     }
 
     open fun prepareForShutdown(entity: Entity) {
         VehicleRegistry.ridesOf(entity).forEach { ride ->
             // Use the physical crew position, not a scoped camera outside the hull.
             val position = getSeatWorldPos(entity, ride.seatIndex)
-            ride.seat.teleport(position)
-            if (ride.definition.standing) VehicleCrew.moveStandingDriver(ride.player, position) else ride.player.teleport(position)
+            VehicleCrew.follow(ride, position)
+            ride.player.teleport(position)
         }
         VehicleRegistry.ridesOf(entity).forEach { exit(it.player) }
     }

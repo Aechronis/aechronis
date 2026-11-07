@@ -152,12 +152,7 @@ class AutomaticFieldPiece(
         val instance = body.instance ?: return
         val tip = rotatePoint(barrelTipOffset, barrelPos.yaw, barrelPos.pitch, 0f)
         val muzzle = barrelPos.add(tip).withView(barrelPos.yaw, barrelPos.pitch)
-        val ignoredEntities =
-            buildSet<Entity> {
-                add(body)
-                add(player)
-                addAll(VehicleRegistry.ridesOf(body).map { it.player })
-            }
+        val ignoredEntities = VehicleRegistry.crewEntities(body) + player
         val barrelRay = Ray(barrelPos, tip)
         val obstruction = firstProjectileImpact(barrelRay, instance, ignoredEntities)
         // A long barrel must not fire through cover between its pivot and muzzle.
