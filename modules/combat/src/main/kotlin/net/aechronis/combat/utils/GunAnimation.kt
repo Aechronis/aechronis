@@ -459,14 +459,18 @@ internal object GunAnimation {
         var completedManualCycle = false
         if (animation != null) {
             val elapsed = animation.held.instance.worldAge - animation.startAge
-            // Plain clips have no tint to compare, including across a toggle.
+            // Plain clips have no tint to compare. A toggle mid-clip drops the clip so the new mode
+            // starts clean; reloads keep running since cancelling would abort the reload itself.
             val changedItem =
-                !animation.plain &&
-                    !hasStaticGuns(player) &&
-                    player.itemInMainHand
-                        .get(DataComponents.CUSTOM_MODEL_DATA)
-                        ?.colors()
-                        ?.firstOrNull() != animation.tint
+                if (animation.plain != hasStaticGuns(player)) {
+                    !animation.action.isReload
+                } else {
+                    !animation.plain &&
+                        player.itemInMainHand
+                            .get(DataComponents.CUSTOM_MODEL_DATA)
+                            ?.colors()
+                            ?.firstOrNull() != animation.tint
+                }
             if (!matches(player, animation.held) || elapsed < 0 || changedItem) {
                 cancel(player)
                 return

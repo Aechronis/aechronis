@@ -24,9 +24,12 @@ object GunAnimationOptOut {
 
     fun initialize() {
         if (!Files.exists(file)) return
-        val saved = json.decodeFromString<Saved>(Files.readString(file))
-        require(saved.version == 1) { "Unsupported gun animation preferences version: ${saved.version}" }
-        players = saved.disabled.mapTo(HashSet(), UUID::fromString)
+        // A cosmetic preference must never stop combat from starting; fall back to everyone animated.
+        runCatching {
+            val saved = json.decodeFromString<Saved>(Files.readString(file))
+            require(saved.version == 1) { "Unsupported gun animation preferences version: ${saved.version}" }
+            players = saved.disabled.mapTo(HashSet(), UUID::fromString)
+        }.onFailure { System.err.println("[Combat] Ignoring unreadable $file: ${it.message}") }
     }
 
     fun disabled(uuid: UUID): Boolean = uuid in players

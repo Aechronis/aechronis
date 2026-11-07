@@ -257,7 +257,7 @@ object ModelManager {
         if (!preserveAction) GunAnimation.updateAim(player, gun, showAim)
 
         // sniper scope
-        val fullyAimed = GunAnimation.isFullyAimed(player, gun)
+        val fullyAimed = gun.sniper && showAim && GunAnimation.isFullyAimed(player, gun)
         if (gun.sniper && showAim && fullyAimed) {
             player.sendPacket(
                 EntityEquipmentPacket(player.entityId, mapOf(EquipmentSlot.HELMET to scopeHelmet(player.helmet))),
