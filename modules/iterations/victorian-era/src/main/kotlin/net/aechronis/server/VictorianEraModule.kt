@@ -20,6 +20,7 @@ import net.aechronis.nodes.objects.TerritoryResources
 import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.Boats
+import net.aechronis.server.constants.Factories
 import net.aechronis.server.constants.FieldPieces
 import net.aechronis.server.constants.Grenades
 import net.aechronis.server.constants.Guns
@@ -69,6 +70,9 @@ class VictorianEraModule : AechronisModule {
         measure("Nodes configuration") {
             NodesModule.configure(
                 NodesConfig(
+                    activeBuildings = Factories.list,
+                    activeBuildingDurationMs = 180 * 60_000L,
+                    oilRigEnabled = false,
                     defaultRespawnPoint = context.spawnPoint,
                     chunkAttackTime = 120_000,
                     chunkAttackFromWastelandMultiplier = 1.25,

@@ -3,6 +3,7 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Boat
 import net.aechronis.combat.objects.Item
+import net.aechronis.combat.objects.SelfInvisibility
 import net.aechronis.combat.objects.TurretScope
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.VehicleCollisionEntity
@@ -116,6 +117,7 @@ object VehicleListener {
     fun init() {
         VehicleSeatHotbar.initListeners()
         TurretScope.initListeners()
+        SelfInvisibility.initListeners()
         Combat.eventNode.addListener(PlayerUseItemOnBlockEvent::class.java, VehicleListener::onPlayerUseItemOnBlock)
         Combat.eventNode.addListener(PlayerUseItemEvent::class.java, VehicleListener::onPlayerUseItem)
         Combat.eventNode.addListener(PlayerEntityInteractEvent::class.java, VehicleListener::onPlayerEntityInteract)

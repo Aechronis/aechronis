@@ -36,12 +36,7 @@ internal class VehicleProjectileLauncher(
         val tip = rotatePoint(barrelTipOffset, yaw, pitch, 0f)
         val muzzle = barrelPos.add(tip.x, tip.y, tip.z)
         val direction = muzzle.withView(yaw, pitch).direction()
-        val ignoredEntities =
-            buildSet<Entity> {
-                add(body)
-                add(player)
-                addAll(VehicleRegistry.ridesOf(body).map { it.player })
-            }
+        val ignoredEntities = VehicleRegistry.crewEntities(body) + player
         val obstruction =
             firstProjectileImpact(
                 Ray(barrelPos, muzzle.asVec().sub(barrelPos)),

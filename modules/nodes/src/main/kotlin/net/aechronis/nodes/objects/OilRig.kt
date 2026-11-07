@@ -23,6 +23,7 @@ class OilRig(
         fun load(chunkX: Int, chunkZ: Int, tier: Int): OilRig = OilRig(chunkX, chunkZ, tier).also { Building.register(it) }
 
         fun create(chunkX: Int, chunkZ: Int, tier: Int): Result<OilRig> {
+            if (!Nodes.config.oilRigEnabled) return Result.failure(IllegalStateException("Oil rigs are disabled in this iteration"))
             if (Building.hasAt(chunkX, chunkZ)) return Result.failure(net.aechronis.nodes.constants.ErrorChunkHasBuilding)
             return OilRig(chunkX, chunkZ, tier).also {
                 Building.register(it)

@@ -4,9 +4,11 @@ import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.rotatePoint
 import net.kyori.adventure.text.Component
+import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
+import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import kotlin.math.ceil
@@ -14,8 +16,8 @@ import kotlin.math.floor
 
 /**
  * A carriage controlled while standing behind it.
- * Move forward/back to push/pull, left/right to steer, and sneak to release control.
- * Weapon behavior is supplied by subclasses.
+ * Move forward/back to push/pull, left/right to steer, hold right-click to aim from the sight,
+ * and sneak to release control. Weapon behavior and the sight are supplied by subclasses.
  */
 open class FieldPiece(
     name: String,
@@ -38,6 +40,7 @@ open class FieldPiece(
                     -hitbox.getGroundOffset(),
                     (hitbox.parts.minOfOrNull { it.offset.z - it.size.z } ?: 0.0) - 0.5,
                 ),
+                standing = true,
             ),
         ),
     invisibleWhileRiding: Boolean = false,
@@ -71,6 +74,55 @@ open class FieldPiece(
         }
     }
 
+    private val aimInputs = HashMap<Player, Long>()
+    private val aimBlockedUntil = HashMap<Player, Long>()
+
+    override fun onEnter(
+        player: Player,
+        entity: Entity,
+    ) {
+        super.onEnter(player, entity)
+        // The right-click that mounted the carriage is usually still held. It must not start aiming.
+        if (driverEntity(player) === entity) aimBlockedUntil[player] = System.currentTimeMillis() + MOUNT_AIM_COOLDOWN_MILLIS
+    }
+
+    override fun onUseInput(player: Player) {
+        if (driverEntity(player) == null) return
+        val now = System.currentTimeMillis()
+        val blockedUntil = aimBlockedUntil[player]
+        if (blockedUntil != null) {
+            if (now < blockedUntil) {
+                // Repeats mean the button is still held; aim only after it has been released.
+                aimBlockedUntil[player] = maxOf(blockedUntil, now + AIM_HOLD_MILLIS)
+                return
+            }
+            aimBlockedUntil.remove(player)
+        }
+        aimInputs[player] = now
+    }
+
+    /** Held right-click repeats every four ticks; allow a couple of ticks of latency between repeats. */
+    protected fun isAiming(player: Player): Boolean {
+        val last = aimInputs[player] ?: return false
+        return System.currentTimeMillis() - last <= AIM_HOLD_MILLIS
+    }
+
+    override fun cameraEye(
+        player: Player,
+        entity: Entity,
+    ): Point? = if (isAiming(player)) sightEye(entity) else null
+
+    override fun hidesCrosshair(player: Player): Boolean = isAiming(player) && driverEntity(player)?.let(::sightEye) != null
+
+    /** The sight's eye position for this carriage's current barrel, or null when it has none. */
+    protected open fun sightEye(entity: Entity): Point? = null
+
+    override fun onExit(player: Player) {
+        aimInputs.remove(player)
+        aimBlockedUntil.remove(player)
+        super.onExit(player)
+    }
+
     override fun onTick(player: Player) {
         if (KeyPressListener.playerInputEvent[player]?.isHoldingShiftKey == true) {
             onExit(player)
@@ -99,21 +151,21 @@ open class FieldPiece(
         var ground = Double.NEGATIVE_INFINITY
         // Sample the operator's whole footprint too: lowering while its edge still overlaps higher ground would block the move.
         val seat = flatCandidate.add(seatOffset)
-        val halfWidth = player.boundingBox.width() / 2
-        val halfDepth = player.boundingBox.depth() / 2
+        val halfWidth = EntityType.PLAYER.width() / 2
         val operatorFootprint =
-            listOf(-1.0, 1.0).flatMap { x -> listOf(-1.0, 1.0).map { z -> seat.add(x * halfWidth, 0.0, z * halfDepth) } }
+            listOf(-1.0, 1.0).flatMap { x -> listOf(-1.0, 1.0).map { z -> seat.add(x * halfWidth, 0.0, z * halfWidth) } }
         for (point in footprint(flatCandidate, yaw) + seat + operatorFootprint) {
             ground = maxOf(ground, groundAt(instance, point.x(), point.z(), currentGround) ?: return)
         }
         val candidate = flatCandidate.withY(ground + hitbox.getGroundOffset())
         val operator = candidate.add(seatOffset)
+        // The operator's own hitbox is empty while their stand-in occupies the station.
         val operatorBox =
             Hitbox(
                 listOf(
                     HitboxPart(
-                        Vec(0.0, player.boundingBox.height() / 2, 0.0),
-                        Vec(player.boundingBox.width() / 2, player.boundingBox.height() / 2, player.boundingBox.depth() / 2),
+                        Vec(0.0, EntityType.PLAYER.height() / 2, 0.0),
+                        Vec(EntityType.PLAYER.width() / 2, EntityType.PLAYER.height() / 2, EntityType.PLAYER.width() / 2),
                     ),
                 ),
             )
@@ -206,6 +258,8 @@ open class FieldPiece(
     }
 
     private companion object {
+        const val AIM_HOLD_MILLIS = 300L
+        const val MOUNT_AIM_COOLDOWN_MILLIS = 500L
         const val MAX_STEP_DOWN = 4
     }
 }

@@ -2,7 +2,9 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.listeners.KeyPressListener
+import net.aechronis.combat.utils.rotatePoint
 import net.kyori.adventure.text.Component
+import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -13,8 +15,10 @@ import net.minestom.server.particle.Particle
 /**
  * Slowly movable artillery operated while standing behind the carriage.
  * Move forward/back to push/pull, left/right to steer, look to aim, jump to fire,
- * and sneak to release control. Barrel models share the
- * carriage origin; [barrelTipOffset] is measured in world units from that origin.
+ * and sneak to release control. Holding right-click looks along the barrel from [sightOffset],
+ * where the crosshair marks the direction the shell leaves the muzzle. Barrel models share the
+ * carriage origin; [barrelTipOffset] and [sightOffset] are measured in world units from that origin
+ * and follow the barrel's traverse and elevation.
  */
 class Cannon(
     name: String,
@@ -52,6 +56,7 @@ class Cannon(
                     -hitbox.getGroundOffset(),
                     (hitbox.parts.minOfOrNull { it.offset.z - it.size.z } ?: 0.0) - 0.5,
                 ),
+                standing = true,
             ),
         ),
     invisibleWhileRiding: Boolean = false,
@@ -65,6 +70,8 @@ class Cannon(
     animatedParts: List<AnimatedPart> = emptyList(),
     val maxYaw: Float = 180f,
     collisionHitbox: ShulkerHitbox = ShulkerHitbox.fromHitbox(hitbox),
+    // On a line parallel to the bore, so the crosshair marks the firing direction.
+    val sightOffset: Vec = Vec(barrelTipOffset.x, barrelTipOffset.y + 0.25, 0.0),
 ) : FieldPiece(
         name = name,
         itemName = itemName,
@@ -164,6 +171,11 @@ class Cannon(
             fire(player, entity, pos, barrelPos.yaw, barrelPos.pitch)
         }
     }
+
+    override fun sightEye(entity: Entity): Point? =
+        runtimes[entity]?.barrel?.position?.let { barrel ->
+            entity.position.add(rotatePoint(sightOffset, barrel.yaw, barrel.pitch, 0f))
+        }
 
     private fun fire(
         player: Player,

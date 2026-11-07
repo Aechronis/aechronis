@@ -9,6 +9,7 @@ data class VehicleSeat(
     val role: VehicleSeatRole,
     val offset: Vec = Vec.ZERO,
     val weaponId: String? = null,
+    // ride an invisible seat, shown to everyone (and to the occupant in F5) as a standing figure
     val standing: Boolean = false,
     val invisible: Boolean? = null,
     val protected: Boolean? = null,

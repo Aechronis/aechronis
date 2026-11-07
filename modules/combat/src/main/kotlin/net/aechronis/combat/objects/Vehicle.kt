@@ -13,6 +13,7 @@ import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
+import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -282,13 +283,24 @@ open class Vehicle(
             return
         }
         val view = player.position
-        val position = getSeatWorldPos(ride.entity, ride.seatIndex).withView(view.yaw, view.pitch)
-        ride.seat.teleport(position)
-        if (ride.definition.standing) {
-            if (player.velocity != Vec.ZERO) player.velocity = Vec.ZERO
-            if (player.position.distanceSquared(position) > 1.0e-8) VehicleCrew.moveStandingDriver(player, position)
-        }
+        VehicleCrew.follow(
+            ride,
+            getSeatWorldPos(ride.entity, ride.seatIndex).withView(view.yaw, view.pitch),
+            cameraEye(player, ride.entity),
+        )
     }
+
+    /** Where the driver's eyes go instead of their crew station, such as a weapon sight; null keeps the station. */
+    protected open fun cameraEye(
+        player: Player,
+        entity: Entity,
+    ): Point? = null
+
+    /** A crew member's right-click. Clients repeat it every four ticks while the button is held. */
+    internal open fun onUseInput(player: Player) = Unit
+
+    /** Whether the driver is looking through a weapon sight, which replaces the crosshair. */
+    internal open fun hidesCrosshair(player: Player): Boolean = false
 
     open fun onUnoccupiedTick(entity: Entity) = Unit
 
@@ -300,15 +312,15 @@ open class Vehicle(
             return
         }
         val view = player.position
-        ride.seat.teleport(getGunnerSeatWorldPos(ride.entity, requireNotNull(ride.stationIndex)).withView(view.yaw, view.pitch))
+        VehicleCrew.follow(ride, getGunnerSeatWorldPos(ride.entity, requireNotNull(ride.stationIndex)).withView(view.yaw, view.pitch))
     }
 
     open fun prepareForShutdown(entity: Entity) {
         VehicleRegistry.ridesOf(entity).forEach { ride ->
             // Use the physical crew position, not a scoped camera outside the hull.
             val position = getSeatWorldPos(entity, ride.seatIndex)
-            ride.seat.teleport(position)
-            if (ride.definition.standing) VehicleCrew.moveStandingDriver(ride.player, position) else ride.player.teleport(position)
+            VehicleCrew.follow(ride, position)
+            ride.player.teleport(position)
         }
         VehicleRegistry.ridesOf(entity).forEach { exit(it.player) }
     }
@@ -456,6 +468,14 @@ open class Vehicle(
         /** Ejects riders and removes every vehicle entity without triggering explosions. */
         @Synchronized
         internal fun shutdown() = VehicleCrew.shutdown()
+
+        /** Ejects riders and removes every live vehicle without destruction effects; returns the count removed. */
+        @Synchronized
+        fun removeAll(filter: (Entity) -> Boolean = { true }): Int {
+            val runtimes = VehicleRegistry.all().filter { filter(it.entity) }
+            runtimes.forEach { it.vehicle.unload(it.entity) }
+            return runtimes.size
+        }
 
         /** Routes a normal exit through the vehicle's occupied station hook. */
         fun exit(player: Player) = VehicleCrew.exit(player)

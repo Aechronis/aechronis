@@ -92,7 +92,7 @@ object TownBuildingsMenu {
             val lore = listOf(
                 Component.text("Requires: ", NamedTextColor.GRAY).append(ActiveBuildings.formatItems(recipe.input)),
                 Component.text("Produces: ", NamedTextColor.GRAY).append(ActiveBuildings.formatItems(recipe.output)),
-                Component.text(if (production == null) "Click to start • 1 hour" else "Production in progress", NamedTextColor.GREEN),
+                Component.text(if (production == null) "Click to start • ${ActiveBuildings.durationText()}" else "Production in progress", NamedTextColor.GREEN),
             )
             control(BUILDING_INPUT_SLOTS + index, recipe.output.first().withAmount(1).withCustomName(recipe.displayName).withLore(lore))
         }
@@ -234,6 +234,7 @@ object TownBuildingsMenu {
             is Farm -> Material.WHEAT
             is Port -> Material.COD
             is OilRig -> Material.DRAGON_BREATH
+            is CoalFactory -> Material.COAL
             is TrainStationBuilding -> Material.RAIL
             else -> Material.BRICKS
         }
@@ -248,7 +249,7 @@ object TownBuildingsMenu {
         } else {
             val income = if (building is TrainStationBuilding) Trains.incomeAt(building.chunkX, building.chunkZ) else building.income()
             lore += Component.text("Passive • hourly town income", NamedTextColor.GRAY)
-            income.forEach { (item, amount) -> lore += Component.text("${amount.toInt()} ${item.name().lowercase().replace('_', ' ')}", NamedTextColor.GRAY) }
+            income.forEach { (item, amount) -> lore += Component.text("${amount.toInt()} ${item.key().value().replace('_', ' ')}", NamedTextColor.GRAY) }
             lore += Component.text("Click for details", NamedTextColor.GREEN)
         }
         return ItemStack.of(material).withCustomName(name).withLore(lore)
