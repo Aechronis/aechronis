@@ -1,0 +1,56 @@
+package net.aechronis.combat.storage
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import net.aechronis.server.io.AtomicFiles
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.UUID
+
+/** Players who opted out of shader-driven gun animations. */
+object GunAnimationOptOut {
+    @Serializable
+    private data class Saved(
+        val version: Int = 1,
+        val disabled: Set<String> = emptySet(),
+    )
+
+    private val json = Json { encodeDefaults = true }
+    private val file = Path.of("combat", "gun-animations.json")
+
+    // Read every tick by GunAnimation; replaced whole after each committed write.
+    @Volatile private var players: Set<UUID> = emptySet()
+
+    fun initialize() {
+        if (!Files.exists(file)) return
+        // A cosmetic preference must never stop combat from starting; fall back to everyone animated.
+        runCatching {
+            val saved = json.decodeFromString<Saved>(Files.readString(file))
+            require(saved.version == 1) { "Unsupported gun animation preferences version: ${saved.version}" }
+            players = saved.disabled.mapTo(HashSet(), UUID::fromString)
+        }.onFailure { System.err.println("[Combat] Ignoring unreadable $file: ${it.message}") }
+    }
+
+    fun disabled(uuid: UUID): Boolean = uuid in players
+
+    /** Returns false, leaving the preference unchanged, when it could not be saved. */
+    @Synchronized
+    fun set(
+        uuid: UUID,
+        enabled: Boolean,
+    ): Boolean {
+        val updated = if (enabled) players - uuid else players + uuid
+        if (updated == players) return true
+        val saved = Saved(disabled = updated.mapTo(sortedSetOf()) { it.toString() })
+        try {
+            Files.createDirectories(file.parent)
+            AtomicFiles.writeString(file, json.encodeToString(saved), preservePermissions = true)
+        } catch (error: IOException) {
+            System.err.println("Could not save gun animation preferences: $error")
+            return false
+        }
+        players = updated
+        return true
+    }
+}

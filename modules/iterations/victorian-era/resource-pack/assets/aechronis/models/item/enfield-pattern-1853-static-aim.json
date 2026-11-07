@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/enfield-pattern-1853",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3457,
+        5.26,
+        -5.7602
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3457,
+        5.26,
+        -5.7602
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}

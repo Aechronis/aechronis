@@ -66,6 +66,7 @@ class Resident(val uuid: UUID, val name: String) {
             minimapShiftEnabled: Boolean = true,
             minimapNorthLocked: Boolean = true,
             minimapLegacy: Boolean = false,
+            deathWaypointsEnabled: Boolean = true,
             townJoinLockedUntil: Long? = null,
         ) {
             val resident = Resident(uuid, name)
@@ -75,6 +76,7 @@ class Resident(val uuid: UUID, val name: String) {
             resident.minimapShiftEnabled = minimapShiftEnabled
             resident.minimapNorthLocked = minimapNorthLocked
             resident.minimapLegacy = minimapLegacy
+            resident.deathWaypointsEnabled = deathWaypointsEnabled
             resident.townJoinLockedUntil = townJoinLockedUntil?.takeIf { it > System.currentTimeMillis() }
             resident.waypointVisibility.putAll(waypointVisibility)
             waypoints.forEach { waypoint -> resident.loadPermanentWaypoint(waypoint) }
@@ -271,6 +273,8 @@ class Resident(val uuid: UUID, val name: String) {
     var minimapShiftEnabled: Boolean = true
     var minimapNorthLocked: Boolean = true
     var minimapLegacy: Boolean = false
+    var deathWaypointsEnabled: Boolean = true
+        private set
     var minimap: MinimapView? = null
         private set
 
@@ -477,7 +481,16 @@ class Resident(val uuid: UUID, val name: String) {
         return true
     }
 
+    fun setDeathWaypointsEnabled(enabled: Boolean) {
+        if (deathWaypointsEnabled == enabled) return
+        deathWaypointsEnabled = enabled
+        if (!enabled) clearDeathWaypoint()
+        needsUpdate()
+        Nodes.markWorldDirty()
+    }
+
     internal fun recordDeathWaypoint(x: Int, y: Int, z: Int) {
+        if (!deathWaypointsEnabled) return
         deathWaypoint = Waypoint(Waypoint.DEATH_NAME, x, y, z)
         minimap?.refresh()
     }
@@ -548,6 +561,7 @@ class Resident(val uuid: UUID, val name: String) {
         val minimapShiftEnabled = r.minimapShiftEnabled
         val minimapNorthLocked = r.minimapNorthLocked
         val minimapLegacy = r.minimapLegacy
+        val deathWaypointsEnabled = r.deathWaypointsEnabled
         val townJoinLockedUntil = r.townJoinLockedUntil
         val waypoints = r.permanentWaypoints.snapshotList()
         val waypointVisibility = r.waypointVisibility.snapshotMap()

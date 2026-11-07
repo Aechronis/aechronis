@@ -26,6 +26,7 @@ import net.aechronis.combat.objects.Hitbox
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Projectile
 import net.aechronis.combat.objects.TurretScope
+import net.aechronis.combat.storage.GunAnimationOptOut
 import net.aechronis.combat.storage.HatCollection
 import net.aechronis.combat.storage.VehiclePersistence
 import net.aechronis.combat.tasks.ActionBarManager
@@ -42,14 +43,25 @@ import net.aechronis.combat.utils.combatDamageKind
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
+import net.aechronis.settings.PlayerSetting
+import net.aechronis.settings.PlayerSettings
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.event.EventNode
+import net.minestom.server.item.Material
 
 object Combat {
     private var initialized = false
+
+    private val gunAnimationsSetting =
+        PlayerSetting.toggle(
+            "Gun animations",
+            Material.CROSSBOW,
+            { !GunAnimationOptOut.disabled(it.uuid) },
+            { player, enabled -> GunAnimationOptOut.set(player.uuid, enabled) },
+        )
 
     var config: CombatConfig = CombatConfig()
         private set
@@ -174,6 +186,7 @@ object Combat {
             // initialize storage
             measure("Storage") {
                 HatCollection.initialize()
+                GunAnimationOptOut.initialize()
                 BlockRestoreManager.initialize()
             }
 
@@ -213,6 +226,7 @@ object Combat {
                     .register(CombatAdminCommand())
                 ModuleCommands
                     .register(HatsCommand())
+                PlayerSettings.register(gunAnimationsSetting)
             }
 
             // run background schedulers/tasks
@@ -237,6 +251,7 @@ object Combat {
     @Synchronized
     fun shutdown() {
         initialized = false
+        PlayerSettings.unregister(gunAnimationsSetting)
         val failures = ArrayList<Throwable>()
 
         cleanup(failures, "task cancellation") { playerStates.cancelActions() }

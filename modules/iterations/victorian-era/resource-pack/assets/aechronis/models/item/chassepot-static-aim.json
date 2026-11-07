@@ -1,0 +1,39 @@
+{
+  "parent": "aechronis:item/chassepot",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3457,
+        5.4098,
+        -5.7602
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -10,
+        0
+      ],
+      "translation": [
+        2.3457,
+        5.4098,
+        -5.7602
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}

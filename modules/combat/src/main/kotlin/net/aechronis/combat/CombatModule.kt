@@ -11,7 +11,7 @@ import java.nio.file.Path
 
 class CombatModule : AechronisModule {
     override val id = "combat"
-    override val dependencies = setOf("utils")
+    override val dependencies = setOf("utils", "settings")
 
     override fun initialize(context: ModuleContext) {
         Combat.initialize(takeConfiguration())

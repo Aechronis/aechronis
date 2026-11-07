@@ -55,6 +55,7 @@ internal data class TownsLoadState(
                 minimapShiftEnabled = resident.minimapShiftEnabled,
                 minimapNorthLocked = resident.minimapNorthLocked,
                 minimapLegacy = resident.minimapLegacy,
+                deathWaypointsEnabled = resident.deathWaypointsEnabled,
                 townJoinLockedUntil = resident.townJoinLockedUntil,
             )
         }
@@ -89,6 +90,7 @@ internal data class ResidentLoadState(
     val minimapShiftEnabled: Boolean,
     val minimapNorthLocked: Boolean,
     val minimapLegacy: Boolean,
+    val deathWaypointsEnabled: Boolean,
     val townJoinLockedUntil: Long?,
 )
 
