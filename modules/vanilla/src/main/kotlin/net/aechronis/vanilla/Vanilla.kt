@@ -8,6 +8,7 @@ import net.aechronis.vanilla.commands.Clear
 import net.aechronis.vanilla.commands.GameMode
 import net.aechronis.vanilla.commands.Give
 import net.aechronis.vanilla.commands.Kill
+import net.aechronis.vanilla.commands.KillEntities
 import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.listeners.CombatInventoryListener
@@ -54,6 +55,7 @@ object Vanilla {
                         Give(),
                         Teleport(),
                         Kill(),
+                        KillEntities(),
                         Clear(),
                         List(),
                     )
