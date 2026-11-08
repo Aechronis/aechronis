@@ -21,7 +21,7 @@ export function resourceTooltip(keys, definitions = {}) {
   return keys.map(key => {
     const node = definitions[key];
     if (!node) return '';
-    const name = key === 'potatos' ? 'Potatoes' : title(node.name || key);
+    const name = key === 'potatos' ? 'Potatoes' : title(key);
     const income = Object.entries(node.income || {}).filter(([, value]) => Number(value) > 0);
     const ores = Object.entries(node.ore || {}).filter(([, value]) => Number(value) > 0);
     return `<div class="resource-tooltip-resource"><strong class="resource-tooltip-name">${escape(name)}</strong>`
