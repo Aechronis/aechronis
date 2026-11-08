@@ -17,7 +17,7 @@ import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import java.util.concurrent.ConcurrentHashMap
 
 object PlayerDeathListener {
-    private val combatLogouts = ConcurrentHashMap.newKeySet<Player>()
+    private val forcedDeathMessages = ConcurrentHashMap<Player, Component>()
 
     fun onPlayerDeath(event: PlayerDeathEvent) {
         val player = event.player
@@ -35,11 +35,8 @@ object PlayerDeathListener {
         LagCompensation.resetHistory(player)
 
         val message =
-            if (player in combatLogouts) {
-                combatLogoutMessage(player.name)
-            } else {
-                combatDeathMessage(player.name, killer?.let(::attackerName), weapon, damageKind, killer === player)
-            }
+            forcedDeathMessages[player]
+                ?: combatDeathMessage(player.name, killer?.let(::attackerName), weapon, damageKind, killer === player)
         if (message != null) {
             event.deathText = message
             event.chatMessage = message
@@ -50,12 +47,15 @@ object PlayerDeathListener {
     }
 
     // Minestom's default text gives PvP translations no killer, and the last hit may be stale or absent.
-    internal fun killForCombatLogout(player: Player) {
-        combatLogouts.add(player)
+    fun killWithMessage(
+        player: Player,
+        message: Component,
+    ) {
+        forcedDeathMessages[player] = message
         try {
             player.kill()
         } finally {
-            combatLogouts.remove(player)
+            forcedDeathMessages.remove(player)
         }
     }
 

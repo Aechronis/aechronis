@@ -28,7 +28,7 @@ object CombatTagListener {
             // Disconnects cancel armed grenades and reloads before death callbacks run.
             Combat.playerStates[player]?.cancelActions()
             // Death listeners run synchronously; retain their penalties without persisting zero health.
-            PlayerDeathListener.killForCombatLogout(player)
+            PlayerDeathListener.killWithMessage(player, PlayerDeathListener.combatLogoutMessage(player.name))
             player.heal()
         }
     }
