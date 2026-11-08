@@ -70,7 +70,7 @@ class Explosion private constructor(
         MinecraftServer.getGlobalEventHandler().call(event)
         run explosion@{
             if (event.isCancelled) return@explosion
-            if (damage > 0f) applyDamage(blast.affectedBlocks)
+            if (damage > 0f) applyDamage(blast.affectedBlocks - event.protectedBlocks)
 
             var smokeSampleIndex = 0
 
@@ -104,6 +104,7 @@ class Explosion private constructor(
             // First pass: destroy the blocks affected by the explosion. Protected
             // blocks are excluded from this snapshot and therefore remain intact.
             blast.affectedBlocks.forEach { block ->
+                if (block in event.protectedBlocks) return@forEach
                 BlockRestoreManager.temporarilyReplace(
                     instance,
                     block,
@@ -114,6 +115,7 @@ class Explosion private constructor(
 
             // Second pass: place the fire positions selected during the snapshot pass.
             blast.firePositions.forEach { block ->
+                if (block in event.protectedBlocks) return@forEach
                 BlockRestoreManager.temporarilyReplace(
                     instance,
                     block,
