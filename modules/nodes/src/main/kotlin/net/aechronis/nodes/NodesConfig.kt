@@ -208,8 +208,10 @@ data class NodesConfig(
     // ===================================
     // warzone configs
     // ===================================
-    // resource multiplier while a territory is an active warzone
+    // income multiplier while a territory is an active warzone
     val warzoneRateMultiplier: Double = 2.0,
+    // ore drop multiplier while a territory is an active warzone
+    val warzoneMiningMultiplier: Double = 3.0,
 
     // Optional per-nation score cap. A cap never ends a warzone early; it still runs to its end time.
     val warzoneScoreCapMillis: Long? = null,

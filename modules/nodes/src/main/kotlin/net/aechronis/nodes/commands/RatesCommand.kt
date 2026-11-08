@@ -20,9 +20,11 @@ class RatesCommand : NodesCommand("rates") {
                 return@setDefaultExecutor
             }
 
-            val multiplier = Warzone.multiplierFor(territory)
+            val incomeMultiplier = Warzone.incomeMultiplierFor(territory)
+            val miningMultiplier = Warzone.miningMultiplierFor(territory)
             Message.print(player, "${ChatColor.BOLD}Rates for ${territory.name.ifBlank { "Unnamed territory" }}:")
-            if (multiplier != 1.0) Message.print(player, "Warzone multiplier${ChatColor.WHITE}: ${format(multiplier)}x")
+            if (incomeMultiplier != 1.0) Message.print(player, "Warzone income multiplier${ChatColor.WHITE}: ${format(incomeMultiplier)}x")
+            if (miningMultiplier != 1.0) Message.print(player, "Warzone mining multiplier${ChatColor.WHITE}: ${format(miningMultiplier)}x")
             Message.print(player, "Income (per hour):")
             if (territory.income.isEmpty()) {
                 Message.print(player, "- None")
@@ -30,7 +32,7 @@ class RatesCommand : NodesCommand("rates") {
                 territory.income.entries
                     .sortedBy { (material, _) -> material.name() }
                     .forEach { (material, amount) ->
-                        Message.print(player, "- ${material.name()}${ChatColor.WHITE}: ${format(amount * multiplier)}")
+                        Message.print(player, "- ${material.name()}${ChatColor.WHITE}: ${format(amount * incomeMultiplier)}")
                     }
             }
 
@@ -42,9 +44,9 @@ class RatesCommand : NodesCommand("rates") {
                     .sortedBy { it.material.name() }
                     .forEach { ore ->
                         val amount = if (ore.minAmount == ore.maxAmount) {
-                            format(ore.minAmount * multiplier)
+                            format(ore.minAmount * miningMultiplier)
                         } else {
-                            "${format(ore.minAmount * multiplier)}-${format(ore.maxAmount * multiplier)}"
+                            "${format(ore.minAmount * miningMultiplier)}-${format(ore.maxAmount * miningMultiplier)}"
                         }
                         Message.print(
                             player,

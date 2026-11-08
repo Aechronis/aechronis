@@ -82,7 +82,7 @@ object IncomeCalculator {
             }
         }
 
-        val multiplier = Warzone.multiplierFor(territory)
+        val multiplier = Warzone.incomeMultiplierFor(territory)
         return IncomeBreakdown(
             territory = territory.income.withMultiplier(multiplier),
             buildings = buildings.withMultiplier(multiplier),

@@ -399,7 +399,7 @@ private fun handleHiddenOre(player: Player, block: BlockVec) {
             (Nodes.config.allowOreInNationTowns && territoryNation !== null && territoryNation === playerNation) ||
             (Nodes.config.allowOreInCaptured && (territory.occupier === playerTown || warzoneOccupier === playerTown))
         ) {
-            val miningMultiplier = MiningBoostManager.miningMultiplier() * Warzone.multiplierFor(territory)
+            val miningMultiplier = MiningBoostManager.miningMultiplier() * Warzone.miningMultiplierFor(territory)
             val itemDrops = territory.ores.sample(blockY).map { itemStack ->
                 itemStack.withAmount { amount ->
                     (amount.toDouble() * miningMultiplier).toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()

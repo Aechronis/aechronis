@@ -102,7 +102,9 @@ object Warzone {
         states.values.any { it.started }
     }
 
-    fun multiplierFor(territory: Territory): Double = if (isActive(territory)) Nodes.config.warzoneRateMultiplier else 1.0
+    fun incomeMultiplierFor(territory: Territory): Double = if (isActive(territory)) Nodes.config.warzoneRateMultiplier else 1.0
+
+    fun miningMultiplierFor(territory: Territory): Double = if (isActive(territory)) Nodes.config.warzoneMiningMultiplier else 1.0
 
     /**
      * Schedule warzones on [territories] from [startMillis] to [endMillis].
