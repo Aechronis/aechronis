@@ -14,8 +14,11 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
+import java.util.concurrent.ConcurrentHashMap
 
 object PlayerDeathListener {
+    private val combatLogouts = ConcurrentHashMap.newKeySet<Player>()
+
     fun onPlayerDeath(event: PlayerDeathEvent) {
         val player = event.player
         GunAnimation.cancel(player)
@@ -31,7 +34,12 @@ object PlayerDeathListener {
         Combat.grantRespawnProtection(player)
         LagCompensation.resetHistory(player)
 
-        val message = combatDeathMessage(player.name, killer?.let(::attackerName), weapon, damageKind, killer === player)
+        val message =
+            if (player in combatLogouts) {
+                combatLogoutMessage(player.name)
+            } else {
+                combatDeathMessage(player.name, killer?.let(::attackerName), weapon, damageKind, killer === player)
+            }
         if (message != null) {
             event.deathText = message
             event.chatMessage = message
@@ -39,6 +47,16 @@ object PlayerDeathListener {
 
         // instantly respawn the player without showing the death screen
         player.sendPacket(ChangeGameStatePacket(ChangeGameStatePacket.Reason.ENABLE_RESPAWN_SCREEN, 1f))
+    }
+
+    // Minestom's default text gives PvP translations no killer, and the last hit may be stale or absent.
+    internal fun killForCombatLogout(player: Player) {
+        combatLogouts.add(player)
+        try {
+            player.kill()
+        } finally {
+            combatLogouts.remove(player)
+        }
     }
 
     internal fun exitVehicles(player: Player) {
@@ -60,6 +78,9 @@ object PlayerDeathListener {
         val key = if (damageKind == CombatDamageKind.PROJECTILE) "death.attack.arrow.item" else "death.attack.player.item"
         return Component.translatable(key, victim, killer, weapon)
     }
+
+    internal fun combatLogoutMessage(victim: Component): Component =
+        Component.textOfChildren(victim, Component.text(" logged out in combat"))
 
     internal fun combatDeathMessage(
         victim: Component,
