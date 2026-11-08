@@ -17,6 +17,9 @@ internal class CombatPlayerState {
     val previousPositions = ArrayDeque<Pos>()
     var speed = 0f
     var lastActionTime = 0L
+
+    /** Gun name to the time any copy may fire again after one was emptied, so swapping copies can't skip the reload. */
+    val gunReloadLocks = HashMap<String, Long>()
     var meleeLastAttackTime = 0L
     var lastMainHandType: String? = null
     var fallDistance = 0.0
