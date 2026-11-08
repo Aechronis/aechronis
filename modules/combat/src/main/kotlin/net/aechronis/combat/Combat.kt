@@ -6,6 +6,7 @@ import net.aechronis.combat.listeners.AimingListener
 import net.aechronis.combat.listeners.AmmoInventoryListener
 import net.aechronis.combat.listeners.ArmorProtectionListener
 import net.aechronis.combat.listeners.CooldownResetListener
+import net.aechronis.combat.listeners.FallDistanceListener
 import net.aechronis.combat.listeners.FireListener
 import net.aechronis.combat.listeners.GrenadeListener
 import net.aechronis.combat.listeners.HatListener
@@ -38,6 +39,8 @@ import net.aechronis.combat.tasks.VehicleTickManager
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.GunAnimation
 import net.aechronis.combat.utils.LagCompensation
+import net.aechronis.combat.utils.MeleeHit
+import net.aechronis.combat.utils.asPartialHit
 import net.aechronis.combat.utils.bypassesCombatDamageImmunity
 import net.aechronis.combat.utils.combatDamageKind
 import net.aechronis.server.modules.ModuleCommands
@@ -74,6 +77,7 @@ object Combat {
     internal val playerStates = CombatPlayerStates()
 
     val entityLastDamageTime = HashMap<LivingEntity, Long>()
+    private val entityLastDamageAmount = HashMap<LivingEntity, Float>()
     private val activeDamage = HashMap<LivingEntity, Damage>()
 
     private const val DAMAGE_IMMUNITY_MS = 500L
@@ -138,18 +142,8 @@ object Combat {
         if (useDamageImmunity && !damage.bypassesCombatDamageImmunity() && !canDamage(entity, now)) return false
 
         val previousDamageTime = if (useDamageImmunity) entityLastDamageTime.put(entity, now) else null
-        val previousActiveDamage = activeDamage.put(entity, damage)
-        val damaged =
-            try {
-                entity.damage(damage)
-            } finally {
-                if (previousActiveDamage == null) {
-                    activeDamage.remove(entity)
-                } else {
-                    activeDamage[entity] = previousActiveDamage
-                }
-            }
-        if (damaged) {
+        val previousDamageAmount = if (useDamageImmunity) entityLastDamageAmount.put(entity, damage.amount) else null
+        if (dealDamage(entity, damage)) {
             revokeRespawnProtectionAfterSuccessfulPlayerDamage(entity, damage)
             return true
         }
@@ -160,8 +154,60 @@ object Combat {
             } else {
                 entityLastDamageTime[entity] = previousDamageTime
             }
+            if (previousDamageAmount == null) {
+                entityLastDamageAmount.remove(entity)
+            } else {
+                entityLastDamageAmount[entity] = previousDamageAmount
+            }
         }
         return false
+    }
+
+    /** Applies melee damage with vanilla's immunity rule: inside the window, a harder hit deals only the difference. */
+    internal fun applyMeleeDamage(
+        entity: LivingEntity,
+        damage: Damage,
+        now: Long = System.currentTimeMillis(),
+    ): MeleeHit {
+        if (canDamage(entity, now) || damage.bypassesCombatDamageImmunity()) {
+            return if (applyDamage(entity, damage, now)) MeleeHit.FULL else MeleeHit.NONE
+        }
+
+        val amount = damage.amount
+        val previousAmount = entityLastDamageAmount[entity] ?: 0f
+        if (amount <= previousAmount) return MeleeHit.NONE
+
+        damage.amount = amount - previousAmount
+        damage.asPartialHit()
+        entityLastDamageAmount[entity] = amount
+        if (dealDamage(entity, damage)) {
+            revokeRespawnProtectionAfterSuccessfulPlayerDamage(entity, damage)
+            return MeleeHit.PARTIAL
+        }
+
+        entityLastDamageAmount[entity] = previousAmount
+        return MeleeHit.NONE
+    }
+
+    private fun dealDamage(
+        entity: LivingEntity,
+        damage: Damage,
+    ): Boolean {
+        val previousActiveDamage = activeDamage.put(entity, damage)
+        try {
+            return entity.damage(damage)
+        } finally {
+            if (previousActiveDamage == null) {
+                activeDamage.remove(entity)
+            } else {
+                activeDamage[entity] = previousActiveDamage
+            }
+        }
+    }
+
+    internal fun clearDamageHistory(entity: LivingEntity) {
+        entityLastDamageTime.remove(entity)
+        entityLastDamageAmount.remove(entity)
     }
 
     internal fun revokeRespawnProtectionAfterSuccessfulPlayerDamage(
@@ -199,6 +245,7 @@ object Combat {
                 FireListener.init()
                 GrenadeListener.init()
                 MeleeListener.init()
+                FallDistanceListener.init()
                 PlayerDeathListener.init()
                 Corpses.init()
                 CombatTags.init()
@@ -269,6 +316,7 @@ object Combat {
 
         cleanup(failures, "player state") { playerStates.clear() }
         entityLastDamageTime.clear()
+        entityLastDamageAmount.clear()
         activeDamage.clear()
         KeyPressListener.playerInputEvent.clear()
         MannequinDamageListener.shutdown()

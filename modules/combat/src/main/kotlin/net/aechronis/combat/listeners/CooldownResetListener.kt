@@ -13,10 +13,7 @@ object CooldownResetListener {
     }
 
     private fun resetCooldown(player: Player) {
-        val now = System.currentTimeMillis()
-        val state = Combat.playerStates.getOrCreate(player)
-        state.lastActionTime = now
-        state.meleeLastAttackTime = now
+        Combat.playerStates.getOrCreate(player).lastActionTime = System.currentTimeMillis()
     }
 
     fun init() {

@@ -3,6 +3,7 @@ package net.aechronis.combat.listeners
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.VehicleRegistry
+import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.utils.EntityTags
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
@@ -18,7 +19,11 @@ object MannequinDamageListener {
         // a seated crew member's stand-in takes hits for them; their own damage rules still apply
         VehicleRegistry.standInOwner(entity)?.let { owner ->
             event.isCancelled = true
-            Combat.applyDamage(owner, event.damage)
+            if (Combat.damageKind(event.damage) == CombatDamageKind.MELEE) {
+                Combat.applyMeleeDamage(owner, event.damage)
+            } else {
+                Combat.applyDamage(owner, event.damage)
+            }
             return
         }
 

@@ -19,7 +19,7 @@ object PlayerDisconnectListener {
         VehicleTickManager.removePlayer(player)
 
         Combat.playerStates.remove(player)
-        Combat.entityLastDamageTime.remove(player)
+        Combat.clearDamageHistory(player)
         LagCompensation.removePlayer(player)
         ModelManager.clearPlayer(player)
         KeyPressListener.playerInputEvent.remove(player)

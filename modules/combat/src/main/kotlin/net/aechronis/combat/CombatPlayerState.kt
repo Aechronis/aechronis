@@ -19,6 +19,8 @@ internal class CombatPlayerState {
     var speed = 0f
     var lastActionTime = 0L
     var meleeLastAttackTime = 0L
+    var lastMainHandType: String? = null
+    var fallDistance = 0.0
     var respawnProtectionExpiresAt: Long? = null
 
     fun cancelAimingReset() {

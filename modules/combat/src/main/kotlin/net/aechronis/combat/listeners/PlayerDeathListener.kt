@@ -30,7 +30,7 @@ object PlayerDeathListener {
 
         exitVehicles(player)
         KeyPressListener.playerInputEvent.remove(player)
-        Combat.entityLastDamageTime.remove(player)
+        Combat.clearDamageHistory(player)
         Combat.grantRespawnProtection(player)
         LagCompensation.resetHistory(player)
 
