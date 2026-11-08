@@ -23,11 +23,11 @@ object Serializer {
         val nations = snapshot.nations
         // calculate string builder capacity
 
-        // initial metadata header + close bracket [26]: {"meta":{"type":"towns"},}
+        // open bracket [1]: {
         // residents header + close bracket + comma [15]: "residents":{},
         // towns header + close bracket + comma [11]: "towns":{},
         // nations header + close bracket [13]: "nations":{}}
-        // -> 65 minimum
+        // -> 40 minimum
         // will add arbitrary extra margin and up size to 200
         var bufferSize = 200
 
@@ -55,14 +55,9 @@ object Serializer {
         val jsonString = StringBuilder(bufferSize)
 
         // ===============================
-        // Metadata (for web editor)
-        // ===============================
-        jsonString.append("{\"meta\":{\"type\":\"towns\"},")
-
-        // ===============================
         // Residents
         // ===============================
-        jsonString.append("\"residents\":{")
+        jsonString.append("{\"residents\":{")
 
         for ((i, resident) in residents.withIndex()) {
             jsonString.append(JsonPrimitive(resident.uuid.toString())).append(":")
@@ -122,8 +117,7 @@ object Serializer {
 
         val jsonString = StringBuilder(bufferSize)
 
-        jsonString.append("{\"meta\":{\"type\":\"buildings\"},")
-        jsonString.append("\"buildings\":[")
+        jsonString.append("{\"buildings\":[")
 
         for ((i, building) in buildings.withIndex()) {
             jsonString.append(building.toJsonString())
