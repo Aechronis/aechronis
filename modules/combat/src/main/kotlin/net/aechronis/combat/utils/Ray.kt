@@ -11,6 +11,7 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.utils.block.BlockIterator
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -103,11 +104,27 @@ class Ray(
             )
         }
 
-        val iterator = BlockIterator(origin.asVec(), direction, 0.0, distance)
-        while (iterator.hasNext()) {
-            val pos = iterator.next()
-            firstBlockAt(instance, pos)?.let { return it }
+        return firstAlongCells { pos -> firstBlockAt(instance, pos) }
+    }
+
+    /**
+     * The first non-null [find] result over the block cells along the ray, nearest first. Visits no
+     * cells for a non-finite ray.
+     *
+     * BlockIterator only stops once it lands on the end cell, which it can step past and never revisit:
+     * a near-zero negative component (eye.direction() at yaw 180 gives x of about -1.2e-16) from an
+     * origin exactly on a block boundary leaves the end cell on the first step. The step cap bounds
+     * the walk: a segment crosses at most |x| + |y| + |z| + 3 boundaries and the iterator yields at
+     * most 7 cells per 3 crossings. Cells past the segment are harmless because hits clip to [vector].
+     */
+    internal inline fun <T : Any> firstAlongCells(find: (Point) -> T?): T? {
+        if (!distance.isFinite() || !origin.x().isFinite() || !origin.y().isFinite() || !origin.z().isFinite()) {
+            return null
         }
+        val maxSteps = (3 * (abs(vector.x()) + abs(vector.y()) + abs(vector.z()))).toInt() + 12
+        val iterator = BlockIterator(origin.asVec(), direction, 0.0, distance)
+        var steps = 0
+        while (iterator.hasNext() && steps++ < maxSteps) find(iterator.next())?.let { return it }
         return null
     }
 
