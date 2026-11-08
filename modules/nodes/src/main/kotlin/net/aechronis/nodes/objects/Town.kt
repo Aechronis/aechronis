@@ -24,7 +24,6 @@ import net.aechronis.nodes.serdes.TownLoadState
 import net.aechronis.nodes.serdes.snapshotList
 import net.aechronis.nodes.serdes.snapshotMap
 import net.aechronis.nodes.utils.ChatColor
-import net.aechronis.nodes.utils.Color
 import net.aechronis.nodes.utils.EnumArrayMap
 import net.aechronis.nodes.utils.createEnumArrayMap
 import net.aechronis.nodes.war.FlagWar
@@ -45,7 +44,6 @@ import net.minestom.server.timer.TaskSchedule
 import java.util.Collections
 import java.util.EnumSet
 import java.util.UUID
-import java.util.concurrent.ThreadLocalRandom
 
 // internal town id counter
 private var townNametagIdCounter: Int = 0
@@ -184,7 +182,6 @@ class Town(
                 }
             }
             town.income.storage.putAll(income)
-            if (color != null) town.color = color
             if (permissions.values.any { it.isNotEmpty() }) {
                 permissions.forEach { (type, groups) ->
                     town.permissions[type].clear()
@@ -470,12 +467,6 @@ class Town(
         fun setCoatOfArmsUrl(town: Town, value: String?) {
             town.coatOfArmsUrl = value
             town.markChanged()
-        }
-
-        fun setColor(town: Town, r: Int, g: Int, b: Int) {
-            town.color = Color(r, g, b)
-            town.markChanged()
-            Resident.renderMinimaps()
         }
 
         fun setSpawn(town: Town, spawnpoint: Pos): Boolean {
@@ -773,14 +764,6 @@ class Town(
 
     val isAi: Boolean get() = aiConfig.controlled
 
-    // color for displaying on map
-    var color: Color = Color(
-        ThreadLocalRandom.current().nextInt(256),
-        ThreadLocalRandom.current().nextInt(256),
-        ThreadLocalRandom.current().nextInt(256),
-    )
-        private set
-
     // re-usable nametag strings, for each diplomatic relation type
     var nametagTown: String = "${DiplomaticRelationship.TOWN.chatColor}[${this.name}]"
     var nametagNation: String = "${DiplomaticRelationship.NATION.chatColor}[${this.name}]"
@@ -884,7 +867,6 @@ class Town(
         val leader = t.leader?.uuid
         val home = t.home
         val spawnpoint = Vec(t.spawnpoint.x, t.spawnpoint.y, t.spawnpoint.z)
-        val color = t.color
         val coatOfArmsUrl = t.coatOfArmsUrl
         val permissions = TownPermissions.entries.associateWith { t.permissions[it].snapshotList() }.snapshotMap()
         val residents = t.residents.map { x -> x.uuid }.snapshotList()

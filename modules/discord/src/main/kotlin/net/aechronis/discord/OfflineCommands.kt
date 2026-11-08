@@ -28,7 +28,7 @@ internal object OfflineCommands {
         nodesadmin.town.lives nodesadmin.town.rename nodesadmin.town.addplayer nodesadmin.town.removeplayer
         nodesadmin.town.addterritory nodesadmin.town.removeterritory nodesadmin.town.captureterritory nodesadmin.town.releaseterritory
         nodesadmin.town.addofficer nodesadmin.town.removeofficer nodesadmin.town.leader nodesadmin.town.removeleader
-        nodesadmin.town.color nodesadmin.town.sethome nodesadmin.town.defaulttownspawns
+        nodesadmin.town.sethome nodesadmin.town.defaulttownspawns
         nodesadmin.town.ai nodesadmin.town.ai.show nodesadmin.town.ai.set nodesadmin.town.ai.clear nodesadmin.town.coatofarms
         nodesadmin.nation nodesadmin.nation.create nodesadmin.nation.delete nodesadmin.nation.rename
         nodesadmin.nation.addtown nodesadmin.nation.removetown nodesadmin.nation.capital

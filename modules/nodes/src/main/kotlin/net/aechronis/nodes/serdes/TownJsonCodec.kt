@@ -20,11 +20,6 @@ internal object TownJsonCodec {
             add(snapshot.spawnpoint.y)
             add(snapshot.spawnpoint.z)
         }
-        putJsonArray("color") {
-            add(snapshot.color.r)
-            add(snapshot.color.g)
-            add(snapshot.color.b)
-        }
         putJsonObject("perms") {
             snapshot.permissions.forEach { (permission, groups) ->
                 putJsonArray(permission.toString()) { groups.forEach { add(it.ordinal) } }

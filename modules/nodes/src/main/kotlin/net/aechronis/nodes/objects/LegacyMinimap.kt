@@ -39,9 +39,12 @@ private const val WAYPOINT = "◆"
 private const val DEATH_WAYPOINT = "✖"
 private const val PLAYER = "┼"
 
-/** Brightness drop per territory color index, so neighboring nodes of one town stay distinguishable. */
+/** Brightness drop per territory shade index, so neighboring nodes of one town stay distinguishable. */
 private const val SHADE_STEP = 0.1f
 private const val MAX_SHADE = 7
+
+/** Shade every territory starts from before touching ones are repainted. */
+private const val INITIAL_SHADE = 5
 
 /**
  * Familiar sidebar territory map: an 11x11 grid of colored glyphs, one per chunk, north up.
@@ -105,17 +108,17 @@ internal object LegacyMinimapRenderer {
                 }
             }
         }
-        return shades[territory.id] ?: territory.color
+        return shades[territory.id] ?: INITIAL_SHADE
     }
 
     /**
      * Shade index per territory such that no two territories touching by an edge or a corner share one.
-     * Starts from the map's own coloring (edge neighbors already differ) and greedily repaints the rest.
+     * Every territory starts at [INITIAL_SHADE], then touching ones are greedily repainted.
      * ponytail: scans every claimed chunk once per territory change (~1.5M chunks); cache incrementally if that shows up in profiles.
      */
     private fun computeShades(): Map<TerritoryId, Int> {
         val territories = Territory.all().sortedBy { it.id.toInt() }
-        val shade = territories.associateTo(HashMap()) { it.id to it.color }
+        val shade = territories.associateTo(HashMap()) { it.id to INITIAL_SHADE }
         for (territory in territories) {
             val touching = HashSet<TerritoryId>()
             for (c in territory.chunks) {

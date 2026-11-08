@@ -464,7 +464,7 @@ object Nodes {
             }
             val resources = graph[data.id]!!.applyNeighborModifiers()
             val names = data.resourceNodes.sortedBy { resourceNode(it)!!.priority }
-            Territory(data.id, data.name, data.color, data.core, data.chunks, data.bordersWilderness, data.neighbors, names, resources.income, OreSampler(ArrayList(resources.ores.values)), resources.attackerTimeMultiplier, resources.defenderTimeMultiplier)
+            Territory(data.id, data.name, data.core, data.chunks, data.bordersWilderness, data.neighbors, names, resources.income, OreSampler(ArrayList(resources.ores.values)), resources.attackerTimeMultiplier, resources.defenderTimeMultiplier)
         }
     }
 

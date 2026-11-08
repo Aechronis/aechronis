@@ -100,7 +100,6 @@ internal data class TownLoadState(
     val leader: UUID?,
     val homeId: Int,
     val spawn: Pos?,
-    val color: Color?,
     val residents: List<UUID>,
     val officers: List<UUID>,
     val territoryIds: List<Int>,

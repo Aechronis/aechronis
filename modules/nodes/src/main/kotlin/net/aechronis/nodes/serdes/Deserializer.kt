@@ -163,14 +163,6 @@ object Deserializer {
             null
         }
 
-        // parse color
-        val colorArray = town.get("color")?.jsonArray
-        val color = if (colorArray !== null && colorArray.size == 3) {
-            Color(colorArray[0].jsonPrimitive.int, colorArray[1].jsonPrimitive.int, colorArray[2].jsonPrimitive.int)
-        } else {
-            null
-        }
-
         val lives = town.get("lives")?.let { value ->
             runCatching { value.jsonPrimitive.int.takeIf { it >= 0 } }.getOrNull()
         }
@@ -334,7 +326,6 @@ object Deserializer {
             leader = leader,
             homeId = homeId,
             spawn = spawn,
-            color = color,
             residents = residentsUUID,
             officers = officersUUID,
             territoryIds = territoryIds,

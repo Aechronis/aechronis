@@ -37,7 +37,6 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
             Message.print(player, "/nodesadmin town removeofficer${ChatColor.WHITE}: Remove officer from town")
             Message.print(player, "/nodesadmin town leader${ChatColor.WHITE}: Set town leader to player")
             Message.print(player, "/nodesadmin town removeleader${ChatColor.WHITE}: Remove leader from a town")
-            Message.print(player, "/nodesadmin town color${ChatColor.WHITE}: Set the color of a town")
             Message.print(player, "/nda town coatofarms <town-name> <url|clear>${ChatColor.WHITE}: Set map coat of arms")
             Message.print(player, "/nodesadmin town income${ChatColor.WHITE}: View a town's income inventory")
             Message.print(player, "/nodesadmin town plot${ChatColor.WHITE}: Manage a town's plots")
@@ -63,7 +62,6 @@ class NodesAdminTownCommand : NodesCommand("town", "nodes.admin") {
         addSubcommand(NodesAdminTownRemoveOfficerCommand())
         addSubcommand(NodesAdminTownLeaderCommand())
         addSubcommand(NodesAdminTownRemoveLeaderCommand())
-        addSubcommand(NodesAdminTownColorCommand())
         addSubcommand(NodesAdminTownCoatOfArmsCommand())
         addSubcommand(NodesAdminTownIncomeCommand())
         addSubcommand(NodesAdminTownSetHomeCommand())
@@ -398,24 +396,6 @@ class NodesAdminTownRemoveLeaderCommand : NodesCommand("removeleader", "nodes.ad
             Town.setLeader(context[townArg], null)
             Message.print(player, "Removed leader of \"${context[townArg].name}\"")
         }, townArg)
-    }
-}
-
-class NodesAdminTownColorCommand : NodesCommand("color", "nodes.admin") {
-    init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin town color <town-name> <r> <g> <b>")
-        }
-
-        val townArg = ArgumentTown.create("town-name")
-        val rArg = ArgumentType.Integer("r")
-        val gArg = ArgumentType.Integer("g")
-        val bArg = ArgumentType.Integer("b")
-
-        addSyntax({ player, resident, context ->
-            Town.setColor(context[townArg], context[rArg], context[gArg], context[bArg])
-            Message.print(player, "Set color of ${context[townArg].name} to (${context[rArg]}, ${context[gArg]}, ${context[bArg]})")
-        }, townArg, rArg, gArg, bArg)
     }
 }
 

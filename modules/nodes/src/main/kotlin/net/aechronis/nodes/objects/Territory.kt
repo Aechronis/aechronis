@@ -78,7 +78,6 @@ value class TerritoryIdArray(private val ids: IntArray) {
 data class TerritoryPreprocessing(
     val id: TerritoryId,
     val name: String,
-    val color: Int,
     val core: Coord,
     val chunks: List<Coord>,
     val bordersWilderness: Boolean,
@@ -108,10 +107,6 @@ data class TerritoryPreprocessing(
         fun fromJson(id: Int, json: JsonObject): TerritoryPreprocessing {
             // territory name
             val name: String = json.get("name")?.let { requireNotNull(it.jsonPrimitive.contentOrNull) } ?: ""
-
-            // territory color, 6 possible colors -> integer in range [0, 5]
-            // if null (editor error?), assign 5, the least likely color
-            val color: Int = json.get("color")?.jsonPrimitive?.int ?: 5
 
             // core chunk (required)
             val coreChunkArray = json.getValue("coreChunk").jsonArray
@@ -154,7 +149,6 @@ data class TerritoryPreprocessing(
             return TerritoryPreprocessing(
                 TerritoryId(id),
                 name,
-                color,
                 coreChunk,
                 chunks as List<Coord>,
                 bordersWilderness,
@@ -304,7 +298,6 @@ data class TerritoryResources(
 data class Territory(
     val id: TerritoryId,
     val name: String,
-    val color: Int,
     val core: Coord,
     val chunks: List<Coord>,
     val bordersWilderness: Boolean, // if territory is next to wilderness (region without any territories)
@@ -389,7 +382,6 @@ data class Territory(
     fun toPreprocessing(): TerritoryPreprocessing = TerritoryPreprocessing(
         id = this.id,
         name = this.name,
-        color = this.color,
         core = this.core,
         chunks = this.chunks,
         bordersWilderness = this.bordersWilderness,
