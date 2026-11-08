@@ -159,8 +159,7 @@ function buildIndex({ towns, world, war }, previous) {
   for (const [name, town] of Object.entries(towns.towns || {})) {
     const nationName = townNation.get(name) || null;
     const nation = nationName ? towns.nations[nationName] : null;
-    const color = pickColor(
-      [nation && nation.color, town.color], UNCLAIMED_TERRITORY_COLOR);
+    const color = pickColor([nation && nation.color], UNCLAIMED_TERRITORY_COLOR);
     townStyle.set(name, {
       name,
       nation: nationName,

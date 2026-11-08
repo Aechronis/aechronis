@@ -39,14 +39,18 @@ function sameOwnershipRecords(previous = {}, next = {}, membership) {
   return sameValues(names, nextNames) && names.every(name =>
     previous[name].uuid === next[name].uuid
     && sameValues(previous[name].captured, next[name].captured)
-    && sameValues(previous[name].color, next[name].color)
     && sameValues(previous[name][membership], next[name][membership]));
+}
+
+function sameNationColors(previous = {}, next = {}) {
+  return Object.keys(previous).every(name => sameValues(previous[name].color, next[name]?.color));
 }
 
 export function ownershipChanged(previous, next) {
   return (previous.towns !== next.towns
     && (!sameOwnershipRecords(previous.towns?.towns || {}, next.towns?.towns || {}, 'territories')
-      || !sameOwnershipRecords(previous.towns?.nations || {}, next.towns?.nations || {}, 'towns')))
+      || !sameOwnershipRecords(previous.towns?.nations || {}, next.towns?.nations || {}, 'towns')
+      || !sameNationColors(previous.towns?.nations, next.towns?.nations)))
     || (previous.war !== next.war
       && (JSON.stringify(previous.war?.occupied || {}) !== JSON.stringify(next.war?.occupied || {})
         || JSON.stringify(previous.war?.territoryOccupations || {}) !== JSON.stringify(next.war?.territoryOccupations || {})));
