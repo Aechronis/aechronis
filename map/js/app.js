@@ -1223,6 +1223,19 @@ function bootMap(initial) {
   updateVisible();
   redraw();
 
+  // Zoom buttons for players without a scroll wheel.
+  document.getElementById('zoom-buttons').addEventListener('click', event => {
+    const delta = Number(event.target.closest('button[data-zoom]')?.dataset.zoom);
+    if (!delta) return;
+    // The orthographic controller reads zoomX/zoomY ahead of zoom.
+    const zoom = (viewState.zoomX ?? viewState.zoom) + delta;
+    viewState = clampTarget({ ...viewState, zoom, zoomX: zoom, zoomY: zoom, transitionDuration: 0 });
+    viewZoom = viewState.zoom;
+    viewTarget = viewState.target;
+    applyCameraState(movingPixelRatio());
+    ensureAttackAnim();
+  });
+
   document.getElementById('map').addEventListener('contextmenu', event => {
     event.preventDefault();
     const viewport = deck.getViewports()[0];

@@ -370,6 +370,24 @@ button:focus-visible, select:focus-visible {
 }
 #map-mode-buttons button:active { background: var(--panel-dark); }
 
+#zoom-buttons {
+  display: grid;
+  padding: 3px 3px 0;
+}
+#zoom-buttons button {
+  min-height: 1.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.125rem;
+  line-height: 1;
+}
+#zoom-buttons button + button,
+#zoom-buttons ~ * { border-top: 1px solid var(--edge); }
+#zoom-buttons button:hover { background: #343b32; color: var(--ink); }
+#zoom-buttons button:active { background: var(--panel-dark); }
+
 #coords {
   position: fixed;
   z-index: 1000;
