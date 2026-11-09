@@ -32,6 +32,7 @@ import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerCustomClickEvent
+import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.inventory.Inventory
@@ -134,6 +135,7 @@ object Economy {
                 eventNode.addListener(InventoryPreClickEvent::class.java, ::onInventoryClick)
                 eventNode.addListener(InventoryCloseEvent::class.java, ::onInventoryClose)
                 eventNode.addListener(PlayerCustomClickEvent::class.java, ::onCustomClick)
+                eventNode.addListener(PlayerDisconnectEvent::class.java) { event -> sessions.remove(event.player.uuid) }
                 ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
             }
             measure("Commands") {
