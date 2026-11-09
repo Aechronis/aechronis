@@ -1,6 +1,6 @@
 package net.aechronis.combat
 
-import net.aechronis.combat.objects.Grenade
+import net.aechronis.combat.objects.Throwable
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.timer.Task
@@ -11,9 +11,8 @@ internal class CombatPlayerState {
     var aimingResetTask: Task? = null
     var reloadTask: Task? = null
     var placeTask: Task? = null
-    var armedGrenade: Grenade? = null
-    var grenadeFuseTask: Task? = null
-    var grenadeFuseDeadline: Long? = null
+    var heldThrowable: Throwable? = null
+    val throwableCooldowns = HashMap<String, Long>()
 
     val previousPositions = ArrayDeque<Pos>()
     var speed = 0f
@@ -41,12 +40,8 @@ internal class CombatPlayerState {
         task?.cancel()
     }
 
-    fun clearGrenade() {
-        val task = grenadeFuseTask
-        grenadeFuseTask = null
-        task?.cancel()
-        grenadeFuseDeadline = null
-        armedGrenade = null
+    fun clearThrowable() {
+        heldThrowable = null
     }
 
     /** Catalogue changes cancel item actions without resetting movement, cooldowns or protection. */
@@ -54,7 +49,7 @@ internal class CombatPlayerState {
         cancelAimingReset()
         cancelReload()
         cancelPlacement()
-        clearGrenade()
+        clearThrowable()
     }
 }
 

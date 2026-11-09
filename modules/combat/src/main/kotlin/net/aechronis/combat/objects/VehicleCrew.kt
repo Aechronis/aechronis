@@ -14,6 +14,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.item.ItemStack
 import net.minestom.server.utils.entity.EntityUtils
+import kotlin.Throwable
 
 /** Owns crew transitions and their temporary player state; occupancy stays in [VehicleRegistry]. */
 internal class VehicleCrew(
@@ -115,7 +116,7 @@ internal class VehicleCrew(
         reconcileOccupant(player)
         return !isForcedExit(player) &&
             !player.isDead &&
-            Combat.playerStates[player]?.armedGrenade == null &&
+            Combat.playerStates[player]?.heldThrowable == null &&
             VehicleRegistry.ride(player) == null &&
             VehicleRegistry.runtime(entity)?.vehicle === vehicle &&
             !entity.isRemoved &&

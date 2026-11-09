@@ -11,6 +11,7 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
+import kotlin.Throwable
 
 /**
  * A pushable gun carriage: look to aim and hold jump to fire at [gun]'s configured cadence.

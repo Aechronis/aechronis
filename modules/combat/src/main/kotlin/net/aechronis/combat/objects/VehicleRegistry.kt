@@ -14,6 +14,7 @@ import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
 import net.minestom.server.network.packet.server.play.EntityPositionSyncPacket
 import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.Throwable
 
 /** Mutable state belonging to one spawned vehicle, separate from its item definition. */
 internal class VehicleRuntime(

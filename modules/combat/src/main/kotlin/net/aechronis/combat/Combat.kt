@@ -8,7 +8,6 @@ import net.aechronis.combat.listeners.ArmorProtectionListener
 import net.aechronis.combat.listeners.CooldownResetListener
 import net.aechronis.combat.listeners.FallDistanceListener
 import net.aechronis.combat.listeners.FireListener
-import net.aechronis.combat.listeners.GrenadeListener
 import net.aechronis.combat.listeners.HatListener
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.listeners.LagCompensationListener
@@ -18,6 +17,7 @@ import net.aechronis.combat.listeners.PlayerDeathListener
 import net.aechronis.combat.listeners.PlayerDisconnectListener
 import net.aechronis.combat.listeners.ReloadListener
 import net.aechronis.combat.listeners.RespawnProtectionListener
+import net.aechronis.combat.listeners.ThrowableListener
 import net.aechronis.combat.listeners.VehicleListener
 import net.aechronis.combat.listeners.WeaponLoreListener
 import net.aechronis.combat.managers.CombatTags
@@ -243,7 +243,7 @@ object Combat {
                 AmmoInventoryListener.init()
                 ReloadListener.init()
                 FireListener.init()
-                GrenadeListener.init()
+                ThrowableListener.init()
                 MeleeListener.init()
                 FallDistanceListener.init()
                 PlayerDeathListener.init()

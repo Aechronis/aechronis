@@ -7,6 +7,7 @@ import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import kotlin.Throwable
 
 /** Configure an already-owned display so failed setup can use the vehicle's normal runtime cleanup. */
 internal fun VehicleDisplayEntity.spawnWeaponDisplay(

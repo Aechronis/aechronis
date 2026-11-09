@@ -30,13 +30,13 @@ class Projectile private constructor(
     val source: Player? = null,
     val weapon: Component? = null,
     val ammoType: AmmoTypes? = null,
-    val fuseDeadlineMillis: Long? = null,
     val trailParticle: Particle? = null,
     val trailSpacing: Double = 1.0,
     val trailMaxParticles: Int = 96,
     val maxRange: Double? = null,
     private val bypassDamageImmunity: Boolean,
     private val ignoredEntities: Set<Entity>,
+    private val onImpact: ((LivingEntity?, Point) -> Unit)?,
 ) {
     constructor(
         instance: Instance,
@@ -51,11 +51,11 @@ class Projectile private constructor(
         source: Player? = null,
         weapon: Component? = null,
         ammoType: AmmoTypes? = null,
-        fuseDeadlineMillis: Long? = null,
         trailParticle: Particle? = null,
         trailSpacing: Double = 1.0,
         trailMaxParticles: Int = 96,
         maxRange: Double? = null,
+        onImpact: ((LivingEntity?, Point) -> Unit)? = null,
     ) : this(
         instance,
         pos,
@@ -69,13 +69,13 @@ class Projectile private constructor(
         source,
         weapon,
         ammoType,
-        fuseDeadlineMillis,
         trailParticle,
         trailSpacing,
         trailMaxParticles,
         maxRange,
         false,
         emptySet(),
+        onImpact,
     )
 
     private val entity: Entity
@@ -101,6 +101,9 @@ class Projectile private constructor(
 
         meta.isHasNoGravity = true
 
+        // Two steps keep the speed steady when a teleport reaches the client a tick early or late.
+        meta.posRotInterpolationDuration = 2
+
         itemDisplay.spawn()
 
         this.entity = itemDisplay
@@ -112,10 +115,6 @@ class Projectile private constructor(
         if (!isActive) return
 
         val currentPos = entity.position
-        if (fuseDeadlineMillis != null && System.currentTimeMillis() >= fuseDeadlineMillis) {
-            detonate(currentPos)
-            return
-        }
 
         // Accelerate downward so the projectile arcs over time, then limit this tick to its
         // remaining range. This keeps both collision and the visual trail on the same path.
@@ -141,7 +140,12 @@ class Projectile private constructor(
         travelledDistance += currentPos.distance(trailEnd)
 
         if (impact != null) {
-            detonate(trailEnd)
+            if (onImpact != null) {
+                discard()
+                onImpact(impact.entity, impact.point)
+            } else {
+                detonate(trailEnd)
+            }
             return
         }
         if (remainingRange != null && travelledDistance >= maxRange) {
@@ -219,7 +223,6 @@ class Projectile private constructor(
             weapon: Component?,
             ignoredEntities: Set<Entity>,
             ammoType: AmmoTypes?,
-            fuseDeadlineMillis: Long? = null,
             trailParticle: Particle? = null,
             trailSpacing: Double = 1.0,
             trailMaxParticles: Int = 96,
@@ -238,13 +241,13 @@ class Projectile private constructor(
                 source,
                 weapon,
                 ammoType,
-                fuseDeadlineMillis,
                 trailParticle,
                 trailSpacing,
                 trailMaxParticles,
                 maxRange,
                 true,
                 ignoredEntities,
+                null,
             )
     }
 }
@@ -252,6 +255,7 @@ class Projectile private constructor(
 internal data class ProjectileImpact(
     val t: Double,
     val point: Point,
+    val entity: LivingEntity? = null,
 )
 
 internal fun firstProjectileImpact(
@@ -308,6 +312,6 @@ internal fun selectProjectileImpact(
 ): ProjectileImpact? =
     listOfNotNull(
         blockHit?.let { ProjectileImpact(it.t, it.point) },
-        entityHit?.let { ProjectileImpact(it.t, it.point) },
+        entityHit?.let { ProjectileImpact(it.t, it.point, it.obj) },
         vehicleHit,
     ).minByOrNull { it.t }
