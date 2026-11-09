@@ -19,9 +19,11 @@ object ShopListener {
     private val eventNode = EventNode.all("killshop").setPriority(1)
 
     fun onPreClick(event: InventoryPreClickEvent) {
-        val inv = event.inventory as? Inventory ?: return
+        // Clicks in the player's own section report their PlayerInventory but still act on the open shop.
+        val inv = event.player.openInventory as? Inventory ?: return
         if (!KillShop.openInventories.containsKey(inv)) return
         event.isCancelled = true
+        if (event.inventory !== inv) return
 
         val player = event.player
         val slot = event.slot
