@@ -14,6 +14,7 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.entity.damage.DamageType
@@ -268,6 +269,7 @@ object MeleeListener {
     }
 
     private fun onHandAnimation(event: PlayerHandAnimationEvent) {
+        if (event.hand != PlayerHand.MAIN) return
         val player = event.player
         if (Item.getFromItemStack(player.itemInMainHand) !is Melee) return
         Combat.playerStates.getOrCreate(player).meleeLastAttackTime = System.currentTimeMillis()
