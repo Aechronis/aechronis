@@ -7,6 +7,7 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.entity.EntityDamageEvent
+import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 
 object CombatTagListener {
@@ -17,6 +18,10 @@ object CombatTagListener {
         if (attacker.uuid == victim.uuid) return
 
         CombatTags.tag(attacker, victim)
+    }
+
+    fun onDeath(event: PlayerDeathEvent) {
+        CombatTags.clear(event.player)
     }
 
     fun onDisconnect(event: PlayerDisconnectEvent) {
@@ -38,6 +43,8 @@ object CombatTagListener {
         val combatEventNode = EventNode.all("combat-tags").setPriority(1000)
         combatEventNode.addListener(EntityDamageEvent::class.java, CombatTagListener::onDamage)
         ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), combatEventNode)
+
+        Combat.eventNode.addListener(PlayerDeathEvent::class.java, CombatTagListener::onDeath)
 
         // Registered before Combat's disconnect cleanup, and before Vanilla saves player data.
         Combat.eventNode.addListener(PlayerDisconnectEvent::class.java, CombatTagListener::onDisconnect)

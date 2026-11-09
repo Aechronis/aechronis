@@ -7,16 +7,21 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.damage.Damage
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.inventory.Inventory
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 object ShopListener {
     private val eventNode = EventNode.all("killshop").setPriority(1)
+
+    // A player's last damage outlives respawns, so a later attacker-less death would credit the same hit again.
+    private val creditedDamage = ConcurrentHashMap<UUID, Damage>()
 
     fun onPreClick(event: InventoryPreClickEvent) {
         // Clicks in the player's own section report their PlayerInventory but still act on the open shop.
@@ -67,6 +72,7 @@ object ShopListener {
         // Cooldowns belong to the account and must survive reconnects.
         KillShop.playerCooldowns[event.player.uuid]?.entries?.removeIf { it.value <= System.currentTimeMillis() }
         KillShop.openInventories.entries.removeIf { it.value == event.player.uuid }
+        creditedDamage.remove(event.player.uuid)
         KillShopPoints.save(KillShopPoints.snapshot()).whenComplete { _, error ->
             if (error != null) System.err.println("Failed to save kill-shop points: ${error.message}")
         }
@@ -74,7 +80,9 @@ object ShopListener {
 
     fun onDeath(event: PlayerDeathEvent) {
         val victim = event.player
-        val killer = event.player.lastDamageSource?.attacker as? Player ?: return
+        val damage = victim.lastDamageSource ?: return
+        if (creditedDamage.put(victim.uuid, damage) === damage) return
+        val killer = damage.attacker as? Player ?: return
         if (killer.uuid == victim.uuid) return
         KillShopPoints.setBalance(killer, KillShopPoints.balance(killer) + 1)
     }

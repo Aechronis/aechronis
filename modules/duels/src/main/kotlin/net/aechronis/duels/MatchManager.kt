@@ -1,5 +1,6 @@
 package net.aechronis.duels
 
+import net.aechronis.combat.managers.CombatTags
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.server.Server
 import net.aechronis.server.io.AtomicFiles
@@ -166,6 +167,8 @@ object MatchManager {
     ) {
         if (match.state == MatchState.ENDING) return
         match.state = MatchState.ENDING
+        // Duel hits must not count as combat once the player is back in the world with their real inventory.
+        match.players().forEach(CombatTags::clear)
         match.mode.onEnd(match, winner)
         val text =
             if (winner == null) {
@@ -280,6 +283,7 @@ object MatchManager {
         CompletableFuture.allOf(*chunks.toTypedArray()).join()
 
         context.captureLive {
+            players.forEach(CombatTags::clear)
             for (player in players) {
                 if (!player.isOnline) continue
                 // finish() may already have moved a member home before its restore task was cancelled.
