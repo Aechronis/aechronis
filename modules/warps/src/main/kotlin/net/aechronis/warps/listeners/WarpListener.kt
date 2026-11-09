@@ -10,6 +10,7 @@ import net.minestom.server.event.EventNode
 import net.minestom.server.event.entity.EntityTeleportEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
+import net.minestom.server.event.player.PlayerSpawnEvent
 
 object WarpListener {
     private val eventNode = EventNode.all("warps")
@@ -32,8 +33,15 @@ object WarpListener {
         }
     }
 
+    fun onSpawn(event: PlayerSpawnEvent) {
+        if (Warps.cancelPending(event.player)) {
+            event.player.sendMessage(Component.text("Warp cancelled because you changed worlds.", NamedTextColor.RED))
+        }
+    }
+
     fun init() {
         eventNode.addListener(PlayerMoveEvent::class.java, ::onMove)
+        eventNode.addListener(PlayerSpawnEvent::class.java, ::onSpawn)
         eventNode.addListener(EntityTeleportEvent::class.java, ::onTeleport)
         eventNode.addListener(PlayerDisconnectEvent::class.java, ::onDisconnect)
         ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
