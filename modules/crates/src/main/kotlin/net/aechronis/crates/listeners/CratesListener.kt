@@ -26,7 +26,8 @@ object CratesListener {
     }
 
     fun onPreClick(event: InventoryPreClickEvent) {
-        val inventory = event.inventory as? Inventory ?: return
+        // Clicks in the player's own section report their PlayerInventory but still act on the open crate.
+        val inventory = event.player.openInventory as? Inventory ?: return
         if (Crates.isCrateInventory(inventory)) event.isCancelled = true
     }
 
