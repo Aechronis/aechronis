@@ -13,12 +13,17 @@ import net.minestom.server.inventory.AbstractInventory
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
+import net.minestom.server.utils.inventory.PlayerInventoryUtils
 import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 
 object InventoryViews {
+    // Storage keeps its slot numbers in the view, followed by the four armor slots and the off-hand.
     const val MIRRORED_SLOTS = 41
+    private const val VIEW_HELMET_SLOT = 36
+    private const val VIEW_BOOTS_SLOT = 39
+    private const val VIEW_OFFHAND_SLOT = 40
     private val viewing = ConcurrentHashMap<Inventory, Player>()
     private val viewingLock = Any()
     private val synchronizingInventories =
@@ -34,7 +39,7 @@ object InventoryViews {
             viewing[inv] = target
             withoutSynchronization(inv) {
                 for (slot in 0 until MIRRORED_SLOTS) {
-                    inv.setItemStack(slot, target.inventory.getItemStack(slot))
+                    inv.setItemStack(slot, target.inventory.getItemStack(playerSlot(slot)))
                 }
             }
         }
@@ -48,15 +53,14 @@ object InventoryViews {
         slot: Int,
         item: ItemStack,
     ) {
-        if (slot !in 0 until MIRRORED_SLOTS) return
-
         synchronized(viewingLock) {
             if (inventory in synchronizingInventories) return
 
             val sourceView = inventory as? Inventory
             val target = sourceView?.let(viewing::get)
             if (target != null) {
-                setWithoutSynchronization(target.inventory, slot, item)
+                if (slot !in 0 until MIRRORED_SLOTS) return
+                setWithoutSynchronization(target.inventory, playerSlot(slot), item)
                 for ((view, viewedPlayer) in viewing) {
                     if (view !== sourceView && viewedPlayer === target) {
                         setWithoutSynchronization(view, slot, item)
@@ -65,13 +69,30 @@ object InventoryViews {
                 return
             }
 
+            val viewSlot = viewSlot(slot) ?: return
             for ((view, viewedPlayer) in viewing) {
                 if (viewedPlayer.inventory === inventory) {
-                    setWithoutSynchronization(view, slot, item)
+                    setWithoutSynchronization(view, viewSlot, item)
                 }
             }
         }
     }
+
+    private fun playerSlot(viewSlot: Int): Int =
+        when (viewSlot) {
+            in VIEW_HELMET_SLOT..VIEW_BOOTS_SLOT -> viewSlot - VIEW_HELMET_SLOT + PlayerInventoryUtils.HELMET_SLOT
+            VIEW_OFFHAND_SLOT -> PlayerInventoryUtils.OFFHAND_SLOT
+            else -> viewSlot
+        }
+
+    private fun viewSlot(playerSlot: Int): Int? =
+        when (playerSlot) {
+            in 0 until VIEW_HELMET_SLOT -> playerSlot
+            in PlayerInventoryUtils.HELMET_SLOT..PlayerInventoryUtils.BOOTS_SLOT ->
+                playerSlot - PlayerInventoryUtils.HELMET_SLOT + VIEW_HELMET_SLOT
+            PlayerInventoryUtils.OFFHAND_SLOT -> VIEW_OFFHAND_SLOT
+            else -> null
+        }
 
     internal fun removeView(inventory: Inventory): Boolean =
         synchronized(viewingLock) {
