@@ -4,6 +4,7 @@ import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.objects.Town
+import net.aechronis.server.Server
 import net.minestom.server.entity.Player
 import net.minestom.server.event.entity.EntityDamageEvent
 
@@ -13,6 +14,8 @@ object NodesPlayerDamageListener {
         val attacker = event.damage.attacker
 
         if (victim !is Player || attacker !is Player) return
+        // Town diplomacy only applies in the main world; duel arenas run in their own instances.
+        if (victim.instance !== Server.instance) return
 
         // if relationship is ally, town or nation, and config specifies it, cancel event and notify attacker
         val relationship = Town.relationshipOfPlayerToPlayer(victim, attacker)
