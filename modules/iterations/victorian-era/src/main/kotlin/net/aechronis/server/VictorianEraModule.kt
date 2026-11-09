@@ -25,6 +25,7 @@ import net.aechronis.server.constants.FieldPieces
 import net.aechronis.server.constants.Grenades
 import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Melees
+import net.aechronis.server.constants.Spears
 import net.aechronis.server.craft.HorseRecipes
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
@@ -110,6 +111,7 @@ class VictorianEraModule : AechronisModule {
             *Ammo.all.toTypedArray(),
             *Guns.all.toTypedArray(),
             *Grenades.all.toTypedArray(),
+            *Spears.all.toTypedArray(),
             *Melees.all.toTypedArray(),
             *Armor.all.toTypedArray(),
             *Boats.all.toTypedArray(),
