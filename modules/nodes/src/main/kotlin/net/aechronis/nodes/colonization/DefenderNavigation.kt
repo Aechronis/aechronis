@@ -130,10 +130,8 @@ internal class DefenderNavigator(
         if (activeGoal.playerId != goal.playerId || activeGoal.attack !== goal.attack) return true
         val playerMoved = goal.playerId != null &&
             activeGoal.position.distanceSquared(goal.position) >= PATH_GOAL_MOVEMENT_DISTANCE * PATH_GOAL_MOVEMENT_DISTANCE
-        if (playerMoved && nowMillis - lastPathRefreshAt >= PLAYER_PATH_REFRESH_MILLIS) {
-            navigator.reset()
-            return true
-        }
+        // the navigator keeps following the old path until the replacement is ready
+        if (playerMoved && nowMillis - lastPathRefreshAt >= PLAYER_PATH_REFRESH_MILLIS) return true
         if (nowMillis - lastPathRefreshAt < PATH_RETRY_MILLIS) return false
 
         return when (navigator.state) {
