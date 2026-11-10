@@ -41,6 +41,7 @@ internal class DefenseSession(
     val spawnCenter: Pos,
 ) {
     val attacks: MutableSet<Attack> = linkedSetOf()
+    val placedTerrainBlocks: MutableMap<Attack, Int> = mutableMapOf()
     val leasedAutomaticChunks: MutableSet<Coord> = mutableSetOf()
     val spawnPreparationChunks: MutableSet<Coord> = mutableSetOf()
     var spawnPreparationInFlight: Boolean = false

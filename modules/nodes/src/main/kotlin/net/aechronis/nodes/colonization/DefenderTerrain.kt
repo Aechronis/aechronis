@@ -75,6 +75,19 @@ internal fun isSafeDefenderStandingPosition(
         !head.liquid()
 }
 
+// direct movement keeps the looser check above because a defender on a slab or stair shares its feet block with it
+internal fun isClearDefenderStandingPosition(
+    instance: Instance,
+    position: Pos,
+): Boolean {
+    val x = position.blockX()
+    val y = position.blockY()
+    val z = position.blockZ()
+    return isSafeDefenderStandingPosition(instance, position) &&
+        !instance.getBlock(x, y, z).blocksMotion() &&
+        !instance.getBlock(x, y + 1, z).blocksMotion()
+}
+
 // chooses one nearby terrain edit that opens the direct route from [start] toward [target]
 // a one block step or drop is already walkable so left untouched
 internal fun aiTerrainEdit(
@@ -86,7 +99,8 @@ internal fun aiTerrainEdit(
     val deltaX = target.x - start.x
     val deltaZ = target.z - start.z
     val longestAxis = max(abs(deltaX), abs(deltaZ))
-    val needsElevation = target.blockY() > start.blockY()
+    val needsElevation =
+        target.blockY() - start.blockY() >= MINIMUM_ELEVATION_TO_BUILD && longestAxis <= MAXIMUM_ELEVATION_BUILD_DISTANCE
     if (longestAxis < 0.5) {
         if (!needsElevation) return null
         val adjacentColumns = listOf(
@@ -179,3 +193,5 @@ private fun canBreakTerrain(
 ): Boolean = block.blocksMotion() && block.registry()?.hardness() != -1F && canEdit(position)
 
 private const val TERRAIN_EDIT_REACH = 4.0
+private const val MINIMUM_ELEVATION_TO_BUILD = 2
+private const val MAXIMUM_ELEVATION_BUILD_DISTANCE = 6.0

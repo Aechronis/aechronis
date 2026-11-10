@@ -7,6 +7,8 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.instance.block.Block
 import kotlin.math.abs
 
+private const val MAX_PLACED_TERRAIN_BLOCKS_PER_ATTACK = 24
+
 /** Breaks or places terrain when a defender cannot reach an active flag by walking. */
 internal object DefenderTerrainRecovery {
     fun stopTerrainRecovery(
@@ -65,6 +67,9 @@ internal object DefenderTerrainRecovery {
                 blockAt = session.instance::getBlock,
                 canEdit = canEdit,
             )
+        }?.takeIf { edit ->
+            edit.kind != AiTerrainEditKind.PLACE ||
+                placedTerrainBlocks(session, attack) < MAX_PLACED_TERRAIN_BLOCKS_PER_ATTACK
         }
         if (edit == null) {
             defender.navigation.advanceApproach()
@@ -80,6 +85,7 @@ internal object DefenderTerrainRecovery {
             }
             AiTerrainEditKind.PLACE -> {
                 session.instance.setBlock(edit.position, Block.COBBLESTONE)
+                session.placedTerrainBlocks[attack] = placedTerrainBlocks(session, attack) + 1
                 defender.entity.lookAt(edit.position.add(0.5, 0.5, 0.5))
                 defender.entity.swingMainHand()
                 defender.navigation.clearTerrainRecovery()
@@ -88,6 +94,11 @@ internal object DefenderTerrainRecovery {
             }
         }
     }
+
+    private fun placedTerrainBlocks(
+        session: DefenseSession,
+        attack: Attack,
+    ): Int = session.placedTerrainBlocks[attack] ?: 0
 
     private fun beginTerrainBreaking(
         session: DefenseSession,

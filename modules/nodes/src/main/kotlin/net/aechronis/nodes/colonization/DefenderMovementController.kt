@@ -140,7 +140,7 @@ internal class DefenderMovementController(
             ) ?: return@forEach
 
             if (!defender.navigation.startPreparedPath(prepared, now)) {
-                failNavigationPath(session, defender, prepared.goal, "pathfinder rejected the route")
+                failNavigationPath(session, defender, prepared.goal, now, "pathfinder rejected the route")
             }
             pathStartsRemaining -= 1
         }
@@ -187,7 +187,7 @@ internal class DefenderMovementController(
         val safe = candidates
             .filter { candidate ->
                 instance.isChunkLoaded(candidate.chunkX(), candidate.chunkZ()) &&
-                    isSafeDefenderStandingPosition(instance, candidate) &&
+                    isClearDefenderStandingPosition(instance, candidate) &&
                     hasClearFlagReach(candidate.add(0.0, defender.eyeHeight, 0.0), flagPosition, instance)
             }
             .filterNot { candidate -> candidate.sameBlock(defender.position) }
@@ -216,7 +216,7 @@ internal class DefenderMovementController(
                     return@scheduleNextTick
                 }
                 if (loadError != null) {
-                    failNavigationPath(session, defender, goal, "could not load route chunks: ${loadError.message}")
+                    failNavigationPath(session, defender, goal, now, "could not load route chunks: ${loadError.message}")
                     return@scheduleNextTick
                 }
 
@@ -226,7 +226,7 @@ internal class DefenderMovementController(
                     resolveNavigationWaypoint(session.instance, routeTarget)
                 }
                 if (endpoint == null) {
-                    failNavigationPath(session, defender, goal, "could not find a safe intermediate waypoint")
+                    failNavigationPath(session, defender, goal, now, "could not find a safe intermediate waypoint")
                     return@scheduleNextTick
                 }
                 defender.navigation.completePathPreparation(
@@ -325,9 +325,10 @@ internal class DefenderMovementController(
         session: DefenseSession,
         defender: AiDefender,
         goal: NavigationGoal,
+        now: Long,
         reason: String,
     ) {
-        val firstFailure = defender.navigation.failPath(goal)
+        val firstFailure = defender.navigation.failPath(goal, now)
         sessions.reconcileChunks(session)
         if (firstFailure) {
             val destination = when {

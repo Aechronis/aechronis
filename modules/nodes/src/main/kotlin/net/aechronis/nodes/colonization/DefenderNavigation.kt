@@ -28,6 +28,9 @@ internal class DefenderNavigator(
     private var terrainRecoveryRequested: Boolean = false
     private var lastPathRefreshAt: Long = 0
     private var pathFailureCount: Int = 0
+    private var routeFailureCount: Int = 0
+    private var lastRouteFailureAt: Long = 0
+    private var routeFailureRecorded: Boolean = false
     private var nextApproachIndex: Int = 0
     private var pathGeneration: Int = 0
     private var pathLoadPending: Boolean = false
@@ -139,29 +142,27 @@ internal class DefenderNavigator(
             -> {
                 navigator.reset()
                 val arrived = !scaffoldNavigation && reachedActivePathEndpoint(position)
-                if (scaffoldNavigation) {
-                    advanceApproach()
-                    scaffoldNavigation = false
-                    highestScaffoldY = Double.NEGATIVE_INFINITY
-                }
-                if (goal.attack != null && !arrived) {
-                    requestTerrainRecovery()
-                    false
+                scaffoldNavigation = false
+                highestScaffoldY = Double.NEGATIVE_INFINITY
+                if (arrived) {
+                    routeFailureCount = 0
                 } else {
-                    true
+                    advanceApproach()
+                    if (goal.attack != null) recordRouteFailure(nowMillis)
                 }
+                !terrainRecoveryRequested
             }
             PPath.State.FOLLOWING -> {
                 val stallMillis = if (scaffoldNavigation) SCAFFOLD_PATH_STALL_MILLIS else PATH_STALL_MILLIS
                 val stalled = nowMillis - lastNavigationProgressAt >= stallMillis
                 if (stalled) {
-                    if (scaffoldNavigation) advanceApproach()
+                    advanceApproach()
                     navigator.reset()
                     scaffoldNavigation = false
                     highestScaffoldY = Double.NEGATIVE_INFINITY
-                    if (goal.attack != null) requestTerrainRecovery()
+                    if (goal.attack != null) recordRouteFailure(nowMillis)
                 }
-                stalled && goal.attack == null
+                stalled && !terrainRecoveryRequested
             }
             PPath.State.CALCULATING,
             PPath.State.TERMINATING,
@@ -177,6 +178,7 @@ internal class DefenderNavigator(
         nowMillis: Long,
     ): Int {
         val generation = ++pathGeneration
+        routeFailureRecorded = false
         pathLoadPending = true
         pathLoadStartedAt = nowMillis
         requestedNavigationGoal = goal
@@ -243,7 +245,10 @@ internal class DefenderNavigator(
         return true
     }
 
-    fun failPath(goal: NavigationGoal): Boolean {
+    fun failPath(
+        goal: NavigationGoal,
+        nowMillis: Long,
+    ): Boolean {
         pathLoadPending = false
         pathLoadStartedAt = 0
         preparedNavigationPath = null
@@ -257,7 +262,7 @@ internal class DefenderNavigator(
         pathFailureCount += 1
         if (goal.attack != null) {
             advanceApproach()
-            requestTerrainRecovery()
+            recordRouteFailure(nowMillis)
         }
         return pathFailureCount == 1
     }
@@ -286,21 +291,30 @@ internal class DefenderNavigator(
         highestScaffoldY = entity.position.y
         val standingPosition = placedBlock.add(0.5, 1.0, 0.5).asPos()
         val generation = pathGeneration
-        val reachedScaffold = {
+        // clearing the active goal retries walking, so climbing only continues while the route is really blocked
+        val finishScaffoldStep = {
             if (pathGeneration == generation && activeNavigationGoal === goal) {
                 scaffoldNavigation = false
                 highestScaffoldY = Double.NEGATIVE_INFINITY
-                requestTerrainRecovery()
+                activeNavigationGoal = null
             }
         }
-        if (setNavigationPath(standingPosition, PATH_MINIMUM_DISTANCE, reachedScaffold)) {
+        if (setNavigationPath(standingPosition, PATH_MINIMUM_DISTANCE, finishScaffoldStep)) {
             lastNavigationPosition = entity.position
             lastNavigationProgressAt = nowMillis
         } else {
-            scaffoldNavigation = false
-            highestScaffoldY = Double.NEGATIVE_INFINITY
-            requestTerrainRecovery()
+            finishScaffoldStep()
         }
+    }
+
+    // a single failure is usually a bad approach spot, so building waits until routes keep failing
+    private fun recordRouteFailure(nowMillis: Long) {
+        if (routeFailureRecorded) return
+        routeFailureRecorded = true
+        if (nowMillis - lastRouteFailureAt > ROUTE_FAILURE_WINDOW_MILLIS) routeFailureCount = 0
+        routeFailureCount += 1
+        lastRouteFailureAt = nowMillis
+        if (routeFailureCount >= ROUTE_FAILURES_BEFORE_TERRAIN_RECOVERY) requestTerrainRecovery()
     }
 
     private fun reachedActivePathEndpoint(position: Pos): Boolean {
@@ -407,6 +421,8 @@ private const val PLAYER_PATH_MINIMUM_DISTANCE = 2.0
 private const val MAX_PATH_DISTANCE = 80.0
 private const val PATH_VARIANCE = 16.0
 private const val PATH_PROGRESS_DISTANCE = 0.08
+private const val ROUTE_FAILURES_BEFORE_TERRAIN_RECOVERY = 3
+private const val ROUTE_FAILURE_WINDOW_MILLIS = 10_000L
 
 // the closest minestom's path search will finish from its target, plus how loosely path nodes are followed
 private const val PATH_SEARCH_CLOSE_DISTANCE = 0.8
