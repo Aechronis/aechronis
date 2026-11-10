@@ -289,11 +289,11 @@ internal class DefenderNavigator(
         highestScaffoldY = entity.position.y
         val standingPosition = placedBlock.add(0.5, 1.0, 0.5).asPos()
         val generation = pathGeneration
-        // clearing the active goal retries walking, so climbing only continues while the route is really blocked
         val finishScaffoldStep = {
             if (pathGeneration == generation && activeNavigationGoal === goal) {
                 scaffoldNavigation = false
                 highestScaffoldY = Double.NEGATIVE_INFINITY
+                // clearing the active goal retries walking, so bridging only continues while the route is blocked
                 activeNavigationGoal = null
             }
         }

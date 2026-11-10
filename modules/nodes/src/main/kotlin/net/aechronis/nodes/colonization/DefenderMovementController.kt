@@ -105,6 +105,9 @@ internal class DefenderMovementController(
     ): DefenderMovementOutcome {
         if (goal.attack == null) DefenderTerrainRecovery.stopTerrainRecovery(session, defender)
         defender.navigation.discardStaleGoal(goal)
+        if (goal.attack != null && DefenderTerrainRecovery.continueStaircase(session, defender, goal.attack, now)) {
+            return DefenderMovementOutcome.RECOVERING_TERRAIN
+        }
         if (
             goal.attack != null &&
             (defender.blockBreaker.kind == DefenderBlockBreakKind.TERRAIN || defender.navigation.recoveryRequested) &&
@@ -303,6 +306,12 @@ internal class DefenderMovementController(
         defender: AiDefender,
         attack: Attack,
     ): NavigationGoal? {
+        session.staircases[attack]?.let { staircase ->
+            // working out the current step needs feet on a tread, so mid-jump keeps the goal it already has
+            if (!defender.entity.isOnGround) defender.navigation.currentGoal?.let { return it }
+            val target = staircase.nextStandingTarget(session.instance, defender.entity.position)
+            return NavigationGoal(null, attack, target)
+        }
         val approaches = flagApproachPositions(session.instance, attack, defender.entity)
         if (approaches.isEmpty()) return null
         return NavigationGoal(null, attack, defender.navigation.approachFor(approaches))

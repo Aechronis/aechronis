@@ -4,6 +4,10 @@ import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.war.Attack
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.Entity
+import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.LivingEntity
+import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import kotlin.math.abs
@@ -99,20 +103,7 @@ internal fun aiTerrainEdit(
     val deltaX = target.x - start.x
     val deltaZ = target.z - start.z
     val longestAxis = max(abs(deltaX), abs(deltaZ))
-    val needsElevation =
-        target.blockY() - start.blockY() >= MINIMUM_ELEVATION_TO_BUILD && longestAxis <= MAXIMUM_ELEVATION_BUILD_DISTANCE
-    if (longestAxis < 0.5) {
-        if (!needsElevation) return null
-        val adjacentColumns = listOf(
-            start.blockX() + 1 to start.blockZ(),
-            start.blockX() - 1 to start.blockZ(),
-            start.blockX() to start.blockZ() + 1,
-            start.blockX() to start.blockZ() - 1,
-        )
-        return adjacentColumns.firstNotNullOfOrNull { (x, z) ->
-            elevatedStepPlacement(x, start.blockY(), z, blockAt, canEdit)
-        }
-    }
+    if (longestAxis < 0.5) return null
 
     val sampleCount = minOf(ceil(longestAxis).toInt(), floor(TERRAIN_EDIT_REACH).toInt())
     var previousColumn: Pair<Int, Int>? = null
@@ -156,42 +147,66 @@ internal fun aiTerrainEdit(
 
         val floorBlock = blockAt(floorPosition)
         if (!floorBlock.blocksMotion()) {
-            if (needsElevation) {
-                elevatedStepPlacement(x, start.blockY(), z, blockAt, canEdit)?.let { return it }
-            }
             val belowFloor = blockAt(belowFloorPosition)
             val isWalkableDrop = !floorBlock.liquid() && belowFloor.blocksMotion() && !belowFloor.liquid()
             if (!isWalkableDrop) {
                 if (canEdit(floorPosition)) return AiTerrainEdit(AiTerrainEditKind.PLACE, floorPosition)
                 return null
             }
-        } else if (needsElevation) {
-            elevatedStepPlacement(x, start.blockY(), z, blockAt, canEdit)?.let { return it }
         }
     }
     return null
 }
 
-private fun elevatedStepPlacement(
-    x: Int,
-    feetY: Int,
-    z: Int,
-    blockAt: (BlockVec) -> Block,
-    canEdit: (BlockVec) -> Boolean,
-): AiTerrainEdit? {
-    val placement = BlockVec(x, feetY, z)
-    if (blockAt(placement).blocksMotion() || !canEdit(placement)) return null
-    if (blockAt(placement.add(0, 1, 0)).blocksMotion()) return null
-    if (blockAt(placement.add(0, 2, 0)).blocksMotion()) return null
-    return AiTerrainEdit(AiTerrainEditKind.PLACE, placement)
-}
-
-private fun canBreakTerrain(
+internal fun canBreakTerrain(
     block: Block,
     position: BlockVec,
     canEdit: (BlockVec) -> Boolean,
 ): Boolean = block.blocksMotion() && block.registry()?.hardness() != -1F && canEdit(position)
 
+internal fun hasSolidFace(
+    instance: Instance,
+    position: BlockVec,
+): Boolean = listOf(
+    position.add(1, 0, 0),
+    position.add(-1, 0, 0),
+    position.add(0, 1, 0),
+    position.add(0, -1, 0),
+    position.add(0, 0, 1),
+    position.add(0, 0, -1),
+).any { neighbour -> instance.isChunkLoaded(neighbour) && instance.getBlock(neighbour).blocksMotion() }
+
+// the same limits a vanilla client works within: a face to click, within reach, with nobody standing in the block
+internal fun canPlaceLikeVanilla(
+    instance: Instance,
+    placer: LivingEntity,
+    position: BlockVec,
+): Boolean {
+    if (instance.getBlock(position).blocksMotion() || !hasSolidFace(instance, position)) return false
+    val center = position.add(0.5, 0.5, 0.5).asPos()
+    val eyes = placer.position.add(0.0, placer.eyeHeight, 0.0)
+    if (eyes.distanceSquared(center) > BLOCK_PLACE_REACH * BLOCK_PLACE_REACH) return false
+    return instance.getNearbyEntities(center, ENTITY_OCCUPANCY_SEARCH).none { entity ->
+        entity is LivingEntity && (entity as? Player)?.gameMode != GameMode.SPECTATOR && occupiesBlock(entity, position)
+    }
+}
+
+private fun occupiesBlock(
+    entity: Entity,
+    position: BlockVec,
+): Boolean {
+    val halfWidth = entity.boundingBox.width() / 2
+    val halfDepth = entity.boundingBox.depth() / 2
+    val feet = entity.position
+    return feet.x - halfWidth < position.blockX + 1 &&
+        feet.x + halfWidth > position.blockX &&
+        feet.z - halfDepth < position.blockZ + 1 &&
+        feet.z + halfDepth > position.blockZ &&
+        feet.y < position.blockY + 1 &&
+        feet.y + entity.boundingBox.height() > position.blockY
+}
+
 private const val TERRAIN_EDIT_REACH = 4.0
-private const val MINIMUM_ELEVATION_TO_BUILD = 2
-private const val MAXIMUM_ELEVATION_BUILD_DISTANCE = 6.0
+private const val BLOCK_PLACE_REACH = 4.5
+private const val ENTITY_OCCUPANCY_SEARCH = 3.0
+internal const val MINIMUM_ELEVATION_TO_BUILD = 2

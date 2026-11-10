@@ -6,6 +6,7 @@ import net.aechronis.combat.objects.Throwable
 import net.aechronis.nodes.objects.Coord
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.war.Attack
+import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.EntityCreature
 import net.minestom.server.instance.Instance
@@ -48,6 +49,9 @@ internal class DefenseSession(
 ) {
     val attacks: MutableSet<Attack> = linkedSetOf()
     val placedTerrainBlocks: MutableMap<Attack, Int> = mutableMapOf()
+    val terrainBlockLimits: MutableMap<Attack, Int> = mutableMapOf()
+    val placedTerrainPositions: MutableSet<BlockVec> = mutableSetOf()
+    val staircases: MutableMap<Attack, DefenderStaircase> = mutableMapOf()
     val leasedAutomaticChunks: MutableSet<Coord> = mutableSetOf()
     val spawnPreparationChunks: MutableSet<Coord> = mutableSetOf()
     var spawnPreparationInFlight: Boolean = false
