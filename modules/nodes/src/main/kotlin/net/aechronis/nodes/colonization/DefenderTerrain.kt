@@ -79,7 +79,6 @@ internal fun isSafeDefenderStandingPosition(
         !head.liquid()
 }
 
-// direct movement keeps the looser check above because a defender on a slab or stair shares its feet block with it
 internal fun isClearDefenderStandingPosition(
     instance: Instance,
     position: Pos,
@@ -90,6 +89,42 @@ internal fun isClearDefenderStandingPosition(
     return isSafeDefenderStandingPosition(instance, position) &&
         !instance.getBlock(x, y, z).blocksMotion() &&
         !instance.getBlock(x, y + 1, z).blocksMotion()
+}
+
+internal enum class DirectGroundStep {
+    LEVEL,
+    JUMP_UP,
+    DROP_DOWN,
+}
+
+// how a defender moving without a path gets from [current] onto [next], or null when it should not go there
+internal fun directGroundStep(
+    instance: Instance,
+    current: Pos,
+    next: Pos,
+): DirectGroundStep? {
+    val x = next.blockX()
+    val y = next.blockY()
+    val z = next.blockZ()
+    val feet = instance.getBlock(x, y, z)
+    val head = instance.getBlock(x, y + 1, z)
+    if (feet.liquid() || head.liquid() || head.blocksMotion()) return null
+
+    if (feet.blocksMotion()) {
+        val rise = y + feet.collisionShape().relativeEnd().y() - next.y
+        // nothing to climb when already standing on a slab or stair sharing the feet block
+        if (rise <= DIRECT_STEP_EPSILON) return DirectGroundStep.LEVEL
+        val canJump = rise <= 1.0 + DIRECT_STEP_EPSILON &&
+            !instance.getBlock(x, y + 2, z).blocksMotion() &&
+            !instance.getBlock(current.blockX(), y + 2, current.blockZ()).blocksMotion()
+        return if (canJump) DirectGroundStep.JUMP_UP else null
+    }
+
+    val floor = instance.getBlock(x, y - 1, z)
+    if (floor.liquid()) return null
+    if (floor.blocksMotion()) return DirectGroundStep.LEVEL
+    val belowFloor = instance.getBlock(x, y - 2, z)
+    return if (belowFloor.blocksMotion() && !belowFloor.liquid()) DirectGroundStep.DROP_DOWN else null
 }
 
 // chooses one nearby terrain edit that opens the direct route from [start] toward [target]
@@ -209,4 +244,5 @@ private fun occupiesBlock(
 private const val TERRAIN_EDIT_REACH = 4.0
 private const val BLOCK_PLACE_REACH = 4.5
 private const val ENTITY_OCCUPANCY_SEARCH = 3.0
+private const val DIRECT_STEP_EPSILON = 0.001
 internal const val MINIMUM_ELEVATION_TO_BUILD = 2

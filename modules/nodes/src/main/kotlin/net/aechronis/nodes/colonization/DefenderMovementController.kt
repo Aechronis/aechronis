@@ -18,6 +18,9 @@ private const val MAX_NAVIGATION_ROUTE_CHUNKS = 96
 private const val MAX_PATH_STARTS_PER_TICK = 1
 private const val MAX_PATH_PREPARATIONS_PER_TICK = 2
 
+// a player's walking speed, since nobody can sprint sideways or backwards
+private const val COMBAT_WALK_SPEED = 0.216
+
 internal enum class DefenderMovementOutcome {
     READY_FOR_WEAPON_UPDATE,
     RECOVERING_TERRAIN,
@@ -91,7 +94,12 @@ internal class DefenderMovementController(
             decision = decision,
         )
         if (movementTarget != null) {
-            defender.motor.moveTowards(movementTarget, 0.28, lookAt)
+            val position = defender.entity.position
+            val probe = directMovementProbe(position, movementTarget, COMBAT_WALK_SPEED)
+            if (probe != null && directGroundStep(session.instance, position, probe) == DirectGroundStep.JUMP_UP) {
+                defender.motor.jump(null, null)
+            }
+            defender.motor.moveTowards(movementTarget, COMBAT_WALK_SPEED, lookAt)
         } else {
             defender.motor.lookTowards(lookAt)
         }
@@ -272,7 +280,7 @@ internal class DefenderMovementController(
         targetPosition: Pos,
         decision: DefenderDecision,
     ): Pos? {
-        if (!defender.entity.isOnGround) return null
+        val position = defender.entity.position
         val objective = campaignObjective(defender, attack)
         val preferred = combatMovementPosition(defender.entity.position, targetPosition, decision)
         val alternate = if (decision.movement == DefenderMovement.STRAFE_AROUND_TARGET) {
@@ -288,7 +296,7 @@ internal class DefenderMovementController(
             position = defender.entity.position,
             preferredTarget = preferred,
             alternateTarget = alternate,
-            speed = 0.28,
+            speed = COMBAT_WALK_SPEED,
         ) { nextPosition ->
             session.instance.worldBorder.inBounds(nextPosition) &&
                 session.instance.isChunkLoaded(nextPosition.chunkX(), nextPosition.chunkZ()) &&
@@ -297,7 +305,7 @@ internal class DefenderMovementController(
                     objective.toDefenderPoint(),
                     nextPosition.toDefenderPoint(),
                 ) &&
-                isSafeDefenderStandingPosition(session.instance, nextPosition)
+                directGroundStep(session.instance, position, nextPosition) != null
         }
     }
 

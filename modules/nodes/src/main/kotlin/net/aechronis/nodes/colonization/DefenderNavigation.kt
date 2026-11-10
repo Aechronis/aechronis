@@ -404,10 +404,18 @@ internal fun chooseSafeDirectMovementTarget(
     canStandAt: (Pos) -> Boolean,
 ): Pos? = sequenceOf(preferredTarget, alternateTarget)
     .filterNotNull()
-    .firstOrNull { target ->
-        val movement = playerLikeGroundMovement(position, target, speed)
-        movement != Vec.ZERO && canStandAt(position.add(movement))
-    }
+    .firstOrNull { target -> directMovementProbe(position, target, speed)?.let(canStandAt) == true }
+
+// looks a hitbox past the next move, because collision stops the body before its centre reaches a wall
+internal fun directMovementProbe(
+    position: Pos,
+    target: Pos,
+    speed: Double,
+): Pos? {
+    val movement = playerLikeGroundMovement(position, target, speed)
+    if (movement == Vec.ZERO) return null
+    return position.add(movement.normalize().mul(movement.length() + DIRECT_MOVEMENT_HITBOX_REACH))
+}
 
 internal const val PATH_RETRY_MILLIS = 500L
 private const val PLAYER_PATH_REFRESH_MILLIS = 250L
@@ -419,6 +427,7 @@ private const val PLAYER_PATH_MINIMUM_DISTANCE = 2.0
 private const val MAX_PATH_DISTANCE = 80.0
 private const val PATH_VARIANCE = 16.0
 private const val PATH_PROGRESS_DISTANCE = 0.08
+private const val DIRECT_MOVEMENT_HITBOX_REACH = 0.35
 private const val ROUTE_FAILURES_BEFORE_TERRAIN_RECOVERY = 3
 private const val ROUTE_FAILURE_WINDOW_MILLIS = 10_000L
 
