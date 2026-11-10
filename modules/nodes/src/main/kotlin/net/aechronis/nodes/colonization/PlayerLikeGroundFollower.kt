@@ -41,12 +41,17 @@ internal class PlayerLikeGroundFollower(
     private fun limitedView(
         position: Pos,
         fallback: Point,
-    ): Pos = playerLikeLimitedView(
-        position,
-        lookTarget ?: fallback,
-        MAX_YAW_CHANGE_PER_TICK,
-        MAX_PITCH_CHANGE_PER_TICK,
-    )
+    ): Pos {
+        val aim = lookTarget
+        // path nodes sit at floor height so the feet keep the view level, aim points are seen from the eyes
+        val viewOrigin = if (aim != null) position.add(0.0, entity.eyeHeight, 0.0) else position
+        return playerLikeLimitedView(
+            viewOrigin,
+            aim ?: fallback,
+            MAX_YAW_CHANGE_PER_TICK,
+            MAX_PITCH_CHANGE_PER_TICK,
+        )
+    }
 
     override fun jump(
         point: Point?,

@@ -25,7 +25,10 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
             ?.let { player ->
                 Vehicle.protectedVehicleAimPosition(player)
                     ?: player.position.add(0.0, player.eyeHeight, 0.0)
-            } ?: decision.aimPosition?.toPos()
+            } ?: decision.aimPosition?.toPos()?.let { aim ->
+                // a remembered target position is where the player's feet were
+                if (decision.targetId != null) aim.add(0.0, defender.entity.eyeHeight, 0.0) else aim
+            }
     }
 
     fun tickFlagBreaking(
@@ -87,7 +90,7 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
         val targetPosition = Vehicle.protectedVehicleAimPosition(targetPlayer)
             ?: targetPlayer.position.add(0.0, targetPlayer.eyeHeight, 0.0)
         if (!hasClearShot(entity, targetPosition, session.instance)) return
-        if (!playerLikeAimAligned(entity.position, targetPosition, 12F, 10F)) return
+        if (!playerLikeAimAligned(entity.position.add(0.0, entity.eyeHeight, 0.0), targetPosition, 12F, 10F)) return
 
         entity.lookAt(targetPosition)
         gun.fireFromEntity(entity, targetPosition, targetsInRange)
