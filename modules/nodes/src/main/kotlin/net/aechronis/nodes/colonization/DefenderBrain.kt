@@ -46,6 +46,8 @@ internal data class DefenderObservation(
     val weaponRange: Double,
     // true only when the runtime has verified reach and line of sight to the flag
     val canMineObjective: Boolean = false,
+    // keeps pushing for the flag instead of stopping to fight, while still shooting anything visible
+    val prioritizeObjective: Boolean = false,
 ) {
     init {
         require(nowMillis >= 0) { "Time cannot be negative" }
@@ -161,6 +163,8 @@ internal class DefenderBrain(
             distanceToObjective = distanceToObjective,
             rangeBand = rangeBand,
             previousMovement = memory.previousMovement,
+            prioritizeObjective = observation.prioritizeObjective,
+            canMineObjective = observation.canMineObjective,
         )
         memory = updateStrafe(observation, memory, movement).copy(previousMovement = movement)
         val movementTarget = when (movement) {
@@ -180,7 +184,7 @@ internal class DefenderBrain(
                 targetDistance <= observation.weaponRange &&
                 !outsideLeash &&
                 observation.nowMillis >= memory.reactionReadyAtMillis
-        val mineObjective = !hasRememberedTarget && observation.canMineObjective
+        val mineObjective = observation.canMineObjective && (!hasRememberedTarget || observation.prioritizeObjective)
 
         return DefenderDecision(
             targetId = memory.targetId,
@@ -202,8 +206,12 @@ internal class DefenderBrain(
         distanceToObjective: Double,
         rangeBand: DefenderRangeBand,
         previousMovement: DefenderMovement,
+        prioritizeObjective: Boolean,
+        canMineObjective: Boolean,
     ): DefenderMovement = when {
         outsideLeash -> DefenderMovement.RETURN_TO_OBJECTIVE
+        // holding in reach stops a reloading defender wandering between flag approach spots
+        prioritizeObjective -> if (canMineObjective) DefenderMovement.HOLD else DefenderMovement.RETURN_TO_OBJECTIVE
         hasRememberedTarget && !targetVisible && targetDistance != null && targetDistance > config.lastSeenArrivalRadius -> {
             DefenderMovement.INVESTIGATE_LAST_SEEN
         }

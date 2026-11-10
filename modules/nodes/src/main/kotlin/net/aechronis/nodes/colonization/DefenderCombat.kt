@@ -169,6 +169,7 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
                 defender.entity.position.add(0.0, defender.entity.eyeHeight, 0.0)
                     .distanceSquared(objective) <= FLAG_REACH * FLAG_REACH &&
                 hasClearFlagReach(defender.entity, objective, session.instance),
+            prioritizeObjective = attack != null && defender.flagRunner,
         )
         val decision = defender.brain.decide(observation, defender.brainMemory)
         defender.brainMemory = decision.memory

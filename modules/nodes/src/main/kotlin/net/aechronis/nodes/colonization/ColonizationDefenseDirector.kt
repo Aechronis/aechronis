@@ -17,9 +17,11 @@ import net.minestom.server.timer.TaskSchedule
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import kotlin.math.ceil
 
 private const val DEFENDER_TICK_INTERVAL = 1
 private const val CHUNK_LOAD_DRAIN_TIMEOUT_SECONDS = 60L
+private const val FLAG_RUNNER_SHARE = 1.0 / 3.0
 
 /** Runs defense sessions in tick order; campaign policy remains with [Colonization]. */
 internal class ColonizationDefenseDirector(
@@ -220,6 +222,7 @@ internal class ColonizationDefenseDirector(
         spawner.prepareDueDefenderSpawns(session, now)
 
         movement.applyPreparedNavigationPaths(session, now)
+        assignFlagRunners(session)
         for (defender in activeDefenders(session)) {
             val entity = defender.entity
             if (!defender.ready || entity.instance !== instance) continue
@@ -253,6 +256,26 @@ internal class ColonizationDefenseDirector(
             combat.updateDefenderWeapon(session, defender, decision, targetPlayer, targets, now)
             combat.updateDefenderThrowable(session, defender, decision, targetPlayer, targets, now)
         }
+    }
+
+    // current runners keep the job so roles do not flip as defenders move, and the closest defender replaces a dead one
+    private fun assignFlagRunners(session: DefenseSession) {
+        activeDefenders(session)
+            .filter { defender -> defender.ready }
+            .groupBy { defender -> closestActiveAttack(session, defender.entity.position) }
+            .forEach { (attack, defenders) ->
+                if (attack == null) {
+                    defenders.forEach { defender -> defender.flagRunner = false }
+                    return@forEach
+                }
+                val flagPosition = attack.flagBlock.add(0.5, 0.5, 0.5).asPos()
+                val runnerCount = ceil(defenders.size * FLAG_RUNNER_SHARE).toInt()
+                defenders
+                    .sortedWith(
+                        compareBy<AiDefender> { defender -> !defender.flagRunner }
+                            .thenBy { defender -> defender.entity.position.distanceSquared(flagPosition) },
+                    ).forEachIndexed { index, defender -> defender.flagRunner = index < runnerCount }
+            }
     }
 
     private fun isAttackingParticipant(

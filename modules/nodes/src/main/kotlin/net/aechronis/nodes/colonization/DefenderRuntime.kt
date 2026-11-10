@@ -23,6 +23,7 @@ internal data class AiDefender(
     var ready: Boolean = false,
     var lastDecisionAt: Long = 0,
     var lastDecision: DefenderDecision? = null,
+    var flagRunner: Boolean = false,
 )
 
 internal data class AiDefenderSlot(
