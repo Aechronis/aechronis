@@ -267,16 +267,16 @@ object ColonizationMenu {
 
     private fun townItem(town: Town): ItemStack {
         val config = town.aiConfig
-        val guns = if (config.guns.isEmpty()) "No guns configured" else config.guns.joinToString(", ")
+        val weapons = (config.guns + config.throwables).ifEmpty { listOf("No weapons configured") }.joinToString(", ")
         val defenders = when {
             config.enabled -> "${config.enemyCount} defenders"
-            config.configured -> "Defenders disabled: unavailable gun"
+            config.configured -> "Defenders disabled: unavailable weapon"
             else -> "No defenders configured"
         }
         return namedItem(Material.IRON_DOOR, town.name, NamedTextColor.GOLD)
             .withLore(
                 Component.text(defenders, NamedTextColor.GRAY),
-                Component.text(guns, NamedTextColor.GRAY),
+                Component.text(weapons, NamedTextColor.GRAY),
             )
     }
 

@@ -316,8 +316,8 @@ object Deserializer {
         val aiConfig = aiTownConfigFromJson(aiElement) { field, error ->
             System.err.println("Invalid AI field '$field' in town $name; using its default: ${error.message}")
         }
-        runCatching { aiConfig.requireRegisteredGuns() }.onFailure { error ->
-            System.err.println("Invalid AI guns in town $name; defenders disabled: ${error.message}")
+        runCatching { aiConfig.requireRegisteredItems() }.onFailure { error ->
+            System.err.println("Invalid AI items in town $name; defenders disabled: ${error.message}")
         }
 
         return TownLoadState(
@@ -435,6 +435,7 @@ object Deserializer {
         update("controlled") { config.copy(controlled = it.jsonPrimitive.boolean) }
         update("enemyCount") { config.copy(enemyCount = it.jsonPrimitive.int) }
         update("guns") { value -> config.copy(guns = value.jsonArray.map { requireNotNull(it.jsonPrimitive.contentOrNull) }) }
+        update("throwables") { value -> config.copy(throwables = value.jsonArray.map { requireNotNull(it.jsonPrimitive.contentOrNull) }) }
         return config
     }
 

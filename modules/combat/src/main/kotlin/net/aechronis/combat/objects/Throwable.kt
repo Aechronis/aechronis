@@ -6,6 +6,10 @@ import net.aechronis.combat.utils.Mounts
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
+import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.Entity
+import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemAnimation
 import net.minestom.server.item.ItemStack
@@ -19,6 +23,9 @@ import net.minestom.server.sound.SoundEvent
 // The client only reports letting go of right click while it believes an item is in use.
 private val HOLD_TO_THROW_USE = Consumable(3600f, ItemAnimation.TRIDENT, SoundEvent.INTENTIONALLY_EMPTY, false, emptyList())
 private val HOLD_TO_THROW_EFFECTS = UseEffects(true, true, 1f)
+
+private const val MAX_AIMED_THROW_TICKS = 200
+private const val AIMED_THROW_REFINEMENTS = 16
 
 /** An item readied by holding right click and thrown by letting go. */
 class Throwable(
@@ -35,6 +42,13 @@ class Throwable(
     private val onImpact: (ThrowableImpact) -> Unit,
 ) : Item(name, itemName, itemLore, itemModel, material) {
     private val cooldownGroup = "${Tags.NAMESPACE}:$name"
+
+    /** The farthest an aimed throw can land on level ground. */
+    val maxAimedRange: Double
+        get() {
+            val tickLimit = throwSpeed * MAX_AIMED_THROW_TICKS
+            return if (gravity > 0.0) minOf(throwSpeed * throwSpeed / gravity, tickLimit) else tickLimit
+        }
 
     init {
         require(throwSpeed.isFinite() && throwSpeed > 0.0) { "Throwable throwSpeed must be positive and finite" }
@@ -93,6 +107,41 @@ class Throwable(
         )
     }
 
+    /**
+     * Throws from an AI-controlled [thrower] on the low arc reaching [targetPosition], returning
+     * false when it is out of reach. Only [validTargets] and their vehicles can be hit.
+     */
+    fun throwFromEntity(
+        thrower: LivingEntity,
+        targetPosition: Pos,
+        validTargets: Collection<LivingEntity>,
+    ): Boolean {
+        if (thrower.isDead || thrower.isRemoved) return false
+        val instance = thrower.instance ?: return false
+        val origin = thrower.position.add(0.0, thrower.eyeHeight, 0.0)
+        val direction = aimedThrowDirection(targetPosition.sub(origin).asVec(), throwSpeed, gravity) ?: return false
+
+        val targets = HashSet<Entity>(validTargets)
+        validTargets.filterIsInstance<Player>().mapNotNullTo(targets) { VehicleRegistry.ride(it)?.entity }
+        val ignored =
+            (instance.entities.filterIsInstance<LivingEntity>() + VehicleRegistry.all().map { it.entity })
+                .filterNotTo(hashSetOf<Entity>()) { it in targets }
+
+        thrower.swingMainHand()
+        Projectile.ignoring(
+            instance = instance,
+            pos = origin.add(direction.mul(0.35)),
+            model = projectileModel,
+            direction = direction,
+            speed = throwSpeed,
+            gravity = gravity,
+            weapon = itemName,
+            ignoredEntities = ignored,
+            onImpact = { target, point -> onImpact(ThrowableImpact(this, thrower, instance, target, point, targets)) },
+        )
+        return true
+    }
+
     fun onHolderDeath(player: Player) {
         stopHolding(player)
     }
@@ -126,4 +175,25 @@ class Throwable(
         player.refreshActiveHand(false, false, false)
         player.clearItemUse()
     }
+}
+
+/** The launch direction whose low arc reaches [offset] under per-tick [gravity], or null when out of reach. */
+internal fun aimedThrowDirection(
+    offset: Vec,
+    speed: Double,
+    gravity: Double,
+): Vec? {
+    if (offset.isZero) return null
+
+    // A projectile n ticks after launch has moved n * velocity - gravity * n * (n + 1) / 2.
+    fun launchVelocity(ticks: Double) = Vec(offset.x() / ticks, offset.y() / ticks + gravity * (ticks + 1) / 2, offset.z() / ticks)
+
+    val arrival = (1..MAX_AIMED_THROW_TICKS).firstOrNull { launchVelocity(it.toDouble()).length() <= speed } ?: return null
+    var tooFast = (arrival - 1).toDouble()
+    var reachable = arrival.toDouble()
+    repeat(AIMED_THROW_REFINEMENTS) {
+        val middle = (tooFast + reachable) / 2
+        if (launchVelocity(middle).length() <= speed) reachable = middle else tooFast = middle
+    }
+    return launchVelocity(reachable).normalize()
 }

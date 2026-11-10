@@ -503,8 +503,8 @@ class NodesAdminTownAiCommand : NodesCommand("ai", "nodes.admin") {
             Message.print(player, "[Nodes] AI town configuration:")
             Message.print(player, "/nodesadmin town ai show <town>")
             Message.print(player, "/nodesadmin town ai set <town> <field> <value>")
-            Message.print(player, "Fields: controlled, enemies, guns")
-            Message.print(player, "Gun IDs are comma-separated; use 'none' for no guns")
+            Message.print(player, "Fields: controlled, enemies, guns, throwables")
+            Message.print(player, "Gun and throwable IDs are comma-separated; use 'none' for no items")
             Message.print(player, "/nodesadmin town ai clear <town>")
             Message.print(
                 player,
@@ -536,6 +536,7 @@ class NodesAdminTownAiSetCommand : NodesCommand("set", "nodes.admin") {
             "controlled",
             "enemies",
             "guns",
+            "throwables",
         )
         val valueArg = ArgumentType.String("value")
 
@@ -558,8 +559,16 @@ class NodesAdminTownAiSetCommand : NodesCommand("set", "nodes.admin") {
                         },
                     )
 
+                    "throwables" -> current.copy(
+                        throwables = if (value.equals("none", ignoreCase = true)) {
+                            emptyList()
+                        } else {
+                            value.split(',').map(String::trim)
+                        },
+                    )
+
                     else -> error("Unknown AI configuration field '$field'")
-                }.also(AiTownConfig::requireRegisteredGuns)
+                }.also(AiTownConfig::requireRegisteredItems)
             }.getOrElse { error ->
                 Message.error(player, "Invalid AI town configuration: ${error.message}")
                 return@addSyntax

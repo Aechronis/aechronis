@@ -79,12 +79,13 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
         targets: List<Player>,
         now: Long,
     ) {
-        val reloadWasPending = defender.weapon.reloadPending
-        defender.weapon.updateReload(now)
+        val weapon = defender.weapon ?: return
+        val reloadWasPending = weapon.reloadPending
+        weapon.updateReload(now)
         if (reloadWasPending || targetPlayer == null || !decision.wantsToFire) return
-        if (!defender.weapon.canFire(now)) return
+        if (!weapon.canFire(now)) return
         val entity = defender.entity
-        val gun = defender.weapon.gun ?: return
+        val gun = weapon.gun ?: return
         val targetsInRange = targets.filter { entity.getDistanceSquared(it) <= gun.maxRange * gun.maxRange }
         if (targetPlayer !in targetsInRange) return
         val targetPosition = Vehicle.protectedVehicleAimPosition(targetPlayer)
@@ -94,7 +95,27 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
 
         entity.lookAt(targetPosition)
         gun.fireFromEntity(entity, targetPosition, targetsInRange)
-        defender.weapon.recordShot(now)
+        weapon.recordShot(now)
+    }
+
+    fun updateDefenderThrowable(
+        session: DefenseSession,
+        defender: AiDefender,
+        decision: DefenderDecision,
+        targetPlayer: Player?,
+        targets: List<Player>,
+        now: Long,
+    ) {
+        val carried = defender.throwable ?: return
+        if (targetPlayer == null || !decision.wantsToFire || !carried.canThrow(now)) return
+        val throwable = carried.throwable ?: return
+        val entity = defender.entity
+        val targetPosition = Vehicle.protectedVehicleAimPosition(targetPlayer)
+            ?: targetPlayer.position.add(0.0, targetPlayer.eyeHeight, 0.0)
+        if (!hasClearShot(entity, targetPosition, session.instance)) return
+        if (!playerLikeAimAligned(entity.position.add(0.0, entity.eyeHeight, 0.0), targetPosition, 12F, 10F)) return
+
+        if (throwable.throwFromEntity(entity, targetPosition, targets)) carried.recordThrow(now)
     }
 
     private fun beginFlagBreaking(
@@ -143,7 +164,7 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
                     visible = hasClearShot(defender.entity, aimPosition, session.instance),
                 )
             },
-            weaponRange = defender.weapon.gun?.maxRange ?: 0.0,
+            weaponRange = defender.weapon?.gun?.maxRange ?: defender.throwable?.throwable?.maxAimedRange ?: 0.0,
             canMineObjective = attack != null &&
                 defender.entity.position.add(0.0, defender.entity.eyeHeight, 0.0)
                     .distanceSquared(objective) <= FLAG_REACH * FLAG_REACH &&

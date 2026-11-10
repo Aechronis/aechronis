@@ -39,6 +39,9 @@ class Explosion private constructor(
     val weapon: Component? = null,
     val ammoType: AmmoTypes? = null,
     private val bypassDamageImmunity: Boolean,
+    private val attacker: Entity? = source,
+    /** When set, the blast only hurts these entities and leaves blocks intact. */
+    private val validTargets: Set<Entity>? = null,
 ) {
     constructor(
         instance: Instance,
@@ -61,7 +64,7 @@ class Explosion private constructor(
                 position = pos,
                 sourceUuid = source?.uuid,
                 sourceName = source?.username,
-                changes = blast.changes,
+                changes = if (validTargets == null) blast.changes else emptyList(),
                 sourcePlayer = source,
             )
         MinecraftServer.getGlobalEventHandler().call(event)
@@ -95,6 +98,8 @@ class Explosion private constructor(
                     )
                 }
             }
+
+            if (validTargets != null) return@explosion
 
             // First pass: destroy the blocks affected by the explosion. Protected
             // blocks are excluded from this snapshot and therefore remain intact.
@@ -189,7 +194,7 @@ class Explosion private constructor(
         for (runtime in VehicleRegistry.all()) {
             val entity = runtime.entity
             val vehicle = runtime.vehicle
-            if (entity.instance != instance) continue
+            if (entity.instance != instance || !canDamage(entity)) continue
             val vehiclePosition = entity.position
             val distance =
                 vehicle.hitbox.distanceToPoint(
@@ -204,13 +209,14 @@ class Explosion private constructor(
         }
 
         for (player in instance.players.toList()) {
+            if (!canDamage(player)) continue
             val blastDistance = explosionDistance(player, affectedBlocks)
             val blastDamage = damageAtDistance(damage, radius, blastDistance)
             if (blastDamage > 0f) applyDamage(player, type, blastDamage)
         }
 
         for (entity in instance.entities.toList()) {
-            if (entity.entityType != EntityType.MANNEQUIN || entity !is LivingEntity) continue
+            if (entity.entityType != EntityType.MANNEQUIN || entity !is LivingEntity || !canDamage(entity)) continue
             // The crew member behind a stand-in is already damaged as a player above.
             if (VehicleRegistry.standInOwner(entity) != null) continue
             val blastDamage = damageAtDistance(damage, radius, distanceToBoundingBox(entity, pos))
@@ -218,13 +224,15 @@ class Explosion private constructor(
         }
     }
 
+    private fun canDamage(entity: Entity): Boolean = validTargets == null || entity in validTargets
+
     private fun applyDamage(
         entity: LivingEntity,
         type: RegistryKey<DamageType>,
         amount: Float,
     ) {
         val damageSource =
-            Damage(type, source, source, pos, amount)
+            Damage(type, attacker, attacker, pos, amount)
                 .withCombatAttribution(CombatDamageKind.EXPLOSION, weapon)
         if (bypassDamageImmunity) {
             damageSource.withCombatDamageImmunityBypass()
@@ -300,6 +308,18 @@ class Explosion private constructor(
             weapon: Component?,
             ammoType: AmmoTypes?,
         ): Explosion = Explosion(instance, pos, radius, fire, damage, source, weapon, ammoType, true)
+
+        /** A blast credited to an AI [attacker] that only hurts [validTargets] and leaves blocks intact. */
+        fun againstTargets(
+            instance: Instance,
+            pos: Pos,
+            radius: Int,
+            damage: Float,
+            attacker: LivingEntity,
+            validTargets: Set<Entity>,
+            weapon: Component?,
+            ammoType: AmmoTypes?,
+        ): Explosion = Explosion(instance, pos, radius, 0.0, damage, null, weapon, ammoType, false, attacker, validTargets)
     }
 }
 

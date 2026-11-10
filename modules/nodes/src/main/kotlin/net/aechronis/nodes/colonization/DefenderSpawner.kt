@@ -53,7 +53,7 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
         slot: AiDefenderSlot,
         guardPosition: Pos,
     ): AiDefender? {
-        val gun = slot.gun ?: return null
+        if (!slot.armed) return null
         val entity = EntityCreature(EntityType.MANNEQUIN)
         val defenderName = Component.text("${session.targetTown.name} Defender", NamedTextColor.RED)
         entity.setTag(EntityTags.TRANSIENT_ENTITY, true)
@@ -70,15 +70,18 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
         }
         val motor = PlayerLikeGroundFollower(entity)
         entity.navigator.setNodeFollower { motor }
-        entity.setEquipment(EquipmentSlot.MAIN_HAND, gun.toItemStack())
-        val weapon = DefenderWeapon(gun)
+        val weapon = slot.gun?.let(::DefenderWeapon)
+        val throwable = slot.throwable?.let(::DefenderThrowable)
+        val heldItem = { (weapon?.gun ?: throwable?.throwable)?.toItemStack() ?: ItemStack.AIR }
+        entity.setEquipment(EquipmentSlot.MAIN_HAND, heldItem())
         return AiDefender(
             entity = entity,
             brain = DefenderBrain(),
             motor = motor,
             navigation = DefenderNavigator(entity),
             weapon = weapon,
-            blockBreaker = DefenderBlockBreaker(entity, weapon, diamondPickaxe),
+            throwable = throwable,
+            blockBreaker = DefenderBlockBreaker(entity, heldItem, diamondPickaxe),
             guardPosition = guardPosition,
         )
     }
@@ -90,7 +93,7 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
         var changed = false
         session.slots.forEach { slot ->
             val defender = slot.defender ?: return@forEach
-            if (slot.gun != null && !defender.entity.isDead && !defender.entity.isRemoved) return@forEach
+            if (slot.armed && !defender.entity.isDead && !defender.entity.isRemoved) return@forEach
 
             defender.blockBreaker.stop(session.instance)
             defender.navigation.cancel()
@@ -114,7 +117,7 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
     ) {
         if (!sessions.isActive(session) || session.spawnPreparationInFlight) return
         val wave = session.slots
-            .filter { slot -> slot.gun != null && slot.defender == null && !slot.spawnPending && slot.respawnAtMillis <= now }
+            .filter { slot -> slot.armed && slot.defender == null && !slot.spawnPending && slot.respawnAtMillis <= now }
             .take(MAX_DEFENDER_SPAWNS_PER_WAVE)
             .map { slot ->
                 slot.spawnPending = true

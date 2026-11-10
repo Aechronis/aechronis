@@ -38,7 +38,7 @@ private data class DefenderBlockBreakAction(
 
 internal class DefenderBlockBreaker(
     private val entity: EntityCreature,
-    private val weapon: DefenderWeapon,
+    private val heldItem: () -> ItemStack,
     private val pickaxe: ItemStack,
 ) {
     private var action: DefenderBlockBreakAction? = null
@@ -127,7 +127,7 @@ internal class DefenderBlockBreaker(
     fun stop(instance: Instance) {
         clearAnimation(instance)
         action = null
-        if (!entity.isRemoved) entity.setEquipment(EquipmentSlot.MAIN_HAND, weapon.gun?.toItemStack() ?: ItemStack.AIR)
+        if (!entity.isRemoved) entity.setEquipment(EquipmentSlot.MAIN_HAND, heldItem())
     }
 
     private fun setAnimation(

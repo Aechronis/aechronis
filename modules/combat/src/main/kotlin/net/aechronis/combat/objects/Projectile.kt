@@ -210,6 +210,40 @@ class Projectile private constructor(
             activeProjectiles.clear()
         }
 
+        /** A thrown projectile that passes through [ignoredEntities] and reports its landing to [onImpact]. */
+        internal fun ignoring(
+            instance: Instance,
+            pos: Pos,
+            model: String,
+            direction: Vec,
+            speed: Double,
+            gravity: Double,
+            weapon: Component?,
+            ignoredEntities: Set<Entity>,
+            onImpact: (LivingEntity?, Point) -> Unit,
+        ): Projectile =
+            Projectile(
+                instance,
+                pos,
+                model,
+                direction,
+                speed,
+                4,
+                .33,
+                gravity,
+                20f,
+                null,
+                weapon,
+                null,
+                null,
+                1.0,
+                96,
+                null,
+                false,
+                ignoredEntities,
+                onImpact,
+            )
+
         internal fun bypassingDamageImmunity(
             instance: Instance,
             pos: Pos,

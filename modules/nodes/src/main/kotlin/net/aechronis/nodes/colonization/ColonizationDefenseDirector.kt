@@ -79,10 +79,10 @@ internal class ColonizationDefenseDirector(
         }
         if (!config.enabled) {
             return Result.failure(
-                IllegalStateException("${targetTown.name} cannot defend because a configured gun is unavailable"),
+                IllegalStateException("${targetTown.name} cannot defend because a configured gun or throwable is unavailable"),
             )
         }
-        val configSnapshot = config.copy(guns = config.guns.toList())
+        val configSnapshot = config.copy(guns = config.guns.toList(), throwables = config.throwables.toList())
         val guns = configSnapshot.guns.map { name ->
             val item = Item.getFromName(name)
             if (item is Gun) {
@@ -93,13 +93,16 @@ internal class ColonizationDefenseDirector(
                 )
             }
         }
-        if (guns.isEmpty()) {
-            return Result.failure(IllegalStateException("${targetTown.name} cannot deploy defenders without a gun"))
+        val throwables = configSnapshot.throwables
+        if (guns.isEmpty() && throwables.isEmpty()) {
+            return Result.failure(IllegalStateException("${targetTown.name} cannot deploy defenders without a weapon"))
         }
         val instance = MinecraftServer.getInstanceManager().instances.firstOrNull()
             ?: return Result.failure(IllegalStateException("The colonization world is unavailable"))
 
-        val slots = List(configSnapshot.enemyCount) { index -> AiDefenderSlot(guns[index % guns.size].name) }
+        val slots = List(configSnapshot.enemyCount) { index ->
+            AiDefenderSlot(guns.forSlot(index)?.name, throwables.forSlot(index))
+        }
         val session = DefenseSession(
             instance = instance,
             targetTown = targetTown,
@@ -114,6 +117,8 @@ internal class ColonizationDefenseDirector(
         }
         return Result.success(Unit)
     }
+
+    private fun <T> List<T>.forSlot(index: Int): T? = if (isEmpty()) null else this[index % size]
 
     private fun campaignSpawnCenter(targetTown: Town): Pos {
         val configured = targetTown.spawnpoint
@@ -228,7 +233,7 @@ internal class ColonizationDefenseDirector(
             combat.updateDefenderAim(defender, decision, targetPlayer)
             if (
                 decision.mineObjective &&
-                !defender.weapon.reloadPending &&
+                defender.weapon?.reloadPending != true &&
                 attack != null &&
                 flagPosition != null &&
                 distanceToFlag != null &&
@@ -246,6 +251,7 @@ internal class ColonizationDefenseDirector(
             val movementOutcome = movement.moveDefender(session, defender, attack, decision, targetPlayer, now)
             if (movementOutcome == DefenderMovementOutcome.RECOVERING_TERRAIN) continue
             combat.updateDefenderWeapon(session, defender, decision, targetPlayer, targets, now)
+            combat.updateDefenderThrowable(session, defender, decision, targetPlayer, targets, now)
         }
     }
 

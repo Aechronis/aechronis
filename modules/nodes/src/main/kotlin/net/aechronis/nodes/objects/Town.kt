@@ -639,7 +639,7 @@ class Town(
         }
 
         fun setAiConfig(town: Town, config: AiTownConfig) {
-            config.requireRegisteredGuns()
+            config.requireRegisteredItems()
             if (town.aiConfig == config) return
             town.aiConfig = config
             town.markChanged()
@@ -854,6 +854,7 @@ class Town(
         Message.print(sender, "- Defenders enabled${ChatColor.WHITE}: ${aiConfig.enabled}")
         Message.print(sender, "- Enemies${ChatColor.WHITE}: ${aiConfig.enemyCount}")
         Message.print(sender, "- Guns${ChatColor.WHITE}: ${aiConfig.guns.ifEmpty { listOf("None") }.joinToString(", ")}")
+        Message.print(sender, "- Throwables${ChatColor.WHITE}: ${aiConfig.throwables.ifEmpty { listOf("None") }.joinToString(", ")}")
         Message.print(sender, "- Deployment${ChatColor.WHITE}: entire campaign from safe positions near the town spawn")
     }
 
@@ -880,7 +881,10 @@ class Town(
         val income = t.income.snapshot().snapshotMap()
         val protectedBlocks: List<BlockVec> = t.protectedBlocks.snapshotList()
         val plots: List<Plot.PlotSaveState> = t.plots.values.map { it.getSaveState() }.snapshotList()
-        val aiConfig: AiTownConfig = t.aiConfig.copy(guns = t.aiConfig.guns.snapshotList())
+        val aiConfig: AiTownConfig = t.aiConfig.copy(
+            guns = t.aiConfig.guns.snapshotList(),
+            throwables = t.aiConfig.throwables.snapshotList(),
+        )
 
         override fun encode(): String = TownJsonCodec.encode(this)
     }
