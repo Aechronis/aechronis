@@ -6,6 +6,7 @@ import net.aechronis.combat.events.VehicleSpawnEvent
 import net.aechronis.combat.listeners.KeyPressListener
 import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Mounts
+import net.aechronis.combat.utils.VehicleCameraDistance
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
@@ -20,9 +21,11 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta
 import net.minestom.server.instance.Instance
+import net.minestom.server.instance.block.Block
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.timer.TaskSchedule
+import kotlin.math.floor
 
 open class Vehicle(
     name: String,
@@ -106,6 +109,88 @@ open class Vehicle(
                 runtime.vehicle.hitboxRoll(entity),
             ) != null
         }
+
+    private val solidHitboxes = hitbox.parts.map { Hitbox(listOf(it)) }
+
+    protected fun hasVehicleClearance(
+        instance: Instance,
+        position: Pos,
+        excludedEntity: Entity? = null,
+    ): Boolean =
+        VehicleRegistry.all().none { runtime ->
+            val other = runtime.entity
+            other !== excludedEntity &&
+                other.instance === instance &&
+                hitbox.intersects(
+                    runtime.vehicle.hitbox,
+                    position,
+                    position.yaw,
+                    position.pitch,
+                    0f,
+                    other.position,
+                    other.position.yaw,
+                    other.position.pitch,
+                    runtime.vehicle.hitboxRoll(other),
+                )
+        }
+
+    /** Check the whole hitbox, including obstacles between the corners; unloaded blocks obstruct. */
+    protected fun hasSolidClearance(
+        instance: Instance,
+        position: Pos,
+    ): Boolean {
+        val dimension = instance.cachedDimensionType
+        val corners = hitbox.getWorldCorners(position, position.yaw, position.pitch, 0f)
+        for ((index, partCorners) in corners.withIndex()) {
+            val minY = partCorners.minOf { it.y }
+            val maxY = partCorners.maxOf { it.y }
+            if (minY < dimension.minY() || maxY > dimension.maxY()) return false
+            val minX = floor(partCorners.minOf { it.x } + CLEARANCE_EPSILON).toInt()
+            val maxX = floor(partCorners.maxOf { it.x } - CLEARANCE_EPSILON).toInt()
+            val minZ = floor(partCorners.minOf { it.z } + CLEARANCE_EPSILON).toInt()
+            val maxZ = floor(partCorners.maxOf { it.z } - CLEARANCE_EPSILON).toInt()
+            for (x in minX..maxX) {
+                for (z in minZ..maxZ) {
+                    for (y in floor(minY + CLEARANCE_EPSILON).toInt()..floor(maxY - CLEARANCE_EPSILON).toInt()) {
+                        val block = loadedBlock(instance, x, y, z) ?: return false
+                        if (block.solid() &&
+                            solidHitboxes[index].intersects(
+                                BLOCK_HITBOX,
+                                position,
+                                position.yaw,
+                                position.pitch,
+                                0f,
+                                Pos(x + 0.5, y + 0.5, z + 0.5),
+                                0f,
+                                0f,
+                                0f,
+                            )
+                        ) {
+                            return false
+                        }
+                    }
+                }
+            }
+        }
+        return true
+    }
+
+    protected fun loadedBlock(
+        instance: Instance,
+        x: Int,
+        y: Int,
+        z: Int,
+    ): Block? {
+        val dimension = instance.cachedDimensionType
+        if (y < dimension.minY() || y >= dimension.maxY()) return null
+        val chunk = instance.getChunk(Math.floorDiv(x, 16), Math.floorDiv(z, 16)) ?: return null
+        chunk.lockReadLock()
+        return try {
+            if (chunk.isLoaded) chunk.getBlock(x, y, z) else null
+        } finally {
+            chunk.unlockReadLock()
+        }
+    }
 
     // ================
     // PLACE FUNCTIONS
@@ -327,6 +412,21 @@ open class Vehicle(
 
     internal open fun hitboxRoll(entity: Entity): Float = 0f
 
+    /**
+     * Offset of the client-side collision shulkers from the hull. Clients reposition the shulkers
+     * only after moving the local player, so a carried player meets last tick's shulkers; leading
+     * them by the next tick's movement puts those stale shulkers where the hull now is.
+     */
+    open fun collisionLead(entity: Entity): Vec = Vec.ZERO
+
+    /** Movement telemetry for the driver's action bar, such as "[3.0 blocks/s]"; null shows none. */
+    open fun driverTelemetry(player: Player): String? = null
+
+    /** Pulls the driver's third-person camera back far enough to frame the whole vehicle. */
+    protected fun frameDriverCamera(player: Player) = VehicleCameraDistance.apply(player, hitbox, seats.first { it.role.drives }.offset)
+
+    protected fun restoreDriverCamera(player: Player) = VehicleCameraDistance.restore(player)
+
     open fun onGunnerEnter(
         player: Player,
         entity: Entity,
@@ -465,6 +565,9 @@ open class Vehicle(
     }
 
     companion object {
+        private const val CLEARANCE_EPSILON = 1.0e-7
+        private val BLOCK_HITBOX = Hitbox(listOf(HitboxPart(Vec.ZERO, Vec(0.5))))
+
         /** Ejects riders and removes every vehicle entity without triggering explosions. */
         @Synchronized
         internal fun shutdown() = VehicleCrew.shutdown()

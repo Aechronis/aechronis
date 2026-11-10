@@ -25,6 +25,7 @@ import net.minestom.server.timer.TaskSchedule
 import net.minestom.server.utils.chunk.ChunkUtils
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.max
 
 object VehicleTickManager {
     private const val IMPACT_COOLDOWN_MS = 700L
@@ -187,7 +188,7 @@ object VehicleTickManager {
             carried[player] = entity
             val current = VehiclePose(entity.position, runtime.vehicle.hitboxRoll(entity), entity.instance)
             if (support.previous == current) continue
-            val target =
+            val followed =
                 carriedPosition(
                     player.position,
                     support.previous.position,
@@ -195,6 +196,10 @@ object VehicleTickManager {
                     current.position,
                     current.roll,
                 )
+            // Riders drop after a descending hull under their own gravity instead of being carried down.
+            // Clients move collision shulkers after the local player, so a carried rider could be moved
+            // into one not yet moved, which then no longer holds them; a hull falling away never does.
+            val target = followed.withY(max(followed.y, player.position.y))
             val delta = target.asVec().sub(player.position)
             if (delta.lengthSquared() < 1.0e-12) continue
             if (ChunkUtils.isLoaded(player.instance, target)) {

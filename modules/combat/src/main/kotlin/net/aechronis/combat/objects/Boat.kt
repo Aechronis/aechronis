@@ -85,8 +85,6 @@ open class Boat(
 
     private val runtimes = armament?.let { HashMap<Entity, Runtime>() }
 
-    private val solidHitboxes = hitbox.parts.map { Hitbox(listOf(it)) }
-
     init {
         require(helmSeat.role == VehicleSeatRole.DRIVER) { "Boat helm must be a driver seat" }
         require(floatHeight in 0.0..1.0) { "floatHeight must be between 0.0 and 1.0" }
@@ -203,86 +201,6 @@ open class Boat(
         }
 
         return null
-    }
-
-    private fun hasVehicleClearance(
-        instance: Instance,
-        position: Pos,
-        excludedEntity: Entity? = null,
-    ): Boolean =
-        VehicleRegistry.all().none { runtime ->
-            val other = runtime.entity
-            other !== excludedEntity &&
-                other.instance === instance &&
-                hitbox.intersects(
-                    runtime.vehicle.hitbox,
-                    position,
-                    position.yaw,
-                    position.pitch,
-                    0f,
-                    other.position,
-                    other.position.yaw,
-                    other.position.pitch,
-                    runtime.vehicle.hitboxRoll(other),
-                )
-        }
-
-    /** Check the whole hull and superstructure, including obstacles between the corners. */
-    private fun hasSolidClearance(
-        instance: Instance,
-        position: Pos,
-    ): Boolean {
-        val dimension = instance.cachedDimensionType
-        val corners = hitbox.getWorldCorners(position, position.yaw, position.pitch, 0f)
-        for ((index, partCorners) in corners.withIndex()) {
-            val minY = partCorners.minOf { it.y }
-            val maxY = partCorners.maxOf { it.y }
-            if (minY < dimension.minY() || maxY > dimension.maxY()) return false
-            val minX = floor(partCorners.minOf { it.x } + CLEARANCE_EPSILON).toInt()
-            val maxX = floor(partCorners.maxOf { it.x } - CLEARANCE_EPSILON).toInt()
-            val minZ = floor(partCorners.minOf { it.z } + CLEARANCE_EPSILON).toInt()
-            val maxZ = floor(partCorners.maxOf { it.z } - CLEARANCE_EPSILON).toInt()
-            for (x in minX..maxX) {
-                for (z in minZ..maxZ) {
-                    for (y in floor(minY + CLEARANCE_EPSILON).toInt()..floor(maxY - CLEARANCE_EPSILON).toInt()) {
-                        val block = loadedBlock(instance, x, y, z) ?: return false
-                        if (block.solid() &&
-                            solidHitboxes[index].intersects(
-                                BLOCK_HITBOX,
-                                position,
-                                position.yaw,
-                                position.pitch,
-                                0f,
-                                Pos(x + 0.5, y + 0.5, z + 0.5),
-                                0f,
-                                0f,
-                                0f,
-                            )
-                        ) {
-                            return false
-                        }
-                    }
-                }
-            }
-        }
-        return true
-    }
-
-    private fun loadedBlock(
-        instance: Instance,
-        x: Int,
-        y: Int,
-        z: Int,
-    ): Block? {
-        val dimension = instance.cachedDimensionType
-        if (y < dimension.minY() || y >= dimension.maxY()) return null
-        val chunk = instance.getChunk(Math.floorDiv(x, 16), Math.floorDiv(z, 16)) ?: return null
-        chunk.lockReadLock()
-        return try {
-            if (chunk.isLoaded) chunk.getBlock(x, y, z) else null
-        } finally {
-            chunk.unlockReadLock()
-        }
     }
 
     override fun onGunnerEnter(
@@ -538,9 +456,6 @@ open class Boat(
     }
 
     companion object {
-        private const val CLEARANCE_EPSILON = 1.0e-7
-        private val BLOCK_HITBOX = Hitbox(listOf(HitboxPart(Vec.ZERO, Vec(0.5))))
-
         private fun weaponParts(weapons: List<BoatWeapon>): List<AnimatedPart> =
             weapons.mapIndexed { index, weapon ->
                 AnimatedPart(

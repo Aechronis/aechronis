@@ -114,7 +114,11 @@ internal class VehicleCollisionHitbox(
             remove()
             return
         }
-        val shape = owner.vehicle.collisionHitbox.at(body.position, owner.vehicle.hitboxRoll(body))
+        val shape =
+            owner.vehicle.collisionHitbox.at(
+                body.position.add(owner.vehicle.collisionLead(body)),
+                owner.vehicle.hitboxRoll(body),
+            )
         if (instance !== targetInstance || parts.any { it.carrier.isRemoved || it.shulker.isRemoved }) {
             remove()
             instance = targetInstance
