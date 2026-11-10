@@ -1,6 +1,7 @@
 package net.aechronis.nodes.colonization
 
 import java.util.UUID
+import kotlin.math.hypot
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -30,6 +31,8 @@ internal data class DefenderPoint(
     }
 
     fun distance(other: DefenderPoint): Double = sqrt(distanceSquared(other))
+
+    fun horizontalDistance(other: DefenderPoint): Double = hypot(x - other.x, z - other.z)
 }
 
 internal data class DefenderTargetObservation(
@@ -129,10 +132,11 @@ internal class DefenderBrain(
     ): Boolean = position.distance(targetPosition) <= config.awarenessRadius &&
         isWithinObjectiveLeash(objectivePosition, targetPosition)
 
+    // horizontal so that a flag high in the air does not put the ground beneath it out of bounds
     fun isWithinObjectiveLeash(
         objectivePosition: DefenderPoint,
         position: DefenderPoint,
-    ): Boolean = objectivePosition.distance(position) <= config.objectiveLeashRadius
+    ): Boolean = objectivePosition.horizontalDistance(position) <= config.objectiveLeashRadius
 
     fun decide(
         observation: DefenderObservation,
@@ -152,7 +156,7 @@ internal class DefenderBrain(
         val targetPosition = memory.lastSeenPosition
         val targetVisible = visibleTarget?.id == memory.targetId
         val distanceToObjective = observation.position.distance(observation.objectivePosition)
-        val outsideLeash = distanceToObjective > config.objectiveLeashRadius
+        val outsideLeash = !isWithinObjectiveLeash(observation.objectivePosition, observation.position)
         val targetDistance = targetPosition?.let(observation.position::distance)
 
         val movement = movementFor(
@@ -311,7 +315,7 @@ internal class DefenderBrain(
                 lastSeenAt != null &&
                 lastSeenPosition != null &&
                 elapsedMillis(observation.nowMillis, lastSeenAt) <= config.lastSeenMemoryMillis &&
-                observation.objectivePosition.distance(lastSeenPosition) <= config.objectiveLeashRadius
+                isWithinObjectiveLeash(observation.objectivePosition, lastSeenPosition)
         return if (memoryIsUsable) {
             previous.copy(targetWasVisible = false)
         } else {

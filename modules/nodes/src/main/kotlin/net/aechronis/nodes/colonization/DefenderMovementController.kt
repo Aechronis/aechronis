@@ -223,7 +223,9 @@ internal class DefenderMovementController(
                 val endpoint = if (finalSegment) {
                     goal.position
                 } else {
+                    // a high flag puts the straight route in mid-air, so fall back to the defender's own height
                     resolveNavigationWaypoint(session.instance, routeTarget)
+                        ?: resolveNavigationWaypoint(session.instance, routeTarget.withY(defender.entity.position.y))
                 }
                 if (endpoint == null) {
                     failNavigationPath(session, defender, goal, now, "could not find a safe intermediate waypoint")
@@ -344,7 +346,7 @@ internal class DefenderMovementController(
         start: Pos,
         goal: Pos,
     ): Pair<Pos, Boolean> {
-        val distance = start.distance(goal)
+        val distance = horizontalDistance(start, goal)
         if (distance <= NAVIGATION_SEGMENT_DISTANCE) return goal to true
         val progress = NAVIGATION_SEGMENT_DISTANCE / distance
         return Pos(
