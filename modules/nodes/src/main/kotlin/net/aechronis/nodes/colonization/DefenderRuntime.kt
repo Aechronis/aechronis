@@ -25,7 +25,20 @@ internal data class AiDefender(
     var lastDecisionAt: Long = 0,
     var lastDecision: DefenderDecision? = null,
     var flagRunner: Boolean = false,
-)
+    var previousPosition: Pos? = null,
+    var recentSpeed: Float = 0F,
+) {
+    // roughly the blocks moved over the last second, the same measure that widens a player's spread
+    fun trackSpeed() {
+        val position = entity.position
+        recentSpeed = recentSpeed * SPEED_RETAINED_PER_TICK + (previousPosition?.distance(position)?.toFloat() ?: 0F)
+        previousPosition = position
+    }
+
+    private companion object {
+        const val SPEED_RETAINED_PER_TICK = 0.95F
+    }
+}
 
 internal data class AiDefenderSlot(
     val gunName: String?,

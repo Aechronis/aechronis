@@ -226,6 +226,7 @@ internal class ColonizationDefenseDirector(
         for (defender in activeDefenders(session)) {
             val entity = defender.entity
             if (!defender.ready || entity.instance !== instance) continue
+            defender.trackSpeed()
 
             val attack = closestActiveAttack(session, entity.position)
             val flagPosition = attack?.flagBlock?.add(0.5, 0.5, 0.5)?.asPos()

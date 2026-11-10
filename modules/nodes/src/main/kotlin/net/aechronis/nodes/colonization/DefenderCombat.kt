@@ -94,7 +94,7 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
         if (!playerLikeAimAligned(entity.position.add(0.0, entity.eyeHeight, 0.0), targetPosition, 12F, 10F)) return
 
         entity.lookAt(targetPosition)
-        gun.fireFromEntity(entity, targetPosition, targetsInRange)
+        gun.fireFromEntity(entity, targetPosition, targetsInRange, defender.recentSpeed)
         weapon.recordShot(now)
     }
 

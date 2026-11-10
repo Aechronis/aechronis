@@ -465,6 +465,7 @@ class Gun(
         shooter: LivingEntity,
         targetPosition: Pos,
         validTargets: Collection<LivingEntity>,
+        shooterSpeed: Float = 0F,
     ): LivingEntity? {
         if (shooter.isDead || shooter.isRemoved) return null
         val instance = shooter.instance ?: return null
@@ -493,8 +494,8 @@ class Gun(
         repeat(bulletsPerShot) {
             val origin =
                 aimedOrigin.withView(
-                    aimedOrigin.yaw + spread(),
-                    aimedOrigin.pitch + spread(),
+                    aimedOrigin.yaw + spread(shooterSpeed),
+                    aimedOrigin.pitch + spread(shooterSpeed),
                 )
 
             val hit =
