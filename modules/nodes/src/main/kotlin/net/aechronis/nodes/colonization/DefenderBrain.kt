@@ -56,6 +56,7 @@ internal data class DefenderObservation(
 private data class DefenderRangeBand(
     val minimum: Double,
     val maximum: Double,
+    val margin: Double,
 )
 
 internal data class DefenderMemory(
@@ -66,6 +67,7 @@ internal data class DefenderMemory(
     val reactionReadyAtMillis: Long = 0,
     val strafeDirection: Int = 1,
     val strafeUntilMillis: Long = 0,
+    val previousMovement: DefenderMovement = DefenderMovement.HOLD,
 )
 
 internal data class DefenderDecision(
@@ -86,6 +88,7 @@ internal data class DefenderBrainConfig(
     val guardRadius: Double = 6.0,
     val desiredRangeMinimumFraction: Double = 0.25,
     val desiredRangeMaximumFraction: Double = 0.65,
+    val desiredRangeMargin: Double = 2.5,
     val targetStickinessBonus: Double = 8.0,
     val targetSwitchHysteresis: Double = 3.0,
     val objectiveProximityWeight: Double = 0.35,
@@ -101,6 +104,7 @@ internal data class DefenderBrainConfig(
         require(guardRadius in 0.0..objectiveLeashRadius)
         require(desiredRangeMinimumFraction in 0.0..<desiredRangeMaximumFraction)
         require(desiredRangeMaximumFraction <= 1.0)
+        require(desiredRangeMargin >= 0.0 && desiredRangeMargin.isFinite())
         require(targetStickinessBonus >= 0.0 && targetStickinessBonus.isFinite())
         require(targetSwitchHysteresis >= 0.0 && targetSwitchHysteresis.isFinite())
         require(objectiveProximityWeight >= 0.0 && objectiveProximityWeight.isFinite())
@@ -132,9 +136,13 @@ internal class DefenderBrain(
         observation: DefenderObservation,
         previous: DefenderMemory = DefenderMemory(),
     ): DefenderDecision {
+        val rangeMinimum = observation.weaponRange * config.desiredRangeMinimumFraction
+        val rangeMaximum = observation.weaponRange * config.desiredRangeMaximumFraction
         val rangeBand = DefenderRangeBand(
-            minimum = observation.weaponRange * config.desiredRangeMinimumFraction,
-            maximum = observation.weaponRange * config.desiredRangeMaximumFraction,
+            minimum = rangeMinimum,
+            maximum = rangeMaximum,
+            // short weapons have narrow bands, and the margins from each edge must not overlap
+            margin = config.desiredRangeMargin.coerceAtMost((rangeMaximum - rangeMinimum) / 4),
         )
         val visibleTarget = selectVisibleTarget(observation, previous)
         var memory = rememberTarget(observation, previous, visibleTarget)
@@ -144,7 +152,6 @@ internal class DefenderBrain(
         val distanceToObjective = observation.position.distance(observation.objectivePosition)
         val outsideLeash = distanceToObjective > config.objectiveLeashRadius
         val targetDistance = targetPosition?.let(observation.position::distance)
-        memory = updateStrafe(observation, memory, targetVisible, targetDistance, rangeBand)
 
         val movement = movementFor(
             outsideLeash = outsideLeash,
@@ -153,7 +160,9 @@ internal class DefenderBrain(
             targetDistance = targetDistance,
             distanceToObjective = distanceToObjective,
             rangeBand = rangeBand,
+            previousMovement = memory.previousMovement,
         )
+        memory = updateStrafe(observation, memory, movement).copy(previousMovement = movement)
         val movementTarget = when (movement) {
             DefenderMovement.RETURN_TO_OBJECTIVE -> observation.objectivePosition
             DefenderMovement.APPROACH_TARGET,
@@ -192,6 +201,7 @@ internal class DefenderBrain(
         targetDistance: Double?,
         distanceToObjective: Double,
         rangeBand: DefenderRangeBand,
+        previousMovement: DefenderMovement,
     ): DefenderMovement = when {
         outsideLeash -> DefenderMovement.RETURN_TO_OBJECTIVE
         hasRememberedTarget && !targetVisible && targetDistance != null && targetDistance > config.lastSeenArrivalRadius -> {
@@ -199,11 +209,32 @@ internal class DefenderBrain(
         }
 
         hasRememberedTarget && !targetVisible -> DefenderMovement.HOLD
-        targetDistance != null && targetDistance < rangeBand.minimum -> DefenderMovement.RETREAT_FROM_TARGET
-        targetDistance != null && targetDistance > rangeBand.maximum -> DefenderMovement.APPROACH_TARGET
-        targetDistance != null -> DefenderMovement.STRAFE_AROUND_TARGET
+        targetDistance != null -> combatMovementFor(targetDistance, rangeBand, previousMovement)
         !hasRememberedTarget && distanceToObjective > config.guardRadius -> DefenderMovement.RETURN_TO_OBJECTIVE
         else -> DefenderMovement.HOLD
+    }
+
+    // the margin stops a target near a band edge from flipping the defender between pathing and strafing
+    private fun combatMovementFor(
+        targetDistance: Double,
+        rangeBand: DefenderRangeBand,
+        previousMovement: DefenderMovement,
+    ): DefenderMovement {
+        val retreatBelow = when (previousMovement) {
+            DefenderMovement.RETREAT_FROM_TARGET -> rangeBand.minimum + rangeBand.margin
+            DefenderMovement.STRAFE_AROUND_TARGET -> rangeBand.minimum - rangeBand.margin
+            else -> rangeBand.minimum
+        }
+        val approachAbove = when (previousMovement) {
+            DefenderMovement.APPROACH_TARGET -> rangeBand.maximum - rangeBand.margin
+            DefenderMovement.STRAFE_AROUND_TARGET -> rangeBand.maximum + rangeBand.margin
+            else -> rangeBand.maximum
+        }
+        return when {
+            targetDistance < retreatBelow -> DefenderMovement.RETREAT_FROM_TARGET
+            targetDistance > approachAbove -> DefenderMovement.APPROACH_TARGET
+            else -> DefenderMovement.STRAFE_AROUND_TARGET
+        }
     }
 
     private fun selectVisibleTarget(
@@ -283,13 +314,9 @@ internal class DefenderBrain(
     private fun updateStrafe(
         observation: DefenderObservation,
         previous: DefenderMemory,
-        targetVisible: Boolean,
-        targetDistance: Double?,
-        rangeBand: DefenderRangeBand,
+        movement: DefenderMovement,
     ): DefenderMemory {
-        if (!targetVisible || targetDistance == null || targetDistance !in rangeBand.minimum..rangeBand.maximum) {
-            return previous
-        }
+        if (movement != DefenderMovement.STRAFE_AROUND_TARGET) return previous
         if (observation.nowMillis < previous.strafeUntilMillis) return previous
         return previous.copy(
             strafeDirection = -previous.strafeDirection,
