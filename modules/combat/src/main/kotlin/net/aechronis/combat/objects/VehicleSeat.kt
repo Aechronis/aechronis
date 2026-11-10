@@ -34,4 +34,7 @@ enum class VehicleSeatRole(
     GUNNER(false, true, "gunner"),
     PILOT(true, true, "pilot"),
     OPERATOR(true, true, "operator"),
+
+    /** A station that controls the vehicle without driving it or operating a weapon, such as a helm. */
+    CREW(false, false, "driver"),
 }

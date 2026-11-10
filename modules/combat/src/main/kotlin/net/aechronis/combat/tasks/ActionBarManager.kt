@@ -62,19 +62,15 @@ object ActionBarManager {
         val armament = (vehicle as? Boat)?.armament
         val station = (vehicle as? Boat)?.weaponStatus(player)
         val movementTelemetry =
-            if (ride.role.drives) {
-                when (vehicle) {
-                    is Plane ->
-                        formatPlaneTelemetry(
-                            vehicle.speed,
-                            vehicle.currentThrottle(player),
-                            vehicle.maxThrottle,
-                        )
-                    is Car -> formatCarTelemetry(vehicle.currentSpeed(player))
-                    else -> vehicle.driverTelemetry(player)
-                }
-            } else {
-                null
+            when {
+                ride.role.drives && vehicle is Plane ->
+                    formatPlaneTelemetry(
+                        vehicle.speed,
+                        vehicle.currentThrottle(player),
+                        vehicle.maxThrottle,
+                    )
+                ride.role.drives && vehicle is Car -> formatCarTelemetry(vehicle.currentSpeed(player))
+                else -> vehicle.crewTelemetry(player)
             }
         val healthText = String.format(Locale.ROOT, "Health: [%.0f/%.0f]", health.first, health.second)
         val ammoText =

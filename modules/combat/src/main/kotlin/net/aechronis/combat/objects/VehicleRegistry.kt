@@ -288,7 +288,8 @@ internal object VehicleRegistry {
 
     fun driver(player: Player): VehicleRide? = ride(player)?.takeIf { it.role.drives }
 
-    fun gunner(player: Player): VehicleRide? = ride(player)?.takeIf { it.role == VehicleSeatRole.GUNNER }
+    /** A ride at any non-driving station, including crew stations without a weapon. */
+    fun gunner(player: Player): VehicleRide? = ride(player)?.takeIf { !it.role.drives }
 
     fun rides(): List<VehicleRide> = playerRides.values.toList()
 
@@ -299,14 +300,14 @@ internal object VehicleRegistry {
 
     fun ridesOf(entity: Entity): List<VehicleRide> = playerRides.values.filter { it.entity === entity }
 
-    fun gunners(entity: Entity): List<VehicleRide> = playerRides.values.filter { it.entity === entity && it.role == VehicleSeatRole.GUNNER }
+    fun gunners(entity: Entity): List<VehicleRide> = playerRides.values.filter { it.entity === entity && !it.role.drives }
 
     fun gunnerOf(
         entity: Entity,
         stationIndex: Int,
     ): VehicleRide? =
         playerRides.values.firstOrNull {
-            it.entity === entity && it.role == VehicleSeatRole.GUNNER && it.stationIndex == stationIndex
+            it.entity === entity && !it.role.drives && it.stationIndex == stationIndex
         }
 
     fun occupant(

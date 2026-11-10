@@ -53,7 +53,9 @@ open class Vehicle(
     ) {
     val animatedParts: List<AnimatedPart> = animatedParts.toList()
     val seats: List<VehicleSeat> = seats.toList()
-    internal val gunnerSeats: List<VehicleSeat> = this.seats.filter { it.role == VehicleSeatRole.GUNNER }
+
+    /** Every non-driving station, in definition order: gunners and other crew such as a helmsman. */
+    internal val gunnerSeats: List<VehicleSeat> = this.seats.filter { !it.role.drives }
 
     init {
         require(this.seats.size in 1..9) { "Vehicles need between one and nine crew seats" }
@@ -64,7 +66,8 @@ open class Vehicle(
                 .size == this.seats.size,
         ) { "Crew seat IDs must be unique" }
         require(this.seats.count { it.role.drives } == 1) { "Vehicles need exactly one driving position" }
-        require(gunnerSeats.map { it.weaponId }.distinct().size == gunnerSeats.size) { "Each gunner must control a different weapon" }
+        val weaponIds = this.seats.filter { it.role == VehicleSeatRole.GUNNER }.map { it.weaponId }
+        require(weaponIds.distinct().size == weaponIds.size) { "Each gunner must control a different weapon" }
         require(
             modelScale.x.isFinite() &&
                 modelScale.x > 0.0 &&
@@ -419,13 +422,22 @@ open class Vehicle(
      */
     open fun collisionLead(entity: Entity): Vec = Vec.ZERO
 
-    /** Movement telemetry for the driver's action bar, such as "[3.0 blocks/s]"; null shows none. */
-    open fun driverTelemetry(player: Player): String? = null
+    /** Movement telemetry for a crew member's action bar, such as "[3.0 blocks/s]"; null shows none. */
+    open fun crewTelemetry(player: Player): String? = null
 
-    /** Pulls the driver's third-person camera back far enough to frame the whole vehicle. */
-    protected fun frameDriverCamera(player: Player) = VehicleCameraDistance.apply(player, hitbox, seats.first { it.role.drives }.offset)
+    /** The vehicle [player] is crewing at [seat], if that is where they are. */
+    protected fun crewEntity(
+        player: Player,
+        seat: VehicleSeat,
+    ): Entity? = VehicleRegistry.ride(player)?.takeIf { it.vehicle === this && it.definition == seat }?.entity
 
-    protected fun restoreDriverCamera(player: Player) = VehicleCameraDistance.restore(player)
+    /** Pulls a crew member's third-person camera back far enough to frame the whole vehicle from [seat]. */
+    protected fun frameCrewCamera(
+        player: Player,
+        seat: VehicleSeat = seats.first { it.role.drives },
+    ) = VehicleCameraDistance.apply(player, hitbox, seat.offset)
+
+    protected fun restoreCrewCamera(player: Player) = VehicleCameraDistance.restore(player)
 
     open fun onGunnerEnter(
         player: Player,

@@ -20,8 +20,11 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
 
-/** A free balloon cannot steer: its elevatorman only climbs (forward) or descends (backward). */
-class Balloon(
+/**
+ * A free balloon cannot steer: its elevatorman only climbs (forward) or descends (backward).
+ * Subclasses may add [crewSeats] after the elevatorman and move the hull in [onHullTick].
+ */
+open class Balloon(
     name: String,
     itemName: Component,
     itemLore: List<Component> = emptyList(),
@@ -40,6 +43,7 @@ class Balloon(
     /** Change in vertical speed per tick. */
     val verticalAcceleration: Double = 0.005,
     seat: VehicleSeat = VehicleSeat("elevatorman", "Elevatorman", VehicleSeatRole.DRIVER),
+    crewSeats: List<VehicleSeat> = emptyList(),
     invisibleWhileRiding: Boolean = false,
     invulnerableWhileRiding: Boolean = false,
     animatedParts: List<AnimatedPart> = emptyList(),
@@ -55,7 +59,7 @@ class Balloon(
         hitbox,
         health,
         placeTime,
-        listOf(seat),
+        listOf(seat) + crewSeats,
         invisibleWhileRiding,
         invulnerableWhileRiding,
         animatedParts,
@@ -74,9 +78,9 @@ class Balloon(
 
     private val runtimes = HashMap<Entity, Runtime>()
 
-    override fun driverTelemetry(player: Player): String? {
-        val speed = driverEntity(player)?.let { runtimes[it]?.verticalSpeed } ?: 0.0
-        return String.format(Locale.ROOT, "[%+.1f blocks/s vertical]", speed * TICKS_PER_SECOND)
+    override fun crewTelemetry(player: Player): String? {
+        val runtime = driverEntity(player)?.let { runtimes[it] } ?: return null
+        return String.format(Locale.ROOT, "[%+.1f blocks/s vertical]", runtime.verticalSpeed * TICKS_PER_SECOND)
     }
 
     init {
@@ -103,7 +107,7 @@ class Balloon(
         entity: Entity,
     ) {
         super.onEnter(player, entity)
-        if (driverEntity(player) === entity) frameDriverCamera(player)
+        if (driverEntity(player) === entity) frameCrewCamera(player)
     }
 
     // The registry removes a balloon only after its riders have exited, which restores their camera.
@@ -111,7 +115,7 @@ class Balloon(
         try {
             super.onExit(player)
         } finally {
-            restoreDriverCamera(player)
+            restoreCrewCamera(player)
         }
     }
 
@@ -132,17 +136,22 @@ class Balloon(
                 else -> 0.0
             }
         step(entity, runtime, targetSpeed)
+        onHullTick(entity)
         super.onTick(player)
     }
 
     override fun onUnoccupiedTick(entity: Entity) {
         val runtime = runtimes[entity] ?: return
+        onHullTick(entity)
         if (runtime.plannedMove == 0.0 && runtime.restTicks > 0) {
             runtime.restTicks--
             return
         }
         if (!step(entity, runtime, -sinkSpeed)) runtime.restTicks = REST_RECHECK_TICKS
     }
+
+    /** Runs once per tick for each live balloon, after its vertical move and before the elevatorman follows the hull. */
+    protected open fun onHullTick(entity: Entity) = Unit
 
     // Clients place the shulkers a tick late, so leading them by the next climb puts them under a carried
     // rider. Descending shulkers never lead: a lagging one rests at or above the server's floor, where
@@ -218,7 +227,8 @@ class Balloon(
         }
     }
 
-    private fun canOccupy(
+    /** Whether the hull fits at [position] clear of blocks and of other vehicles than [entity]. */
+    protected fun canOccupy(
         instance: Instance,
         position: Pos,
         entity: Entity? = null,

@@ -6,7 +6,6 @@ import net.aechronis.combat.objects.ShulkerHitbox
 import net.aechronis.combat.objects.Vehicle
 import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.objects.VehicleRuntime
-import net.aechronis.combat.objects.VehicleSeatRole
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.rotatePoint
 import net.aechronis.combat.utils.rotatePointInverse
@@ -82,8 +81,8 @@ object VehicleTickManager {
                     }
                 }
 
-                // Weapon operators remain active without a helmsman and follow the final hull pose.
-                for (ride in VehicleRegistry.rides().filter { it.role == VehicleSeatRole.GUNNER }) {
+                // Weapon operators and other stations remain active without a driver and follow the final hull pose.
+                for (ride in VehicleRegistry.rides().filter { !it.role.drives }) {
                     ride.vehicle.updateAmmoReload(ride.player)
                     ride.vehicle.onGunnerTick(ride.player)
                 }
