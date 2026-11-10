@@ -171,13 +171,14 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
                     return@scheduleNextTick
                 }
 
+                val referenceY = spawnReferenceY(instance, session.spawnCenter)
                 val safeSpawns = candidates
                     .mapNotNull { horizontalPosition ->
                         if (!instance.worldBorder.inBounds(horizontalPosition)) return@mapNotNull null
                         if (Territory.fromBlock(horizontalPosition.blockX(), horizontalPosition.blockZ())?.town !== targetTown) {
                             return@mapNotNull null
                         }
-                        resolveSafeSurfaceNear(instance, horizontalPosition, session.spawnCenter.blockY())
+                        resolveSafeSurfaceNear(instance, horizontalPosition, referenceY)
                     }.distinctBy { spawn -> Triple(spawn.blockX(), spawn.blockY(), spawn.blockZ()) }
                     .filter { spawn ->
                         activeDefenders(session).none { defender ->
@@ -192,7 +193,7 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
                     .mapNotNull { horizontalPosition ->
                         val territory = Territory.fromBlock(horizontalPosition.blockX(), horizontalPosition.blockZ())
                         if (territory?.id != targetTown.home || territory.town !== targetTown) return@mapNotNull null
-                        resolveSafeGuardSurface(instance, horizontalPosition, session.spawnCenter.blockY())
+                        resolveSafeGuardSurface(instance, horizontalPosition, referenceY)
                     }.distinctBy { position -> Triple(position.blockX(), position.blockY(), position.blockZ()) }
                     .filter { position ->
                         activeDefenders(session).none { defender ->
@@ -272,7 +273,7 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
 
                 if (
                     Territory.fromBlock(spawn.blockX(), spawn.blockZ())?.town !== session.targetTown ||
-                    !isSafeDefenderStandingPosition(instance, spawn)
+                    !isClearDefenderStandingPosition(instance, spawn)
                 ) {
                     failDefenderSpawn(session, slot, generation, defender, "campaign spawn became unsafe at $spawn")
                     return@scheduleNextTick

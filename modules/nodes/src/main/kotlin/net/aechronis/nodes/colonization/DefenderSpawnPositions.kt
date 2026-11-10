@@ -71,6 +71,19 @@ internal fun randomTerritoryColumns(
     }.shuffled(random).take(maximumColumns)
 }
 
+// AI town spawns are saved at a placeholder height, so only trust it when a defender can actually stand there
+internal fun spawnReferenceY(
+    instance: Instance,
+    center: Pos,
+): Int {
+    if (isClearDefenderStandingPosition(instance, center)) return center.blockY()
+    val dimension = instance.cachedDimensionType
+    for (y in dimension.maxY() - 1 downTo dimension.minY()) {
+        if (!instance.getBlock(center.blockX(), y, center.blockZ()).air()) return y + 1
+    }
+    return center.blockY()
+}
+
 internal fun resolveSafeSurfaceNear(
     instance: Instance,
     horizontalPosition: Pos,
@@ -81,7 +94,7 @@ internal fun resolveSafeSurfaceNear(
     val minimumY = (referenceY - LOCAL_SPAWN_VERTICAL_SEARCH).coerceAtLeast(dimension.minY() + 1)
     for (y in maximumY downTo minimumY) {
         val candidate = horizontalPosition.withY(y.toDouble())
-        if (isSafeDefenderStandingPosition(instance, candidate)) return candidate
+        if (isClearDefenderStandingPosition(instance, candidate)) return candidate
     }
     return null
 }
@@ -100,12 +113,12 @@ internal fun resolveSafeGuardSurface(
         val above = referenceY + offset
         if (above <= maximumY) {
             val candidate = horizontalPosition.withY(above.toDouble())
-            if (isSafeDefenderStandingPosition(instance, candidate)) return candidate
+            if (isClearDefenderStandingPosition(instance, candidate)) return candidate
         }
         val below = referenceY - offset
         if (below >= minimumY) {
             val candidate = horizontalPosition.withY(below.toDouble())
-            if (isSafeDefenderStandingPosition(instance, candidate)) return candidate
+            if (isClearDefenderStandingPosition(instance, candidate)) return candidate
         }
         offset += 1
     }
