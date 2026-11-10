@@ -34,6 +34,8 @@ internal class DefenderNavigator(
     private var pathLoadStartedAt: Long = 0
     private var requestedNavigationGoal: NavigationGoal? = null
     private var activeNavigationGoal: NavigationGoal? = null
+    private var activePathEndpoint: Pos? = null
+    private var activePathMinimumDistance: Double = 0.0
     private var preparedNavigationPath: PreparedNavigationPath? = null
     private var navigationChunks: Set<Coord> = emptySet()
     private var lastNavigationPosition: Pos? = null
@@ -76,6 +78,7 @@ internal class DefenderNavigator(
         preparedNavigationPath = null
         requestedNavigationGoal = null
         activeNavigationGoal = null
+        activePathEndpoint = null
         scaffoldNavigation = false
         highestScaffoldY = Double.NEGATIVE_INFINITY
         entity.navigator.reset()
@@ -135,12 +138,13 @@ internal class DefenderNavigator(
             PPath.State.TERMINATED,
             -> {
                 navigator.reset()
+                val arrived = !scaffoldNavigation && reachedActivePathEndpoint(position)
                 if (scaffoldNavigation) {
                     advanceApproach()
                     scaffoldNavigation = false
                     highestScaffoldY = Double.NEGATIVE_INFINITY
                 }
-                if (goal.attack != null) {
+                if (goal.attack != null && !arrived) {
                     requestTerrainRecovery()
                     false
                 } else {
@@ -230,6 +234,8 @@ internal class DefenderNavigator(
         lastPathRefreshAt = nowMillis
         if (!setNavigationPath(prepared.endpoint, prepared.minimumDistance)) return false
 
+        activePathEndpoint = prepared.endpoint
+        activePathMinimumDistance = prepared.minimumDistance
         pathFailureCount = 0
         clearTerrainRecovery()
         lastNavigationPosition = entity.position
@@ -243,6 +249,7 @@ internal class DefenderNavigator(
         preparedNavigationPath = null
         requestedNavigationGoal = goal
         activeNavigationGoal = goal
+        activePathEndpoint = null
         scaffoldNavigation = false
         highestScaffoldY = Double.NEGATIVE_INFINITY
         entity.navigator.reset()
@@ -296,6 +303,11 @@ internal class DefenderNavigator(
         }
     }
 
+    private fun reachedActivePathEndpoint(position: Pos): Boolean {
+        val endpoint = activePathEndpoint ?: return false
+        return hasReachedPathEndpoint(position, endpoint, activePathMinimumDistance)
+    }
+
     private fun setNavigationPath(
         endpoint: Pos,
         minimumDistance: Double,
@@ -332,6 +344,16 @@ internal fun flagApproachForAttempt(
 ): Pos {
     require(approaches.isNotEmpty()) { "At least one flag approach is required" }
     return approaches[Math.floorMod(attempt, approaches.size)]
+}
+
+// minestom reports INVALID for a finished path as well as a failed one, so arrival has to be measured
+internal fun hasReachedPathEndpoint(
+    position: Pos,
+    endpoint: Pos,
+    minimumDistance: Double,
+): Boolean {
+    val arrivalDistance = maxOf(minimumDistance, PATH_SEARCH_CLOSE_DISTANCE) + PATH_ARRIVAL_TOLERANCE
+    return position.distanceSquared(endpoint) <= arrivalDistance * arrivalDistance
 }
 
 internal fun hasHorizontalNavigationProgress(
@@ -385,3 +407,7 @@ private const val PLAYER_PATH_MINIMUM_DISTANCE = 2.0
 private const val MAX_PATH_DISTANCE = 80.0
 private const val PATH_VARIANCE = 16.0
 private const val PATH_PROGRESS_DISTANCE = 0.08
+
+// the closest minestom's path search will finish from its target, plus how loosely path nodes are followed
+private const val PATH_SEARCH_CLOSE_DISTANCE = 0.8
+private const val PATH_ARRIVAL_TOLERANCE = 0.3
