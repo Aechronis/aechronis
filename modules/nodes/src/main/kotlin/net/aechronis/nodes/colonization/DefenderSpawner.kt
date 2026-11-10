@@ -23,6 +23,7 @@ import kotlin.random.Random
 private const val MAX_DEFENDER_SPAWNS_PER_WAVE = 4
 private const val MIN_RANDOM_GUARD_COLUMNS = 32
 private const val RANDOM_GUARD_COLUMNS_PER_DEFENDER = 8
+private const val MIN_DEFENDER_RESPAWN_DELAY_MILLIS = 15_000L
 internal const val MAX_DEFENDER_RESPAWN_DELAY_MILLIS = 60_000L
 private const val AI_DEFENDER_SKIN_TEXTURES =
     "ewogICJ0aW1lc3RhbXAiIDogMTc4NjQ3ODMyNzM5NiwKICAicHJvZmlsZUlkIiA6ICJjMmFlZGUzN2M3MDQ0ZWFmOWJkYWYy" +
@@ -327,5 +328,6 @@ internal class DefenderSpawner(private val sessions: DefenseSessions) {
 }
 
 internal fun randomDefenderRespawnDelayMillis(random: Random = Random.Default): Long = random.nextLong(
+    MIN_DEFENDER_RESPAWN_DELAY_MILLIS,
     MAX_DEFENDER_RESPAWN_DELAY_MILLIS + 1,
 )
