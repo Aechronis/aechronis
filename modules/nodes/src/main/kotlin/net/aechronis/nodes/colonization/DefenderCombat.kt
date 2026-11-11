@@ -26,9 +26,9 @@ internal class DefenderCombat(private val sessions: DefenseSessions) {
                 Vehicle.protectedVehicleAimPosition(player)
                     ?: player.position.add(0.0, player.eyeHeight, 0.0)
             } ?: decision.aimPosition?.toPos()?.let { aim ->
-                // a remembered target position is where the player's feet were
-                if (decision.targetId != null) aim.add(0.0, defender.entity.eyeHeight, 0.0) else aim
-            }
+            // a remembered target position is where the player's feet were
+            if (decision.targetId != null) aim.add(0.0, defender.entity.eyeHeight, 0.0) else aim
+        }
     }
 
     fun tickFlagBreaking(
