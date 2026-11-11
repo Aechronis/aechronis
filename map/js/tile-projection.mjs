@@ -1,14 +1,14 @@
 import { MAP_BOUNDS, WORLD_WIDTH } from './map-config.mjs';
 // Match the world's Miller projection so satellite tiles align with overlays.
+// The world is plain Miller over WORLD_WIDTH; the equator was fitted against its coastlines.
 const RADIUS = WORLD_WIDTH / (2 * Math.PI);
-const EQUATOR_Z = 1520;
-const NORTHING_SCALE = 1.002;
+const EQUATOR_Z = 1525;
 export function latitudeToZ(latitude) {
-  return EQUATOR_Z - RADIUS * NORTHING_SCALE * 1.25
+  return EQUATOR_Z - RADIUS * 1.25
     * Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 180 * 0.4));
 }
 export function zToLatitude(z) {
-  return (2 * Math.atan(Math.exp((EQUATOR_Z - z) / (RADIUS * NORTHING_SCALE * 1.25)))
+  return (2 * Math.atan(Math.exp((EQUATOR_Z - z) / (RADIUS * 1.25)))
     - Math.PI / 2) / 0.8 * 180 / Math.PI;
 }
 function mercatorY(latitude) {
