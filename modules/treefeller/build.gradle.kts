@@ -4,4 +4,5 @@ plugins {
 
 dependencies {
     compileOnly(project(":modules:vanilla"))
+    compileOnly(project(":modules:settings"))
 }
