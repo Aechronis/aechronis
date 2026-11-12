@@ -231,4 +231,5 @@ private fun startMinecraftServer(
 
     network.start(server)
     devWatcher?.start()
+    ConsoleCommandReader.start()
 }

@@ -1,6 +1,7 @@
 package net.aechronis.combat.tasks
 
 import net.aechronis.combat.Combat
+import net.aechronis.combat.listeners.AimingListener
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.TurretScope
@@ -362,6 +363,7 @@ object ModelManager {
         hitAnimationDisabledPlayers.remove(player)
         player.getAttribute(Attribute.ATTACK_SPEED).removeModifier(attackSpeedModifier)
         player.getAttribute(Attribute.BLOCK_BREAK_SPEED).removeModifier(blockBreakSpeedModifier)
+        AimingListener.clearAimSlowdown(player)
         HasteEffectManager.clear(player, HIT_ANIMATION_HASTE_SOURCE)
     }
 

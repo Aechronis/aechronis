@@ -73,5 +73,6 @@ object Shutdown {
 
     private fun broadcast(message: Component) {
         MinecraftServer.getConnectionManager().onlinePlayers.forEach { it.sendMessage(message) }
+        MinecraftServer.getCommandManager().consoleSender.sendMessage(message)
     }
 }
