@@ -1,6 +1,7 @@
 package net.aechronis.server.tasks
 
 import net.aechronis.server.Server
+import net.aechronis.server.world.TrackedChunk
 import net.minestom.server.MinecraftServer
 import net.minestom.server.instance.Chunk
 import net.minestom.server.timer.Task
@@ -63,8 +64,10 @@ object WorldSaver {
     }
 
     fun saveWorld(): CompletableFuture<Void> {
-        val chunks = Server.instance.chunks.toList()
-        return worldSaveQueue.submit { saveChunks(chunks) }
+        val loaded = Server.instance.chunks
+        // An unmodified chunk already matches its region file.
+        val chunks = loaded.filter { chunk -> chunk !is TrackedChunk || chunk.needsSave }
+        return worldSaveQueue.submit { saveChunks(chunks, loaded.size) }
     }
 
     fun saveWorldAndWait() {
@@ -88,9 +91,12 @@ object WorldSaver {
         failure?.let { throw it }
     }
 
-    private fun saveChunks(chunks: List<Chunk>): CompletableFuture<Void> {
+    private fun saveChunks(
+        chunks: List<Chunk>,
+        loadedCount: Int,
+    ): CompletableFuture<Void> {
         val startedAt = System.nanoTime()
-        println("[WorldSave] Saving ${chunks.size} loaded chunks in batches of $CHUNK_SAVE_BATCH_SIZE...")
+        println("[WorldSave] Saving ${chunks.size} modified chunks of $loadedCount loaded in batches of $CHUNK_SAVE_BATCH_SIZE...")
 
         return saveInBatches(
             items = chunks,
@@ -98,7 +104,7 @@ object WorldSaver {
             saveItem = Server.instance::saveChunkToStorage,
             onProgress = { saved, total ->
                 if (saved == total || saved % PROGRESS_LOG_CHUNKS == 0) {
-                    println("[WorldSave] Saved $saved/$total loaded chunks.")
+                    println("[WorldSave] Saved $saved/$total modified chunks.")
                 }
             },
         ).thenCompose {
@@ -106,7 +112,7 @@ object WorldSaver {
         }.whenComplete { _, error ->
             val elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000
             if (error == null) {
-                println("[WorldSave] Completed ${chunks.size} loaded chunks in ${elapsedMillis}ms.")
+                println("[WorldSave] Completed ${chunks.size} modified chunks in ${elapsedMillis}ms.")
             } else {
                 System.err.println("[WorldSave] Failed after ${elapsedMillis}ms: ${error.message}")
             }
@@ -171,9 +177,11 @@ internal fun <T> saveInBatches(
     require(batchSize > 0) { "Chunk save batch size must be positive" }
 
     var saved = 0
-    return items.chunked(batchSize).fold(CompletableFuture.completedFuture(null)) { previous, batch ->
-        previous
-            .thenCompose {
+    var failure: Throwable? = null
+    return items
+        .chunked(batchSize)
+        .fold(CompletableFuture.completedFuture<Void>(null)) { previous, batch ->
+            previous.thenCompose {
                 val saves =
                     batch.map { item ->
                         try {
@@ -182,10 +190,15 @@ internal fun <T> saveInBatches(
                             CompletableFuture.failedFuture(error)
                         }
                     }
-                CompletableFuture.allOf(*saves.toTypedArray())
-            }.thenRun {
-                saved += batch.size
-                onProgress(saved, items.size)
+                // One item that cannot be saved must not keep the items after it off disk.
+                CompletableFuture.allOf(*saves.toTypedArray()).handle<Void> { _, error ->
+                    if (error != null) failure?.addSuppressed(error) ?: run { failure = error }
+                    saved += batch.size
+                    onProgress(saved, items.size)
+                    null
+                }
             }
-    }
+        }.thenCompose {
+            failure?.let { CompletableFuture.failedFuture<Void>(it) } ?: CompletableFuture.completedFuture(null)
+        }
 }

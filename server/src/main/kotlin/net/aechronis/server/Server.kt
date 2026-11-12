@@ -13,7 +13,10 @@ import net.aechronis.server.modules.PlayerAdmissionGate
 import net.aechronis.server.network.ServerNetwork
 import net.aechronis.server.resourcepack.EmbeddedResourcePack
 import net.aechronis.server.resourcepack.ResourcePackServer
+import net.aechronis.server.tasks.ChunkUnloader
 import net.aechronis.server.tasks.WorldSaver
+import net.aechronis.server.world.TrackedChunk
+import net.aechronis.server.world.TrackedChunkLoader
 import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.color.Color
@@ -176,12 +179,18 @@ private fun startMinecraftServer(
     // create instance
     val worldPath = Path.of("world")
     Files.createDirectories(worldPath)
+    val worldDimension = DimensionType.OVERWORLD.key()
     Server.instance =
         InstanceContainer(
             Server.primaryWorldInstanceId,
             Server.fullbrightKey,
-            AnvilLoader(worldPath, DimensionType.OVERWORLD.key()),
+            TrackedChunkLoader(
+                AnvilLoader(worldPath, worldDimension),
+                // The Anvil loader's region directory for this dimension.
+                worldPath.resolve("dimensions/${worldDimension.namespace()}/${worldDimension.value()}/region"),
+            ),
         )
+    Server.instance.setChunkSupplier(::TrackedChunk)
     MinecraftServer.getInstanceManager().registerInstance(Server.instance)
     Server.loadSpawnPoint()
 
@@ -203,7 +212,10 @@ private fun startMinecraftServer(
             devWatcher?.close()
             moduleManager.beginShutdown()
         },
-        stopWorldSaver = WorldSaver::shutdown,
+        stopWorldSaver = {
+            ChunkUnloader.shutdown()
+            WorldSaver.shutdown()
+        },
         prepareModules = { moduleManager.prepareForShutdown(moduleContext) },
         saveModuleState = { moduleManager.saveState(moduleContext) },
         stopServer = MinecraftServer::stopCleanly,
@@ -228,6 +240,7 @@ private fun startMinecraftServer(
 
     moduleManager.initialize(moduleContext)
     WorldSaver.start { moduleManager.saveCheckpoint(moduleContext) }
+    ChunkUnloader.start()
 
     network.start(server)
     devWatcher?.start()

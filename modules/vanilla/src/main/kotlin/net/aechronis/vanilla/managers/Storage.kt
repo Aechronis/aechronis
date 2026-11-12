@@ -1,6 +1,7 @@
 package net.aechronis.vanilla.managers
 
 import net.aechronis.server.modules.ModuleBlocks
+import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.listeners.StorageListener
 import net.aechronis.vanilla.objects.BlockKey
 import net.aechronis.vanilla.objects.StorageContents
@@ -12,6 +13,7 @@ import net.kyori.adventure.nbt.ListBinaryTag
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Point
 import net.minestom.server.entity.Player
+import net.minestom.server.event.instance.InstanceChunkUnloadEvent
 import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
@@ -51,6 +53,19 @@ object Storage {
     fun init() {
         ModuleBlocks.registerHandlerIfAbsent(barrelKey) { defaultBarrelHandler }
         StorageListener.init()
+        Vanilla.eventNode.addListener(InstanceChunkUnloadEvent::class.java, ::onChunkUnload)
+    }
+
+    // Every inventory change is written to block NBT as it happens, so the live copy holds nothing
+    // the chunk does not. Dropping it keeps a stale inventory from outliving its block.
+    private fun onChunkUnload(event: InstanceChunkUnloadEvent) {
+        for ((key, contents) in barrels) {
+            if (key.instance !== event.instance || key.pos.chunkX() != event.chunkX || key.pos.chunkZ() != event.chunkZ) continue
+            contents.inventory.viewers
+                .toList()
+                .forEach { it.closeInventory() }
+            remove(key)
+        }
     }
 
     fun keyFor(
@@ -99,9 +114,12 @@ object Storage {
 
     private fun writeToBlock(key: BlockKey): Boolean {
         val contents = barrels[key] ?: return false
+        if (!key.instance.isChunkLoaded(key.pos)) return false
         val block = key.instance.getBlock(key.pos)
         if (!block.compare(Block.BARREL)) return false
-        key.instance.setBlock(key.pos, withContents(block, contents), false)
+        val updated = withContents(block, contents)
+        // Rewriting an unchanged barrel would mark its chunk modified at every checkpoint.
+        if (updated != block) key.instance.setBlock(key.pos, updated, false)
         return true
     }
 

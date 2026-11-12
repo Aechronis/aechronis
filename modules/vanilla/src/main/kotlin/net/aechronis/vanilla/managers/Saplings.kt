@@ -67,7 +67,8 @@ object Saplings {
                 val instance = instances[record.world] ?: return@forEach
                 val type = SaplingType.ALL.firstOrNull { it.saplingBlock.name() == record.saplingBlock } ?: return@forEach
                 val key = BlockKey(instance, Vec(record.x.toDouble(), record.y.toDouble(), record.z.toDouble()))
-                if (!instance.getBlock(key.pos).compare(type.saplingBlock)) return@forEach
+                // A sapling in an unloaded chunk is checked by the first growth tick after it loads.
+                if (instance.isChunkLoaded(key.pos) && !instance.getBlock(key.pos).compare(type.saplingBlock)) return@forEach
                 restored[key] = SaplingsPlanted(type, record.plantedAt, record.boneMeal)
             }
             saplings.clear()
@@ -128,6 +129,7 @@ object Saplings {
         val now = System.currentTimeMillis()
         val toRemove = mutableListOf<BlockKey>()
         for ((key, planted) in saplings) {
+            if (!isAreaLoaded(key)) continue
             if (!key.instance.getBlock(key.pos).compare(planted.type.saplingBlock)) {
                 toRemove.add(key)
                 continue
@@ -140,6 +142,13 @@ object Saplings {
             if (grow(key, planted)) toRemove.add(key)
         }
         toRemove.forEach { saplings.remove(it) }
+    }
+
+    // A tree reaches into the neighbouring chunks, which can unload while the sapling's own stays.
+    private fun isAreaLoaded(key: BlockKey): Boolean {
+        val chunkX = key.pos.chunkX()
+        val chunkZ = key.pos.chunkZ()
+        return (-1..1).all { dx -> (-1..1).all { dz -> key.instance.isChunkLoaded(chunkX + dx, chunkZ + dz) } }
     }
 
     fun tryGiant(

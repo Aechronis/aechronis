@@ -65,7 +65,8 @@ object Crops {
                 val instance = instances[record.world] ?: return@forEach
                 val type = CropType.ALL.firstOrNull { it.cropBlock.name() == record.cropBlock } ?: return@forEach
                 val key = BlockKey(instance, Vec(record.x.toDouble(), record.y.toDouble(), record.z.toDouble()))
-                if (!instance.getBlock(key.pos).compare(type.cropBlock)) return@forEach
+                // A crop in an unloaded chunk is checked by the first growth tick after it loads.
+                if (instance.isChunkLoaded(key.pos) && !instance.getBlock(key.pos).compare(type.cropBlock)) return@forEach
                 restored[key] = CropsPlantedCrop(type, record.plantedAt, record.initialAge)
             }
             crops.clear()
@@ -85,6 +86,8 @@ object Crops {
         val now = System.currentTimeMillis()
         val toRemove = mutableListOf<BlockKey>()
         for ((key, planted) in crops) {
+            // Growth follows the clock, so a crop catches up once its chunk is loaded again.
+            if (!key.instance.isChunkLoaded(key.pos)) continue
             val mps = msPerState[planted.cropType] ?: continue
             val targetAge =
                 (planted.initialAge + ((now - planted.plantedAt) / mps).toInt())

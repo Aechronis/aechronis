@@ -159,7 +159,7 @@ object Ores {
                 val instance = player.instance?.takeIf { it.getDimensionName() == cooldown.ore.world } ?: return@forEach
                 if (valid) {
                     sendBlock(player, cooldown.ore, Block.BEDROCK)
-                } else {
+                } else if (instance.isChunkLoaded(cooldown.ore.x shr 4, cooldown.ore.z shr 4)) {
                     sendBlock(player, cooldown.ore, instance.getBlock(cooldown.ore.x, cooldown.ore.y, cooldown.ore.z))
                 }
             }
@@ -175,6 +175,8 @@ object Ores {
         cooldowns.keys.forEach { cooldown ->
             val player = playersById[cooldown.player] ?: return@forEach
             val instance = player.instance?.takeIf { it.getDimensionName() == cooldown.ore.world } ?: return@forEach
+            // A player who left an ore behind is sent its real block along with the chunk on return.
+            if (!instance.isChunkLoaded(cooldown.ore.x shr 4, cooldown.ore.z shr 4)) return@forEach
             sendBlock(player, cooldown.ore, instance.getBlock(cooldown.ore.x, cooldown.ore.y, cooldown.ore.z))
         }
         cooldowns.clear()
