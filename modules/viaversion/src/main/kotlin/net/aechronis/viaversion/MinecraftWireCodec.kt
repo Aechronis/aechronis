@@ -13,6 +13,11 @@ import javax.crypto.Cipher
 
 /** Minecraft framing and transport only; all protocol mappings live in the Via dependencies. */
 internal object MinecraftWireCodec {
+    // Setting up a zlib stream costs more than compressing a small packet with it. Codecs run on
+    // their channel's event loop, so one stream of each kind per thread serves every connection.
+    private val deflater = ThreadLocal.withInitial(::Deflater)
+    private val inflater = ThreadLocal.withInitial(::Inflater)
+
     class FrameDecoder(
         private val limit: () -> Int,
     ) : ByteToMessageDecoder() {
@@ -67,14 +72,14 @@ internal object MinecraftWireCodec {
         val compressed = ByteArray(input.readableBytes())
         input.readBytes(compressed)
         val expanded = ByteArray(length)
-        val inflater = Inflater()
+        val inflater = inflater.get()
         try {
             inflater.setInput(compressed)
             val written = inflater.inflate(expanded)
             require(written == length && inflater.finished() && inflater.remaining == 0) { "Invalid compressed packet" }
             return Unpooled.wrappedBuffer(expanded)
         } finally {
-            inflater.end()
+            inflater.reset()
         }
     }
 
@@ -113,14 +118,14 @@ internal object MinecraftWireCodec {
                     val bytes = ByteArray(input.readableBytes())
                     input.readBytes(bytes)
                     Types.VAR_INT.writePrimitive(result, bytes.size)
-                    val deflater = Deflater()
+                    val deflater = deflater.get()
                     try {
                         deflater.setInput(bytes)
                         deflater.finish()
                         val block = ByteArray(8192)
                         while (!deflater.finished()) result.writeBytes(block, 0, deflater.deflate(block))
                     } finally {
-                        deflater.end()
+                        deflater.reset()
                     }
                 }
                 output.add(result.retain())

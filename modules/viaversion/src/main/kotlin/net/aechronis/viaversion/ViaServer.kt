@@ -29,6 +29,7 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.ServerFlag
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
+import net.minestom.server.event.server.ServerTickMonitorEvent
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.channels.SocketChannel
@@ -51,14 +52,20 @@ class ViaServer(
     private var initialized = false
     private var platform: ViaPlatform? = null
     private val events =
-        EventNode.all("viaversion-configuration").setPriority(Int.MAX_VALUE).addListener(AsyncPlayerConfigurationEvent::class.java) {
-            val connection = it.player.playerConnection
-            if (connection is ViaPlayerConnection && connection.protocolVersion != MinecraftServer.PROTOCOL_VERSION) {
-                // Via clears registry storage on configuration transitions. Minestom normally omits
-                // unchanged registries after the initial login, leaving older translators without it.
-                it.setSendRegistryData(true)
+        EventNode
+            .all("viaversion")
+            .setPriority(Int.MAX_VALUE)
+            .addListener(AsyncPlayerConfigurationEvent::class.java) {
+                val connection = it.player.playerConnection
+                if (connection is ViaPlayerConnection && connection.protocolVersion != MinecraftServer.PROTOCOL_VERSION) {
+                    // Via clears registry storage on configuration transitions. Minestom normally omits
+                    // unchanged registries after the initial login, leaving older translators without it.
+                    it.setSendRegistryData(true)
+                }
+            }.addListener(ServerTickMonitorEvent::class.java) {
+                // Fires after the tick's viewable packets are queued, the last thing a tick sends.
+                players.forEach(ViaPlayerConnection::flushTick)
             }
-        }
 
     @Volatile private var listener: Channel? = null
 

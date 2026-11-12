@@ -7,6 +7,7 @@ import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelFutureListener
 import io.netty.util.AttributeKey
+import io.netty.util.concurrent.ScheduledFuture
 import net.aechronis.server.network.BufferedPacketEventConnection
 import net.minestom.server.MinecraftServer
 import net.minestom.server.ServerFlag
@@ -40,6 +41,7 @@ import net.minestom.server.network.packet.server.login.SetCompressionPacket
 import net.minestom.server.network.player.PlayerSocketConnection
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -70,8 +72,22 @@ class ViaPlayerConnection internal constructor(
     private var encrypted = false
     private var compressed = false
     private var translationOutput: MutableList<ByteArray>? = null
-    private val outgoing = ArrayDeque<SendablePacket>()
+
+    // Play packets wait here for the end of the tick that sent them. Waking the event loop and
+    // writing to the socket for each packet costs far more than the packet itself.
+    private val outgoing = ConcurrentLinkedQueue<SendablePacket>()
+    private val drainRequested = AtomicBoolean()
+    private val drainAndFlush =
+        Runnable {
+            drainPackets()
+            flushNow()
+        }
     private var draining = false
+
+    // Bounds how long packets written from the event loop itself wait when no tick ends.
+    private var flushDeadline: ScheduledFuture<*>? = null
+    private val minestomContext by lazy { transport.pipeline().context("minestom") }
+    private val grimServerContext by lazy { transport.pipeline().context("grim-server") }
     var packetListener: PacketTransport.Listener? = null
         private set
 
@@ -103,6 +119,7 @@ class ViaPlayerConnection internal constructor(
                         NetworkBuffer.wrap(bytes, 0, bytes.size, MinecraftServer.getRegistries()),
                     )
                 writePacket(nativePacket, silent)
+                flushSoon()
             }
         } finally {
             packet.release()
@@ -260,6 +277,8 @@ class ViaPlayerConnection internal constructor(
         // Login processing waits for installation before it can send encrypted responses.
         runOnEventLoop {
             check(!encrypted) { "Encryption already enabled" }
+            // Anything queued before the key was set belongs to the unencrypted stream.
+            drainPackets()
             encrypted = true
             transport.pipeline().addFirst(
                 "encryption",
@@ -269,44 +288,78 @@ class ViaPlayerConnection internal constructor(
     }
 
     override fun startCompression() {
-        onTransport {
-            check(!compressed) { "Compression already enabled" }
-            val threshold = MinecraftServer.getCompressionThreshold()
-            check(threshold > 0) { "Compression threshold must be positive" }
-            writePacket(SetCompressionPacket(threshold))
-            compression.enable(threshold)
-            compressed = true
-        }
+        val threshold = MinecraftServer.getCompressionThreshold()
+        check(threshold > 0) { "Compression threshold must be positive" }
+        // Queued like any packet, so compression starts exactly where it falls in the stream.
+        sendPacket(SetCompressionPacket(threshold))
     }
 
     override fun sendPacket(packet: SendablePacket) {
         if (closed.get()) return
-        onTransport {
-            outgoing.addLast(packet)
-            drainPackets()
-        }
+        outgoing.add(packet)
+        requestDrain()
     }
 
     override fun sendPackets(packets: Collection<SendablePacket>) {
         if (closed.get()) return
-        // Snapshot callers' collections before crossing threads.
-        val snapshot = packets.toList()
-        onTransport {
-            outgoing.addAll(snapshot)
+        outgoing.addAll(packets)
+        requestDrain()
+    }
+
+    private fun requestDrain() {
+        val eventLoop = transport.eventLoop()
+        if (eventLoop.inEventLoop()) {
             drainPackets()
+            flushSoon()
+            return
         }
+        if (!drainRequested.compareAndSet(false, true)) return
+        try {
+            if (serverState == ConnectionState.PLAY) {
+                // The tick's end drains sooner; this is for packets no tick end follows.
+                eventLoop.schedule(drainAndFlush, MAX_FLUSH_DELAY_MILLIS, TimeUnit.MILLISECONDS)
+            } else {
+                // Status, login and configuration are exchanges of replies with no tick to wait for.
+                eventLoop.execute(drainAndFlush)
+            }
+        } catch (error: RejectedExecutionException) {
+            // Minestom finishes entity/view cleanup on later ticks, after this generation's
+            // event loops have stopped. A disconnected socket has no further output to send.
+            if (!closed.get()) throw error
+        }
+    }
+
+    /** Sends what this tick queued. Called from the tick thread once the tick's packets are in. */
+    internal fun flushTick() {
+        if (drainRequested.get()) onTransport(drainAndFlush)
     }
 
     private fun drainPackets() {
         if (draining) return
         draining = true
         try {
+            // Cleared first, so a packet queued from here on requests a drain of its own.
+            drainRequested.set(false)
             // Sends initiated by application callbacks follow the current complete batch.
             // Grim's sendRaw remains synchronous for transaction/setback accounting.
-            while (outgoing.isNotEmpty()) writePacket(outgoing.removeFirst())
+            while (true) writePacket(outgoing.poll() ?: break)
         } finally {
             draining = false
         }
+    }
+
+    private fun flushSoon() {
+        if (serverState != ConnectionState.PLAY) {
+            flushNow()
+        } else if (flushDeadline == null) {
+            flushDeadline = transport.eventLoop().schedule(Runnable(::flushNow), MAX_FLUSH_DELAY_MILLIS, TimeUnit.MILLISECONDS)
+        }
+    }
+
+    private fun flushNow() {
+        flushDeadline?.cancel(false)
+        flushDeadline = null
+        transport.flush()
     }
 
     private fun writePacket(
@@ -316,75 +369,90 @@ class ViaPlayerConnection internal constructor(
         if (!transport.isActive) return
         try {
             val state = serverState
-            var packet = SendablePacket.extractServerPacket(state, sendable)
+            val packet = SendablePacket.extractServerPacket(state, sendable)
             if (packet == null) {
-                // Minestom's chunk/view broadcasts also use batches of preframed, compressed packets.
-                val batch = sendable as BufferedPacket
-                val bytes = ByteArray(Math.toIntExact(batch.length()))
-                batch.buffer().copyTo(batch.index(), bytes, 0, bytes.size)
-                writeBuffered(Unpooled.wrappedBuffer(bytes))
+                writeBuffered(sendable as BufferedPacket)
                 return
             }
-            val player = player
-            if (player != null) {
-                val event = PlayerPacketOutEvent(player, packet)
-                EventDispatcher.call(event)
-                if (event.isCancelled) return
-                if (ServerFlag.AUTOMATIC_COMPONENT_TRANSLATION && sendable is ServerPacket.ComponentHolding) {
-                    packet =
-                        sendable.copyWithOperator { component ->
-                            MinestomAdventure.COMPONENT_TRANSLATOR.apply(component, player.locale ?: MinestomAdventure.getDefaultLocale())
-                        }
-                }
-            }
-            val framed = PacketWriting.allocateTrimmedPacket(state, packet, 0)
-            framed.read(NetworkBuffer.VAR_INT)
-            val bytes = framed.read(NetworkBuffer.RAW_BYTES)
-            val next = PacketVanilla.nextServerState(packet, state)
-            transport
-                .pipeline()
-                .context(if (silent) "grim-server" else "minestom")
-                .writeAndFlush(Unpooled.wrappedBuffer(bytes))
-                .addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE)
-            if (next != state) serverState = next
+            val published = publish(packet, translate = sendable is ServerPacket.ComponentHolding) ?: return
+            write(state, published, encode(state, published), silent)
         } catch (error: Exception) {
             transport.pipeline().fireExceptionCaught(error)
         }
     }
 
-    private fun writeBuffered(batch: ByteBuf) {
+    /** Runs the send event and component translation; null when a listener cancelled the packet. */
+    private fun publish(
+        packet: ServerPacket,
+        translate: Boolean,
+    ): ServerPacket? {
+        val player = player ?: return packet
+        val event = PlayerPacketOutEvent(player, packet)
+        EventDispatcher.call(event)
+        if (event.isCancelled) return null
+        if (translate && ServerFlag.AUTOMATIC_COMPONENT_TRANSLATION && packet is ServerPacket.ComponentHolding) {
+            return packet.copyWithOperator { component ->
+                MinestomAdventure.COMPONENT_TRANSLATOR.apply(component, player.locale ?: MinestomAdventure.getDefaultLocale())
+            }
+        }
+        return packet
+    }
+
+    /** The packet as the pipeline carries it: its id and body, unframed and uncompressed. */
+    private fun encode(
+        state: ConnectionState,
+        packet: ServerPacket,
+    ): ByteArray {
+        val framed = PacketWriting.allocateTrimmedPacket(state, packet, 0)
+        framed.read(NetworkBuffer.VAR_INT)
+        return framed.read(NetworkBuffer.RAW_BYTES)
+    }
+
+    private fun write(
+        state: ConnectionState,
+        packet: ServerPacket,
+        bytes: ByteArray,
+        silent: Boolean,
+    ) {
+        val next = PacketVanilla.nextServerState(packet, state)
+        (if (silent) grimServerContext else minestomContext)
+            .write(Unpooled.wrappedBuffer(bytes))
+            .addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE)
+        if (next != state) serverState = next
+        if (packet is SetCompressionPacket) {
+            check(!compressed) { "Compression already enabled" }
+            compression.enable(packet.threshold)
+            compressed = true
+        }
+    }
+
+    // Minestom's chunk/view broadcasts also use batches of preframed, compressed packets.
+    private fun writeBuffered(batch: BufferedPacket) {
+        val bytes = ByteArray(Math.toIntExact(batch.length()))
+        batch.buffer().copyTo(batch.index(), bytes, 0, bytes.size)
+        val frames = Unpooled.wrappedBuffer(bytes)
+        val compressedFormat = MinecraftServer.getCompressionThreshold() > 0
         try {
-            while (batch.isReadable) {
-                val length = Types.VAR_INT.readPrimitive(batch)
-                require(length > 0 && length <= batch.readableBytes()) { "Invalid buffered packet" }
-                val frame = batch.readRetainedSlice(length)
+            while (frames.isReadable) {
+                val length = Types.VAR_INT.readPrimitive(frames)
+                require(length > 0 && length <= frames.readableBytes()) { "Invalid buffered packet" }
+                val frame = frames.readSlice(length)
+                val payload = if (compressedFormat) MinecraftWireCodec.decompress(frame, ServerFlag.MAX_PACKET_SIZE) else frame.retain()
+                val encoded = ByteArray(payload.readableBytes())
                 try {
-                    val payload =
-                        if (MinecraftServer.getCompressionThreshold() > 0) {
-                            MinecraftWireCodec.decompress(frame, ServerFlag.MAX_PACKET_SIZE)
-                        } else {
-                            frame.retain()
-                        }
-                    try {
-                        val id = Types.VAR_INT.readPrimitive(payload)
-                        val body = ByteArray(payload.readableBytes())
-                        payload.readBytes(body)
-                        val packet =
-                            PacketVanilla.SERVER_PACKET_PARSER.parse(
-                                serverState,
-                                id,
-                                NetworkBuffer.wrap(body, 0, body.size, MinecraftServer.getRegistries()),
-                            )
-                        writePacket(packet)
-                    } finally {
-                        payload.release()
-                    }
+                    payload.readBytes(encoded)
                 } finally {
-                    frame.release()
+                    payload.release()
                 }
+                val state = serverState
+                val buffer = NetworkBuffer.wrap(encoded, 0, encoded.size, MinecraftServer.getRegistries())
+                val packet = PacketVanilla.SERVER_PACKET_PARSER.parse(state, buffer.read(NetworkBuffer.VAR_INT), buffer)
+                val published = publish(packet, translate = true) ?: continue
+                // The frame already holds this packet's encoding; only a translated copy needs its own.
+                write(state, published, if (published === packet) encoded else encode(state, published), silent = false)
             }
         } finally {
-            batch.release()
+            frames.release()
         }
     }
 
@@ -395,6 +463,7 @@ class ViaPlayerConnection internal constructor(
         received.clear()
         // Preserve any queued kick/disconnect packet before closing the socket.
         onTransport {
+            drainPackets()
             val first = transport.pipeline().firstContext()
             if (first == null || !transport.isActive) {
                 transport.close()
@@ -406,6 +475,9 @@ class ViaPlayerConnection internal constructor(
 
     companion object {
         val KEY: AttributeKey<ViaPlayerConnection> = AttributeKey.valueOf("aechronis-via-player")
+
+        // Half a tick, the interval at which Minestom's own socket writer wakes.
+        private const val MAX_FLUSH_DELAY_MILLIS = 25L
 
         // Match Minestom's immediate packet dispatch; gameplay remains on the player tick thread.
         private val IMMEDIATE =
