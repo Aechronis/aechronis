@@ -8,8 +8,23 @@ import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
 
 object WorldEditListener {
+    // Large pastes would otherwise write one row with NBT per block (84M for the spawn schematic).
+    // ponytail: per-batch threshold (WorldEdit flushes up to 32,768 blocks per event), so the last
+    // partial batch of a big edit can still be logged block by block; track whole edits if that matters.
+    private const val MAX_LOGGED_CHANGES = 10_000
+
     fun init() {
         Logger.eventNode.addListener(WorldEditBlockChangesEvent::class.java) { event ->
+            if (event.changes.size > MAX_LOGGED_CHANGES) {
+                val positions = event.changes.map { it.position }
+                println(
+                    "[Logger] ${event.actorName} changed ${event.changes.size} blocks with WorldEdit in " +
+                        "${event.instance.uuid} between ${positions.minOf { it.blockX() }},${positions.minOf { it.blockY() }}," +
+                        "${positions.minOf { it.blockZ() }} and ${positions.maxOf { it.blockX() }}," +
+                        "${positions.maxOf { it.blockY() }},${positions.maxOf { it.blockZ() }} (not logged per block)",
+                )
+                return@addListener
+            }
             val timestamp = System.currentTimeMillis()
             runCatching {
                 event.changes.map { change ->
