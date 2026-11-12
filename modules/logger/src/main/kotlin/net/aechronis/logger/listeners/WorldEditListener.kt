@@ -6,6 +6,7 @@ import net.aechronis.logger.objects.BlockAction
 import net.aechronis.logger.objects.BlockLogEntry
 import net.aechronis.logger.utils.ItemCodec
 import net.aechronis.logger.utils.LogMetadata
+import java.util.UUID
 
 object WorldEditListener {
     // Large pastes would otherwise write one row with NBT per block (84M for the spawn schematic).
@@ -13,9 +14,12 @@ object WorldEditListener {
     // partial batch of a big edit can still be logged block by block; track whole edits if that matters.
     private const val MAX_LOGGED_CHANGES = 10_000
 
+    // The Discord paste bot edits as the WorldEdit console; its pastes are size-capped and always logged in full.
+    private val CONSOLE_UUID = UUID(0, 0)
+
     fun init() {
         Logger.eventNode.addListener(WorldEditBlockChangesEvent::class.java) { event ->
-            if (event.changes.size > MAX_LOGGED_CHANGES) {
+            if (event.changes.size > MAX_LOGGED_CHANGES && event.actorUuid != CONSOLE_UUID) {
                 val positions = event.changes.map { it.position }
                 println(
                     "[Logger] ${event.actorName} changed ${event.changes.size} blocks with WorldEdit in " +
