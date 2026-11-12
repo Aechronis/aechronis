@@ -18,8 +18,8 @@ internal class CombatPlayerState {
     var speed = 0f
     var lastActionTime = 0L
 
-    /** Whether the aim-while-sprinting speed and jump modifiers are applied. */
-    var aimSprintBlocked = false
+    /** The applied right-click aiming movement-speed modifier amount, or 0 when none is applied. */
+    var aimSlowdown = 0.0
     var meleeLastAttackTime = 0L
     var lastMainHandType: String? = null
     var fallDistance = 0.0

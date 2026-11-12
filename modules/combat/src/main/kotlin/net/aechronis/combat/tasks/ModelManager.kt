@@ -363,7 +363,7 @@ object ModelManager {
         hitAnimationDisabledPlayers.remove(player)
         player.getAttribute(Attribute.ATTACK_SPEED).removeModifier(attackSpeedModifier)
         player.getAttribute(Attribute.BLOCK_BREAK_SPEED).removeModifier(blockBreakSpeedModifier)
-        AimingListener.clearAimSprintBlock(player)
+        AimingListener.clearAimSlowdown(player)
         HasteEffectManager.clear(player, HIT_ANIMATION_HASTE_SOURCE)
     }
 

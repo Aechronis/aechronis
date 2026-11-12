@@ -4,6 +4,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.server.modules.ModuleScheduler
+import net.kyori.adventure.key.Key
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
@@ -57,36 +58,39 @@ object AimingListener {
         state.aiming = event.player.isSneaking
     }
 
-    // Sprinting while right-click aiming: the speed modifier cancels the vanilla +30% sprint bonus, and
-    // jumping is disabled because the client adds its sprint-jump boost itself. Spread scales with
-    // measured speed, so this keeps ADS spread from being taken at sprint pace.
-    private val aimSprintModifiers =
-        mapOf(
-            Attribute.MOVEMENT_SPEED to
-                AttributeModifier("aechronis:aim_no_sprint", 1.0 / 1.3 - 1.0, AttributeOperation.ADD_MULTIPLIED_TOTAL),
-            Attribute.JUMP_STRENGTH to
-                AttributeModifier("aechronis:aim_no_sprint_jump", -1.0, AttributeOperation.ADD_MULTIPLIED_TOTAL),
-        )
+    // Right-click aiming moves at sneaking speed whether or not the player sprints. Sneaking already
+    // applies the client's own sneak slowdown, so no modifier is needed then. While sprinting, the
+    // amount also cancels Minestom's +30% sprint modifier. Spread scales with measured speed, so this
+    // keeps ADS spread from being taken at walking or sprint pace.
+    private const val SPRINT_SPEED_MULTIPLIER = 1.3
+    private val aimSlowdownKey = Key.key("aechronis", "aim_slowdown")
 
     // Polled each tick because aimingResetTask is also cleared by catalogue resets and combat tags;
-    // attributes are only touched when the state flips.
+    // the attribute is only touched when the wanted amount changes.
     private fun onPlayerTick(event: PlayerTickEvent) {
         val player = event.player
         val state = Combat.playerStates[player] ?: return
-        val blocked = player.isSprinting && state.aimingResetTask != null
-        if (blocked == state.aimSprintBlocked) return
-        state.aimSprintBlocked = blocked
-        if (blocked) {
-            for ((attribute, modifier) in aimSprintModifiers) player.getAttribute(attribute).addModifier(modifier)
+        val amount =
+            if (state.aimingResetTask == null || player.isSneaking) {
+                0.0
+            } else {
+                val sprint = if (player.isSprinting) SPRINT_SPEED_MULTIPLIER else 1.0
+                player.getAttributeValue(Attribute.SNEAKING_SPEED) / sprint - 1.0
+            }
+        if (amount == state.aimSlowdown) return
+        if (amount == 0.0) {
+            clearAimSlowdown(player)
         } else {
-            clearAimSprintBlock(player)
+            state.aimSlowdown = amount
+            val modifier = AttributeModifier(aimSlowdownKey, amount, AttributeOperation.ADD_MULTIPLIED_TOTAL)
+            player.getAttribute(Attribute.MOVEMENT_SPEED).addModifier(modifier)
         }
     }
 
-    /** Removes the aim-while-sprinting modifiers; safe to call when they are not applied. */
-    internal fun clearAimSprintBlock(player: Player) {
-        for ((attribute, modifier) in aimSprintModifiers) player.getAttribute(attribute).removeModifier(modifier)
-        Combat.playerStates[player]?.aimSprintBlocked = false
+    /** Removes the aiming slowdown; safe to call when it is not applied. */
+    internal fun clearAimSlowdown(player: Player) {
+        player.getAttribute(Attribute.MOVEMENT_SPEED).removeModifier(aimSlowdownKey)
+        Combat.playerStates[player]?.aimSlowdown = 0.0
     }
 
     fun init() {
