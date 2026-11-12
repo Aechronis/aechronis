@@ -141,7 +141,7 @@ object Chat {
             }
         }
 
-        return color + playerName
+        return color + (resident.nickname ?: playerName)
     }
 
     fun formatMsgGlobal(resident: Resident, playerName: String, message: String): Component {

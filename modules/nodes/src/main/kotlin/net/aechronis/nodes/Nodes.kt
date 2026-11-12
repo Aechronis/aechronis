@@ -52,6 +52,8 @@ import net.aechronis.nodes.objects.FlagsMenu
 import net.aechronis.nodes.objects.MinimapPassengerTracker
 import net.aechronis.nodes.objects.Nametag
 import net.aechronis.nodes.objects.Nation
+import net.aechronis.nodes.objects.Nick
+import net.aechronis.nodes.objects.NickCommand
 import net.aechronis.nodes.objects.OreBlockCache
 import net.aechronis.nodes.objects.OreSampler
 import net.aechronis.nodes.objects.Outposts
@@ -166,6 +168,7 @@ object Nodes {
             MinimapPassengerTracker.init()
             RelationshipHitbox.init()
             NodesChatListener.init()
+            Nick.init()
             NodesChestProtectionListener.init()
             NodesIncomeInventoryListener.init()
             NodesPlayerDamageListener.init()
@@ -207,6 +210,7 @@ object Nodes {
                     TrainCommand(),
                     ColonizeCommand(),
                     WarzoneCommand(),
+                    NickCommand(),
                 )
             val globalEventHandler = MinecraftServer.getGlobalEventHandler()
             ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)

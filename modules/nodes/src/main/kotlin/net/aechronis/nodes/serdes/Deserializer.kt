@@ -94,6 +94,8 @@ object Deserializer {
             runCatching { value.jsonPrimitive.long }.getOrNull()
         }
 
+        val nickname = resident.get("nickname")?.takeUnless { it is JsonNull }?.jsonPrimitive?.contentOrNull
+
         val waypointVisibility = resident.get("waypointVisibility")?.takeIf { it is JsonObject }?.jsonObject?.let { visibility ->
             buildMap {
                 visibility.entries.forEach { (key, value) ->
@@ -131,6 +133,7 @@ object Deserializer {
             minimapLegacy = minimapLegacy,
             deathWaypointsEnabled = deathWaypointsEnabled,
             townJoinLockedUntil = townJoinLockedUntil,
+            nickname = nickname,
         )
     }
 
