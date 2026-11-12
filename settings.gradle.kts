@@ -51,6 +51,7 @@ include(
     ":modules:hats",
     ":modules:settings",
     ":modules:nodes",
+    ":modules:punishments",
     ":modules:discord",
     ":modules:vanilla",
     ":modules:chat",
