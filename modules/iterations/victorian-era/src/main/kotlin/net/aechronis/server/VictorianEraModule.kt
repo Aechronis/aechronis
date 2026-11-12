@@ -28,7 +28,11 @@ import net.aechronis.server.constants.Grenades
 import net.aechronis.server.constants.Guns
 import net.aechronis.server.constants.Melees
 import net.aechronis.server.constants.Spears
+import net.aechronis.server.craft.AmmoRecipes
+import net.aechronis.server.craft.GunRecipes
 import net.aechronis.server.craft.HorseRecipes
+import net.aechronis.server.craft.MeleeRecipes
+import net.aechronis.server.craft.UniformRecipes
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleStartupTimings.measure
@@ -66,7 +70,11 @@ class VictorianEraModule : AechronisModule {
         measure("Vanilla configuration") {
             VanillaModule.configure(
                 VanillaConfig(
-                    recipesConfig = RecipesConfig(recpies = HorseRecipes.list),
+                    recipesConfig =
+                        RecipesConfig(
+                            recpies =
+                                HorseRecipes.list + GunRecipes.list + AmmoRecipes.list + UniformRecipes.list + MeleeRecipes.list,
+                        ),
                 ),
             )
         }
