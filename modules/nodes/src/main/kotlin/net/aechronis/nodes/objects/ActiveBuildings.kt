@@ -7,6 +7,7 @@ import net.aechronis.vanilla.managers.Items
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.JoinConfiguration
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.Player
@@ -20,6 +21,11 @@ object ActiveBuildings {
     private val chunkLoads = mutableMapOf<ActiveBuilding, CompletableFuture<*>>()
     private var task: Task? = null
     private var lastMapProgress = emptyMap<ActiveBuilding, Int>()
+
+    // Time left seen last tick, so each warning fires once when a run crosses its mark
+    // (not again after a restart that lands past it).
+    private val lastTimeLeft = mutableMapOf<ActiveBuilding, Long>()
+    private val WARNING_MINUTES = listOf(30L, 20L, 10L)
 
     fun init() {
         require(Nodes.config.activeBuildings.map { it.name }.distinct().size == Nodes.config.activeBuildings.size) {
@@ -37,6 +43,7 @@ object ActiveBuildings {
         TownBuildingsMenu.closeAll()
         chunkLoads.clear()
         lastMapProgress = emptyMap()
+        lastTimeLeft.clear()
     }
 
     internal fun canManage(player: Player, building: Building): Boolean {
@@ -98,7 +105,10 @@ object ActiveBuildings {
         val now = System.currentTimeMillis()
         for (building in buildings) {
             val production = building.production ?: continue
-            if (!production.isComplete(now)) continue
+            if (!production.isComplete(now)) {
+                warnIfDue(building, production.endsAt - now)
+                continue
+            }
             val instance = MinecraftServer.getInstanceManager().instances.firstOrNull { it.getDimensionName() == building.world } ?: continue
             if (instance.getChunk(building.chunkX, building.chunkZ)?.isLoaded != true) {
                 val loading = chunkLoads[building]
@@ -122,11 +132,22 @@ object ActiveBuildings {
         }
         ActiveBuildingPresentation.refresh(buildings, now)
         chunkLoads.keys.retainAll(buildings.toSet())
+        lastTimeLeft.keys.retainAll { it.production != null && Building.getAt(it.chunkX, it.chunkZ) === it }
         val progress = buildings.associateWith { it.minimapIconCodepoint }
         if (progress != lastMapProgress) {
             lastMapProgress = progress
             Resident.renderMinimaps()
         }
+    }
+
+    private fun warnIfDue(building: ActiveBuilding, timeLeft: Long) {
+        val previous = lastTimeLeft.put(building, timeLeft) ?: return
+        // If one tick crosses several marks, only the nearest is announced.
+        val minutes = WARNING_MINUTES.lastOrNull { previous > it * 60_000 && timeLeft <= it * 60_000 } ?: return
+        val town = Territory.fromCoord(Coord(building.chunkX, building.chunkZ))?.town?.name ?: "Unclaimed"
+        val type = PlainTextComponentSerializer.plainText().serialize(building.displayName)
+        val pos = building.position
+        Message.broadcast("$town $type goes off in $minutes minutes at ${pos.blockX()}, ${pos.blockY()}, ${pos.blockZ()}")
     }
 
     internal fun durationText(): String {

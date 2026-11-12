@@ -3,6 +3,7 @@ package net.aechronis.nodes.objects
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.minestom.server.command.CommandSender
 import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
@@ -37,13 +38,17 @@ class ActiveBuilding(
 
     internal fun inputItems(): List<ItemStack> = inputInventory.itemStacks.take(BUILDING_INPUT_SLOTS)
 
+    /** Only items some recipe of this building (any tier) consumes may be deposited. */
+    internal fun acceptsInput(stack: ItemStack): Boolean = definition?.recipes?.values?.any { tier -> tier.any { recipe -> recipe.input.any(stack::isSimilar) } } == true
+
     internal fun inputsChanged() {
         needsUpdate()
         Nodes.markWorldDirty()
     }
 
     data class Production(val startedAt: Long, val recipeName: String, val output: List<ItemStack>) {
-        fun isComplete(now: Long): Boolean = now - startedAt >= Nodes.config.activeBuildingDurationMs
+        val endsAt: Long get() = startedAt + Nodes.config.activeBuildingDurationMs
+        fun isComplete(now: Long): Boolean = now >= endsAt
         fun progress(now: Long): Int = ((now - startedAt).coerceIn(0, Nodes.config.activeBuildingDurationMs) * 100 / Nodes.config.activeBuildingDurationMs).toInt()
     }
 
@@ -54,6 +59,14 @@ class ActiveBuilding(
     override val type = "active"
     val definition: ActiveBuildingDefinition?
         get() = Nodes.config.activeBuildings.firstOrNull { it.name == definitionName }
+
+    /** Plain name of what the current run produces, for chat and the web map. */
+    fun producingName(): String? {
+        val production = production ?: return null
+        val recipe = definition?.recipes?.get(tier)?.firstOrNull { it.name == production.recipeName }
+            ?: return production.recipeName
+        return PlainTextComponentSerializer.plainText().serialize(recipe.displayName)
+    }
 
     override val minimapIconCodepoint: Int
         get() = production?.let { 0xE021 + it.progress(System.currentTimeMillis()) / 10 } ?: 0xE020
@@ -97,6 +110,8 @@ class ActiveBuilding(
         val world = building.world
         val position = building.position
         val production = building.production
+        val producing = building.producingName()
+        val displayName = PlainTextComponentSerializer.plainText().serialize(building.displayName)
         val inputs = building.inputItems()
     }
 

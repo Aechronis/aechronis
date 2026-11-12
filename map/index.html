@@ -38,12 +38,18 @@
 
   <div id="coords" hidden></div>
 
+  <section id="factories-panel" aria-labelledby="factories-title" hidden>
+    <h2 id="factories-title">Active factories</h2>
+    <ul id="factories-list"></ul>
+  </section>
+
   <section id="map-mode-control" aria-label="Map modes">
     <select id="map-mode" aria-label="Map mode">
       <option value="political">Political</option>
       <option value="towns">Towns</option>
       <option value="relations">Relations</option>
       <option value="resources">Resources</option>
+      <option value="factories">Factories</option>
     </select>
     <div id="map-mode-buttons" role="group" aria-label="Map mode" hidden>
       <button type="button" data-map-mode="political" aria-label="Political" aria-pressed="true" title="Show political borders">
@@ -59,6 +65,10 @@
       </button>
       <button type="button" data-map-mode="resources" aria-label="Resources" aria-pressed="false" title="Show territory resource images">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 9-9 10a1.4 1.4 0 0 0 2 2l10-9M5 3c8-1 17 8 16 16-3-7-9-13-16-16Z"/></svg>
+      </button>
+      <button type="button" data-map-mode="factories" aria-label="Factories" aria-pressed="false" title="Show factories that are producing">
+        <!-- Lucide factory; license: /licenses/lucide.txt -->
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 16h.01M16 16h.01M3 19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a.5.5 0 0 0-.77-.42l-4.46 2.84a.5.5 0 0 1-.77-.42v-2a.5.5 0 0 0-.77-.42L9.77 10.92A.5.5 0 0 1 9 10.5V4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2zM8 16h.01"/></svg>
       </button>
     </div>
   </section>

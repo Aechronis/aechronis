@@ -28,6 +28,8 @@ internal object BuildingJsonCodec {
         if (snapshot is Port.PortSaveState) put("isPublic", snapshot.isPublic)
         if (snapshot is ActiveBuilding.ActiveBuildingSaveState) {
             put("definition", snapshot.definitionName)
+            // web map label only; decodeActive takes the name from the definition
+            put("displayName", snapshot.displayName)
             put("world", snapshot.world)
             put("x", snapshot.position.blockX())
             put("y", snapshot.position.blockY())
@@ -39,6 +41,9 @@ internal object BuildingJsonCodec {
                 putJsonObject("production") {
                     put("startedAt", production.startedAt)
                     put("recipe", production.recipeName)
+                    // read by the web map only; decodeActive ignores both
+                    put("endsAt", production.endsAt)
+                    snapshot.producing?.let { put("item", it) }
                     putJsonArray("output") {
                         production.output.forEach { add(TagStringIO.tagStringIO().asString(it.toItemNBT())) }
                     }
