@@ -289,6 +289,13 @@ internal class WarPresentation(private val state: FlagWarState) {
         )
     }
 
+    fun townAbsorbed(absorbedTown: Town, conqueror: Town, nation: Nation) {
+        Message.broadcast(
+            "${ChatColor.DARK_RED}[Conquest] ${absorbedTown.name} ended the war with no lives left and its home " +
+                "occupied by ${conqueror.name}; it is now part of ${nation.name}!",
+        )
+    }
+
     fun liberatedChunk(mode: AttackMode, attacker: Resident?, chunk: TerritoryChunk, occupier: Town) {
         val messageContext = messageContext(mode)
         Message.broadcast("${ChatColor.DARK_RED}$messageContext ${attacker?.name} liberated chunk (${chunk.coord.x}, ${chunk.coord.z}) from ${occupier.name}!")

@@ -1,7 +1,9 @@
 package net.aechronis.nodes.war
 
 import net.aechronis.nodes.Nodes
+import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.Resident
+import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.TerritoryChunk
 import net.aechronis.nodes.objects.Town
 import net.aechronis.nodes.war.serdes.WarSerializer
@@ -59,6 +61,30 @@ internal class WarCapture(
         if (!state.townsOwedLife.remove(liberatedTown.uuid)) return false
         Town.regainLife(liberatedTown)
         return true
+    }
+
+    /**
+     * Settles conquests when the war ends: a town left at zero lives with its home
+     * still occupied joins the occupier's nation, which then releases the town's land.
+     */
+    fun absorbConqueredTowns() = synchronized(Nodes.occupationPersistenceLock) {
+        for (town in Town.all()) {
+            if (town.lives > 0 || Warzone.ownsRegisteredZone(town)) continue
+            val home = Territory.fromId(town.home) ?: continue
+            // Colonies are held outside the global war and do not end with it.
+            if (occupations.isColonized(home.core)) continue
+            val conqueror = home.occupier ?: continue
+            val nation = conqueror.nation ?: continue
+            if (town.nation === nation) continue
+
+            town.nation?.let { previousNation -> Nation.removeTown(previousNation, town) }
+            Nation.addTown(nation, town)
+            town.territories
+                .mapNotNull(Territory::fromId)
+                .filter { territory -> territory.occupier?.nation === nation }
+                .forEach { territory -> Town.release(territory) }
+            presentation.townAbsorbed(town, conqueror, nation)
+        }
     }
 
     fun capture(attack: Attack) {

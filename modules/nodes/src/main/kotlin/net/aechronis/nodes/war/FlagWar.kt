@@ -308,6 +308,8 @@ object FlagWar {
             occupiedChunks.remove(coord)
         }
 
+        capture.absorbConqueredTowns()
+
         attackers.entries.removeIf { it.value.isEmpty() }
         Nametag.refreshRelationships()
         Resident.renderMinimaps()
