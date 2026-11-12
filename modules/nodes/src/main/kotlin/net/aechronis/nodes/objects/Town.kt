@@ -221,6 +221,13 @@ class Town(
             return town.lives
         }
 
+        internal fun regainLife(town: Town): Int {
+            town.lives++
+            town.lifeRevision++
+            town.markChanged()
+            return town.lives
+        }
+
         fun setLives(town: Town, lives: Int) {
             require(lives > 0) { "Town lives must be at least 1" }
             if (town.lives == lives) return

@@ -209,6 +209,10 @@ internal class WarOccupations(
         if (state.enabled && Town.fromUuid(townId) != null) state.townsDefeatedThisWar.add(townId)
     }
 
+    fun loadTownOwedLife(townId: UUID) {
+        if (state.enabled && Town.fromUuid(townId) != null) state.townsOwedLife.add(townId)
+    }
+
     fun startSaveTask(restart: Boolean = false) {
         if (restart) {
             state.saveTask?.cancel()

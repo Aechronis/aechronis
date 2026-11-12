@@ -46,6 +46,9 @@ internal class FlagWarState {
     val territoryOccupations: MutableMap<TerritoryId, TerritoryOccupationState> = ConcurrentHashMap()
     val skirmishTargetsByNation: MutableMap<UUID, TerritoryId> = ConcurrentHashMap()
     val townsDefeatedThisWar: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
+
+    // Defeated towns whose life was actually taken and is regained if their home is liberated this war.
+    val townsOwedLife: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
     var territoryOccupationJournalDirty: Boolean = false
 
     @Volatile

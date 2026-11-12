@@ -28,6 +28,7 @@ internal class WarCapture(
             return TownDefeatOutcome.ALREADY_DEFEATED_THIS_WAR
         }
 
+        val livesBeforeDefeat = defeatedTown.lives
         val outcome = when {
             defeatedTown.lives > 1 -> {
                 Town.annex(attackerTown, defeatedTown)
@@ -39,12 +40,25 @@ internal class WarCapture(
             }
             else -> TownDefeatOutcome.FINAL_LIFE_PROTECTED
         }
+        if (defeatedTown.lives < livesBeforeDefeat) state.townsOwedLife.add(defeatedTown.uuid)
         state.needsSave = true
         // Persist the life and per-war defeat marker together. towns.json will
         // catch up through the normal world save queue; war.json is the journal
         // used to recover either value after an abrupt stop.
         WarSerializer.save(false)
         return outcome
+    }
+
+    /**
+     * Liberating a home undoes this war's defeat: the town can be defeated again and
+     * regains the life it lost. Returns whether a life was regained. The caller's
+     * territory release journals the change.
+     */
+    fun resolveHomeLiberation(liberatedTown: Town): Boolean {
+        state.townsDefeatedThisWar.remove(liberatedTown.uuid)
+        if (!state.townsOwedLife.remove(liberatedTown.uuid)) return false
+        Town.regainLife(liberatedTown)
+        return true
     }
 
     fun capture(attack: Attack) {
@@ -99,8 +113,17 @@ internal class WarCapture(
                         Town.areAllied(attackerTown, territoryTown)
                     ) {
                         val occupier = territory.occupier
+                        // Resolved before the release so its journal flush persists the
+                        // regained life together with the occupation change.
+                        val townRegainingLife = territoryTown?.takeIf { town ->
+                            occupier != null &&
+                                attack.mode == AttackMode.WAR &&
+                                territory.id == town.home &&
+                                resolveHomeLiberation(town)
+                        }
                         Town.release(territory)
                         presentation.liberatedTerritory(attack.mode, attacker, territory, occupier)
+                        townRegainingLife?.let(presentation::townRegainedLife)
                     }
                     // captured enemy territory
                     else {

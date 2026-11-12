@@ -268,7 +268,7 @@ internal class WarPresentation(private val state: FlagWarState) {
             TownDefeatOutcome.LOST_LIFE -> Message.broadcast(
                 "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} occupied all territories of " +
                     "$defeatedTownName, which lost a life and has " +
-                    "${defeatedTown.lives} remaining; it cannot lose another life this war!",
+                    "${defeatedTown.lives} remaining; liberating its home this war restores that life!",
             )
             TownDefeatOutcome.ANNEXED -> Message.broadcast(
                 "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} occupied all territories of " +
@@ -280,6 +280,13 @@ internal class WarPresentation(private val state: FlagWarState) {
                     "during this war mode; it remains on its final life.",
             )
         }
+    }
+
+    fun townRegainedLife(liberatedTown: Town) {
+        Message.broadcast(
+            "${ChatColor.DARK_RED}[Conquest] ${liberatedTown.name}'s home was liberated; " +
+                "it regained a life and has ${liberatedTown.lives} remaining!",
+        )
     }
 
     fun liberatedChunk(mode: AttackMode, attacker: Resident?, chunk: TerritoryChunk, occupier: Town) {

@@ -17,6 +17,7 @@
  *   },
  *   "skirmishTargets": {"nation-uuid":12},
  *   "defeatedTowns": ["town-uuid"],
+ *   "townsOwedLife": ["town-uuid"], // defeated towns that regain a life if their home is liberated this war
  *   "townLives": {"town-uuid":{"lives":1,"capitalGranted":true,"revision":2}},
  *   "attacks": [            // ongoing war, colony, and warzone flags
  *     {"id":"resident-uuid","c":[0,1],"b":[0,64,16],"m":"WAR","s":100.0,"e":123.0},
@@ -191,6 +192,9 @@ object WarSerializer {
         val defeatedTowns = FlagWar.townsDefeatedThisWar
             .sortedBy(UUID::toString)
             .joinToString(",") { townId -> JsonPrimitive(townId.toString()).toString() }
+        val townsOwedLife = FlagWar.townsOwedLife
+            .sortedBy(UUID::toString)
+            .joinToString(",") { townId -> JsonPrimitive(townId.toString()).toString() }
         val townLives = Town.all()
             .sortedBy { town -> town.uuid.toString() }
             .joinToString(",") { town ->
@@ -214,6 +218,7 @@ object WarSerializer {
             append("\"territoryOccupations\":{$territoryOccupations},")
             append("\"skirmishTargets\":{$skirmishTargets},")
             append("\"defeatedTowns\":[$defeatedTowns],")
+            append("\"townsOwedLife\":[$townsOwedLife],")
             append("\"townLives\":{$townLives},")
             append("\"attacks\":[${attacks.joinToString(",")}]}")
         }

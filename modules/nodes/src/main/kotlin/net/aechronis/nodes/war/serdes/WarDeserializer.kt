@@ -78,6 +78,12 @@ object WarDeserializer {
                         System.err.println("[Nodes] Ignoring invalid defeated town $townIdJson: ${error.message}")
                     }
             }
+            jsonObj.get("townsOwedLife")?.jsonArray?.forEach { townIdJson ->
+                runCatching { FlagWar.loadTownOwedLife(UUID.fromString(requireNotNull(townIdJson.jsonPrimitive.contentOrNull))) }
+                    .onFailure { error ->
+                        System.err.println("[Nodes] Ignoring invalid town owed a life $townIdJson: ${error.message}")
+                    }
+            }
         }
 
         // ===============================

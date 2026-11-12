@@ -102,6 +102,8 @@ object FlagWar {
 
     internal val townsDefeatedThisWar: MutableSet<UUID> get() = state.townsDefeatedThisWar
 
+    internal val townsOwedLife: MutableSet<UUID> get() = state.townsOwedLife
+
     internal var territoryOccupationJournalDirty: Boolean
         get() = state.territoryOccupationJournalDirty
         set(value) {
@@ -147,6 +149,7 @@ object FlagWar {
         territoryOccupations.clear()
         skirmishTargetsByNation.clear()
         townsDefeatedThisWar.clear()
+        townsOwedLife.clear()
         territoryOccupationJournalDirty = false
 
         if (Files.exists(Nodes.config.pathWar)) {
@@ -182,6 +185,7 @@ object FlagWar {
         territoryOccupations.clear()
         skirmishTargetsByNation.clear()
         townsDefeatedThisWar.clear()
+        townsOwedLife.clear()
         territoryOccupationJournalDirty = false
         enabled = false
         deathWar = false
@@ -244,6 +248,7 @@ object FlagWar {
         territoryOccupations.clear()
         skirmishTargetsByNation.clear()
         townsDefeatedThisWar.clear()
+        townsOwedLife.clear()
         territoryOccupationJournalDirty = false
     }
 
@@ -256,6 +261,7 @@ object FlagWar {
         // Changing the mode of a running war must not re-arm defeats or reset a skirmish's selected targets.
         val alreadyEnabled = enabled
         if (!alreadyEnabled) townsDefeatedThisWar.clear()
+        if (!alreadyEnabled) townsOwedLife.clear()
         if (!alreadyEnabled || FlagWar.canOnlyAttackBorders != canOnlyAttackBorders) skirmishTargetsByNation.clear()
         enabled = true
         MinecraftServer.getConnectionManager().onlinePlayers.forEach { TownFly.disableDuringWar(it) }
@@ -279,6 +285,7 @@ object FlagWar {
         destructionEnabled = false
         skirmishTargetsByNation.clear()
         townsDefeatedThisWar.clear()
+        townsOwedLife.clear()
         needsSave = true
 
         // kill save task
@@ -410,6 +417,8 @@ object FlagWar {
     internal fun loadSkirmishTarget(nationId: UUID, territoryId: TerritoryId) = occupations.loadSkirmishTarget(nationId, territoryId)
 
     internal fun loadDefeatedTown(townId: UUID) = occupations.loadDefeatedTown(townId)
+
+    internal fun loadTownOwedLife(townId: UUID) = occupations.loadTownOwedLife(townId)
 
     internal fun resolveTownDefeat(
         attackerTown: Town,
