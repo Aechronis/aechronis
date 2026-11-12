@@ -78,6 +78,6 @@ Converts coal into air vehicles.
 
 | Item | Tier 1 | Tier 2 | Tier 3 |
 | :-- | --: | --: | --: |
-| Hot Air Balloon | 200 | 150 | 100 |
-| Airship | - | 400 | 300 |
-| Zeppelin | - | - | 800 |
+| Ballon Monté | 200 | 150 | 100 |
+| Dupuy de Lôme | - | 400 | 300 |
+| LZ 1 | - | - | 800 |

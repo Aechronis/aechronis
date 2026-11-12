@@ -48,5 +48,7 @@ object Factories {
 
     val seaFactory = factory("sea-factory", "Dockyard", Boats.dolly, Boats.pillnitz, Boats.hmsDevastation)
 
-    val list: List<ActiveBuildingDefinition> = listOf(landFactory, seaFactory)
+    val airFactory = factory("air-factory", "Air Factory", Balloons.ballonMonte, Airships.dupuyDeLome, Airships.lz1)
+
+    val list: List<ActiveBuildingDefinition> = listOf(landFactory, seaFactory, airFactory)
 }
