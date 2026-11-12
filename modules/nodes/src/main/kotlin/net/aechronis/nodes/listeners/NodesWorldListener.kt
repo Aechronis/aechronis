@@ -8,10 +8,12 @@
 
 package net.aechronis.nodes.listeners
 
+import net.aechronis.combat.events.ExplosionBlockDamageEvent
 import net.aechronis.economy.MiningBoostManager
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.colonization.Colonization
+import net.aechronis.nodes.colonization.attackProtectedBlocks
 import net.aechronis.nodes.colonization.canStartColonization
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.constants.ErrorAlreadyCaptured
@@ -44,6 +46,7 @@ import net.aechronis.nodes.war.Attack
 import net.aechronis.nodes.war.AttackMode
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.Warzone
+import net.aechronis.server.Server
 import net.aechronis.stats.Stat
 import net.aechronis.stats.Stats
 import net.aechronis.utils.OreSounds
@@ -360,7 +363,15 @@ object NodesWorldListener {
         return decision == LandAccessDecision.ALLOW
     }
 
+    // Artillery must not knock out any part of an active war or colonization flag.
+    private fun onExplosion(event: ExplosionBlockDamageEvent) {
+        // Flags live in the main world; duel arenas reuse the same coordinates in their own instances.
+        if (event.instance !== Server.instance) return
+        FlagWar.blockToAttacker.values.forEach { attack -> event.protectedBlocks += attackProtectedBlocks(attack) }
+    }
+
     fun init() {
+        Nodes.eventNode.addListener(ExplosionBlockDamageEvent::class.java, this::onExplosion)
         Nodes.highPriorityEventNode.addListener(PlayerBlockBreakEvent::class.java, this::onBlockBreak)
         Nodes.lowPriorityEventNode.addListener(PlayerBlockBreakEvent::class.java, this::onBlockBreakSuccess)
         Nodes.highPriorityEventNode.addListener(PlayerBlockPlaceEvent::class.java, this::onBlockPlace)

@@ -1,5 +1,6 @@
 package net.aechronis.combat.events
 
+import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.event.trait.CancellableEvent
@@ -19,6 +20,9 @@ class ExplosionBlockDamageEvent(
     CancellableEvent {
     private val eventInstance = instance
     val changes: List<ExplosionBlockChange> = Collections.unmodifiableList(ArrayList(changes))
+
+    /** Positions listeners want spared; the explosion neither breaks nor ignites them. */
+    val protectedBlocks: MutableSet<BlockVec> = HashSet()
     private var cancelled = false
 
     override fun getInstance(): Instance = eventInstance
