@@ -2,13 +2,14 @@ package net.aechronis.treefeller.listeners
 
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.treefeller.TreeFeller
-import net.aechronis.treefeller.TreeFeller.getTree
 import net.aechronis.treefeller.TreeFeller.isLog
-import net.aechronis.treefeller.TreeFeller.isTree
+import net.aechronis.treefeller.TreeFellerOptOut
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.GameMode
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerBlockBreakEvent
+import net.minestom.server.item.Material
+import net.minestom.server.item.MaterialTags
 
 object TreeFellerListener {
     // Inspect the intact tree after Nodes protection (-999/-998), before vanilla's drop handler (0).
@@ -27,13 +28,13 @@ object TreeFellerListener {
         val block = event.block
         if (!isLog(block)) return
         val instance = player.instance ?: return
-        if (!isTree(event.blockPosition, instance, block)) return
-        val tree = getTree(event.blockPosition, instance, block)
+        if (TreeFellerOptOut.disabled(player.uuid)) return
+        val axes = Material.staticRegistry().getTag(MaterialTags.AXES)
+        if (axes?.contains(player.itemInMainHand.material()) != true) return
+        val (tree, leaves) = TreeFeller.detect(event.blockPosition, instance, block)
         if (tree.isEmpty()) return
 
-        val logs = tree.drop(1)
-        val leaves = if (TreeFeller.config.breakLeaves) TreeFeller.collectLeaves(tree, instance) else emptyList()
-        TreeFeller.fell(player, instance, logs, leaves, block)
+        TreeFeller.fell(player, instance, tree.drop(1), if (TreeFeller.config.breakLeaves) leaves else emptyList(), block)
     }
 
     fun init() {
