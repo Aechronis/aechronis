@@ -22,10 +22,10 @@ object ActiveBuildings {
     private var task: Task? = null
     private var lastMapProgress = emptyMap<ActiveBuilding, Int>()
 
-    // Time left seen last tick, so the warning fires once when a run crosses the mark
-    // (not again after a restart that lands inside the last 20 minutes).
+    // Time left seen last tick, so each warning fires once when a run crosses its mark
+    // (not again after a restart that lands past it).
     private val lastTimeLeft = mutableMapOf<ActiveBuilding, Long>()
-    private const val WARNING_MS = 20 * 60_000L
+    private val WARNING_MINUTES = listOf(30L, 20L, 10L)
 
     fun init() {
         require(Nodes.config.activeBuildings.map { it.name }.distinct().size == Nodes.config.activeBuildings.size) {
@@ -142,11 +142,12 @@ object ActiveBuildings {
 
     private fun warnIfDue(building: ActiveBuilding, timeLeft: Long) {
         val previous = lastTimeLeft.put(building, timeLeft) ?: return
-        if (previous <= WARNING_MS || timeLeft > WARNING_MS) return
+        // If one tick crosses several marks, only the nearest is announced.
+        val minutes = WARNING_MINUTES.lastOrNull { previous > it * 60_000 && timeLeft <= it * 60_000 } ?: return
         val town = Territory.fromCoord(Coord(building.chunkX, building.chunkZ))?.town?.name ?: "Unclaimed"
         val type = PlainTextComponentSerializer.plainText().serialize(building.displayName)
         val pos = building.position
-        Message.broadcast("$town $type goes off in 20 minutes at ${pos.blockX()}, ${pos.blockY()}, ${pos.blockZ()}")
+        Message.broadcast("$town $type goes off in $minutes minutes at ${pos.blockX()}, ${pos.blockY()}, ${pos.blockZ()}")
     }
 
     internal fun durationText(): String {
