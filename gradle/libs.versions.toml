@@ -13,7 +13,7 @@ hikari = "7.1.0"
 mariadb = "4.0.0"
 slf4j = "2.0.20"
 signedvelocity = "1.4.1"
-blocksandstuff = "1.10.2-SNAPSHOT"
+blocksandstuff = "1.12.2-minestom.1"
 luckperms-api = "5.5"
 luckperms = "5.5.87-minestom.1"
 kord = "0.18.1"
@@ -41,9 +41,9 @@ mariadb = { module = "org.mariadb.jdbc:mariadb-java-client", version.ref = "mari
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 signedvelocity = { module = "io.github.4drian3d:signedvelocity-minestom", version.ref = "signedvelocity" }
-blocksandstuff-blocks = { module = "org.everbuild.blocksandstuff:blocksandstuff-blocks", version.ref = "blocksandstuff" }
-blocksandstuff-fluids = { module = "org.everbuild.blocksandstuff:blocksandstuff-fluids", version.ref = "blocksandstuff" }
-blocksandstuff-common = { module = "org.everbuild.blocksandstuff:blocksandstuff-common", version.ref = "blocksandstuff" }
+blocksandstuff-blocks = { module = "net.aechronis:blocksandstuff-blocks", version.ref = "blocksandstuff" }
+blocksandstuff-fluids = { module = "net.aechronis:blocksandstuff-fluids", version.ref = "blocksandstuff" }
+blocksandstuff-common = { module = "net.aechronis:blocksandstuff-common", version.ref = "blocksandstuff" }
 luckperms-api = { module = "net.luckperms:api", version.ref = "luckperms-api" }
 luckperms-minestom = { module = "net.aechronis:luckperms-minestom", version.ref = "luckperms" }
 kord = { module = "dev.kord:kord-core", version.ref = "kord" }

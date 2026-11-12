@@ -13,7 +13,6 @@ dependencyResolutionManagement {
         maven("https://jitpack.io")
         maven("https://repo.lucko.me/")
         maven("https://repo.smolder.fr/public/")
-        maven("https://mvn.everbuild.org/public")
         maven("https://maven.enginehub.org/repo/")
         maven("https://maven.pkg.github.com/Error11O/MinecraftPlugin") {
             credentials {
