@@ -25,6 +25,7 @@ import { cameraPixelRatio } from './camera-quality.mjs';
 import { attackProgress, nextAttackFrame, AttackAnimationTimer } from './attack-animation.mjs';
 import { screenZoomOffset, clampScreenZoom, resizeScreenZoom } from './responsive-zoom.mjs';
 import { MAP_BOUNDS, WORLD_WIDTH } from './map-config.mjs';
+import { producingFactories, factoryItem, factoryTimeLeft } from './factories.mjs';
 import {
   IconLayer,
   ScatterplotLayer,
@@ -217,6 +218,7 @@ function bootMap(initial) {
   let attackChunkKeys = new Set();  // packed coords of currently-shown attacks
   let buildingsList;
   let buildingsByChunk;
+  let factoriesList = [];
   const resourceData = memoize(buildTerritoryResources);
   const resourceIcons = new Map();
 
@@ -292,6 +294,7 @@ function bootMap(initial) {
         buildingsByChunk.set(packCoord(cx, cz), entry);
       }
     }
+    factoriesList = producingFactories(buildingsList);
   }
 
   index = buildIndex(data);
@@ -611,7 +614,31 @@ function bootMap(initial) {
       </dl>
       <h3>Resources</h3>
       ${resources || '<div class="subtitle">None</div>'}
+      <h3>Factories</h3>
+      ${territoryFactories(hit.territoryId) || '<div class="subtitle">None</div>'}
     `;
+  }
+
+  // Every active building in the territory, idle or producing, laid out like
+  // the Resources entries above it.
+  function territoryFactories(territoryId) {
+    return buildingsList
+      .filter(entry => entry.data.type === 'active'
+        && index.owner.get(packCoord(entry.cx, entry.cz))?.territoryId === territoryId)
+      .map(entry => {
+        const b = entry.data;
+        const name = b.displayName || (b.definition || 'factory').replace(/(^|-)(\w)/g, (_, sep, c) => (sep ? ' ' : '') + c.toUpperCase());
+        const producing = b.production?.endsAt != null;
+        const rows = [
+          ['Tier', b.tier],
+          ['Coordinates', `${b.x}, ${b.y}, ${b.z}`],
+          ['Status', producing ? 'Producing' : 'Idle'],
+          ...(producing ? [['Item', factoryItem(entry)], ['Time left', factoryTimeLeft(b.production.endsAt).replace(/ left$/, '')]] : []),
+        ];
+        return `<div class="resource-tooltip-resource"><strong class="resource-tooltip-name">${escapeHtml(name)}</strong>`
+          + `<section class="resource-tooltip-section"><dl>${rows.map(([label, value]) =>
+            `<dt>${label}</dt><dd>${escapeHtml(String(value))}</dd>`).join('')}</dl></section></div>`;
+      }).join('');
   }
 
   function updateSelection() {
@@ -799,13 +826,13 @@ function bootMap(initial) {
     });
   }
 
-  function buildingBackplatesLayer() {
-    if (!buildingsList.length) return null;
+  function buildingBackplatesLayer(list = buildingsList) {
+    if (!list.length) return null;
     // Match the port's white round backing so black symbols remain legible
     // over both dark water and satellite terrain.
     return new ScatterplotLayer({
       id: 'building-backplates',
-      data: buildingsList,
+      data: list,
       getPosition: d => d.center,
       getRadius: BUILDING_IMAGE_SIZE / 2,
       radiusUnits: 'common',
@@ -816,11 +843,11 @@ function bootMap(initial) {
     });
   }
 
-  function buildingsLayer() {
-    if (!buildingsList.length) return null;
+  function buildingsLayer(list = buildingsList) {
+    if (!list.length) return null;
     return new IconLayer({
       id: 'buildings',
-      data: buildingsList,
+      data: list,
       pickable: true,
       getPosition: (d) => d.center,
       getIcon: (d) => ({
@@ -992,6 +1019,88 @@ function bootMap(initial) {
     });
   }
 
+  // Countdown chips over each producing factory; text changes every second.
+  function factoryLabelLayer() {
+    if (mapMode !== 'factories' || !factoriesList.length) return null;
+    const second = Math.floor(Date.now() / 1000);
+    return new TextLayer({
+      id: 'factory-labels',
+      data: factoriesList,
+      getPosition: (d) => d.labelAnchor,
+      getText: (d) => `${factoryItem(d)} · ${factoryTimeLeft(d.data.production.endsAt)}`,
+      updateTriggers: { getText: second },
+      sizeUnits: 'pixels',
+      getSize: 18,
+      getColor: [236, 228, 198, 255],
+      getTextAnchor: 'middle',
+      getAlignmentBaseline: 'bottom',
+      getPixelOffset: [0, -6],
+      background: true,
+      backgroundPadding: [6, 2, 6, 2],
+      getBackgroundColor: [20, 20, 20, 240],
+      fontFamily: MAP_FONT,
+      fontSettings: { sdf: true, fontSize: 64, buffer: 8 },
+      characterSet: 'auto',
+    });
+  }
+
+  const factoriesPanel = document.getElementById('factories-panel');
+  const factoriesListEl = document.getElementById('factories-list');
+  const factoriesTitle = document.getElementById('factories-title');
+  let factoriesRendered = null;
+  let factoriesRenderedIndex = null;
+  // Rebuild rows only when the set of factories changes, so a click is never
+  // lost to a re-render; the countdown text is updated in place.
+  function renderFactoriesPanel() {
+    factoriesPanel.hidden = mapMode !== 'factories';
+    if (factoriesPanel.hidden) return;
+    // Town names come from the ownership index, so a capture refreshes the rows too.
+    if (factoriesRendered !== factoriesList || factoriesRenderedIndex !== index) {
+      factoriesRendered = factoriesList;
+      factoriesRenderedIndex = index;
+      factoriesTitle.textContent = `Active factories (${factoriesList.length})`;
+      factoriesListEl.innerHTML = factoriesList.length
+        ? factoriesList.map((entry, i) => {
+          const b = entry.data;
+          const town = index?.owner.get(packCoord(entry.cx, entry.cz))?.ownerName || 'No town';
+          return `<li><button type="button" data-factory="${i}">`
+            + `<span class="factory-item">${escapeHtml(factoryItem(entry))}</span>`
+            + '<span class="factory-time"></span>'
+            + `<span class="factory-where">${escapeHtml(town)} · ${b.x}, ${b.y}, ${b.z}</span>`
+            + '</button></li>';
+        }).join('')
+        : '<li class="factories-empty">No factories are producing right now.</li>';
+    }
+    factoriesListEl.querySelectorAll('[data-factory]').forEach(button => {
+      const entry = factoriesList[button.dataset.factory];
+      button.querySelector('.factory-time').textContent = factoryTimeLeft(entry.data.production.endsAt);
+    });
+  }
+  factoriesListEl.addEventListener('click', event => {
+    const entry = factoriesList[event.target.closest('[data-factory]')?.dataset.factory];
+    if (!entry) return;
+    viewState = clampTarget({
+      ...viewState,
+      target: [...entry.center, 0],
+      zoom: VIEW_MAX_ZOOM,
+      zoomX: VIEW_MAX_ZOOM,
+      zoomY: VIEW_MAX_ZOOM,
+      transitionDuration: 0,
+    });
+    viewZoom = viewState.zoom;
+    viewTarget = viewState.target;
+    applyCameraState(window.devicePixelRatio || 1);
+    selectAt(entry.center);
+  });
+  setInterval(() => {
+    if (mapMode === 'factories') redraw();
+    // Tick the territory panel's factory countdowns while it is open.
+    const hit = dataReady && selection().hit;
+    if (hit && factoriesList.some(entry => index.owner.get(packCoord(entry.cx, entry.cz))?.territoryId === hit.territoryId)) {
+      renderTerritoryPanel(hit);
+    }
+  }, 1000);
+
   function showLandmarks() {
     return viewZoom >= overviewZoom(window.innerHeight) + CAPITAL_ZOOM_STEPS;
   }
@@ -1053,14 +1162,18 @@ function bootMap(initial) {
       ...highlightLayers(),
       portRingLayer(),
       mapMode === 'resources' ? null : nationLabelsLayer(),
-      showBuildings() ? buildingBackplatesLayer() : null,
-      showBuildings() ? buildingsLayer() : null,
+      // Factories mode shows only producing factories, at every zoom.
+      mapMode === 'factories' ? buildingBackplatesLayer(factoriesList)
+        : showBuildings() ? buildingBackplatesLayer() : null,
+      mapMode === 'factories' ? buildingsLayer(factoriesList)
+        : showBuildings() ? buildingsLayer() : null,
       mapMode !== 'resources' && showLandmarks()
         ? nationCapitalsLayer() : null,
       ...(mapMode !== 'resources' && viewZoom >= overviewZoom(window.innerHeight) + TOWN_ZOOM_STEPS
         ? townDetailLayers() : []),
       ...resourceLayers(),
       buildingLabelLayer(),
+      factoryLabelLayer(),
       selfPlayerLayer(),
     ].filter(Boolean);
     // Preserve overlay order across all visible copies of the world.
@@ -1272,6 +1385,7 @@ function bootMap(initial) {
     redrawFrame = requestAnimationFrame(() => {
       redrawFrame = null;
       deck.setProps({ layers: getLayers() });
+      renderFactoriesPanel();
       if (dataReady) initialLayersSubmitted = true;
       ensureAttackAnim();
     });

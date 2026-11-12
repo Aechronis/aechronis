@@ -158,6 +158,12 @@ object TownBuildingsMenu {
             event.isCancelled = true
             return
         }
+        val incoming = incomingItem(event, open)
+        if (!incoming.isAir && !building.acceptsInput(incoming)) {
+            event.isCancelled = true
+            Message.error(player, "This factory only accepts its recipe materials")
+            return
+        }
         if (click is Click.Drag) {
             event.isCancelled = true
             if (event.inventory !== open || click.slots().none { it in BUILDING_INPUT_SLOTS until open.size }) transfer(event, building)
@@ -180,6 +186,22 @@ object TownBuildingsMenu {
         }
         val recipe = building.definition?.recipes?.get(building.tier)?.getOrNull(event.slot - BUILDING_INPUT_SLOTS) ?: return
         ActiveBuildings.start(player, building, recipe)
+    }
+
+    /** The item a click could move into the input slots; air when it can only take items out. */
+    private fun incomingItem(event: InventoryPreClickEvent, open: AbstractInventory): ItemStack {
+        val player = event.player
+        val cursor = player.inventory.cursorItem
+        val intoInputs = event.inventory === open && event.slot < BUILDING_INPUT_SLOTS
+        return when (val click = event.click) {
+            // drags may cover input slots; a drag inside the player's own inventory is blocked too
+            is Click.Drag -> cursor
+            is Click.LeftShift, is Click.RightShift -> if (event.inventory !== open) event.clickedItem else ItemStack.AIR
+            is Click.Left, is Click.Right -> if (intoInputs) cursor else ItemStack.AIR
+            is Click.HotbarSwap -> if (intoInputs) player.inventory.getItemStack(click.hotbarSlot) else ItemStack.AIR
+            is Click.OffhandSwap -> if (intoInputs) player.itemInOffHand else ItemStack.AIR
+            else -> ItemStack.AIR
+        }
     }
 
     // Apply native transfers under the same lock as recipe consumption. This prevents two

@@ -17,6 +17,7 @@ import net.aechronis.nodes.colonization.ColonizationMenu
 import net.aechronis.nodes.commands.AllyChatCommand
 import net.aechronis.nodes.commands.AllyCommand
 import net.aechronis.nodes.commands.ColonizeCommand
+import net.aechronis.nodes.commands.FactoriesCommand
 import net.aechronis.nodes.commands.FlagsCommand
 import net.aechronis.nodes.commands.GlobalChatCommand
 import net.aechronis.nodes.commands.NationChatCommand
@@ -46,6 +47,7 @@ import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.listeners.TrainsListener
 import net.aechronis.nodes.objects.ActiveBuildings
 import net.aechronis.nodes.objects.Building
+import net.aechronis.nodes.objects.FactoriesMenu
 import net.aechronis.nodes.objects.FlagsMenu
 import net.aechronis.nodes.objects.MinimapPassengerTracker
 import net.aechronis.nodes.objects.Nametag
@@ -179,6 +181,7 @@ object Nodes {
             ActiveBuildings.init()
             WaypointMenu.init()
             FlagsMenu.init()
+            FactoriesMenu.init()
             TestTownSelection.init()
         }
         measure("Trains") { Trains.initialize(config.pathTrains) }
@@ -200,6 +203,7 @@ object Nodes {
                     PortCommand(),
                     WaypointCommand(),
                     FlagsCommand(),
+                    FactoriesCommand(),
                     TrainCommand(),
                     ColonizeCommand(),
                     WarzoneCommand(),
