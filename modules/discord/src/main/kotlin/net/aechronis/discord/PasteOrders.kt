@@ -4,7 +4,9 @@ import com.sk89q.worldedit.WorldEdit
 import com.sk89q.worldedit.extent.clipboard.Clipboard
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormats
 import com.sk89q.worldedit.function.mask.AbstractMask
+import com.sk89q.worldedit.function.mask.BlockTypeMask
 import com.sk89q.worldedit.function.mask.Mask
+import com.sk89q.worldedit.function.mask.Masks
 import com.sk89q.worldedit.function.operation.Operations
 import com.sk89q.worldedit.math.BlockVector3
 import com.sk89q.worldedit.session.ClipboardHolder
@@ -407,6 +409,8 @@ internal class PasteOrders(
                 .actor(MinestomConsole)
                 .build()
         session.use {
+            // Whatever is already standing there as a barrel stays: neither the paste nor the clearing may touch it.
+            it.mask = Masks.negate(BlockTypeMask(it, listOf(BlockTypes.BARREL!!)))
             val old = order.replaces
             if (previous != null && old != null) {
                 // Clear only what the old paste placed, so anything else the player built there stays.
