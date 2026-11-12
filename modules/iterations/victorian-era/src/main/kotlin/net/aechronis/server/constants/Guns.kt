@@ -194,7 +194,7 @@ object Guns {
             bulletsPerShot = 8,
             automatic = false,
             sniper = false,
-            cooldown = 350,
+            cooldown = 1500,
             reloadTime = 4000,
             recoilMin = 4F,
             recoilMax = 7F,

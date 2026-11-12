@@ -33,6 +33,7 @@ object PlayerDeathListener {
         Combat.clearDamageHistory(player)
         Combat.grantRespawnProtection(player)
         LagCompensation.resetHistory(player)
+        Combat.playerStates[player]?.gunReloadLocks?.clear()
 
         val message =
             forcedDeathMessages[player]

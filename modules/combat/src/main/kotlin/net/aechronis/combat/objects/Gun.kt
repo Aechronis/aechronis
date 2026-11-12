@@ -286,14 +286,20 @@ class Gun(
         }
         val firedAtNanos = System.nanoTime()
         val now = System.currentTimeMillis()
-        val lastAction = Combat.playerStates[player]?.lastActionTime ?: 0L
-        if (now - lastAction < cooldown && !ignoreCooldown) return false
-        if (Combat.playerStates[player]?.reloadTask != null) return false
-        Combat.playerStates.getOrCreate(player).lastActionTime = now
+        val state = Combat.playerStates.getOrCreate(player)
+        if (now - state.lastActionTime < cooldown && !ignoreCooldown) return false
+        if (firePos == null && now < (state.gunReloadLocks[name] ?: 0L)) return false
+        if (state.reloadTask != null) return false
+        state.lastActionTime = now
         if (!hasAmmo(player) && !ignoreAmmo) {
             // lastActionTime was just set, so the click is rate-limited by the gun's cooldown
             player.playSound(SOUND_OUT_OF_AMMO, Sound.Emitter.self())
             return false
+        }
+        if (firePos == null && !ignoreAmmo && getAmmo(player) == 1) {
+            // Emptying one copy locks every copy for a reload, so swapping copies can't skip it.
+            // The shot gap needs no lock: lastActionTime is per player and slot changes reset it.
+            state.gunReloadLocks[name] = now + reloadTime
         }
 
         // Calculate position to fire bullets (rays) from. ADS only affects handheld shots,
