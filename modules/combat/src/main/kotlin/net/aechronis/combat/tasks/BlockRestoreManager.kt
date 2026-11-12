@@ -33,20 +33,6 @@ private data class PendingBlockRestore(
 object BlockRestoreManager {
     internal var restoreDelayMillis = BLOCK_RESTORE_DELAY_MILLIS
 
-    private val leaves =
-        setOf(
-            Block.OAK_LEAVES,
-            Block.SPRUCE_LEAVES,
-            Block.BIRCH_LEAVES,
-            Block.JUNGLE_LEAVES,
-            Block.ACACIA_LEAVES,
-            Block.DARK_OAK_LEAVES,
-            Block.CHERRY_LEAVES,
-            Block.MANGROVE_LEAVES,
-            Block.PALE_OAK_LEAVES,
-            Block.AZALEA_LEAVES,
-            Block.FLOWERING_AZALEA_LEAVES,
-        )
     private val pending = ConcurrentHashMap<BlockPosition, PendingBlockRestore>()
     private val scheduled = ConcurrentHashMap<BlockPosition, Task>()
     private var initialized = false
@@ -77,15 +63,6 @@ object BlockRestoreManager {
         restoreAllImmediately()
         check(pending.isEmpty()) { "Failed to restore ${pending.size} temporary block(s) before flushing" }
         ModuleScheduler.releaseCancelledTasks()
-    }
-
-    fun temporarilyBreakLeaf(
-        instance: Instance,
-        position: BlockVec,
-        block: Block,
-    ): Boolean {
-        if (!isLeaf(block)) return false
-        return temporarilyReplace(instance, position, block, Block.AIR)
     }
 
     @Synchronized
@@ -119,8 +96,6 @@ object BlockRestoreManager {
         }
         return true
     }
-
-    internal fun isLeaf(block: Block): Boolean = leaves.any { it.key() == block.key() }
 
     @Synchronized
     private fun onPlace(event: PlayerBlockPlaceEvent) {

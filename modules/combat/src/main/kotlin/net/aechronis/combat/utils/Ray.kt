@@ -5,6 +5,7 @@ package net.aechronis.combat.utils
 
 import net.minestom.server.collision.Shape
 import net.minestom.server.collision.ShapeImpl
+import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -95,16 +96,24 @@ class Ray(
         return best
     }
 
-    /** The closest block collision shape the ray hits, or null if it hits none. */
-    fun firstBlock(instance: Instance): Hit<Block>? {
-        if (distance == 0.0) {
-            return firstBlockAt(
-                instance,
-                Vec(origin.blockX().toDouble(), origin.blockY().toDouble(), origin.blockZ().toDouble()),
-            )
+    /**
+     * The closest block collision shape the ray hits, or null if it hits none. Hits that [passThrough]
+     * accepts are skipped; it receives each hit block's cell, nearest cell first.
+     */
+    fun firstBlock(
+        instance: Instance,
+        passThrough: ((BlockVec, Hit<Block>) -> Boolean)? = null,
+    ): Hit<Block>? {
+        fun stoppingHitAt(pos: Point): Hit<Block>? {
+            val hit = firstBlockAt(instance, pos) ?: return null
+            return if (passThrough?.invoke(pos.asBlockVec(), hit) == true) null else hit
         }
 
-        return firstAlongCells { pos -> firstBlockAt(instance, pos) }
+        if (distance == 0.0) {
+            return stoppingHitAt(Vec(origin.blockX().toDouble(), origin.blockY().toDouble(), origin.blockZ().toDouble()))
+        }
+
+        return firstAlongCells(::stoppingHitAt)
     }
 
     /**

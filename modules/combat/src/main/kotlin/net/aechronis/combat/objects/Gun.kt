@@ -326,7 +326,7 @@ class Gun(
                         origin.pitch + spread(speed) * aimingMultiplier,
                     )
                 val hit =
-                    shot.resolve(player.instance, offsetPos, breakLeaves = true, ignoredEntities = ignored) { ray ->
+                    shot.resolve(player.instance, offsetPos, breakBlocks = true, ignoredEntities = ignored) { ray ->
                         if (lagCompensate) {
                             LagCompensation.firstEntityHit(ray, player, player.instance, firedAtNanos, ignored)
                         } else {

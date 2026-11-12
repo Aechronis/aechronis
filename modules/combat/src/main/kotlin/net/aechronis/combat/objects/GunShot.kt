@@ -2,16 +2,21 @@ package net.aechronis.combat.objects
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.tasks.BlockRestoreManager
+import net.aechronis.combat.utils.BulletPenetration
 import net.aechronis.combat.utils.CombatDamageKind
 import net.aechronis.combat.utils.Particles
 import net.aechronis.combat.utils.Ray
 import net.aechronis.combat.utils.withCombatAttribution
+import net.minestom.server.coordinate.BlockVec
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.LivingEntity
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.Damage
 import net.minestom.server.instance.Instance
+import net.minestom.server.instance.block.Block
+import net.minestom.server.network.packet.server.play.WorldEventPacket
+import net.minestom.server.worldevent.WorldEvent
 
 /** Resolves all pellets in one shot, counting at most one hit against each vehicle. */
 internal class GunShot(
@@ -32,13 +37,24 @@ internal class GunShot(
     fun resolve(
         instance: Instance,
         origin: Pos,
-        breakLeaves: Boolean = false,
+        breakBlocks: Boolean = false,
         validVehicles: Set<Entity>? = null,
         ignoredEntities: Set<Entity> = emptySet(),
         findEntity: (Ray) -> Ray.Hit<LivingEntity>?,
     ): Hit {
         val ray = Ray(origin, origin.direction().mul(gun.maxRange))
-        val blockHit = ray.firstBlock(instance)
+        // Breaking bullets pass through penetrable blocks, only breaking those before what they hit.
+        val pierced = ArrayList<Pair<BlockVec, Ray.Hit<Block>>>()
+        val blockHit =
+            if (breakBlocks) {
+                ray.firstBlock(instance) { position, hit ->
+                    val breaks = BulletPenetration.breaks(hit.obj)
+                    if (breaks) pierced += position to hit
+                    breaks || BulletPenetration.passes(hit.obj)
+                }
+            } else {
+                ray.firstBlock(instance)
+            }
         val entityHit = findEntity(ray)
         val vehicleHit = firstVehicleHit(instance, ray, validVehicles, ignoredEntities)
 
@@ -46,8 +62,20 @@ internal class GunShot(
         val entityDistance = entityHit?.t ?: Double.POSITIVE_INFINITY
         val vehicleDistance = vehicleHit?.t ?: Double.POSITIVE_INFINITY
 
+        fun breakPiercedBefore(distance: Double) {
+            for ((position, hit) in pierced) {
+                if (hit.t >= distance) continue
+                // The vanilla block-break effect: the block's own break sound and particles.
+                instance.sendGroupedPacket(
+                    WorldEventPacket(WorldEvent.PARTICLES_DESTROY_BLOCK.id(), position, hit.obj.stateId(), false),
+                )
+                BlockRestoreManager.temporarilyReplace(instance, position, hit.obj, Block.AIR)
+            }
+        }
+
         // Strict comparisons preserve block-over-entity and entity-over-vehicle tie priority.
         if (vehicleHit != null && vehicleDistance < blockDistance && vehicleDistance < entityDistance) {
+            breakPiercedBefore(vehicleDistance)
             val (entity, vehicle) = vehicleHit.obj
             val hitPoint = vehicleHit.point.asPos()
             Particles.dustParticle(instance, hitPoint)
@@ -57,6 +85,7 @@ internal class GunShot(
             return Hit(hitPoint, vehicle = true)
         }
         if (entityHit != null && entityDistance < blockDistance) {
+            breakPiercedBefore(entityDistance)
             val hitPoint = entityHit.point.asPos()
             Particles.bloodParticle(instance, hitPoint)
             val damage =
@@ -66,10 +95,10 @@ internal class GunShot(
             Combat.applyDamageWithoutImmunity(entityHit.obj, damage)
             return Hit(hitPoint, entity = entityHit.obj)
         }
+        breakPiercedBefore(blockDistance)
         if (blockHit != null) {
             val hitPoint = blockHit.point.asPos()
             Particles.dustParticle(instance, hitPoint)
-            if (breakLeaves) BlockRestoreManager.temporarilyBreakLeaf(instance, blockHit.point.asBlockVec(), blockHit.obj)
             return Hit(hitPoint)
         }
         return Hit(origin.add(ray.direction.mul(ray.distance)))
