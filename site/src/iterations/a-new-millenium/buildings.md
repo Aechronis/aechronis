@@ -89,7 +89,7 @@ Ports must be built within 2 chunks of the territories edge:
 
 
 ## Train station
-Train stations produce small amounts of coal and oil. Rails can be built connecting railways to allow fast travel between them.
+Train stations produce a small amount of coal. Rails can be built connecting railways to allow fast travel between them.
 
 <div class="building-tier">
 <div class="building-tier-details">
@@ -97,7 +97,6 @@ Train stations produce small amounts of coal and oil. Rails can be built connect
 ### Tier 1
 * 25 bps
 * 8 Coal
-* 4 Oil
 
 </div>
 <img src="/iterations/a-new-millenium/buildings/train-station/1.webp" alt="Train station, tier 1" class="building-tier-image">
@@ -109,7 +108,6 @@ Train stations produce small amounts of coal and oil. Rails can be built connect
 ### Tier 2
 * 50 bps
 * 16 Coal
-* 8 Oil
 
 </div>
 <img src="/iterations/a-new-millenium/buildings/train-station/2.webp" alt="Train station, tier 2" class="building-tier-image">
@@ -121,7 +119,6 @@ Train stations produce small amounts of coal and oil. Rails can be built connect
 ### Tier 3
 * 100 bps
 * 32 Coal
-* 16 Oil
 
 </div>
 <img src="/iterations/a-new-millenium/buildings/train-station/3.webp" alt="Train station, tier 3" class="building-tier-image">

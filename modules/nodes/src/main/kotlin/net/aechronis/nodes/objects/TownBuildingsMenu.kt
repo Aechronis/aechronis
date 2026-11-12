@@ -269,7 +269,7 @@ object TownBuildingsMenu {
             lore += Component.text(status, NamedTextColor.YELLOW)
             lore += Component.text("Click to open shared inputs and recipes", NamedTextColor.GREEN)
         } else {
-            val income = if (building is TrainStationBuilding) Trains.incomeAt(building.chunkX, building.chunkZ) else building.income()
+            val income = building.income()
             lore += Component.text("Passive • hourly town income", NamedTextColor.GRAY)
             income.forEach { (item, amount) -> lore += Component.text("${amount.toInt()} ${item.key().value().replace('_', ' ')}", NamedTextColor.GRAY) }
             lore += Component.text("Click for details", NamedTextColor.GREEN)

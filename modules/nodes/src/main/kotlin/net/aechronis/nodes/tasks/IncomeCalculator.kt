@@ -4,7 +4,6 @@ import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.Building
 import net.aechronis.nodes.objects.Territory
 import net.aechronis.nodes.objects.Town
-import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.war.Warzone
 import net.minestom.server.item.Material
 
@@ -12,13 +11,11 @@ import net.minestom.server.item.Material
 data class IncomeBreakdown(
     val territory: Map<Material, Double>,
     val buildings: Map<Material, Double>,
-    val trains: Map<Material, Double>,
 ) {
     val total: Map<Material, Double>
         get() = buildMap {
             addAll(territory)
             addAll(buildings)
-            addAll(trains)
         }
 
     private fun MutableMap<Material, Double>.addAll(income: Map<Material, Double>) {
@@ -28,7 +25,7 @@ data class IncomeBreakdown(
     }
 
     companion object {
-        val EMPTY = IncomeBreakdown(emptyMap(), emptyMap(), emptyMap())
+        val EMPTY = IncomeBreakdown(emptyMap(), emptyMap())
     }
 }
 
@@ -44,7 +41,7 @@ object IncomeCalculator {
      * Calculates the same rates as [calculate], retaining the source for town
      * income information. Building income belongs to the town which owns the
      * territory containing the building, and is taxed while that territory is
-     * occupied just like resource-node and train income.
+     * occupied just like resource-node income.
      */
     fun calculateBreakdown(): Map<Town, IncomeBreakdown> {
         val incomes = LinkedHashMap<Town, MutableIncomeBreakdown>()
@@ -72,13 +69,9 @@ object IncomeCalculator {
 
     private fun incomeForTerritory(territory: Territory): IncomeBreakdown {
         val buildings = mutableMapOf<Material, Double>()
-        val trains = mutableMapOf<Material, Double>()
         territory.chunks.forEach { coord ->
             Building.getAt(coord.x, coord.z)?.income()?.forEach { (material, amount) ->
                 add(buildings, material, amount)
-            }
-            Trains.incomeAt(coord.x, coord.z).forEach { (material, amount) ->
-                add(trains, material, amount)
             }
         }
 
@@ -86,7 +79,6 @@ object IncomeCalculator {
         return IncomeBreakdown(
             territory = territory.income.withMultiplier(multiplier),
             buildings = buildings.withMultiplier(multiplier),
-            trains = trains.withMultiplier(multiplier),
         )
     }
 
@@ -105,15 +97,13 @@ object IncomeCalculator {
     private class MutableIncomeBreakdown {
         private val territory = mutableMapOf<Material, Double>()
         private val buildings = mutableMapOf<Material, Double>()
-        private val trains = mutableMapOf<Material, Double>()
 
         fun add(income: IncomeBreakdown, multiplier: Double = 1.0) {
             add(territory, income.territory, multiplier)
             add(buildings, income.buildings, multiplier)
-            add(trains, income.trains, multiplier)
         }
 
-        fun toImmutable(): IncomeBreakdown = IncomeBreakdown(territory.toMap(), buildings.toMap(), trains.toMap())
+        fun toImmutable(): IncomeBreakdown = IncomeBreakdown(territory.toMap(), buildings.toMap())
 
         private fun add(
             destination: MutableMap<Material, Double>,

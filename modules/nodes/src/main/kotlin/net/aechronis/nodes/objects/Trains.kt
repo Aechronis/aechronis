@@ -19,7 +19,6 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
-import net.minestom.server.item.Material
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import org.everbuild.blocksandstuff.blocks.placement.common.AbstractRailPlacementRule.RailShape
@@ -358,18 +357,6 @@ object Trains {
 
     fun removeAt(position: BlockVec, instance: Instance?): TrainStation? = stationsByPosition[position]?.let { remove(it, instance) }
 
-    fun incomeAt(chunkX: Int, chunkZ: Int): Map<Material, Double> = stations.values.asSequence()
-        .filter { Math.floorDiv(it.position.blockX(), 16) == chunkX && Math.floorDiv(it.position.blockZ(), 16) == chunkZ }
-        .fold(mutableMapOf()) { income, station ->
-            val tier = tierAt(station.position)
-            if (tier > 0) {
-                val coal = coalIncome(tier)
-                income[Material.COAL] = (income[Material.COAL] ?: 0.0) + coal
-                income[Material.DRAGON_BREATH] = (income[Material.DRAGON_BREATH] ?: 0.0) + coal / 2.0
-            }
-            income
-        }
-
     fun tierAt(position: BlockVec): Int = (
         Building.getAt(
             Math.floorDiv(position.blockX(), 16),
@@ -381,12 +368,6 @@ object Trains {
         0, 1 -> 25.0
         2 -> 50.0
         else -> 100.0
-    }
-    private fun coalIncome(tier: Int): Double = when (tier) {
-        1 -> 8.0
-        2 -> 16.0
-        3 -> 32.0
-        else -> 0.0
     }
 
     private fun rebuildDirtyComponents(
