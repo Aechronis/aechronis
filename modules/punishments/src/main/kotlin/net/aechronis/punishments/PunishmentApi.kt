@@ -21,7 +21,7 @@ import java.util.concurrent.Executors
 
 /**
  * Read-only public JSON API for bans.aechronis.net. Listens on localhost only; nginx proxies to it
- * and sets `X-Real-IP`. Never serializes IP addresses. See API.md.
+ * and sets `X-Real-IP`. Never serializes IP addresses.
  */
 internal object PunishmentApi {
     const val BLACKLIST_RULE =
