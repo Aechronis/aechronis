@@ -2,6 +2,8 @@ package net.aechronis.discord
 
 import dev.kord.common.Color
 import dev.kord.common.entity.ButtonStyle
+import dev.kord.common.entity.Permission
+import dev.kord.common.entity.Permissions
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.MessageChannelBehavior
@@ -50,6 +52,8 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import net.aechronis.economy.Economy
+import net.aechronis.punishments.Evidence
+import net.aechronis.punishments.Punishments
 import java.net.URLEncoder
 import java.nio.file.Files
 
@@ -61,11 +65,13 @@ internal object DiscordBot {
         links: AccountLinks,
         nodes: NodesCommands,
         pastes: PasteOrders? = null,
+        punishmentLog: Snowflake? = null,
     ) {
         // Explicitly own the engine, including when Kord fails during construction.
         val engine = OkHttp.create()
         val http = HttpClient(engine)
         var kord: Kord? = null
+        var punishments: PunishmentBridge? = null
         try {
             val client =
                 withTimeoutOrNull(30_000) { Kord(token) { httpClient = http } }
@@ -79,6 +85,7 @@ internal object DiscordBot {
                     ?.takeIf {
                         it.startsWith("https://discord.com/api/webhooks/")
                     }?.let { PasteLog(it, http, scope) }
+            punishments = PunishmentBridge(links, client, scope, punishmentLog, nodes::allowed)
             val slots = Semaphore(8)
             val names =
                 nodes.names + setOf("link", "unlink", "account") +
@@ -190,6 +197,31 @@ internal object DiscordBot {
                     }
                     return@on
                 }
+                if (interaction.command.rootName in Punishments.commandNames) {
+                    val focused =
+                        interaction.command.options.entries
+                            .firstOrNull { it.value.focused }
+                            ?.key
+                            .orEmpty()
+                    val command = interaction.command
+                    val choices =
+                        runCatching {
+                            PunishmentOptions.suggest(
+                                command.rootName,
+                                focused,
+                                interaction.focusedOption.value,
+                                command.strings,
+                            )
+                        }
+                    runCatching {
+                        interaction.suggestString {
+                            choices.getOrDefault(emptyList()).forEach { (label, value) ->
+                                choice(label, value)
+                            }
+                        }
+                    }
+                    return@on
+                }
                 if (interaction.command.rootName !in nodes.names) return@on
                 try {
                     val choices =
@@ -223,6 +255,7 @@ internal object DiscordBot {
                 if (!requests.claim(interaction.id.toString())) return@on
                 try {
                     val response = interaction.deferEphemeralResponse()
+                    val started = System.currentTimeMillis()
                     var pickerDraft: PasteOrders.Draft? = null
                     val acquired = slots.tryAcquire()
                     val reply =
@@ -245,6 +278,9 @@ internal object DiscordBot {
                                             )
                                         "paste" -> submitPaste(pastes!!, http, interaction, command, repaste = false) { pickerDraft = it }
                                         "repaste" -> submitPaste(pastes!!, http, interaction, command, repaste = true) { pickerDraft = it }
+                                        in Punishments.commandNames ->
+                                            PunishmentOptions.problem(command)?.let { CommandReply(it) }
+                                                ?: nodes.execute(id, command.rootName, PunishmentOptions.arguments(command))
                                         else -> nodes.execute(id, command.rootName, command.strings["arguments"].orEmpty())
                                     }
                                 } ?: CommandReply("The request timed out. It may have run; check its state before retrying.")
@@ -289,6 +325,10 @@ internal object DiscordBot {
                             }
                         }
                     }
+                    if (command.rootName in Punishments.commandNames) {
+                        val pick = links.player(interaction.user.id.toString())?.let(Evidence::pick)
+                        if (pick != null && pick.createdAt >= started) message.createEphemeralFollowup { evidencePicker(pick) }
+                    }
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {
@@ -304,9 +344,12 @@ internal object DiscordBot {
                         "paste" -> "Buy a schematic paste in your town and pick the chunks (50 gems per chunk)"
                         "unlink" -> "Revoke this Discord account's access to your Minecraft account"
                         "account" -> "Show your linked Minecraft account"
+                        in Punishments.commandNames -> "Staff: run the in-game /$name command as your linked account"
                         else -> "Run the in-game /$name command as your linked player"
                     }
                 val options: ChatInputCreateBuilder.() -> Unit = {
+                    // Hidden from regular members by default; the in-game permission is still checked.
+                    if (name in Punishments.commandNames) defaultMemberPermissions = Permissions(Permission.ModerateMembers)
                     when (name) {
                         "link" ->
                             string("code", "Private code from /discord link in Minecraft") {
@@ -328,6 +371,7 @@ internal object DiscordBot {
                             integer("z", "Block Z where the schematic's origin lands") { required = true }
                         }
                         "unlink", "account" -> Unit
+                        in Punishments.commandNames -> PunishmentOptions.register(this, name)
                         else ->
                             string("arguments", "Everything after /$name in Minecraft; leave empty for its default command") {
                                 autocomplete = true
@@ -357,6 +401,7 @@ internal object DiscordBot {
         } catch (error: Exception) {
             System.err.println("[Discord] Bot stopped (${error.javaClass.simpleName}); check configuration and restart the discord module")
         } finally {
+            punishments?.close()
             scope.cancel()
             withContext(NonCancellable) {
                 try {

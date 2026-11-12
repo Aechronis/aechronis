@@ -17,7 +17,7 @@ import java.nio.file.Path
 
 class DiscordModule : AechronisModule {
     override val id = "discord"
-    override val dependencies = setOf("nodes", "luckperms", "economy", "worldedit")
+    override val dependencies = setOf("nodes", "luckperms", "economy", "worldedit", "punishments")
 
     private var job: Job? = null
 
@@ -72,7 +72,15 @@ class DiscordModule : AechronisModule {
                 )
                 null
             }
-        scope.launch { DiscordBot.run(token, guildId, scope, links, commands, pastes) }
+        val punishmentLog =
+            System
+                .getenv("DISCORD_PUNISHMENT_LOG_CHANNEL_ID")
+                ?.trim()
+                ?.toULongOrNull()
+                ?.takeIf { it > 0u }
+                ?.let(::Snowflake)
+        if (punishmentLog == null) println("[Discord] Punishment log disabled: set DISCORD_PUNISHMENT_LOG_CHANNEL_ID")
+        scope.launch { DiscordBot.run(token, guildId, scope, links, commands, pastes, punishmentLog) }
     }
 
     override fun prepareForShutdown(context: ModuleContext) = stop()
