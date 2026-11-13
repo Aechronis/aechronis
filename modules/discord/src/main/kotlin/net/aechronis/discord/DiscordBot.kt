@@ -14,7 +14,6 @@ import dev.kord.core.behavior.interaction.response.createEphemeralFollowup
 import dev.kord.core.behavior.interaction.response.edit
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.behavior.interaction.suggestString
-import dev.kord.core.entity.channel.CategorizableChannel
 import dev.kord.core.entity.interaction.ChatInputCommandInteraction
 import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.entity.interaction.InteractionCommand
@@ -104,16 +103,6 @@ internal object DiscordBot {
                     if (!requests.claim(interaction.id.toString())) return@on
                     try {
                         val response = interaction.deferEphemeralResponse()
-                        val role = pastes.staffRole
-                        if (role != null &&
-                            role !in
-                            interaction.data.member.value
-                                ?.roles
-                                .orEmpty()
-                        ) {
-                            response.respond { content = "Only staff can approve or reject pastes." }
-                            return@on
-                        }
                         val result =
                             if (parts[0] == "paste-approve") {
                                 pastes.approve(parts[1], interaction.user.id.toString())
@@ -280,7 +269,7 @@ internal object DiscordBot {
                             } catch (error: CancellationException) {
                                 throw error
                             } catch (error: Exception) {
-                                System.err.println("[Discord] Command failed (${error.javaClass.simpleName})")
+                                System.err.println("[Discord] Command failed (${error.javaClass.simpleName}: ${error.message})")
                                 CommandReply("The request failed. It may have partially run; check its state before retrying.")
                             } finally {
                                 slots.release()
@@ -420,8 +409,6 @@ private suspend fun submitPaste(
     repaste: Boolean,
     onDraft: (PasteOrders.Draft) -> Unit,
 ): CommandReply {
-    val inTicket = (interaction.channel.asChannelOrNull() as? CategorizableChannel)?.categoryId == pastes.ticketCategory
-    if (!inTicket) return CommandReply("Use this command inside your ticket channel.")
     val file = command.attachments["schematic"] ?: return CommandReply("Attach a .schem file.")
 
     fun coord(name: String): Int? = command.integers[name]?.takeIf { it in -30_000_000L..30_000_000L }?.toInt()
@@ -557,7 +544,7 @@ private suspend fun handlePicker(
                 } else {
                     pastes.ticketOf[order.id] = interaction.channelId
                     try {
-                        postForStaff(pastes, interaction.kord, interaction.channelId, order, draft.map, draft.paid)
+                        postForStaff(pastes, interaction.kord, order, draft.map, draft.paid)
                     } catch (error: CancellationException) {
                         pastes.reject(order.id, "system")
                         throw error
@@ -599,7 +586,6 @@ private suspend fun handlePicker(
 private suspend fun postForStaff(
     pastes: PasteOrders,
     kord: Kord,
-    ticket: Snowflake,
     order: PasteOrders.Order,
     map: ChunkMap,
     paid: Set<Long>,
@@ -607,7 +593,7 @@ private suspend fun postForStaff(
     val repaste = order.replaces != null
     val bytes = withContext(Dispatchers.IO) { Files.readAllBytes(order.file) }
     val png = withContext(Dispatchers.Default) { map.png(order.allowance - paid, paid) }
-    val review = MessageChannelBehavior(pastes.staffChannel ?: ticket, kord)
+    val review = MessageChannelBehavior(pastes.staffChannel, kord)
     val message =
         review.createMessage {
             allowedMentions { }
