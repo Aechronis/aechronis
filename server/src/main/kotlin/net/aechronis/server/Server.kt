@@ -234,7 +234,11 @@ private fun startMinecraftServer(
     SignedVelocity.initialize()
 
     BlockPlacementRuleRegistrations.registerDefault()
-    BlockBehaviorRuleRegistrations.register(*VanillaBlockBehaviour.ALL.toTypedArray())
+    // Concrete powder's water check reads neighbouring blocks during chunk loads, where its own chunk
+    // is not registered yet; the exception aborted the load and the chunk went missing.
+    BlockBehaviorRuleRegistrations.register(
+        *VanillaBlockBehaviour.ALL.filter { it !== VanillaBlockBehaviour.CONCRETE_POWDER }.toTypedArray(),
+    )
     PlacedHandlerRegistration.registerDefault()
     BlockPickup.enable()
 
