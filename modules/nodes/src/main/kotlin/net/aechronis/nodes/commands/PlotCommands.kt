@@ -93,7 +93,7 @@ class TownPlotRedefineCommand : NodesCommand("redefine") {
     }
 }
 
-class TownPlotPermissionsCommand : NodesCommand("permissions", "perms") {
+class TownPlotPermissionsCommand : NodesCommand("permissions", null, "perms") {
     init {
         val plotArg = ArgumentSanitizedString.create("plot-name")
         val groupArg = ArgumentType.Word("group").from("town", "nation", "ally", "outsider", "trusted")

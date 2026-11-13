@@ -11,7 +11,7 @@ import net.aechronis.nodes.utils.ChatColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
 
-class TownPermissionsCommand : NodesCommand("permissions", "perms") {
+class TownPermissionsCommand : NodesCommand("permissions", null, "perms") {
     init {
         setDefaultExecutor { player, resident, context ->
             Message.print(player, "Usage:")
