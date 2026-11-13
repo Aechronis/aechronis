@@ -62,6 +62,15 @@ class PunishmentRepository(
                     """.trimIndent(),
                 )
                 statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS evidence VARCHAR(4000)")
+                // Infraction sheet rows replaced the old categories, whose column is kept for old records only.
+                statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS infraction VARCHAR(32)")
+                statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS strike INT")
+                statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS anonymous BOOLEAN DEFAULT FALSE NOT NULL")
+                statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS silent BOOLEAN DEFAULT FALSE NOT NULL")
+                statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS incomplete BOOLEAN DEFAULT FALSE NOT NULL")
+                statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS discord_message BIGINT")
+                statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS duration_ms BIGINT")
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_punishments_offence ON punishments(offence)")
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_punishments_uuid ON punishments(uuid, created_at DESC)")
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_punishments_created ON punishments(created_at DESC)")
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_punishments_ip ON punishments(ip)")
@@ -77,6 +86,32 @@ class PunishmentRepository(
                     )
                     """.trimIndent(),
                 )
+                statement.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS strikes (
+                        uuid VARCHAR(36) NOT NULL,
+                        infraction VARCHAR(32) NOT NULL,
+                        count INT NOT NULL,
+                        PRIMARY KEY (uuid, infraction)
+                    )
+                    """.trimIndent(),
+                )
+                statement.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS ip_history (
+                        uuid VARCHAR(36) NOT NULL,
+                        ip VARCHAR(45) NOT NULL,
+                        last_seen BIGINT NOT NULL,
+                        PRIMARY KEY (uuid, ip)
+                    )
+                    """.trimIndent(),
+                )
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_ip_history_ip ON ip_history(ip)")
+                // Seeds the history with the IPs known from before it existed.
+                statement.execute(
+                    "INSERT INTO ip_history (uuid, ip, last_seen) SELECT uuid, last_ip, last_seen FROM players p " +
+                        "WHERE last_ip IS NOT NULL AND NOT EXISTS (SELECT 1 FROM ip_history h WHERE h.uuid = p.uuid AND h.ip = p.last_ip)",
+                )
             }
         }
     }
@@ -85,7 +120,8 @@ class PunishmentRepository(
         uuid: UUID,
         name: String,
         ip: String?,
-    ) = connect { connection ->
+    ) = transaction { connection ->
+        val now = System.currentTimeMillis()
         connection
             .prepareStatement(
                 "MERGE INTO players (uuid, name, name_lower, last_ip, last_seen) KEY(uuid) VALUES (?, ?, ?, ?, ?)",
@@ -94,9 +130,79 @@ class PunishmentRepository(
                 statement.setString(2, name)
                 statement.setString(3, name.lowercase())
                 statement.setString(4, ip)
-                statement.setLong(5, System.currentTimeMillis())
+                statement.setLong(5, now)
                 statement.executeUpdate()
             }
+        if (ip != null) {
+            connection.prepareStatement("MERGE INTO ip_history (uuid, ip, last_seen) KEY(uuid, ip) VALUES (?, ?, ?)").use { statement ->
+                statement.setString(1, uuid.toString())
+                statement.setString(2, ip)
+                statement.setLong(3, now)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    /** Other accounts that ever joined from one of the player's IPs, most recently seen first. Never returns the IPs. */
+    internal fun alts(uuid: UUID): List<KnownPlayer> =
+        connect { connection ->
+            val sql =
+                "SELECT p.uuid, p.name FROM players p WHERE p.uuid <> ? AND p.uuid IN " +
+                    "(SELECT b.uuid FROM ip_history a JOIN ip_history b ON a.ip = b.ip WHERE a.uuid = ?) ORDER BY p.last_seen DESC"
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, uuid.toString())
+                statement.setString(2, uuid.toString())
+                statement.executeQuery().use { rows ->
+                    buildList { while (rows.next()) add(KnownPlayer(UUID.fromString(rows.getString(1)), rows.getString(2), null)) }
+                }
+            }
+        }
+
+    /** Strike count per infraction row; rows at zero are left out. */
+    fun strikes(uuid: UUID): Map<Infraction, Int> =
+        connect { connection ->
+            connection.prepareStatement("SELECT infraction, count FROM strikes WHERE uuid = ? AND count > 0").use { statement ->
+                statement.setString(1, uuid.toString())
+                statement.executeQuery().use { rows ->
+                    buildMap { while (rows.next()) Infraction.parse(rows.getString(1))?.let { put(it, rows.getInt(2)) } }
+                }
+            }
+        }
+
+    /** Adds [delta] strikes to the row, never going below zero, and returns the new count. */
+    fun addStrikes(
+        uuid: UUID,
+        infraction: Infraction,
+        delta: Int,
+    ): Int =
+        transaction { connection ->
+            val current =
+                connection.prepareStatement("SELECT count FROM strikes WHERE uuid = ? AND infraction = ? FOR UPDATE").use { statement ->
+                    statement.setString(1, uuid.toString())
+                    statement.setString(2, infraction.name)
+                    statement.executeQuery().use { rows -> if (rows.next()) rows.getInt(1) else 0 }
+                }
+            val next = (current + delta).coerceAtLeast(0)
+            connection.prepareStatement("MERGE INTO strikes (uuid, infraction, count) KEY(uuid, infraction) VALUES (?, ?, ?)").use {
+                it.setString(1, uuid.toString())
+                it.setString(2, infraction.name)
+                it.setInt(3, next)
+                it.executeUpdate()
+            }
+            next
+        }
+
+    /** Takes one strike off every player in the [infractions] rows. Returns how many rows went down. */
+    fun decayStrikes(infractions: Collection<Infraction>): Int {
+        if (infractions.isEmpty()) return 0
+        val names = infractions.joinToString { "'${it.name}'" }
+        return connect { connection ->
+            connection.createStatement().use {
+                it.executeUpdate(
+                    "UPDATE strikes SET count = count - 1 WHERE count > 0 AND infraction IN ($names)",
+                )
+            }
+        }
     }
 
     /** Adds a never-joined player (punished by name) so the website lookup can find them. */
@@ -145,8 +251,9 @@ class PunishmentRepository(
                     .prepareStatement(
                         """
                         INSERT INTO punishments
-                            (offence, uuid, name, type, category, reason, staff_uuid, staff_name, created_at, expires_at, ip, evidence)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            (offence, uuid, name, type, infraction, reason, staff_uuid, staff_name, created_at, expires_at, ip, evidence,
+                             strike, anonymous, silent, incomplete, duration_ms)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """.trimIndent(),
                         Statement.RETURN_GENERATED_KEYS,
                     ).use { statement ->
@@ -154,7 +261,7 @@ class PunishmentRepository(
                         statement.setString(2, draft.uuid.toString())
                         statement.setString(3, draft.name)
                         statement.setString(4, draft.type.name)
-                        statement.setString(5, draft.category?.name)
+                        statement.setString(5, draft.infraction?.name)
                         statement.setString(6, draft.reason.take(512))
                         statement.setString(7, draft.staffUuid?.toString())
                         statement.setString(8, draft.staffName)
@@ -162,6 +269,11 @@ class PunishmentRepository(
                         statement.setNullableLong(10, draft.expiresAt)
                         statement.setString(11, ip.takeIf { draft.type == Type.IP_BAN })
                         statement.setString(12, draft.evidence?.take(4000))
+                        if (draft.strike == null) statement.setNull(13, Types.INTEGER) else statement.setInt(13, draft.strike)
+                        statement.setBoolean(14, draft.anonymous)
+                        statement.setBoolean(15, draft.silent)
+                        statement.setBoolean(16, draft.incomplete)
+                        statement.setNullableLong(17, draft.durationMs)
                         statement.executeUpdate()
                         statement.generatedKeys.use { keys ->
                             keys.next()
@@ -178,11 +290,56 @@ class PunishmentRepository(
         reason: String,
     ): List<Record> = revokeWhere("uuid = ? AND type IN (${types.joinToString { "'${it.name}'" }})", uuid.toString(), by, reason)
 
-    fun revokeRecord(
-        id: Long,
+    /** Lifts every active record of [offence], including its warning. */
+    fun revokeOffence(
+        offence: String,
         by: String,
         reason: String,
-    ): List<Record> = revokeWhere("id = ?", id.toString(), by, reason)
+    ): List<Record> = revokeWhere("offence = ?", offence, by, reason)
+
+    /** Every record of [offence], oldest first. */
+    fun offence(offence: String): List<Record> = connect { query(it, "SELECT * FROM punishments WHERE offence = ? ORDER BY id", offence) }
+
+    /** The newest offence in [infraction] that still has something to lift. */
+    fun latestOffence(
+        uuid: UUID,
+        infraction: Infraction,
+    ): String? =
+        connect { connection ->
+            // Expired punishments have nothing left to lift.
+            val sql =
+                "SELECT offence FROM punishments WHERE uuid = ? AND infraction = ? AND revoked_at IS NULL " +
+                    "AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC LIMIT 1"
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, uuid.toString())
+                statement.setString(2, infraction.name)
+                statement.setLong(3, System.currentTimeMillis())
+                statement.executeQuery().use { rows -> if (rows.next()) rows.getString(1) else null }
+            }
+        }
+
+    fun setDiscordMessage(
+        offence: String,
+        message: Long,
+    ) = update("UPDATE punishments SET discord_message = ? WHERE offence = ?") {
+        it.setLong(1, message)
+        it.setString(2, offence)
+    }
+
+    /** Returns whether the offence was still waiting on a nuke or rollback. */
+    fun clearIncomplete(offence: String): Boolean =
+        update("UPDATE punishments SET incomplete = FALSE WHERE offence = ? AND incomplete") { it.setString(1, offence) } > 0
+
+    private fun update(
+        sql: String,
+        bind: (PreparedStatement) -> Unit,
+    ): Int =
+        connect { connection ->
+            connection.prepareStatement(sql).use {
+                bind(it)
+                it.executeUpdate()
+            }
+        }
 
     /** Appends [text] to the evidence of every record in [offence] and returns those records. */
     fun addEvidence(
@@ -267,23 +424,6 @@ class PunishmentRepository(
     fun recent(limit: Int): List<Record> =
         connect { query(it, "SELECT * FROM punishments ORDER BY created_at DESC, id DESC LIMIT ?", limit) }
 
-    /** Distinct offences in [category]; lifting a punishment early does not erase the offence. */
-    fun offences(
-        uuid: UUID,
-        category: Category,
-    ): Int =
-        connect { connection ->
-            val sql = "SELECT COUNT(DISTINCT offence) FROM punishments WHERE uuid = ? AND category = ?"
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, uuid.toString())
-                statement.setString(2, category.name)
-                statement.executeQuery().use { rows ->
-                    rows.next()
-                    rows.getInt(1)
-                }
-            }
-        }
-
     fun blacklisted(): List<Record> =
         connect { connection ->
             query(
@@ -361,7 +501,8 @@ class PunishmentRepository(
             uuid = UUID.fromString(getString("uuid")),
             name = getString("name"),
             type = Type.valueOf(getString("type")),
-            category = getString("category")?.let(Category::valueOf),
+            infraction = Infraction.parse(getString("infraction")),
+            legacyCategory = LEGACY_CATEGORIES[getString("category")],
             reason = getString("reason"),
             staffUuid = getString("staff_uuid")?.let(UUID::fromString),
             staffName = getString("staff_name"),
@@ -371,7 +512,26 @@ class PunishmentRepository(
             revokedBy = getString("revoked_by"),
             revokeReason = getString("revoke_reason"),
             evidence = getString("evidence"),
+            strike = getInt("strike").takeUnless { wasNull() },
+            anonymous = getBoolean("anonymous"),
+            silent = getBoolean("silent"),
+            incomplete = getBoolean("incomplete"),
+            discordMessage = getNullableLong("discord_message"),
+            durationMs = getNullableLong("duration_ms"),
         )
+
+    private companion object {
+        /** Labels of the categories used before the infraction sheet, still stored on old records. */
+        val LEGACY_CATEGORIES =
+            mapOf(
+                "MINOR_CHAT" to "Minor chat violation",
+                "MAJOR_CHAT" to "Major chat violation",
+                "MINOR_EXPLOIT" to "Minor exploit",
+                "MAJOR_EXPLOIT" to "Major exploit",
+                "ILLEGAL_CLIENT" to "Illegal client or modification",
+                "BAN_EVASION" to "Ban evasion",
+            )
+    }
 
     private fun ResultSet.getNullableLong(column: String): Long? = getLong(column).takeUnless { wasNull() }
 

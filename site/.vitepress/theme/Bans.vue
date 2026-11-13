@@ -35,10 +35,11 @@ function duration(ms) {
   return out || '0s'
 }
 const shortCategory = label => (label ? label.replace(/ violation| or modification/, '') : '—')
-const staffName = staff => (staff.uuid ? staff.name : 'Console')
+// The API already names console punishments "Console" and anonymous ones "Staff".
+const staffName = staff => staff.name || 'Console'
 
 function part(r) {
-  const d = r.expiresAt == null ? 'perm' : duration(r.expiresAt - r.createdAt)
+  const d = r.expiresAt == null ? 'perm' : duration(r.duration ?? r.expiresAt - r.createdAt)
   return { warn: 'warning', mute: `${d} mute`, ban: `${d} ban`, iteration_ban: 'iteration ban', ip_ban: 'IP ban', blacklist: 'blacklist' }[r.type] ?? r.typeLabel
 }
 function expiry(r) {

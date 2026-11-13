@@ -80,7 +80,15 @@ class DiscordModule : AechronisModule {
                 ?.takeIf { it > 0u }
                 ?.let(::Snowflake)
         if (punishmentLog == null) println("[Discord] Punishment log disabled: set DISCORD_PUNISHMENT_LOG_CHANNEL_ID")
-        scope.launch { DiscordBot.run(token, guildId, scope, links, commands, pastes, punishmentLog) }
+        // Pinged when a punishment still needs a nuke or rollback.
+        val adminRole =
+            System
+                .getenv("DISCORD_ADMIN_ROLE_ID")
+                ?.trim()
+                ?.toULongOrNull()
+                ?.takeIf { it > 0u }
+                ?.let(::Snowflake)
+        scope.launch { DiscordBot.run(token, guildId, scope, links, commands, pastes, punishmentLog, adminRole) }
     }
 
     override fun prepareForShutdown(context: ModuleContext) = stop()

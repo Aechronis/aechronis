@@ -28,9 +28,9 @@ internal object Enforcement {
         try {
             val repository = Punishments.repository
             val active = repository.active(profile.uuid())
-            val block = active.firstOrNull { it.type.blocksLogin } ?: ip?.let(repository::activeIpBan)
-            if (block != null) {
-                event.connection.kick(kickMessage(block))
+            val blocks = active.filter { it.type.blocksLogin }.ifEmpty { listOfNotNull(ip?.let(repository::activeIpBan)) }
+            if (blocks.isNotEmpty()) {
+                event.connection.kick(kickMessage(blocks))
                 return
             }
             repository.remember(profile.uuid(), profile.name(), ip)
@@ -43,9 +43,15 @@ internal object Enforcement {
 
     fun onDisconnect(event: PlayerDisconnectEvent) {
         mutes.remove(event.player.uuid)
+        PunishMenu.forget(event.player.uuid)
     }
 
     fun onChat(event: PlayerChatEvent) {
+        // Staff answering a /punish prompt aren't chatting, even while muted.
+        if (PunishMenu.answer(event.player, event.rawMessage)) {
+            event.isCancelled = true
+            return
+        }
         if (muted(event.player)) event.isCancelled = true else Evidence.heard(event.player.uuid, event.rawMessage)
     }
 
@@ -100,9 +106,13 @@ internal object Enforcement {
                 record.type == Type.IP_BAN && ip != null -> {
                     connections.onlinePlayers
                         .filter { (it.playerConnection.remoteAddress as? InetSocketAddress)?.address?.hostAddress == ip }
-                        .forEach { it.kick(kickMessage(record)) }
+                        .forEach { it.kick(kickMessage(listOf(record))) }
                 }
-                record.type.blocksLogin -> player?.kick(kickMessage(record))
+                // Stacked bans show every reason.
+                record.type.blocksLogin ->
+                    player?.kick(
+                        kickMessage(Punishments.repository.active(record.uuid).filter { it.type.blocksLogin }),
+                    )
                 record.type == Type.MUTE && player != null -> {
                     mutes.merge(record.uuid, record.expiresAt ?: Long.MAX_VALUE, ::maxOf)
                     player.sendMessage(
@@ -121,21 +131,28 @@ internal object Enforcement {
     private fun remaining(expiry: Long): String =
         if (expiry == Long.MAX_VALUE) " permanently" else " for ${formatDuration(Duration.ofMillis(expiry - System.currentTimeMillis()))}"
 
-    fun kickMessage(record: Record): Component {
+    /** The ban screen for every active ban of one player; stacked bans list each reason. */
+    fun kickMessage(records: List<Record>): Component {
+        val types = records.map { it.type }.toSet()
         val title =
-            when (record.type) {
-                Type.BLACKLIST -> "You are permanently blacklisted from Aechronis"
-                Type.ITERATION_BAN -> "You are banned from Aechronis for this iteration"
+            when {
+                Type.BLACKLIST in types -> "You are permanently blacklisted from Aechronis"
+                Type.ITERATION_BAN in types -> "You are banned from Aechronis for this iteration"
                 else -> "You are banned from Aechronis"
             }
+        val permanent = records.any { it.expiresAt == null }
         val expires =
-            record.expiresAt?.let { "Expires in ${formatDuration(Duration.ofMillis(it - System.currentTimeMillis()))}" }
-                ?: if (record.type == Type.ITERATION_BAN) "Until the next iteration" else "Never expires"
-        return Component
-            .text(title, NamedTextColor.RED)
-            .append(Component.newline())
-            .append(Component.newline())
-            .append(Component.text("Reason: ${record.reason}", NamedTextColor.WHITE))
+            when {
+                Type.BLACKLIST in types -> "Never expires"
+                Type.ITERATION_BAN in types -> "Until the next iteration"
+                permanent -> "Never expires"
+                else -> "Expires in ${formatDuration(Duration.ofMillis(records.maxOf { it.expiresAt!! } - System.currentTimeMillis()))}"
+            }
+        var message = Component.text(title, NamedTextColor.RED).append(Component.newline())
+        records.map { it.reason }.distinct().forEach {
+            message = message.append(Component.newline()).append(Component.text("Reason: $it", NamedTextColor.WHITE))
+        }
+        return message
             .append(Component.newline())
             .append(Component.text(expires, NamedTextColor.GRAY))
             .append(Component.newline())
