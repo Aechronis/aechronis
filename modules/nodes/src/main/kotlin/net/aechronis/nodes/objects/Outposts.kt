@@ -52,7 +52,7 @@ object Outposts {
     private fun save() {
         if (!Nodes.config.save) return
         runCatching {
-            AtomicFiles.writeString(Nodes.config.pathOutposts.toAbsolutePath(), Json.encodeToString(all().map { it.toInt() }))
+            AtomicFiles.writeString(Nodes.config.pathOutposts.toAbsolutePath(), Json.encodeToString(all().map { it.toInt() }), preservePermissions = true)
         }.onFailure { error -> System.err.println("[Nodes] Failed to save outposts: ${error.message}") }
     }
 }

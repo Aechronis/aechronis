@@ -401,7 +401,7 @@ object Nodes {
         val updatedTerritories = JsonObject(territoriesJson + (territoryId.toString() to updatedTerritory))
         val updatedRoot = JsonObject(root + ("territories" to updatedTerritories))
 
-        AtomicFiles.writeString(path, updatedRoot.toString())
+        AtomicFiles.writeString(path, updatedRoot.toString(), preservePermissions = true)
 
         val reloadIds = buildList {
             add(territoryId)

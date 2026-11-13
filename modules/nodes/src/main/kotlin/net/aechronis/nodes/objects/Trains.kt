@@ -707,7 +707,7 @@ object Trains {
                 }
             }
         }
-        AtomicFiles.writeString(path, root.toString())
+        AtomicFiles.writeString(path, root.toString(), preservePermissions = true)
     }
 
     private fun positionToJson(position: BlockVec): JsonObject = buildJsonObject {

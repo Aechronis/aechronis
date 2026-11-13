@@ -236,7 +236,7 @@ object WarSerializer {
                 StandardOpenOption.WRITE,
                 StandardOpenOption.TRUNCATE_EXISTING,
             )
-            AtomicFiles.replace(temporary, path.toAbsolutePath())
+            AtomicFiles.replace(temporary, path.toAbsolutePath(), preservePermissions = true)
         }
     }
 

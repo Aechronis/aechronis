@@ -479,7 +479,7 @@ object Warzone {
         // A failed write must not abort the tick, which would skip awarding finished zones.
         runCatching {
             val path = Nodes.config.pathWarzone.toAbsolutePath()
-            AtomicFiles.writeString(path, root.toString())
+            AtomicFiles.writeString(path, root.toString(), preservePermissions = true)
         }.onFailure { error -> System.err.println("[Nodes] Failed to save warzones: ${error.message}") }
     }
 
