@@ -374,6 +374,9 @@ class ViaPlayerConnection internal constructor(
                 writeBuffered(sendable as BufferedPacket)
                 return
             }
+            // Play packets queued for a player still configuring, like a Grim alert to staff who
+            // just logged in, can't be encoded; dropping one beats failing the whole connection.
+            if (!sendableIn(state, packet)) return
             val published = publish(packet, translate = sendable is ServerPacket.ComponentHolding) ?: return
             write(state, published, encode(state, published), silent)
         } catch (error: Exception) {
@@ -397,6 +400,19 @@ class ViaPlayerConnection internal constructor(
         }
         return packet
     }
+
+    /** Whether [state]'s packet registry has [packet]; packets shared between states implement each state's interface. */
+    private fun sendableIn(
+        state: ConnectionState,
+        packet: ServerPacket,
+    ): Boolean =
+        when (state) {
+            ConnectionState.HANDSHAKE -> packet is ServerPacket.Handshake
+            ConnectionState.STATUS -> packet is ServerPacket.Status
+            ConnectionState.LOGIN -> packet is ServerPacket.Login
+            ConnectionState.CONFIGURATION -> packet is ServerPacket.Configuration
+            ConnectionState.PLAY -> packet is ServerPacket.Play
+        }
 
     /** The packet as the pipeline carries it: its id and body, unframed and uncompressed. */
     private fun encode(
