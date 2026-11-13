@@ -15,6 +15,7 @@ import io.github.openminigameserver.worldedit.platform.MinestomBlockRegistry
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.BlockVec
+import net.minestom.server.coordinate.CoordConversion
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
@@ -33,15 +34,17 @@ class MinestomWorldNativeAccess(
 ) : WorldNativeAccess<Chunk, Block, Pos> {
     var actor: Actor? = null
 
-    private var currentBlockBatch = newBlockBatch()
-    private var hasPendingChanges = false
+    // One batch per chunk, applied one after another in flush(). Minestom applies the
+    // chunks of a single AbsoluteBlockBatch in parallel, each under its chunk's write
+    // lock, and block handlers such as concrete powder read neighbouring chunks from
+    // onPlace. Two edge chunks applied at once then wait on each other forever and the
+    // tick thread hangs on the first one it reads.
+    private val pendingBatches = LinkedHashMap<Long, AbsoluteBlockBatch>()
     private var pendingBlockCount = 0
     private val pendingChanges = LinkedHashMap<BlockVec, WorldEditBlockChange>()
     private var applyingFullBlock = false
     private var fullBlockNbt: CompoundBinaryTag? = null
     private var fullBlockHandler: BlockHandler? = null
-
-    private fun newBlockBatch(): AbsoluteBlockBatch? = if (!useBlockBatch) null else AbsoluteBlockBatch()
 
     private fun getWorld(): Instance = worldRef.get() ?: throw RuntimeException("World is unloaded")
 
@@ -103,11 +106,11 @@ class MinestomWorldNativeAccess(
         val y = position.blockY()
         val z = position.blockZ()
         val oldState = world.getBlock(x, y, z)
-        val batch = currentBlockBatch
-        if (useBlockBatch && batch != null) {
-            batch.setBlock(x, y, z, state)
+        if (useBlockBatch) {
+            pendingBatches
+                .getOrPut(CoordConversion.chunkIndex(x shr 4, z shr 4)) { AbsoluteBlockBatch() }
+                .setBlock(x, y, z, state)
             recordPendingChange(x, y, z, oldState, state)
-            hasPendingChanges = true
             pendingBlockCount++
             if (pendingBlockCount >= MAX_BLOCKS_PER_BATCH) {
                 flush().join()
@@ -210,23 +213,20 @@ class MinestomWorldNativeAccess(
     }
 
     fun flush(): CompletableFuture<Unit> {
-        val batch = currentBlockBatch
-        currentBlockBatch = newBlockBatch()
+        val batches = pendingBatches.values.toList()
+        pendingBatches.clear()
         val changes = pendingChanges.values.toList()
         val currentActor = actor
         pendingChanges.clear()
+        pendingBlockCount = 0
 
-        if (!useBlockBatch || batch == null || !hasPendingChanges) {
-            hasPendingChanges = false
-            pendingBlockCount = 0
+        if (!useBlockBatch || batches.isEmpty()) {
             return CompletableFuture.completedFuture(Unit)
         }
 
-        hasPendingChanges = false
-        pendingBlockCount = 0
         val completion = CompletableFuture<Unit>()
         val world = getWorld()
-        batch.unsafeApply(world) {
+        applyInOrder(world, batches.iterator()) {
             try {
                 dispatchChanges(currentActor, world, changes)
                 completion.complete(Unit)
@@ -235,6 +235,18 @@ class MinestomWorldNativeAccess(
             }
         }
         return completion
+    }
+
+    // Each callback runs after the previous chunk released its write lock, so only one
+    // batch chunk is ever locked at a time. unsafeApply hands the next chunk to Minestom's
+    // batch pool, so the stack does not grow with the chunk count.
+    private fun applyInOrder(
+        world: Instance,
+        batches: Iterator<AbsoluteBlockBatch>,
+        onDone: () -> Unit,
+    ) {
+        if (!batches.hasNext()) return onDone()
+        batches.next().unsafeApply(world) { applyInOrder(world, batches, onDone) }
     }
 
     private fun recordPendingChange(
