@@ -46,15 +46,12 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.GZIPInputStream
 
-/** Gem-priced schematic pastes bought through a Discord ticket. Orders live in memory; a restart just means re-running /paste. */
+/** Gem-priced schematic pastes bought through Discord. Orders live in memory; a restart just means re-running /paste. */
 internal class PasteOrders(
     private val links: AccountLinks,
     private val world: InstanceContainer,
-    val ticketCategory: Snowflake,
-    /** Optional extra gate; without it anyone who can see the staff channel can decide. */
-    val staffRole: Snowflake?,
-    /** Where staff review and approve; null keeps the buttons in the ticket channel. */
-    val staffChannel: Snowflake?,
+    /** Where staff review and approve; anyone who can see it can decide. */
+    val staffChannel: Snowflake,
     private val dir: Path = Path.of("discord", "pastes"),
     private val history: PasteHistory = PasteHistory(dir.resolve("history.json")),
 ) {
