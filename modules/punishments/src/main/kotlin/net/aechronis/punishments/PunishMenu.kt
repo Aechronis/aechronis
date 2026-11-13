@@ -257,6 +257,8 @@ internal object PunishMenu {
         if (!PunishPerms.allowed(session.staff.uuid, row.category)) return
         ask(session, "Type the unban message for ${session.target.name} (${row.label}), or type cancel.") { text ->
             end(session)
+            // Permissions can change while the prompt waits.
+            if (!PunishPerms.allowed(session.staff.uuid, row.category)) return@ask true
             val staff = session.staff
             async {
                 try {

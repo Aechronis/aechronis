@@ -168,7 +168,8 @@ internal object PunishmentApi {
                 } else {
                     buildJsonObject {
                         put("at", record.revokedAt)
-                        put("by", record.revokedBy)
+                        // Whoever lifts an anonymous punishment stays anonymous too.
+                        put("by", if (record.anonymous) Record.ANONYMOUS_STAFF else record.revokedBy)
                         put("reason", record.revokeReason)
                     }
                 },

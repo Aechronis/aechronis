@@ -185,7 +185,10 @@ internal class PunishmentBridge(
     ): String? {
         val uuid = links.player(user.toString()) ?: return "Link your Minecraft account first: /discord link in game."
         val record = Punishments.record(id) ?: return "Record #$id doesn't exist."
-        val nodes = record.infraction?.category?.permissions ?: listOf(PunishPerms.PUNISH)
+        // Records from before the infraction sheet: blacklists stay admin-only.
+        val nodes =
+            record.infraction?.category?.permissions
+                ?: listOf(if (record.type == Type.BLACKLIST) PunishPerms.BLACKLIST else PunishPerms.PUNISH)
         return if (nodes.any { allowed(uuid, it) }) null else "You don't have permission to do that."
     }
 
