@@ -133,7 +133,7 @@ internal object PunishMenu {
         if (!PunishPerms.allowed(session.staff.uuid, row.category)) return
         session.infraction = row
         session.steps = row.level(session.strikes[row] ?: 0)
-        session.durations = session.steps.map { it.min }.toMutableList()
+        session.durations = session.steps.map { if (it.ranged) middle(it) else it.min }.toMutableList()
         session.incomplete = false
         ask(session, "Paste the #evidence message link for this punishment, or type cancel.") { text ->
             val link = evidenceLink(text)
@@ -278,6 +278,13 @@ internal object PunishMenu {
         val match = EVIDENCE_LINK.matchEntire(text.trim()) ?: return null
         val channel = System.getenv("DISCORD_EVIDENCE_CHANNEL_ID")?.trim()?.ifEmpty { null }
         return match.value.takeIf { channel == null || match.groupValues[2] == channel }
+    }
+
+    /** The middle of the step's range, on a whole [unit], e.g. 3d for 2-4d and 45m for 30m-1h. */
+    fun middle(step: Step): Duration {
+        val unit = unit(step)
+        val half = (step.max!! - step.min!!).toMillis() / 2.0
+        return step.clamp(step.min + unit.multipliedBy(Math.round(half / unit.toMillis())))
     }
 
     /** Hour steps for ranges under a day (15 minutes when it is at most an hour), day steps otherwise. */

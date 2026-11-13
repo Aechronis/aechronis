@@ -52,6 +52,8 @@ internal class PunishmentBridge(
     private val kord: Kord,
     private val scope: CoroutineScope,
     private val channel: Snowflake?,
+    /** Pinged on new posts that still need a nuke or rollback. */
+    private val adminRole: Snowflake?,
     /** Whether the Minecraft account has the LuckPerms node, loading it if offline. */
     private val allowed: suspend (UUID, String) -> Boolean,
 ) : AutoCloseable {
@@ -103,7 +105,9 @@ internal class PunishmentBridge(
             }
             val message =
                 MessageChannelBehavior(log, kord).createMessage {
-                    allowedMentions { }
+                    val ping = adminRole?.takeIf { records.any { it.incomplete } }
+                    allowedMentions { ping?.let { roles += it } }
+                    ping?.let { content = "<@&$it> Nuke/rollback needed for ${records.first().name}" }
                     embed { describe(records) }
                     buttons(records)
                 }

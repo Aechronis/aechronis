@@ -65,6 +65,7 @@ internal object DiscordBot {
         nodes: NodesCommands,
         pastes: PasteOrders? = null,
         punishmentLog: Snowflake? = null,
+        adminRole: Snowflake? = null,
     ) {
         // Explicitly own the engine, including when Kord fails during construction.
         val engine = OkHttp.create()
@@ -84,7 +85,7 @@ internal object DiscordBot {
                     ?.takeIf {
                         it.startsWith("https://discord.com/api/webhooks/")
                     }?.let { PasteLog(it, http, scope) }
-            punishments = PunishmentBridge(links, client, scope, punishmentLog, nodes::allowed)
+            punishments = PunishmentBridge(links, client, scope, punishmentLog, adminRole, nodes::allowed)
             val slots = Semaphore(8)
             val names =
                 nodes.names + setOf("link", "unlink", "account") +
