@@ -32,6 +32,7 @@ import net.aechronis.server.craft.AmmoRecipes
 import net.aechronis.server.craft.GunRecipes
 import net.aechronis.server.craft.HorseRecipes
 import net.aechronis.server.craft.MeleeRecipes
+import net.aechronis.server.craft.ThrowableRecipes
 import net.aechronis.server.craft.UniformRecipes
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleContext
@@ -73,7 +74,8 @@ class VictorianEraModule : AechronisModule {
                     recipesConfig =
                         RecipesConfig(
                             recpies =
-                                HorseRecipes.list + GunRecipes.list + AmmoRecipes.list + UniformRecipes.list + MeleeRecipes.list,
+                                HorseRecipes.list + GunRecipes.list + AmmoRecipes.list + UniformRecipes.list + MeleeRecipes.list +
+                                    ThrowableRecipes.list,
                         ),
                 ),
             )
