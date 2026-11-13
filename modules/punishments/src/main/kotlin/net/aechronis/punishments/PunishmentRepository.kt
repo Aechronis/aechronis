@@ -69,6 +69,7 @@ class PunishmentRepository(
                 statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS silent BOOLEAN DEFAULT FALSE NOT NULL")
                 statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS incomplete BOOLEAN DEFAULT FALSE NOT NULL")
                 statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS discord_message BIGINT")
+                statement.execute("ALTER TABLE punishments ADD COLUMN IF NOT EXISTS duration_ms BIGINT")
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_punishments_offence ON punishments(offence)")
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_punishments_uuid ON punishments(uuid, created_at DESC)")
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_punishments_created ON punishments(created_at DESC)")
@@ -251,8 +252,8 @@ class PunishmentRepository(
                         """
                         INSERT INTO punishments
                             (offence, uuid, name, type, infraction, reason, staff_uuid, staff_name, created_at, expires_at, ip, evidence,
-                             strike, anonymous, silent, incomplete)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             strike, anonymous, silent, incomplete, duration_ms)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """.trimIndent(),
                         Statement.RETURN_GENERATED_KEYS,
                     ).use { statement ->
@@ -272,6 +273,7 @@ class PunishmentRepository(
                         statement.setBoolean(14, draft.anonymous)
                         statement.setBoolean(15, draft.silent)
                         statement.setBoolean(16, draft.incomplete)
+                        statement.setNullableLong(17, draft.durationMs)
                         statement.executeUpdate()
                         statement.generatedKeys.use { keys ->
                             keys.next()
@@ -515,6 +517,7 @@ class PunishmentRepository(
             silent = getBoolean("silent"),
             incomplete = getBoolean("incomplete"),
             discordMessage = getNullableLong("discord_message"),
+            durationMs = getNullableLong("duration_ms"),
         )
 
     private companion object {

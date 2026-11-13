@@ -47,7 +47,12 @@ data class Record(
     val incomplete: Boolean = false,
     /** The Discord staff log post for this offence. */
     val discordMessage: Long? = null,
+    /** The length staff picked, in milliseconds. A stacked punishment expires later than this after it was issued. */
+    val durationMs: Long? = null,
 ) {
+    /** How long the punishment lasts, not counting time spent waiting for an earlier one it stacked on. */
+    val length: Duration? get() = durationMs?.let(Duration::ofMillis) ?: expiresAt?.let { Duration.ofMillis(it - createdAt) }
+
     fun active(now: Long = System.currentTimeMillis()): Boolean =
         type != Type.WARN && revokedAt == null && (expiresAt == null || expiresAt > now)
 
@@ -229,6 +234,7 @@ object Punishments {
                     staffName = staff.name,
                     createdAt = now,
                     expiresAt = action.duration?.let { stackedExpiry(active, action.type, now) + it.toMillis() },
+                    durationMs = action.duration?.toMillis(),
                     evidence = options.evidence,
                     strike = strike,
                     anonymous = options.anonymous,

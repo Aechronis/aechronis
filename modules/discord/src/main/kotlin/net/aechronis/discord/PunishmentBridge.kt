@@ -37,7 +37,6 @@ import net.aechronis.punishments.Punishments
 import net.aechronis.punishments.Record
 import net.aechronis.punishments.Staff
 import net.aechronis.punishments.Type
-import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -163,9 +162,8 @@ internal class PunishmentBridge(
         links.discord(first.uuid)?.let { field("Discord", true) { "<@$it>" } }
         field("Punishment", true) {
             records.joinToString("\n") { record ->
-                val length = record.expiresAt?.let { Duration.ofMillis(it - record.createdAt) }
                 val until = if (record.active() && record.expiresAt != null) " (ends <t:${record.expiresAt!! / 1000}:R>)" else ""
-                Action(record.type, length).describe() + until
+                Action(record.type, record.length).describe() + until
             }
         }
         field("Reason") { first.reason.ifBlank { "-" }.take(1024) }

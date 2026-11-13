@@ -160,6 +160,8 @@ internal object PunishmentApi {
             }
             put("createdAt", record.createdAt)
             put("expiresAt", record.expiresAt)
+            // The picked length; stacked punishments expire later than createdAt + duration.
+            put("duration", record.length?.toMillis())
             put("active", record.active())
             put(
                 "lifted",

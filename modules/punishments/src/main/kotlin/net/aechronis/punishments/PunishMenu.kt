@@ -247,8 +247,7 @@ internal object PunishMenu {
         }
     }
 
-    private fun describe(record: Record): String =
-        Action(record.type, record.expiresAt?.let { Duration.ofMillis(it - record.createdAt) }).describe()
+    private fun describe(record: Record): String = Action(record.type, record.length).describe()
 
     private fun remove(
         session: Session,

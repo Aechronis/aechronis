@@ -135,9 +135,15 @@ object Evidence {
                 }
                 async {
                     val id = context[record]
-                    if (Punishments.addEvidence(id, url).isEmpty()) {
+                    val target = Punishments.record(id)
+                    // Chat-only staff may only add evidence to chat punishments.
+                    val nodes = target?.infraction?.category?.permissions ?: listOf(PunishPerms.PUNISH)
+                    if (target == null) {
                         sender.sendMessage(Component.text("Record #$id doesn't exist.", NamedTextColor.RED))
+                    } else if (!PunishPerms.any((sender as? Player)?.uuid, nodes)) {
+                        sender.sendMessage(Component.text("You can't add evidence to that punishment.", NamedTextColor.RED))
                     } else {
+                        Punishments.addEvidence(id, url)
                         sender.sendMessage(Component.text("Added the link to record #$id.", NamedTextColor.GOLD))
                     }
                 }
