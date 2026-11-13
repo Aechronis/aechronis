@@ -19,6 +19,7 @@ class LuckPermsModule : AechronisModule {
     private var permissionProvider: AutoCloseable? = null
     private var started = false
     private var suggestions: PermissionSuggestions? = null
+    private var commandListUpdater: CommandListUpdater? = null
 
     override fun initialize(context: ModuleContext) {
         check(!started) { "LuckPerms module is already initialized" }
@@ -37,9 +38,16 @@ class LuckPermsModule : AechronisModule {
                         }, ModuleCommands::unregister)
                         .configurationAdapter {
                             plugin = it
-                            EnvironmentVariableConfigAdapter(it)
+                            object : EnvironmentVariableConfigAdapter(it) {
+                                // CommandListUpdater replaces upstream's, which builds command lists off the tick.
+                                override fun getBoolean(
+                                    path: String,
+                                    def: Boolean,
+                                ): Boolean = path != "update-client-command-list" && super.getBoolean(path, def)
+                            }
                         }.enable()
                 }
+            commandListUpdater = CommandListUpdater(api.eventBus)
             suggestions = measure("Permission suggestions") { PermissionSuggestions(plugin.permissionRegistry) }
             // Reload does not repeat the login event for players already connected.
             measure("Online user data") {
@@ -74,6 +82,8 @@ class LuckPermsModule : AechronisModule {
 
     override fun shutdown(context: ModuleContext) {
         if (!started) return
+        commandListUpdater?.close()
+        commandListUpdater = null
         permissionProvider?.close()
         permissionProvider = null
         suggestions?.close()
