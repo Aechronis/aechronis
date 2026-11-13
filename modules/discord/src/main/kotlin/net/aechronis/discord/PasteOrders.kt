@@ -661,7 +661,7 @@ internal class PasteOrders(
     private fun <T> fail(message: String): Result<T> = Result.failure(IllegalArgumentException(message))
 
     companion object {
-        const val COST_PER_CHUNK = 50L
+        const val COST_PER_CHUNK = 75L
         const val DRAFT_MILLIS = 15 * 60_000L
         const val MAX_BYTES = 5_000_000
         const val MAX_INFLATED = 100_000_000L

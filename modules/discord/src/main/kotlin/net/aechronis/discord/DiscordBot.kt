@@ -318,8 +318,8 @@ internal object DiscordBot {
                 val description =
                     when (name) {
                         "link" -> "Link your Minecraft account using an in-game /discord link code"
-                        "repaste" -> "Replace an earlier paste with a new schematic; extra chunks cost 50 gems each"
-                        "paste" -> "Buy a schematic paste in your town and pick the chunks (50 gems per chunk)"
+                        "repaste" -> "Replace an earlier paste with a new schematic; extra chunks are ${PasteOrders.COST_PER_CHUNK} gems"
+                        "paste" -> "Buy a schematic paste in your town and pick the chunks (${PasteOrders.COST_PER_CHUNK} gems per chunk)"
                         "unlink" -> "Revoke this Discord account's access to your Minecraft account"
                         "account" -> "Show your linked Minecraft account"
                         in Punishments.commandNames -> "Staff: run the in-game /$name command as your linked account"
