@@ -52,7 +52,6 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import net.aechronis.economy.Economy
-import net.aechronis.punishments.Evidence
 import net.aechronis.punishments.Punishments
 import java.net.URLEncoder
 import java.nio.file.Files
@@ -203,15 +202,9 @@ internal object DiscordBot {
                             .firstOrNull { it.value.focused }
                             ?.key
                             .orEmpty()
-                    val command = interaction.command
                     val choices =
                         runCatching {
-                            PunishmentOptions.suggest(
-                                command.rootName,
-                                focused,
-                                interaction.focusedOption.value,
-                                command.strings,
-                            )
+                            PunishmentOptions.suggest(focused, interaction.focusedOption.value)
                         }
                     runCatching {
                         interaction.suggestString {
@@ -255,7 +248,6 @@ internal object DiscordBot {
                 if (!requests.claim(interaction.id.toString())) return@on
                 try {
                     val response = interaction.deferEphemeralResponse()
-                    val started = System.currentTimeMillis()
                     var pickerDraft: PasteOrders.Draft? = null
                     val acquired = slots.tryAcquire()
                     val reply =
@@ -324,10 +316,6 @@ internal object DiscordBot {
                                 embed { description = page }
                             }
                         }
-                    }
-                    if (command.rootName in Punishments.commandNames) {
-                        val pick = links.player(interaction.user.id.toString())?.let(Evidence::pick)
-                        if (pick != null && pick.createdAt >= started) message.createEphemeralFollowup { evidencePicker(pick) }
                     }
                 } catch (error: CancellationException) {
                     throw error

@@ -133,8 +133,8 @@ internal object PunishmentApi {
                 put("banned", active.any { it.type.blocksLogin })
                 put("muted", active.any { it.type == Type.MUTE })
             }
-            putJsonObject("offences") {
-                Category.entries.forEach { put(it.name.lowercase(), repository.offences(known.uuid, it)) }
+            putJsonObject("strikes") {
+                repository.strikes(known.uuid).forEach { (infraction, count) -> put(infraction.name.lowercase(), count) }
             }
             put("history", JsonArray(history.map(::record)))
         }
@@ -150,12 +150,13 @@ internal object PunishmentApi {
             }
             put("type", record.type.name.lowercase())
             put("typeLabel", record.type.label)
-            put("category", record.category?.name?.lowercase())
-            put("categoryLabel", record.category?.label)
+            put("category", record.infraction?.name?.lowercase())
+            put("categoryLabel", record.categoryLabel)
             put("reason", record.reason)
+            // Anonymous punishments never reveal who issued them.
             putJsonObject("staff") {
-                put("uuid", record.staffUuid?.toString())
-                put("name", record.staffName)
+                put("uuid", record.staffUuid?.takeUnless { record.anonymous }?.toString())
+                put("name", record.publicStaff)
             }
             put("createdAt", record.createdAt)
             put("expiresAt", record.expiresAt)

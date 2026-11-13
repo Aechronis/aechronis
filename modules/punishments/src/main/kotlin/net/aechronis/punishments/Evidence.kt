@@ -39,7 +39,6 @@ object Evidence {
     /** Fits Discord's 25-option select menu with room to spare. */
     private const val KEEP = 18
     private val TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'").withZone(ZoneOffset.UTC)
-    private val CHAT = setOf(Category.MINOR_CHAT, Category.MAJOR_CHAT)
 
     private val chat = ConcurrentHashMap<UUID, ArrayDeque<Message>>()
     private val picks = ConcurrentHashMap<UUID, Pick>()
@@ -62,7 +61,7 @@ object Evidence {
     ) {
         val staffPlayer = staff as? Player ?: return
         val first = records.firstOrNull() ?: return
-        if (records.none { it.category in CHAT || it.type == Type.MUTE || it.type == Type.WARN }) return
+        if (records.none { it.infraction?.category == Category.CHAT || it.type == Type.MUTE || it.type == Type.WARN }) return
         val messages = chat[first.uuid]?.let { synchronized(it) { it.reversed() } }.orEmpty()
         if (messages.isEmpty()) return
         val pick = Pick(first.offence, first.name, messages)
@@ -117,7 +116,13 @@ object Evidence {
             .append(Component.text("[Skip]", NamedTextColor.RED).clickEvent(ClickEvent.runCommand("/evidence skip")))
 
     /** `/evidence <record> <link>` adds a clip link; `pick`, `attach` and `skip` are the targets of the chat picker's clicks. */
-    class EvidenceCommand : Command("evidence", "punishments.punish") {
+    class EvidenceCommand : Command("evidence", PunishPerms.CHAT) {
+        // Jr. mods attach chat evidence too, so either punish node works.
+        override fun hasPermission(
+            player: Player,
+            permission: String?,
+        ): Boolean = PunishPerms.canOpenMenu(player.uuid)
+
         init {
             setSenderDefaultExecutor { sender, _ -> sender.sendMessage(Component.text("/evidence <record> <link>", NamedTextColor.GOLD)) }
             val record = ArgumentType.Long("record")
