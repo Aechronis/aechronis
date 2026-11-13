@@ -1,5 +1,6 @@
 package net.aechronis.viaversion
 
+import com.sun.management.HotSpotDiagnosticMXBean
 import com.viaversion.viaversion.ViaManagerImpl
 import com.viaversion.viaversion.api.Via
 import com.viaversion.viaversion.exception.CancelCodecException
@@ -31,10 +32,15 @@ import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.server.ServerTickMonitorEvent
 import java.io.IOException
+import java.lang.management.ManagementFactory
 import java.net.InetSocketAddress
 import java.nio.channels.SocketChannel
+import java.nio.file.Files
 import java.nio.file.Path
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -51,6 +57,18 @@ class ViaServer(
     private val closed = AtomicBoolean()
     private var initialized = false
     private var platform: ViaPlatform? = null
+
+    // A platform thread, so it still runs when the readers' virtual-thread carriers or the event loops are stuck.
+    private val watchdog =
+        Executors.newSingleThreadScheduledExecutor(
+            Thread
+                .ofPlatform()
+                .daemon()
+                .name("Via-Reader-Watchdog")
+                .factory(),
+        )
+    private val threadDumps = directory.resolve("thread-dumps").toAbsolutePath()
+    private var lastThreadDump = 0L
     private val events =
         EventNode
             .all("viaversion")
@@ -79,6 +97,7 @@ class ViaServer(
                 it.initialize()
             }
             ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), events)
+            watchdog.scheduleWithFixedDelay(::checkReaders, 1, 1, TimeUnit.SECONDS)
         } catch (error: Throwable) {
             close()
             throw error
@@ -228,6 +247,7 @@ class ViaServer(
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
+        watchdog.shutdownNow()
         MinecraftServer.getGlobalEventHandler().removeChild(events)
         quiesce()
         workers.shutdownGracefully().awaitUninterruptibly()
@@ -250,6 +270,37 @@ class ViaServer(
         players.removeAll(readers.toSet())
     }
 
+    /**
+     * Dumps every thread, virtual ones included, when a reader has left a packet waiting for
+     * [READER_STALL_SECONDS]. A full queue disconnects the player, so the dump is the only record
+     * of what the reader was waiting on.
+     */
+    private fun checkReaders() {
+        try {
+            val stalled = players.filter { it.readerBacklogNanos() > TimeUnit.SECONDS.toNanos(READER_STALL_SECONDS) }
+            if (stalled.isEmpty()) return
+            val now = System.nanoTime()
+            if (lastThreadDump != 0L && now - lastThreadDump < TimeUnit.MINUTES.toNanos(THREAD_DUMP_INTERVAL_MINUTES)) return
+            lastThreadDump = now
+            Files.createDirectories(threadDumps)
+            val file = threadDumps.resolve("${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))}.txt")
+            ManagementFactory
+                .getPlatformMXBean(HotSpotDiagnosticMXBean::class.java)
+                .dumpThreads(file.toString(), HotSpotDiagnosticMXBean.ThreadDumpFormat.TEXT_PLAIN)
+            MinecraftServer.LOGGER.warn(
+                "{} of {} ViaVersion packet readers have stalled for over {} s ({}); thread dump written to {}",
+                stalled.size,
+                players.size,
+                READER_STALL_SECONDS,
+                stalled.take(10).joinToString { it.player?.username ?: it.remoteAddress.toString() },
+                file,
+            )
+        } catch (error: Throwable) {
+            // An exception would cancel the scheduled check for the rest of the run.
+            MinecraftServer.LOGGER.error("ViaVersion reader watchdog failed", error)
+        }
+    }
+
     override fun stopAccepting() {
         listener?.close()?.awaitUninterruptibly()
     }
@@ -260,6 +311,12 @@ class ViaServer(
         channel: SocketChannel,
     ) : NioSocketChannel(parent, channel) {
         internal fun socketChannel(): SocketChannel = javaChannel()
+    }
+
+    private companion object {
+        // A reader handles a client's packets within milliseconds; a full queue disconnects after about 10 s.
+        const val READER_STALL_SECONDS = 5L
+        const val THREAD_DUMP_INTERVAL_MINUTES = 5L
     }
 
     class AcceptChannel : NioServerSocketChannel() {

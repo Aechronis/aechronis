@@ -59,6 +59,7 @@ class ViaPlayerConnection internal constructor(
     private data class Received(
         val bytes: ByteArray,
         val translated: Boolean,
+        val queuedAt: Long,
     )
 
     private val received = ArrayBlockingQueue<Received>(256)
@@ -188,12 +189,30 @@ class ViaPlayerConnection internal constructor(
         if (closed.get()) return
         require(packet.readableBytes() <= incomingLimit()) { "Translated packet too large" }
         if (queuedBytes.addAndGet(packet.readableBytes().toLong()) > 8 * 1024 * 1024) {
-            disconnect()
+            disconnectBacklogged()
             return
         }
         val bytes = ByteArray(packet.readableBytes())
         packet.readBytes(bytes)
-        if (!received.offer(Received(bytes, translated))) disconnect()
+        if (!received.offer(Received(bytes, translated, System.nanoTime()))) disconnectBacklogged()
+    }
+
+    // The reader fell behind the socket. The client and proxy only see a dropped connection, so say why here.
+    private fun disconnectBacklogged() {
+        MinecraftServer.LOGGER.warn(
+            "Disconnecting {}: inbound queue full ({} packets, {} bytes, oldest waited {} ms)",
+            player?.username ?: remoteAddress,
+            received.size,
+            queuedBytes.get(),
+            TimeUnit.NANOSECONDS.toMillis(readerBacklogNanos()),
+        )
+        disconnect()
+    }
+
+    /** How long the oldest queued packet has waited for the reader, or 0 when none is waiting. */
+    internal fun readerBacklogNanos(): Long {
+        val oldest = received.peek() ?: return 0
+        return System.nanoTime() - oldest.queuedAt
     }
 
     private fun readPackets() {
