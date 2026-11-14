@@ -11,7 +11,6 @@ tasks.processResources {
 
 dependencies {
     compileOnly(project(":modules:utils"))
-    compileOnly(project(":modules:economy"))
     compileOnly(project(":modules:crates"))
     compileOnly(libs.kotlinx.serialization.json)
     addProvider<MinimalExternalModuleDependency, ExternalModuleDependency>("moduleImplementation", libs.nuvotifier.api) {

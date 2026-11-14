@@ -1,22 +1,64 @@
 package net.aechronis.crates.objects
 
+import kotlinx.serialization.Serializable
+import net.kyori.adventure.nbt.BinaryTagIO
+import net.minestom.server.MinecraftServer
 import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.util.Base64
 
+@Serializable
+data class CrateBlock(
+    val world: String,
+    val x: Int,
+    val y: Int,
+    val z: Int,
+)
+
+/** A loot table entry. [item] is the item's NBT, Base64 encoded, so custom names and enchantments survive. */
+@Serializable
+class CrateReward(
+    val item: String,
+    val weight: Double,
+) {
+    val stack: ItemStack by lazy {
+        ItemStack.fromItemNBT(
+            BinaryTagIO.reader().readNameless(ByteArrayInputStream(Base64.getDecoder().decode(item))),
+            MinecraftServer.process(),
+        )
+    }
+
+    companion object {
+        fun of(
+            stack: ItemStack,
+            weight: Double,
+        ): CrateReward {
+            val bytes = ByteArrayOutputStream()
+            BinaryTagIO.writer().writeNameless(stack.toItemNBT(MinecraftServer.process()), bytes)
+            return CrateReward(Base64.getEncoder().encodeToString(bytes.toByteArray()), weight)
+        }
+    }
+}
+
+@Serializable
 data class Crate(
     val id: String,
-    val title: String,
-    val material: Material = Material.CHEST_MINECART,
-    val rewards: Map<ItemStack, Double> = emptyMap(),
+    var title: String,
+    val rewards: MutableList<CrateReward> = mutableListOf(),
+    val blocks: MutableList<CrateBlock> = mutableListOf(),
 ) {
-    fun validate() {
-        require(id.isNotBlank()) { "Crate id must not be blank" }
-        require(title.isNotBlank()) { "Crate '$id' title must not be blank" }
-        require(rewards.isNotEmpty()) { "Crate '$id' must have at least one reward" }
-        require(rewards.size <= 54) { "Crate '$id' cannot have more than 54 rewards" }
-        require(rewards.keys.none { it.isAir }) { "Crate '$id' cannot contain an air reward" }
-        require(rewards.values.all { it.isFinite() && it > 0.0 }) {
-            "Crate '$id' reward chances must be finite and greater than zero"
+    val totalWeight: Double get() = rewards.sumOf { it.weight }
+
+    fun chance(reward: CrateReward): Double = reward.weight / totalWeight * 100.0
+
+    fun roll(): ItemStack? {
+        if (rewards.isEmpty()) return null
+        var target = Math.random() * totalWeight
+        for (reward in rewards) {
+            target -= reward.weight
+            if (target < 0.0) return reward.stack
         }
+        return rewards.last().stack
     }
 }
