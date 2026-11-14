@@ -18,4 +18,5 @@ dependencies {
     compileOnly(project(":modules:guard"))
     compileOnly(project(":modules:economy"))
     compileOnly(project(":modules:duels"))
+    compileOnly(project(":modules:crates"))
 }

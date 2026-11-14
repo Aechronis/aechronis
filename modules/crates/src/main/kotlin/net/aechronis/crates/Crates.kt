@@ -17,10 +17,7 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
 import net.minestom.server.tag.Tag
-import java.nio.file.Files
-import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
@@ -36,13 +33,14 @@ object Crates {
     private val failSound = Sound.sound(Key.key("minecraft:block.note_block.bass"), Sound.Source.PLAYER, 0.8f, 0.6f)
     private const val EDIT_DISABLED = "Crates failed to load; editing is disabled until a successful reload."
 
-    fun init(directory: Path) {
-        val path = directory.resolve("crates.json")
-        val seed = Files.notExists(path, LinkOption.NOFOLLOW_LINKS)
-        storage.load(path, crates) { contents ->
+    fun init(
+        directory: Path,
+        defaults: List<CrateDefaults>,
+    ) {
+        storage.load(directory.resolve("crates.json"), crates) { contents ->
             Json.decodeFromString<List<Crate>>(contents).filter { idPattern.matches(it.id) }.associateByTo(linkedMapOf()) { it.id }
         }
-        if (seed) seedVoteCrate()
+        seed(defaults)
         CrateKeys.init(directory.resolve("keys.json"))
     }
 
@@ -273,24 +271,15 @@ object Crates {
 
     private fun save() = storage.save { Json.encodeToString(crates.values.toList()) }
 
-    /** First boot: carry over the old hardcoded vote loot table so voting keeps working. */
-    private fun seedVoteCrate() {
-        val crate = Crate("vote", "Vote Crate")
-        listOf(
-            Triple(Material.DIAMOND_BLOCK, 64, 2.0),
-            Triple(Material.IRON_BLOCK, 64, 3.0),
-            Triple(Material.GOLD_BLOCK, 64, 3.0),
-            Triple(Material.DRAGON_BREATH, 32, 2.0),
-            Triple(Material.DIAMOND, 64, 10.0),
-            Triple(Material.IRON_INGOT, 64, 10.0),
-            Triple(Material.GOLD_INGOT, 64, 10.0),
-            Triple(Material.COOKED_BEEF, 64, 20.0),
-            Triple(Material.GUNPOWDER, 64, 10.0),
-            Triple(Material.IRON_INGOT, 32, 10.0),
-            Triple(Material.GOLD_INGOT, 32, 10.0),
-            Triple(Material.DIAMOND, 32, 10.0),
-        ).forEach { (material, amount, weight) -> crate.rewards += CrateReward.of(ItemStack.of(material, amount), weight) }
-        crates[crate.id] = crate
+    /** Creates configured crates that do not exist yet; existing crates keep their in-game edits. */
+    private fun seed(defaults: List<CrateDefaults>) {
+        if (!storage.canSave) return
+        val missing = defaults.filter { it.id !in crates && idPattern.matches(it.id) }
+        if (missing.isEmpty()) return
+        missing.forEach { default ->
+            crates[default.id] =
+                Crate(default.id, default.title, default.rewards.mapTo(mutableListOf()) { (item, weight) -> CrateReward.of(item, weight) })
+        }
         save()
     }
 
