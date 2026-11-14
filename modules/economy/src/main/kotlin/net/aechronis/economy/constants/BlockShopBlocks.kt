@@ -97,8 +97,9 @@ val SELLABLE_BLOCKS: Set<Material> =
         }
     }
 
-// Dyes are items, not blocks, but they are part of the shop (the Dyes folder) so builders can colour things.
-private val SHOP_DYE_KEYS: Set<String> =
+// Items that are not blocks but are still sold in the shop: dyes (the Dyes folder) so builders can colour
+// things, and the item frame (an entity, so it has no Block entry) for decorating.
+private val SHOP_ITEM_KEYS: Set<String> =
     listOf(
         "white",
         "orange",
@@ -116,7 +117,7 @@ private val SHOP_DYE_KEYS: Set<String> =
         "green",
         "red",
         "black",
-    ).map { "minecraft:${it}_dye" }.toSet()
+    ).map { "minecraft:${it}_dye" }.toSet() + "minecraft:item_frame"
 
 /**
  * Every material purchasable from the block shop for 1 block coin each: every placeable
@@ -129,7 +130,7 @@ val PURCHASABLE_BLOCKS: List<Material> =
         val blockKeys = Block.values().map { it.key().asString() }.toSet()
         Material
             .values()
-            .filter { material -> material.key().asString() in blockKeys || material.key().asString() in SHOP_DYE_KEYS }
+            .filter { material -> material.key().asString() in blockKeys || material.key().asString() in SHOP_ITEM_KEYS }
             .filterNot { material -> isBlockedKey(material.key().asString().substringAfter(':')) }
             .sortedBy { material -> material.key().asString() }
     }
