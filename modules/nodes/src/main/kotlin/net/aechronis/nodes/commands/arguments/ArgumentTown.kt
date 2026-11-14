@@ -9,6 +9,7 @@ import net.minestom.server.command.builder.suggestion.SuggestionEntry
 object ArgumentTown {
     /**
      * Creates an argument that autocompletes and returns a Town object.
+     * Spaces in names are typed as underscores: New_Haven.
      */
     fun create(id: String): Argument<Town> {
         val word = ArgumentType.Word(id)
@@ -16,13 +17,12 @@ object ArgumentTown {
             val input = suggestion.input.substringAfterLast(" ").lowercase()
 
             Town.all()
-                .filter { it.name.lowercase().startsWith(input) }
-                .forEach { town ->
-                    suggestion.addEntry(SuggestionEntry(town.name))
-                }
+                .map { NameArgument.toArg(it.name) }
+                .filter { it.lowercase().startsWith(input) }
+                .forEach { suggestion.addEntry(SuggestionEntry(it)) }
         }
         return word.map { input ->
-            Town.fromName(input)
+            NameArgument.resolve(input, Town::fromName)
                 ?: throw ArgumentSyntaxException("Town not found", input, 1)
         }
     }

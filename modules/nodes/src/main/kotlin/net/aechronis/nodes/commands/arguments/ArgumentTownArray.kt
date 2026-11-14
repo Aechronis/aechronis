@@ -16,14 +16,13 @@ object ArgumentTownArray {
             val input = suggestion.input.substringAfterLast(" ").lowercase()
 
             Town.all()
-                .filter { it.name.startsWith(input) }
-                .forEach { town ->
-                    suggestion.addEntry(SuggestionEntry(town.name))
-                }
+                .map { NameArgument.toArg(it.name) }
+                .filter { it.lowercase().startsWith(input) }
+                .forEach { suggestion.addEntry(SuggestionEntry(it)) }
         }
         return stringArray.map { inputs ->
             inputs.map { input ->
-                Town.fromName(input)
+                NameArgument.resolve(input, Town::fromName)
                     ?: throw ArgumentSyntaxException("Town not found", input, 1)
             }
         }
