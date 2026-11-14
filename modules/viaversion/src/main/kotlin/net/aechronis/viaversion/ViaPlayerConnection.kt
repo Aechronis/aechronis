@@ -464,6 +464,22 @@ class ViaPlayerConnection internal constructor(
         state: ConnectionState,
         packet: ServerPacket,
     ): ByteArray {
+        // allocateTrimmedPacket copies every packet into a fresh Arena.ofAuto segment that only a GC frees;
+        // at our packet rate that filled MaxDirectMemorySize every few minutes and forced System.gc() stalls.
+        // The pooled buffers have a fixed size, so the rare packet that doesn't fit still takes that path.
+        val pooled =
+            PacketVanilla.PACKET_POOL.use { buffer ->
+                buffer.clear()
+                buffer.registries(MinecraftServer.getRegistries())
+                try {
+                    PacketWriting.writeFramedPacket(buffer, state, packet, 0)
+                    buffer.read(NetworkBuffer.VAR_INT)
+                    buffer.read(NetworkBuffer.RAW_BYTES)
+                } catch (_: IndexOutOfBoundsException) {
+                    null
+                }
+            }
+        if (pooled != null) return pooled
         val framed = PacketWriting.allocateTrimmedPacket(state, packet, 0)
         framed.read(NetworkBuffer.VAR_INT)
         return framed.read(NetworkBuffer.RAW_BYTES)
