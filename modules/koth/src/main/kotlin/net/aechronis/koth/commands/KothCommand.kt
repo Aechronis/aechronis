@@ -15,6 +15,8 @@ class KothCommand : Command("koth", "vanilla.koth") {
     private val radiusArg = ArgumentType.Double("display-radius").min(0.01)
     private val rewardArg = ArgumentType.StringArray("command")
     private val indexArg = ArgumentType.Integer("index").min(0)
+    private val crateArg = ArgumentType.Word("crate-id")
+    private val keysArg = ArgumentType.Integer("keys").min(1)
 
     // Cron fields are separate arguments so the command parser does not treat the expression as an ambiguous greedy string.
     private val minuteArg = ArgumentType.Word("minute")
@@ -98,6 +100,29 @@ class KothCommand : Command("koth", "vanilla.koth") {
             val rewards = Koth.rewards(name)
             sender.message(rewards?.mapIndexed { index, command -> "$index: $command" }?.joinToString(" | ") ?: "Unknown KOTH: $name")
         }, ArgumentType.Literal("reward"), ArgumentType.Literal("list"), nameArg)
+
+        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+            val name = context[nameArg]
+            val crate = context[crateArg]
+            val keys = context[keysArg]
+            sender.message(
+                if (Koth.setCrate(name, crate, keys)) {
+                    "The $name capturer now receives $keys $crate crate key(s)."
+                } else {
+                    "Unable to link that crate. Check the KOTH and crate names."
+                },
+            )
+        }, ArgumentType.Literal("crate"), ArgumentType.Literal("set"), nameArg, crateArg, keysArg)
+
+        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+            val name = context[nameArg]
+            sender.message(if (Koth.setCrate(name, null)) "Removed the crate key reward from $name." else "Unknown KOTH: $name")
+        }, ArgumentType.Literal("crate"), ArgumentType.Literal("clear"), nameArg)
+
+        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+            val name = context[nameArg]
+            sender.message(Koth.crate(name)?.let { "$name crate reward: $it" } ?: "Unknown KOTH: $name")
+        }, ArgumentType.Literal("crate"), ArgumentType.Literal("info"), nameArg)
 
         addSyntax(
             "vanilla.koth.admin",
