@@ -9,6 +9,7 @@ import net.minestom.server.command.builder.suggestion.SuggestionEntry
 object ArgumentNation {
     /**
      * Creates an argument that autocompletes and returns a Nation object.
+     * Spaces in names are typed as underscores: New_Haven.
      */
     fun create(id: String): Argument<Nation> {
         val word = ArgumentType.Word(id)
@@ -16,13 +17,12 @@ object ArgumentNation {
             val input = suggestion.input.substringAfterLast(" ").lowercase()
 
             Nation.all()
-                .filter { it.name.lowercase().startsWith(input) }
-                .forEach { nation ->
-                    suggestion.addEntry(SuggestionEntry(nation.name))
-                }
+                .map { NameArgument.toArg(it.name) }
+                .filter { it.lowercase().startsWith(input) }
+                .forEach { suggestion.addEntry(SuggestionEntry(it)) }
         }
         return word.map { input ->
-            Nation.fromName(input)
+            NameArgument.resolve(input, Nation::fromName)
                 ?: throw ArgumentSyntaxException("Nation not found", input, 1)
         }
     }
