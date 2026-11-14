@@ -272,8 +272,8 @@ class ViaServer(
 
     /**
      * Dumps every thread, virtual ones included, when a reader has left a packet waiting for
-     * [READER_STALL_SECONDS]. A full queue disconnects the player, so the dump is the only record
-     * of what the reader was waiting on.
+     * [READER_STALL_SECONDS]. A full queue pauses socket reads until the read timeout disconnects
+     * the player, so the dump is the only record of what the reader was waiting on.
      */
     private fun checkReaders() {
         try {
@@ -314,7 +314,8 @@ class ViaServer(
     }
 
     private companion object {
-        // A reader handles a client's packets within milliseconds; a full queue disconnects after about 10 s.
+        // A reader handles a client's packets within milliseconds; a stalled one pauses socket reads
+        // until the read timeout disconnects the player.
         const val READER_STALL_SECONDS = 5L
         const val THREAD_DUMP_INTERVAL_MINUTES = 5L
     }

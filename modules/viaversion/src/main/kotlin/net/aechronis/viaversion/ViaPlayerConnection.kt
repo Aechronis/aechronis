@@ -39,9 +39,9 @@ import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.login.SetCompressionPacket
 import net.minestom.server.network.player.PlayerSocketConnection
-import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -62,9 +62,16 @@ class ViaPlayerConnection internal constructor(
         val queuedAt: Long,
     )
 
-    private val received = ArrayBlockingQueue<Received>(256)
+    // The reader translates each frame on the event loop, so it can't drain this while the event
+    // loop is still decoding a read. A client catching up after a network stall delivers hundreds
+    // of frames in one read; rather than bounding the count, socket reads pause until it drains.
+    private val received = LinkedBlockingQueue<Received>()
     private val closed = AtomicBoolean()
     private val queuedBytes = AtomicLong()
+
+    // Written only on the event loop.
+    @Volatile private var readsPaused = false
+    private val resumeRequested = AtomicBoolean()
     private val reader = Thread.ofVirtual().name("Via-Minecraft-Reader").unstarted(::readPackets)
 
     @Volatile private var readingState = ConnectionState.HANDSHAKE
@@ -188,16 +195,29 @@ class ViaPlayerConnection internal constructor(
     ) {
         if (closed.get()) return
         require(packet.readableBytes() <= incomingLimit()) { "Translated packet too large" }
-        if (queuedBytes.addAndGet(packet.readableBytes().toLong()) > 8 * 1024 * 1024) {
+        if (queuedBytes.addAndGet(packet.readableBytes().toLong()) > MAX_QUEUED_BYTES) {
             disconnectBacklogged()
             return
         }
         val bytes = ByteArray(packet.readableBytes())
         packet.readBytes(bytes)
-        if (!received.offer(Received(bytes, translated, System.nanoTime()))) disconnectBacklogged()
+        received.add(Received(bytes, translated, System.nanoTime()))
+        if (!readsPaused && received.size >= PAUSE_READS_AT) {
+            readsPaused = true
+            transport.config().isAutoRead = false
+            // The reader checks the pause after each take, so it may have drained before this was set.
+            if (received.size <= RESUME_READS_AT) resumeReads()
+        }
     }
 
-    // The reader fell behind the socket. The client and proxy only see a dropped connection, so say why here.
+    private fun resumeReads() {
+        if (!readsPaused) return
+        readsPaused = false
+        transport.config().isAutoRead = true
+    }
+
+    // Reads pause before this is reached, so only a single read decoding to this much can hit it.
+    // The client and proxy only see a dropped connection, so say why here.
     private fun disconnectBacklogged() {
         MinecraftServer.LOGGER.warn(
             "Disconnecting {}: inbound queue full ({} packets, {} bytes, oldest waited {} ms)",
@@ -220,6 +240,12 @@ class ViaPlayerConnection internal constructor(
             while (!closed.get()) {
                 val receivedPacket = received.take()
                 queuedBytes.addAndGet(-receivedPacket.bytes.size.toLong())
+                if (readsPaused && received.size <= RESUME_READS_AT && resumeRequested.compareAndSet(false, true)) {
+                    onTransport {
+                        resumeRequested.set(false)
+                        resumeReads()
+                    }
+                }
                 val packets =
                     if (receivedPacket.translated) {
                         listOf(receivedPacket.bytes)
@@ -513,6 +539,10 @@ class ViaPlayerConnection internal constructor(
 
         // Half a tick, the interval at which Minestom's own socket writer wakes.
         private const val MAX_FLUSH_DELAY_MILLIS = 25L
+
+        private const val PAUSE_READS_AT = 256
+        private const val RESUME_READS_AT = 64
+        private const val MAX_QUEUED_BYTES = 8L * 1024 * 1024
 
         // Match Minestom's immediate packet dispatch; gameplay remains on the player tick thread.
         private val IMMEDIATE =
