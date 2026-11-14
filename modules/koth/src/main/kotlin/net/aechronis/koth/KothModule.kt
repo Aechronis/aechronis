@@ -12,8 +12,8 @@ import java.nio.file.Path
 class KothModule : AechronisModule {
     override val id = "koth"
 
-    // Restore capture glow after vanish, and release it before vanilla shuts down.
-    override val dependencies = setOf("utils", "vanilla")
+    // Restore capture glow after vanish, and release it before vanilla shuts down. Crates grants capture keys.
+    override val dependencies = setOf("utils", "vanilla", "crates")
 
     override fun initialize(context: ModuleContext) {
         val path = Path.of("koth", "koth.json")

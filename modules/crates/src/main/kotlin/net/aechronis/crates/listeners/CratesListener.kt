@@ -7,44 +7,65 @@ import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
-import net.minestom.server.event.player.PlayerDisconnectEvent
+import net.minestom.server.event.player.PlayerBlockBreakEvent
+import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerHandAnimationEvent
+import net.minestom.server.event.player.PlayerStartDiggingEvent
+import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.inventory.Inventory
 
 object CratesListener {
-    // Finish a disconnected player's reward before vanilla applies combat penalties and saves inventory.
-    private val eventNode = EventNode.all("crates").setPriority(-1)
+    // Runs before guard and nodes protection so crates at spawn or in towns stay usable, and
+    // cancelling here keeps the block's own GUI (shulker, chest) and breaking from running.
+    private val eventNode = EventNode.all("crates").setPriority(-2000)
 
-    fun onHandAnimation(event: PlayerHandAnimationEvent) {
-        if (event.isCancelled || event.hand != PlayerHand.MAIN) return
-
-        val item = event.player.itemInMainHand
-        if (Crates.crateFor(item) == null) return
-
+    private fun onInteract(event: PlayerBlockInteractEvent) {
+        val crate = Crates.crateAt(event.instance, event.blockPosition) ?: return
         event.isCancelled = true
-        Crates.openCrate(event.player, item)
+        event.isBlockingItemUse = true
+        if (event.hand != PlayerHand.MAIN) return
+        if (event.player.isSneaking) Crates.openAll(event.player, crate) else Crates.openOne(event.player, crate)
     }
 
-    fun onPreClick(event: InventoryPreClickEvent) {
-        // Clicks in the player's own section report their PlayerInventory but still act on the open crate.
+    private fun onStartDigging(event: PlayerStartDiggingEvent) {
+        val crate = Crates.crateAt(event.instance, event.blockPosition) ?: return
+        event.isCancelled = true
+        Crates.preview(event.player, crate)
+    }
+
+    // Creative mode breaks instantly without a start-digging event.
+    private fun onBreak(event: PlayerBlockBreakEvent) {
+        val crate = Crates.crateAt(event.instance, event.blockPosition) ?: return
+        event.isCancelled = true
+        Crates.preview(event.player, crate)
+    }
+
+    private fun onPreClick(event: InventoryPreClickEvent) {
+        // Clicks in the player's own section report their PlayerInventory but still act on the open preview.
         val inventory = event.player.openInventory as? Inventory ?: return
-        if (Crates.isCrateInventory(inventory)) event.isCancelled = true
+        if (Crates.isPreview(inventory)) event.isCancelled = true
     }
 
-    fun onClose(event: InventoryCloseEvent) {
-        val inventory = event.inventory as? Inventory ?: return
-        Crates.closeInventory(event.player, inventory)
+    private fun onClose(event: InventoryCloseEvent) {
+        (event.inventory as? Inventory)?.let(Crates::closePreview)
     }
 
-    fun onDisconnect(event: PlayerDisconnectEvent) {
-        Crates.disconnect(event.player)
+    private fun onUseItem(event: PlayerUseItemEvent) {
+        if (event.hand == PlayerHand.MAIN && Crates.redeemLegacyItem(event.player, event.itemStack)) event.isCancelled = true
+    }
+
+    private fun onHandAnimation(event: PlayerHandAnimationEvent) {
+        if (event.hand == PlayerHand.MAIN && Crates.redeemLegacyItem(event.player, event.player.itemInMainHand)) event.isCancelled = true
     }
 
     fun init() {
-        eventNode.addListener(PlayerHandAnimationEvent::class.java, CratesListener::onHandAnimation)
-        eventNode.addListener(InventoryPreClickEvent::class.java, CratesListener::onPreClick)
-        eventNode.addListener(InventoryCloseEvent::class.java, CratesListener::onClose)
-        eventNode.addListener(PlayerDisconnectEvent::class.java, CratesListener::onDisconnect)
+        eventNode.addListener(PlayerBlockInteractEvent::class.java, ::onInteract)
+        eventNode.addListener(PlayerStartDiggingEvent::class.java, ::onStartDigging)
+        eventNode.addListener(PlayerBlockBreakEvent::class.java, ::onBreak)
+        eventNode.addListener(InventoryPreClickEvent::class.java, ::onPreClick)
+        eventNode.addListener(InventoryCloseEvent::class.java, ::onClose)
+        eventNode.addListener(PlayerUseItemEvent::class.java, ::onUseItem)
+        eventNode.addListener(PlayerHandAnimationEvent::class.java, ::onHandAnimation)
         ModuleEvents.addChild(MinecraftServer.getGlobalEventHandler(), eventNode)
     }
 }

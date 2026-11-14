@@ -1,212 +1,289 @@
 package net.aechronis.crates
 
-import net.aechronis.crates.listeners.CratesListener
+import kotlinx.serialization.json.Json
 import net.aechronis.crates.objects.Crate
-import net.aechronis.server.modules.ModuleScheduler
+import net.aechronis.crates.objects.CrateBlock
+import net.aechronis.crates.objects.CrateReward
+import net.aechronis.utils.JsonRegistryFile
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextDecoration
+import net.minestom.server.component.DataComponents
+import net.minestom.server.coordinate.Point
 import net.minestom.server.entity.Player
+import net.minestom.server.instance.Instance
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
 import net.minestom.server.tag.Tag
-import net.minestom.server.timer.TaskSchedule
-import java.util.UUID
+import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.random.Random
 
+/** Block crates opened with digital keys. Definitions and placed blocks live in crates/crates.json. */
 object Crates {
-    const val ANIMATION_STEPS = 32
-    private const val MIN_ANIMATION_DELAY_MS = 45L
-    private const val MAX_ANIMATION_DELAY_MS = 220L
-    private const val RESULT_DISPLAY_MS = 1_200L
+    private val crates = linkedMapOf<String, Crate>()
+    private val storage = JsonRegistryFile("crates")
+    private val previews: MutableSet<Inventory> = ConcurrentHashMap.newKeySet()
 
-    val CRATE_ID_TAG: Tag<String> = Tag.String("aechronis:crate_id")
+    private val idPattern = Regex("[a-z0-9_]{1,32}")
+    private val legacyCrateIdTag = Tag.String("aechronis:crate_id")
+    private val openSound = Sound.sound(Key.key("minecraft:entity.player.levelup"), Sound.Source.PLAYER, 0.8f, 1.2f)
+    private val failSound = Sound.sound(Key.key("minecraft:block.note_block.bass"), Sound.Source.PLAYER, 0.8f, 0.6f)
+    private const val EDIT_DISABLED = "Crates failed to load; editing is disabled until a successful reload."
 
-    private val definitions = linkedMapOf<String, Crate>()
-    private val activeRolls = ConcurrentHashMap<UUID, Roll>()
-    private val inventoryOwners = ConcurrentHashMap<Inventory, UUID>()
-
-    private data class Roll(
-        val player: Player,
-        val inventory: Inventory,
-        val winner: ItemStack,
-        val rewardItems: List<ItemStack>,
-        var step: Int = 0,
-    )
-
-    fun init(config: CratesConfig) {
-        val configured = config.crates
-        configured.forEach(Crate::validate)
-        require(configured.map { it.id }.toSet().size == configured.size) {
-            "Crate ids must be unique"
-        }
-
-        definitions.clear()
-        definitions.putAll(configured.associateBy { it.id })
-        CratesListener.init()
-    }
-
-    fun itemFor(id: String): ItemStack {
-        val crate = definitions[id] ?: error("Unknown crate: $id")
-        return ItemStack
-            .of(crate.material)
-            .withCustomName(Component.text(crate.title, NamedTextColor.GOLD))
-            .withTag(CRATE_ID_TAG, crate.id)
-            .withMaxStackSize(1)
-    }
-
-    fun crateFor(item: ItemStack): Crate? {
-        val id = item.getTag(CRATE_ID_TAG) ?: return null
-        val crate = definitions[id] ?: return null
-        return crate.takeIf { item.material() == it.material }
-    }
-
-    fun isCrateInventory(inventory: Inventory): Boolean = inventoryOwners.containsKey(inventory)
-
-    fun openCrate(
-        player: Player,
-        item: ItemStack,
-    ): Boolean {
-        if (activeRolls.containsKey(player.uuid)) return false
-        val crate = crateFor(item) ?: return false
-
-        val winner = chooseReward(crate)
-        val rewards = crate.rewards.keys.toList()
-        val inventory = Inventory(InventoryType.CHEST_3_ROW, Component.text(crate.title))
-        val roll = Roll(player, inventory, winner, rewards)
-
-        for (slot in 0..8) {
-            inventory.setItemStack(slot, ItemStack.of(Material.BLACK_STAINED_GLASS_PANE))
-            inventory.setItemStack(18 + slot, ItemStack.of(Material.BLACK_STAINED_GLASS_PANE))
-        }
-        updateRewardRow(roll)
-
-        val held = player.itemInMainHand
-        if (crateFor(held)?.id != crate.id) return false
-        player.setItemInMainHand(if (held.amount() == 1) ItemStack.AIR else held.withAmount(held.amount() - 1))
-
-        activeRolls[player.uuid] = roll
-        inventoryOwners[inventory] = player.uuid
-        if (!player.openInventory(inventory)) {
-            activeRolls.remove(player.uuid, roll)
-            inventoryOwners.remove(inventory)
-            player.setItemInMainHand(held)
-            return false
-        }
-
-        ModuleScheduler.submitTask {
-            val current = activeRolls[player.uuid]
-            if (current !== roll) return@submitTask TaskSchedule.stop()
-
-            if (roll.step >= ANIMATION_STEPS) {
-                finishRoll(roll, showResult = true)
-                return@submitTask TaskSchedule.stop()
-            }
-
-            updateRewardRow(roll)
-            player.playSound(rollSound())
-            roll.step++
-            TaskSchedule.millis(animationDelay(roll.step))
-        }
-        return true
-    }
-
-    fun closeInventory(
-        player: Player,
-        inventory: Inventory,
+    fun init(
+        directory: Path,
+        defaults: List<CrateDefaults>,
     ) {
-        val roll = activeRolls[player.uuid]
-        if (roll == null) {
-            inventoryOwners.remove(inventory)
-            return
+        storage.load(directory.resolve("crates.json"), crates) { contents ->
+            Json.decodeFromString<List<Crate>>(contents).filter { idPattern.matches(it.id) }.associateByTo(linkedMapOf()) { it.id }
         }
-        if (roll.inventory !== inventory) return
-        finishRoll(roll, showResult = false)
-    }
-
-    fun disconnect(player: Player) {
-        activeRolls[player.uuid]?.let { finishRoll(it, showResult = false) }
-        inventoryOwners.entries.removeIf { it.value == player.uuid }
-    }
-
-    private fun updateRewardRow(roll: Roll) {
-        val offset = roll.step % roll.rewardItems.size
-        for (slot in 0..8) {
-            roll.inventory.setItemStack(9 + slot, roll.rewardItems[(offset + slot) % roll.rewardItems.size])
-        }
-    }
-
-    private fun finishRoll(
-        roll: Roll,
-        showResult: Boolean,
-    ) {
-        if (!activeRolls.remove(roll.player.uuid, roll)) return
-
-        if (showResult) {
-            roll.inventory.setItemStack(13, roll.winner)
-            roll.player.playSound(winSound())
-            ModuleScheduler
-                .buildTask {
-                    inventoryOwners.remove(roll.inventory)
-                    if (roll.player.openInventory === roll.inventory) roll.player.closeInventory()
-                }.delay(TaskSchedule.millis(RESULT_DISPLAY_MS))
-                .schedule()
-        } else {
-            inventoryOwners.remove(roll.inventory)
-        }
-
-        if (!roll.player.inventory.addItemStack(roll.winner)) {
-            roll.player.dropItem(roll.winner)
-        }
-    }
-
-    private fun chooseReward(crate: Crate): ItemStack {
-        val total = crate.rewards.values.sum()
-        var target = Random.nextDouble() * total
-        for ((item, chance) in crate.rewards) {
-            target -= chance
-            if (target < 0.0) return item
-        }
-        return crate.rewards.keys.last()
-    }
-
-    private fun animationDelay(step: Int): Long {
-        val progress = (step.toDouble() / ANIMATION_STEPS).coerceIn(0.0, 1.0)
-        return (MIN_ANIMATION_DELAY_MS + (MAX_ANIMATION_DELAY_MS - MIN_ANIMATION_DELAY_MS) * progress).toLong()
-    }
-
-    private fun rollSound(): Sound =
-        Sound.sound(
-            Key.key("minecraft:block.note_block.bell"),
-            Sound.Source.PLAYER,
-            0.7f,
-            1.5f,
-        )
-
-    private fun winSound(): Sound =
-        Sound.sound(
-            Key.key("minecraft:entity.player.levelup"),
-            Sound.Source.PLAYER,
-            0.8f,
-            1.0f,
-        )
-
-    fun finishPendingRolls() {
-        activeRolls.values.toList().forEach { roll ->
-            if (roll.player.openInventory === roll.inventory) roll.player.closeInventory()
-            finishRoll(roll, showResult = false)
-        }
-        inventoryOwners.keys.forEach { inventory -> inventory.viewers.toList().forEach { it.closeInventory() } }
-        activeRolls.clear()
-        inventoryOwners.clear()
+        seed(defaults)
+        CrateKeys.init(directory.resolve("keys.json"))
     }
 
     fun shutdown() {
-        finishPendingRolls()
-        definitions.clear()
+        previews.toList().forEach { inventory -> inventory.viewers.toList().forEach(Player::closeInventory) }
+        previews.clear()
+        crates.clear()
     }
+
+    fun exists(id: String): Boolean = id in crates
+
+    fun ids(): Set<String> = crates.keys
+
+    fun title(id: String): String = crates[id]?.title ?: id
+
+    fun crateAt(
+        instance: Instance,
+        position: Point,
+    ): Crate? {
+        val block = blockOf(instance, position)
+        return crates.values.firstOrNull { block in it.blocks }
+    }
+
+    // Admin editing. Each returns an error message, or null on success.
+
+    fun create(
+        id: String,
+        title: String,
+    ): String? {
+        if (!storage.canSave) return EDIT_DISABLED
+        if (!idPattern.matches(id)) return "Crate ids use lowercase letters, digits and underscores (max 32)."
+        if (id in crates) return "Crate $id already exists."
+        crates[id] = Crate(id, title)
+        save()
+        return null
+    }
+
+    fun delete(id: String): String? = edit(id) { crates.remove(id) }
+
+    fun setTitle(
+        id: String,
+        title: String,
+    ): String? = edit(id) { it.title = title }
+
+    fun place(
+        id: String,
+        instance: Instance,
+        position: Point,
+    ): String? {
+        if (instance.getBlock(position).name().endsWith("air")) return "Look at the block that should become the crate."
+        if (crateAt(instance, position) != null) return "That block is already a crate."
+        return edit(id) { it.blocks += blockOf(instance, position) }
+    }
+
+    fun unplace(
+        instance: Instance,
+        position: Point,
+    ): String? {
+        val crate = crateAt(instance, position) ?: return "That block is not a crate."
+        return edit(crate.id) { it.blocks -= blockOf(instance, position) }
+    }
+
+    fun addReward(
+        id: String,
+        item: ItemStack,
+        weight: Double,
+    ): String? {
+        if (item.isAir) return "Hold the reward item in your main hand."
+        if (weight !in MIN_WEIGHT..MAX_WEIGHT) return "Weight must be between $MIN_WEIGHT and $MAX_WEIGHT."
+        if ((crates[id]?.rewards?.size ?: 0) >= MAX_REWARDS) return "A crate holds at most $MAX_REWARDS rewards."
+        return edit(id) { it.rewards += CrateReward.of(item, weight) }
+    }
+
+    fun removeReward(
+        id: String,
+        index: Int,
+    ): String? {
+        if (crates[id]?.rewards?.indices?.contains(index) == false) return "No reward at index $index."
+        return edit(id) { it.rewards.removeAt(index) }
+    }
+
+    fun describeRewards(id: String): List<Component>? {
+        val crate = crates[id] ?: return null
+        return crate.rewards.mapIndexed { index, reward ->
+            Component
+                .text("$index: ${reward.stack.amount()}x ", NamedTextColor.GRAY)
+                .append(itemName(reward.stack))
+                .append(Component.text(" (weight ${reward.weight}, ${formatChance(crate.chance(reward))})", NamedTextColor.GRAY))
+        }
+    }
+
+    private inline fun edit(
+        id: String,
+        change: (Crate) -> Unit,
+    ): String? {
+        if (!storage.canSave) return EDIT_DISABLED
+        val crate = crates[id] ?: return "Unknown crate: $id"
+        change(crate)
+        save()
+        return null
+    }
+
+    // Player actions.
+
+    /** Right click: uses one key. */
+    fun openOne(
+        player: Player,
+        crate: Crate,
+    ) {
+        if (!canOpen(player, crate)) return
+        val reward = crate.roll()!!
+        if (!player.inventory.addItemStack(reward)) {
+            fail(player, "Need more inventory space!")
+            return
+        }
+        CrateKeys.take(player.uuid, crate.id, 1)
+        player.playSound(openSound)
+        player.sendMessage(
+            Component
+                .text("You opened a ${crate.title} and received ", NamedTextColor.GREEN)
+                .append(Component.text("${reward.amount()}x ", NamedTextColor.WHITE))
+                .append(itemName(reward))
+                .append(Component.text(". Keys left: ${CrateKeys.count(player.uuid, crate.id)}", NamedTextColor.GREEN)),
+        )
+    }
+
+    /** Shift right click: uses every key until the inventory is full. */
+    fun openAll(
+        player: Player,
+        crate: Crate,
+    ) {
+        if (!canOpen(player, crate)) return
+        val keys = CrateKeys.count(player.uuid, crate.id)
+        var opened = 0
+        // A roll that does not fit is discarded without using a key.
+        while (opened < keys && player.inventory.addItemStack(crate.roll()!!)) opened++
+        if (opened > 0) {
+            CrateKeys.take(player.uuid, crate.id, opened)
+            player.playSound(openSound)
+            player.sendMessage(
+                Component.text("You opened $opened ${crate.title} key${if (opened == 1) "" else "s"}.", NamedTextColor.GREEN),
+            )
+        }
+        if (opened < keys) fail(player, "Need more inventory space! ${keys - opened} ${crate.title} keys left.")
+    }
+
+    private fun canOpen(
+        player: Player,
+        crate: Crate,
+    ): Boolean {
+        val error =
+            when {
+                crate.rewards.isEmpty() -> "This crate has no rewards yet."
+                CrateKeys.count(player.uuid, crate.id) <= 0 -> "You don't have any ${crate.title} keys."
+                else -> return true
+            }
+        fail(player, error)
+        return false
+    }
+
+    /** Left click: shows every reward with its chance in the item tooltip. */
+    fun preview(
+        player: Player,
+        crate: Crate,
+    ) {
+        if (previews.any { it === player.openInventory }) return
+        val rows = ((crate.rewards.size + 8) / 9).coerceIn(1, 6)
+        val type = InventoryType.valueOf("CHEST_${rows}_ROW")
+        val inventory = Inventory(type, Component.text("${crate.title} (${CrateKeys.count(player.uuid, crate.id)} keys)"))
+        crate.rewards.forEachIndexed { slot, reward ->
+            val lore = reward.stack.get(DataComponents.LORE).orEmpty()
+            val chance =
+                Component
+                    .text(
+                        "Chance: ${formatChance(crate.chance(reward))}",
+                        NamedTextColor.YELLOW,
+                    ).decoration(TextDecoration.ITALIC, false)
+            inventory.setItemStack(slot, reward.stack.with(DataComponents.LORE, lore + chance))
+        }
+        previews += inventory
+        if (!player.openInventory(inventory)) previews -= inventory
+    }
+
+    fun isPreview(inventory: Inventory): Boolean = inventory in previews
+
+    fun closePreview(inventory: Inventory) {
+        previews -= inventory
+    }
+
+    /** Converts a physical crate item from before keys existed into keys. Returns true when [item] was one. */
+    fun redeemLegacyItem(
+        player: Player,
+        item: ItemStack,
+    ): Boolean {
+        val id = item.getTag(legacyCrateIdTag) ?: return false
+        if (!CrateKeys.give(player.uuid, id, item.amount())) return false
+        player.setItemInMainHand(ItemStack.AIR)
+        player.sendMessage(Component.text("Converted ${item.amount()} ${title(id)} item(s) into keys.", NamedTextColor.GREEN))
+        return true
+    }
+
+    private fun fail(
+        player: Player,
+        message: String,
+    ) {
+        player.playSound(failSound)
+        player.sendMessage(Component.text(message, NamedTextColor.RED))
+    }
+
+    private fun blockOf(
+        instance: Instance,
+        position: Point,
+    ) = CrateBlock(instance.uuid.toString(), position.blockX(), position.blockY(), position.blockZ())
+
+    private fun itemName(item: ItemStack): Component =
+        item.get(DataComponents.CUSTOM_NAME)
+            ?: Component.text(
+                item
+                    .material()
+                    .key()
+                    .value()
+                    .split('_')
+                    .joinToString(" ") { it.replaceFirstChar(Char::uppercase) },
+                NamedTextColor.WHITE,
+            )
+
+    private fun formatChance(percent: Double): String = "%.2f%%".format(percent)
+
+    private fun save() = storage.save { Json.encodeToString(crates.values.toList()) }
+
+    /** Creates configured crates that do not exist yet; existing crates keep their in-game edits. */
+    private fun seed(defaults: List<CrateDefaults>) {
+        if (!storage.canSave) return
+        val missing = defaults.filter { it.id !in crates && idPattern.matches(it.id) }
+        if (missing.isEmpty()) return
+        missing.forEach { default ->
+            crates[default.id] =
+                Crate(default.id, default.title, default.rewards.mapTo(mutableListOf()) { (item, weight) -> CrateReward.of(item, weight) })
+        }
+        save()
+    }
+
+    private const val MAX_REWARDS = 54
+    private const val MIN_WEIGHT = 0.001
+    private const val MAX_WEIGHT = 1_000_000.0
 }

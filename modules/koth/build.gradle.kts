@@ -9,4 +9,5 @@ dependencies {
         exclude(group = "org.slf4j", module = "slf4j-api")
     }
     compileOnly(project(":modules:utils"))
+    compileOnly(project(":modules:crates"))
 }

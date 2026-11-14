@@ -5,6 +5,7 @@ import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.Melee
 import net.aechronis.combat.utils.GunHandSkins
+import net.aechronis.crates.CratesModule
 import net.aechronis.duels.Kit
 import net.aechronis.duels.KitContents
 import net.aechronis.duels.Kits
@@ -22,6 +23,7 @@ import net.aechronis.server.constants.Ammo
 import net.aechronis.server.constants.Armor
 import net.aechronis.server.constants.Balloons
 import net.aechronis.server.constants.Boats
+import net.aechronis.server.constants.Crates
 import net.aechronis.server.constants.Factories
 import net.aechronis.server.constants.FieldPieces
 import net.aechronis.server.constants.Grenades
@@ -57,7 +59,7 @@ class VictorianEraModule : AechronisModule {
                 .hash("d312836c38143301b7ba6a1247372b3f467116db")
                 .build(),
         )
-    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "killshop", "duels", "horses")
+    override val dependencies = setOf("combat", "vanilla", "recipes", "nodes", "killshop", "duels", "horses", "crates")
 
     override fun configure(context: ModuleContext) {
         measure("Item catalogue") { registerItems() }
@@ -68,6 +70,7 @@ class VictorianEraModule : AechronisModule {
         }
         GunHandSkins.registerTemplate { hands }
         KillShopModule.configure(ShopConfig(enabled = false))
+        CratesModule.configure(Crates.all)
         measure("Vanilla configuration") {
             VanillaModule.configure(
                 VanillaConfig(

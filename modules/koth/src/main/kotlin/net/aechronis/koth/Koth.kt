@@ -6,6 +6,8 @@ import com.cronutils.model.time.ExecutionTime
 import com.cronutils.parser.CronParser
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import net.aechronis.crates.CrateKeys
+import net.aechronis.crates.Crates
 import net.aechronis.koth.listeners.KothListener
 import net.aechronis.koth.objects.KothZone
 import net.aechronis.server.modules.ModuleScheduler
@@ -50,6 +52,8 @@ object Koth {
         val displayRadiusBlocks: Double,
         val schedules: MutableList<String> = mutableListOf(),
         val rewardCommands: MutableList<String> = mutableListOf(),
+        var crate: String? = null,
+        var crateKeys: Int = 1,
     )
 
     internal data class Definition(
@@ -281,6 +285,26 @@ object Koth {
 
     fun rewards(name: String): List<String>? = definitions[name]?.rewardCommands?.toList()
 
+    /** Links a crate whose keys the capturer receives automatically; null [crate] unlinks it. */
+    fun setCrate(
+        name: String,
+        crate: String?,
+        keys: Int = 1,
+    ): Boolean {
+        if (!storage.canSave || keys <= 0) return false
+        val saved = definitions[name] ?: return false
+        if (crate != null && !Crates.exists(crate)) return false
+        saved.crate = crate
+        saved.crateKeys = keys
+        save()
+        return true
+    }
+
+    fun crate(name: String): String? {
+        val saved = definitions[name] ?: return null
+        return saved.crate?.let { "${saved.crateKeys}x ${Crates.title(it)} key" } ?: "none"
+    }
+
     fun addSchedule(
         name: String,
         expression: String,
@@ -481,6 +505,17 @@ object Koth {
         definition: Definition,
         player: Player,
     ) {
+        definition.saved.crate?.let { crate ->
+            val keys = definition.saved.crateKeys
+            if (CrateKeys.give(player.uuid, crate, keys)) {
+                player.sendMessage(
+                    Component.text("You received $keys ${Crates.title(crate)} key${if (keys == 1) "" else "s"}!", NamedTextColor.GREEN),
+                )
+            } else {
+                System.err.println("KOTH '${definition.saved.name}' could not grant $keys '$crate' crate keys to ${player.username}")
+                player.sendMessage(Component.text("KOTH crate key reward failed; contact staff.", NamedTextColor.RED))
+            }
+        }
         for (savedCommand in definition.saved.rewardCommands) {
             val command =
                 savedCommand
@@ -659,6 +694,7 @@ object Koth {
             saved.captureSeconds > 0 &&
             saved.eventSeconds > 0 &&
             saved.displayRadiusBlocks > 0 &&
+            saved.crateKeys > 0 &&
             saved.rewardCommands.all(String::isNotBlank) &&
             saved.schedules.all { normalizeSchedule(it) != null }
 

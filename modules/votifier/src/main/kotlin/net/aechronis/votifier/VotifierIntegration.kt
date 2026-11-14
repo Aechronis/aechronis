@@ -1,9 +1,11 @@
 package net.aechronis.votifier
 
 import com.vexsoftware.votifier.model.Vote
+import net.aechronis.crates.CrateKeys
 import net.aechronis.crates.Crates
-import net.aechronis.economy.Economy
 import net.aechronis.server.modules.ModuleEvents
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.Event
@@ -16,7 +18,6 @@ import java.util.Properties
 
 object VotifierIntegration {
     private const val VOTE_CRATE_ID = "vote"
-    private const val GEM_REWARD = 10L
     private val usernamePattern = Regex("[A-Za-z0-9_]{1,16}")
     private var running: RunningVotifierIntegration? = null
 
@@ -122,10 +123,9 @@ object VotifierIntegration {
     }
 
     private fun giveReward(player: Player): Boolean {
-        val crate = runCatching { Crates.itemFor(VOTE_CRATE_ID) }.getOrNull() ?: return false
-        return Economy.grantReward(player, GEM_REWARD) {
-            player.inventory.addItemStack(crate) || player.dropItem(crate)
-        }
+        if (!CrateKeys.give(player.uuid, VOTE_CRATE_ID)) return false
+        player.sendMessage(Component.text("Thanks for voting! You received a ${Crates.title(VOTE_CRATE_ID)} key.", NamedTextColor.GREEN))
+        return true
     }
 }
 

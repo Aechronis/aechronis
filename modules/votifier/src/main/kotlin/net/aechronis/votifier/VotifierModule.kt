@@ -9,7 +9,7 @@ import java.nio.file.Path
 
 class VotifierModule : AechronisModule {
     override val id = "votifier"
-    override val dependencies = setOf("utils", "crates", "economy")
+    override val dependencies = setOf("utils", "crates")
 
     override fun initialize(context: ModuleContext) {
         VotifierIntegration.initialize()
