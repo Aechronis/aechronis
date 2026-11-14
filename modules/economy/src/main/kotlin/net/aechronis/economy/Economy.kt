@@ -46,13 +46,10 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
-private const val PASTE_CHUNK_COST = 50L
 private const val BLOCK_BARREL_COST = 20L
 private const val BLOCKS_PER_PAGE = 45
 private const val AMOUNT_KEY = "amount"
 private const val TOKEN_KEY = "token"
-private val PASTE_AMOUNT_ACTION = Key.key("gems", "paste_amount")
-private val PASTE_CONFIRM_ACTION = Key.key("gems", "paste_confirm")
 private val BOOST_SELECT_ACTION = Key.key("gems", "boost_select")
 private val BOOST_CONFIRM_ACTION = Key.key("gems", "boost_confirm")
 private val CANCEL_ACTION = Key.key("gems", "cancel")
@@ -182,7 +179,6 @@ object Economy {
     fun openShop(player: Player) {
         repository.rememberPlayer(player.uuid, player.username)
         val inventory = Inventory(InventoryType.CHEST_3_ROW, Component.text("Gem Shop", NamedTextColor.DARK_AQUA))
-        inventory.setItemStack(11, item(Material.FILLED_MAP, "Paste chunks", NamedTextColor.GOLD, "50 gems per chunk", "Choose a quantity"))
         inventory.setItemStack(
             13,
             item(Material.DIAMOND_PICKAXE, "Mining boost", NamedTextColor.GREEN, "2x–5x for one hour", "500–1500 gems"),
@@ -207,7 +203,6 @@ object Economy {
         when (session.screen) {
             ShopScreen.MAIN -> {
                 when (event.slot) {
-                    11 -> openPasteAmountDialog(player, session)
                     13 -> openBoostSelector(player, session, BoostType.MINING)
                     15 -> openBoostSelector(player, session, BoostType.HASTE)
                     22 -> buyBlockBarrel(player, session)
@@ -227,17 +222,6 @@ object Economy {
         if (event.inventory === session.inventory) sessions.remove(event.player.uuid, session)
     }
 
-    private fun openPasteAmountDialog(
-        player: Player,
-        session: ShopSession,
-    ) {
-        session.inventory = null
-        player.closeInventory()
-        session.screen = ShopScreen.PASTE_AMOUNT
-        session.token = UUID.randomUUID().toString()
-        player.showDialog(amountDialog(session.token))
-    }
-
     private fun openBoostSelector(
         player: Player,
         session: ShopSession,
@@ -252,7 +236,7 @@ object Economy {
     }
 
     private fun onCustomClick(event: PlayerCustomClickEvent) {
-        if (event.key !in setOf(PASTE_AMOUNT_ACTION, PASTE_CONFIRM_ACTION, BOOST_SELECT_ACTION, BOOST_CONFIRM_ACTION, CANCEL_ACTION)) return
+        if (event.key !in setOf(BOOST_SELECT_ACTION, BOOST_CONFIRM_ACTION, CANCEL_ACTION)) return
         val player = event.player
         val session = sessions[player.uuid] ?: return
         val payload = event.payload as? CompoundBinaryTag ?: return
@@ -263,46 +247,9 @@ object Economy {
         }
 
         when (event.key) {
-            PASTE_AMOUNT_ACTION -> handlePasteAmount(player, session, payload.getString(AMOUNT_KEY))
-            PASTE_CONFIRM_ACTION -> confirmPasteOrder(player, session)
             BOOST_SELECT_ACTION -> handleBoostSelection(player, session, payload.getString(AMOUNT_KEY))
             BOOST_CONFIRM_ACTION -> confirmBoost(player, session)
         }
-    }
-
-    private fun handlePasteAmount(
-        player: Player,
-        session: ShopSession,
-        input: String,
-    ) {
-        val amount = input.trim().toIntOrNull()
-        if (amount == null || amount !in 1..1_000 || amount.toLong() > Long.MAX_VALUE / PASTE_CHUNK_COST) {
-            player.sendMessage(Component.text("Enter a whole chunk amount from 1 to 1000.", NamedTextColor.RED))
-            session.token = UUID.randomUUID().toString()
-            player.showDialog(amountDialog(session.token))
-            return
-        }
-        session.amount = amount
-        session.screen = ShopScreen.PASTE_CONFIRM
-        session.token = UUID.randomUUID().toString()
-        player.showDialog(confirmDialog(session.token, "Paste $amount chunk(s)", amount * PASTE_CHUNK_COST))
-    }
-
-    private fun confirmPasteOrder(
-        player: Player,
-        session: ShopSession,
-    ) {
-        if (session.screen != ShopScreen.PASTE_CONFIRM || session.amount <= 0) return
-        val total = session.amount.toLong() * PASTE_CHUNK_COST
-        val transaction = repository.purchase(player.uuid, "paste-chunk:${session.amount}", total)
-        sessions.remove(player.uuid, session)
-        if (transaction == null) {
-            player.sendMessage(Component.text("You need $total gems for that paste-chunk order.", NamedTextColor.RED))
-            return
-        }
-        player.sendMessage(
-            Component.text("Paste-chunk order confirmed for $total gems. Transaction ID: $transaction", NamedTextColor.GREEN),
-        )
     }
 
     private fun handleBoostSelection(
@@ -570,7 +517,7 @@ private class ShopSession(
     var boostType: BoostType? = null,
 )
 
-private enum class ShopScreen { MAIN, PASTE_AMOUNT, PASTE_CONFIRM, BOOST_SELECT, BOOST_CONFIRM, BLOCKS }
+private enum class ShopScreen { MAIN, BOOST_SELECT, BOOST_CONFIRM, BLOCKS }
 
 private enum class BoostType(
     val label: String,
@@ -587,31 +534,6 @@ private enum class BoostType(
             HASTE -> mapOf(1 to 500L, 2 to 1_500L).getValue(multiplier)
         }
 }
-
-private fun amountDialog(token: String): Dialog.Confirmation =
-    Dialog.Confirmation(
-        DialogMetadata(
-            Component.text("Paste chunks", NamedTextColor.GOLD),
-            null,
-            true,
-            false,
-            DialogAfterAction.CLOSE,
-            listOf(DialogBody.PlainMessage(Component.text("Paste chunks cost 50 gems each.", NamedTextColor.GRAY), 260)),
-            listOf(DialogInput.Text(AMOUNT_KEY, 260, Component.text("Chunk amount"), true, "1", 4, null)),
-        ),
-        DialogActionButton(
-            Component.text("Continue", NamedTextColor.GREEN),
-            null,
-            120,
-            DialogAction.DynamicCustom(PASTE_AMOUNT_ACTION, tokenPayload(token)),
-        ),
-        DialogActionButton(
-            Component.text("Cancel", NamedTextColor.RED),
-            null,
-            120,
-            DialogAction.DynamicCustom(CANCEL_ACTION, tokenPayload(token)),
-        ),
-    )
 
 private fun boostSelectorDialog(
     token: String,
@@ -674,10 +596,7 @@ private fun confirmDialog(
             Component.text("Confirm", NamedTextColor.GREEN),
             null,
             120,
-            DialogAction.DynamicCustom(
-                if (product.startsWith("Paste")) PASTE_CONFIRM_ACTION else BOOST_CONFIRM_ACTION,
-                tokenPayload(token),
-            ),
+            DialogAction.DynamicCustom(BOOST_CONFIRM_ACTION, tokenPayload(token)),
         ),
         DialogActionButton(
             Component.text("Cancel", NamedTextColor.RED),
