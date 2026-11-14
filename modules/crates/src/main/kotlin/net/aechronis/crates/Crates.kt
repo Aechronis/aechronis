@@ -111,7 +111,7 @@ object Crates {
         weight: Double,
     ): String? {
         if (item.isAir) return "Hold the reward item in your main hand."
-        if (!weight.isFinite() || weight <= 0.0) return "Weight must be greater than zero."
+        if (weight !in MIN_WEIGHT..MAX_WEIGHT) return "Weight must be between $MIN_WEIGHT and $MAX_WEIGHT."
         if ((crates[id]?.rewards?.size ?: 0) >= MAX_REWARDS) return "A crate holds at most $MAX_REWARDS rewards."
         return edit(id) { it.rewards += CrateReward.of(item, weight) }
     }
@@ -255,7 +255,7 @@ object Crates {
     private fun blockOf(
         instance: Instance,
         position: Point,
-    ) = CrateBlock(instance.getDimensionName(), position.blockX(), position.blockY(), position.blockZ())
+    ) = CrateBlock(instance.uuid.toString(), position.blockX(), position.blockY(), position.blockZ())
 
     private fun itemName(item: ItemStack): Component =
         item.get(DataComponents.CUSTOM_NAME)
@@ -295,4 +295,6 @@ object Crates {
     }
 
     private const val MAX_REWARDS = 54
+    private const val MIN_WEIGHT = 0.001
+    private const val MAX_WEIGHT = 1_000_000.0
 }

@@ -10,6 +10,7 @@ import java.util.Base64
 
 @Serializable
 data class CrateBlock(
+    /** The instance UUID; the primary world's is fixed, so separate instances (duel maps) never share crates. */
     val world: String,
     val x: Int,
     val y: Int,
