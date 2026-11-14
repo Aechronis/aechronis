@@ -62,7 +62,7 @@ export default defineConfig({
       { text: 'Rules', link: '/rules' },
       { text: 'Stats', link: '/stats' },
       { text: 'Bans', link: '/bans' },
-      { text: 'Store', link: '/store' },
+      { text: 'Store', link: 'https://shop.aechronis.net/' }, // temporary: restore '/store' when the in-site store is back
       { text: 'Map', link: 'https://map.aechronis.net/' },
     ],
     sidebar: [
