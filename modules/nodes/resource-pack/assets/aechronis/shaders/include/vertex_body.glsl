@@ -2,17 +2,9 @@ vec2 texSize = textureSize(Sampler0, 0);
 ivec2 uv = ivec2(UV0 * texSize);
 
 const vec2 corners[] = vec2[](vec2(0, 0), vec2(0, 1), vec2(1, 1), vec2(1, 0));
-#ifdef UNREL_ID // We can't rely on gl_VertexID as-is because of merged buffers.
-    #ifdef GL_ARB_shader_draw_parameters
-int idx = gl_VertexID - gl_BaseVertexARB;
-    #else
-int idx = 0;
-    #endif
-#else
-int idx = gl_VertexID;
-#endif
-
-vec2 corner = corners[idx % 4];
+// Only marker quads use corner, and they set it from the control pixel below. Don't read
+// gl_BaseVertexARB here: the 26.2 Vulkan compiler defines the extension macro without the builtin.
+vec2 corner = vec2(0);
 vec4 testColor = texelFetch(Sampler0, uv, 0);
 int idTex = id(uv);
 int controlVertex = int(round(testColor.r * 255));
