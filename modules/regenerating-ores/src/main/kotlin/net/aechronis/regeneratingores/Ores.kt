@@ -20,6 +20,7 @@ import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.item.ItemStack
+import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.timer.TaskSchedule
 import java.io.ByteArrayInputStream
@@ -268,9 +269,11 @@ object Ores {
             } else {
                 config.blocksConfig.blockDrops[material] ?: listOf(ItemStack.of(material))
             }
-        val dropPos = event.blockPosition.add(0.5, 0.5, 0.5).asPos()
+        val inOutpost = autoOreArea?.invoke(location.world, location.x, location.z) == true
         var dropped = false
-        for (stack in drops) {
+        for (drop in drops) {
+            val smelted = if (inOutpost) OUTPOST_SMELTED[drop.material()] else null
+            val stack = if (smelted != null) drop.withMaterial(smelted) else drop
             if (!stack.isAir && stack.amount() > 0) {
                 BlockDrops.giveOrDrop(player, instance, stack)
                 dropped = true
@@ -502,6 +505,29 @@ object Ores {
     }
 
     private const val OUTPOST_ORE_SECONDS = 6L * 60 * 60
+
+    /** Mining outposts drop the smelted item in place of the ore block. */
+    private val OUTPOST_SMELTED =
+        mapOf(
+            Material.COAL_ORE to Material.COAL,
+            Material.DEEPSLATE_COAL_ORE to Material.COAL,
+            Material.IRON_ORE to Material.IRON_INGOT,
+            Material.DEEPSLATE_IRON_ORE to Material.IRON_INGOT,
+            Material.COPPER_ORE to Material.COPPER_INGOT,
+            Material.DEEPSLATE_COPPER_ORE to Material.COPPER_INGOT,
+            Material.GOLD_ORE to Material.GOLD_INGOT,
+            Material.DEEPSLATE_GOLD_ORE to Material.GOLD_INGOT,
+            Material.NETHER_GOLD_ORE to Material.GOLD_INGOT,
+            Material.REDSTONE_ORE to Material.REDSTONE,
+            Material.DEEPSLATE_REDSTONE_ORE to Material.REDSTONE,
+            Material.LAPIS_ORE to Material.LAPIS_LAZULI,
+            Material.DEEPSLATE_LAPIS_ORE to Material.LAPIS_LAZULI,
+            Material.DIAMOND_ORE to Material.DIAMOND,
+            Material.DEEPSLATE_DIAMOND_ORE to Material.DIAMOND,
+            Material.EMERALD_ORE to Material.EMERALD,
+            Material.DEEPSLATE_EMERALD_ORE to Material.EMERALD,
+            Material.NETHER_QUARTZ_ORE to Material.QUARTZ,
+        )
     private const val COOLDOWN_SAVE_INTERVAL_MILLIS = 60_000L
     private const val MAX_REACH = 6.0
     private const val TRANSIENT_STATE_VERSION = 1
