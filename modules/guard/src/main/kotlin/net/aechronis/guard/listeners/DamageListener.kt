@@ -17,6 +17,16 @@ object DamageListener {
         Guard.check(victim, position.blockX(), position.blockY(), position.blockZ(), flag) {
             event.isCancelled = true
         }
+        if (event.isCancelled) return
+
+        // A player standing in a zone that denies this damage cannot deal it to
+        // anyone outside either, e.g. shooting out of a safe zone.
+        val attacker = event.damage.attacker as? Player ?: return
+        if (attacker === victim) return
+        val origin = attacker.position
+        Guard.check(attacker, origin.blockX(), origin.blockY(), origin.blockZ(), flag) {
+            event.isCancelled = true
+        }
     }
 
     private fun flagFor(event: EntityDamageEvent): FlagName =
