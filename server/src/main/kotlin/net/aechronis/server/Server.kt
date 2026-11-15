@@ -16,6 +16,7 @@ import net.aechronis.server.resourcepack.ResourcePackServer
 import net.aechronis.server.tasks.ChunkUnloader
 import net.aechronis.server.tasks.TickWatchdog
 import net.aechronis.server.tasks.WorldSaver
+import net.aechronis.server.world.PlacementRuleFixes
 import net.aechronis.server.world.TrackedChunk
 import net.aechronis.server.world.TrackedChunkLoader
 import net.minestom.server.Auth
@@ -236,6 +237,7 @@ private fun startMinecraftServer(
     SignedVelocity.initialize()
 
     BlockPlacementRuleRegistrations.registerDefault()
+    PlacementRuleFixes.register()
     // Concrete powder's water check reads neighbouring blocks during chunk loads, where its own chunk
     // is not registered yet; the exception aborted the load and the chunk went missing.
     BlockBehaviorRuleRegistrations.register(

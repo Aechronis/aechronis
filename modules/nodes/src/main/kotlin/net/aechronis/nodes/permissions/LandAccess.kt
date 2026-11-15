@@ -45,7 +45,9 @@ private class WorldLandAccessContext(
     override val outpost: Boolean get() = Outposts.contains(territory)
     override val wildernessAllowed: Boolean get() = hasWildernessPermissions(territory)
     override val bypass: Boolean get() = checkNotNull(resident).hasTownPermissionBypass()
-    override val interactiveBlock: Boolean get() = INTERACTIVE_BLOCKS.any { checkNotNull(block).compare(it) }
+
+    // No block means an entity interaction (item frames), which always goes through town permissions.
+    override val interactiveBlock: Boolean get() = block == null || INTERACTIVE_BLOCKS.any { block.compare(it) }
     override val warzonePermission: Boolean?
         get() = warzoneTown?.let { hasTownPermissions(action.permission, it, checkNotNull(resident)) }
     override val warAllowed: Boolean
