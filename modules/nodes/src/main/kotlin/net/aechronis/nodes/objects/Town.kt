@@ -197,7 +197,7 @@ class Town(
             }
             town.coatOfArmsUrl = coatOfArmsUrl
             town.aiConfig = aiConfig
-            town.lives = lives?.coerceAtLeast(0) ?: 1
+            town.lives = (lives?.coerceAtLeast(0) ?: 1).coerceAtMost(maxLives(town))
             town.capitalLifeGranted = capitalLifeGranted
             town.lifeRevision = lifeRevision.coerceAtLeast(0L)
             towns[name] = town
@@ -205,8 +205,11 @@ class Town(
             town
         }
 
+        // AI towns are always on their final life.
+        private fun maxLives(town: Town): Int = if (town.isAi) 1 else Int.MAX_VALUE
+
         internal fun initializeCapitalLives(town: Town) {
-            if (town.capitalLifeGranted) return
+            if (town.capitalLifeGranted || town.isAi) return
             if (town.lives < 2) town.lives = 2
             town.capitalLifeGranted = true
             town.lifeRevision++
@@ -222,6 +225,7 @@ class Town(
         }
 
         internal fun regainLife(town: Town): Int {
+            if (town.lives >= maxLives(town)) return town.lives
             town.lives++
             town.lifeRevision++
             town.markChanged()
@@ -230,6 +234,7 @@ class Town(
 
         fun setLives(town: Town, lives: Int) {
             require(lives > 0) { "Town lives must be at least 1" }
+            require(lives <= maxLives(town)) { "AI towns can only have 1 life" }
             if (town.lives == lives) return
             town.lives = lives
             town.lifeRevision++
@@ -244,7 +249,7 @@ class Town(
             revision: Long,
         ) {
             if (revision <= town.lifeRevision) return
-            val restoredLives = lives.coerceAtLeast(0)
+            val restoredLives = lives.coerceIn(0, maxLives(town))
             town.lives = restoredLives
             town.capitalLifeGranted = capitalLifeGranted
             town.lifeRevision = revision
@@ -649,6 +654,11 @@ class Town(
             config.requireRegisteredItems()
             if (town.aiConfig == config) return
             town.aiConfig = config
+            if (town.lives > maxLives(town)) {
+                town.lives = maxLives(town)
+                town.lifeRevision++
+                FlagWar.needsSave = true
+            }
             town.markChanged()
         }
 

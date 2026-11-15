@@ -180,6 +180,10 @@ class NodesAdminTownLivesCommand : NodesCommand("lives", "nodes.admin") {
             }
 
             val town = context[townArg]
+            if (town.isAi && lives > 1) {
+                Message.error(player, "AI towns can only have 1 life")
+                return@addSyntax
+            }
             Town.setLives(town, lives)
             Message.print(player, "Set ${town.name}'s remaining lives to $lives")
         }, townArg, livesArg)
