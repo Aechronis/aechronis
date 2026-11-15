@@ -2,6 +2,7 @@ package net.aechronis.grimac
 
 import ac.grim.grimac.GrimAPI
 import ac.grim.grimac.platform.minestom.GrimMinestom
+import com.github.retrooper.packetevents.PacketEvents
 import net.aechronis.server.Permissions
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleCommands
@@ -55,8 +56,11 @@ class GrimModule : AechronisModule {
 
         /** Applies a disabler change now instead of at Grim's next periodic permission refresh. */
         fun refresh(player: Player) {
+            // Grim's UUID lookup relies on PacketEvents seeing login success, which happens before the
+            // Minestom transport attaches, so it never finds anyone. Resolve through the connection instead.
+            val user = PacketEvents.getAPI().playerManager.getUser(player) ?: return
             GrimAPI.INSTANCE.playerDataManager
-                .getPlayer(player.uuid)
+                .getPlayer(user)
                 ?.updatePermissions()
         }
     }
