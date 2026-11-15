@@ -2,6 +2,7 @@ package net.aechronis.chat.commands
 
 import net.aechronis.chat.Chat.isBlocked
 import net.aechronis.chat.Chat.sendMessage
+import net.aechronis.chat.ChatFilter
 import net.aechronis.utils.Command
 import net.aechronis.vanilla.commands.PlayerTargets
 import net.kyori.adventure.text.Component
@@ -24,6 +25,7 @@ class Message : Command("message", null, "msg", "tell", "whisper", "w") {
             val message = context[messageArg].joinToString(" ")
             val targets = PlayerTargets.resolve(sender, context[playerArg]) ?: return@addSyntax
             if (context[playerArg] == "*") {
+                if (ChatFilter.blocks(sender, message)) return@addSyntax
                 targets.filter { !isBlocked(sender, it) }.forEach { target ->
                     target.sendMessage(Component.text("${sender.username} Whispered: $message").color(NamedTextColor.LIGHT_PURPLE))
                 }
