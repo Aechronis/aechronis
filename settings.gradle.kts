@@ -69,6 +69,7 @@ include(
     ":modules:stats",
     ":modules:guard",
     ":modules:duels",
+    ":modules:printer",
     ":modules:iterations:a-new-millenium",
     ":modules:iterations:victorian-era",
 )

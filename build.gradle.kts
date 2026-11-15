@@ -124,6 +124,7 @@ val runtimeModuleProjects =
         ":modules:guard",
         ":modules:economy",
         ":modules:duels",
+        ":modules:printer",
         ":modules:tebex",
         ":modules:votifier",
         ":modules:stats",

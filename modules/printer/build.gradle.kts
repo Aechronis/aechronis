@@ -1,0 +1,9 @@
+plugins {
+    alias(libs.plugins.kotlin.jvm)
+}
+
+dependencies {
+    compileOnly(project(":modules:utils"))
+    compileOnly(project(":modules:grimac"))
+    compileOnly(project(":modules:combat"))
+}
