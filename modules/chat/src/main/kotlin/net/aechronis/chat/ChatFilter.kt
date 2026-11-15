@@ -117,6 +117,13 @@ object ChatFilter {
         word: String,
     ): Boolean {
         if (suffixes(word).any { token == word + it }) return true
+        // Silent "e" drops before vowel suffixes ("raped", "raping").
+        if (word.endsWith("e") &&
+            token.startsWith(word.dropLast(1)) &&
+            token.drop(word.length - 1) in listOf("ed", "er", "ers", "ing", "in")
+        ) {
+            return true
+        }
         // Stretched spellings ("fuuuck"); skipped for short words so "as" never matches "ass".
         val squeezedWord = squeeze(word)
         return squeezedWord.length >= 4 && suffixes(word).any { squeeze(token) == squeezedWord + it }
