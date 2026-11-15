@@ -30,7 +30,9 @@ object ThrowableImpacts {
         damage: Float,
         fire: Double = 0.0,
         ammoType: AmmoTypes? = AmmoTypes.EXPLOSIVE,
+        maxBlocks: Int = Int.MAX_VALUE,
     ): (ThrowableImpact) -> Unit {
+        require(maxBlocks >= 0) { "Explosion maxBlocks must be non-negative" }
         require(radius >= 0) { "Explosion radius must be non-negative" }
         require(damage >= 0f) { "Explosion damage must be non-negative" }
         require(fire.isFinite() && fire in 0.0..1.0) { "Explosion fire must be between 0 and 1" }
@@ -46,6 +48,7 @@ object ThrowableImpacts {
                     source = impact.thrower as? Player,
                     weapon = impact.throwable.itemName,
                     ammoType = ammoType,
+                    maxBlocks = maxBlocks,
                 )
             } else {
                 Explosion.againstTargets(

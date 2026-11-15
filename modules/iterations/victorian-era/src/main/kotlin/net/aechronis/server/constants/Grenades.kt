@@ -16,7 +16,7 @@ object Grenades {
             projectileModel = "aechronis:cast-iron-ball-grenade",
             throwSpeed = 1.0,
             gravity = 0.05,
-            onImpact = ThrowableImpacts.explosion(radius = 2, damage = 35F, ammoType = AmmoTypes.EXPLOSIVE),
+            onImpact = ThrowableImpacts.explosion(radius = 2, damage = 35F, ammoType = AmmoTypes.EXPLOSIVE, maxBlocks = 1),
         )
 
     val all: List<Throwable> = listOf(castIronBall)

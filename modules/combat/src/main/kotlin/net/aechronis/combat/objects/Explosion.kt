@@ -42,6 +42,8 @@ class Explosion private constructor(
     private val attacker: Entity? = source,
     /** When set, the blast only hurts these entities and leaves blocks intact. */
     private val validTargets: Set<Entity>? = null,
+    /** Caps how many blocks the blast breaks, keeping the ones closest to [pos]. */
+    private val maxBlocks: Int = Int.MAX_VALUE,
 ) {
     constructor(
         instance: Instance,
@@ -52,7 +54,8 @@ class Explosion private constructor(
         source: Player? = null,
         weapon: Component? = null,
         ammoType: AmmoTypes? = null,
-    ) : this(instance, pos, radius, fire, damage, source, weapon, ammoType, false)
+        maxBlocks: Int = Int.MAX_VALUE,
+    ) : this(instance, pos, radius, fire, damage, source, weapon, ammoType, false, maxBlocks = maxBlocks)
 
     init {
         // Take the snapshot before block destruction starts so damage and terrain changes use
@@ -152,6 +155,8 @@ class Explosion private constructor(
             blocks
                 .filterValues { block -> !block.air() && !isExplosionProof(block) }
                 .keys
+                .sortedBy { distanceToBlock(it, pos) }
+                .take(maxBlocks)
                 .toCollection(LinkedHashSet())
         val changes =
             affectedBlocks
