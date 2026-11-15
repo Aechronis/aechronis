@@ -204,7 +204,7 @@ function bootMap(initial) {
   // not the values, so they automatically pick up the new objects after
   // a data refresh reassigns.
   let data = initial.data;
-  const fileMeta = initial.meta;  // { towns, war, buildings } → { etag, lastMod }
+  const fileMeta = initial.meta;  // { towns, war, buildings, outposts } → { etag, lastMod }
 
   let index;
   let nationLabels;
@@ -467,9 +467,12 @@ function bootMap(initial) {
   function renderNationPanel(hit) {
     const title = document.getElementById('nation-title');
     if (hit.ownerName == null) {
-      title.textContent = 'Unclaimed land';
+      const outpost = hit.style.outpost;
+      title.textContent = outpost ? 'Mining outpost' : 'Unclaimed land';
       nationPanel.classList.remove('empty');
-      nationPanel.innerHTML = '<div class="subtitle">This territory is unclaimed.</div>';
+      nationPanel.innerHTML = outpost
+        ? '<div class="subtitle">This territory is a mining outpost and cannot be claimed.</div>'
+        : '<div class="subtitle">This territory is unclaimed.</div>';
       return;
     }
     const style = index.townStyle.get(hit.ownerName);
@@ -572,7 +575,7 @@ function bootMap(initial) {
         <dt>Territories</dt><dd>${(town.territories || []).length}</dd>
       </dl>
     ` : `
-      <h2>Unclaimed</h2>
+      <h2>${hit.style.outpost ? 'Mining outpost' : 'Unclaimed'}</h2>
       <div class="subtitle">No town owns this territory.</div>
     `;
 
@@ -606,7 +609,7 @@ function bootMap(initial) {
     territoryPanel.innerHTML = `
       <h2>Territory: ${escapeHtml(tname)}</h2>
       <dl>
-        <dt>Owner</dt><dd>${escapeHtml(hit.ownerName || 'Unclaimed')}</dd>
+        <dt>Owner</dt><dd>${escapeHtml(hit.ownerName || (hit.style.outpost ? 'Mining outpost' : 'Unclaimed'))}</dd>
         ${hit.occupier ? `<dt>Territory occupier</dt><dd>${escapeHtml(hit.occupier)}</dd>` : ''}
         ${hit.chunkOccupier ? `<dt>Chunk controller</dt><dd>${escapeHtml(hit.chunkOccupier)}</dd>` : ''}
         <dt>Size</dt><dd>${sizeChunks} chunks</dd>
@@ -1397,10 +1400,10 @@ function bootMap(initial) {
   // so unchanged town data is not re-downloaded on every tick. Once startup
   // succeeds, world.json is treated as static and never re-fetched.
   const REFRESH_INTERVAL_MS = 30_000;
-  const REFRESH_FILES = ['towns', 'war', 'buildings'];
-  // war.json may be 404 (no active war); buildings.json may be 404 too.
+  const REFRESH_FILES = ['towns', 'war', 'buildings', 'outposts'];
+  // war.json may be 404 (no active war); buildings.json and outposts.json may be 404 too.
   // For those, a 404 transitions the in-memory copy to `null` exactly once.
-  const REFRESH_OPTIONAL = new Set(['war', 'buildings']);
+  const REFRESH_OPTIONAL = new Set(['war', 'buildings', 'outposts']);
 
   async function fetchIfChanged(name) {
     const update = await fetchJsonUpdate(`nodes/${name}.json`, fileMeta[name], {
@@ -1474,7 +1477,7 @@ function bootMap(initial) {
       const rebuildTerritories = ownershipChanged(data, newData);
       const rebuildBuildings = data.buildings !== newData.buildings;
       const prepared = rebuildTerritories ? await preparation.call('prepare', {
-        towns: newData.towns, war: newData.war, buildings: newData.buildings,
+        towns: newData.towns, war: newData.war, buildings: newData.buildings, outposts: newData.outposts,
       }) : null;
       data = newData;
       if (rebuildTerritories) {

@@ -1,6 +1,7 @@
 import { wrapX } from './world-wrap.mjs';
 const BLOCKS_PER_CHUNK = 16;
 const UNCLAIMED_TERRITORY_COLOR = [120, 120, 120];
+const OUTPOST_TERRITORY_COLOR = [139, 94, 52];
 const NATION_FONT = 'Cormorant Garamond';
 const PACK_OFFSET = 0x80000;
 const PACK_STRIDE = 0x100000;
@@ -144,7 +145,7 @@ function chunkCanvas(w, h) {
 }
 
 // --- Data indexing -------------------------------------------------------
-function buildIndex({ towns, world, war }, previous) {
+function buildIndex({ towns, world, war, outposts }, previous) {
   // Any of these may be null when the corresponding node file is absent;
   // default to empty objects so the index contains whatever data is available
   // instead of throwing on `.nations` / `.territories` access.
@@ -241,9 +242,14 @@ function buildIndex({ towns, world, war }, previous) {
     }
   }
   const unclaimedStyle = { name: null, nation: null, color: UNCLAIMED_TERRITORY_COLOR };
+  // Mining outposts are unclaimable, so they only ever replace the unclaimed style.
+  const outpostStyle = { name: null, nation: null, color: OUTPOST_TERRITORY_COLOR, outpost: true };
+  const outpostIds = new Set((Array.isArray(outposts) ? outposts : []).map(Number));
   for (const [rawTid, territory] of Object.entries(world.territories || {})) {
     const tid = +rawTid;
-    if (!territoryStyle.has(tid)) addTerritory(tid, territory, null, unclaimedStyle);
+    if (!territoryStyle.has(tid)) {
+      addTerritory(tid, territory, null, outpostIds.has(tid) ? outpostStyle : unclaimedStyle);
+    }
   }
 
   owner.finish();

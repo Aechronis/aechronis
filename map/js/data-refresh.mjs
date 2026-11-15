@@ -51,6 +51,8 @@ export function ownershipChanged(previous, next) {
     && (!sameOwnershipRecords(previous.towns?.towns || {}, next.towns?.towns || {}, 'territories')
       || !sameOwnershipRecords(previous.towns?.nations || {}, next.towns?.nations || {}, 'towns')
       || !sameNationColors(previous.towns?.nations, next.towns?.nations)))
+    || (previous.outposts !== next.outposts
+      && JSON.stringify(previous.outposts || []) !== JSON.stringify(next.outposts || []))
     || (previous.war !== next.war
       && (JSON.stringify(previous.war?.occupied || {}) !== JSON.stringify(next.war?.occupied || {})
         || JSON.stringify(previous.war?.territoryOccupations || {}) !== JSON.stringify(next.war?.territoryOccupations || {})));
