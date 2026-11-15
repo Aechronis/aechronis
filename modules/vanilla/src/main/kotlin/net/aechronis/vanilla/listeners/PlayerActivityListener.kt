@@ -9,18 +9,25 @@ import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerCommandEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 object PlayerActivityListener {
+    // Players whose join was announced; a failed login never spawns and must not announce a leave.
+    private val announced = ConcurrentHashMap.newKeySet<UUID>()
+
     fun onPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
         event.player.gameMode = Vanilla.config.defaultGameMode
     }
 
     fun onSpawn(event: PlayerSpawnEvent) {
         if (!event.isFirstSpawn) return
+        announced.add(event.player.uuid)
         announce("[+] ${event.player.username}")
     }
 
     fun onDisconnect(event: PlayerDisconnectEvent) {
+        if (!announced.remove(event.player.uuid)) return
         announce("[-] ${event.player.username}")
     }
 
@@ -42,6 +49,8 @@ object PlayerActivityListener {
     }
 
     fun init() {
+        // Players already online when the module (re)loads joined before this listener existed.
+        MinecraftServer.getConnectionManager().onlinePlayers.forEach { announced.add(it.uuid) }
         Vanilla.eventNode.addListener(AsyncPlayerConfigurationEvent::class.java, PlayerActivityListener::onPlayerConfiguration)
         Vanilla.eventNode.addListener(PlayerSpawnEvent::class.java, PlayerActivityListener::onSpawn)
         Vanilla.eventNode.addListener(PlayerDisconnectEvent::class.java, PlayerActivityListener::onDisconnect)
