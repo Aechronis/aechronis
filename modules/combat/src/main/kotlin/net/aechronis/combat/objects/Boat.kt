@@ -130,7 +130,7 @@ open class Boat(
         val floatedPosition = pos.withY(getVehicleY(pos.y))
         val waterBlockY = floor(pos.y - 1.0).toInt()
         return footprintSamplePoints(floatedPosition).all { (x, z) ->
-            loadedBlock(instance, floor(x).toInt(), waterBlockY, floor(z).toInt())?.compare(Block.WATER) == true
+            loadedBlock(instance, floor(x).toInt(), waterBlockY, floor(z).toInt())?.let(::isWater) == true
         } &&
             hasSolidClearance(instance, floatedPosition) &&
             hasVehicleClearance(instance, floatedPosition)
@@ -196,7 +196,7 @@ open class Boat(
 
         for (y in startY downTo endY) {
             val block = loadedBlock(instance, floor(x).toInt(), y, floor(z).toInt()) ?: return null
-            if (block.compare(Block.WATER)) return (y + 1).toDouble()
+            if (isWater(block)) return (y + 1).toDouble()
             if (block.solid()) return null
         }
 
@@ -456,6 +456,13 @@ open class Boat(
     }
 
     companion object {
+        /** Blocks that keep a water surface, such as kelp reaching the top of the sea, float boats like water. */
+        private val WATER_PLANTS =
+            setOf(Block.KELP, Block.KELP_PLANT, Block.SEAGRASS, Block.TALL_SEAGRASS, Block.BUBBLE_COLUMN).map { it.id() }.toSet()
+
+        private fun isWater(block: Block): Boolean =
+            block.id() == Block.WATER.id() || block.id() in WATER_PLANTS || block.properties()["waterlogged"] == "true"
+
         private fun weaponParts(weapons: List<BoatWeapon>): List<AnimatedPart> =
             weapons.mapIndexed { index, weapon ->
                 AnimatedPart(
