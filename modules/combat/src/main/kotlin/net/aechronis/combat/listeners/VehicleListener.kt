@@ -11,6 +11,7 @@ import net.aechronis.combat.objects.VehicleDisplayEntity
 import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.objects.VehicleSeatHotbar
 import net.aechronis.combat.tasks.VehicleInteractionTracker
+import net.aechronis.combat.tasks.VehicleTarget
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Player
@@ -18,6 +19,7 @@ import net.minestom.server.entity.PlayerHand
 import net.minestom.server.event.entity.EntityDespawnEvent
 import net.minestom.server.event.instance.RemoveEntityFromInstanceEvent
 import net.minestom.server.event.player.PlayerEntityInteractEvent
+import net.minestom.server.event.player.PlayerHandAnimationEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.event.player.PlayerUseItemOnBlockEvent
 import net.minestom.server.instance.Instance
@@ -69,20 +71,34 @@ object VehicleListener {
         if (VehicleRegistry.ride(event.player) == null) enterLookedAtVehicle(event.player)
     }
 
+    // Left-clicking an unoccupied vehicle packs it back into an item. Every left click
+    // swings, whether it lands on a collision shulker, a block, or empty air.
+    private fun onPlayerHandAnimation(event: PlayerHandAnimationEvent) {
+        if (event.hand != PlayerHand.MAIN) return
+        val player = event.player
+        Vehicle.reconcileOccupant(player)
+        if (VehicleRegistry.ride(player) != null) return
+        val target = lookedAtVehicle(player) ?: return
+        target.vehicle.pickUp(player, target.entity)
+    }
+
     private fun enterLookedAtVehicle(player: Player): Boolean {
-        val instance = player.instance ?: return false
+        val target = lookedAtVehicle(player) ?: return false
+        target.vehicle.board(player, target.entity)
+        return true
+    }
+
+    private fun lookedAtVehicle(player: Player): VehicleTarget? {
+        val instance = player.instance ?: return null
         val eye = player.position.add(0.0, player.eyeHeight, 0.0)
         // A shulker may intercept the client's click. Selection still uses the original
         // detailed hitbox and reach, including when the physical hull is larger.
-        val target =
-            VehicleInteractionTracker.findLookedAtVehicle(
-                instance,
-                eye,
-                eye.direction().mul(VehicleInteractionTracker.INTERACTION_DISTANCE),
-                VehicleInteractionTracker.prepareVehicleLookIndex(VehicleRegistry.all().map { it.entity to it.vehicle }),
-            ) ?: return false
-        target.vehicle.board(player, target.entity)
-        return true
+        return VehicleInteractionTracker.findLookedAtVehicle(
+            instance,
+            eye,
+            eye.direction().mul(VehicleInteractionTracker.INTERACTION_DISTANCE),
+            VehicleInteractionTracker.prepareVehicleLookIndex(VehicleRegistry.all().map { it.entity to it.vehicle }),
+        )
     }
 
     internal fun findWaterPlacementPosition(
@@ -121,6 +137,7 @@ object VehicleListener {
         Combat.eventNode.addListener(PlayerUseItemOnBlockEvent::class.java, VehicleListener::onPlayerUseItemOnBlock)
         Combat.eventNode.addListener(PlayerUseItemEvent::class.java, VehicleListener::onPlayerUseItem)
         Combat.eventNode.addListener(PlayerEntityInteractEvent::class.java, VehicleListener::onPlayerEntityInteract)
+        Combat.eventNode.addListener(PlayerHandAnimationEvent::class.java, VehicleListener::onPlayerHandAnimation)
         Combat.eventNode.addListener(EntityDespawnEvent::class.java, VehicleListener::onEntityDespawn)
         Combat.eventNode.addListener(RemoveEntityFromInstanceEvent::class.java, VehicleListener::onEntityRemovedFromInstance)
     }

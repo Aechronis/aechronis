@@ -4,6 +4,7 @@ import net.aechronis.combat.Combat
 import net.aechronis.combat.constants.Tags
 import net.aechronis.combat.events.VehicleSpawnEvent
 import net.aechronis.combat.listeners.KeyPressListener
+import net.aechronis.combat.tasks.VehicleInteractionTracker
 import net.aechronis.combat.utils.Message
 import net.aechronis.combat.utils.Mounts
 import net.aechronis.combat.utils.VehicleCameraDistance
@@ -14,6 +15,7 @@ import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
+import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -25,7 +27,9 @@ import net.minestom.server.instance.block.Block
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.timer.TaskSchedule
+import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.roundToInt
 
 open class Vehicle(
     name: String,
@@ -256,15 +260,7 @@ open class Vehicle(
 
                     // cancel placing if player changes item their holding
                     if (player.itemInMainHand.getTag(Tags.name) != name) {
-                        player.showTitle(
-                            Title.title(
-                                Component.empty(),
-                                Component.text("✕").color(TextColor.color(0.5F, 0F, 0F)).shadowColor(ShadowColor.none()),
-                                0,
-                                2,
-                                10,
-                            ),
-                        )
+                        showCancelled(player)
                         Combat.playerStates[player]?.cancelPlacement()
                         return@buildTask
                     }
@@ -274,39 +270,131 @@ open class Vehicle(
                         // Another vehicle or obstacle may have entered the area during placement.
                         val instance = player.instance
                         if (instance != null && canPlaceAt(instance, pos)) {
-                            spawn(player, pos)
-
                             val held = player.itemInMainHand
+                            val entity = spawn(player, pos)
+                            itemHealth(held)?.let { VehicleRegistry.runtime(entity)?.restore(it, null) }
+
                             player.itemInMainHand =
                                 if (held.amount() <= 1) ItemStack.AIR else held.withAmount(held.amount() - 1)
                         } else {
-                            player.showTitle(
-                                Title.title(
-                                    Component.empty(),
-                                    Component.text("✕").color(TextColor.color(0.5F, 0F, 0F)).shadowColor(ShadowColor.none()),
-                                    0,
-                                    2,
-                                    10,
-                                ),
-                            )
+                            showCancelled(player)
                         }
 
                         Combat.playerStates[player]?.cancelPlacement()
                     } else {
-                        player.showTitle(
-                            Title.title(
-                                Component.empty(),
-                                Message.progressBar(progress).shadowColor(ShadowColor.none()),
-                                0,
-                                3,
-                                10,
-                            ),
-                        )
+                        showProgress(player, progress)
                     }
                 }.delay(TaskSchedule.millis(100))
                 .repeat(TaskSchedule.millis(100))
                 .schedule()
     }
+
+    // ===================
+    // PICK UP FUNCTIONS
+    // ===================
+
+    /** Starts packing up an unoccupied vehicle; after [placeTime] it returns to [player]'s inventory as an item. */
+    fun pickUp(
+        player: Player,
+        entity: Entity,
+    ): Boolean {
+        if (Combat.playerStates[player]?.placeTask != null) return false // already placing or picking up
+        if (Mounts.isMounted(player)) {
+            Mounts.showBlocked(player)
+            return false
+        }
+        if (VehicleRegistry.runtime(entity)?.vehicle !== this) return false
+        if (VehicleRegistry.ridesOf(entity).isNotEmpty()) {
+            showCancelled(player)
+            return false
+        }
+
+        runPickUpTask(player, entity)
+
+        return true
+    }
+
+    private fun runPickUpTask(
+        player: Player,
+        entity: Entity,
+    ) {
+        var time = placeTime
+
+        Combat.playerStates.getOrCreate(player).placeTask =
+            ModuleScheduler
+                .buildTask {
+                    time -= 100
+                    val progress: Double = 1.0 - (time.toDouble() / placeTime.toDouble())
+
+                    // cancel if the vehicle is gone, someone boards it, or the player looks away
+                    if (VehicleRegistry.runtime(entity)?.vehicle !== this ||
+                        VehicleRegistry.ridesOf(entity).isNotEmpty() ||
+                        VehicleInteractionTracker[player]?.entity !== entity
+                    ) {
+                        showCancelled(player)
+                        Combat.playerStates[player]?.cancelPlacement()
+                        return@buildTask
+                    }
+
+                    if (time <= 0) {
+                        val stack = toItemStack(VehicleRegistry.runtime(entity)?.health)
+                        unload(entity)
+                        if (!player.inventory.addItemStack(stack)) player.dropItem(stack)
+                        Combat.playerStates[player]?.cancelPlacement()
+                    } else {
+                        showProgress(player, progress)
+                    }
+                }.delay(TaskSchedule.millis(100))
+                .repeat(TaskSchedule.millis(100))
+                .schedule()
+    }
+
+    /** A vehicle item carrying [health] as vanilla durability; undamaged vehicles stay plain, stackable items. */
+    fun toItemStack(health: Float?): ItemStack {
+        val maxHealth = this.health?.maxHealth ?: return toItemStack()
+        if (health == null || !health.isFinite() || health >= maxHealth) return toItemStack()
+        val maxDamage = ceil(maxHealth).toInt()
+        if (maxDamage < 2) return toItemStack()
+        // A live vehicle always has some health left, so never let the item round down to broken.
+        val damage = ((1f - health / maxHealth) * maxDamage).roundToInt().coerceIn(1, maxDamage - 1)
+        return toItemStack()
+            .withMaxStackSize(1)
+            .with(DataComponents.MAX_DAMAGE, maxDamage)
+            .with(DataComponents.DAMAGE, damage)
+    }
+
+    /** The health stored on a picked-up vehicle item, or null for a fresh one. */
+    internal fun itemHealth(item: ItemStack): Float? {
+        val maxHealth = health?.maxHealth ?: return null
+        val maxDamage = item.get(DataComponents.MAX_DAMAGE)?.takeIf { it > 0 } ?: return null
+        val damage = item.get(DataComponents.DAMAGE) ?: return null
+        // Scale by the item's own maximum so items survive a change to the vehicle's configured health.
+        return maxHealth * (1f - damage.toFloat() / maxDamage)
+    }
+
+    private fun showProgress(
+        player: Player,
+        progress: Double,
+    ) = player.showTitle(
+        Title.title(
+            Component.empty(),
+            Message.progressBar(progress).shadowColor(ShadowColor.none()),
+            0,
+            3,
+            10,
+        ),
+    )
+
+    private fun showCancelled(player: Player) =
+        player.showTitle(
+            Title.title(
+                Component.empty(),
+                Component.text("✕").color(TextColor.color(0.5F, 0F, 0F)).shadowColor(ShadowColor.none()),
+                0,
+                2,
+                10,
+            ),
+        )
 
     fun spawn(
         player: Player,
