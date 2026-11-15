@@ -41,6 +41,8 @@ object Chat {
             return
         }
 
+        if (ChatFilter.blocks(sender, message)) return
+
         if (isBlocked(sender, receiver)) {
             sender.sendMessage(Component.text("You can't message this player.", NamedTextColor.RED))
             return
