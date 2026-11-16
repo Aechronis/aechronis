@@ -72,6 +72,11 @@ private val BLOCKED_MATERIAL_KEYS: Set<String> =
         // Summons the Wither when 4 placed in a T with soul sand/soil -- the one purchasable
         // material that lets a player skip a real boss-fight gate entirely, not just skip mining.
         "wither_skeleton_skull",
+        // Food blocks: the shop sells building blocks, not a way to skip farming.
+        "cake",
+        "melon",
+        "pumpkin",
+        "wheat",
     )
 
 private fun isBlockedKey(key: String): Boolean =
