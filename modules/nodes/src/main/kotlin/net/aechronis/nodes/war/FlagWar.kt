@@ -358,7 +358,7 @@ object FlagWar {
         capturedTerritory: Territory,
     ): Boolean = rules.shouldAnnexTown(defeatedTown, capturedTerritory)
 
-    internal fun chunkAlreadyCaptured(chunk: TerritoryChunk, territory: Territory, attackingTown: Town): Boolean = rules.chunkAlreadyCaptured(chunk, territory, attackingTown)
+    internal fun chunkAlreadyCaptured(chunk: TerritoryChunk, territory: Territory, attackingTown: Town, mode: AttackMode): Boolean = rules.chunkAlreadyCaptured(chunk, territory, attackingTown, mode)
 
     internal fun chunkAlreadyColonizedBy(
         chunk: TerritoryChunk,

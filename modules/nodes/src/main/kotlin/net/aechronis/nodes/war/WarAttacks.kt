@@ -55,9 +55,9 @@ internal class WarAttacks(
         if (mode == AttackMode.WARZONE) {
             // Warzones may be on unclaimed territory; there the holder is whoever occupies it.
             if (!Warzone.isActive(territory) || attackingTown.nation == null) return Result.failure(ErrorNotEnemy)
-            // The owner's side has nothing to retake while no enemy occupies the chunk or territory.
-            // areAllied covers the same town, the same nation and allied nations, and is false when unclaimed.
-            val ownerSide = Town.areAllied(attackingTown, territoryTown)
+            // The owner's nation has nothing to retake while nobody else occupies the chunk or territory.
+            // Its allies are not on its side here, and nobody is while the territory is unclaimed.
+            val ownerSide = rules.sameSide(mode, attackingTown, territoryTown)
             if (ownerSide && territory.occupier == null && chunk.occupier == null) return Result.failure(ErrorAlreadyCaptured)
         } else if (territoryTown === null) {
             // check chunk has a town
@@ -98,7 +98,7 @@ internal class WarAttacks(
             AttackMode.COLONIZATION -> rules.chunkAlreadyColonizedBy(chunk, territory, attackingTown)
             AttackMode.WARZONE,
             AttackMode.WAR,
-            -> rules.chunkAlreadyCaptured(chunk, territory, attackingTown)
+            -> rules.chunkAlreadyCaptured(chunk, territory, attackingTown, mode)
         }
         if (alreadyCaptured) {
             return Result.failure(ErrorAlreadyCaptured)

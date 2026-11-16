@@ -231,7 +231,7 @@ object NodesWorldListener {
 
                                     ErrorAlreadyCaptured -> Message.error(
                                         player,
-                                        "$context Chunk already captured by town or allies",
+                                        if (isWarzoneAttack) "$context Chunk already held by your nation" else "$context Chunk already captured by town or allies",
                                     )
 
                                     ErrorTownBlacklisted -> Message.error(

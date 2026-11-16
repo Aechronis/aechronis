@@ -54,12 +54,28 @@ internal class WarAttackRules(private val state: FlagWarState) {
         return capturedTerritory.id == defeatedTown.home
     }
 
+    /**
+     * Whether [other] is on [town]'s side of an attack. Allies share captures in a war,
+     * but every nation contests a warzone for itself, so there even allies are rivals.
+     */
+    fun sameSide(mode: AttackMode, town: Town, other: Town?): Boolean {
+        if (mode != AttackMode.WARZONE) return Town.areAllied(town, other)
+        if (other == null) return false
+        val nation = town.nation
+        return town === other || (nation != null && nation === other.nation)
+    }
+
     // check if chunk was already captured
     // 1. territory occupied by town or allies and chunk not occupied
     // 2. chunk occupied by town or allies
-    fun chunkAlreadyCaptured(chunk: TerritoryChunk, territory: Territory, attackingTown: Town): Boolean {
+    // In a warzone only the attacker's own nation counts, so an ally's hold can be taken.
+    fun chunkAlreadyCaptured(chunk: TerritoryChunk, territory: Territory, attackingTown: Town, mode: AttackMode): Boolean {
         val territoryOccupier = territory.occupier
         val chunkOccupier = chunk.occupier
+
+        if (mode == AttackMode.WARZONE) {
+            return sameSide(mode, attackingTown, chunkOccupier ?: territoryOccupier)
+        }
 
         if (territoryOccupier === attackingTown || Town.areAllied(attackingTown, territoryOccupier)) {
             if (!townIsWarOpponent(attackingTown, chunkOccupier)) {
@@ -215,9 +231,14 @@ internal class WarAttackRules(private val state: FlagWarState) {
 
         val neighborTerritory = neighborChunk.territory
 
-        // a warzone is open to every nation along its whole perimeter
-        if (mode == AttackMode.WARZONE && neighborTerritory !== target) {
-            return true
+        if (mode == AttackMode.WARZONE) {
+            // a warzone is open to every nation along its whole perimeter
+            if (neighborTerritory !== target) {
+                return true
+            }
+            // inside it, a nation spreads only from chunks it holds itself
+            val holder = neighborChunk.occupier ?: neighborTerritory.occupier ?: neighborTerritory.town
+            return sameSide(mode, attacker, holder)
         }
 
         val neighborTown = neighborTerritory.town
@@ -226,11 +247,7 @@ internal class WarAttackRules(private val state: FlagWarState) {
 
         // territory is unoccupied
         if (neighborTown === null) {
-            // The rest of an unowned warzone is not a way into it: attackers
-            // spread inward from chunks their side already holds.
-            return neighborTerritory !== target ||
-                Town.areAllied(attacker, neighborChunkOccupier) ||
-                Town.areAllied(attacker, neighborTerritoryOccupier)
+            return true
         }
 
         // neighbor is your town and occupier is friendly
@@ -288,7 +305,7 @@ internal class WarAttackRules(private val state: FlagWarState) {
         val chunk = TerritoryChunk.fromCoord(attack.coord) ?: return false
         return chunk.territory === attack.targetTerritory &&
             chunkIsAttackable(chunk, chunk.territory, attack.town) &&
-            !chunkAlreadyCaptured(chunk, chunk.territory, attack.town)
+            !chunkAlreadyCaptured(chunk, chunk.territory, attack.town, attack.mode)
     }
 
     fun attackTime(attackingTown: Town, territory: Territory): Long {

@@ -114,7 +114,6 @@ internal class WarCapture(
                     val territoryTown = territory.town
                     val attacker = Resident.fromUuid(attack.attacker)
                     val attackerTown = attack.town
-                    val attackerNation = attackerTown.nation
 
                     // cleanup territory chunks
                     for (coord in territory.chunks) {
@@ -134,10 +133,8 @@ internal class WarCapture(
                     }
 
                     // handle re-capturing your own territory, nation territory, or ally territory from enemy
-                    if (territoryTown === attackerTown ||
-                        (attackerNation !== null && attackerNation === territoryTown?.nation) ||
-                        Town.areAllied(attackerTown, territoryTown)
-                    ) {
+                    // (in a warzone an ally takes the territory for itself instead)
+                    if (rules.sameSide(attack.mode, attackerTown, territoryTown)) {
                         val occupier = territory.occupier
                         // Resolved before the release so its journal flush persists the
                         // regained life together with the occupation change.
@@ -186,7 +183,7 @@ internal class WarCapture(
 
             chunk.attacker = null
 
-            if (town != null && Town.areAllied(attack.town, town)) {
+            if (town != null && rules.sameSide(attack.mode, attack.town, town)) {
                 // re-capturing territory from occupier; nation-mates and allies liberate it for the owner
                 if (occupier !== null) {
                     chunk.occupier = town
@@ -207,7 +204,7 @@ internal class WarCapture(
                         presentation.defendedChunk(attack.mode, attacker, chunk, chunkOccupier)
                     }
                 }
-            } else if (occupier != null && Town.areAllied(attack.town, occupier) && chunk.occupier !== null) {
+            } else if (occupier != null && rules.sameSide(attack.mode, attack.town, occupier) && chunk.occupier !== null) {
                 val chunkOccupier = chunk.occupier
                 if (attack.mode == AttackMode.COLONIZATION) {
                     // restore explicit provenance for a recaptured piece of a
