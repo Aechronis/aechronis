@@ -13,6 +13,7 @@ import net.aechronis.vanilla.commands.List
 import net.aechronis.vanilla.commands.Teleport
 import net.aechronis.vanilla.listeners.CombatInventoryListener
 import net.aechronis.vanilla.listeners.CommandsListener
+import net.aechronis.vanilla.listeners.DoorGlitchListener
 import net.aechronis.vanilla.listeners.FallDamageListener
 import net.aechronis.vanilla.listeners.PlayerActivityListener
 import net.aechronis.vanilla.listeners.PlayerBreakListener
@@ -81,6 +82,7 @@ object Vanilla {
         }
         if (config.blockDropsEnabled) measure("Player Break Listener") { PlayerBreakListener.init() }
         if (config.fallDamageEnabled) measure("Fall Damage Listener") { FallDamageListener.init() }
+        measure("Door Glitch Listener") { DoorGlitchListener.init() }
         if (config.fireDamageEnabled ||
             config.drowningEnabled ||
             config.voidDamageEnabled
