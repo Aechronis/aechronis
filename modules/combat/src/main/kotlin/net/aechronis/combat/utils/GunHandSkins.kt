@@ -3,10 +3,12 @@ package net.aechronis.combat.utils
 import net.aechronis.server.modules.ModuleContext
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerSkin
+import net.minestom.server.event.player.AsyncPlayerPreLoginEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.imageio.ImageIO
 
@@ -29,6 +31,11 @@ object GunHandSkins {
 
     private val requests = ConcurrentHashMap<Player, SkinRequest>()
 
+    // Player.skin is only set after configuration and Player hides its login profile, so the
+    // textures are captured at pre-login for the configuration-phase pack build.
+    // ponytail: a login rejected after pre-login leaves one small entry until that player rejoins.
+    private val loginSkins = ConcurrentHashMap<UUID, PlayerSkin>()
+
     @Volatile private var context: ModuleContext? = null
     private var registration: AutoCloseable? = null
 
@@ -49,9 +56,21 @@ object GunHandSkins {
         check(this.context == null) { "Gun hand skins are already initialized" }
         this.context = context
         registration = context.registerPlayerResourcePack("gun-hands", ::pack)
-        // Minestom initializes Player.skin after configuration, before the first spawn.
+        // The configuration-phase request seeds the skin from the login profile; this
+        // spawn check only refreshes when Player.skin or the sleeves really differ.
         context.addListener(PlayerSpawnEvent::class.java) { update(it.player) }
-        context.addListener(PlayerDisconnectEvent::class.java) { requests.remove(it.player) }
+        context.addListener(AsyncPlayerPreLoginEvent::class.java) { event ->
+            val textures = event.gameProfile.properties.firstOrNull { it.name == "textures" }
+            if (textures == null) {
+                loginSkins.remove(event.playerUuid)
+            } else {
+                loginSkins[event.playerUuid] = PlayerSkin(textures.value, textures.signature)
+            }
+        }
+        context.addListener(PlayerDisconnectEvent::class.java) {
+            requests.remove(it.player)
+            loginSkins.remove(it.player.uuid)
+        }
     }
 
     /** Cheap identity/state check; only a changed skin or a failed download schedules work. */
@@ -79,7 +98,20 @@ object GunHandSkins {
     private fun pack(player: Player): Map<String, ByteArray>? {
         if (context == null) return null
         val template = template ?: return null
-        val request = requests[player] ?: return null
+        // Building during configuration ships the hands with the base stack. Pushing them
+        // after spawn would force a second full client reload while chunks stream in.
+        val request =
+            requests.computeIfAbsent(player) {
+                SkinRequest(
+                    it.skin ?: loginSkins.remove(it.uuid),
+                    it.settings.displayedSkinParts().toInt() and 12,
+                )
+            }
+        // A disconnect may have cleared the map just before this worker re-seeded it.
+        if (!player.isOnline) {
+            requests.remove(player, request)
+            return null
+        }
         var prepared = false
         try {
             val resolved = GunSkinTexture.resolve(player.uuid, request.skin) ?: return null
@@ -133,5 +165,6 @@ object GunHandSkins {
         registration?.close()
         registration = null
         requests.clear()
+        loginSkins.clear()
     }
 }
