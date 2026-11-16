@@ -186,7 +186,8 @@ internal class WarAttackRules(private val state: FlagWarState) {
     // check that chunk valid, either:
     // 1. next to wilderness
     // 2. next to occupied chunk (by town or allies)
-    fun chunkIsAtEdge(chunk: TerritoryChunk, attackingTown: Town): Boolean {
+    // 3. in a warzone, on the zone's perimeter
+    fun chunkIsAtEdge(chunk: TerritoryChunk, attackingTown: Town, mode: AttackMode): Boolean {
         val coord = chunk.coord
 
         val chunkNorth = TerritoryChunk.fromCoord(Coord(coord.x, coord.z - 1))
@@ -194,16 +195,17 @@ internal class WarAttackRules(private val state: FlagWarState) {
         val chunkWest = TerritoryChunk.fromCoord(Coord(coord.x - 1, coord.z))
         val chunkEast = TerritoryChunk.fromCoord(Coord(coord.x + 1, coord.z))
 
-        return canAttackFromNeighborChunk(chunkNorth, attackingTown) ||
-            canAttackFromNeighborChunk(chunkSouth, attackingTown) ||
-            canAttackFromNeighborChunk(chunkWest, attackingTown) ||
-            canAttackFromNeighborChunk(chunkEast, attackingTown)
+        val target = chunk.territory
+        return canAttackFromNeighborChunk(chunkNorth, attackingTown, target, mode) ||
+            canAttackFromNeighborChunk(chunkSouth, attackingTown, target, mode) ||
+            canAttackFromNeighborChunk(chunkWest, attackingTown, target, mode) ||
+            canAttackFromNeighborChunk(chunkEast, attackingTown, target, mode)
     }
 
     /**
-     * conditions for attacking a chunk relative to a neighbor chunk
+     * conditions for attacking a chunk of [target] relative to a neighbor chunk
      */
-    fun canAttackFromNeighborChunk(neighborChunk: TerritoryChunk?, attacker: Town): Boolean {
+    fun canAttackFromNeighborChunk(neighborChunk: TerritoryChunk?, attacker: Town, target: Territory, mode: AttackMode): Boolean {
         // no territory here
         if (neighborChunk === null) {
             return true
@@ -212,13 +214,23 @@ internal class WarAttackRules(private val state: FlagWarState) {
         val attackerNation = attacker.nation
 
         val neighborTerritory = neighborChunk.territory
+
+        // a warzone is open to every nation along its whole perimeter
+        if (mode == AttackMode.WARZONE && neighborTerritory !== target) {
+            return true
+        }
+
         val neighborTown = neighborTerritory.town
         val neighborTerritoryOccupier = neighborTerritory.occupier
         val neighborChunkOccupier = neighborChunk.occupier
 
         // territory is unoccupied
         if (neighborTown === null) {
-            return true
+            // The rest of an unowned warzone is not a way into it: attackers
+            // spread inward from chunks their side already holds.
+            return neighborTerritory !== target ||
+                Town.areAllied(attacker, neighborChunkOccupier) ||
+                Town.areAllied(attacker, neighborTerritoryOccupier)
         }
 
         // neighbor is your town and occupier is friendly

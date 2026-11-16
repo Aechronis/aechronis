@@ -123,7 +123,8 @@ internal class WarAttacks(
             // check that chunk valid, either:
             // 1. next to wilderness
             // 2. next to occupied chunk (by town or allies)
-            if (!rules.chunkIsAtEdge(chunk, attackingTown)) {
+            // 3. in a warzone, on the zone's perimeter
+            if (!rules.chunkIsAtEdge(chunk, attackingTown, mode)) {
                 return Result.failure(ErrorChunkNotEdge)
             }
 

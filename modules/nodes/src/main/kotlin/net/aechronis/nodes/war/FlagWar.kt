@@ -380,9 +380,9 @@ object FlagWar {
 
     internal fun chunkIsAttackable(chunk: TerritoryChunk, territory: Territory, attackingTown: Town): Boolean = rules.chunkIsAttackable(chunk, territory, attackingTown)
 
-    internal fun chunkIsAtEdge(chunk: TerritoryChunk, attackingTown: Town): Boolean = rules.chunkIsAtEdge(chunk, attackingTown)
+    internal fun chunkIsAtEdge(chunk: TerritoryChunk, attackingTown: Town, mode: AttackMode): Boolean = rules.chunkIsAtEdge(chunk, attackingTown, mode)
 
-    internal fun canAttackFromNeighborChunk(neighborChunk: TerritoryChunk?, attacker: Town): Boolean = rules.canAttackFromNeighborChunk(neighborChunk, attacker)
+    internal fun canAttackFromNeighborChunk(neighborChunk: TerritoryChunk?, attacker: Town, target: Territory, mode: AttackMode): Boolean = rules.canAttackFromNeighborChunk(neighborChunk, attacker, target, mode)
 
     internal fun loadOccupiedChunk(townId: UUID, coord: Coord) = occupations.loadOccupiedChunk(townId, coord)
 
