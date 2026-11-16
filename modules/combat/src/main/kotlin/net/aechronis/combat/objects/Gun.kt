@@ -90,6 +90,8 @@ class Gun(
     val falloffMinMultiplier: Float = 1F,
     /** Whether riders of living mounts may fire it. */
     val mountable: Boolean = false,
+    /** Reloading spends one [ammo] item per missing round instead of one item for a full magazine. */
+    val ammoPerRound: Boolean = false,
 ) : Item(
         name,
         itemName,
@@ -198,6 +200,7 @@ class Gun(
         }
 
         if (Combat.playerStates[player]?.reloadTask != null) return false // already reloading
+        if (ammoPerRound && getAmmo(player) >= maxAmmo) return false // nothing to load
 
         // create task
         runReloadTask(player)
@@ -245,8 +248,14 @@ class Gun(
 
                     // successful reload
                     if (time <= 0) {
-                        setAmmo(player, maxAmmo)
-                        ammo[player] -= 1
+                        if (ammoPerRound) {
+                            val loaded = minOf(maxAmmo - getAmmo(player), ammo[player])
+                            addAmmo(player, loaded)
+                            ammo[player] -= loaded
+                        } else {
+                            setAmmo(player, maxAmmo)
+                            ammo[player] -= 1
+                        }
 
                         Combat.playerStates[player]?.cancelReload()
                         GunAnimation.clear(player)
