@@ -2,6 +2,7 @@ package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
@@ -19,10 +20,13 @@ import java.util.concurrent.ConcurrentHashMap
 
 private const val GRAB_COOLDOWN_MILLIS = 30_000L
 private const val MAX_SLOTS = 54
+private const val FLAGS_PER_PAGE = 45
+private const val PREVIOUS_PAGE_SLOT = 45
+private const val NEXT_PAGE_SLOT = 53
 
 private data class FlagEntry(val id: UUID, val name: String)
 
-private data class FlagsMenuSession(val inventory: Inventory, val entries: List<FlagEntry>)
+private data class FlagsMenuSession(val inventory: Inventory, val entries: List<FlagEntry>, val page: Int, val lastPage: Int)
 
 /** `/flags` browser: any player can grab any nation's or other-flags.json flag, with a cooldown between grabs. */
 object FlagsMenu {
@@ -34,16 +38,25 @@ object FlagsMenu {
         Nodes.eventNode.addListener(InventoryCloseEvent::class.java, this::onClose)
     }
 
-    fun open(player: Player) {
-        // No pagination yet, so anything past a 6-row chest just gets dropped. Worth adding paging
-        // if the number of flagged nations plus other-flags.json entries keeps growing past MAX_SLOTS.
+    fun open(player: Player, requestedPage: Int = 0) {
         val nationFlags = Nation.all().mapNotNull { nation -> nation.flagUrl?.let { FlagEntry(nation.uuid, nation.name) } }
         val otherFlags = OtherFlags.all.map { FlagEntry(it.id, it.name) }
-        val entries = (nationFlags + otherFlags).sortedBy { it.name.lowercase() }.take(MAX_SLOTS)
-        val inventory = Inventory(inventoryTypeFor(entries.size.coerceAtLeast(1)), Component.text("Nation Flags", NamedTextColor.DARK_GREEN))
+        val flags = (nationFlags + otherFlags).sortedBy { it.name.lowercase() }
+        // Flags that fit in one chest fill it; past that the bottom row is kept for the page buttons.
+        val paged = flags.size > MAX_SLOTS
+        val lastPage = if (paged) (flags.size - 1) / FLAGS_PER_PAGE else 0
+        val page = requestedPage.coerceIn(0, lastPage)
+        val entries = if (paged) flags.drop(page * FLAGS_PER_PAGE).take(FLAGS_PER_PAGE) else flags
+        val inventory = Inventory(
+            if (paged) InventoryType.CHEST_6_ROW else inventoryTypeFor(entries.size.coerceAtLeast(1)),
+            Component.text(if (paged) "Nation Flags ${page + 1}/${lastPage + 1}" else "Nation Flags", NamedTextColor.DARK_GREEN),
+        )
         entries.forEachIndexed { slot, entry -> inventory.setItemStack(slot, flagItemStack(entry)) }
-        sessions[player.uuid] = FlagsMenuSession(inventory, entries)
-        if (!player.openInventory(inventory)) sessions.remove(player.uuid)
+        if (page > 0) inventory.setItemStack(PREVIOUS_PAGE_SLOT, navigationItem("Previous page"))
+        if (page < lastPage) inventory.setItemStack(NEXT_PAGE_SLOT, navigationItem("Next page"))
+        val session = FlagsMenuSession(inventory, entries, page, lastPage)
+        sessions[player.uuid] = session
+        if (!player.openInventory(inventory)) sessions.remove(player.uuid, session)
     }
 
     fun closeAll() {
@@ -62,11 +75,21 @@ object FlagsMenu {
         .withItemModel(NationFlagPack.flagModelId(entry.id))
         .withCustomName(Component.text("${entry.name} Flag", NamedTextColor.WHITE))
 
+    private fun navigationItem(name: String): ItemStack = ItemStack.of(Material.ARROW).withCustomName(Component.text(name, NamedTextColor.AQUA))
+
+    private fun openPage(player: Player, session: FlagsMenuSession, page: Int) {
+        ModuleScheduler.scheduleNextTick {
+            if (player.isOnline && player.openInventory === session.inventory) open(player, page)
+        }
+    }
+
     private fun onClick(event: InventoryPreClickEvent) {
         val player = event.player
         val session = sessions[player.uuid] ?: return
         if (event.inventory !== session.inventory) return
         event.isCancelled = true
+        if (event.slot == PREVIOUS_PAGE_SLOT && session.page > 0) return openPage(player, session, session.page - 1)
+        if (event.slot == NEXT_PAGE_SLOT && session.page < session.lastPage) return openPage(player, session, session.page + 1)
         val entry = session.entries.getOrNull(event.slot) ?: return
 
         val now = System.currentTimeMillis()
