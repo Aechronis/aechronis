@@ -76,7 +76,7 @@ self.onmessage = ({ data: { id, method, args } }) => {
       if (method === 'initial') {
         // Keep the large static world download if another startup feed fails.
         // Mutable feeds are fetched again so retries use current ownership.
-        const files = ['towns', 'world', 'war', 'buildings', 'outposts'].filter(name => name !== 'world' || !initialWorld);
+        const files = ['towns', 'world', 'war', 'buildings', 'outposts', 'warzone'].filter(name => name !== 'world' || !initialWorld);
         const updates = await Promise.all(files.map(name =>
           fetchJsonUpdate(new URL(`nodes/${name}.json`, args.base).href, null, {
             initial: initialFetch, optional: name !== 'towns' && name !== 'world', timeoutMs: 30_000,
@@ -85,6 +85,7 @@ self.onmessage = ({ data: { id, method, args } }) => {
         nextData = { world: initialWorld, ...Object.fromEntries(files.map((name, i) => [name, updates[i]?.body ?? null])) };
         if (!isRecord(nextData.world?.territories)) nextData.world = null;
         if (!Array.isArray(nextData.outposts)) nextData.outposts = null;
+        if (!isRecord(nextData.warzone?.zones)) nextData.warzone = null;
         if (!['towns', 'nations', 'residents'].every(key => isRecord(nextData.towns?.[key]))) nextData.towns = null;
         if (!initialWorld && nextData.world) {
           for (const territory of Object.values(nextData.world.territories || {})) {

@@ -26,6 +26,7 @@ import { attackProgress, nextAttackFrame, AttackAnimationTimer } from './attack-
 import { screenZoomOffset, clampScreenZoom, resizeScreenZoom } from './responsive-zoom.mjs';
 import { MAP_BOUNDS, WORLD_WIDTH } from './map-config.mjs';
 import { producingFactories, factoryItem, factoryTimeLeft } from './factories.mjs';
+import { activeWarzones, warzoneBorders, warzoneRingLayers } from './warzones.mjs';
 import {
   IconLayer,
   ScatterplotLayer,
@@ -204,7 +205,7 @@ function bootMap(initial) {
   // not the values, so they automatically pick up the new objects after
   // a data refresh reassigns.
   let data = initial.data;
-  const fileMeta = initial.meta;  // { towns, war, buildings, outposts } → { etag, lastMod }
+  const fileMeta = initial.meta;  // { towns, war, buildings, outposts, warzone } → { etag, lastMod }
 
   let index;
   let nationLabels;
@@ -219,6 +220,8 @@ function bootMap(initial) {
   let buildingsList;
   let buildingsByChunk;
   let factoriesList = [];
+  let warzoneIds = [];
+  let warzoneRing = [];
   const resourceData = memoize(buildTerritoryResources);
   const resourceIcons = new Map();
 
@@ -295,6 +298,15 @@ function bootMap(initial) {
       }
     }
     factoriesList = producingFactories(buildingsList);
+  }
+
+  // A zone opens and closes on the clock, so this also runs when no file changed.
+  function refreshWarzones() {
+    const next = activeWarzones(data.warzone);
+    if (next.join() === warzoneIds.join()) return false;
+    warzoneIds = next;
+    warzoneRing = warzoneBorders(next, data.world);
+    return true;
   }
 
   index = buildIndex(data);
@@ -1162,6 +1174,7 @@ function bootMap(initial) {
       territoryRasterLayer(),
       showChunkDetail ? fadeDetail(homesLayer(), chunkOpacity) : null,
       ...(attacksLayer() || []),
+      ...warzoneRingLayers(warzoneRing),
       ...highlightLayers(),
       portRingLayer(),
       mapMode === 'resources' ? null : nationLabelsLayer(),
@@ -1395,15 +1408,15 @@ function bootMap(initial) {
   }
 
   // --- Periodic refresh --------------------------------------------------
-  // Poll the three mutable files every 30s. Conditional GETs (If-None-Match /
+  // Poll the mutable files every 30s. Conditional GETs (If-None-Match /
   // If-Modified-Since) make the unchanged-case a single empty 304 per file,
   // so unchanged town data is not re-downloaded on every tick. Once startup
   // succeeds, world.json is treated as static and never re-fetched.
   const REFRESH_INTERVAL_MS = 30_000;
-  const REFRESH_FILES = ['towns', 'war', 'buildings', 'outposts'];
-  // war.json may be 404 (no active war); buildings.json and outposts.json may be 404 too.
+  const REFRESH_FILES = ['towns', 'war', 'buildings', 'outposts', 'warzone'];
+  // war.json may be 404 (no active war); buildings.json, outposts.json and warzone.json may be 404 too.
   // For those, a 404 transitions the in-memory copy to `null` exactly once.
-  const REFRESH_OPTIONAL = new Set(['war', 'buildings', 'outposts']);
+  const REFRESH_OPTIONAL = new Set(['war', 'buildings', 'outposts', 'warzone']);
 
   async function fetchIfChanged(name) {
     const update = await fetchJsonUpdate(`nodes/${name}.json`, fileMeta[name], {
@@ -1471,7 +1484,8 @@ function bootMap(initial) {
       if (!dirty) {
         // No file changed, but an attack may have reached its start time since
         // the last tick — re-evaluate cheaply rather than skip.
-        if (refreshActiveAttacks()) redraw();
+        const attacksChanged = refreshActiveAttacks();
+        if (refreshWarzones() || attacksChanged) redraw();
         return;
       }
       const rebuildTerritories = ownershipChanged(data, newData);
@@ -1487,6 +1501,7 @@ function bootMap(initial) {
         refreshActiveAttacks();
       }
       if (rebuildBuildings) buildBuildings();
+      refreshWarzones();
 
       updateSelection();
       updateHover();
@@ -1570,6 +1585,7 @@ function bootMap(initial) {
       Object.assign(fileMeta, result.initial.meta);
       installPrepared(result);
       buildBuildings();
+      refreshWarzones();
       if (loadingEl && !loadingHidden) {
         loadingEl.setAttribute('aria-label', 'Loading world map');
         loadingEl.querySelector('span').textContent = 'Loading map…';
