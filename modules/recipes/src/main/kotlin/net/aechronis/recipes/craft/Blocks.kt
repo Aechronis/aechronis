@@ -80,6 +80,21 @@ object Blocks {
             Material.WARPED_SLAB,
         )
 
+    /** Crimson and warped planks are absent because nether wood has no boat. */
+    private val plankBoats =
+        linkedMapOf(
+            Material.OAK_PLANKS to Material.OAK_BOAT,
+            Material.SPRUCE_PLANKS to Material.SPRUCE_BOAT,
+            Material.BIRCH_PLANKS to Material.BIRCH_BOAT,
+            Material.JUNGLE_PLANKS to Material.JUNGLE_BOAT,
+            Material.ACACIA_PLANKS to Material.ACACIA_BOAT,
+            Material.CHERRY_PLANKS to Material.CHERRY_BOAT,
+            Material.DARK_OAK_PLANKS to Material.DARK_OAK_BOAT,
+            Material.PALE_OAK_PLANKS to Material.PALE_OAK_BOAT,
+            Material.MANGROVE_PLANKS to Material.MANGROVE_BOAT,
+            Material.BAMBOO_PLANKS to Material.BAMBOO_RAFT,
+        )
+
     private val anyPlank = RecipesIngredient.of(planks)!!
     private val anyWoodSlab = RecipesIngredient.of(slabs)!!
     private val cobblestone = RecipesIngredient.of(Material.COBBLESTONE)!!
@@ -172,6 +187,7 @@ object Blocks {
                 ),
             )
             addAll(barrelRecipes())
+            addAll(boatRecipes())
             add(
                 Shaped(
                     3,
@@ -227,6 +243,24 @@ object Blocks {
                 ItemStack.of(Material.BARREL, 2),
             ),
         )
+
+    private fun boatRecipes(): List<Recipe> =
+        plankBoats.map { (planks, boat) ->
+            val plank = RecipesIngredient.of(planks)!!
+            Shaped(
+                3,
+                2,
+                arrayOf(
+                    plank,
+                    null,
+                    plank,
+                    plank,
+                    plank,
+                    plank,
+                ),
+                ItemStack.of(boat),
+            )
+        }
 
     private fun compactingRecipes(): List<Recipe> =
         resourceBlocks.flatMap { (resource, block) ->
