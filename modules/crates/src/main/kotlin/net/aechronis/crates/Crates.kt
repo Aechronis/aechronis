@@ -215,11 +215,14 @@ object Crates {
         // Up to 4 rows of 7 fit inside a glass frame; bigger crates fall back to a plain 6-row grid.
         val framed = rewards.size <= 28
         val rows = if (framed) ((rewards.size + 6) / 7).coerceAtLeast(1) + 2 else 6
-        val inventory = Inventory(InventoryType.valueOf("CHEST_${rows}_ROW"), Component.text(crate.title))
+        val keys = CrateKeys.count(player.uuid, crate.id)
+        // The plain grid has no free slot for the key summary, so its title carries the count.
+        val title = if (framed) crate.title else "${crate.title} ($keys keys)"
+        val inventory = Inventory(InventoryType.valueOf("CHEST_${rows}_ROW"), Component.text(title))
         val slots = if (framed) framedSlots(rewards.size) else rewards.indices.toList()
         if (framed) {
             for (slot in 0 until rows * 9) inventory.setItemStack(slot, filler)
-            inventory.setItemStack(rows * 9 - 5, keyInfo(CrateKeys.count(player.uuid, crate.id)))
+            inventory.setItemStack(rows * 9 - 5, keyInfo(keys))
         }
         rewards.forEachIndexed { index, reward ->
             val lore = reward.stack.get(DataComponents.LORE).orEmpty()
