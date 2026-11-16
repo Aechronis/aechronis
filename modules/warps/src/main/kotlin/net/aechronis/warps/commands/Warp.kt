@@ -15,7 +15,8 @@ class Warp : Command("warp", "vanilla.warp") {
     private val warpArg =
         ArgumentType.Word("warp").setSuggestionCallback { _, _, suggestion ->
             val prefix = suggestion.input.substringAfterLast(' ')
-            Warps.names()
+            Warps
+                .names()
                 .filter { it.startsWith(prefix, ignoreCase = true) }
                 .forEach { suggestion.addEntry(SuggestionEntry(it)) }
         }
