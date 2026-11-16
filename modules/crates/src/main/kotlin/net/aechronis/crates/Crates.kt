@@ -17,6 +17,8 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
+import net.minestom.server.item.Material
+import net.minestom.server.item.component.TooltipDisplay
 import net.minestom.server.tag.Tag
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
@@ -41,10 +43,12 @@ object Crates {
             Json.decodeFromString<List<Crate>>(contents).filter { idPattern.matches(it.id) }.associateByTo(linkedMapOf()) { it.id }
         }
         seed(defaults)
+        CrateHolograms.refresh(crates.values)
         CrateKeys.init(directory.resolve("keys.json"))
     }
 
     fun shutdown() {
+        CrateHolograms.clear()
         previews.toList().forEach { inventory -> inventory.viewers.toList().forEach(Player::closeInventory) }
         previews.clear()
         crates.clear()
@@ -201,27 +205,64 @@ object Crates {
         return false
     }
 
-    /** Left click: shows every reward with its chance in the item tooltip. */
+    /** Left click: shows every reward with its chance, framed by glass with a key summary at the bottom. */
     fun preview(
         player: Player,
         crate: Crate,
     ) {
         if (previews.any { it === player.openInventory }) return
-        val rows = ((crate.rewards.size + 8) / 9).coerceIn(1, 6)
-        val type = InventoryType.valueOf("CHEST_${rows}_ROW")
-        val inventory = Inventory(type, Component.text("${crate.title} (${CrateKeys.count(player.uuid, crate.id)} keys)"))
-        crate.rewards.forEachIndexed { slot, reward ->
+        val rewards = crate.rewards
+        // Up to 4 rows of 7 fit inside a glass frame; bigger crates fall back to a plain 6-row grid.
+        val framed = rewards.size <= 28
+        val rows = if (framed) ((rewards.size + 6) / 7).coerceAtLeast(1) + 2 else 6
+        val inventory = Inventory(InventoryType.valueOf("CHEST_${rows}_ROW"), Component.text(crate.title))
+        val slots = if (framed) framedSlots(rewards.size) else rewards.indices.toList()
+        if (framed) {
+            for (slot in 0 until rows * 9) inventory.setItemStack(slot, filler)
+            inventory.setItemStack(rows * 9 - 5, keyInfo(CrateKeys.count(player.uuid, crate.id)))
+        }
+        rewards.forEachIndexed { index, reward ->
             val lore = reward.stack.get(DataComponents.LORE).orEmpty()
             val chance =
                 Component
-                    .text(
-                        "Chance: ${formatChance(crate.chance(reward))}",
-                        NamedTextColor.YELLOW,
-                    ).decoration(TextDecoration.ITALIC, false)
-            inventory.setItemStack(slot, reward.stack.with(DataComponents.LORE, lore + chance))
+                    .text("Chance: ", NamedTextColor.GRAY)
+                    .append(Component.text(formatChance(crate.chance(reward)), NamedTextColor.YELLOW))
+                    .decoration(TextDecoration.ITALIC, false)
+            val extra = if (lore.isEmpty()) listOf(chance) else listOf(Component.empty(), chance)
+            inventory.setItemStack(slots[index], reward.stack.with(DataComponents.LORE, lore + extra))
         }
         previews += inventory
         if (!player.openInventory(inventory)) previews -= inventory
+    }
+
+    /** Inner slots of a glass-framed chest, filled row by row with the last partial row centred. */
+    private fun framedSlots(count: Int): List<Int> =
+        (0 until count).map { index ->
+            val row = index / 7
+            val inRow = minOf(7, count - row * 7)
+            (row + 1) * 9 + 1 + (7 - inRow) / 2 + index % 7
+        }
+
+    private val filler =
+        ItemStack.of(Material.GRAY_STAINED_GLASS_PANE).with(DataComponents.TOOLTIP_DISPLAY, TooltipDisplay(true, setOf()))
+
+    private fun keyInfo(keys: Int): ItemStack {
+        fun line(
+            text: String,
+            color: NamedTextColor,
+        ) = Component.text(text, color).decoration(TextDecoration.ITALIC, false)
+        return ItemStack
+            .builder(Material.TRIPWIRE_HOOK)
+            .set(
+                DataComponents.CUSTOM_NAME,
+                line("Your keys: $keys", if (keys > 0) NamedTextColor.GREEN else NamedTextColor.RED).decorate(TextDecoration.BOLD),
+            ).set(
+                DataComponents.LORE,
+                listOf(
+                    line("Right click the crate to open one.", NamedTextColor.GRAY),
+                    line("Shift + right click to open them all.", NamedTextColor.GRAY),
+                ),
+            ).build()
     }
 
     fun isPreview(inventory: Inventory): Boolean = inventory in previews
@@ -269,7 +310,10 @@ object Crates {
 
     private fun formatChance(percent: Double): String = "%.2f%%".format(percent)
 
-    private fun save() = storage.save { Json.encodeToString(crates.values.toList()) }
+    private fun save() {
+        storage.save { Json.encodeToString(crates.values.toList()) }
+        CrateHolograms.refresh(crates.values)
+    }
 
     /** Creates configured crates that do not exist yet; existing crates keep their in-game edits. */
     private fun seed(defaults: List<CrateDefaults>) {
