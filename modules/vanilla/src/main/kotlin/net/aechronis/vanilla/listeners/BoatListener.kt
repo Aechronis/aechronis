@@ -82,6 +82,11 @@ object BoatListener {
 
         val boat = Entity(entityType)
         boat.setNoGravity(true)
+        // The driver's client simulates the boat; the periodic sync's zero velocity packet would
+        // stop it dead every few seconds. The server never moves boats itself, so skip the sync.
+        // Int.MAX_VALUE, not Long.MAX_VALUE: ticks + Long.MAX_VALUE overflows and syncs every tick.
+        boat.synchronizationTicks = Int.MAX_VALUE.toLong()
+        boat.synchronizeNextTick()
         if (!canPlaceAt(event.instance, placementPosition, boat.boundingBox)) return
 
         val spawn = boat.setInstance(event.instance, placementPosition)
