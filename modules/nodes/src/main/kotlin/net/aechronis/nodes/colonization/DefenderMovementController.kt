@@ -123,11 +123,35 @@ internal class DefenderMovementController(
         ) {
             return DefenderMovementOutcome.RECOVERING_TERRAIN
         }
+        if (goal.attack != null && settleOnStep(session, defender, goal)) {
+            return DefenderMovementOutcome.READY_FOR_WEAPON_UPDATE
+        }
         if (pathPreparationsRemaining > 0 && defender.navigation.shouldRequestPath(goal, now)) {
             prepareNavigationPath(session, defender, goal, now)
             pathPreparationsRemaining -= 1
         }
         return DefenderMovementOutcome.READY_FOR_WEAPON_UPDATE
+    }
+
+    // the pathfinder counts anything inside its close distance as arrived and returns no route, which leaves a
+    // defender beside the step it has to stand on, or off-centre on it with its hitbox where the next block goes
+    private fun settleOnStep(
+        session: DefenseSession,
+        defender: AiDefender,
+        goal: NavigationGoal,
+    ): Boolean {
+        if (goal.attack !in session.staircases) return false
+        val position = defender.entity.position
+        if (!defender.entity.isOnGround || position.distance(goal.position) >= PATH_SEARCH_CLOSE_DISTANCE) return false
+        if (hypot(position.x - goal.position.x, position.z - goal.position.z) <= BUILD_POSITION_TOLERANCE) return false
+
+        if (defender.navigation.hasGoal) defender.navigation.cancel()
+        val probe = directMovementProbe(position, goal.position, COMBAT_WALK_SPEED)
+        if (probe != null && directGroundStep(session.instance, position, probe) == DirectGroundStep.JUMP_UP) {
+            defender.motor.jump(null, null)
+        }
+        defender.motor.moveTowards(goal.position, COMBAT_WALK_SPEED, goal.position)
+        return true
     }
 
     fun applyPreparedNavigationPaths(

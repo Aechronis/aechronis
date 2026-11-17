@@ -8,6 +8,7 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EntityCreature
 import net.minestom.server.entity.pathfinding.PPath
 import java.util.UUID
+import kotlin.math.abs
 
 internal data class NavigationGoal(
     val playerId: UUID?,
@@ -364,6 +365,8 @@ internal fun hasReachedPathEndpoint(
     endpoint: Pos,
     minimumDistance: Double,
 ): Boolean {
+    // an endpoint in the air is routed to the ground beneath it, and standing there is not arriving
+    if (abs(position.y - endpoint.y) > PATH_ARRIVAL_HEIGHT_TOLERANCE) return false
     val arrivalDistance = maxOf(minimumDistance, PATH_SEARCH_CLOSE_DISTANCE) + PATH_ARRIVAL_TOLERANCE
     return position.distanceSquared(endpoint) <= arrivalDistance * arrivalDistance
 }
@@ -432,5 +435,8 @@ private const val ROUTE_FAILURES_BEFORE_TERRAIN_RECOVERY = 3
 private const val ROUTE_FAILURE_WINDOW_MILLIS = 10_000L
 
 // the closest minestom's path search will finish from its target, plus how loosely path nodes are followed
-private const val PATH_SEARCH_CLOSE_DISTANCE = 0.8
+internal const val PATH_SEARCH_CLOSE_DISTANCE = 0.8
 private const val PATH_ARRIVAL_TOLERANCE = 0.3
+
+// standing on a slab leaves the feet half a block from the block the endpoint names
+private const val PATH_ARRIVAL_HEIGHT_TOLERANCE = 0.6

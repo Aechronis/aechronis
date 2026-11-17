@@ -128,7 +128,7 @@ internal fun directGroundStep(
 }
 
 // chooses one nearby terrain edit that opens the direct route from [start] toward [target]
-// a one block step or drop is already walkable so left untouched
+// a one block step or drop is already walkable, so it is left untouched and the route carries on at its level
 internal fun aiTerrainEdit(
     start: Pos,
     target: Pos,
@@ -142,6 +142,7 @@ internal fun aiTerrainEdit(
 
     val sampleCount = minOf(ceil(longestAxis).toInt(), floor(TERRAIN_EDIT_REACH).toInt())
     var previousColumn: Pair<Int, Int>? = null
+    var feetY = start.blockY()
     for (sample in 1..sampleCount) {
         val progress = (sample / longestAxis).coerceAtMost(1.0)
         val x = floor(start.x + deltaX * progress).toInt()
@@ -150,7 +151,7 @@ internal fun aiTerrainEdit(
         if (column == previousColumn || (x == start.blockX() && z == start.blockZ())) continue
         previousColumn = column
 
-        val feetPosition = BlockVec(x, start.blockY(), z)
+        val feetPosition = BlockVec(x, feetY, z)
         val floorPosition = feetPosition.add(0, -1, 0)
         val headPosition = feetPosition.add(0, 1, 0)
         val abovePosition = feetPosition.add(0, 2, 0)
@@ -170,6 +171,7 @@ internal fun aiTerrainEdit(
                 return AiTerrainEdit(AiTerrainEditKind.BREAK, breakPosition)
             }
             if (breakPosition != null) return null
+            feetY += 1
             continue
         }
 
@@ -188,6 +190,7 @@ internal fun aiTerrainEdit(
                 if (canEdit(floorPosition)) return AiTerrainEdit(AiTerrainEditKind.PLACE, floorPosition)
                 return null
             }
+            feetY -= 1
         }
     }
     return null

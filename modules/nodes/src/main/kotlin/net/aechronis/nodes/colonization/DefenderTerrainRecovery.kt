@@ -15,9 +15,10 @@ private const val BASE_PLACED_TERRAIN_BLOCKS_PER_ATTACK = 24
 private const val PLACED_TERRAIN_BLOCKS_PER_CLIMB_LEVEL = 3
 private const val MAX_STAIRCASE_START_DISTANCE = 8.0
 private const val STAIRCASE_PLACEMENT_MILLIS = 250L
+private const val STAIRCASE_START_GRACE_MILLIS = 5_000L
 
-// a defender is 0.6 wide, so this keeps it out of the neighbouring column it is about to build in
-private const val BUILD_POSITION_TOLERANCE = 0.15
+// a defender is 0.6 wide, so this keeps it out of the neighbouring column that is about to be built in
+internal const val BUILD_POSITION_TOLERANCE = 0.15
 private const val BUILD_CENTERING_SPEED = 0.1
 private val BUILDING_BLOCK: ItemStack = ItemStack.of(Material.COBBLESTONE)
 
@@ -62,7 +63,7 @@ internal object DefenderTerrainRecovery {
         val canEdit: (BlockVec) -> Boolean = { position ->
             isTerrainEditable(session, position, protectedBlocks)
         }
-        if (startStaircase(session, defender, attack, canEdit)) return true
+        if (startStaircase(session, defender, attack, now, canEdit)) return true
         val edit = aiTerrainEdit(
             defender.entity.position,
             goal.position,
@@ -73,7 +74,7 @@ internal object DefenderTerrainRecovery {
                 (canPlaceTerrain(session, defender, attack) && canPlaceLikeVanilla(session.instance, defender.entity, edit.position))
         }
         if (edit == null) {
-            discardUnreachableStaircase(session, defender, attack)
+            discardUnreachableStaircase(session, defender, attack, now)
             defender.navigation.advanceApproach()
             defender.navigation.clearTerrainRecovery()
             defender.navigation.cancel()
@@ -157,6 +158,7 @@ internal object DefenderTerrainRecovery {
         session: DefenseSession,
         defender: AiDefender,
         attack: Attack,
+        now: Long,
         canEdit: (BlockVec) -> Boolean,
     ): Boolean {
         if (!defender.flagRunner || attack in session.staircases) return false
@@ -165,20 +167,28 @@ internal object DefenderTerrainRecovery {
         val flagDistance = hypot(position.x - (attack.flagBase.blockX + 0.5), position.z - (attack.flagBase.blockZ + 0.5))
         if (flagDistance > MAX_STAIRCASE_START_DISTANCE) return false
 
-        session.staircases[attack] = planDefenderStaircase(session.instance, attack.flagBase, position, canEdit) ?: return false
+        val staircase =
+            planDefenderStaircase(session.instance, attack.flagBase, position, defender.entity.eyeHeight, canEdit) ?: return false
+        staircase.plannedAtMillis = now
+        session.staircases[attack] = staircase
         defender.navigation.clearTerrainRecovery()
         defender.navigation.cancel()
         return true
     }
 
     // a start nobody can walk to would otherwise block the climb for good, so an untouched plan is made again
+    // only a builder that has had time to reach it decides that, or the route failures every defender
+    // gathered before the plan existed would throw it away before its first block is placed
     private fun discardUnreachableStaircase(
         session: DefenseSession,
         defender: AiDefender,
         attack: Attack,
+        now: Long,
     ) {
         val staircase = session.staircases[attack] ?: return
         if (
+            defender.flagRunner &&
+            now - staircase.plannedAtMillis >= STAIRCASE_START_GRACE_MILLIS &&
             staircase.isLoaded(session.instance) &&
             staircase.lastIntactStep(session.instance) == 0 &&
             staircase.stepAt(defender.entity.position) == null

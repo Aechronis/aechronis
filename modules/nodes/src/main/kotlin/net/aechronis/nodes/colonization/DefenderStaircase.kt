@@ -34,6 +34,7 @@ internal class DefenderStaircase(
     private val baseY: Int,
     val topStep: Int,
 ) {
+    var plannedAtMillis: Long = 0
     var nextPlacementAtMillis: Long = 0
 
     /** Step 0 is the existing ground that the staircase starts from. */
@@ -48,9 +49,12 @@ internal class DefenderStaircase(
 
     fun isLoaded(instance: Instance): Boolean = ring.all { (x, z) -> instance.isChunkLoaded(x shr 4, z shr 4) }
 
+    // terrain already standing where a step belongs only counts once there is room to jump onto it
     fun lastIntactStep(instance: Instance): Int {
         for (step in 1..topStep) {
-            if (!instance.getBlock(tread(step)).blocksMotion()) return step - 1
+            val usable = instance.getBlock(tread(step)).blocksMotion() &&
+                clearanceFor(step).none { position -> instance.getBlock(position).blocksMotion() }
+            if (!usable) return step - 1
         }
         return topStep
     }
@@ -73,11 +77,14 @@ internal class DefenderStaircase(
         return standingPosition(minOf(current + CLIMB_SEGMENT_STEPS, lastIntact))
     }
 
-    /** The blocks that must be clear to jump from the step below onto [step]. */
+    /**
+     * The blocks that must be clear to jump from the step below onto [step]. A jump carries the head past the
+     * standing room, so a block right above it would stop a defender from moving across onto the step.
+     */
     fun clearanceFor(step: Int): List<BlockVec> {
         val tread = tread(step)
         val previous = tread(step - 1)
-        return listOf(tread.add(0, 1, 0), tread.add(0, 2, 0), previous.add(0, 3, 0))
+        return listOf(tread.add(0, 1, 0), tread.add(0, 2, 0), tread.add(0, 3, 0), previous.add(0, 3, 0))
     }
 
     fun horizontalDistanceToTop(flagBase: BlockVec): Double {
@@ -90,13 +97,15 @@ internal fun planDefenderStaircase(
     instance: Instance,
     flagBase: BlockVec,
     builderPosition: Pos,
+    eyeHeight: Double,
     canEdit: (BlockVec) -> Boolean,
 ): DefenderStaircase? {
     // standing on this step keeps the flag within reach
     val topTreadY = flagBase.blockY - 2
-    return RING_CENTER_OFFSETS.firstNotNullOfOrNull { (offsetX, offsetZ) ->
+    val flagPosition = flagBase.add(0.5, 1.5, 0.5).asPos()
+    val staircasesByRing = RING_CENTER_OFFSETS.map { (offsetX, offsetZ) ->
         val ring = squareRing(flagBase.blockX + offsetX, flagBase.blockZ + offsetZ)
-        if (ring.any { (x, z) -> !canEdit(BlockVec(x, topTreadY, z)) }) return@firstNotNullOfOrNull null
+        if (ring.any { (x, z) -> !canEdit(BlockVec(x, topTreadY, z)) }) return@map emptyList()
         ring.indices
             .mapNotNull { startIndex ->
                 val (x, z) = ring[startIndex]
@@ -105,8 +114,17 @@ internal fun planDefenderStaircase(
                 if (topStep <= 0) return@mapNotNull null
                 DefenderStaircase(ring, startIndex, groundY, topStep)
             }.filter { staircase -> staircase.horizontalDistanceToTop(flagBase) <= MAX_TOP_STEP_FLAG_DISTANCE }
-            .minByOrNull { staircase -> builderPosition.distanceSquared(staircase.standingPosition(0)) }
     }
+    val closestStart: (List<DefenderStaircase>) -> DefenderStaircase? = { staircases ->
+        staircases.minByOrNull { staircase -> builderPosition.distanceSquared(staircase.standingPosition(0)) }
+    }
+    // a top step diagonal to the flag is close enough but looks at its corner, which is not a clear reach
+    val reachesFlag: (DefenderStaircase) -> Boolean = { staircase ->
+        val eyes = staircase.standingPosition(staircase.topStep).add(0.0, eyeHeight, 0.0)
+        hasClearFlagReach(eyes, flagPosition, instance)
+    }
+    return staircasesByRing.firstNotNullOfOrNull { staircases -> closestStart(staircases.filter(reachesFlag)) }
+        ?: staircasesByRing.firstNotNullOfOrNull(closestStart)
 }
 
 // every neighbouring pair of cells shares a side, including the last and first
