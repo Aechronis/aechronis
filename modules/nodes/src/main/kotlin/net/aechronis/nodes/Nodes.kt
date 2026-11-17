@@ -29,6 +29,7 @@ import net.aechronis.nodes.commands.RatesCommand
 import net.aechronis.nodes.commands.TerritoryCommand
 import net.aechronis.nodes.commands.TownChatCommand
 import net.aechronis.nodes.commands.TownCommand
+import net.aechronis.nodes.commands.TownTreasuryCommand
 import net.aechronis.nodes.commands.TrainCommand
 import net.aechronis.nodes.commands.UnallyCommand
 import net.aechronis.nodes.commands.WarzoneCommand
@@ -283,6 +284,7 @@ object Nodes {
         cleanupStage(CleanupStage.COLONIZATION_MENUS, ColonizationMenu::closeAll)
         cleanupStage(CleanupStage.WAYPOINT_MENUS, WaypointMenu::closeAll)
         cleanupStage(CleanupStage.FLAGS_MENU, FlagsMenu::closeAll)
+        cleanupStage(CleanupStage.TREASURY_MENU, TownTreasuryCommand::closeAll)
         cleanupStage(CleanupStage.ACTIVE_BUILDINGS, ActiveBuildings::shutdown)
         cleanupStage(CleanupStage.WARP_TASKS, PortWarpTask::cancelAll)
         cleanupStage(CleanupStage.MEMBERSHIP_REQUESTS) { captureLive(TownMembershipRequests::clear) }
@@ -344,6 +346,7 @@ object Nodes {
         COLONIZATION_MENUS,
         WAYPOINT_MENUS,
         FLAGS_MENU,
+        TREASURY_MENU,
         ACTIVE_BUILDINGS,
         WARP_TASKS,
         MEMBERSHIP_REQUESTS,

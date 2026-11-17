@@ -200,6 +200,7 @@ class Town(
             town.lives = (lives?.coerceAtLeast(0) ?: 1).coerceAtMost(maxLives(town))
             town.capitalLifeGranted = capitalLifeGranted
             town.lifeRevision = lifeRevision.coerceAtLeast(0L)
+            town.coins = coins.coerceAtLeast(0L)
             towns[name] = town
             town.invalidateSaveState()
             town
@@ -493,6 +494,16 @@ class Town(
         fun addToIncome(town: Town, material: Material, amount: Int) {
             town.income.add(material, amount)
             town.markChanged()
+        }
+
+        /** Applies a deposit change; false (and no change) if it would go negative or overflow. */
+        @Synchronized
+        fun adjustCoins(town: Town, delta: Long): Boolean {
+            val updated = runCatching { Math.addExact(town.coins, delta) }.getOrNull()
+            if (updated == null || updated < 0L) return false
+            town.coins = updated
+            town.markChanged()
+            return true
         }
 
         fun setCoatOfArmsUrl(town: Town, value: String?) {
@@ -810,6 +821,10 @@ class Town(
     var coatOfArmsUrl: String? = null
         private set
 
+    // stone coins in the town deposit, collected from members by staff
+    var coins: Long = 0L
+        private set
+
     // json string and memoization flag
     private var saveState: TownSaveState
 
@@ -914,6 +929,7 @@ class Town(
         val lives = t.lives
         val capitalLifeGranted = t.capitalLifeGranted
         val lifeRevision = t.lifeRevision
+        val coins = t.coins
         val income = t.income.snapshot().snapshotMap()
         val protectedBlocks: List<BlockVec> = t.protectedBlocks.snapshotList()
         val plots: List<Plot.PlotSaveState> = t.plots.values.map { it.getSaveState() }.snapshotList()

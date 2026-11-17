@@ -18,6 +18,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import kotlinx.serialization.json.longOrNull
 import net.aechronis.nodes.colonization.AiTownConfig
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
@@ -340,6 +341,7 @@ object Deserializer {
             capitalLifeGranted = capitalLifeGranted,
             lifeRevision = lifeRevision,
             coatOfArmsUrl = town["coatOfArmsUrl"]?.jsonPrimitive?.contentOrNull,
+            coins = town["coins"]?.jsonPrimitive?.longOrNull?.coerceAtLeast(0L) ?: 0L,
         )
     }
 

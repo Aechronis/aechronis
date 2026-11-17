@@ -115,6 +115,7 @@ internal data class TownLoadState(
     val capitalLifeGranted: Boolean,
     val lifeRevision: Long,
     val coatOfArmsUrl: String?,
+    val coins: Long = 0L,
 )
 
 internal data class NationLoadState(

@@ -33,6 +33,7 @@ internal object TownJsonCodec {
         put("lives", snapshot.lives)
         put("capitalLifeGranted", snapshot.capitalLifeGranted)
         put("lifeRevision", snapshot.lifeRevision)
+        put("coins", snapshot.coins)
         putJsonObject("income") { snapshot.income.forEach { (material, amount) -> put(material.toString(), amount) } }
         if (snapshot.aiConfig != AiTownConfig()) put("ai", snapshot.aiConfig.toJsonElement())
         putJsonArray("protect") {
