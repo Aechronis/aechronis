@@ -2,16 +2,19 @@
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { exportItemModel } from './export-item-model.mjs'
+import { compact, exportItemModel } from './export-item-model.mjs'
 import { callArguments, constructorDefaults, definitions, displayName, namedArguments, number, splitArguments, string, stripComments } from '../../tools/kotlin-source.cjs'
 import { ammunitionNames, defaultsFor, readConstants } from '../../tools/combat-source.cjs'
 
 const site = fileURLToPath(new URL('../', import.meta.url))
 const modules = join(site, '../modules')
-const types = ['Car', 'Boat', 'Tank', 'Plane', 'Drone', 'Cannon', 'AutomaticFieldPiece']
+const types = ['Car', 'Boat', 'Tank', 'Plane', 'Drone', 'Cannon', 'AutomaticFieldPiece', 'Balloon', 'Airship']
 const fieldPieces = ['Cannon', 'AutomaticFieldPiece']
 const catalogues = {}
 const read = path => readFileSync(path, 'utf8')
+const flying = ['Balloon', 'Airship']
+// A seat's role is its second string literal, in VehicleSeat("id", "Role", ...) and crewSeat(scale, "id", "Role", ...).
+const seatRole = (expression, label) => string(expression.match(/"(?:\\.|[^"\\])*"/g)?.[1], label)
 const format = value => Number(value.toFixed(3)).toString()
 
 function constructorArgs(expression, type) {
@@ -55,6 +58,26 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
     const itemName = args.itemName?.match(/^(\w+)\.itemName$/) ? localGuns.get(args.itemName.split('.')[0])?.itemName : args.itemName
     if (!/^[a-z0-9_-]+$/.test(id) || ids.has(id)) throw new Error(`Invalid or duplicate vehicle ID: ${iterationId}/${id}`)
     ids.add(id)
+    if (flying.includes(type)) {
+      const objects = join(iteration, 'src/main/kotlin/net/aechronis/server/objects')
+      const defaults = { ...constructorDefaults(read(join(objects, 'Balloon.kt')), 'Balloon'), ...(type === 'Airship' ? constructorDefaults(read(join(objects, 'Airship.kt')), 'Airship') : {}) }
+      const value = field => args[field] ?? defaults[field]
+      const stats = []
+      const add = (label, value) => stats.push({ label, value: String(value) })
+      add('Type', type)
+      add('Health', number(splitArguments(constructorArgs(args.health, 'Health'))[0], `${id}/health`))
+      if (type === 'Airship') add('Top speed', `${format(number(value('maxSpeed'), `${id}/maxSpeed`) * 20)} blocks/s`)
+      add('Climb speed', `${format(number(value('climbSpeed'), `${id}/climbSpeed`) * 20)} blocks/s`)
+      add('Descent speed', `${format(number(value('descentSpeed'), `${id}/descentSpeed`) * 20)} blocks/s`)
+      const seats = [value('seat'), ...(type === 'Airship' ? [value('helmSeat')] : [])]
+      add('Crew seats', seats.length)
+      add('Crew positions', seats.map(seat => seatRole(seat, `${id}/seat`)).join(', '))
+      // The item model is the assembled vehicle; the in-game body leaves out propellers and rudders.
+      const [namespace, modelId] = string(args.itemModel ?? `"aechronis:${id}"`, `${id}/itemModel`).split(':')
+      exportItemModel(join(iteration, 'resource-pack/assets', namespace), modelId, output, id)
+      catalogue.push({ id, name: displayName(itemName), stats, model: `/iterations/${iterationId}/vehicles/${id}.json` })
+      continue
+    }
     const defaults = defaultsFor(type, source, iteration)
     const value = field => args[field] ?? defaults[field]
     const stat = field => number(value(field), `${id}/${field}`)
@@ -183,7 +206,7 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
       }
       add('Length', `${format(max[2] - min[2])} blocks`)
       add('Overall width', `${format(max[0] - min[0])} blocks`)
-      writeFileSync(join(output, `${id}.json`), JSON.stringify({ meshes }))
+      writeFileSync(join(output, `${id}.json`), compact({ meshes }))
     }
     if (type === 'Drone' && args.projectileModel && args.projectileModel !== 'null') {
       const [payloadNamespace, payloadId] = string(args.projectileModel, `${id}/payload`).split(':')
@@ -194,7 +217,7 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
         mesh.positions = mesh.positions.map((v, i) => (v - 8) * scale + 8 + offset[i % 3] * 16 / stat('scale'))
         meshes.push(mesh)
       }
-      writeFileSync(join(output, `${id}.json`), JSON.stringify({ meshes }))
+      writeFileSync(join(output, `${id}.json`), compact({ meshes }))
     }
     catalogue.push({ id, name: displayName(itemName), stats, model: `/iterations/${iterationId}/vehicles/${id}.json` })
   }

@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
-import { exportItemModel } from './export-item-model.mjs'
+import { compact, exportItemModel } from './export-item-model.mjs'
 import { boolean, displayName, number, string } from '../../tools/kotlin-source.cjs'
 import { ammunitionNames, defaultsFor, readConstants } from '../../tools/combat-source.cjs'
 
@@ -64,7 +64,7 @@ for (const entry of readdirSync(iterations, { withFileTypes: true }).sort((a, b)
       if (!positions.length) throw new Error(`Empty texture geometry in ${file}`)
       return { texture: texture.filename, positions, uvs }
     })
-    writeFileSync(join(output, `${id}.json`), JSON.stringify({ meshes }))
+    writeFileSync(join(output, `${id}.json`), compact({ meshes }))
     weapons.push({ id, name: displayName(args.itemName), ammo,
       magazine: stat('maxAmmo'), damage: stat('damage'),
       mode: boolean(args.automatic, `${id}/automatic`) ? 'Automatic' : 'Single shot',

@@ -2,6 +2,9 @@ import { readFileSync, copyFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { Euler, Vector3 } from 'three'
 
+// Five decimals is far below a texel or 1/16 pixel; full doubles roughly triple the download.
+export const compact = data => JSON.stringify(data, (_, value) => typeof value === 'number' ? Math.round(value * 1e5) / 1e5 : value)
+
 // Minecraft cuboids use 0..16 UV coordinates, independent of texture resolution.
 export function exportItemModel(pack, id, output, outputId = id) {
   const model = JSON.parse(readFileSync(join(pack, `models/item/${id}.json`), 'utf8'))
@@ -52,6 +55,6 @@ export function exportItemModel(pack, id, output, outputId = id) {
     }
     meshes.push({ texture, positions, uvs, ...(animation ? { animation } : {}) })
   }
-  writeFileSync(join(output, `${outputId}.json`), JSON.stringify({ meshes }))
+  writeFileSync(join(output, `${outputId}.json`), compact({ meshes }))
   return meshes
 }
