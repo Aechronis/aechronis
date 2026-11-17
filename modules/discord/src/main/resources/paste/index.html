@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Aechronis paste picker</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #111214; --panel: #1b1c20; --panel2: #232428; --line: #2e3036; --text: #e3e5e8; --muted: #8e939c;
+    --accent: #5865f2; --ok: #3ba55d; --okfill: rgba(59, 165, 93, .5); --paid: #4f8cff; --bad: #ed4245; --gold: #f0b232;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: radial-gradient(1200px 600px at 70% -10%, #1d2140 0%, var(--bg) 60%); background-color: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; min-height: 100vh; }
+  .app { display: grid; grid-template-columns: 300px 1fr; gap: 16px; max-width: 1400px; margin: 0 auto; padding: 16px; }
+  @media (max-width: 860px) { .app { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  aside { display: flex; flex-direction: column; gap: 12px; align-self: start; position: sticky; top: 16px; }
+  @media (max-width: 860px) { aside { position: static; } }
+  .brand { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .who { display: flex; gap: 12px; align-items: center; }
+  .who img { width: 56px; height: 56px; border-radius: 8px; image-rendering: pixelated; background: var(--panel2); }
+  .who .name { font-size: 18px; font-weight: 700; }
+  .gems { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 2px 10px; border-radius: 999px; background: rgba(240, 178, 50, .12); color: var(--gold); font-weight: 600; }
+  .gems::before { content: ""; width: 10px; height: 10px; background: var(--gold); transform: rotate(45deg); border-radius: 2px; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 14px 0 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; text-align: right; font-weight: 600; overflow-wrap: anywhere; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+  .sum { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+  .sum .big { font-size: 22px; font-weight: 700; }
+  .sum .neg { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 12px; }
+  main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  header h1 { font-size: 22px; margin: 0 0 2px; }
+  header p { margin: 0; color: var(--muted); }
+  form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  input[type=text] { width: 120px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+  input[type=text]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  button { padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); color: var(--text); font-size: 14px; cursor: pointer; transition: background .15s, transform .05s; }
+  button:hover:not(:disabled) { background: #2c2e33; }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { background: #4752c4; }
+  button.go { width: 100%; background: var(--ok); border-color: var(--ok); color: #fff; font-weight: 600; padding: 11px; margin-top: 12px; }
+  button.go:hover:not(:disabled) { background: #2d8049; }
+  button:disabled { opacity: .45; cursor: default; }
+  #msg { min-height: 1.4em; }
+  #msg.bad { color: var(--bad); font-weight: 600; }
+  #msg.ok { color: var(--ok); font-weight: 600; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .toolbar .spacer { flex: 1; }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; color: var(--muted); }
+  .toggle input { appearance: none; width: 34px; height: 20px; border-radius: 999px; background: var(--line); position: relative; cursor: pointer; transition: background .15s; margin: 0; }
+  .toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .15s; }
+  .toggle input:checked { background: var(--accent); }
+  .toggle input:checked::after { left: 17px; }
+  #map { position: relative; display: block; width: fit-content; max-width: 100%; margin: 0 auto; line-height: 0; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, .5); touch-action: none; }
+  #map img { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
+  #map svg, #grid { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #map svg { pointer-events: none; }
+  #grid { display: grid; }
+  .cell { border: 0; padding: 0; margin: 0; border-radius: 0; background: transparent; cursor: pointer; transition: background .1s; }
+  .cell:hover:not(:disabled) { background: rgba(255, 255, 255, .12); box-shadow: inset 0 0 0 2px #fff; }
+  .cell.paid { background: repeating-linear-gradient(45deg, rgba(79, 140, 255, .28) 0 4px, transparent 4px 9px); box-shadow: inset 0 0 0 2px rgba(79, 140, 255, .9); }
+  .cell.sel { background: var(--okfill); box-shadow: inset 0 0 0 2px rgba(120, 255, 160, .9); }
+  .cell.sel.paid { background: var(--okfill); box-shadow: inset 0 0 0 3px var(--paid); }
+  .cell.blocked { background: rgba(237, 66, 69, .4); cursor: not-allowed; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; vertical-align: -2px; margin-right: 6px; border-radius: 3px; }
+  #tip { position: fixed; pointer-events: none; z-index: 10; background: rgba(17, 18, 20, .95); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; line-height: 1.4; white-space: nowrap; }
+  .empty { text-align: center; padding: 48px 16px; color: var(--muted); }
+  .rot { display: inline-flex; align-items: center; gap: 6px; }
+  .rot button { padding: 8px 11px; font-size: 16px; line-height: 1; }
+  .rot span { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .status { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--line); }
+  .status b { display: block; margin-bottom: 2px; }
+  .status .dot { flex: none; width: 10px; height: 10px; margin-top: 5px; border-radius: 50%; background: var(--gold); }
+  .status.pending .dot { animation: pulse 1.4s ease-in-out infinite; }
+  .status.approved .dot { background: var(--ok); }
+  .status.rejected .dot, .status.failed .dot { background: var(--bad); }
+  @keyframes pulse { 50% { opacity: .3; transform: scale(.7); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="card">
+      <div class="brand">Aechronis · Paste</div>
+      <div class="who">
+        <img id="avatar" alt="">
+        <div>
+          <div class="name" id="name">…</div>
+          <div class="gems" id="gems">–</div>
+        </div>
+      </div>
+      <dl>
+        <dt>Town</dt><dd id="town">–</dd>
+        <dt>Nation</dt><dd id="nation">–</dd>
+        <dt>Node</dt><dd id="node">–</dd>
+        <dt>Paid chunks</dt><dd id="paidTotal">–</dd>
+        <dt>Link expires</dt><dd id="expires">–</dd>
+      </dl>
+    </div>
+    <div class="card" id="order" hidden>
+      <h2>Order</h2>
+      <div class="sum">
+        <span>Selected chunks</span><span id="count">0</span>
+        <span>Already paid</span><span id="free">0</span>
+        <span>New chunks</span><span id="added">0</span>
+        <span class="muted" id="rate"></span><span></span>
+        <span class="big">Cost</span><span class="big" id="cost">0</span>
+        <span>Gems after</span><span id="after">–</span>
+      </div>
+      <button class="go" id="submit">Submit for staff review</button>
+      <p class="muted" id="chargeNote">Gems are charged only when staff approve.</p>
+    </div>
+    <div class="card" id="statusCard" hidden>
+      <h2>Request</h2>
+      <div class="status pending" id="status"><span class="dot"></span><div><b id="statusTitle">Waiting for staff</b><span class="muted" id="statusText"></span></div></div>
+    </div>
+  </aside>
+  <main>
+    <div class="card">
+      <header>
+        <h1 id="title">Choose where to paste</h1>
+        <p id="intro">Enter the block where the schematic's origin should land and press Load. Chunks you already paid for are free to paste again, but only if you select them.</p>
+      </header>
+      <form id="coords" style="margin-top:12px">
+        <label class="f">X <input type="text" name="x" inputmode="numeric" required></label>
+        <label class="f">Y <input type="text" name="y" inputmode="numeric" required></label>
+        <label class="f">Z <input type="text" name="z" inputmode="numeric" required></label>
+        <span class="rot" title="Turn the schematic, seen from above">
+          <button type="button" id="rotL" aria-label="Rotate counter-clockwise">&#x27F2;</button>
+          <span id="rotLabel">0°</span>
+          <button type="button" id="rotR" aria-label="Rotate clockwise">&#x27F3;</button>
+        </span>
+        <button class="primary" id="load">Load</button>
+      </form>
+      <div id="msg" style="margin-top:10px"></div>
+    </div>
+    <div class="card" id="picker" hidden>
+      <div class="toolbar">
+        <button id="all" type="button">Select all</button>
+        <button id="paidOnly" type="button">Select paid</button>
+        <button id="clear" type="button">Clear</button>
+        <span class="spacer"></span>
+        <label class="toggle"><input type="checkbox" id="borders" checked> Node borders</label>
+      </div>
+      <div id="map">
+        <img id="img" alt="Top-down view of the world with your schematic drawn in place">
+        <svg id="overlay" preserveAspectRatio="none"></svg>
+        <div id="grid"></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--okfill);box-shadow:inset 0 0 0 2px #78ffa0"></i>selected</span>
+        <span><i style="background:repeating-linear-gradient(45deg,rgba(79,140,255,.5) 0 3px,transparent 3px 6px);box-shadow:inset 0 0 0 2px var(--paid)"></i>already paid (free)</span>
+        <span><i style="background:rgba(237,66,69,.6)"></i>outside your town</span>
+        <span><i style="background:rgba(200,40,40,.35)"></i>another town</span>
+        <span><i style="background:rgba(0,0,0,.6)"></i>unclaimed</span>
+        <span><i style="border:2px dashed #ffd76a"></i>node border</span>
+      </div>
+      <p class="muted" style="margin:8px 0 0">Click or drag over chunks to select them. Only selected chunks are written.</p>
+    </div>
+    <div class="card empty" id="empty">Set the coordinates to see the map.</div>
+  </main>
+</div>
+<div id="tip" hidden></div>
+<script>
+  const base = location.pathname.replace(/\/$/, "");
+  const $ = (id) => document.getElementById(id);
+  const SVG = "http://www.w3.org/2000/svg";
+  const form = $("coords");
+  let state = null;
+  let selected = new Set();
+  let painting = null;
+  let rotation = 0;
+
+  function say(text, kind) { $("msg").textContent = text || ""; $("msg").className = kind || ""; }
+
+  async function call(action, body) {
+    const options = body ? { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(body) } : {};
+    const response = await fetch(base + "/" + action, options);
+    if (!response.ok) throw new Error("Server error " + response.status);
+    return response.json();
+  }
+
+  const coords = () => ({ x: form.x.value.trim(), y: form.y.value.trim(), z: form.z.value.trim(), rotation });
+  const fmt = (n) => Number(n).toLocaleString();
+
+  function profile(s) {
+    $("name").textContent = s.name || "Unknown player";
+    $("avatar").src = "https://mc-heads.net/avatar/" + s.uuid + "/56";
+    $("gems").textContent = s.balance !== undefined ? fmt(s.balance) + " gems" : "no balance";
+    $("town").textContent = s.town || "–";
+    $("nation").textContent = s.nation || "–";
+    $("node").textContent = s.node || "–";
+    $("paidTotal").textContent = fmt(s.paidTotal || 0);
+  }
+
+  function svg(tag, attrs, parent) {
+    const el = document.createElementNS(SVG, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    parent.appendChild(el);
+    return el;
+  }
+
+  function overlay() {
+    const o = $("overlay");
+    const { cols, rows, nodes, nodeNames } = state;
+    o.setAttribute("viewBox", `0 0 ${cols} ${rows}`);
+    o.replaceChildren();
+    // Paid chunks the schematic doesn't reach: outline only, so the player sees their land.
+    const paid = svg("g", {}, o);
+    for (const i of state.paidCells) {
+      const col = i % cols, row = Math.floor(i / cols);
+      if (cellAt(col, row)) continue;
+      svg("rect", { x: col + .06, y: row + .06, width: .88, height: .88, fill: "rgba(79,140,255,.28)", stroke: "#4f8cff", "stroke-width": 2, "vector-effect": "non-scaling-stroke", "stroke-dasharray": "4 3" }, paid);
+    }
+    const g = svg("g", { id: "nodeLayer" }, o);
+    let d = "";
+    const at = (c, r) => nodes[r * cols + c];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (c + 1 < cols && at(c, r) !== at(c + 1, r)) d += `M${c + 1} ${r}v1`;
+        if (r + 1 < rows && at(c, r) !== at(c, r + 1)) d += `M${c} ${r + 1}h1`;
+      }
+    }
+    const common = { d, fill: "none", "vector-effect": "non-scaling-stroke", "stroke-linecap": "square" };
+    svg("path", { ...common, stroke: "rgba(0,0,0,.7)", "stroke-width": 5 }, g);
+    svg("path", { ...common, stroke: "#ffd76a", "stroke-width": 2.5, "stroke-dasharray": "8 5" }, g);
+    // Node names at the middle of each node's chunks in view.
+    const sums = nodeNames.map(() => [0, 0, 0]);
+    nodes.forEach((n, i) => { if (n >= 0) { sums[n][0] += i % cols; sums[n][1] += Math.floor(i / cols); sums[n][2]++; } });
+    const size = Math.max(.35, Math.min(.7, cols / 22));
+    sums.forEach(([sx, sy, count], n) => {
+      if (count < 2) return;
+      const t = svg("text", { x: sx / count + .5, y: sy / count + .5, "font-size": size, "text-anchor": "middle", "dominant-baseline": "middle", fill: "#ffe7a3", stroke: "rgba(0,0,0,.85)", "stroke-width": size / 6, "paint-order": "stroke", "font-weight": 700 }, g);
+      t.textContent = nodeNames[n];
+    });
+    g.style.display = $("borders").checked ? "" : "none";
+  }
+
+  let cellIndex = new Map();
+  const cellAt = (col, row) => cellIndex.get(col + "," + row);
+
+  function apply(cell, on) {
+    if (cell.disabled) return;
+    on ? selected.add(cell.dataset.id) : selected.delete(cell.dataset.id);
+    refresh();
+  }
+
+  function show(next) {
+    state = next;
+    profile(state);
+    if (state.x !== undefined) { form.x.value = state.x; form.y.value = state.y; form.z.value = state.z; }
+    if (state.rotation !== undefined) setRotation(state.rotation);
+    if (state.status) { showStatus(state); return; }
+    if (state.land) land();
+    if (!state.chunks) { $("picker").hidden = true; $("order").hidden = true; return; }
+    selected = new Set();
+    cellIndex = new Map();
+    const grid = $("grid");
+    grid.style.gridTemplateColumns = `repeat(${state.cols}, 1fr)`;
+    grid.style.gridTemplateRows = `repeat(${state.rows}, 1fr)`;
+    grid.replaceChildren(...state.chunks.map((c) => {
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "cell" + (c.paid ? " paid" : "") + (c.blocked ? " blocked" : "");
+      cell.style.gridColumn = c.col + 1;
+      cell.style.gridRow = c.row + 1;
+      cell.dataset.id = c.id;
+      cell.disabled = c.blocked;
+      cellIndex.set(c.col + "," + c.row, c);
+      const node = state.nodes[c.row * state.cols + c.col];
+      cell.dataset.tip = `<b>${c.label}</b> · x ${c.x}..${c.x + 15}, z ${c.z}..${c.z + 15}` +
+        (node >= 0 ? `<br>Node: ${escape(state.nodeNames[node])}` : "") +
+        (c.blocked ? "<br><span style='color:#ed4245'>Outside your town</span>" : c.paid ? "<br><span style='color:#4f8cff'>Already paid: free</span>" : `<br>${state.costPerChunk} gems`);
+      cell.onpointerdown = (e) => { e.preventDefault(); painting = !selected.has(c.id); apply(cell, painting); };
+      cell.onpointerenter = () => { if (painting !== null) apply(cell, painting); };
+      return cell;
+    }));
+    $("img").src = base + "/map.png?" + Date.now();
+    overlay();
+    $("picker").hidden = false;
+    $("order").hidden = state.land;
+    $("empty").hidden = true;
+    refresh();
+  }
+
+  function setRotation(turns) {
+    rotation = ((turns % 4) + 4) % 4;
+    $("rotLabel").textContent = rotation * 90 + "°";
+  }
+
+  function rotate(by) {
+    setRotation(rotation + by);
+    // Re-place right away once there is a placement to turn.
+    if (state && state.chunks && form.reportValidity()) form.requestSubmit();
+  }
+
+  /** The read-only map of the player's paid chunks. */
+  function land() {
+    $("title").textContent = "Your paid chunks";
+    $("intro").textContent = "Every chunk you've paid for is outlined in blue. Pasting there again is free: run /paste with a schematic and select them.";
+    form.hidden = true;
+    for (const id of ["all", "paidOnly", "clear"]) $(id).hidden = true;
+    $("picker").querySelector("p.muted").hidden = true;
+  }
+
+  const TITLES = { pending: "Waiting for staff", approved: "Pasted", rejected: "Rejected", failed: "Not pasted" };
+
+  function showStatus(s) {
+    $("order").hidden = true;
+    $("statusCard").hidden = false;
+    $("status").className = "status " + s.status;
+    $("statusTitle").textContent = TITLES[s.status] || s.status;
+    $("statusText").textContent = s.message;
+    if (s.status === "pending") setTimeout(poll, 5000);
+    else if (s.balance !== undefined) $("gems").textContent = fmt(s.balance) + " gems";
+    if (!state || !state.chunks) {
+      $("title").textContent = "Your paste request";
+      $("intro").textContent = "This page updates by itself when staff decide.";
+      form.hidden = true;
+      $("empty").hidden = true;
+    }
+  }
+
+  async function poll() {
+    try {
+      const s = await call("status");
+      if (s.error) return;
+      profile(Object.assign({}, state || {}, s));
+      showStatus(s);
+    } catch (_) { setTimeout(poll, 10000); }
+  }
+
+  function escape(text) { const d = document.createElement("div"); d.textContent = text; return d.innerHTML; }
+
+  function refresh() {
+    const chosen = state.chunks.filter((c) => selected.has(c.id));
+    const free = chosen.filter((c) => c.paid).length;
+    const added = chosen.length - free;
+    const cost = added * state.costPerChunk;
+    for (const cell of $("grid").children) cell.classList.toggle("sel", selected.has(cell.dataset.id));
+    $("count").textContent = chosen.length;
+    $("free").textContent = free;
+    $("added").textContent = added;
+    $("rate").textContent = `${state.costPerChunk} gems per new chunk`;
+    $("cost").textContent = cost ? fmt(cost) + " gems" : "Free";
+    if (state.balance !== undefined) {
+      const after = state.balance - cost;
+      $("after").textContent = fmt(after);
+      $("after").className = after < 0 ? "neg" : "";
+    }
+    $("submit").disabled = chosen.length === 0;
+  }
+
+  addEventListener("pointerup", () => { painting = null; });
+  $("grid").addEventListener("pointermove", (e) => {
+    const tip = $("tip");
+    const cell = e.target.closest(".cell");
+    if (!cell) { tip.hidden = true; return; }
+    tip.innerHTML = cell.dataset.tip;
+    tip.hidden = false;
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px";
+    tip.style.top = e.clientY + 14 + "px";
+  });
+  $("grid").addEventListener("pointerleave", () => { $("tip").hidden = true; });
+  $("borders").onchange = () => { const g = $("nodeLayer"); if (g) g.style.display = $("borders").checked ? "" : "none"; };
+
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    say("Placing the schematic…");
+    $("load").disabled = true;
+    try {
+      const result = await call("place", coords());
+      if (result.error) say(result.error, "bad"); else { say(""); show(result); }
+    } catch (error) { say(error.message, "bad"); }
+    $("load").disabled = false;
+  };
+
+  $("rotL").onclick = () => rotate(-1);
+  $("rotR").onclick = () => rotate(1);
+  $("all").onclick = () => { for (const c of state.chunks) if (!c.blocked) selected.add(c.id); refresh(); };
+  $("paidOnly").onclick = () => { selected = new Set(state.chunks.filter((c) => c.paid && !c.blocked).map((c) => c.id)); refresh(); };
+  $("clear").onclick = () => { selected.clear(); refresh(); };
+  $("submit").onclick = async () => {
+    $("submit").disabled = true;
+    say("Submitting…");
+    try {
+      const result = await call("submit", { ...coords(), chunks: [...selected].join(",") });
+      if (result.done) {
+        say(result.done, "ok");
+        for (const element of document.querySelectorAll("button, input")) element.disabled = true;
+        painting = null;
+        $("grid").style.pointerEvents = "none";
+        showStatus({ status: "pending", message: "Waiting for staff review. Gems are charged on approval." });
+        return;
+      }
+      say(result.error, "bad");
+    } catch (error) { say(error.message, "bad"); }
+    $("submit").disabled = false;
+  };
+
+  function countdown(expires) {
+    const tick = () => {
+      const left = Math.max(0, expires - Date.now());
+      const m = Math.floor(left / 60000), s = Math.floor(left / 1000) % 60;
+      $("expires").textContent = left ? `${m}:${String(s).padStart(2, "0")}` : "expired";
+      $("expires").style.color = left < 120000 ? "var(--bad)" : "";
+    };
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  call("state").then((result) => {
+    if (result.error) {
+      say(result.error, "bad");
+      for (const element of document.querySelectorAll("button, input")) element.disabled = true;
+    } else {
+      show(result);
+      if (result.expires) countdown(result.expires);
+      else $("expires").textContent = "–";
+    }
+  }).catch((error) => say(error.message, "bad"));
+</script>
+</body>
+</html>

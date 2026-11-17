@@ -9,29 +9,23 @@ import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.MessageChannelBehavior
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.edit
-import dev.kord.core.behavior.interaction.respondEphemeral
 import dev.kord.core.behavior.interaction.response.createEphemeralFollowup
 import dev.kord.core.behavior.interaction.response.edit
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.behavior.interaction.suggestString
 import dev.kord.core.entity.interaction.ChatInputCommandInteraction
-import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.entity.interaction.InteractionCommand
 import dev.kord.core.event.gateway.ReadyEvent
 import dev.kord.core.event.interaction.AutoCompleteInteractionCreateEvent
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
-import dev.kord.core.event.interaction.SelectMenuInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.core.supplier.EntitySupplyStrategy
 import dev.kord.gateway.Intent
 import dev.kord.gateway.Intents
-import dev.kord.rest.builder.component.option
 import dev.kord.rest.builder.interaction.ChatInputCreateBuilder
 import dev.kord.rest.builder.interaction.attachment
-import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
-import dev.kord.rest.builder.message.MessageBuilder
 import dev.kord.rest.builder.message.actionRow
 import dev.kord.rest.builder.message.allowedMentions
 import dev.kord.rest.builder.message.embed
@@ -50,7 +44,6 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import net.aechronis.economy.Economy
 import net.aechronis.punishments.Punishments
 import java.net.URLEncoder
 import java.nio.file.Files
@@ -71,6 +64,7 @@ internal object DiscordBot {
         val http = HttpClient(engine)
         var kord: Kord? = null
         var punishments: PunishmentBridge? = null
+        var web: PasteWeb? = null
         try {
             val client =
                 withTimeoutOrNull(30_000) { Kord(token) { httpClient = http } }
@@ -88,16 +82,21 @@ internal object DiscordBot {
             val slots = Semaphore(8)
             val names =
                 nodes.names + setOf("link", "unlink", "account") +
-                    setOfNotNull("paste".takeIf { pastes != null }, "repaste".takeIf { pastes != null })
+                    setOfNotNull("paste".takeIf { pastes != null })
             if (pastes != null) {
-                client.on<SelectMenuInteractionCreateEvent>(scope = scope) {
-                    if (interaction.componentId.startsWith("pk:")) handlePicker(pastes, interaction, requests, interaction.values)
-                }
-                client.on<ButtonInteractionCreateEvent>(scope = scope) {
-                    if (interaction.componentId.startsWith("pk:")) {
-                        handlePicker(pastes, interaction, requests)
-                        return@on
+                web =
+                    try {
+                        PasteWeb.start(pastes.webPort, pastes) { order, draft, placement ->
+                            pastes.ticketOf[order.id] = draft.channel
+                            postForStaff(pastes, client, order, placement.map, draft.paid intersect order.allowance)
+                        }
+                    } catch (error: Exception) {
+                        System.err.println(
+                            "[Discord] Paste picker could not listen on port ${pastes.webPort} (${error.javaClass.simpleName})",
+                        )
+                        null
                     }
+                client.on<ButtonInteractionCreateEvent>(scope = scope) {
                     val parts = interaction.componentId.split(":", limit = 2)
                     if (parts.size != 2 || parts[0] !in setOf("paste-approve", "paste-reject")) return@on
                     if (!requests.claim(interaction.id.toString())) return@on
@@ -117,7 +116,7 @@ internal object DiscordBot {
                                     "That order was already handled or expired."
                                 }
                             }
-                        val done = result.startsWith("Pasted") || result.startsWith("Repasted")
+                        val done = result.startsWith("Pasted")
                         val outcome =
                             if (parts[0] == "paste-reject") {
                                 "rejected"
@@ -175,17 +174,6 @@ internal object DiscordBot {
             }
             client.on<AutoCompleteInteractionCreateEvent>(scope = scope) {
                 if (guildId != null && interaction.data.guildId.value != guildId) return@on
-                if (pastes != null && interaction.command.rootName == "repaste") {
-                    try {
-                        val own = pastes.suggest(interaction.user.id.toString())
-                        interaction.suggestString { own.forEach { (label, id) -> choice(label, id) } }
-                    } catch (error: CancellationException) {
-                        throw error
-                    } catch (_: Exception) {
-                        runCatching { interaction.suggestString { } }
-                    }
-                    return@on
-                }
                 if (interaction.command.rootName in Punishments.commandNames) {
                     val focused =
                         interaction.command.options.entries
@@ -238,7 +226,8 @@ internal object DiscordBot {
                 if (!requests.claim(interaction.id.toString())) return@on
                 try {
                     val response = interaction.deferEphemeralResponse()
-                    var pickerDraft: PasteOrders.Draft? = null
+                    var pickerLink: String? = null
+                    var landLink = false
                     val acquired = slots.tryAcquire()
                     val reply =
                         if (!acquired) {
@@ -258,8 +247,11 @@ internal object DiscordBot {
                                                 links.player(id)?.let { "Linked Minecraft UUID: $it. Use /unlink to revoke access." }
                                                     ?: "Not linked. Run /discord link in Minecraft, then /link code:<code> here.",
                                             )
-                                        "paste" -> submitPaste(pastes!!, http, interaction, command, repaste = false) { pickerDraft = it }
-                                        "repaste" -> submitPaste(pastes!!, http, interaction, command, repaste = true) { pickerDraft = it }
+                                        "paste" ->
+                                            submitPaste(pastes!!, http, interaction, command) { link, land ->
+                                                pickerLink = link
+                                                landLink = land
+                                            }
                                         in Punishments.commandNames ->
                                             PunishmentOptions.problem(command)?.let { CommandReply(it) }
                                                 ?: nodes.execute(id, command.rootName, PunishmentOptions.arguments(command))
@@ -275,13 +267,23 @@ internal object DiscordBot {
                                 slots.release()
                             }
                         }
-                    pickerDraft?.let { draft ->
-                        val balance = withContext(Dispatchers.IO) { Economy.balance(draft.player) }
-                        val png = withContext(Dispatchers.Default) { draft.map.png(draft.selected, draft.paid, draft.blocked) }
+                    pickerLink?.let { link ->
                         response.respond {
                             allowedMentions { }
-                            addFile("chunks.png", ChannelProvider { ByteReadChannel(png) })
-                            picker(draft, balance, null)
+                            embed {
+                                title = if (landLink) "Your paid chunks" else "Choose where to paste"
+                                description =
+                                    (
+                                        if (landLink) {
+                                            "Open the map to see every chunk you've paid for. "
+                                        } else {
+                                            "Schematic accepted. Open the picker to set the coordinates, rotation and chunks; " +
+                                                "chunks you already paid for are free. "
+                                        }
+                                    ) + "The link is yours alone and works for 15 minutes; don't share it."
+                                color = Color(0x5865F2)
+                            }
+                            actionRow { linkButton(link) { label = if (landLink) "Open the map" else "Open the chunk picker" } }
                         }
                         return@on
                     }
@@ -318,8 +320,7 @@ internal object DiscordBot {
                 val description =
                     when (name) {
                         "link" -> "Link your Minecraft account using an in-game /discord link code"
-                        "repaste" -> "Replace an earlier paste with a new schematic; extra chunks are ${PasteOrders.COST_PER_CHUNK} gems"
-                        "paste" -> "Buy a schematic paste in your town and pick the chunks (${PasteOrders.COST_PER_CHUNK} gems per chunk)"
+                        "paste" -> "Paste a schematic (${PasteOrders.COST_PER_CHUNK} gems per new chunk); no file shows your paid chunks"
                         "unlink" -> "Revoke this Discord account's access to your Minecraft account"
                         "account" -> "Show your linked Minecraft account"
                         in Punishments.commandNames -> "Staff: run the in-game /$name command as your linked account"
@@ -335,19 +336,10 @@ internal object DiscordBot {
                                 minLength = AccountLinks.CODE_LENGTH
                                 maxLength = AccountLinks.CODE_LENGTH
                             }
-                        "repaste" -> {
-                            string("paste", "Which of your earlier pastes to replace") {
-                                required = true
-                                autocomplete = true
+                        "paste" ->
+                            attachment("schematic", "Sponge .schem file; leave empty to see the chunks you paid for") {
+                                required = false
                             }
-                            attachment("schematic", "Sponge .schem file") { required = true }
-                        }
-                        "paste" -> {
-                            attachment("schematic", "Sponge .schem file") { required = true }
-                            integer("x", "Block X where the schematic's origin lands") { required = true }
-                            integer("y", "Block Y where the schematic's origin lands") { required = true }
-                            integer("z", "Block Z where the schematic's origin lands") { required = true }
-                        }
                         "unlink", "account" -> Unit
                         in Punishments.commandNames -> PunishmentOptions.register(this, name)
                         else ->
@@ -363,13 +355,14 @@ internal object DiscordBot {
                     client.createGuildChatInputCommand(guildId, name, description, options)
                 }
             }
-            // Remove the overview registered by earlier module versions in this command scope.
+            // Remove commands registered by earlier module versions in this command scope.
             val applicationId = client.resources.applicationId
             val registered = client.with(EntitySupplyStrategy.rest)
+            val retired = setOf("stats", "repaste")
             if (guildId == null) {
-                registered.getGlobalApplicationCommands(applicationId).collect { if (it.name == "stats") it.delete() }
+                registered.getGlobalApplicationCommands(applicationId).collect { if (it.name in retired) it.delete() }
             } else {
-                registered.getGuildApplicationCommands(applicationId, guildId).collect { if (it.name == "stats") it.delete() }
+                registered.getGuildApplicationCommands(applicationId, guildId).collect { if (it.name in retired) it.delete() }
             }
             val commandScope = guildId?.let { "in guild $it" } ?: "globally"
             println("[Discord] Registered ${names.size} slash commands, including /link, $commandScope")
@@ -380,6 +373,7 @@ internal object DiscordBot {
             System.err.println("[Discord] Bot stopped (${error.javaClass.simpleName}); check configuration and restart the discord module")
         } finally {
             punishments?.close()
+            web?.close()
             scope.cancel()
             withContext(NonCancellable) {
                 try {
@@ -406,181 +400,23 @@ private suspend fun submitPaste(
     http: HttpClient,
     interaction: ChatInputCommandInteraction,
     command: InteractionCommand,
-    repaste: Boolean,
-    onDraft: (PasteOrders.Draft) -> Unit,
+    onLink: (link: String, land: Boolean) -> Unit,
 ): CommandReply {
-    val file = command.attachments["schematic"] ?: return CommandReply("Attach a .schem file.")
-
-    fun coord(name: String): Int? = command.integers[name]?.takeIf { it in -30_000_000L..30_000_000L }?.toInt()
-    val replacing = if (repaste) command.strings["paste"].orEmpty() else null
-    // A repaste keeps the original origin, so only /paste takes coordinates.
-    val x = if (repaste) 0 else coord("x")
-    val y = if (repaste) 0 else coord("y")
-    val z = if (repaste) 0 else coord("z")
-    if (x == null || y == null || z == null) return CommandReply("Coordinates are out of range.")
+    val file = command.attachments["schematic"]
+    if (file == null) {
+        val land =
+            pastes
+                .prepareLand(interaction.user.id.toString())
+                .getOrElse { return CommandReply(it.message ?: "Could not draw your map.") }
+        onLink(pastes.webUrl + land.id, true)
+        return CommandReply("")
+    }
     val draft =
         pastes
-            .prepare(http, interaction.user.id.toString(), file.filename, file.size, file.url, x, y, z, replacing)
+            .prepare(http, interaction.user.id.toString(), file.filename, file.size, file.url, interaction.channelId)
             .getOrElse { return CommandReply(it.message ?: "Could not process that schematic.") }
-    onDraft(draft)
+    onLink(pastes.webUrl + draft.id, false)
     return CommandReply("")
-}
-
-/** Chunks that can be picked, in reading order, split into dropdowns of 25 (Discord's limit); at most four fit. */
-private fun chunkGroups(draft: PasteOrders.Draft): List<List<Long>> =
-    (draft.map.filled - draft.blocked)
-        .sortedWith(compareBy({ ChunkMap.cz(it) }, { ChunkMap.cx(it) }))
-        .chunked(25)
-        .take(4)
-
-/** The picker: the render, a cost summary, a dropdown per 25 chunks and the action buttons. */
-private fun MessageBuilder.picker(
-    draft: PasteOrders.Draft,
-    balance: Long?,
-    note: String?,
-) {
-    val map = draft.map
-    val groups = chunkGroups(draft)
-    val added = (draft.selected - draft.paid).size
-    val cost = added * PasteOrders.COST_PER_CHUNK
-    embed {
-        title = if (draft.old != null) "Repaste: choose chunks" else "Choose chunks to paste"
-        description =
-            buildString {
-                append("Pick the chunks to paste from the menu below. Green is selected, blue was already paid for.")
-                if (draft.blocked.isNotEmpty()) {
-                    append(
-                        "\nRed chunks (${draft.blocked.joinToString(", ") { map.label(it) }}) are outside your town and can't be pasted.",
-                    )
-                }
-                if (groups.sumOf { it.size } < draft.touched.size - draft.blocked.size) {
-                    append("\nThis build has too many chunks to pick one by one, so only the first ${groups.sumOf { it.size }} are listed.")
-                }
-                if (note != null) append("\n\n⚠️ **$note**")
-            }
-        color = Color(if (note != null) 0xED4245 else 0x5865F2)
-        field("Selected", true) { "${draft.selected.size} of ${draft.touched.size - draft.blocked.size} chunks" }
-        field("Cost", true) { if (cost > 0) "$cost gems ($added new)" else "Free" }
-        if (balance != null) field("Your gems", true) { "$balance" }
-        image = "attachment://chunks.png"
-        footer { text = "Origin ${draft.x} ${draft.y} ${draft.z}" }
-    }
-    components = mutableListOf()
-    groups.forEachIndexed { index, group ->
-        actionRow {
-            stringSelect("pk:${draft.id}:sel:$index") {
-                placeholder = "Chunks ${map.label(group.first())} to ${map.label(group.last())}"
-                allowedValues = 0..group.size
-                for (chunk in group) {
-                    val x = ChunkMap.cx(chunk) shl 4
-                    val z = ChunkMap.cz(chunk) shl 4
-                    val paid = if (chunk in draft.paid) " · already paid" else ""
-                    option(map.label(chunk), chunk.toString()) {
-                        description = "x $x..${x + 15}, z $z..${z + 15}$paid"
-                        default = chunk in draft.selected
-                    }
-                }
-            }
-        }
-    }
-    actionRow {
-        interactionButton(ButtonStyle.Success, "pk:${draft.id}:ok") { label = "Confirm" }
-        interactionButton(ButtonStyle.Secondary, "pk:${draft.id}:all") { label = "Select all" }
-        interactionButton(ButtonStyle.Secondary, "pk:${draft.id}:clear") { label = "Clear" }
-        interactionButton(ButtonStyle.Danger, "pk:${draft.id}:cancel") { label = "Cancel" }
-    }
-}
-
-private suspend fun handlePicker(
-    pastes: PasteOrders,
-    interaction: ComponentInteraction,
-    requests: InteractionRequests,
-    values: List<String> = emptyList(),
-) {
-    if (!requests.claim(interaction.id.toString())) return
-    try {
-        val parts = interaction.componentId.split(":")
-        println("[Discord] Picker ${parts.getOrNull(2)}")
-        val draft = pastes.draft(parts.getOrNull(1).orEmpty())
-        if (draft == null) {
-            interaction.respondEphemeral { content = "This picker expired. Run the command again." }
-            return
-        }
-        if (draft.discordId != interaction.user.id.toString()) {
-            interaction.respondEphemeral { content = "This picker belongs to someone else." }
-            return
-        }
-        // Confirming uploads to the staff channel, which can outlast Discord's 3 second reply window.
-        val response = interaction.deferEphemeralMessageUpdate()
-        var note: String? = null
-        val map = draft.map
-        synchronized(draft) {
-            when (parts.getOrNull(2)) {
-                "sel" -> {
-                    val group = chunkGroups(draft).getOrNull(parts.getOrNull(3)?.toIntOrNull() ?: -1).orEmpty().toSet()
-                    draft.selected.removeAll(group)
-                    draft.selected += values.mapNotNull { it.toLongOrNull() }.filter { it in group }
-                }
-                "all" -> draft.selected += draft.touched - draft.blocked
-                "clear" -> draft.selected.clear()
-            }
-        }
-        when (parts.getOrNull(2)) {
-            "cancel" -> {
-                pastes.cancel(draft.id)
-                response.edit {
-                    content = "Cancelled."
-                    embeds = mutableListOf()
-                    components = mutableListOf()
-                }
-                return
-            }
-            "ok" -> {
-                val result = pastes.confirm(draft.id)
-                val order = result.getOrNull()
-                println("[Discord] Picker confirm ${if (order != null) "accepted" else "refused: ${result.exceptionOrNull()?.message}"}")
-                if (order == null) {
-                    note = result.exceptionOrNull()?.message ?: "Could not submit that selection."
-                } else {
-                    pastes.ticketOf[order.id] = interaction.channelId
-                    try {
-                        postForStaff(pastes, interaction.kord, order, draft.map, draft.paid)
-                    } catch (error: CancellationException) {
-                        pastes.reject(order.id, "system")
-                        throw error
-                    } catch (error: Exception) {
-                        pastes.reject(order.id, "system")
-                        System.err.println("[Discord] Could not post paste for staff (${error.javaClass.simpleName})")
-                        response.createEphemeralFollowup {
-                            content =
-                                "Could not post your request for staff; nothing was charged. Run the command again."
-                        }
-                        return
-                    }
-                    response.edit {
-                        content =
-                            "Request posted: ${order.chunks} chunk(s), ${order.newChunks} new for ${order.cost} gems. " +
-                            "Waiting for staff approval; gems are charged on approval."
-                        embeds = mutableListOf()
-                        components = mutableListOf()
-                    }
-                    return
-                }
-            }
-        }
-        val balance = withContext(Dispatchers.IO) { Economy.balance(draft.player) }
-        val png = withContext(Dispatchers.Default) { map.png(draft.selected, draft.paid, draft.blocked) }
-        response.edit {
-            // Drop the previous render so only the current one stays on the message.
-            attachments = mutableListOf()
-            addFile("chunks.png", ChannelProvider { ByteReadChannel(png) })
-            picker(draft, balance, note)
-        }
-    } catch (error: CancellationException) {
-        throw error
-    } catch (error: Exception) {
-        System.err.println("[Discord] Picker failed (${error.javaClass.simpleName})")
-    }
 }
 
 private suspend fun postForStaff(
@@ -590,7 +426,6 @@ private suspend fun postForStaff(
     map: ChunkMap,
     paid: Set<Long>,
 ) {
-    val repaste = order.replaces != null
     val bytes = withContext(Dispatchers.IO) { Files.readAllBytes(order.file) }
     val png = withContext(Dispatchers.Default) { map.png(order.allowance - paid, paid) }
     val review = MessageChannelBehavior(pastes.staffChannel, kord)
@@ -598,7 +433,7 @@ private suspend fun postForStaff(
         review.createMessage {
             allowedMentions { }
             embed {
-                title = if (repaste) "Repaste request" else "Paste request"
+                title = "Paste request"
                 description = "Open the 3D viewer and check the build for offensive content before approving."
                 color = Color(0xF0B232)
                 field("Player", true) { "<@${order.discordId}>" }
@@ -606,6 +441,7 @@ private suspend fun postForStaff(
                 field("Origin", true) { "`${order.x} ${order.y} ${order.z}`" }
                 field("Chunks", true) { "${order.chunks} (${order.newChunks} new)" }
                 field("Cost", true) { if (order.cost > 0) "${order.cost} gems" else "Free" }
+                if (order.rotation != 0) field("Rotation", true) { "${order.rotation * 90}° clockwise (the file is unrotated)" }
                 image = "attachment://chunks.png"
                 footer { text = "Order ${order.id}" }
             }

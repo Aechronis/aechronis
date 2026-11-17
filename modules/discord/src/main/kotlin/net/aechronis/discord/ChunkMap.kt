@@ -1,15 +1,21 @@
 package net.aechronis.discord
 
 import com.sk89q.worldedit.extent.clipboard.Clipboard
+import net.minestom.server.instance.Chunk
+import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import java.awt.Color
 import java.awt.Font
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.ConcurrentHashMap
 import javax.imageio.ImageIO
 
-/** A top-down render of a schematic with the world's 16x16 chunk grid over it, labeled A1, B1, ... */
+/**
+ * A top-down render of the world around a paste site with the schematic drawn in place, like a web map,
+ * and the world's 16x16 chunk grid over it. The schematic's chunks are labeled A1, B1, ...
+ */
 internal class ChunkMap(
     val minCx: Int,
     val minCz: Int,
@@ -19,7 +25,14 @@ internal class ChunkMap(
     private val base: BufferedImage,
     /** Chunks holding at least one non-air block; only these can be pasted. */
     val filled: Set<Long>,
+    /** Chunks of the buyer's own town in view; everything else is shaded so the town's land stands out. */
+    val own: Set<Long> = emptySet(),
+    /** Chunks of other towns in view. */
+    val claimed: Set<Long> = emptySet(),
 ) {
+    /** The plain render the web picker shows; encoded once since it never changes. */
+    val web: ByteArray by lazy { png(emptySet(), emptySet()) }
+
     fun label(packed: Long): String = "${'A' + (cx(packed) - minCx)}${cz(packed) - minCz + 1}"
 
     fun at(
@@ -45,8 +58,13 @@ internal class ChunkMap(
                     val x = col * size
                     val y = row * size
                     when {
+                        packed !in filled && packed in own -> Unit
+                        packed !in filled && packed in claimed -> {
+                            g.color = Color(200, 40, 40, 90)
+                            g.fillRect(x, y, size, size)
+                        }
                         packed !in filled -> {
-                            g.color = Color(0, 0, 0, 130)
+                            g.color = Color(0, 0, 0, 120)
                             g.fillRect(x, y, size, size)
                         }
                         packed in blocked -> {
@@ -62,7 +80,7 @@ internal class ChunkMap(
                             g.fillRect(x, y, size, size)
                         }
                     }
-                    g.color = Color(255, 255, 255, 70)
+                    g.color = if (packed in filled) Color(255, 255, 255, 200) else Color(255, 255, 255, 35)
                     g.drawRect(x, y, size, size)
                     if (packed in filled) label(g, font, label(packed), x + 4, y + 4 + g.fontMetrics.ascent)
                 }
@@ -173,46 +191,140 @@ internal class ChunkMap(
                 0x7FA796,
             )
 
-        /** Renders the schematic from above, aligned to the world's chunk grid for an origin placed at (x, z). */
-        fun render(
-            clipboard: Clipboard,
+        /** Chunks of world shown around the schematic on each side, so the player sees where it lands. */
+        const val MARGIN = 3
+
+        /** The chunks a render at this origin covers: the schematic's footprint plus [MARGIN] on each side. */
+        fun area(
+            footprint: Footprint,
             x: Int,
             z: Int,
-            filled: Set<Long>,
-        ): ChunkMap {
+        ): List<Long> {
+            val (minCx, minCz, cols, rows) = bounds(footprint, x, z)
+            return (0 until rows).flatMap { row -> (0 until cols).map { col -> pack(minCx + col, minCz + row) } }
+        }
+
+        /** minCx, minCz, cols, rows of a render at this origin. */
+        fun bounds(
+            footprint: Footprint,
+            x: Int,
+            z: Int,
+        ): IntArray {
+            val minCx = ((x + footprint.minX) shr 4) - MARGIN
+            val minCz = ((z + footprint.minZ) shr 4) - MARGIN
+            val cols = ((x + footprint.minX + footprint.width - 1) shr 4) + MARGIN - minCx + 1
+            val rows = ((z + footprint.minZ + footprint.length - 1) shr 4) + MARGIN - minCz + 1
+            return intArrayOf(minCx, minCz, cols, rows)
+        }
+
+        /** One pass over the schematic: rejects ores and empty schematics, and keeps each column's top blocks. */
+        fun footprint(clipboard: Clipboard): Result<Footprint> {
             val origin = clipboard.origin
             val min = clipboard.region.minimumPoint
             val max = clipboard.region.maximumPoint
-            val dx = x - origin.x()
-            val dz = z - origin.z()
-            val minCx = (min.x() + dx) shr 4
-            val minCz = (min.z() + dz) shr 4
-            val cols = ((max.x() + dx) shr 4) - minCx + 1
-            val rows = ((max.z() + dz) shr 4) - minCz + 1
-            val width = cols * 16
-            val length = rows * 16
-            val scale = (960 / maxOf(width, length)).coerceIn(2, 8)
-            val topY = Array(width) { IntArray(length) { Int.MIN_VALUE } }
-            val color = Array(width) { IntArray(length) { -1 } }
-            val colorCache = HashMap<String, Int>()
+            val width = max.x() - min.x() + 1
+            val length = max.z() - min.z() + 1
+            val anyTop = IntArray(width * length) { Int.MIN_VALUE }
+            val colorTop = IntArray(width * length) { Int.MIN_VALUE }
+            val colorRgb = IntArray(width * length)
+            var empty = true
             for (pos in clipboard.region) {
                 val type = clipboard.getBlock(pos).blockType
                 if (type.material.isAir) continue
-                val rgb =
-                    colorCache.getOrPut(type.id()) {
-                        val id = Block.fromKey(type.id())?.registry()?.mapColorId() ?: 0
-                        if (id in 1 until PALETTE.size) PALETTE[id] else -1
-                    }
-                val bx = pos.x() + dx - (minCx shl 4)
-                val bz = pos.z() + dz - (minCz shl 4)
-                // Blocks with no map color (glass, air-like) only show when nothing solid is above ground there.
-                if (rgb >= 0 && pos.y() > topY[bx][bz]) {
-                    topY[bx][bz] = pos.y()
-                    color[bx][bz] = rgb
-                } else if (rgb < 0 && color[bx][bz] == -1 && pos.y() > topY[bx][bz]) {
-                    topY[bx][bz] = pos.y()
-                    color[bx][bz] = 0x909090
+                val id = type.id()
+                if (PasteOrders.isOre(id)) {
+                    return Result.failure(
+                        IllegalArgumentException("Schematics containing ores or mineral blocks are not allowed (found $id)."),
+                    )
                 }
+                empty = false
+                val i = (pos.x() - min.x()) * length + (pos.z() - min.z())
+                val y = pos.y() - origin.y()
+                if (y > anyTop[i]) anyTop[i] = y
+                val rgb = color(id)
+                if (rgb >= 0 && y > colorTop[i]) {
+                    colorTop[i] = y
+                    colorRgb[i] = rgb
+                }
+            }
+            if (empty) return Result.failure(IllegalArgumentException("The schematic contains no blocks."))
+            return Result.success(Footprint(min.x() - origin.x(), min.z() - origin.z(), width, length, anyTop, colorTop, colorRgb))
+        }
+
+        private val colorCache = ConcurrentHashMap<String, Int>()
+
+        /** Map color of a block id, or -1 for blocks with none (glass, air-like). */
+        private fun color(id: String): Int =
+            colorCache.getOrPut(id) {
+                val index = Block.fromKey(id)?.registry()?.mapColorId() ?: 0
+                if (index in 1 until PALETTE.size) PALETTE[index] else -1
+            }
+
+        /** Highest block with a map color in a column, from the heightmap, falling back to a full scan when it looks unset. */
+        private fun surface(
+            chunk: Chunk,
+            bx: Int,
+            bz: Int,
+            minY: Int,
+            maxY: Int,
+        ): Int {
+            val hinted = chunk.worldSurfaceHeightmap().getHeight(bx and 15, bz and 15)
+            val start = if (hinted in (minY + 1)..maxY) minOf(hinted + 1, maxY) else maxY
+            for (y in start downTo minY) {
+                val block = chunk.getBlock(bx, y, bz, Block.Getter.Condition.TYPE)
+                if (!block.air() && color(block.key().asString()) >= 0) return y
+            }
+            return Int.MIN_VALUE
+        }
+
+        /**
+         * Renders the world around an origin at (x, y, z) with the schematic drawn where it would land.
+         * Runs off the game thread: it loads the chunks it needs, and the server's chunk unloader frees them later.
+         */
+        fun render(
+            world: Instance,
+            bounds: IntArray,
+            /** The schematic to draw with its origin at (x, y, z), or null for the world alone. */
+            footprint: Footprint?,
+            x: Int,
+            y: Int,
+            z: Int,
+            filled: Set<Long>,
+            own: Set<Long>,
+            claimed: Set<Long>,
+        ): ChunkMap {
+            val (minCx, minCz, cols, rows) = bounds
+            val width = cols * 16
+            val length = rows * 16
+            val scale = (960 / maxOf(width, length)).coerceIn(1, 8)
+            val topY = Array(width) { IntArray(length) { Int.MIN_VALUE } }
+            val color = Array(width) { IntArray(length) { -1 } }
+            // Columns whose top is part of the schematic.
+            val build = Array(width) { BooleanArray(length) }
+            val dimension = world.cachedDimensionType
+            val minY = dimension.minY()
+            val maxY = minY + dimension.height() - 1
+            // Ask for every chunk up front so they load in parallel.
+            val loading = (0 until rows).flatMap { row -> (0 until cols).map { col -> world.loadChunk(minCx + col, minCz + row) } }
+            for (row in 0 until rows) {
+                for (col in 0 until cols) {
+                    val chunk = loading[row * cols + col].join()
+                    for (lx in 0 until 16) {
+                        for (lz in 0 until 16) {
+                            val bx = ((minCx + col) shl 4) + lx
+                            val bz = ((minCz + row) shl 4) + lz
+                            val top = surface(chunk, bx, bz, minY, maxY)
+                            if (top == Int.MIN_VALUE) continue
+                            topY[col * 16 + lx][row * 16 + lz] = top
+                            color[col * 16 + lx][row * 16 + lz] =
+                                color(chunk.getBlock(bx, top, bz, Block.Getter.Condition.TYPE).key().asString())
+                        }
+                    }
+                }
+            }
+            // The schematic replaces the world wherever it reaches at least as high as what stands there.
+            if (footprint != null) {
+                draw(footprint, x, y, z, minCx, minCz, topY, color, build)
             }
             val image = BufferedImage(width * scale, length * scale, BufferedImage.TYPE_INT_RGB)
             val pixels = IntArray(image.width * image.height) { 0x1E1F22 }
@@ -221,12 +333,13 @@ internal class ChunkMap(
                     val rgb = color[bx][bz]
                     if (rgb < 0) continue
                     val north = if (bz > 0) topY[bx][bz - 1] else topY[bx][bz]
+                    // The surrounding world is dimmed so the schematic stands out.
                     val shade =
                         when {
                             topY[bx][bz] > north -> 1.0
                             topY[bx][bz] == north -> 0.86
                             else -> 0.71
-                        }
+                        } * if (footprint == null || build[bx][bz]) 1.0 else 0.6
                     val shaded =
                         (((rgb shr 16 and 0xFF) * shade).toInt() shl 16) or
                             (((rgb shr 8 and 0xFF) * shade).toInt() shl 8) or
@@ -238,7 +351,90 @@ internal class ChunkMap(
                 }
             }
             image.setRGB(0, 0, image.width, image.height, pixels, 0, image.width)
-            return ChunkMap(minCx, minCz, cols, rows, scale, image, filled)
+            return ChunkMap(minCx, minCz, cols, rows, scale, image, filled, own, claimed)
         }
+
+        private fun draw(
+            footprint: Footprint,
+            x: Int,
+            y: Int,
+            z: Int,
+            minCx: Int,
+            minCz: Int,
+            topY: Array<IntArray>,
+            color: Array<IntArray>,
+            build: Array<BooleanArray>,
+        ) {
+            for (fx in 0 until footprint.width) {
+                for (fz in 0 until footprint.length) {
+                    val i = fx * footprint.length + fz
+                    val any = footprint.anyTop[i]
+                    if (any == Int.MIN_VALUE) continue
+                    val colored = footprint.colorTop[i]
+                    val bx = x + footprint.minX + fx - (minCx shl 4)
+                    val bz = z + footprint.minZ + fz - (minCz shl 4)
+                    val ground = topY[bx][bz]
+                    // Colorless blocks (glass) only show where they stand above everything colored.
+                    if (any > colored && any + y > ground) {
+                        topY[bx][bz] = any + y
+                        color[bx][bz] = 0x909090
+                        build[bx][bz] = true
+                    } else if (colored != Int.MIN_VALUE && colored + y >= ground) {
+                        topY[bx][bz] = colored + y
+                        color[bx][bz] = footprint.colorRgb[i]
+                        build[bx][bz] = true
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The schematic seen from above, relative to its origin; built once per upload so each placement is cheap. */
+internal class Footprint(
+    val minX: Int,
+    val minZ: Int,
+    val width: Int,
+    val length: Int,
+    /** Highest non-air block per column (index x * length + z), relative to the origin; Int.MIN_VALUE when empty. */
+    val anyTop: IntArray,
+    /** Highest block with a map color per column; Int.MIN_VALUE when none. */
+    val colorTop: IntArray,
+    val colorRgb: IntArray,
+) {
+    /** This footprint turned clockwise (seen from above) [times] quarter turns about the origin, as WorldEdit rotates. */
+    fun rotated(times: Int): Footprint {
+        var f = this
+        repeat(Math.floorMod(times, 4)) {
+            val any = IntArray(f.anyTop.size)
+            val top = IntArray(f.anyTop.size)
+            val rgb = IntArray(f.anyTop.size)
+            // (x, z) turns to (-z, x).
+            for (fx in 0 until f.width) {
+                for (fz in 0 until f.length) {
+                    val from = fx * f.length + fz
+                    val to = (f.length - 1 - fz) * f.width + fx
+                    any[to] = f.anyTop[from]
+                    top[to] = f.colorTop[from]
+                    rgb[to] = f.colorRgb[from]
+                }
+            }
+            f = Footprint(-(f.minZ + f.length - 1), f.minX, f.length, f.width, any, top, rgb)
+        }
+        return f
+    }
+
+    /** World chunks holding at least one block when the origin is at (x, z). */
+    fun chunks(
+        x: Int,
+        z: Int,
+    ): Set<Long> {
+        val chunks = HashSet<Long>()
+        for (fx in 0 until width) {
+            for (fz in 0 until length) {
+                if (anyTop[fx * length + fz] != Int.MIN_VALUE) chunks += ChunkMap.pack((x + minX + fx) shr 4, (z + minZ + fz) shr 4)
+            }
+        }
+        return chunks
     }
 }

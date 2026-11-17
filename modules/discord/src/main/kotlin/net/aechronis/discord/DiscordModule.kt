@@ -48,12 +48,28 @@ class DiscordModule : AechronisModule {
                 ?.toULongOrNull()
                 ?.takeIf { it > 0u }
                 ?.let(::Snowflake)
+        // Public base of the web chunk picker, e.g. https://map.aechronis.net/paste/ proxied to the local port.
+        val webUrl =
+            System
+                .getenv("DISCORD_PASTE_WEB_URL")
+                ?.trim()
+                ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                ?.let { if (it.endsWith("/")) it else "$it/" }
+        val webPort =
+            System
+                .getenv("DISCORD_PASTE_WEB_PORT")
+                ?.trim()
+                ?.toIntOrNull()
+                ?.takeIf { it in 1..65535 } ?: 8766
         val pastes =
-            if (staffChannel != null) {
-                PasteOrders(links, context.instance, staffChannel)
-            } else {
+            if (staffChannel == null) {
                 println("[Discord] /paste disabled: set DISCORD_STAFF_REVIEW_CHANNEL_ID")
                 null
+            } else if (webUrl == null) {
+                println("[Discord] /paste disabled: set DISCORD_PASTE_WEB_URL to the public address of the chunk picker")
+                null
+            } else {
+                PasteOrders(links, context.instance, staffChannel, webUrl, webPort)
             }
         val punishmentLog =
             System

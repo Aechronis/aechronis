@@ -14,7 +14,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
 
-/** Completed pastes a player may later replace for free. `chunks` is the paid-for footprint, packed as (cx shl 32) or cz. */
+/** Completed pastes. `chunks` is the paid-for footprint, packed as (cx shl 32) or cz; a player pastes there again for free. */
 internal class PasteHistory(
     private val path: Path,
 ) {
@@ -27,24 +27,16 @@ internal class PasteHistory(
         val town: String,
         val chunks: Set<Long>,
         val time: Long,
-        /** Every chunk the original schematic fills; a repaste may grow into any of them. */
-        val max: Set<Long> = chunks,
     )
 
     private var entries: List<Entry> = load()
 
+    /** Every chunk this player has paid for across all their pastes. */
     @Synchronized
-    fun forPlayer(player: UUID): List<Entry> = entries.filter { it.player == player }.sortedByDescending { it.time }
+    fun paid(player: UUID): Set<Long> = entries.filter { it.player == player }.flatMapTo(HashSet()) { it.chunks }
 
     @Synchronized
-    fun get(id: String): Entry? = entries.firstOrNull { it.id == id }
-
-    /** Records a finished paste, dropping the entry it replaced. */
-    @Synchronized
-    fun replace(
-        old: String?,
-        entry: Entry,
-    ) = save(entries.filter { it.id != old } + entry)
+    fun add(entry: Entry) = save(entries + entry)
 
     private fun load(): List<Entry> {
         if (!Files.exists(path)) return emptyList()
@@ -74,12 +66,6 @@ internal class PasteHistory(
                     .map { c -> c.jsonPrimitive.long }
                     .toSet(),
                 e.getValue("time").jsonPrimitive.long,
-                e["max"]?.jsonArray?.map { c -> c.jsonPrimitive.long }?.toSet()
-                    ?: e
-                        .getValue("chunks")
-                        .jsonArray
-                        .map { c -> c.jsonPrimitive.long }
-                        .toSet(),
             )
         }
     }
@@ -100,7 +86,6 @@ internal class PasteHistory(
                                 put("z", e.z)
                                 put("town", e.town)
                                 put("chunks", JsonArray(e.chunks.map(::JsonPrimitive)))
-                                put("max", JsonArray(e.max.map(::JsonPrimitive)))
                                 put("time", e.time)
                             }
                         },
