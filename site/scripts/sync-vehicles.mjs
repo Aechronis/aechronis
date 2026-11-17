@@ -8,8 +8,9 @@ import { ammunitionNames, defaultsFor, readConstants } from '../../tools/combat-
 
 const site = fileURLToPath(new URL('../', import.meta.url))
 const modules = join(site, '../modules')
-const types = ['Car', 'Boat', 'Tank', 'Plane', 'Drone', 'Cannon', 'AutomaticFieldPiece']
+const types = ['Car', 'Boat', 'Tank', 'Plane', 'Drone', 'Cannon', 'AutomaticFieldPiece', 'Balloon', 'Airship']
 const fieldPieces = ['Cannon', 'AutomaticFieldPiece']
+const lighterThanAir = ['Balloon', 'Airship']
 const catalogues = {}
 const read = path => readFileSync(path, 'utf8')
 const format = value => Number(value.toFixed(3)).toString()
@@ -27,7 +28,9 @@ function modelScale(expression, source, label) {
     if (!match) throw new Error(`Missing model scale: ${expression}`)
     expression = `Vec(${callArguments(code, match.index + match[0].length - 1)})`
   }
-  const axes = splitArguments(constructorArgs(expression, 'Vec')).map(value => number(value, label))
+  let axes = splitArguments(constructorArgs(expression, 'Vec')).map(value => number(value, label))
+  // Vec(n) scales every axis alike.
+  if (axes.length === 1) axes = [axes[0], axes[0], axes[0]]
   if (axes.length !== 3 || axes.some(value => value <= 0)) throw new Error(`Invalid model scale: ${label}`)
   return axes
 }
@@ -67,13 +70,22 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
     const health = type === 'Drone' ? stat('health') : number(splitArguments(constructorArgs(args.health, 'Health'))[0], `${id}/health`)
     add('Health', health)
     const speedField = type === 'Plane' ? 'speed' : fieldPieces.includes(type) ? 'moveSpeed' : 'maxSpeed'
-    add('Top speed', `${format(stat(speedField) * 20)} blocks/s`)
+    // A free balloon drifts in place; only an airship is driven forward.
+    if (type !== 'Balloon') add('Top speed', `${format(stat(speedField) * 20)} blocks/s`)
+    if (lighterThanAir.includes(type)) {
+      add('Climb rate', `${format(stat('climbSpeed') * 20)} blocks/s`)
+      add('Descent rate', `${format(stat('descentSpeed') * 20)} blocks/s`)
+    }
     if (type !== 'Drone') {
       const crew = type === 'Boat'
         ? [value('helmSeat'), ...(armament ? splitArguments(constructorArgs(armament.weapons, 'listOf')) : [])]
+        : type === 'Balloon' ? [value('seat')]
+        : type === 'Airship' ? [value('seat'), value('helmSeat')]
         : splitArguments(constructorArgs(value('seats'), 'listOf'))
       const roles = crew.map(expression => {
         if (expression.startsWith('BoatWeapon')) return string(namedArguments(constructorArgs(expression, 'BoatWeapon')).name, `${id}/crew`)
+        // Airships place their seats with a crewSeat(scale, id, name, ...) helper.
+        if (expression.startsWith('crewSeat')) return string(splitArguments(constructorArgs(expression, 'crewSeat'))[2], `${id}/crew`)
         const fields = splitArguments(constructorArgs(expression, 'VehicleSeat'))
         const named = namedArguments(constructorArgs(expression, 'VehicleSeat'))
         return string(named.name ?? fields[1], `${id}/crew`)
@@ -163,12 +175,14 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
     }
     // Boats use separate moving displays in game. Their inventory model retains
     // the assembled ship so catalogue previews include every paddle and gun.
-    const previewModel = type === 'Boat' ? args.itemModel : args.model
+    // Balloons and airships likewise keep their propellers and rudders in the item model.
+    const assembled = type === 'Boat' || lighterThanAir.includes(type)
+    const previewModel = assembled ? args.itemModel : args.model
     const model = previewModel ? string(previewModel, `${id}/model`) : `aechronis:${id}`
     const [namespace, modelId] = model.split(':')
     const pack = join(iteration, 'resource-pack/assets', namespace)
     const meshes = exportItemModel(pack, modelId, output, id)
-    if (type === 'Boat' && args.modelScale) {
+    if (assembled && args.modelScale) {
       const axes = modelScale(args.modelScale, source, `${id}/modelScale`)
       const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity]
       for (const mesh of meshes) {
@@ -181,7 +195,7 @@ for (const entry of readdirSync(join(modules, 'iterations'), { withFileTypes: tr
           return (value - 8) * axes[axis] / axes[2] + 8
         })
       }
-      add('Length', `${format(max[2] - min[2])} blocks`)
+      add(...(type === 'Balloon' ? ['Height', `${format(max[1] - min[1])} blocks`] : ['Length', `${format(max[2] - min[2])} blocks`]))
       add('Overall width', `${format(max[0] - min[0])} blocks`)
       writeFileSync(join(output, `${id}.json`), JSON.stringify({ meshes }))
     }
@@ -213,7 +227,12 @@ press **1–9** to switch to an available seat, and **Shift** to leave. Drivers 
 gunners operate their assigned weapons. Other riders can stand on the vehicle and move with it.
 
 Remote drones retain their own control display and scrolling throttle.
-
+${vehicles.some(({ type }) => lighterThanAir.includes(type)) ? `
+Balloons and airships are flown by an elevatorman, who holds **forward** to climb and
+**backward** to descend. A free balloon cannot be steered. An airship also carries a
+helmsman, who sets the throttle with **forward** and **backward** and steers with
+**left** and **right**; without one, the engine stops. An unattended craft sinks slowly to the ground.
+` : ''}
 <VehicleCatalogue iteration="${iterationId}" />
 `)
   console.log(`Exported ${catalogue.length} vehicles and their current stats for ${iterationId}.`)
