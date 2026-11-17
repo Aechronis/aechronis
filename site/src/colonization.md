@@ -19,4 +19,6 @@ Normal war does not need to be enabled, and you do not need to declare war on th
 3. Select one of its AI towns.
 4. Travel to that town and capture it with fences while fighting off defenders.
 
+Capturing the AI town's home territory ends the campaign: the town is dissolved and all of its territories become part of your town.
+
 To clear your selection, run `/colonize` again and click the barrier in the nation menu. Clearing the selection prevents new flags, but any flag already in progress continues until it succeeds or is destroyed.

@@ -21,6 +21,11 @@ internal class WarCapture(
         mode: AttackMode,
     ): TownDefeatOutcome {
         if (mode != AttackMode.WAR) {
+            // An AI town is not held as a colony: its land joins the attacker's town outright.
+            if (defeatedTown.isAi) {
+                Town.merge(attackerTown, defeatedTown, annexed = true)
+                return TownDefeatOutcome.ABSORBED
+            }
             Town.annex(attackerTown, defeatedTown, colonized = mode == AttackMode.COLONIZATION)
             WarSerializer.save(false)
             return TownDefeatOutcome.ANNEXED
@@ -66,6 +71,7 @@ internal class WarCapture(
     /**
      * Settles conquests when the war ends: a town left at zero lives with its home
      * still occupied joins the occupier's nation, which then releases the town's land.
+     * An AI town is merged into the occupying town instead.
      */
     fun absorbConqueredTowns() = synchronized(Nodes.occupationPersistenceLock) {
         for (town in Town.all()) {
@@ -76,6 +82,13 @@ internal class WarCapture(
             val conqueror = home.occupier ?: continue
             val nation = conqueror.nation ?: continue
             if (town.nation === nation) continue
+
+            if (town.isAi) {
+                val townName = town.name
+                Town.merge(conqueror, town, annexed = true)
+                presentation.aiTownAbsorbed(townName, conqueror)
+                continue
+            }
 
             town.nation?.let { previousNation -> Nation.removeTown(previousNation, town) }
             Nation.addTown(nation, town)

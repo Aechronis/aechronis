@@ -275,6 +275,11 @@ internal class WarPresentation(private val state: FlagWarState) {
                     "$defeatedTownName, which has ${defeatedTown.lives} lives remaining; " +
                     "${attacker?.name ?: attackerTown.name} made the decisive capture!",
             )
+            TownDefeatOutcome.ABSORBED -> Message.broadcast(
+                "${ChatColor.DARK_RED}[Conquest] ${attackerTown.name} took $defeatedTownName; " +
+                    "all of its territories are now part of ${attackerTown.name}, and " +
+                    "${attacker?.name ?: attackerTown.name} made the decisive capture!",
+            )
             TownDefeatOutcome.FINAL_LIFE_PROTECTED -> Message.broadcast(
                 "${ChatColor.DARK_RED}[Conquest] $defeatedTownName was defeated but cannot be annexed " +
                     "during this war mode; it remains on its final life.",
@@ -293,6 +298,13 @@ internal class WarPresentation(private val state: FlagWarState) {
         Message.broadcast(
             "${ChatColor.DARK_RED}[Conquest] ${absorbedTown.name} ended the war with no lives left and its home " +
                 "occupied by ${conqueror.name}; it is now part of ${nation.name}!",
+        )
+    }
+
+    fun aiTownAbsorbed(absorbedTownName: String, conqueror: Town) {
+        Message.broadcast(
+            "${ChatColor.DARK_RED}[Conquest] $absorbedTownName ended the war with its home occupied by " +
+                "${conqueror.name}; all of its territories are now part of ${conqueror.name}!",
         )
     }
 

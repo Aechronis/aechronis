@@ -23,6 +23,7 @@ internal enum class TownDefeatOutcome {
     ALREADY_DEFEATED_THIS_WAR,
     LOST_LIFE,
     ANNEXED,
+    ABSORBED,
     FINAL_LIFE_PROTECTED,
 }
 

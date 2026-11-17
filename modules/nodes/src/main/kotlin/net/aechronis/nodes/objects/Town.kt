@@ -355,8 +355,15 @@ class Town(
             }
         }
 
-        /** Moves every territory from [source] to [destination], then destroys [source]. */
-        internal fun merge(destination: Town, source: Town): Int = synchronized(Nodes.occupationPersistenceLock) {
+        /**
+         * Moves every territory from [source] to [destination], then destroys [source].
+         * A conquest records the land as [annexed]; an administrative merge does not.
+         */
+        internal fun merge(
+            destination: Town,
+            source: Town,
+            annexed: Boolean = false,
+        ): Int = synchronized(Nodes.occupationPersistenceLock) {
             require(destination !== source) { "A town cannot merge into itself" }
             require(towns[destination.name] === destination) { "The destination town must still exist" }
             require(towns[source.name] === source) { "The source town must still exist" }
@@ -367,13 +374,15 @@ class Town(
 
             transferred.forEach { territory ->
                 // Territory occupations belong to the previous ownership state and must not
-                // survive an administrative ownership transfer.
-                release(territory)
+                // survive an ownership transfer.
+                endOccupation(territory)
                 source.mutableTerritories.remove(territory.id)
                 source.mutableAnnexed.remove(territory.id)
                 destination.mutableTerritories.add(territory.id)
+                if (annexed) destination.mutableAnnexed.add(territory.id)
                 territory.town = destination
             }
+            FlagWar.flushTerritoryOccupationJournal()
 
             destroy(source)
             destination.markChanged()
@@ -438,15 +447,25 @@ class Town(
 
         fun release(territory: Territory) {
             synchronized(Nodes.occupationPersistenceLock) {
-                FlagWar.clearTerritoryOccupation(territory)
-                territory.occupier?.let { town ->
-                    town.mutableCaptured.remove(territory.id)
-                    territory.occupier = null
-                    town.markChanged()
-                    Resident.renderMinimaps()
-                }
-                FlagWar.commitTerritoryOccupation(territory, null, colonized = false)
+                if (endOccupation(territory)) Resident.renderMinimaps()
+                FlagWar.flushTerritoryOccupationJournal()
             }
+        }
+
+        /**
+         * Ends [territory]'s occupation and returns whether a town held it. The caller
+         * flushes the occupation journal and redraws minimaps, so a batch does both once.
+         */
+        private fun endOccupation(territory: Territory): Boolean {
+            FlagWar.clearTerritoryOccupation(territory)
+            val occupier = territory.occupier
+            if (occupier != null) {
+                occupier.mutableCaptured.remove(territory.id)
+                territory.occupier = null
+                occupier.markChanged()
+            }
+            FlagWar.commitTerritoryOccupation(territory, null, colonized = false, flushJournal = false)
+            return occupier != null
         }
 
         internal fun restoreOccupation(
