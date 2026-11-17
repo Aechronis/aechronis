@@ -2,6 +2,7 @@ package net.aechronis.server.resourcepack
 
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import net.aechronis.server.io.TempFiles
 import net.kyori.adventure.resource.ResourcePackInfo
 import net.kyori.adventure.resource.ResourcePackRequest
 import net.kyori.adventure.resource.ResourcePackStatus
@@ -640,7 +641,7 @@ internal data class ResourcePackArchive(
         fun create(files: Map<String, ByteArray>): ResourcePackArchive {
             require("pack.mcmeta" in files) { "Player resource pack must contain pack.mcmeta" }
             files.keys.forEach(::requirePackEntry)
-            val archive = Files.createTempFile("aechronis-player-resource-pack-", ".zip")
+            val archive = Files.createTempFile(TempFiles.root, "aechronis-player-resource-pack-", ".zip")
             try {
                 ZipOutputStream(Files.newOutputStream(archive)).use { output ->
                     for ((name, bytes) in files.toSortedMap()) {
@@ -663,7 +664,7 @@ internal data class ResourcePackArchive(
                 "Resource-pack directory does not contain pack.mcmeta: $root"
             }
 
-            val archive = Files.createTempFile("aechronis-resource-pack-", ".zip")
+            val archive = Files.createTempFile(TempFiles.root, "aechronis-resource-pack-", ".zip")
             try {
                 ZipOutputStream(Files.newOutputStream(archive)).use { output ->
                     Files.walk(root).use { paths ->

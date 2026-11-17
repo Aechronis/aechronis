@@ -1,5 +1,6 @@
 package net.aechronis.server.modules
 
+import net.aechronis.server.io.TempFiles
 import java.net.URLClassLoader
 import java.nio.file.Files
 import java.nio.file.Path
@@ -48,7 +49,7 @@ internal class ModuleArtifact(
                             reused[known.jar] = known
                             known.jar
                         } else {
-                            val directory = Files.createTempDirectory("aechronis-module-")
+                            val directory = Files.createTempDirectory(TempFiles.root, "aechronis-module-")
                             copies.add(directory)
                             val target = directory.resolve(source.fileName)
                             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)

@@ -5,6 +5,7 @@ import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
 import net.aechronis.server.commands.SetSpawnCommand
 import net.aechronis.server.dev.DevModuleWatcher
 import net.aechronis.server.events.SpawnPointChangedEvent
+import net.aechronis.server.io.TempFiles
 import net.aechronis.server.listeners.ResourcePackListener
 import net.aechronis.server.modules.ModuleCommand
 import net.aechronis.server.modules.ModuleContext
@@ -91,6 +92,7 @@ object Server {
 fun main(args: Array<String>) {
     MinestomSupport.prepare()
     System.setProperty("minestom.shutdown-on-signal", "false")
+    TempFiles.reset(Path.of("aechronis-temp"))
 
     val port = args.getOrNull(0)?.toInt() ?: 25565
     val velocitySecret = args.getOrNull(1)
