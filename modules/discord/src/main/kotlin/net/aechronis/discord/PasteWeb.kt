@@ -103,10 +103,10 @@ internal class PasteWeb private constructor(
         rotation: Int,
         chunks: Set<Long>,
     ): JsonObject {
-        val placement = draft.placement
         val order = pastes.confirm(draft.id, x, y, z, rotation, chunks).getOrElse { return failure(it.message) }
         try {
-            submit(order, draft, placement!!)
+            // Read after confirming: confirm checked this very placement, and the draft is closed to new ones.
+            submit(order, draft, draft.placement!!)
         } catch (error: CancellationException) {
             pastes.reject(order.id, "system")
             throw error

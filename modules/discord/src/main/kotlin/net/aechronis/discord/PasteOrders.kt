@@ -150,12 +150,15 @@ internal class PasteOrders(
     class Land(
         val id: String,
         val player: UUID,
-        val map: ChunkMap,
+        render: () -> ChunkMap,
         val nodes: IntArray,
         val nodeNames: List<String>,
         val paid: Set<Long>,
         val created: Long = System.currentTimeMillis(),
-    )
+    ) {
+        /** Drawn when the page first asks, off the Discord command's time limit. */
+        val map: ChunkMap by lazy(render)
+    }
 
     private val lands = ConcurrentHashMap<String, Land>()
 
@@ -182,13 +185,12 @@ internal class PasteOrders(
             } catch (rejection: IllegalStateException) {
                 return Result.failure(rejection)
             }
-        val map =
-            withContext(Dispatchers.IO) {
-                ChunkMap.render(world, intArrayOf(startCx, startCz, cols, rows), null, 0, 0, 0, emptySet(), owners.own, owners.claimed)
-            }
+        val render = {
+            ChunkMap.render(world, intArrayOf(startCx, startCz, cols, rows), null, 0, 0, 0, emptySet(), owners.own, owners.claimed)
+        }
         val now = System.currentTimeMillis()
         lands.values.removeIf { it.player == player || now - it.created >= DRAFT_MILLIS }
-        val land = Land(UUID.randomUUID().toString(), player, map, owners.nodes, owners.nodeNames, paid)
+        val land = Land(UUID.randomUUID().toString(), player, render, owners.nodes, owners.nodeNames, paid)
         lands[land.id] = land
         return Result.success(land)
     }
@@ -788,7 +790,7 @@ internal class PasteOrders(
         const val COST_PER_CHUNK = 75L
         const val DRAFT_MILLIS = 15 * 60_000L
         const val STATUS_MILLIS = 24 * 60 * 60_000L
-        const val MAX_LAND = 48
+        const val MAX_LAND = 32
         const val EXPIRED = "This picker link expired. Run the command in Discord again."
         const val MAX_BYTES = 5_000_000
         const val MAX_INFLATED = 100_000_000L

@@ -194,6 +194,8 @@ internal class ChunkMap(
         /** Chunks of world shown around the schematic on each side, so the player sees where it lands. */
         const val MARGIN = 3
 
+        private const val LOAD_BATCH = 64
+
         /** The chunks inside minCx, minCz, cols, rows bounds, row-major. */
         fun area(bounds: IntArray): List<Long> {
             val (minCx, minCz, cols, rows) = bounds
@@ -314,11 +316,16 @@ internal class ChunkMap(
             val dimension = world.cachedDimensionType
             val minY = dimension.minY()
             val maxY = minY + dimension.height() - 1
-            // Ask for every chunk up front so they load in parallel.
-            val loading = (0 until rows).flatMap { row -> (0 until cols).map { col -> world.loadChunk(minCx + col, minCz + row) } }
+            // Load in parallel batches: fast, without asking the live server for a thousand chunks at once.
+            val loaded = arrayOfNulls<Chunk>(rows * cols)
+            (0 until rows * cols).chunked(LOAD_BATCH).forEach { batch ->
+                batch
+                    .map { it to world.loadChunk(minCx + it % cols, minCz + it / cols) }
+                    .forEach { (i, future) -> loaded[i] = future.join() }
+            }
             for (row in 0 until rows) {
                 for (col in 0 until cols) {
-                    val chunk = loading[row * cols + col].join()
+                    val chunk = loaded[row * cols + col]!!
                     for (lx in 0 until 16) {
                         for (lz in 0 until 16) {
                             val bx = ((minCx + col) shl 4) + lx
