@@ -23,7 +23,7 @@ object ArgumentTerritory {
                 }
         }
         return word.map { input ->
-            Territory.fromId(TerritoryId(input.toInt()))
+            input.toIntOrNull()?.let { Territory.fromId(TerritoryId(it)) }
                 ?: throw ArgumentSyntaxException("Territory not found", input, 1)
         }
     }
