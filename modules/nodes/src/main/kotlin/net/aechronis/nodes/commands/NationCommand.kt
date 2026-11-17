@@ -6,6 +6,7 @@ package net.aechronis.nodes.commands
 
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.commands.arguments.ArgumentNation
+import net.aechronis.nodes.commands.arguments.ArgumentResident
 import net.aechronis.nodes.objects.Nation
 import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.utils.ChatColor
@@ -37,6 +38,8 @@ class NationCommand : NodesCommand("n", null, "nation") {
         addSubcommand(NationListCommand())
         addSubcommand(NationOnlineCommand())
         addSubcommand(NationInfoCommand())
+        addSubcommand(NationOfficerCommand("promote", true))
+        addSubcommand(NationOfficerCommand("demote", false))
     }
 }
 
@@ -47,6 +50,8 @@ class NationHelpCommand : NodesCommand("help") {
             Message.print(player, "/nation list${ChatColor.WHITE}: List all nations")
             Message.print(player, "/nation online${ChatColor.WHITE}: View nation's online players")
             Message.print(player, "/nation color${ChatColor.WHITE}: Set nation color on map")
+            Message.print(player, "/nation promote${ChatColor.WHITE}: Make a resident a nation officer (ally/unally)")
+            Message.print(player, "/nation demote${ChatColor.WHITE}: Remove nation officer rank")
         }
     }
 }
@@ -119,5 +124,44 @@ class NationInfoCommand : NodesCommand("info") {
         addSyntax({ player, resident, context ->
             context[nationArg].printInfo(player)
         }, nationArg)
+    }
+}
+
+/** /nation promote|demote <player>: capital leader grants nation officer rank to residents of any member town. */
+class NationOfficerCommand(name: String, private val promote: Boolean) : NodesCommand(name) {
+    init {
+        setDefaultExecutor { player, resident, context ->
+            Message.print(player, "Usage: /nation $name <player-name>")
+        }
+
+        val playerArg = ArgumentResident.create("player-name")
+
+        addSyntax({ player, resident, town, nation, context ->
+            val target = context[playerArg]
+            if (resident !== nation.capital.leader) {
+                Message.error(player, "Only the leader of the nation's capital can do this")
+                return@addSyntax
+            }
+            if (target === resident) {
+                Message.error(player, "You are already the nation leader")
+                return@addSyntax
+            }
+            if (target.nation !== nation) {
+                Message.error(player, "${target.name} is not in your nation")
+                return@addSyntax
+            }
+
+            if (!Nation.setOfficer(nation, target, promote)) {
+                Message.error(player, if (promote) "${target.name} is already a nation officer" else "${target.name} is not a nation officer")
+                return@addSyntax
+            }
+            if (promote) {
+                Message.print(player, "Made ${target.name} a nation officer")
+                target.player()?.let { Message.print(it, "You are now a nation officer of ${nation.name}") }
+            } else {
+                Message.print(player, "Removed ${target.name} from nation officers")
+                target.player()?.let { Message.error(it, "You are no longer a nation officer of ${nation.name}") }
+            }
+        }, playerArg)
     }
 }

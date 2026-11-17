@@ -21,12 +21,10 @@ class UnallyCommand : NodesCommand("unally") {
         val nationArg = ArgumentNation.create("nation-name")
 
         addSyntax({ player, resident, town, nation, context ->
-            if (town !== nation.capital) {
-                Message.error(player, "Only the nation's capital town can break alliances")
+            if (!nation.canManageDiplomacy(resident)) {
+                Message.error(player, "Only the capital's leader and officers, or nation officers, can break alliances")
                 return@addSyntax
             }
-
-            if (!requireTownStaff(player, resident, town, "Only the leader and officers can break alliances")) return@addSyntax
 
             if (nation === context[nationArg]) {
                 Message.error(player, "You cannot unally yourself.")

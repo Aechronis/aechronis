@@ -409,6 +409,9 @@ object Deserializer {
             flagUrl = nation["flagUrl"]?.jsonPrimitive?.contentOrNull,
             allies = allies,
             enemies = enemies,
+            officers = nation["officers"]?.jsonArray?.mapNotNull { id ->
+                id.jsonPrimitive.contentOrNull?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            }.orEmpty(),
         )
     }
 

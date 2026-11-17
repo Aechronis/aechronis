@@ -20,7 +20,7 @@ internal object OfflineCommands {
         town.list town.info town.online town.income.info town.permissions town.trust town.untrust
         town.minimap town.minimap.mode town.minimap.position town.minimap.shift town.minimap.northlock
         town.plot town.plot.permissions town.plot.list town.plot.delete
-        nation nation.help nation.list nation.online nation.info
+        nation nation.help nation.list nation.online nation.info nation.promote nation.demote
         ally unally player port port.list port.info warzone
         nodesadmin nodesadmin.help
         nodesadmin.war nodesadmin.war.enable nodesadmin.war.disable nodesadmin.war.skirmish nodesadmin.war.deathwar

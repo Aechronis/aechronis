@@ -74,6 +74,7 @@ class Nation(
 
         internal fun unindexResident(nation: Nation, resident: Resident) {
             nation.mutableResidents.remove(resident)
+            if (nation.mutableOfficers.remove(resident.uuid)) nation.needsUpdate()
             nation.mutablePlayersOnline.removeAll { it.uuid == resident.uuid }
         }
 
@@ -121,6 +122,7 @@ class Nation(
             rallyCap: Int? = null,
             longName: String? = null,
             flagUrl: String? = null,
+            officers: List<UUID> = emptyList(),
         ): Nation {
             val capital = Town.fromName(capitalName) ?: throw net.aechronis.nodes.constants.ErrorTownDoesNotExist
             val nation = Nation(uuid, name, capital)
@@ -133,6 +135,7 @@ class Nation(
                 val town = Town.fromName(townName) ?: continue
                 assignTown(town, nation)
             }
+            officers.filterTo(nation.mutableOfficers) { Resident.fromUuid(it)?.nation === nation }
             nation.needsUpdate()
             nations[name] = nation
             return nation
@@ -223,6 +226,17 @@ class Nation(
             Nodes.markWorldDirty()
         }
 
+        /** Nation officers may run the capital-only diplomacy commands from any member town. */
+        fun setOfficer(nation: Nation, resident: Resident, officer: Boolean): Boolean {
+            if (resident.nation !== nation) return false
+            val changed = if (officer) nation.mutableOfficers.add(resident.uuid) else nation.mutableOfficers.remove(resident.uuid)
+            if (changed) {
+                nation.needsUpdate()
+                Nodes.markWorldDirty()
+            }
+            return changed
+        }
+
         fun addAlly(nation: Nation, other: Nation): Result<Boolean> {
             if ((nation.allies.contains(other) && other.allies.contains(nation)) || nation === other) return Result.failure(net.aechronis.nodes.constants.ErrorAlreadyAllies)
             if (!FlagWar.isDeathWar && (nation.enemies.contains(other) || other.enemies.contains(nation))) {
@@ -306,6 +320,14 @@ class Nation(
     val towns: Set<Town> = Collections.unmodifiableSet(mutableTowns)
     private val mutableResidents = hashSetOf<Resident>()
     val residents: Set<Resident> = Collections.unmodifiableSet(mutableResidents)
+    private val mutableOfficers = linkedSetOf<UUID>()
+    val officers: Set<UUID> = Collections.unmodifiableSet(mutableOfficers)
+
+    /** Capital staff plus nation officers. */
+    fun canManageDiplomacy(resident: Resident): Boolean {
+        if (resident.nation !== this) return false
+        return resident === capital.leader || resident in capital.officers || resident.uuid in mutableOfficers
+    }
 
     // nation's diplomatic relations: allies, enemies
     // determine who nation can attack during war
@@ -373,6 +395,10 @@ class Nation(
         Message.print(sender, "- Leader${ChatColor.WHITE}: $leader")
         Message.print(sender, "- Towns[${this.towns.size}]${ChatColor.WHITE}: $towns")
         Message.print(sender, "- Residents${ChatColor.WHITE}: $residents")
+        if (mutableOfficers.isNotEmpty()) {
+            val officerNames = mutableOfficers.mapNotNull { Resident.fromUuid(it)?.name }.joinToString(", ")
+            Message.print(sender, "- Officers${ChatColor.WHITE}: $officerNames")
+        }
         this.rallyCap?.let { rallyCap ->
             Message.print(sender, "- War rally cap${ChatColor.WHITE}: $rallyCap online players")
         }
@@ -395,6 +421,7 @@ class Nation(
         val allies = n.allies.map { x -> x.name }.snapshotList()
         val enemies = n.enemies.map { x -> x.name }.snapshotList()
         val rallyCap = n.rallyCap
+        val officers = n.officers.map { it.toString() }.snapshotList()
 
         override fun encode(): String = NationJsonCodec.encode(this)
     }

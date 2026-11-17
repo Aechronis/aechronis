@@ -71,6 +71,7 @@ internal data class TownsLoadState(
                 rallyCap = nation.rallyCap,
                 longName = nation.longName,
                 flagUrl = nation.flagUrl,
+                officers = nation.officers,
             )
         }
         loadedNations.zip(nations).forEach { (nation, state) ->
@@ -127,4 +128,5 @@ internal data class NationLoadState(
     val flagUrl: String?,
     val allies: List<String>,
     val enemies: List<String>,
+    val officers: List<UUID> = emptyList(),
 )

@@ -22,12 +22,10 @@ class AllyCommand : NodesCommand("ally") {
         val nationArg = ArgumentNation.create("nation-name")
 
         addSyntax({ player, resident, town, nation, context ->
-            if (town !== nation.capital) {
-                Message.error(player, "Only the nation's capital town can offer/accept alliances")
+            if (!nation.canManageDiplomacy(resident)) {
+                Message.error(player, "Only the capital's leader and officers, or nation officers, can offer/accept alliances")
                 return@addSyntax
             }
-
-            if (!requireTownStaff(player, resident, town, "Only the leader and officers can offer/accept alliances")) return@addSyntax
 
             if (nation === context[nationArg]) {
                 Message.error(player, "You cannot ally yourself.")

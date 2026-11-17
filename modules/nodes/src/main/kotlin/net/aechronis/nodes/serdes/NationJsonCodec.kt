@@ -21,5 +21,6 @@ internal object NationJsonCodec {
         putJsonArray("towns") { snapshot.towns.forEach { add(it) } }
         putJsonArray("allies") { snapshot.allies.forEach { add(it) } }
         putJsonArray("enemies") { snapshot.enemies.forEach { add(it) } }
+        putJsonArray("officers") { snapshot.officers.forEach { add(it) } }
     }.toString()
 }
