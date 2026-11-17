@@ -19,6 +19,7 @@ class LuckPermsModule : AechronisModule {
     private var permissionProvider: AutoCloseable? = null
     private var started = false
     private var suggestions: PermissionSuggestions? = null
+    private var staffMode: StaffMode? = null
     private var commandListUpdater: CommandListUpdater? = null
 
     override fun initialize(context: ModuleContext) {
@@ -49,6 +50,11 @@ class LuckPermsModule : AechronisModule {
                 }
             commandListUpdater = CommandListUpdater(api.eventBus)
             suggestions = measure("Permission suggestions") { PermissionSuggestions(plugin.permissionRegistry) }
+            staffMode =
+                StaffMode(api).also {
+                    api.contextManager.registerCalculator(it)
+                    ModuleCommands.register(it.command)
+                }
             // Reload does not repeat the login event for players already connected.
             measure("Online user data") {
                 MinecraftServer
@@ -88,6 +94,11 @@ class LuckPermsModule : AechronisModule {
         permissionProvider = null
         suggestions?.close()
         suggestions = null
+        staffMode?.let {
+            ModuleCommands.unregister(it.command)
+            it.api.contextManager.unregisterCalculator(it)
+        }
+        staffMode = null
         LuckPermsMinestom.disable()
         awaitBackgroundThreads()
         started = false
