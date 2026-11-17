@@ -261,7 +261,9 @@
     if (state.status) { showStatus(state); return; }
     if (state.land) land();
     if (!state.chunks) { $("picker").hidden = true; $("order").hidden = true; return; }
-    selected = new Set();
+    // Keep the picked chunks across rotations and reloads; only those the schematic still covers.
+    const kept = selected;
+    selected = new Set(state.chunks.filter((c) => kept.has(c.id) && !c.blocked).map((c) => c.id));
     cellIndex = new Map();
     const grid = $("grid");
     grid.style.gridTemplateColumns = `repeat(${state.cols}, 1fr)`;

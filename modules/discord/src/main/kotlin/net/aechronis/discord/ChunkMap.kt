@@ -194,14 +194,24 @@ internal class ChunkMap(
         /** Chunks of world shown around the schematic on each side, so the player sees where it lands. */
         const val MARGIN = 3
 
-        /** The chunks a render at this origin covers: the schematic's footprint plus [MARGIN] on each side. */
-        fun area(
-            footprint: Footprint,
+        /** The chunks inside minCx, minCz, cols, rows bounds, row-major. */
+        fun area(bounds: IntArray): List<Long> {
+            val (minCx, minCz, cols, rows) = bounds
+            return (0 until rows).flatMap { row -> (0 until cols).map { col -> pack(minCx + col, minCz + row) } }
+        }
+
+        /** Bounds covering all four rotations at this origin, so turning the schematic never moves the view. */
+        fun bounds(
+            rotations: List<Footprint>,
             x: Int,
             z: Int,
-        ): List<Long> {
-            val (minCx, minCz, cols, rows) = bounds(footprint, x, z)
-            return (0 until rows).flatMap { row -> (0 until cols).map { col -> pack(minCx + col, minCz + row) } }
+        ): IntArray {
+            val all = rotations.map { bounds(it, x, z) }
+            val minCx = all.minOf { it[0] }
+            val minCz = all.minOf { it[1] }
+            val maxCx = all.maxOf { it[0] + it[2] - 1 }
+            val maxCz = all.maxOf { it[1] + it[3] - 1 }
+            return intArrayOf(minCx, minCz, maxCx - minCx + 1, maxCz - minCz + 1)
         }
 
         /** minCx, minCz, cols, rows of a render at this origin. */

@@ -114,6 +114,9 @@ internal class PasteOrders(
         val channel: Snowflake,
         val created: Long = System.currentTimeMillis(),
     ) {
+        /** The footprint at 0, 90, 180 and 270 degrees clockwise. */
+        val rotations: List<Footprint> by lazy { (0..3).map { footprint.rotated(it) } }
+
         @Volatile var placement: Placement? = null
         internal val placing = AtomicBoolean()
     }
@@ -289,9 +292,10 @@ internal class PasteOrders(
         // Each placement scans and renders the whole schematic; one at a time per draft.
         if (!draft.placing.compareAndSet(false, true)) return fail("Still working on the last placement; try again in a moment.")
         try {
-            val footprint = draft.footprint.rotated(rotation)
+            val footprint = draft.rotations[Math.floorMod(rotation, 4)]
+            val bounds = ChunkMap.bounds(draft.rotations, x, z)
             val touched = footprint.chunks(x, z)
-            val area = ChunkMap.area(footprint, x, z)
+            val area = ChunkMap.area(bounds)
             val owners =
                 try {
                     onGameThread { owners(draft.player, area, x, z) }
@@ -301,7 +305,7 @@ internal class PasteOrders(
             val blocked = touched - owners.own
             val map =
                 withContext(Dispatchers.IO) {
-                    ChunkMap.render(world, ChunkMap.bounds(footprint, x, z), footprint, x, y, z, touched, owners.own, owners.claimed)
+                    ChunkMap.render(world, bounds, footprint, x, y, z, touched, owners.own, owners.claimed)
                 }
             val placement =
                 Placement(
