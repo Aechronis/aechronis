@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import net.kyori.adventure.resource.ResourcePackInfo
 import net.kyori.adventure.resource.ResourcePackRequest
+import net.kyori.adventure.resource.ResourcePackStatus
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
@@ -330,13 +331,19 @@ class ResourcePackServer private constructor(
         packs: List<ResourcePackInfo>,
     ) {
         if (packs.isEmpty()) return
+        val uris = packs.associate { it.id() to it.uri() }
         player.sendResourcePacks(
             ResourcePackRequest
                 .resourcePackRequest()
                 .packs(packs)
                 .prompt(Component.text("A resource pack is required to play"))
                 .required(true)
-                .build(),
+                // Minestom kicks on any final status but SUCCESSFULLY_LOADED; log why.
+                .callback { id, status, _ ->
+                    if (!status.intermediate() && status != ResourcePackStatus.SUCCESSFULLY_LOADED) {
+                        println("[ResourcePack] ${player.username} pack $status: ${uris[id] ?: id}")
+                    }
+                }.build(),
         )
     }
 
