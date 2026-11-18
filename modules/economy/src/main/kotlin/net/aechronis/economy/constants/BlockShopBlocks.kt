@@ -1,6 +1,6 @@
 /**
- * Block lists for the /sell and /blockshop economy (see BlockShop.kt, SellCommand.kt,
- * BlockShopCommand.kt). Both are computed once at class-init, not per request.
+ * Block list and prices for the /blockshop economy (see BlockShop.kt, BlockShopCommand.kt).
+ * The list is computed once at class-init, not per request.
  */
 
 package net.aechronis.economy.constants
@@ -50,7 +50,7 @@ private val BLOCKED_MATERIAL_KEYS: Set<String> =
         "test_block",
         "test_instance_block",
         // Smelted/refined ore-storage blocks -- each one vanilla-crafts back into 9 ingots/gems,
-        // so leaving these purchasable would let 1 dirt-block's worth of coin buy the equivalent
+        // so leaving these purchasable would let a few coins buy the equivalent
         // of 9 mined ores, completely bypassing the mining economy this shop is meant to sit
         // beside. Same "unfair advantage" reasoning as ores/obsidian/netherite above -- this was
         // the actual gap, not those.
@@ -89,18 +89,14 @@ private fun isBlockedKey(key: String): Boolean =
         // Portable storage: every colour of shulker box, plus the ender chest.
         key.endsWith("shulker_box")
 
-/** Every material a player can sell to the block shop for 1 block coin each. */
-val SELLABLE_BLOCKS: Set<Material> =
-    buildSet {
-        add(Material.COBBLESTONE)
-        add(Material.DIRT)
-        Material.values().forEach { material ->
-            val key = material.key().asString().substringAfter(':')
-            if (key.endsWith("_log") || key.endsWith("_wood") || key.endsWith("_stem") || key.endsWith("_hyphae")) {
-                add(material)
-            }
-        }
-    }
+// Thin blocks are cheaper per piece than full blocks.
+private val THIN_BLOCK_SUFFIXES = listOf("_fence", "_fence_gate", "_wall", "_pane", "_bars")
+
+/** How many of [material] one coin buys in the block shop: 16 fences, gates, walls, panes and bars, 4 of anything else. */
+fun blocksPerCoin(material: Material): Int {
+    val key = material.key().asString().substringAfter(':')
+    return if (THIN_BLOCK_SUFFIXES.any(key::endsWith)) 16 else 4
+}
 
 // Items that are not blocks but are still sold in the shop: dyes (the Dyes folder) so builders can colour
 // things, and the item frame (an entity, so it has no Block entry) for decorating.
@@ -125,7 +121,7 @@ private val SHOP_ITEM_KEYS: Set<String> =
     ).map { "minecraft:${it}_dye" }.toSet() + "minecraft:item_frame"
 
 /**
- * Every material purchasable from the block shop for 1 block coin each: every placeable
+ * Every material purchasable from the block shop (priced by blocksPerCoin): every placeable
  * block item (matched against the Block registry, so tools/food/spawn-eggs/etc. are
  * excluded automatically) minus BLOCKED_MATERIAL_KEYS/ores/buckets above. Sorted by
  * namespaced key for stable, alphabetical GUI paging.

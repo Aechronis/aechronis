@@ -3,6 +3,7 @@ package net.aechronis.economy
 import net.aechronis.economy.constants.BLOCK_FOLDERS
 import net.aechronis.economy.constants.BlockFolder
 import net.aechronis.economy.constants.PURCHASABLE_BLOCKS
+import net.aechronis.economy.constants.blocksPerCoin
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.key.Key
@@ -25,6 +26,7 @@ import net.minestom.server.event.player.PlayerCustomClickEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
+import net.minestom.server.inventory.TransactionOption
 import net.minestom.server.inventory.click.Click
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
@@ -34,7 +36,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
 import kotlin.math.min
 
-private const val COST_PER_BLOCK = 1L
 private const val QUERY_INPUT_KEY = "query"
 private const val SEARCH_SESSION_TOKEN_KEY = "session"
 private const val MAX_QUERY_LENGTH = 32
@@ -87,8 +88,8 @@ private data class SearchBlockShopSession(
 /**
  * Server-side block shop: a root screen of folders (Wood, Stone, ...), each
  * opening a paginated/searchable list of that folder's blocks, plus a global search that
- * cuts across every folder. Buys any [PURCHASABLE_BLOCKS] material for [COST_PER_BLOCK]
- * coin each, earned by mining stone or with /sell. Every purchase takes the coins first
+ * cuts across every folder. One coin buys [blocksPerCoin] of any [PURCHASABLE_BLOCKS]
+ * material (4 blocks, or 16 fences/walls/panes); coins come from mining stone. Every purchase takes the coins first
  * and refunds them if the items do not fit, so a full inventory never costs anything.
  * Player sessions own the menu inventory and native text-search dialog.
  */
@@ -296,19 +297,18 @@ object BlockShop {
         }
         val material = session.entries[index]
         val shiftClick = click is Click.LeftShift || click is Click.RightShift
-        val requested = if (shiftClick) material.maxStackSize() else 1
-        val affordable = min((Economy.coinBalance(player.uuid) ?: 0L) / COST_PER_BLOCK, Int.MAX_VALUE.toLong()).toInt()
-        val amount = min(requested, affordable)
-        if (amount <= 0) {
+        val requested = if (shiftClick) stackCost(material) else 1L
+        val cost = min(requested, Economy.coinBalance(player.uuid) ?: 0L)
+        if (cost <= 0L) {
             player.sendMessage(Component.text("Not enough coins", NamedTextColor.RED))
             return
         }
-        val cost = amount * COST_PER_BLOCK
+        val amount = (cost * blocksPerCoin(material)).toInt()
         if (!Economy.removeCoins(player.uuid, cost)) {
             player.sendMessage(Component.text("Not enough coins", NamedTextColor.RED))
             return
         }
-        if (!player.inventory.addItemStack(ItemStack.of(material, amount))) {
+        if (!giveAll(player, material, amount)) {
             Economy.addCoins(player, cost)
             player.sendMessage(Component.text("Not enough inventory space", NamedTextColor.RED))
             return
@@ -320,6 +320,22 @@ object BlockShop {
             ),
         )
         openNextTick(player, session.folder, session.query, session.page)
+    }
+
+    /** Coins a shift-click spends: enough for one full stack, at least 1. */
+    private fun stackCost(material: Material): Long = max(1, material.maxStackSize() / blocksPerCoin(material)).toLong()
+
+    // A bundle can be bigger than one stack (4 beds), so add it stack by stack and take it all back if any part does not fit.
+    private fun giveAll(
+        player: Player,
+        material: Material,
+        amount: Int,
+    ): Boolean {
+        val stacks = (0 until amount step material.maxStackSize()).map { ItemStack.of(material, min(material.maxStackSize(), amount - it)) }
+        val added = stacks.takeWhile { player.inventory.addItemStack(it) }
+        if (added.size == stacks.size) return true
+        added.forEach { player.inventory.takeItemStack(it, TransactionOption.ALL) }
+        return false
     }
 
     private fun openSearchDialog(
@@ -425,10 +441,13 @@ object BlockShop {
             .withCustomName(Component.text(prettyName(material), NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false))
             .withLore(
                 listOf(
-                    lore("Cost: $COST_PER_BLOCK coin", NamedTextColor.GRAY),
+                    lore("Cost: 1 coin for ${blocksPerCoin(material)}", NamedTextColor.GRAY),
                     Component.empty(),
-                    lore("Left-click: buy 1", NamedTextColor.YELLOW),
-                    lore("Shift-click: buy a stack", NamedTextColor.YELLOW),
+                    lore("Left-click: buy ${blocksPerCoin(material)} for 1 coin", NamedTextColor.YELLOW),
+                    lore(
+                        "Shift-click: buy ${stackCost(material) * blocksPerCoin(material)} for ${coins(stackCost(material))}",
+                        NamedTextColor.YELLOW,
+                    ),
                 ),
             )
 
@@ -436,8 +455,7 @@ object BlockShop {
         namedItem(Material.EMERALD, "Coins: ${Economy.coinBalance(player.uuid) ?: 0L}", NamedTextColor.GREEN)
             .withLore(
                 listOf(
-                    lore("Mine stone to earn coins", NamedTextColor.GRAY),
-                    lore("or sell blocks with /sell.", NamedTextColor.GRAY),
+                    lore("Mine stone to earn coins.", NamedTextColor.GRAY),
                     lore("Check anytime with /balance.", NamedTextColor.GRAY),
                 ),
             )
@@ -445,14 +463,13 @@ object BlockShop {
     private fun helpItem(): ItemStack =
         namedItem(Material.BOOK, "How it works", NamedTextColor.GOLD).withLore(
             listOf(
-                lore("1. Earn coins:", NamedTextColor.GRAY),
-                lore("    mine stone, or /sell cobblestone,", NamedTextColor.DARK_GRAY),
-                lore("    dirt and logs for 1 coin each.", NamedTextColor.DARK_GRAY),
+                lore("1. Earn coins by mining stone.", NamedTextColor.GRAY),
                 lore("2. Pick a folder or search.", NamedTextColor.GRAY),
-                lore("3. Click a block to buy 1,", NamedTextColor.GRAY),
+                lore("3. Click a block to buy a bundle,", NamedTextColor.GRAY),
                 lore("    shift-click to buy a stack.", NamedTextColor.DARK_GRAY),
                 Component.empty(),
-                lore("Every block costs 1 coin.", NamedTextColor.DARK_GRAY),
+                lore("1 coin buys 4 blocks,", NamedTextColor.DARK_GRAY),
+                lore("or 16 fences, walls or panes.", NamedTextColor.DARK_GRAY),
             ),
         )
 

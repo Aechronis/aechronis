@@ -3,7 +3,6 @@ package net.aechronis.economy
 import net.aechronis.economy.commands.BalanceCommand
 import net.aechronis.economy.commands.BlockShopCommand
 import net.aechronis.economy.commands.MiningBoostCommand
-import net.aechronis.economy.commands.SellCommand
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleStartupTimings.measure
@@ -143,7 +142,6 @@ object Economy {
                         BalanceCommand(repository),
                         BlockShopCommand(),
                         MiningBoostCommand(),
-                        SellCommand(),
                     )
                 commands.forEach(ModuleCommands::register)
             }
