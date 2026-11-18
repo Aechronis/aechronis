@@ -19,8 +19,9 @@ export class MillerTileset extends Tileset2D {
     const [left, top] = viewport.unproject([0, 0]);
     const [right, bottom] = viewport.unproject([viewport.width, viewport.height]);
     const ratio = 2 ** (this.opts.zoomOffset || 0);
-    const zoom = Math.max(1, Math.min(19,
-      Math.ceil(Math.log2(WORLD_WIDTH * 2 ** viewport.zoom * ratio / 256))));
+    // Each 512px tile is a 2x2 block of Bing tiles one zoom deeper (1-19).
+    const zoom = Math.max(0, Math.min(18,
+      Math.ceil(Math.log2(WORLD_WIDTH * 2 ** viewport.zoom * ratio / TILE_SIZE))));
     return worldCopies(left, right, MAP_BOUNDS[0], MAP_BOUNDS[2]).flatMap(copy =>
       visibleTiles([[left - copy * WORLD_WIDTH, right - copy * WORLD_WIDTH]], top, bottom, zoom)
         .map(tile => ({ x: tile.x + copy * 2 ** zoom, y: tile.y, z: zoom })));
@@ -37,18 +38,25 @@ export class MillerTileset extends Tileset2D {
   }
 }
 
+// Every tile is a draw call and a layer deck diffs on each camera update.
+// Compositing 2x2 Bing tiles keeps their resolution with a quarter of the tiles.
+const TILE_SIZE = 512;
+
 export async function loadTile({ index: { x, y, z }, bbox, signal }) {
   const count = 2 ** z;
   const tile = { x: ((x % count) + count) % count, y, zoom: z,
     bounds: [bbox.left, bbox.bottom, bbox.right, bbox.top] };
-  const response = await fetch(tileUrl(BING_AERIAL, tile), {
-    signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
-  });
-  if (!response.ok) throw new Error(`Satellite tile: HTTP ${response.status}`);
-  const blob = await response.blob();
+  const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(15000)]);
+  const blobs = await Promise.all([0, 1, 2, 3].map(async quadrant => {
+    const response = await fetch(tileUrl(BING_AERIAL, {
+      x: tile.x * 2 + (quadrant & 1), y: y * 2 + (quadrant >> 1), zoom: z + 1,
+    }), { signal: requestSignal });
+    if (!response.ok) throw new Error(`Satellite tile: HTTP ${response.status}`);
+    return response.blob();
+  }));
   signal.throwIfAborted();
   reprojection ||= new WorkerClient(new Worker(new URL('./tile-worker.mjs', import.meta.url), { type: 'module' }));
-  const result = await reprojection.call('reproject', { blob, tile });
+  const result = await reprojection.call('reproject', { blobs, tile });
   if (signal.aborted) { result.close(); signal.throwIfAborted(); }
   return result;
 }
@@ -78,8 +86,8 @@ export function satelliteLayer(pixelRatio = globalThis.devicePixelRatio || 1) {
     id: 'satellite', TilesetClass: MillerTileset,
     zoomOffset: Math.log2(Math.min(pixelRatio, 2)),
     // extent avoids comparing the map's negative zoom with Bing's minZoom.
-    extent: MAP_BOUNDS, minZoom: 1, maxZoom: 19, tileSize: 256,
-    maxRequests: 6, maxCacheSize: 384, refinementStrategy: 'no-overlap',
+    extent: MAP_BOUNDS, minZoom: 0, maxZoom: 18, tileSize: TILE_SIZE,
+    maxRequests: 6, maxCacheSize: 96, refinementStrategy: 'no-overlap',
     getTileData: loadTile,
     onTileUnload: tile => tile.content?.close?.(),
     renderSubLayers: props => {

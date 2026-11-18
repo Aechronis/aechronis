@@ -27,8 +27,10 @@ import { screenZoomOffset, clampScreenZoom, resizeScreenZoom } from './responsiv
 import { MAP_BOUNDS, WORLD_WIDTH } from './map-config.mjs';
 import { producingFactories, factoryItem, factoryTimeLeft } from './factories.mjs';
 import { activeWarzones, warzoneBorders, warzoneRingLayers } from './warzones.mjs';
+import { NationGlowLayer } from './spatial-overlays.mjs';
 import {
   IconLayer,
+  LineLayer,
   ScatterplotLayer,
   SolidPolygonLayer,
   TextLayer,
@@ -46,6 +48,15 @@ const PORT_RANGE_BY_TIER = [2500, 5000, 10000];
 // Map labels retain their serif typeface independently of the interface.
 const MAP_FONT = "'Times New Roman', Times, serif";
 const NATION_FONT = 'Cormorant Garamond';
+// Large world-space letters magnify the atlas at close zoom. Preserve
+// the serif contours in a detailed SDF without changing label layout.
+const NATION_LABEL_FONT = {
+  fontFamily: NATION_FONT,
+  fontWeight: 600,
+  fontSettings: { sdf: true, fontSize: 512, buffer: 16 },
+};
+// Most nation-label glyphs; deck's atlas cache adds any others incrementally.
+const NATION_LABEL_WARM_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '()-";
 
 // Maximum zoom and fine-detail thresholds use CSS pixels per Minecraft block.
 const VIEW_MAX_ZOOM = 0;
@@ -318,6 +329,8 @@ function bootMap(initial) {
 
   // --- Mutable selection / hover state -----------------------------------
   let redrawFrame = null;
+  let layersZoom = NaN;
+  let layersPixelRatio = NaN;
   let qualityTimer = null;
   let cameraInteracting = false;
 
@@ -1022,12 +1035,8 @@ function bootMap(initial) {
       getColor: [16, 16, 16, 153],
       getTextAnchor: 'middle',
       getAlignmentBaseline: 'center',
-      fontFamily: NATION_FONT,
-      fontWeight: 600,
+      ...NATION_LABEL_FONT,
       characterSet: 'auto',
-      // Large world-space letters magnify the atlas at close zoom. Preserve
-      // the serif contours in a detailed SDF without changing label layout.
-      fontSettings: { sdf: true, fontSize: 512, buffer: 16 },
       outlineWidth: 2,
       outlineColor: [30, 25, 20, 210],
       pickable: false,
@@ -1201,8 +1210,32 @@ function bootMap(initial) {
       ...worldLayers([satelliteOverviewLayer(earthOverview)], copies, copyProps),
       satelliteLayer(deck.props.useDevicePixels),
       ...worldLayers(layers, copies, copyProps),
+      ...(dataReady ? [] : warmupLayers),
     ];
   }
+
+  // Linking each shader program and drawing the nation-label SDF atlas block
+  // the main thread for about a second in total. Do both with hidden layers
+  // while the worker prepares the map; luma keeps the compiled pipelines and
+  // deck keeps the atlas after these layers are removed.
+  let warmupLayers = [];
+  fontsReady.then(() => {
+    if (dataReady) return;
+    const hidden = { data: [], visible: false, pickable: false };
+    const lines = { ...hidden, getSourcePosition: d => d, getTargetPosition: d => d };
+    warmupLayers = [
+      new RelationBitmapLayer({ ...hidden, id: 'warmup-raster', image: null }),
+      new TextLayer({ ...hidden, ...NATION_LABEL_FONT, id: 'warmup-nation-labels',
+        characterSet: NATION_LABEL_WARM_CHARACTERS }),
+      new TextLayer({ ...hidden, id: 'warmup-text-background', background: true }),
+      new IconLayer({ ...hidden, id: 'warmup-icons' }),
+      new ScatterplotLayer({ ...hidden, id: 'warmup-circles' }),
+      new LineLayer({ ...lines, id: 'warmup-lines' }),
+      new NationGlowLayer({ ...lines, id: 'warmup-glow' }),
+      new SolidPolygonLayer({ ...hidden, id: 'warmup-polygons' }),
+    ];
+    redraw();
+  });
 
   // Keep north/south limits, but let the camera cross any number of worlds
   // horizontally. Normalizing only interactions avoids jumps during a drag.
@@ -1231,7 +1264,7 @@ function bootMap(initial) {
   }
 
   function applyCameraState(useDevicePixels) {
-    updateVisible();
+    const visibleChanged = updateVisible();
     const copies = visibleWorldCopies();
     const current = deck.props.layers.filter(layer => layer.id.startsWith('satellite-overview-world-'));
     const copiesChanged = current.length !== copies.length
@@ -1243,7 +1276,10 @@ function bootMap(initial) {
       ...(copiesChanged ? { layers: getLayers() } : {}),
     });
     updateHover();
-    redraw();
+    // Layer props depend on zoom, culling and pixel ratio, not the pan target.
+    // Deck re-renders the new viewState itself and tile layers follow the
+    // viewport, so a plain pan skips rebuilding and diffing every layer.
+    if (visibleChanged || viewZoom !== layersZoom || useDevicePixels !== layersPixelRatio) redraw();
   }
 
   // --- Deck instance ------------------------------------------------------
@@ -1400,6 +1436,8 @@ function bootMap(initial) {
     if (redrawFrame !== null) return;
     redrawFrame = requestAnimationFrame(() => {
       redrawFrame = null;
+      layersZoom = viewZoom;
+      layersPixelRatio = deck.props.useDevicePixels;
       deck.setProps({ layers: getLayers() });
       renderFactoriesPanel();
       if (dataReady) initialLayersSubmitted = true;
