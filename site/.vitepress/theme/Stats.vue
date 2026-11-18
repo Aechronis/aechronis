@@ -1,7 +1,7 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 
-// Public HTTPS endpoint of the server's stats module (GET /stats?sort=&player=&type=&scope=&week=).
+// Public HTTPS endpoint of the server's stats module (GET /stats?sort=&player=&type=&scope=&week=, type = player | town | nation).
 const api = import.meta.env.DEV ? 'http://localhost:8090/stats' : 'https://stats.aechronis.net/stats'
 
 const COLUMNS = {
@@ -13,9 +13,17 @@ const COLUMNS = {
   playtime: 'Playtime',
 }
 const PLAYER_KEYS = ['kills', 'deaths', 'kd', 'capsBroken', 'capsCompleted', 'playtime']
+// Towns and nations share these columns.
 const NATION_KEYS = ['kills', 'deaths', 'kd', 'playtime']
 // War snapshots leave out playtime; they track the rally graph instead.
-const keysFor = (type, war) => (type === 'nation' ? NATION_KEYS : PLAYER_KEYS).filter(k => !war || k !== 'playtime')
+const keysFor = (type, war) => (type === 'player' ? PLAYER_KEYS : NATION_KEYS).filter(k => !war || k !== 'playtime')
+const TYPES = { player: 'Player', town: 'Town', nation: 'Nation' }
+const BOARDS = { player: 'Players', town: 'Towns', nation: 'Nations' }
+const ALL_TYPES = Object.keys(TYPES)
+// The API's default board is players; towns and nations are asked for by type.
+const typeParams = type => (type === 'player' ? {} : { type })
+// "player, town or nation"
+const nouns = types => types.map(t => TYPES[t].toLowerCase()).join(', ').replace(/, ([^,]*)$/, ' or $1')
 
 function show(key, value) {
   if (value == null) return '–'
@@ -46,7 +54,7 @@ const failed = () => { error.value = 'Stats are unavailable right now. Please tr
 const scope = ref('all') // 'all' | 'war'
 const week = ref('')
 const weeks = ref([])
-const mode = ref('player') // 'player' | 'nation'
+const mode = ref('player') // 'player' | 'town' | 'nation'
 const sort = ref('kills')
 const board = ref([])
 const total = ref(0)
@@ -67,8 +75,7 @@ async function load() {
   const id = ++latest
   loading.value = true
   try {
-    const params = { sort: sort.value }
-    if (mode.value === 'nation') params.type = 'nation'
+    const params = { sort: sort.value, ...typeParams(mode.value) }
     if (scope.value === 'war') {
       params.scope = 'war'
       if (week.value) params.week = week.value
@@ -105,10 +112,13 @@ function setWeek() {
   board.value = []
   load().then(syncProfile)
 }
-// The profile follows the page's period: all-time, or the war being viewed.
+// The profile and the comparison follow the page's period: all-time, or the war being viewed.
 function syncProfile() {
+  const next = scope.value === 'war' && week.value ? week.value : 'all'
+  cmp.period = next
+  loadCompare()
   if (!selected.value) return
-  period.value = scope.value === 'war' && week.value ? week.value : 'all'
+  period.value = next
   loadProfile(true)
 }
 function setMode(next) {
@@ -125,78 +135,96 @@ function setSort(key) {
 }
 
 // ---- Search ---------------------------------------------------------------
+// One combobox state per search box: the page search finds any type, each compare picker only the compared type.
 
-const query = ref('')
-const searchOpen = ref(false)
-const active = ref(0)
-const searchBusy = ref(false)
-const notFound = ref('')
-const searchInput = ref(null)
+function makeSearch(types, pick) {
+  const s = reactive({
+    query: '',
+    open: false,
+    active: 0,
+    busy: false,
+    notFound: '',
+    // Suggestions come from GET /stats/search (debounced); names already seen cover the gap until it answers.
+    remote: { q: '', hits: [] },
+    suggestions: computed(() => {
+      const q = s.query.trim().toLowerCase()
+      if (!q) return []
+      const allowed = e => types().includes(e.type)
+      if (s.remote.q === q) return s.remote.hits.filter(allowed).slice(0, 8)
+      const all = [...known.value.values()].filter(allowed)
+      const starts = all.filter(e => e.name.toLowerCase().startsWith(q))
+      const contains = all.filter(e => !e.name.toLowerCase().startsWith(q) && e.name.toLowerCase().includes(q))
+      return [...starts, ...contains].slice(0, 7)
+    }),
+    // The last option always looks the exact name up, so anyone with stats can be found.
+    options: computed(() => {
+      const q = s.query.trim()
+      if (!q) return []
+      const exact = s.suggestions.some(e => e.name.toLowerCase() === q.toLowerCase())
+      return exact ? s.suggestions : [...s.suggestions, { name: q, type: 'lookup' }]
+    }),
+    choose,
+    key,
+  })
 
-// Suggestions come from GET /stats/search (debounced); names already seen cover the gap until it answers.
-const remote = ref({ q: '', hits: [] })
-let searchTimer = 0
-watch(query, value => {
-  clearTimeout(searchTimer)
-  const q = value.trim().toLowerCase()
-  if (!q) return
-  searchTimer = setTimeout(async () => {
+  let timer = 0
+  watch(() => s.query, value => {
+    s.active = 0
+    s.notFound = ''
+    s.open = true
+    clearTimeout(timer)
+    const q = value.trim().toLowerCase()
+    if (!q) return
+    timer = setTimeout(async () => {
+      try {
+        const data = await request({ q }, '/search')
+        s.remote = { q, hits: data.results }
+      } catch { /* the local suggestions stay */ }
+    }, 180)
+  })
+  onUnmounted(() => clearTimeout(timer))
+
+  async function choose(option) {
+    if (!option) return
+    s.open = false
+    if (option.type !== 'lookup') {
+      s.query = ''
+      pick(option)
+      return
+    }
+    // Exact lookup: try each allowed type, players first.
+    s.busy = true
     try {
-      const data = await request({ q }, '/search')
-      remote.value = { q, hits: data.results }
-    } catch { /* the local suggestions stay */ }
-  }, 180)
-})
-onUnmounted(() => clearTimeout(searchTimer))
-
-const suggestions = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  if (!q) return []
-  if (remote.value.q === q) return remote.value.hits.slice(0, 8)
-  const all = [...known.value.values()]
-  const starts = all.filter(e => e.name.toLowerCase().startsWith(q))
-  const contains = all.filter(e => !e.name.toLowerCase().startsWith(q) && e.name.toLowerCase().includes(q))
-  return [...starts, ...contains].slice(0, 7)
-})
-// The last option always looks the exact name up, so anyone with stats can be found.
-const options = computed(() => {
-  const q = query.value.trim()
-  if (!q) return []
-  const exact = suggestions.value.some(s => s.name.toLowerCase() === q.toLowerCase())
-  return exact ? suggestions.value : [...suggestions.value, { name: q, type: 'lookup' }]
-})
-watch(query, () => { active.value = 0; notFound.value = ''; searchOpen.value = true })
-
-async function choose(option) {
-  if (!option) return
-  searchOpen.value = false
-  if (option.type !== 'lookup') {
-    query.value = ''
-    select(option)
-    return
+      const found = await Promise.all(types().map(type => request({ sort: 'kills', player: option.name, ...typeParams(type) })))
+      const i = found.findIndex(data => data.player)
+      if (i < 0) { s.notFound = option.name; s.open = true; return }
+      const hit = { name: found[i].player.name, type: types()[i], nation: found[i].player.nation }
+      remember([hit.name], hit.type)
+      s.query = ''
+      pick(hit)
+    } catch { failed() } finally { s.busy = false }
   }
-  // Exact lookup: try players, then nations.
-  searchBusy.value = true
-  try {
-    const [p, n] = await Promise.all([
-      request({ sort: 'kills', player: option.name }),
-      request({ sort: 'kills', player: option.name, type: 'nation' }),
-    ])
-    const hit = p.player ? { name: p.player.name, type: 'player', nation: p.player.nation } : n.player ? { name: n.player.name, type: 'nation' } : null
-    if (!hit) { notFound.value = option.name; searchOpen.value = true; return }
-    remember([hit.name], hit.type)
-    query.value = ''
-    select(hit)
-  } catch { failed() } finally { searchBusy.value = false }
+
+  function key(event) {
+    const count = s.options.length
+    if (event.key === 'ArrowDown' && count) { s.active = (s.active + 1) % count; s.open = true; event.preventDefault() }
+    else if (event.key === 'ArrowUp' && count) { s.active = (s.active - 1 + count) % count; event.preventDefault() }
+    else if (event.key === 'Enter') { choose(s.options[s.active]); event.preventDefault() }
+    else if (event.key === 'Escape') { s.open = false }
+  }
+
+  return s
 }
 
-function searchKey(event) {
-  const count = options.value.length
-  if (event.key === 'ArrowDown' && count) { active.value = (active.value + 1) % count; searchOpen.value = true; event.preventDefault() }
-  else if (event.key === 'ArrowUp' && count) { active.value = (active.value - 1 + count) % count; event.preventDefault() }
-  else if (event.key === 'Enter') { choose(options.value[active.value]); event.preventDefault() }
-  else if (event.key === 'Escape') { searchOpen.value = false }
+// Suggestion subtitle: a player's nation, or a town's nation.
+function metaOf(option) {
+  if (option.type === 'nation') return 'Nation'
+  if (option.type === 'town') return option.nation ? `Town of ${option.nation}` : 'Town'
+  return option.nation || 'Player'
 }
+
+const search = makeSearch(() => ALL_TYPES, entry => select(entry))
+const searchInput = ref(null)
 function slashFocus(event) {
   if (event.key !== '/' || ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return
   event.preventDefault()
@@ -205,7 +233,7 @@ function slashFocus(event) {
 
 // ---- Profile --------------------------------------------------------------
 
-const selected = ref(null) // { name, type }
+const selected = ref(null) // { name, type: 'player' | 'town' | 'nation' }
 const period = ref('all') // 'all' | a war week
 const profile = ref(null) // { stats, total } | { absent: true }
 const history = ref([])
@@ -219,6 +247,12 @@ function select(entry, followScope = true) {
   loadProfile(true)
 }
 
+// One entry's stats with its rank in every category, all-time or for one war.
+async function fetchStats(entry, period) {
+  const data = await request({ sort: 'kills', player: entry.name, ...typeParams(entry.type), ...(period === 'all' ? {} : { scope: 'war', week: period }) })
+  return data.player ? { stats: data.player, total: data.total } : { absent: true }
+}
+
 let profileLatest = 0
 async function loadProfile(withHistory = false) {
   const entry = selected.value
@@ -228,15 +262,12 @@ async function loadProfile(withHistory = false) {
   profile.value = null
   if (withHistory) history.value = []
   try {
-    const base = { sort: 'kills', player: entry.name }
-    if (entry.type === 'nation') base.type = 'nation'
-    const params = period.value === 'all' ? base : { ...base, scope: 'war', week: period.value }
-    const data = await request(params)
+    const result = await fetchStats(entry, period.value)
     if (id !== profileLatest) return
-    profile.value = data.player ? { stats: data.player, total: data.total } : { absent: true }
-    if (data.player) selected.value = { ...entry, name: data.player.name }
+    profile.value = result
+    if (result.stats) selected.value = { ...entry, name: result.stats.name }
     if (withHistory) {
-      const data = await request({ player: entry.name, ...(entry.type === 'nation' ? { type: 'nation' } : {}) }, '/history')
+      const data = await request({ player: entry.name, ...typeParams(entry.type) }, '/history')
       if (id !== profileLatest) return
       // One row per recent war; wars the profile has no entry for show as "Didn't play".
       const played = new Map(data.weeks.map(h => [h.week, h]))
@@ -251,6 +282,71 @@ async function loadProfile(withHistory = false) {
 }
 const historyMax = computed(() => Math.max(1, ...history.value.map(h => h.stats?.kills ?? 0)))
 const playedWars = computed(() => history.value.filter(h => h.stats).length)
+
+// ---- Compare --------------------------------------------------------------
+// Two players, towns or nations side by side. Each side is fetched like a profile, so ranks come along.
+
+const cmp = reactive({
+  type: 'player',
+  period: 'all', // 'all' | a war week
+  sides: [null, null], // { name, type }
+  results: [null, null], // { stats, total } | { absent: true }
+  busy: false,
+})
+const pickers = [0, 1].map(i => makeSearch(() => [cmp.type], entry => setSide(i, entry)))
+const cmpTotal = computed(() => cmp.results.find(r => r?.stats)?.total ?? 0)
+
+// Per stat: both values, how full each bar is, and which side leads (fewer deaths leads; -1 on a tie or a missing side).
+const cmpRows = computed(() => {
+  const [a, b] = cmp.results.map(r => r?.stats)
+  if (!a && !b) return []
+  return keysFor(cmp.type, cmp.period !== 'all').map(key => {
+    const values = [a?.[key], b?.[key]]
+    const [x, y] = values.map(Number)
+    const max = Math.max(x || 0, y || 0) || 1
+    const lead = !a || !b || x === y ? -1 : (x > y) !== (key === 'deaths') ? 0 : 1
+    return { key, values, ranks: [a?.ranks[key], b?.ranks[key]], pct: values.map(v => ((Number(v) || 0) / max) * 100), lead }
+  })
+})
+
+let cmpLatest = 0
+async function loadCompare() {
+  const sides = [...cmp.sides]
+  if (!sides.some(Boolean)) return
+  const id = ++cmpLatest
+  cmp.busy = true
+  try {
+    const results = await Promise.all(sides.map(entry => (entry ? fetchStats(entry, cmp.period) : null)))
+    if (id !== cmpLatest) return
+    cmp.results = results
+    cmp.sides = sides.map((entry, i) => (entry && results[i].stats ? { ...entry, name: results[i].stats.name } : entry))
+  } catch {
+    if (id === cmpLatest) failed()
+  } finally {
+    if (id === cmpLatest) cmp.busy = false
+  }
+}
+function setSide(i, entry) {
+  cmp.sides[i] = entry
+  cmp.results[i] = null
+  loadCompare()
+}
+function clearSide(i) {
+  setSide(i, null)
+}
+function setCompareType(type) {
+  if (cmp.type === type) return
+  cmp.type = type
+  cmp.sides = [null, null]
+  cmp.results = [null, null]
+}
+// From a profile: fill the first free side (or replace the second), switching type if needed.
+function compareWith(entry) {
+  setCompareType(entry.type)
+  if (cmp.sides.some(s => s?.name === entry.name)) return
+  cmp.period = period.value
+  setSide(cmp.sides[0] ? 1 : 0, { name: entry.name, type: entry.type })
+}
 
 // ---- Rally graph ----------------------------------------------------------
 // Players online per nation, one sample every ten minutes during war. The six biggest
@@ -403,7 +499,12 @@ onMounted(async () => {
   timer = setInterval(() => { if (!document.hidden) load() }, 30000)
   load()
   try {
-    const [nations, war] = await Promise.all([request({ sort: 'kills', type: 'nation' }), request({ sort: 'kills', scope: 'war' })])
+    const [towns, nations, war] = await Promise.all([
+      request({ sort: 'kills', type: 'town' }),
+      request({ sort: 'kills', type: 'nation' }),
+      request({ sort: 'kills', scope: 'war' }),
+    ])
+    remember(towns.players.map(p => p.name), 'town')
     remember(nations.players.map(p => p.name), 'nation')
     weeks.value = war.weeks
     if (selected.value && !history.value.length) loadProfile(true)
@@ -421,49 +522,49 @@ onUnmounted(() => {
     <header class="st-bar">
       <h1 class="st-title">Stats</h1>
 
-      <div class="st-search" @focusout="e => { if (!e.currentTarget.contains(e.relatedTarget)) searchOpen = false }">
+      <div class="st-search" @focusout="e => { if (!e.currentTarget.contains(e.relatedTarget)) search.open = false }">
         <svg aria-hidden="true" viewBox="0 0 24 24" class="st-search-icon"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
-        <label for="st-q" class="st-sr">Search a player or nation</label>
+        <label for="st-q" class="st-sr">Search a {{ nouns(ALL_TYPES) }}</label>
         <input
           id="st-q"
           ref="searchInput"
-          v-model="query"
+          v-model="search.query"
           type="search"
           role="combobox"
           autocomplete="off"
           autocapitalize="none"
           :spellcheck="false"
           maxlength="32"
-          placeholder="Search a player or nation…"
+          :placeholder="`Search a ${nouns(ALL_TYPES)}…`"
           aria-controls="st-options"
-          :aria-expanded="searchOpen && Boolean(query.trim())"
-          :aria-activedescendant="searchOpen && options.length ? `st-opt-${active}` : undefined"
-          @focus="searchOpen = true"
-          @keydown="searchKey"
+          :aria-expanded="search.open && Boolean(search.query.trim())"
+          :aria-activedescendant="search.open && search.options.length ? `st-opt-${search.active}` : undefined"
+          @focus="search.open = true"
+          @keydown="search.key"
         />
         <kbd class="st-kbd" aria-hidden="true">/</kbd>
-        <ul v-if="searchOpen && query.trim()" id="st-options" role="listbox" class="st-options">
+        <ul v-if="search.open && search.query.trim()" id="st-options" role="listbox" class="st-options">
           <li
-            v-for="(option, i) in options"
+            v-for="(option, i) in search.options"
             :id="`st-opt-${i}`"
             :key="option.type + option.name"
             role="option"
-            :aria-selected="i === active"
-            :class="{ active: i === active }"
-            @mousedown.prevent="choose(option)"
-            @mousemove="active = i"
+            :aria-selected="i === search.active"
+            :class="{ active: i === search.active }"
+            @mousedown.prevent="search.choose(option)"
+            @mousemove="search.active = i"
           >
             <template v-if="option.type === 'lookup'">
-              <span class="st-opt-name">{{ searchBusy ? 'Looking up' : 'Look up' }} “{{ option.name }}”</span>
+              <span class="st-opt-name">{{ search.busy ? 'Looking up' : 'Look up' }} “{{ option.name }}”</span>
               <span class="st-opt-meta">Enter</span>
             </template>
             <template v-else>
               <span class="st-avatar" :class="option.type">{{ option.name[0] }}</span>
               <span class="st-opt-name">{{ option.name }}</span>
-              <span class="st-opt-meta">{{ option.type === 'nation' ? 'Nation' : option.nation || 'Player' }}</span>
+              <span class="st-opt-meta">{{ metaOf(option) }}</span>
             </template>
           </li>
-          <li v-if="notFound" class="st-opt-empty" role="presentation">No player or nation named “{{ notFound }}” has recorded stats.</li>
+          <li v-if="search.notFound" class="st-opt-empty" role="presentation">No {{ nouns(ALL_TYPES) }} named “{{ search.notFound }}” has recorded stats.</li>
         </ul>
       </div>
 
@@ -489,8 +590,7 @@ onUnmounted(() => {
             <span class="st-muted">{{ scope === 'war' ? `War of ${weekLabel(week)}` : 'All-time' }} · top {{ board.length }} of {{ total }}</span>
           </div>
           <div class="st-seg st-seg-sm" role="group" aria-label="Leaderboard type">
-            <button type="button" :aria-pressed="mode === 'player'" @click="setMode('player')">Players</button>
-            <button type="button" :aria-pressed="mode === 'nation'" @click="setMode('nation')">Nations</button>
+            <button v-for="(label, type) in BOARDS" :key="type" type="button" :aria-pressed="mode === type" @click="setMode(type)">{{ label }}</button>
           </div>
         </div>
         <div class="st-scroll">
@@ -498,7 +598,7 @@ onUnmounted(() => {
             <thead>
               <tr>
                 <th scope="col" class="st-rank-col">#</th>
-                <th scope="col" class="st-name-col">{{ mode === 'nation' ? 'Nation' : 'Player' }}</th>
+                <th scope="col" class="st-name-col">{{ TYPES[mode] }}</th>
                 <th v-for="key in columns" :key="key" scope="col" :aria-sort="sort === key ? 'descending' : 'none'">
                   <button type="button" class="st-sort" :class="{ on: sort === key }" @click="setSort(key)">{{ COLUMNS[key] }}<span aria-hidden="true">{{ sort === key ? ' ↓' : '' }}</span></button>
                 </th>
@@ -519,6 +619,7 @@ onUnmounted(() => {
                 <td class="st-rank-col"><span :class="{ top: row.rank <= 3 }">{{ row.rank }}</span></td>
                 <td class="st-name-col">
                   {{ row.name }}
+                  <button v-if="row.town" type="button" class="st-nation town" @click.stop="select({ name: row.town, type: 'town' })" @keydown.enter.stop>{{ row.town }}</button>
                   <button v-if="row.nation" type="button" class="st-nation" @click.stop="select({ name: row.nation, type: 'nation' })" @keydown.enter.stop>{{ row.nation }}</button>
                 </td>
                 <td v-for="key in columns" :key="key" :class="{ on: sort === key }">{{ show(key, row[key]) }}</td>
@@ -602,12 +703,13 @@ onUnmounted(() => {
             <span class="st-avatar st-avatar-lg" :class="selected.type">{{ selected.name[0] }}</span>
             <div class="st-head-text">
               <h2 id="st-profile-title">{{ selected.name }}</h2>
-              <span class="st-muted">{{ selected.type === 'nation' ? 'Nation' : 'Player' }}<template v-if="profile && profile.stats && profile.stats.nation"> of <button type="button" class="st-nation" @click="select({ name: profile.stats.nation, type: 'nation' })">{{ profile.stats.nation }}</button></template><template v-if="history.length"> · played {{ playedWars }} of the last {{ history.length }} wars</template></span>
+              <span class="st-muted">{{ TYPES[selected.type] }}<template v-if="profile && profile.stats && (profile.stats.town || profile.stats.nation)"> of <button v-if="profile.stats.town" type="button" class="st-nation town" @click="select({ name: profile.stats.town, type: 'town' })">{{ profile.stats.town }}</button><button v-if="profile.stats.nation" type="button" class="st-nation" @click="select({ name: profile.stats.nation, type: 'nation' })">{{ profile.stats.nation }}</button></template><template v-if="history.length"> · played {{ playedWars }} of the last {{ history.length }} wars</template></span>
             </div>
             <select v-model="period" class="st-select st-select-sm" aria-label="Profile period" @change="loadProfile()">
               <option value="all">All-time</option>
               <option v-for="w in weeks" :key="w" :value="w">War · {{ weekLabel(w) }}</option>
             </select>
+            <button type="button" class="st-ghost" @click="compareWith(selected)">Compare</button>
           </div>
           <div class="st-profile-scroll">
             <p v-if="profileBusy && !profile" class="st-empty">Loading profile…</p>
@@ -621,7 +723,7 @@ onUnmounted(() => {
                 </dd>
               </div>
             </dl>
-            <p v-if="profile && !profile.absent" class="st-muted st-small">Ranks among {{ profile.total }} {{ selected.type === 'nation' ? 'nations' : 'players' }}{{ period === 'all' ? '' : ' that war' }}.</p>
+            <p v-if="profile && !profile.absent" class="st-muted st-small">Ranks among {{ profile.total }} {{ BOARDS[selected.type].toLowerCase() }}{{ period === 'all' ? '' : ' that war' }}.</p>
 
             <div v-if="history.length" class="st-history">
               <h3>Recent wars</h3>
@@ -643,7 +745,95 @@ onUnmounted(() => {
         </template>
         <div v-else class="st-empty">
           <h2 id="st-profile-title" class="st-sr">Profile</h2>
-          Search a player or nation, or click a row to see their stats.
+          Search a {{ nouns(ALL_TYPES) }}, or click a row to see their stats.
+        </div>
+      </section>
+
+      <!-- Compare -->
+      <section class="st-card st-compare" aria-labelledby="st-compare-title">
+        <div class="st-card-head">
+          <div class="st-head-text">
+            <h2 id="st-compare-title">Compare</h2>
+            <span class="st-muted">Two {{ BOARDS[cmp.type].toLowerCase() }} side by side</span>
+          </div>
+          <div class="st-seg st-seg-sm" role="group" aria-label="Compare type">
+            <button v-for="(label, type) in BOARDS" :key="type" type="button" :aria-pressed="cmp.type === type" @click="setCompareType(type)">{{ label }}</button>
+          </div>
+        </div>
+        <div class="st-compare-pick">
+          <template v-for="(picker, i) in pickers" :key="i">
+            <span v-if="i" class="st-vs" aria-hidden="true">vs</span>
+            <div v-if="cmp.sides[i]" class="st-chosen">
+              <span class="st-avatar" :class="cmp.type">{{ cmp.sides[i].name[0] }}</span>
+              <button type="button" class="st-chosen-name" @click="select(cmp.sides[i])">{{ cmp.sides[i].name }}</button>
+              <button type="button" class="st-chosen-clear" :aria-label="`Remove ${cmp.sides[i].name}`" @click="clearSide(i)">×</button>
+            </div>
+            <div v-else class="st-search st-search-sm" @focusout="e => { if (!e.currentTarget.contains(e.relatedTarget)) picker.open = false }">
+              <label :for="`st-cmp-${i}`" class="st-sr">{{ i ? 'Second' : 'First' }} {{ TYPES[cmp.type].toLowerCase() }} to compare</label>
+              <input
+                :id="`st-cmp-${i}`"
+                v-model="picker.query"
+                type="search"
+                role="combobox"
+                autocomplete="off"
+                autocapitalize="none"
+                :spellcheck="false"
+                maxlength="32"
+                :placeholder="`${TYPES[cmp.type]} ${i ? 'B' : 'A'}…`"
+                :aria-controls="`st-cmp-${i}-options`"
+                :aria-expanded="picker.open && Boolean(picker.query.trim())"
+                :aria-activedescendant="picker.open && picker.options.length ? `st-cmp-${i}-opt-${picker.active}` : undefined"
+                @focus="picker.open = true"
+                @keydown="picker.key"
+              />
+              <ul v-if="picker.open && picker.query.trim()" :id="`st-cmp-${i}-options`" role="listbox" class="st-options">
+                <li
+                  v-for="(option, j) in picker.options"
+                  :id="`st-cmp-${i}-opt-${j}`"
+                  :key="option.type + option.name"
+                  role="option"
+                  :aria-selected="j === picker.active"
+                  :class="{ active: j === picker.active }"
+                  @mousedown.prevent="picker.choose(option)"
+                  @mousemove="picker.active = j"
+                >
+                  <template v-if="option.type === 'lookup'">
+                    <span class="st-opt-name">{{ picker.busy ? 'Looking up' : 'Look up' }} “{{ option.name }}”</span>
+                    <span class="st-opt-meta">Enter</span>
+                  </template>
+                  <template v-else>
+                    <span class="st-avatar" :class="option.type">{{ option.name[0] }}</span>
+                    <span class="st-opt-name">{{ option.name }}</span>
+                    <span class="st-opt-meta">{{ metaOf(option) }}</span>
+                  </template>
+                </li>
+                <li v-if="picker.notFound" class="st-opt-empty" role="presentation">No {{ TYPES[cmp.type].toLowerCase() }} named “{{ picker.notFound }}” has recorded stats.</li>
+              </ul>
+            </div>
+          </template>
+          <select v-model="cmp.period" class="st-select st-select-sm" aria-label="Compare period" @change="loadCompare">
+            <option value="all">All-time</option>
+            <option v-for="w in weeks" :key="w" :value="w">War · {{ weekLabel(w) }}</option>
+          </select>
+        </div>
+        <div class="st-profile-scroll" aria-live="polite">
+          <p v-if="!cmpRows.length" class="st-empty">{{ cmp.busy ? 'Loading…' : `Pick two ${BOARDS[cmp.type].toLowerCase()} to compare their stats.` }}</p>
+          <template v-else>
+            <dl class="st-compare-rows" :class="{ busy: cmp.busy }">
+              <div v-for="row in cmpRows" :key="row.key" class="st-compare-row">
+                <dt>{{ COLUMNS[row.key] }}</dt>
+                <dd v-for="side in [0, 1]" :key="side" :class="[side ? 'st-cmp-b' : 'st-cmp-a', { lead: row.lead === side }]">
+                  <span class="st-compare-line">
+                    <span class="st-tile-value">{{ show(row.key, row.values[side]) }}</span>
+                    <span v-if="row.ranks[side]" class="st-badge" :class="{ top: row.ranks[side] <= 3 }">#{{ row.ranks[side] }}</span>
+                  </span>
+                  <span class="st-meter"><span :style="{ width: `${row.pct[side]}%` }" /></span>
+                </dd>
+              </div>
+            </dl>
+            <p v-for="(r, i) in cmp.results" v-show="r && r.absent" :key="i" class="st-muted st-small">{{ cmp.sides[i]?.name }} has no stats for the war of {{ weekLabel(cmp.period) }}.</p>
+            <p class="st-muted st-small">Ranks among {{ cmpTotal }} {{ BOARDS[cmp.type].toLowerCase() }}{{ cmp.period === 'all' ? '' : ' that war' }}.</p>
+          </template>
         </div>
       </section>
     </div>
@@ -688,10 +878,12 @@ onUnmounted(() => {
 .st-opt-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-nation { margin-left: 6px; padding: 0 6px; border: 0; border-radius: 4px; font: inherit; font-size: 12px; font-weight: 500; color: #f0903e; background: var(--vp-c-default-soft); cursor: pointer; }
 .st-nation:hover { text-decoration: underline; }
+.st-nation.town { color: #2fb39c; }
 .st-opt-meta { font-size: 12px; color: var(--vp-c-text-2); }
 .st-options .st-opt-empty { cursor: default; color: var(--vp-c-text-2); }
 .st-avatar { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px; font-weight: 700; font-size: 13px; text-transform: uppercase; background: var(--vp-c-default-soft); color: var(--vp-c-brand-1); }
 .st-avatar.nation { border-radius: 50%; color: #f0903e; }
+.st-avatar.town { color: #2fb39c; }
 .st-avatar-lg { width: 44px; height: 44px; font-size: 20px; border-radius: 10px; }
 
 .st-seg { display: flex; gap: 3px; padding: 3px; background: var(--st-card); border: 1px solid var(--st-line); border-radius: 9px; }
@@ -706,11 +898,12 @@ onUnmounted(() => {
 .st-error { margin: 0; padding: 10px 14px; border: 1px solid var(--vp-c-danger-1); border-radius: 8px; background: var(--vp-c-danger-soft); }
 
 /* Cards */
-.st-body { display: grid; gap: var(--st-gap); grid-template-columns: minmax(0, 1.6fr) minmax(340px, 1fr); grid-template-areas: 'board profile'; }
-.st-war .st-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: 'board rally' 'board profile'; }
+.st-body { display: grid; gap: var(--st-gap); grid-template-columns: minmax(0, 1.6fr) minmax(340px, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: 'board profile' 'board compare'; }
+.st-war .st-body { grid-template-columns: minmax(0, 1fr) minmax(0, 0.775fr) minmax(0, 0.775fr); grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: 'board rally rally' 'board profile compare'; }
 .st-board { grid-area: board; }
 .st-rally { grid-area: rally; }
 .st-profile { grid-area: profile; }
+.st-compare { grid-area: compare; overflow: visible; }
 .st-card { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--st-card); border: 1px solid var(--st-line); border-radius: 12px; overflow: hidden; }
 .st-card-head { flex: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--st-line); }
 .st-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -737,12 +930,14 @@ onUnmounted(() => {
 .st-table-sm thead th { position: static; background: transparent; }
 
 /* Profile */
-.st-profile-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--st-line); }
+.st-profile-head { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 12px 16px; border-bottom: 1px solid var(--st-line); }
+.st-profile-head .st-head-text { flex: 1 1 160px; }
+.st-profile-head h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-profile-scroll { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px 16px; }
 .st-tiles { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; transition: opacity .15s; }
 .st-tiles.busy { opacity: .5; }
 .st-tile { padding: 10px 12px; border: 1px solid var(--st-line); border-radius: 9px; background: var(--vp-c-bg); }
-.st-tile dt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--vp-c-text-2); }
+.st-tile dt, .st-compare-row dt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--vp-c-text-2); }
 .st-tile dd { margin: 4px 0 0; display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
 .st-tile-value { font-size: 20px; font-weight: 700; white-space: nowrap; }
 .st-badge { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--vp-c-default-soft); color: var(--vp-c-text-2); }
@@ -753,6 +948,33 @@ onUnmounted(() => {
 .st-absent { text-align: left !important; font-style: italic; }
 .st-meter { display: block; width: 100%; min-width: 70px; height: 4px; border-radius: 2px; background: var(--vp-c-default-soft); overflow: hidden; }
 .st-meter > span { display: block; height: 100%; border-radius: 2px; background: var(--vp-c-brand-1); }
+
+/* Compare */
+.st-compare-pick { flex: none; position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--st-line); }
+.st-search-sm, .st-chosen { flex: 1 1 140px; min-width: 0; height: 34px; border-radius: 8px; background: var(--vp-c-bg); }
+.st-search-sm { padding: 0 10px; }
+.st-search-sm input { font-size: 13px; }
+.st-chosen { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 5px; border: 1px solid var(--st-line); }
+.st-chosen .st-avatar { width: 22px; height: 22px; font-size: 12px; }
+.st-chosen-name { flex: 1; min-width: 0; border: 0; background: none; padding: 0; text-align: left; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.st-chosen-name:hover { text-decoration: underline; }
+.st-chosen-clear { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--vp-c-text-2); font-size: 16px; line-height: 1; cursor: pointer; }
+.st-chosen-clear:hover { background: var(--vp-c-default-soft); color: var(--vp-c-text-1); }
+.st-vs { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--vp-c-text-3); }
+.st-compare-rows { margin: 0; display: flex; flex-direction: column; gap: 8px; transition: opacity .15s; }
+.st-compare-rows.busy { opacity: .5; }
+.st-compare-row { display: grid; grid-template-columns: minmax(0, 1fr) 104px minmax(0, 1fr); grid-template-areas: 'a label b'; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--st-line); border-radius: 9px; background: var(--vp-c-bg); }
+.st-compare-row dt { grid-area: label; text-align: center; }
+.st-compare-row dd { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.st-cmp-a { grid-area: a; align-items: flex-end; }
+.st-cmp-b { grid-area: b; }
+.st-compare-line { display: flex; align-items: baseline; gap: 6px; }
+.st-cmp-a .st-compare-line { flex-direction: row-reverse; }
+.st-compare-row .st-tile-value { font-size: 18px; color: var(--vp-c-text-2); }
+.st-compare-row .lead .st-tile-value { color: var(--vp-c-text-1); }
+.st-compare-row .st-meter { min-width: 0; }
+.st-cmp-a .st-meter > span { margin-left: auto; }
+.st-compare-row dd:not(.lead) .st-meter > span { background: var(--vp-c-text-3); }
 
 /* Rally */
 .st-rally-body { flex: 1; min-height: 0; display: flex; }
@@ -781,8 +1003,8 @@ onUnmounted(() => {
   .st-body { flex: 1; min-height: 0; }
 }
 @media (max-width: 1099px), (max-height: 619px) {
-  .st-body, .st-war .st-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: 'rally' 'profile' 'board'; }
-  .st-body { grid-template-areas: 'profile' 'board'; }
+  .st-body, .st-war .st-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: 'rally' 'profile' 'compare' 'board'; }
+  .st-body { grid-template-areas: 'profile' 'compare' 'board'; }
   .st-board .st-scroll { max-height: 70vh; }
   .st-rally-body { flex-direction: column; }
   .st-plot { height: 300px; flex: none; }

@@ -99,6 +99,8 @@ class NodesModule : AechronisModule {
         Nodes.initialize(takeConfiguration(context))
         MapPositionApi.start(Nodes.config.mapApiPort)
         Stats.nationOf = { Resident.fromUuid(it)?.town?.nation?.name }
+        Stats.townOf = { Resident.fromUuid(it)?.town?.name }
+        Stats.backfillTowns()
         Stats.warActive = { FlagWar.enabled }
         Stats.areFriendly = { a, b ->
             Town.relationshipOfPlayerToPlayer(a, b) in setOf(DiplomaticRelationship.TOWN, DiplomaticRelationship.NATION, DiplomaticRelationship.ALLY)
@@ -126,6 +128,7 @@ class NodesModule : AechronisModule {
         PlayerSettings.unregister(*minimapSettings)
         MapPositionApi.stop()
         Stats.nationOf = { null }
+        Stats.townOf = { null }
         Stats.warActive = { false }
         Stats.areFriendly = { _, _ -> false }
         NationFlagPack.shutdown()

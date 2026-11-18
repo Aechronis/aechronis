@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Tracks kills/deaths here and cap stats from the nodes module, and serves them as JSON for the
- * website: GET /stats?sort=kills&player=Name, plus /stats/search and /stats/history. Put HTTPS in front (the site is https). Port: STATS_PORT.
+ * website: GET /stats?sort=kills&player=Name[&type=town|nation], plus /stats/search and /stats/history. Put HTTPS in front (the site is https). Port: STATS_PORT.
  */
 class StatsModule : AechronisModule {
     override val id = "stats"
@@ -74,34 +74,45 @@ class StatsModule : AechronisModule {
 
     private fun handle(exchange: HttpExchange) =
         respond(exchange) { query ->
-            val nation = query["type"] == "nation"
-            cached("stats|${query["sort"]}|${query["player"]}|${query["type"]}|${query["scope"]}|${query["week"]}") {
+            val board = board(query)
+            cached("stats|${query["sort"]}|${query["player"]}|$board|${query["scope"]}|${query["week"]}") {
                 Stats.query(
                     query["sort"] ?: "kills",
                     20,
-                    query["player"]?.take(if (nation) 32 else 16)?.lowercase(),
-                    nation,
+                    query["player"]?.take(nameLimit(board))?.lowercase(),
+                    board,
                     query["scope"] == "war",
                     query["week"]?.also { w -> require(weekFormat.matches(w)) },
                 )
             }
         }
 
-    /** GET /stats/search?q=prefix: up to 8 matching players and nations. */
+    /** GET /stats/search?q=prefix: up to 8 matching players, towns and nations. */
     private fun handleSearch(exchange: HttpExchange) =
         respond(exchange) { query ->
             val q = (query["q"] ?: "").trim().take(32).lowercase()
             if (q.isEmpty()) "{\"results\":[]}" else cached("search|$q") { Stats.search(q, 8) }
         }
 
-    /** GET /stats/history?player=Name[&type=nation]: per war week stats, newest first. */
+    /** GET /stats/history?player=Name[&type=town|nation]: per war week stats, newest first. */
     private fun handleHistory(exchange: HttpExchange) =
         respond(exchange) { query ->
-            val nation = query["type"] == "nation"
-            val name = (query["player"] ?: "").trim().take(if (nation) 32 else 16).lowercase()
+            val board = board(query)
+            val name = (query["player"] ?: "").trim().take(nameLimit(board)).lowercase()
             require(name.isNotEmpty())
-            cached("history|$nation|$name") { Stats.history(name, nation, 12) }
+            cached("history|$board|$name") { Stats.history(name, board, 12) }
         }
+
+    /** `type=town|nation` picks that board; anything else is the player board. */
+    private fun board(query: Map<String, String>) =
+        when (query["type"]) {
+            "town" -> Board.TOWN
+            "nation" -> Board.NATION
+            else -> Board.PLAYER
+        }
+
+    /** Minecraft names are at most 16 characters; town and nation names up to 32. */
+    private fun nameLimit(board: Board) = if (board == Board.PLAYER) 16 else 32
 
     private fun respond(
         exchange: HttpExchange,

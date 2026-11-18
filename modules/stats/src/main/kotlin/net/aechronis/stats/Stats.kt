@@ -28,8 +28,10 @@ data class PlayerStats(
     var capsBroken: Int = 0,
     var capsCompleted: Int = 0,
     var playtime: Long = 0,
-    /** A player's nation when last credited; null for nations and nationless players. */
+    /** The nation of a player or town when last credited; null for nations and nationless entries. */
     var nation: String? = null,
+    /** A player's town when last credited; null for towns, nations and townless players. */
+    var town: String? = null,
 ) {
     val kd: Double get() = if (deaths == 0) kills.toDouble() else kills.toDouble() / deaths
 
@@ -56,6 +58,7 @@ data class RallySample(
 private data class SavedBucket(
     val players: Map<String, PlayerStats> = emptyMap(),
     val nations: Map<String, PlayerStats> = emptyMap(),
+    val towns: Map<String, PlayerStats> = emptyMap(),
     val rally: List<RallySample> = emptyList(),
 )
 
@@ -63,6 +66,8 @@ private data class SavedBucket(
 private data class SavedStats(
     val players: Map<String, PlayerStats>,
     val nations: Map<String, PlayerStats>,
+    /** Null in files saved before towns were tracked; those get backfilled from current town members. */
+    val towns: Map<String, PlayerStats>? = null,
     val war: Map<String, SavedBucket> = emptyMap(),
     val currentWar: String? = null,
 )
@@ -71,10 +76,21 @@ private data class SavedStats(
 val SORT_KEYS = listOf("kills", "deaths", "kd", "capsBroken", "capsCompleted", "playtime")
 val NATION_SORT_KEYS = listOf("kills", "deaths", "kd", "playtime")
 
+/** Leaderboard types accepted by the HTTP API; towns use the nation columns. */
+enum class Board { PLAYER, TOWN, NATION }
+
 private class Bucket {
     val players = HashMap<UUID, PlayerStats>()
     val nations = HashMap<String, PlayerStats>()
+    val towns = HashMap<String, PlayerStats>()
     val rally = ArrayList<RallySample>()
+
+    fun entries(board: Board): Map<*, PlayerStats> =
+        when (board) {
+            Board.PLAYER -> players
+            Board.TOWN -> towns
+            Board.NATION -> nations
+        }
 }
 
 /** War snapshots leave out playtime; they track the rally graph instead. */
@@ -97,6 +113,13 @@ object Stats {
     /** Set by the nodes module: a player's current nation name, or null. Kills, deaths and playtime count for it. */
     @Volatile
     var nationOf: (UUID) -> String? = { null }
+
+    /** Set by the nodes module: a player's current town name, or null. Kills, deaths and playtime count for it. */
+    @Volatile
+    var townOf: (UUID) -> String? = { null }
+
+    /** True when the loaded stats predate town tracking and towns still need [backfillTowns]. */
+    private var townsPending = false
 
     /** Set by the nodes module: true while a nodes war is running; war stats and the rally graph are recorded only then. */
     @Volatile
@@ -150,7 +173,7 @@ object Stats {
         }
     }
 
-    /** Applies [change] to the player and their nation in the all-time stats and, during the war window, the current war's stats. */
+    /** Applies [change] to the player, their town and their nation in the all-time stats and, during the war window, the current war's stats. */
     private fun credit(
         uuid: UUID,
         name: String?,
@@ -158,14 +181,17 @@ object Stats {
         change: (PlayerStats) -> Unit,
     ) = synchronized(this) {
         val nation = nationOf(uuid)
+        val town = townOf(uuid)
         val week = if (warToo) warWeek(ZonedDateTime.now()) else null
         val buckets = listOfNotNull(main, week?.let { war.getOrPut(it) { Bucket() } })
         buckets.forEach { bucket ->
             val entry = bucket.players.getOrPut(uuid) { PlayerStats() }
             if (name != null) entry.name = name
             entry.nation = nation
+            entry.town = town
             change(entry)
             nation?.let { change(bucket.nations.getOrPut(it) { PlayerStats(name = it) }) }
+            town?.let { change(bucket.towns.getOrPut(it) { PlayerStats(name = it) }.also { t -> t.nation = nation }) }
         }
         dirty = true
     }
@@ -197,21 +223,53 @@ object Stats {
         synchronized(this) {
             main.players.clear()
             main.nations.clear()
+            main.towns.clear()
             war.clear()
             currentWar = null
+            townsPending = false
             if (Files.exists(path)) {
                 val loaded = json.decodeFromString<SavedStats>(Files.readString(path))
                 loaded.players.forEach { (id, stats) -> main.players[UUID.fromString(id)] = stats }
                 main.nations.putAll(loaded.nations)
+                loaded.towns?.let { main.towns.putAll(it) }
+                townsPending = loaded.towns == null
                 loaded.war.forEach { (week, saved) ->
                     val bucket = war.getOrPut(week) { Bucket() }
                     saved.players.forEach { (id, stats) -> bucket.players[UUID.fromString(id)] = stats }
                     bucket.nations.putAll(saved.nations)
+                    bucket.towns.putAll(saved.towns)
                     bucket.rally.addAll(saved.rally)
                 }
                 currentWar = loaded.currentWar
             }
             dirty = false
+        }
+
+    /**
+     * Seeds town stats once for files saved before towns were tracked: each town gets the summed stats of its
+     * current residents, all-time and per war. Approximate, since a member who moved counts for their current town.
+     * Called by the nodes module once towns are loaded.
+     */
+    fun backfillTowns() =
+        synchronized(this) {
+            if (!townsPending) return
+            townsPending = false
+            val towns = main.players.keys.associateWith { townOf(it) }
+            (war.values + main).forEach { bucket ->
+                bucket.players.forEach { (uuid, entry) ->
+                    val town = towns[uuid] ?: return@forEach
+                    if (bucket === main) entry.town = town
+                    bucket.towns.getOrPut(town) { PlayerStats(name = town) }.apply {
+                        nation = nationOf(uuid)
+                        kills += entry.kills
+                        deaths += entry.deaths
+                        capsBroken += entry.capsBroken
+                        capsCompleted += entry.capsCompleted
+                        playtime += entry.playtime
+                    }
+                }
+            }
+            dirty = true
         }
 
     internal fun save() {
@@ -223,7 +281,9 @@ object Stats {
                     SavedStats(
                         main.players.mapKeys { it.key.toString() },
                         main.nations,
-                        war.mapValues { (_, b) -> SavedBucket(b.players.mapKeys { it.key.toString() }, b.nations, b.rally) },
+                        // Stays null until the backfill ran, so a save before the nodes module loads doesn't skip it.
+                        if (townsPending) null else main.towns,
+                        war.mapValues { (_, b) -> SavedBucket(b.players.mapKeys { it.key.toString() }, b.nations, b.towns, b.rally) },
                         currentWar,
                     ),
                 )
@@ -247,15 +307,15 @@ object Stats {
         sort: String,
         limit: Int,
         playerName: String?,
-        nationBoard: Boolean = false,
+        board: Board = Board.PLAYER,
         warBoard: Boolean = false,
         week: String? = null,
     ): String {
         val keys =
             when {
-                warBoard && nationBoard -> WAR_NATION_SORT_KEYS
+                warBoard && board != Board.PLAYER -> WAR_NATION_SORT_KEYS
                 warBoard -> WAR_SORT_KEYS
-                nationBoard -> NATION_SORT_KEYS
+                board != Board.PLAYER -> NATION_SORT_KEYS
                 else -> SORT_KEYS
             }
         require(sort in keys) { "Unknown sort '$sort'" }
@@ -272,7 +332,8 @@ object Stats {
                     } else {
                         main
                     }
-                (if (nationBoard) bucket?.nations else bucket?.players)
+                bucket
+                    ?.entries(board)
                     ?.values
                     ?.filter { it.name.isNotEmpty() }
                     ?.map { it.copy() }
@@ -283,7 +344,8 @@ object Stats {
         fun row(p: PlayerStats) =
             buildString {
                 append("{\"name\":${Json.encodeToString(p.name)}")
-                if (!nationBoard) append(",\"nation\":${Json.encodeToString(p.nation)}")
+                if (board != Board.NATION) append(",\"nation\":${Json.encodeToString(p.nation)}")
+                if (board == Board.PLAYER) append(",\"town\":${Json.encodeToString(p.town)}")
                 keys.forEach {
                     append(
                         ",\"$it\":${p.value(it).let { v ->
@@ -321,28 +383,27 @@ object Stats {
         )}],\"player\":${meJson ?: "null"}}"
     }
 
-    /** Per war week (newest first, at most [limit]) the named player's or nation's stats; weeks they didn't play are left out. */
+    /** Per war week (newest first, at most [limit]) the named player's, town's or nation's stats; weeks they didn't play are left out. */
     internal fun history(
         name: String,
-        nation: Boolean,
+        board: Board,
         limit: Int,
     ): String {
         val rows =
             synchronized(this) {
                 // Resolve the name once, then hash-lookup per war: a scan of every player in every war bucket would hold the lock for long.
-                val playerIds = if (nation) emptyList() else main.players.filterValues { it.name.equals(name, ignoreCase = true) }.keys
-                val nationKey = if (nation) main.nations.keys.firstOrNull { it.equals(name, ignoreCase = true) } else null
+                val matches = main.entries(board).filterValues { it.name.equals(name, ignoreCase = true) }
+                val playerIds = if (board == Board.PLAYER) matches.keys else emptySet()
+                val groupKey = if (board == Board.PLAYER) null else matches.keys.firstOrNull()
                 war.entries
                     .reversed()
                     .asSequence()
                     .mapNotNull { (week, bucket) ->
                         val stats =
-                            if (nation) {
-                                nationKey?.let {
-                                    bucket.nations[it]
-                                }
-                            } else {
+                            if (board == Board.PLAYER) {
                                 playerIds.firstNotNullOfOrNull { bucket.players[it] }
+                            } else {
+                                groupKey?.let { bucket.entries(board)[it] }
                             }
                         stats?.let { week to it.copy() }
                     }.take(limit)
@@ -354,10 +415,10 @@ object Stats {
                     "\"capsBroken\":${p.capsBroken},\"capsCompleted\":${p.capsCompleted}}"
             }
         val shown = Json.encodeToString(rows.firstOrNull()?.second?.name ?: name)
-        return "{\"name\":$shown,\"type\":\"${if (nation) "nation" else "player"}\",\"weeks\":[$weeks]}"
+        return "{\"name\":$shown,\"type\":\"${board.name.lowercase()}\",\"weeks\":[$weeks]}"
     }
 
-    /** Up to [limit] player and nation names matching [q]: prefix matches first, then other substring matches, each alphabetical. */
+    /** Up to [limit] player, town and nation names matching [q]: prefix matches first, then other substring matches, each alphabetical. */
     internal fun search(
         q: String,
         limit: Int,
@@ -368,6 +429,9 @@ object Stats {
                 main.players.values
                     .filter { it.name.isNotEmpty() }
                     .map { Triple(it.name, "player", it.nation) } +
+                    main.towns.values
+                        .filter { it.name.isNotEmpty() }
+                        .map { Triple(it.name, "town", it.nation) } +
                     main.nations.values
                         .filter { it.name.isNotEmpty() }
                         .map { Triple(it.name, "nation", null) }
