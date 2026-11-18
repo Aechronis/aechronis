@@ -87,7 +87,16 @@ class DiscordModule : AechronisModule {
                 ?.toULongOrNull()
                 ?.takeIf { it > 0u }
                 ?.let(::Snowflake)
-        scope.launch { DiscordBot.run(token, guildId, scope, links, commands, pastes, punishmentLog, adminRole) }
+        // /schemupload only works in this channel; whoever can post there may upload.
+        val schems =
+            System
+                .getenv("DISCORD_SCHEM_UPLOAD_CHANNEL_ID")
+                ?.trim()
+                ?.toULongOrNull()
+                ?.takeIf { it > 0u }
+                ?.let { SchemUpload(Snowflake(it)) }
+        if (schems == null) println("[Discord] /schemupload disabled: set DISCORD_SCHEM_UPLOAD_CHANNEL_ID")
+        scope.launch { DiscordBot.run(token, guildId, scope, links, commands, pastes, punishmentLog, adminRole, schems) }
     }
 
     override fun prepareForShutdown(context: ModuleContext) = stop()

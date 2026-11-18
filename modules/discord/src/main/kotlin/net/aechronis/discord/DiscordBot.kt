@@ -58,6 +58,7 @@ internal object DiscordBot {
         pastes: PasteOrders? = null,
         punishmentLog: Snowflake? = null,
         adminRole: Snowflake? = null,
+        schems: SchemUpload? = null,
     ) {
         // Explicitly own the engine, including when Kord fails during construction.
         val engine = OkHttp.create()
@@ -82,7 +83,7 @@ internal object DiscordBot {
             val slots = Semaphore(8)
             val names =
                 nodes.names + setOf("link", "unlink", "account") +
-                    setOfNotNull("paste".takeIf { pastes != null })
+                    setOfNotNull("paste".takeIf { pastes != null }, "schemupload".takeIf { schems != null })
             if (pastes != null) {
                 web =
                     try {
@@ -252,6 +253,25 @@ internal object DiscordBot {
                                                 pickerLink = link
                                                 landLink = land
                                             }
+                                        "schemupload" -> {
+                                            val file = command.attachments["schematic"]
+                                            when {
+                                                interaction.channelId != schems!!.channel ->
+                                                    CommandReply("Use this in <#${schems.channel}>.")
+                                                file == null -> CommandReply("Attach a .schem file.")
+                                                else ->
+                                                    CommandReply(
+                                                        schems.upload(
+                                                            http,
+                                                            "${interaction.user.username} ($id)",
+                                                            file.filename,
+                                                            file.size,
+                                                            file.url,
+                                                            command.strings["name"],
+                                                        ),
+                                                    )
+                                            }
+                                        }
                                         in Punishments.commandNames ->
                                             PunishmentOptions.problem(command)?.let { CommandReply(it) }
                                                 ?: nodes.execute(id, command.rootName, PunishmentOptions.arguments(command))
@@ -321,6 +341,7 @@ internal object DiscordBot {
                     when (name) {
                         "link" -> "Link your Minecraft account using an in-game /discord link code"
                         "paste" -> "Paste a schematic (${PasteOrders.COST_PER_CHUNK} gems per new chunk); no file shows your paid chunks"
+                        "schemupload" -> "Upload a .schem to the server for //schem load in-game (upload channel only)"
                         "unlink" -> "Revoke this Discord account's access to your Minecraft account"
                         "account" -> "Show your linked Minecraft account"
                         in Punishments.commandNames -> "Staff: run the in-game /$name command as your linked account"
@@ -340,6 +361,10 @@ internal object DiscordBot {
                             attachment("schematic", "Sponge .schem file; leave empty to see the chunks you paid for") {
                                 required = false
                             }
+                        "schemupload" -> {
+                            attachment("schematic", "Sponge .schem file") { required = true }
+                            string("name", "Name for //schem load; defaults to the file name") { maxLength = 48 }
+                        }
                         "unlink", "account" -> Unit
                         in Punishments.commandNames -> PunishmentOptions.register(this, name)
                         else ->
