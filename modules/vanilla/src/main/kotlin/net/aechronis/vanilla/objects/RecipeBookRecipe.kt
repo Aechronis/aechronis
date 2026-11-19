@@ -1,5 +1,6 @@
 package net.aechronis.vanilla.objects
 
+import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.recipe.Ingredient
 import net.minestom.server.recipe.RecipeBookCategory
@@ -56,9 +57,15 @@ class RecipeBookRecipe(
     private fun slotDisplay(ingredient: RecipesIngredient?): SlotDisplay =
         when {
             ingredient == null -> SlotDisplay.Empty.INSTANCE
-            ingredient.materials.size == 1 -> SlotDisplay.Item(ingredient.materials.first())
-            else -> SlotDisplay.Composite(ingredient.materials.map(SlotDisplay::Item))
+            ingredient.materials.size == 1 -> itemDisplay(ingredient.materials.first(), ingredient.count)
+            else -> SlotDisplay.Composite(ingredient.materials.map { itemDisplay(it, ingredient.count) })
         }
+
+    // Show the stack size in the recipe book when a slot needs more than one item.
+    private fun itemDisplay(
+        material: Material,
+        count: Int,
+    ): SlotDisplay = if (count == 1) SlotDisplay.Item(material) else SlotDisplay.ItemStack(ItemStack.of(material, count))
 
     private fun ingredient(ingredient: RecipesIngredient): Ingredient = Ingredient(ingredient.materials.toList())
 }

@@ -47,7 +47,7 @@ class Shaped(
 
                 if (!ingredient.matches(item)) return null
 
-                usage[gridSlot.slot] = (usage[gridSlot.slot] ?: 0) + 1
+                usage[gridSlot.slot] = (usage[gridSlot.slot] ?: 0) + ingredient.count
             }
         }
 

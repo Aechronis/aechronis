@@ -153,20 +153,21 @@ class RecipesWorkspace(
             // Prefer constrained ingredients so an alternative ingredient does not consume the
             // only material accepted by a later, more specific ingredient.
             for (placement in placements.sortedBy { it.ingredient.materials.size }) {
+                val needed = amount * placement.ingredient.count
                 val source =
                     available
                         .asSequence()
                         .filter { availableStack ->
-                            availableStack.remaining >= amount &&
+                            availableStack.remaining >= needed &&
                                 placement.ingredient.matches(availableStack.stack) &&
-                                amount <= availableStack.stack.maxStackSize()
+                                needed <= availableStack.stack.maxStackSize()
                         }.minByOrNull { it.remaining }
                 if (source == null) {
                     complete = false
                     break
                 }
-                source.remaining -= amount
-                allocated += AllocatedPlacement(placement.gridSlot, source.slot, source.stack, amount)
+                source.remaining -= needed
+                allocated += AllocatedPlacement(placement.gridSlot, source.slot, source.stack, needed)
             }
             if (complete) return allocated
         }

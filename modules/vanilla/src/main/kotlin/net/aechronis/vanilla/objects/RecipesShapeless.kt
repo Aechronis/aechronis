@@ -19,9 +19,10 @@ class RecipesShapeless(
             val iter = remaining.iterator()
 
             while (iter.hasNext()) {
-                if (iter.next().matches(gridSlot.item)) {
+                val ingredient = iter.next()
+                if (ingredient.matches(gridSlot.item)) {
                     iter.remove()
-                    usage[gridSlot.slot] = (usage[gridSlot.slot] ?: 0) + 1
+                    usage[gridSlot.slot] = (usage[gridSlot.slot] ?: 0) + ingredient.count
                     matched = true
                     break
                 }

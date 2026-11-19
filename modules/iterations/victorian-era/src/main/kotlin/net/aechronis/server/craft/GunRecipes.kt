@@ -44,15 +44,16 @@ object GunRecipes {
             gunRecipe(Guns.martiniHenry, Material.RED_DYE, *lineRifle),
             gunRecipe(Guns.berdanII, Material.GREEN_DYE, *lineRifle),
             gunRecipe(Guns.mauserModel1871, Material.BLACK_DYE, *lineRifle),
-            // Lever and magazine repeaters
-            gunRecipe(Guns.winchesterModel1873, Material.YELLOW_DYE, *repeater),
-            gunRecipe(Guns.spencerModel1860, Material.BLUE_DYE, *repeater),
+            // Lever and magazine repeaters: each metal and diamond slot takes a stack of 4; planks and dye stay at 1
+            gunRecipe(Guns.winchesterModel1873, Material.YELLOW_DYE, *repeater, count = 4),
+            gunRecipe(Guns.spencerModel1860, Material.BLUE_DYE, *repeater, count = 4),
         )
 
     private fun gunRecipe(
         gun: Gun,
         dye: Material,
         vararg rows: String,
+        count: Int = 1,
     ): Shaped {
         require(rows.isNotEmpty() && rows.size <= 3) { "Shaped recipes must be between one and three rows high" }
         val width = rows.first().length
@@ -76,7 +77,7 @@ object GunRecipes {
                             '*' -> RecipesIngredient.of(dye)!!
                             ' ' -> null
                             else -> error("Unknown shaped recipe symbol: $symbol")
-                        }
+                        }?.let { if (symbol == 'P' || symbol == '*') it else it.times(count) }
                     }
                 }.toTypedArray()
 
