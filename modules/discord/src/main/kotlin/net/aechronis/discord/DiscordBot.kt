@@ -81,6 +81,16 @@ internal object DiscordBot {
                     }?.let { PasteLog(it, http, scope) }
             punishments = PunishmentBridge(links, client, scope, punishmentLog, adminRole, nodes::allowed)
             val slots = Semaphore(8)
+            // /schemupload lives in whichever server holds its channel, which may be a separate staff server.
+            val schemGuild =
+                schems?.let {
+                    runCatching {
+                        client.rest.channel
+                            .getChannel(it.channel)
+                            .guildId.value
+                    }.getOrNull()
+                        ?: null.also { System.err.println("[Discord] /schemupload channel not found; is the bot in that server?") }
+                } ?: guildId
             val names =
                 nodes.names + setOf("link", "unlink", "account") +
                     setOfNotNull("paste".takeIf { pastes != null }, "schemupload".takeIf { schems != null })
@@ -223,7 +233,8 @@ internal object DiscordBot {
             client.on<ChatInputCommandInteractionCreateEvent>(scope = scope) {
                 val command = interaction.command
                 if (command.rootName !in names) return@on
-                if (guildId != null && interaction.data.guildId.value != guildId) return@on
+                val home = if (command.rootName == "schemupload") schemGuild else guildId
+                if (home != null && interaction.data.guildId.value != home) return@on
                 if (!requests.claim(interaction.id.toString())) return@on
                 try {
                     val response = interaction.deferEphemeralResponse()
@@ -374,16 +385,17 @@ internal object DiscordBot {
                             }
                     }
                 }
-                if (guildId == null) {
+                val target = if (name == "schemupload") schemGuild else guildId
+                if (target == null) {
                     client.createGlobalChatInputCommand(name, description, options)
                 } else {
-                    client.createGuildChatInputCommand(guildId, name, description, options)
+                    client.createGuildChatInputCommand(target, name, description, options)
                 }
             }
             // Remove commands registered by earlier module versions in this command scope.
             val applicationId = client.resources.applicationId
             val registered = client.with(EntitySupplyStrategy.rest)
-            val retired = setOf("stats", "repaste")
+            val retired = setOf("stats", "repaste") + setOfNotNull("schemupload".takeIf { schemGuild != guildId })
             if (guildId == null) {
                 registered.getGlobalApplicationCommands(applicationId).collect { if (it.name in retired) it.delete() }
             } else {
@@ -391,6 +403,7 @@ internal object DiscordBot {
             }
             val commandScope = guildId?.let { "in guild $it" } ?: "globally"
             println("[Discord] Registered ${names.size} slash commands, including /link, $commandScope")
+            if (schems != null && schemGuild != guildId) println("[Discord] /schemupload registered in guild $schemGuild")
             client.login { intents = Intents(Intent.Guilds) }
         } catch (error: CancellationException) {
             throw error
