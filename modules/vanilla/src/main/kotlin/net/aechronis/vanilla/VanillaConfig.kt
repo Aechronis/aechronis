@@ -49,6 +49,7 @@ data class VanillaConfig(
     // Items (drop & pickup)
     val itemPickupDelayMs: Long = 500L,
     val dropPickupDelayMs: Long = 2_000L,
+    val itemDespawnSeconds: Long = 300L,
     val dropThrowVelocity: Double = 6.0,
     val dropThrowUpwardVelocity: Double = 2.0,
     val dropSpawnHeight: Double = 1.3,

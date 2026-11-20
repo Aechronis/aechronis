@@ -26,6 +26,7 @@ object Items {
         val item = ItemEntity(stack.withMaxStackSize(stack.material().maxStackSize()))
         item.setPickupDelay(Duration.ofMillis(pickupDelayMs))
         item.setInstance(instance, position)
+        item.scheduleRemove(Duration.ofSeconds(Vanilla.config.itemDespawnSeconds))
         item.velocity = velocity
         return item
     }
