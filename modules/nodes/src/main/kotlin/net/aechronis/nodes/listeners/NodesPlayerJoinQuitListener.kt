@@ -12,6 +12,7 @@ import net.aechronis.nodes.chat.Chat
 import net.aechronis.nodes.colonization.Colonization
 import net.aechronis.nodes.colonization.ColonizationMenu
 import net.aechronis.nodes.objects.Nametag
+import net.aechronis.nodes.objects.Nick
 import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.TownFly
@@ -19,6 +20,7 @@ import net.aechronis.nodes.objects.WaypointMenu
 import net.aechronis.nodes.war.FlagWar
 import net.aechronis.nodes.war.HomeCaptureBan
 import net.aechronis.nodes.war.Warzone
+import net.aechronis.server.hasPermission
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.minestom.server.coordinate.Pos
@@ -111,7 +113,10 @@ object NodesPlayerJoinQuitListener {
             return
         }
         Resident.setOnline(resident, player)
+        Nick.track(resident)
         Nametag.onPlayerJoin(player)
+        // a nickname lapses once its permission is taken away
+        if (resident.nickname != null && !player.hasPermission(Nick.PERMISSION)) Nick.set(player, resident, null)
         resident.createMinimap(player)
         Warzone.onPlayerTerritoryChanged(player, net.aechronis.nodes.objects.Territory.fromPlayer(player))
         ModuleScheduler.scheduleNextTick {

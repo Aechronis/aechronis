@@ -19,6 +19,7 @@ internal object ResidentJsonCodec {
         put("minimapLegacy", snapshot.minimapLegacy)
         put("deathWaypoints", snapshot.deathWaypointsEnabled)
         put("townJoinLockedUntil", snapshot.townJoinLockedUntil)
+        put("nickname", snapshot.nickname)
         putJsonArray("waypoints") {
             snapshot.waypoints.forEach { waypoint ->
                 add(
