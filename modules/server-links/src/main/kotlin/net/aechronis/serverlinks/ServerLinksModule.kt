@@ -15,7 +15,7 @@ class ServerLinksModule : AechronisModule {
                 "Map" to "https://map.aechronis.net",
                 "Website" to "https://aechronis.net",
                 "Discord" to "https://discord.gg/aechronis",
-                "Store" to "https://shop.aechronis.net",
+                "Store" to "https://aechronis.tebex.io",
             ).map { (title, url) -> ServerLinksPacket.Entry(Component.text(title), url) }
         context.addListener(PlayerSpawnEvent::class.java) { event ->
             if (event.isFirstSpawn) event.player.sendPacket(ServerLinksPacket(entries))
