@@ -10,6 +10,7 @@ import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.entity.attribute.AttributeModifier
 import net.minestom.server.entity.attribute.AttributeOperation
+import net.minestom.server.event.player.PlayerBlockInteractEvent
 import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 import net.minestom.server.event.player.PlayerInputEvent
 import net.minestom.server.event.player.PlayerTickEvent
@@ -28,6 +29,16 @@ object AimingListener {
 
     private fun onPlayerUseItemOnBlock(event: PlayerUseItemOnBlockEvent) {
         if (event.hand != PlayerHand.MAIN || Item.getFromItemStack(event.player.itemInMainHand) !is Gun) return
+        refreshRightClickAim(event.player)
+    }
+
+    // A gun never interacts with blocks (doors, buttons, trapdoors...). Cancelling skips
+    // PlayerUseItemOnBlockEvent, so aim is refreshed here instead.
+    private fun onPlayerBlockInteract(event: PlayerBlockInteractEvent) {
+        if (event.hand != PlayerHand.MAIN || Item.getFromItemStack(event.player.itemInMainHand) !is Gun) return
+        event.isCancelled = true
+        // only a block click is followed by a client arm swing
+        Combat.playerStates.getOrCreate(event.player).lastBlockClickMs = System.currentTimeMillis()
         refreshRightClickAim(event.player)
     }
 
@@ -97,6 +108,7 @@ object AimingListener {
         Combat.eventNode.addListener(PlayerTickEvent::class.java, AimingListener::onPlayerTick)
         Combat.eventNode.addListener(PlayerUseItemEvent::class.java, AimingListener::onPlayerUseItem)
         Combat.eventNode.addListener(PlayerUseItemOnBlockEvent::class.java, AimingListener::onPlayerUseItemOnBlock)
+        Combat.eventNode.addListener(PlayerBlockInteractEvent::class.java, AimingListener::onPlayerBlockInteract)
         Combat.eventNode.addListener(PlayerInputEvent::class.java, AimingListener::onPlayerInput)
         Combat.eventNode.addListener(PlayerChangeHeldSlotEvent::class.java, AimingListener::onPlayerChangeHeldSlot)
     }

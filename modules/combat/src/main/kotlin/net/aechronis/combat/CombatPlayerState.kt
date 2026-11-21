@@ -9,6 +9,9 @@ import net.minestom.server.timer.Task
 internal class CombatPlayerState {
     var aiming = false
     var aimingResetTask: Task? = null
+
+    /** Wall-clock ms of an unconsumed right click on a block; its client arm swing must not fire the gun. */
+    var lastBlockClickMs = 0L
     var reloadTask: Task? = null
     var placeTask: Task? = null
     var heldThrowable: Throwable? = null

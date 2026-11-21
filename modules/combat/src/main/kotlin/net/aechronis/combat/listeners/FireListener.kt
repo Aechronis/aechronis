@@ -12,10 +12,19 @@ import net.minestom.server.event.player.PlayerHandAnimationEvent
 import net.minestom.server.event.player.PlayerStartDiggingEvent
 
 object FireListener {
+    private const val RIGHT_CLICK_SWING_MS = 100L
+
     private fun onPlayerHandAnimation(event: PlayerHandAnimationEvent) {
         if (event.hand != PlayerHand.MAIN) return
         val player = event.player
         val gun = Item.getFromItemStack(player.itemInMainHand) as? Gun ?: return
+        // The client swings its arm after a right click on a block; that is not a left click.
+        // Absorb exactly one swing per click so held automatic fire is not thinned out.
+        val state = Combat.playerStates[player]
+        if (state != null && System.currentTimeMillis() - state.lastBlockClickMs < RIGHT_CLICK_SWING_MS) {
+            state.lastBlockClickMs = 0L
+            return
+        }
 
         gun.fire(player)
     }
