@@ -2,12 +2,15 @@ package net.aechronis.nodes.objects
 
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.war.FlagWar
+import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.scoreboard.Sidebar
+import net.minestom.server.timer.Task
+import net.minestom.server.timer.TaskSchedule
 
 /** What a resident's minimap needs from either display style. */
 interface MinimapView {
@@ -158,6 +161,7 @@ class LegacyMinimap(
     private var destroyed = false
     private var lastChunk: Coord? = null
     private var lastRows: List<Component> = emptyList()
+    private var task: Task? = null
 
     init {
         for (row in 0 until LEGACY_RADIUS * 2 + 1) {
@@ -165,6 +169,11 @@ class LegacyMinimap(
         }
         sidebar.addViewer(player)
         refresh()
+        // Riding updates player coordinates without firing PlayerMoveEvent; render() skips unchanged chunks.
+        task = ModuleScheduler
+            .buildTask { render(player.position.blockX(), player.position.blockZ()) }
+            .repeat(TaskSchedule.tick(1))
+            .schedule()
     }
 
     override fun render(centerX: Int, centerZ: Int, force: Boolean) {
@@ -193,6 +202,7 @@ class LegacyMinimap(
     override fun destroy() {
         if (destroyed) return
         destroyed = true
+        task?.cancel()
         sidebar.removeViewer(player)
     }
 }
