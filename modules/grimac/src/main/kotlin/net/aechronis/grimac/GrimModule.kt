@@ -8,9 +8,14 @@ import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModulePermissions
+import net.aechronis.server.modules.ModuleScheduler
+import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
+import net.minestom.server.timer.Task
+import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Path
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 class GrimModule : AechronisModule {
@@ -18,6 +23,12 @@ class GrimModule : AechronisModule {
     override val dependencies = setOf("viaversion")
 
     private var runtime: GrimMinestom? = null
+    private var passengerTask: Task? = null
+    private var passengerDisabler: AutoCloseable? = null
+
+    // Players Grim is currently off for, and until when (epoch ms) a non-driving boat rider stays exempt.
+    private val passengerExempt: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
+    private val passengerUntil = ConcurrentHashMap<UUID, Long>()
 
     override fun initialize(context: ModuleContext) {
         check(runtime == null) { "Grim is already initialized" }
@@ -33,6 +44,12 @@ class GrimModule : AechronisModule {
                 .build()
         runtime = grim
         grim.start()
+        passengerDisabler = registerDisabler(passengerExempt::contains)
+        passengerTask =
+            ModuleScheduler
+                .buildTask { updatePassengerExemptions() }
+                .repeat(TaskSchedule.tick(1))
+                .schedule()
     }
 
     override fun prepareForShutdown(context: ModuleContext) {
@@ -40,12 +57,44 @@ class GrimModule : AechronisModule {
     }
 
     override fun shutdown(context: ModuleContext) {
+        passengerTask?.cancel()
+        passengerTask = null
+        passengerDisabler?.close()
+        passengerDisabler = null
+        passengerExempt.clear()
+        passengerUntil.clear()
         runtime?.close()
         runtime = null
     }
 
+    /**
+     * Grim only tracks the driver's vehicle moves, so a non-driving passenger is set back to where they boarded when
+     * they dismount. Keep Grim off for them while riding and briefly after.
+     */
+    private fun updatePassengerExemptions() {
+        val now = System.currentTimeMillis()
+        MinecraftServer.getConnectionManager().onlinePlayers.forEach { player ->
+            val vehicle = player.vehicle
+            if (vehicle != null && vehicle.passengers.firstOrNull() !== player) {
+                passengerUntil[player.uuid] = now + PASSENGER_GRACE_MS
+            }
+            val until = passengerUntil[player.uuid] ?: return@forEach
+            if (now < until) {
+                if (passengerExempt.add(player.uuid)) refresh(player)
+            } else {
+                passengerUntil.remove(player.uuid)
+                if (passengerExempt.remove(player.uuid)) refresh(player)
+            }
+        }
+        // Drop players who left mid-ride.
+        val connections = MinecraftServer.getConnectionManager()
+        passengerUntil.keys.removeIf { connections.getOnlinePlayerByUuid(it) == null }
+        passengerExempt.removeIf { connections.getOnlinePlayerByUuid(it) == null }
+    }
+
     companion object {
         private const val DISABLED_PERMISSION = "grim.disabled"
+        private const val PASSENGER_GRACE_MS = 2000L
         private val disablers = CopyOnWriteArrayList<(UUID) -> Boolean>()
 
         /** Turns Grim off for players matching [disabled]. Dependents close the handle when they shut down. */
