@@ -1,7 +1,6 @@
 package net.aechronis.server
 
 import ac.grim.grimac.minestom.MinestomSupport
-import io.github._4drian3d.signedvelocity.minestom.SignedVelocity
 import net.aechronis.server.commands.SetSpawnCommand
 import net.aechronis.server.dev.DevModuleWatcher
 import net.aechronis.server.events.SpawnPointChangedEvent
@@ -236,7 +235,6 @@ private fun startMinecraftServer(
     MinecraftServer.getCommandManager().register(ModuleCommand(moduleManager))
     MinecraftServer.getCommandManager().register(SetSpawnCommand())
     ResourcePackListener.initialize(resourcePackServer)
-    SignedVelocity.initialize()
 
     BlockPlacementRuleRegistrations.registerDefault()
     PlacementRuleFixes.register()

@@ -12,7 +12,6 @@ h2 = "2.5.252"
 hikari = "7.1.0"
 mariadb = "4.0.0"
 slf4j = "2.0.20"
-signedvelocity = "1.4.1"
 blocksandstuff = "1.12.2-minestom.1"
 luckperms-api = "5.5"
 luckperms = "5.5.87-minestom.1"
@@ -40,7 +39,6 @@ hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 mariadb = { module = "org.mariadb.jdbc:mariadb-java-client", version.ref = "mariadb" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
-signedvelocity = { module = "io.github.4drian3d:signedvelocity-minestom", version.ref = "signedvelocity" }
 blocksandstuff-blocks = { module = "net.aechronis:blocksandstuff-blocks", version.ref = "blocksandstuff" }
 blocksandstuff-fluids = { module = "net.aechronis:blocksandstuff-fluids", version.ref = "blocksandstuff" }
 blocksandstuff-common = { module = "net.aechronis:blocksandstuff-common", version.ref = "blocksandstuff" }

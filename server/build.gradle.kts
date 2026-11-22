@@ -63,7 +63,6 @@ dependencies {
     runtimeOnly(libs.mariadb)
     implementation(libs.hikari)
     implementation(libs.slf4j.simple)
-    implementation(libs.signedvelocity)
     implementation(libs.blocksandstuff.blocks)
     implementation(libs.blocksandstuff.fluids)
     implementation(libs.kotlinx.serialization.json)
