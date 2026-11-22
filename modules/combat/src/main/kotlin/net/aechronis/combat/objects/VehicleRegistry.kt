@@ -67,6 +67,23 @@ internal class VehicleRuntime(
                     packets.add(
                         EntityPositionSyncPacket(display.entityId, position, Vec.ZERO, position.yaw, position.pitch, display.isOnGround),
                     )
+                    // A riding shulker otherwise follows its carrier only on the client's next entity tick,
+                    // which may run before or after the player's own; a player starting a tick inside one
+                    // falls through it. Placing it in this bundle moves floor and player together.
+                    for (shulker in display.passengers) {
+                        if (shulker !is VehicleCollisionEntity || shulker.isRemoved || !shulker.isViewer(player)) continue
+                        val shulkerPosition = shulker.position
+                        packets.add(
+                            EntityPositionSyncPacket(
+                                shulker.entityId,
+                                shulkerPosition,
+                                Vec.ZERO,
+                                shulkerPosition.yaw,
+                                shulkerPosition.pitch,
+                                shulker.isOnGround,
+                            ),
+                        )
+                    }
                 }
                 val origin = carryOrigins[player]
                 val delta = origin?.let { player.position.asVec().sub(it) }

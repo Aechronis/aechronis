@@ -18,7 +18,6 @@ import net.minestom.server.instance.Instance
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.floor
-import kotlin.math.max
 
 /**
  * A free balloon cannot steer: its elevatorman only climbs (forward) or descends (backward).
@@ -68,9 +67,6 @@ open class Balloon(
     ) {
     private class Runtime {
         var verticalSpeed = 0.0
-
-        // Each move is chosen a tick ahead, so the collision shulkers can lead by exactly it.
-        var plannedMove = 0.0
 
         // An unattended balloon resting on something rechecks below it only this often.
         var restTicks = 0
@@ -135,6 +131,8 @@ open class Balloon(
                 descending && !climbing -> -descentSpeed
                 else -> 0.0
             }
+        // A balloon left mid-air starts sinking at once rather than finishing an earlier rest.
+        runtime.restTicks = 0
         step(entity, runtime, targetSpeed)
         onHullTick(entity)
         super.onTick(player)
@@ -143,7 +141,7 @@ open class Balloon(
     override fun onUnoccupiedTick(entity: Entity) {
         val runtime = runtimes[entity] ?: return
         onHullTick(entity)
-        if (runtime.plannedMove == 0.0 && runtime.restTicks > 0) {
+        if (runtime.restTicks > 0) {
             runtime.restTicks--
             return
         }
@@ -153,24 +151,16 @@ open class Balloon(
     /** Runs once per tick for each live balloon, after its vertical move and before the elevatorman follows the hull. */
     protected open fun onHullTick(entity: Entity) = Unit
 
-    // Clients place the shulkers a tick late, so leading them by the next climb puts them under a carried
-    // rider. Descending shulkers never lead: a lagging one rests at or above the server's floor, where
-    // a dropping rider landing on it is never pushed back up.
-    override fun collisionLead(entity: Entity): Vec = Vec(0.0, max(0.0, runtimes[entity]?.plannedMove ?: 0.0), 0.0)
-
     /** Lands before crew are released for shutdown, so nobody is left in mid-air. */
     override fun prepareForShutdown(entity: Entity) {
-        runtimes[entity]?.let {
-            it.verticalSpeed = 0.0
-            it.plannedMove = 0.0
-        }
+        runtimes[entity]?.verticalSpeed = 0.0
         landingPosition(entity)?.let { entity.teleport(it) }
         super.prepareForShutdown(entity)
     }
 
     /**
-     * Makes the move planned last tick, then eases toward [targetSpeed] to plan the next one.
-     * Returns whether a move is planned; false when holding still or resting on something.
+     * Eases toward [targetSpeed] and moves the hull by it.
+     * Returns whether it moved; false when holding still or resting on something.
      */
     private fun step(
         entity: Entity,
@@ -178,18 +168,13 @@ open class Balloon(
         targetSpeed: Double,
     ): Boolean {
         val instance = entity.instance ?: return false
-        if (runtime.plannedMove != 0.0) {
-            val target = entity.position.add(0.0, runtime.plannedMove, 0.0)
-            // The world may have changed since the move was planned.
-            if (canOccupy(instance, target, entity)) entity.teleport(target) else runtime.verticalSpeed = 0.0
-        }
         val speed =
             runtime.verticalSpeed +
                 (targetSpeed - runtime.verticalSpeed).coerceIn(-verticalAcceleration, verticalAcceleration)
         val move = clearMove(instance, entity, speed)
         // A shortened move settles against the obstruction and stops there.
         runtime.verticalSpeed = if (move == speed) speed else 0.0
-        runtime.plannedMove = move
+        if (move != 0.0) entity.teleport(entity.position.add(0.0, move, 0.0))
         return move != 0.0
     }
 

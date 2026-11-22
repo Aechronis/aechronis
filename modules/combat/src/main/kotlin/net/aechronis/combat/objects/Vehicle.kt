@@ -503,13 +503,6 @@ open class Vehicle(
 
     internal open fun hitboxRoll(entity: Entity): Float = 0f
 
-    /**
-     * Offset of the client-side collision shulkers from the hull. Clients reposition the shulkers
-     * only after moving the local player, so a carried player meets last tick's shulkers; leading
-     * them by the next tick's movement puts those stale shulkers where the hull now is.
-     */
-    open fun collisionLead(entity: Entity): Vec = Vec.ZERO
-
     /** Movement telemetry for a crew member's action bar, such as "[3.0 blocks/s]"; null shows none. */
     open fun crewTelemetry(player: Player): String? = null
 

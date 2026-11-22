@@ -196,8 +196,6 @@ object VehicleTickManager {
                     current.roll,
                 )
             // Riders drop after a descending hull under their own gravity instead of being carried down.
-            // Clients move collision shulkers after the local player, so a carried rider could be moved
-            // into one not yet moved, which then no longer holds them; a hull falling away never does.
             val target = followed.withY(max(followed.y, player.position.y))
             val delta = target.asVec().sub(player.position)
             if (delta.lengthSquared() < 1.0e-12) continue
