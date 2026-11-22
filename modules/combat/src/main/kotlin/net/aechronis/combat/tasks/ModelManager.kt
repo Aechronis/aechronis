@@ -30,6 +30,7 @@ import net.minestom.server.event.player.PlayerPacketOutEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.item.ItemStack
 import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.network.packet.server.play.EntityEquipmentPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
@@ -114,6 +115,15 @@ object ModelManager {
     )
 
     private val fakeBlocks = HashMap<Player, FakeBlocks>()
+
+    // Item stacks are immutable, so a slot still holding the stack checked on an earlier tick with
+    // the same static-gun setting needs no new check, which skips reading every slot's custom data.
+    private class StowedSlots(
+        val staticGuns: Boolean,
+        val items: Array<ItemStack?>,
+    )
+
+    private val stowedSlots = ConcurrentHashMap<Player, StowedSlots>()
 
     // Field of view walk speed saved while a sniper scope freezes movement. Walk speed 0 makes the
     // client skip the movement FOV term, so freezing does not zoom the view.
@@ -332,9 +342,16 @@ object ModelManager {
     }
 
     private fun restoreStowedGuns(player: Player) {
-        for (slot in 0 until player.inventory.size) {
+        val inventory = player.inventory
+        val staticGuns = hasStaticGuns(player)
+        val checked =
+            stowedSlots[player]?.takeIf { it.staticGuns == staticGuns && it.items.size == inventory.size }
+                ?: StowedSlots(staticGuns, arrayOfNulls(inventory.size)).also { stowedSlots[player] = it }
+        for (slot in 0 until inventory.size) {
             if (slot == player.heldSlot.toInt()) continue
+            if (inventory.getItemStack(slot) === checked.items[slot]) continue
             GunAnimation.restoreSlot(player, slot)
+            checked.items[slot] = inventory.getItemStack(slot)
         }
     }
 
@@ -348,6 +365,7 @@ object ModelManager {
 
     internal fun clearPlayer(player: Player) {
         shaderClocks.remove(player)
+        stowedSlots.remove(player)
         customViewPlayers.remove(player)
         GunAnimation.cancel(player)
         val previous = fakeBlocks.remove(player)
