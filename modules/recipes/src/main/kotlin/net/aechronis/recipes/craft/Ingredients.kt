@@ -19,5 +19,13 @@ object Ingredients {
                 ),
                 ItemStack.of(Material.GUNPOWDER, 2),
             ),
+            RecipesShapeless(
+                listOf(
+                    RecipesIngredient.of(Material.COAL)!!,
+                    RecipesIngredient.of(Material.COAL)!!,
+                    RecipesIngredient.of(Material.COAL)!!,
+                ),
+                ItemStack.of(Material.LEATHER),
+            ),
         )
 }
