@@ -148,7 +148,7 @@ private fun startMinecraftServer(
     val network = ServerNetwork(InetSocketAddress("0.0.0.0", port))
     ServerShutdown.registerNetwork(network)
 
-    MinestomSupport.install()
+    MinestomSupport.install(::AechronisPlayer)
 
     // register fullbright dimension
     val fullbright =

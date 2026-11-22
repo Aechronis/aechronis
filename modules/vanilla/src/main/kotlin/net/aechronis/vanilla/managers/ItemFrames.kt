@@ -312,6 +312,9 @@ object ItemFrames {
             // AbstractDecorationEntity is static and has no gravity in vanilla.
             entity.setHasPhysics(false)
             entity.setNoGravity(true)
+            // Frames never move, so the periodic position sync only costs a viewer lookup per frame.
+            // Int.MAX_VALUE, not Long.MAX_VALUE: ticks + Long.MAX_VALUE overflows and syncs every tick.
+            entity.synchronizationTicks = Int.MAX_VALUE.toLong()
             entity.editEntityMeta(ItemFrameMeta::class.java) { meta -> meta.direction = face.toDirection() }
         }
 
