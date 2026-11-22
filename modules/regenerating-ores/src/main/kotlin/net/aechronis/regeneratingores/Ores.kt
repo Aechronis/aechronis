@@ -85,6 +85,15 @@ object Ores {
     private val breakEventNode = EventNode.all("regenerating-ores-break").setPriority(-1001)
     private val eventNode = EventNode.all("regenerating-ores")
     internal val cooldowns = ConcurrentHashMap<Cooldown, Long>()
+
+    private data class ChunkKey(
+        val world: String,
+        val x: Int,
+        val z: Int,
+    )
+
+    /** Every ore location given a cooldown since startup, by chunk, so chunk loads skip scanning all cooldowns; [refresh] ignores stale ones. */
+    private val cooldownChunks = ConcurrentHashMap<ChunkKey, MutableSet<OreLocation>>()
     private val storage = JsonRegistryFile("ores")
 
     fun init(path: Path) {
@@ -95,6 +104,7 @@ object Ores {
                 .filter { it.expiresAt > now }
                 .associate { Cooldown(UUID.fromString(it.player), OreLocation(it.world, it.x, it.y, it.z)) to it.expiresAt }
         }
+        cooldowns.keys.forEach { indexCooldown(it.ore) }
         storage.load(path, ores) { contents ->
             val loaded = linkedMapOf<OreLocation, Ore>()
             Json.decodeFromString<List<SavedOre>>(contents).filter { it.timeSeconds > 0 }.forEach { entry ->
@@ -154,7 +164,10 @@ object Ores {
             cooldowns.clear()
             records.forEach { (cooldown, expiresAt) ->
                 val valid = expiresAt > now
-                if (valid) cooldowns[cooldown] = expiresAt
+                if (valid) {
+                    cooldowns[cooldown] = expiresAt
+                    indexCooldown(cooldown.ore)
+                }
 
                 val player = playersById[cooldown.player] ?: return@forEach
                 val instance = player.instance?.takeIf { it.getDimensionName() == cooldown.ore.world } ?: return@forEach
@@ -285,19 +298,21 @@ object Ores {
         if (damagedTool != heldItem) player.itemInMainHand = damagedTool
 
         cooldowns[cooldown] = now + ore.timeSeconds * 1_000L
+        indexCooldown(location)
         sendBlock(player, location, Block.BEDROCK)
     }
 
     private fun onChunkLoad(event: PlayerChunkLoadEvent) {
         val player = event.player
         val world = player.instance?.getDimensionName() ?: return
-        // ponytail: scans every cooldown per chunk load; index cooldowns by chunk if this shows up in profiles
-        for (cooldown in cooldowns.keys) {
-            val location = cooldown.ore
-            if (cooldown.player != player.uuid || location.world != world) continue
-            if (location.x shr 4 != event.chunkX || location.z shr 4 != event.chunkZ) continue
-            refresh(player, location)
-        }
+        val locations = cooldownChunks[ChunkKey(world, event.chunkX, event.chunkZ)] ?: return
+        for (location in locations) refresh(player, location)
+    }
+
+    private fun indexCooldown(location: OreLocation) {
+        cooldownChunks
+            .computeIfAbsent(ChunkKey(location.world, location.x shr 4, location.z shr 4)) { ConcurrentHashMap.newKeySet() }
+            .add(location)
     }
 
     private fun onSpawn(event: PlayerSpawnEvent) {
