@@ -31,6 +31,22 @@ object Items {
         return item
     }
 
+    /**
+     * Spawns an item that only a pickup removes. It also never merges, because a merge can fold it
+     * into a nearby item that does despawn.
+     */
+    fun spawnPersistent(
+        instance: Instance,
+        position: Pos,
+        stack: ItemStack,
+    ): ItemEntity {
+        val item = ItemEntity(stack.withMaxStackSize(stack.material().maxStackSize()))
+        item.setPickupDelay(Duration.ofMillis(Vanilla.config.itemPickupDelayMs))
+        item.isMergeable = false
+        item.setInstance(instance, position)
+        return item
+    }
+
     fun pickup(
         player: Player,
         stack: ItemStack,

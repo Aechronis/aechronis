@@ -118,12 +118,13 @@ object ActiveBuildings {
                 continue
             }
             chunkLoads.remove(building)
-            // Completion is automatic; nobody needs to interact or be online to collect it.
+            // Completion is automatic; nobody needs to interact or be online to collect it, so the
+            // output waits at the building until someone picks it up.
             production.output.forEach { stack ->
                 var left = stack.amount()
                 while (left > 0) {
                     val amount = minOf(left, stack.maxStackSize())
-                    Items.spawn(instance, building.outputPosition, stack.withAmount(amount))
+                    Items.spawnPersistent(instance, building.outputPosition, stack.withAmount(amount))
                     left -= amount
                 }
             }
