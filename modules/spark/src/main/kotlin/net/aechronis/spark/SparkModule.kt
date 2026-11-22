@@ -1,12 +1,14 @@
 package net.aechronis.spark
 
 import me.lucko.spark.common.SparkPlatform
+import me.lucko.spark.common.monitor.MonitoringExecutor
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModulePermissions
 import net.aechronis.server.modules.ModuleStartupTimings.measure
 import java.time.Duration
+import java.util.concurrent.TimeUnit
 
 class SparkModule : AechronisModule {
     override val id = "spark"
@@ -30,6 +32,10 @@ class SparkModule : AechronisModule {
     override fun shutdown(context: ModuleContext) {
         spark?.disable()
         plugin?.close()
+        // Spark never stops its static monitoring executor. Each module JAR has its own copy, and its
+        // thread would keep this classloader alive after a reload.
+        MonitoringExecutor.INSTANCE.shutdownNow()
+        check(MonitoringExecutor.INSTANCE.awaitTermination(15, TimeUnit.SECONDS)) { "Spark monitoring did not stop before unload" }
         awaitWorkers()
         spark = null
         plugin = null

@@ -8,6 +8,7 @@ import net.aechronis.server.io.TempFiles
 import net.aechronis.server.listeners.ResourcePackListener
 import net.aechronis.server.modules.ModuleCommand
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.modules.ModuleLeakGuards
 import net.aechronis.server.modules.ModuleManager
 import net.aechronis.server.modules.PlayerAdmissionGate
 import net.aechronis.server.network.ServerNetwork
@@ -89,6 +90,7 @@ object Server {
 }
 
 fun main(args: Array<String>) {
+    ModuleLeakGuards.install()
     MinestomSupport.prepare()
     System.setProperty("minestom.shutdown-on-signal", "false")
     TempFiles.reset(Path.of("aechronis-temp"))

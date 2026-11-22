@@ -29,6 +29,7 @@ internal class ModuleClassLoader(
     @Synchronized
     override fun close() {
         closed = true
+        ModuleLeakGuards.release(this)
         super.close()
     }
 
