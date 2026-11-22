@@ -14,12 +14,28 @@ class NodesAdminWarCommand : NodesCommand("war", "nodes.admin") {
         setDefaultExecutor { player, resident, context ->
             FlagWar.printInfo(player, true)
             Message.print(player, "Toggle state: \"/nodesadmin war [enable|disable|skirmish|deathwar]\"")
+            Message.print(player, "Release all war occupations: \"/nodesadmin war releaseall\"")
         }
 
         addSubcommand(NodesAdminWarEnableCommand())
         addSubcommand(NodesAdminWarDisableCommand())
         addSubcommand(NodesAdminWarSkirmishCommand())
         addSubcommand(NodesAdminWarDeathWarCommand())
+        addSubcommand(NodesAdminWarReleaseAllCommand())
+    }
+}
+
+class NodesAdminWarReleaseAllCommand : NodesCommand("releaseall", "nodes.admin") {
+    init {
+        addSyntax({ player, resident, context ->
+            // A running war tracks defeats and owed lives against occupied homes; releasing them mid-war would desync that.
+            if (FlagWar.enabled) {
+                Message.error(player, "Disable the war first")
+                return@addSyntax
+            }
+            val released = FlagWar.releaseWarOccupations()
+            Message.print(player, "Released $released occupied territories (colonies and warzones kept)")
+        })
     }
 }
 

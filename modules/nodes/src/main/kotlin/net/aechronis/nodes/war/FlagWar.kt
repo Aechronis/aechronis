@@ -409,6 +409,18 @@ object FlagWar {
 
     internal fun clearOccupationsBy(town: Town) = occupations.clearOccupationsBy(town)
 
+    /** Ends every war occupation in one batch, keeping colonies and warzone land. Returns how many territories were released. */
+    internal fun releaseWarOccupations(): Int = synchronized(Nodes.occupationPersistenceLock) {
+        val territories = Territory.all().filter { territory ->
+            territory.occupier != null &&
+                territoryOccupations[territory.id]?.colonized != true &&
+                !isColonized(territory.core) &&
+                !Warzone.isRegistered(territory)
+        }
+        Town.releaseAll(territories)
+        territories.size
+    }
+
     internal fun stopColonizationCampaign(
         attacker: UUID,
         attackingTown: Town,
