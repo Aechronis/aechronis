@@ -453,6 +453,15 @@ class Town(
             }
         }
 
+        /** [release] for many territories: one journal flush and one minimap redraw for the batch. */
+        internal fun releaseAll(territories: Collection<Territory>) {
+            if (territories.isEmpty()) return
+            synchronized(Nodes.occupationPersistenceLock) {
+                FlagWar.deferMinimapRefresh { territories.forEach(::endOccupation) }
+                FlagWar.flushTerritoryOccupationJournal()
+            }
+        }
+
         /**
          * Ends [territory]'s occupation and returns whether a town held it. The caller
          * flushes the occupation journal and redraws minimaps, so a batch does both once.

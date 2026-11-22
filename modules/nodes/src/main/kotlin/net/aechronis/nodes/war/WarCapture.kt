@@ -92,10 +92,11 @@ internal class WarCapture(
 
             town.nation?.let { previousNation -> Nation.removeTown(previousNation, town) }
             Nation.addTown(nation, town)
-            town.territories
-                .mapNotNull(Territory::fromId)
-                .filter { territory -> territory.occupier?.nation === nation }
-                .forEach { territory -> Town.release(territory) }
+            Town.releaseAll(
+                town.territories
+                    .mapNotNull(Territory::fromId)
+                    .filter { territory -> territory.occupier?.nation === nation },
+            )
             presentation.townAbsorbed(town, conqueror, nation)
         }
     }
