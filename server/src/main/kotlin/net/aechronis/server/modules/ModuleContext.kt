@@ -134,6 +134,9 @@ class ModuleContext(
         resourcePackServer?.refreshPlayerResourcePacks(player)
     }
 
+    /** Keeps closed player-pack layers on clients until replacement modules can adopt them. */
+    internal fun holdPlayerResourcePacks(): AutoCloseable = resourcePackServer?.holdPlayerProviders() ?: AutoCloseable {}
+
     internal fun sendResourcePacksToOnlinePlayers() {
         val server = resourcePackServer ?: return
         MinecraftServer.getConnectionManager().onlinePlayers.forEach(server::sendResourcePacksAsync)

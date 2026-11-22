@@ -41,6 +41,7 @@ class ResourcePackServer private constructor(
     private val playerProviders = linkedMapOf<String, PlayerPackProvider>()
     private val playerRequests = hashMapOf<UUID, PlayerPackRequest>()
     private var disconnectListener: EventListener<PlayerDisconnectEvent>? = null
+    private var providerHolds = 0
     private var packRevision = 0L
     private var serverStopped = false
     private var closed = false
@@ -159,11 +160,33 @@ class ResourcePackServer private constructor(
     ): AutoCloseable {
         check(!closed) { "Resource-pack server is closed" }
         require(id.matches(RESOURCE_PACK_ID_PATTERN)) { "Invalid resource-pack ID: '$id'" }
-        check(id !in playerProviders) { "Player resource-pack provider '$id' is already active" }
+        val held = playerProviders[id]
+        check(held == null || held.callback == null) { "Player resource-pack provider '$id' is already active" }
         ensureDisconnectListener()
-        val registration = PlayerPackProvider(id, provider)
+        // A reloaded module adopts its predecessor's stack position and installed layers,
+        // so content that rebuilds identically is never pushed to clients again.
+        val registration = PlayerPackProvider(id, provider, held?.packs ?: hashMapOf())
         playerProviders[id] = registration
         return AutoCloseable { unregisterPlayerProvider(registration) }
+    }
+
+    /**
+     * While held, closed providers keep their client layers for a replacement registration.
+     * Releasing the hold removes layers whose provider did not return.
+     */
+    @Synchronized
+    internal fun holdPlayerProviders(): AutoCloseable {
+        check(!closed) { "Resource-pack server is closed" }
+        providerHolds += 1
+        var released = false
+        return AutoCloseable {
+            synchronized(this) {
+                if (released) return@AutoCloseable
+                released = true
+                providerHolds -= 1
+                if (providerHolds == 0) playerProviders.values.filter { it.callback == null }.forEach(::removePlayerProvider)
+            }
+        }
     }
 
     private fun ensureDisconnectListener() {
@@ -246,13 +269,19 @@ class ResourcePackServer private constructor(
                 }
                 val overlays = mutableListOf<ResourcePackInfo>()
                 val previousOverlays =
-                    providers.mapNotNull { provider ->
+                    playerProviders.values.mapNotNull { provider ->
                         provider.packs[player.uuid]?.let { resourcePackInfo(it, player.playerConnection.serverAddress) }
                     }
                 val removed = mutableListOf<UUID>()
-                for ((provider, archive) in prepared) {
-                    if (playerProviders[provider.id] !== provider) continue
+                val built = prepared.toMap()
+                for (provider in playerProviders.values) {
                     val previous = provider.packs[player.uuid]
+                    if (provider.callback == null || provider !in built) {
+                        // Held across a module reload or registered after this build: keep the client's layer.
+                        previous?.let { overlays += resourcePackInfo(it, player.playerConnection.serverAddress) }
+                        continue
+                    }
+                    val archive = built[provider]
                     if (archive == null) {
                         provider.packs.remove(player.uuid)
                         previous?.let {
@@ -317,8 +346,12 @@ class ResourcePackServer private constructor(
     @Synchronized
     private fun unregisterPlayerProvider(provider: PlayerPackProvider) {
         if (playerProviders[provider.id] !== provider) return
-        playerProviders.remove(provider.id)
         provider.callback = null
+        if (providerHolds == 0) removePlayerProvider(provider)
+    }
+
+    private fun removePlayerProvider(provider: PlayerPackProvider) {
+        playerProviders.remove(provider.id)
         for (player in MinecraftServer.getConnectionManager().onlinePlayers) {
             provider.packs[player.uuid]?.let { player.removeResourcePacks(it.uuid) }
         }

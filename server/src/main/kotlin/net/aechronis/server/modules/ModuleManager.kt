@@ -119,6 +119,7 @@ class ModuleManager private constructor(
         var prepared = false
         var stopped = false
         var gameplayPause: AutoCloseable? = null
+        var playerPackHold: AutoCloseable? = null
         val survivorPauses = mutableListOf<AutoCloseable>()
         val resourceUpdates = linkedMapOf<String, Pair<ModuleArtifact, ModuleResourcePacks?>>()
         var resourcesPublished = false
@@ -220,6 +221,8 @@ class ModuleManager private constructor(
             phase = "reloading"
             publicSnapshot = publicSnapshot.copy(phase = phase)
             gameplayPause = measured("pause gameplay") { context.pauseGameplay() }
+            // Replacement and rollback modules adopt the player layers clients already have.
+            playerPackHold = context.holdPlayerResourcePacks()
             // Inventory close listeners must settle before their module callbacks are detached.
             context.runLive {
                 MinecraftServer.getConnectionManager().onlinePlayers.forEach { player ->
@@ -330,6 +333,8 @@ class ModuleManager private constructor(
                 changed,
             )
         } finally {
+            // Every module this transition stops or starts has done so; drop layers nobody adopted.
+            playerPackHold?.let { hold -> runCatching(hold::close).onFailure { report("Release player resource packs", it) } }
             resourceUpdates.values.forEach { (_, packs) -> packs?.close() }
             if (phase != "degraded") survivorPauses.asReversed().forEach { it.close() }
             if (gameplayPause != null) {
