@@ -46,6 +46,7 @@ class Resident(val uuid: UUID, val name: String) {
         /** Called by world reload after runtime users of the old world have stopped. */
         internal fun clearRegistry() {
             residents.clear()
+            Nick.clear()
         }
 
         fun create(player: Player) {
@@ -68,6 +69,7 @@ class Resident(val uuid: UUID, val name: String) {
             minimapLegacy: Boolean = false,
             deathWaypointsEnabled: Boolean = true,
             townJoinLockedUntil: Long? = null,
+            nickname: String? = null,
         ) {
             val resident = Resident(uuid, name)
             resident.trusted = trusted
@@ -78,6 +80,8 @@ class Resident(val uuid: UUID, val name: String) {
             resident.minimapLegacy = minimapLegacy
             resident.deathWaypointsEnabled = deathWaypointsEnabled
             resident.townJoinLockedUntil = townJoinLockedUntil?.takeIf { it > System.currentTimeMillis() }
+            resident.nickname = nickname
+            Nick.track(resident)
             resident.waypointVisibility.putAll(waypointVisibility)
             waypoints.forEach { waypoint -> resident.loadPermanentWaypoint(waypoint) }
             resident.needsUpdate()
@@ -243,6 +247,17 @@ class Resident(val uuid: UUID, val name: String) {
 
     var townJoinLockedUntil: Long? = null
         private set
+
+    /** Name shown to other players instead of [name]; see [Nick]. */
+    var nickname: String? = null
+        private set
+
+    internal fun setNickname(nickname: String?) {
+        this.nickname = nickname
+        Nick.track(this)
+        needsUpdate()
+        Nodes.markWorldDirty()
+    }
 
     fun lockTownJoining(durationMillis: Long = Nodes.config.townLeaveJoinCooldown): Long? {
         val duration = durationMillis.coerceAtLeast(0)
@@ -563,6 +578,7 @@ class Resident(val uuid: UUID, val name: String) {
         val minimapLegacy = r.minimapLegacy
         val deathWaypointsEnabled = r.deathWaypointsEnabled
         val townJoinLockedUntil = r.townJoinLockedUntil
+        val nickname = r.nickname
         val waypoints = r.permanentWaypoints.snapshotList()
         val waypointVisibility = r.waypointVisibility.snapshotMap()
 

@@ -57,6 +57,7 @@ internal data class TownsLoadState(
                 minimapLegacy = resident.minimapLegacy,
                 deathWaypointsEnabled = resident.deathWaypointsEnabled,
                 townJoinLockedUntil = resident.townJoinLockedUntil,
+                nickname = resident.nickname,
             )
         }
         // The domain loaders intentionally skip absent optional residents, claims and member towns.
@@ -93,6 +94,7 @@ internal data class ResidentLoadState(
     val minimapLegacy: Boolean,
     val deathWaypointsEnabled: Boolean,
     val townJoinLockedUntil: Long?,
+    val nickname: String? = null,
 )
 
 internal data class TownLoadState(
