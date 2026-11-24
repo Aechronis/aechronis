@@ -88,12 +88,13 @@ object NodesWorldListener {
                         // allow player to break their own flag
                         if (player.uuid != attack.attacker) {
                             val relationship = Town.relationshipOfPlayerToTown(player, attack.town)
-                            if (relationship in setOf(
-                                    DiplomaticRelationship.NATION,
-                                    DiplomaticRelationship.ALLY,
-                                    DiplomaticRelationship.TOWN,
-                                )
-                            ) {
+                            // In a warzone only the same nation is on the flag's side; allies are rivals and may break it.
+                            val friendly = if (attack.mode == AttackMode.WARZONE) {
+                                setOf(DiplomaticRelationship.NATION, DiplomaticRelationship.TOWN)
+                            } else {
+                                setOf(DiplomaticRelationship.NATION, DiplomaticRelationship.ALLY, DiplomaticRelationship.TOWN)
+                            }
+                            if (relationship in friendly) {
                                 Message.error(player, "$context Cannot break ally flags")
                                 return
                             }
