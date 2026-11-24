@@ -404,6 +404,45 @@ function bootMap(initial) {
   let selectedCoordinate = null;
   const deriveSelection = memoize(resolveSelection);
   const selection = () => deriveSelection(selectedCoordinate, index, buildingsByChunk);
+  // Ctrl/Shift/Cmd+click toggles territories ("nodes") into a multi-selection;
+  // right-click then offers to copy their ids.
+  const multiSelected = new Set();
+  let multiOutline = [];
+  const multiMenu = Object.assign(document.createElement('button'), { type: 'button' });
+  multiMenu.style.cssText = 'position:fixed;z-index:1000;display:none;padding:.5rem .875rem;'
+    + 'background:#2b2f29;color:#ece7d6;border:1px solid #5a6055;cursor:pointer;font:inherit';
+  document.body.append(multiMenu);
+  const hideMultiMenu = () => { multiMenu.style.display = 'none'; };
+  let multiKey = false;
+  let pressX = 0, pressY = 0;
+  window.addEventListener('pointerdown', event => {
+    multiKey = event.ctrlKey || event.shiftKey || event.metaKey;
+    pressX = event.clientX;
+    pressY = event.clientY;
+    if (event.target !== multiMenu) hideMultiMenu();
+  }, true);
+  multiMenu.addEventListener('click', async () => {
+    const text = [...multiSelected].sort((a, b) => a - b).join(' ');
+    try { await navigator.clipboard.writeText(text); } catch {
+      const area = Object.assign(document.createElement('textarea'), { value: text });
+      document.body.append(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    multiMenu.textContent = 'Copied!';
+    setTimeout(hideMultiMenu, 600);
+  });
+  function toggleMulti(coordinate) {
+    const id = resolveSelection(coordinate, index, buildingsByChunk).hit?.territoryId;
+    if (id == null) return;
+    if (!multiSelected.delete(id)) multiSelected.add(id);
+    // flatMap would not flatten typed-array chunk lists, so copy element-wise.
+    const chunks = [];
+    for (const t of multiSelected) for (const v of data.world.territories[t]?.chunks || []) chunks.push(v);
+    multiOutline = chunkBoundary(chunks);
+    redraw();
+  }
   let hoveredBuilding = null;
   let hoverPixel = null;
 
@@ -744,6 +783,7 @@ function bootMap(initial) {
   const PIXELATED = { magFilter: 'nearest', minFilter: 'nearest' };
 
   function highlightLayers() {
+    if (multiSelected.size) return selectionBorderLayers(multiOutline, multiOutline);
     const { hit } = selection();
     if (!hit) return [];
     const territory = data.world.territories[hit.territoryId];
@@ -1303,6 +1343,10 @@ function bootMap(initial) {
     },
     onClick: (info, event) => {
       if (event?.srcEvent?.button === 2 || event?.rightButton) return;
+      const src = event?.srcEvent;
+      // Modifier clicks are handled by the native click listener below.
+      if (multiKey || src?.ctrlKey || src?.shiftKey || src?.metaKey) return;
+      if (multiSelected.size) { multiSelected.clear(); redraw(); }
       // Icons can extend beyond their chunk at their minimum screen size.
       // Their stored center also resolves clicks on wrapped world copies.
       const coordinate = info.layer?.id.startsWith('buildings-world-') && info.object
@@ -1388,6 +1432,17 @@ function bootMap(initial) {
   updateVisible();
   redraw();
 
+  document.getElementById('map').addEventListener('click', event => {
+    if (!(event.ctrlKey || event.shiftKey || event.metaKey)) return;
+    // A modifier-held drag pans the map; the browser still fires click on release.
+    if (Math.hypot(event.clientX - pressX, event.clientY - pressY) > 4) return;
+    const viewport = deck.getViewports()[0];
+    if (!viewport) return;
+    const bounds = deck.getCanvas().getBoundingClientRect();
+    toggleMulti(sourceCoordinate(viewport.unproject([
+      event.clientX - bounds.left, event.clientY - bounds.top,
+    ]), index, buildingsByChunk, visibleWorldCopies()));
+  });
   document.getElementById('map').addEventListener('contextmenu', event => {
     event.preventDefault();
     const viewport = deck.getViewports()[0];
@@ -1397,6 +1452,14 @@ function bootMap(initial) {
       event.clientX - bounds.left, event.clientY - bounds.top,
     ]), index, buildingsByChunk, visibleWorldCopies());
     const { hit } = resolveSelection(coordinate, index, buildingsByChunk);
+    if (multiSelected.size) {
+      multiMenu.textContent = `Copy ${multiSelected.size} node id${multiSelected.size === 1 ? '' : 's'}`;
+      multiMenu.style.display = 'block';
+      // Keep the menu inside the viewport near the right and bottom edges.
+      multiMenu.style.left = `${Math.min(event.clientX, window.innerWidth - multiMenu.offsetWidth)}px`;
+      multiMenu.style.top = `${Math.min(event.clientY, window.innerHeight - multiMenu.offsetHeight)}px`;
+      return;
+    }
     selectedCoordinate = coordinate;
     if (hit?.style.nation) {
       mapMode = 'relations';
@@ -1406,6 +1469,7 @@ function bootMap(initial) {
   });
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape') {
+      if (multiSelected.size) { multiSelected.clear(); hideMultiMenu(); redraw(); }
       mapMode = 'political';
       exitRelations();
     }
