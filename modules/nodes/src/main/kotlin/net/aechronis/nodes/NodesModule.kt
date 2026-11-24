@@ -2,6 +2,7 @@ package net.aechronis.nodes
 
 import net.aechronis.combat.tasks.BlockRestoreManager
 import net.aechronis.nodes.constants.DiplomaticRelationship
+import net.aechronis.nodes.listeners.NodesTinkerListener
 import net.aechronis.nodes.objects.MinimapMode
 import net.aechronis.nodes.objects.MinimapPosition
 import net.aechronis.nodes.objects.NationFlagPack
@@ -34,6 +35,8 @@ class NodesModule : AechronisModule {
         player.sendMessage(Component.text("That only applies to the modern map; set Minimap mode to modern first.", NamedTextColor.RED))
         return true
     }
+
+    private val tinkerSetting = PlayerSetting.toggle("Tinker mode", Material.STONE_BRICK_STAIRS, NodesTinkerListener::isOn, NodesTinkerListener::set)
 
     private val minimapSettings =
         arrayOf(
@@ -105,7 +108,7 @@ class NodesModule : AechronisModule {
         Stats.areFriendly = { a, b ->
             Town.relationshipOfPlayerToPlayer(a, b) in setOf(DiplomaticRelationship.TOWN, DiplomaticRelationship.NATION, DiplomaticRelationship.ALLY)
         }
-        PlayerSettings.register(*minimapSettings)
+        PlayerSettings.register(*minimapSettings, tinkerSetting)
         NationFlagPack.initialize(context)
         context.addListener(SpawnPointChangedEvent::class.java) { event ->
             Nodes.config.defaultRespawnPoint = event.spawnPoint
@@ -125,7 +128,7 @@ class NodesModule : AechronisModule {
     }
 
     override fun shutdown(context: ModuleContext) {
-        PlayerSettings.unregister(*minimapSettings)
+        PlayerSettings.unregister(*minimapSettings, tinkerSetting)
         MapPositionApi.stop()
         Stats.nationOf = { null }
         Stats.townOf = { null }

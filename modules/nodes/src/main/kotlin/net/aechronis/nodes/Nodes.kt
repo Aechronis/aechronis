@@ -27,6 +27,7 @@ import net.aechronis.nodes.commands.PlayerCommand
 import net.aechronis.nodes.commands.PortCommand
 import net.aechronis.nodes.commands.RatesCommand
 import net.aechronis.nodes.commands.TerritoryCommand
+import net.aechronis.nodes.commands.TinkerCommand
 import net.aechronis.nodes.commands.TownChatCommand
 import net.aechronis.nodes.commands.TownCommand
 import net.aechronis.nodes.commands.TownTreasuryCommand
@@ -43,6 +44,7 @@ import net.aechronis.nodes.listeners.NodesPlayerDamageListener
 import net.aechronis.nodes.listeners.NodesPlayerJoinQuitListener
 import net.aechronis.nodes.listeners.NodesPlayerMoveListener
 import net.aechronis.nodes.listeners.NodesPlotSelectionListener
+import net.aechronis.nodes.listeners.NodesTinkerListener
 import net.aechronis.nodes.listeners.NodesVanillaStorageBridge
 import net.aechronis.nodes.listeners.NodesWorldListener
 import net.aechronis.nodes.listeners.TrainsListener
@@ -174,6 +176,7 @@ object Nodes {
             NodesPlayerMoveListener.init()
             NodesPlotSelectionListener.init()
             NodesWorldListener.init()
+            NodesTinkerListener.init()
             BlockPlacementCooldownListener.init()
             NodesChestProtectionDestroyListener.init()
             NodesVanillaStorageBridge.init()
@@ -208,6 +211,7 @@ object Nodes {
                     TrainCommand(),
                     ColonizeCommand(),
                     WarzoneCommand(),
+                    TinkerCommand(),
                 )
             val globalEventHandler = MinecraftServer.getGlobalEventHandler()
             ModuleEvents.addChild(globalEventHandler, lowPriorityEventNode)
