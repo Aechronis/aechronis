@@ -40,6 +40,14 @@ private class WorldLandAccessContext(
         territoryChunk?.let { chunk -> territory?.let { warzoneOccupier(it, chunk) } }
     }
 
+    /** As in war, whoever holds or is capturing the chunk (their town or nation) interacts freely; warzone allies are rivals. */
+    private fun onCapturingSide(): Boolean {
+        val residentTown = checkNotNull(resident).town ?: return false
+        return listOfNotNull(warzoneTown, territoryChunk?.attacker).any { side ->
+            side === residentTown || (side.nation != null && side.nation === residentTown.nation)
+        }
+    }
+
     override val hasTown: Boolean get() = town != null
     override val hasResident: Boolean get() = resident != null
     override val outpost: Boolean get() = Outposts.contains(territory)
@@ -49,7 +57,7 @@ private class WorldLandAccessContext(
     // No block means an entity interaction (item frames), which always goes through town permissions.
     override val interactiveBlock: Boolean get() = block == null || INTERACTIVE_BLOCKS.any { block.compare(it) }
     override val warzonePermission: Boolean?
-        get() = warzoneTown?.let { hasTownPermissions(action.permission, it, checkNotNull(resident)) }
+        get() = warzoneTown?.let { hasTownPermissions(action.permission, it, checkNotNull(resident)) || onCapturingSide() }
     override val warAllowed: Boolean
         get() = territoryChunk?.let { hasWarPermissions(checkNotNull(resident), checkNotNull(territory), it) } == true
     override val plotPermission: Boolean?
