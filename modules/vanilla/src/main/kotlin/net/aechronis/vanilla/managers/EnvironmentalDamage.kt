@@ -3,12 +3,14 @@ package net.aechronis.vanilla.managers
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.vanilla.Vanilla
 import net.minestom.server.MinecraftServer
+import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.damage.DamageType
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.instance.block.Block
+import net.minestom.server.item.Material
 import net.minestom.server.potion.PotionEffect
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.timer.TaskSchedule
@@ -21,6 +23,9 @@ object EnvironmentalDamage {
     private val IN_FIRE: RegistryKey<DamageType> = DamageType.IN_FIRE
     private val ON_FIRE: RegistryKey<DamageType> = DamageType.ON_FIRE
     private val DROWN: RegistryKey<DamageType> = DamageType.DROWN
+    private const val MAX_FREEZE_TICKS = 140
+    private val LEATHER_ARMOR =
+        setOf(Material.LEATHER_HELMET, Material.LEATHER_CHESTPLATE, Material.LEATHER_LEGGINGS, Material.LEATHER_BOOTS)
 
     fun init() {
         ModuleScheduler
@@ -45,7 +50,24 @@ object EnvironmentalDamage {
         if (Vanilla.config.fireDamageEnabled) tickFire(player) else fireContactTicks.remove(player.uuid)
         if (Vanilla.config.drowningEnabled) tickDrowning(player)
         if (Vanilla.config.voidDamageEnabled) tickVoid(player) else voidDamageTicks.remove(player.uuid)
+        tickFreeze(player)
     }
+
+    /**
+     * The client only builds up freeze locally and never decays it; vanilla's server decays it and syncs the
+     * value. Without this a player stays frozen forever after leaving powder snow.
+     */
+    private fun tickFreeze(player: Player) {
+        val metadata = player.entityMeta
+        val frozen = metadata.tickFrozen
+        if (blocksOccupiedBy(player).any { it === Block.POWDER_SNOW } && !isFreezeImmune(player)) {
+            metadata.tickFrozen = minOf(MAX_FREEZE_TICKS, frozen + 1)
+        } else if (frozen > 0) {
+            metadata.tickFrozen = maxOf(0, frozen - 2)
+        }
+    }
+
+    private fun isFreezeImmune(player: Player): Boolean = EquipmentSlot.armors().any { player.getEquipment(it).material() in LEATHER_ARMOR }
 
     private fun tickVoid(player: Player) {
         if (player.position.y >= Vanilla.config.voidDamageY) {
@@ -140,5 +162,6 @@ object EnvironmentalDamage {
         voidDamageTicks.remove(player.uuid)
         player.fireTicks = 0
         player.entityMeta.airTicks = Vanilla.config.maxAirTicks
+        player.entityMeta.tickFrozen = 0
     }
 }
