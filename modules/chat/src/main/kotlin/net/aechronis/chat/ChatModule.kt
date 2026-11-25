@@ -8,6 +8,7 @@ import net.aechronis.server.hasPermission
 import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
+import net.aechronis.server.modules.ModulePermissions
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
@@ -34,6 +35,7 @@ class ChatModule : AechronisModule {
         Chat.init(store)
         ChatFilter.init(Path.of("chat", "filter.txt"))
         ModuleCommands.register(Message(), Reply(), Ignore(), ChatFilterCommand())
+        ModulePermissions.register(REPEAT_BYPASS_PERMISSION)
         context.addListener(PlayerChatEvent::class.java) { event ->
             if (!event.isCancelled && ChatFilter.blocks(event.player, event.rawMessage)) event.isCancelled = true
             if (!event.isCancelled && repeatBlocked(event.player, event.rawMessage)) event.isCancelled = true
