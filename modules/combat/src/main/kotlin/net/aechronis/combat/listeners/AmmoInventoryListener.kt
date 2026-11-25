@@ -2,6 +2,7 @@ package net.aechronis.combat.listeners
 
 import net.aechronis.combat.Combat
 import net.aechronis.combat.objects.Ammo
+import net.aechronis.combat.objects.Gun
 import net.aechronis.combat.objects.Item
 import net.minestom.server.event.inventory.CreativeInventoryActionEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
@@ -35,8 +36,23 @@ object AmmoInventoryListener {
         }
     }
 
+    // Nothing goes into the offhand while a gun is held: the client would place offhand blocks when the gun does nothing.
+    private fun fillsOffhandWhileHoldingGun(event: InventoryPreClickEvent): Boolean {
+        if (Item.getFromItemStack(event.player.itemInMainHand) !is Gun) return false
+        return when (val click = event.click) {
+            is Click.OffhandSwap -> true
+            is Click.LeftDrag, is Click.RightDrag, is Click.MiddleDrag ->
+                PlayerInventoryUtils.OFFHAND_SLOT in click.slots() && !incomingItem(event).isAir
+            else -> event.slot == PlayerInventoryUtils.OFFHAND_SLOT && !incomingItem(event).isAir
+        }
+    }
+
     internal fun onInventoryClick(event: InventoryPreClickEvent) {
         if (event.inventory !== event.player.inventory) return
+        if (fillsOffhandWhileHoldingGun(event)) {
+            event.isCancelled = true
+            return
+        }
 
         if (event.click is Click.OffhandSwap) {
             val offhandItem = event.player.inventory.getItemStack(PlayerInventoryUtils.OFFHAND_SLOT)
@@ -55,6 +71,8 @@ object AmmoInventoryListener {
 
     internal fun onCreativeInventoryAction(event: CreativeInventoryActionEvent) {
         if (isRestrictedSlot(event.slot) && isAmmo(event.clickedItem)) event.isCancelled = true
+        val offhandWhileHoldingGun = event.slot == PlayerInventoryUtils.OFFHAND_SLOT && !event.clickedItem.isAir
+        if (offhandWhileHoldingGun && Item.getFromItemStack(event.player.itemInMainHand) is Gun) event.isCancelled = true
     }
 
     fun init() {
