@@ -101,7 +101,7 @@ object NodesWorldListener {
                         }
                     }
                     attack.cancel()
-                    if (attack.mode != AttackMode.COLONIZATION) Stats.add(player, Stat.CAPS_BROKEN)
+                    if (attack.mode != AttackMode.COLONIZATION && player.uuid != attack.attacker) Stats.add(player, Stat.CAPS_BROKEN)
                     Message.broadcast("${ChatColor.GOLD}$context Attack at (${blockPos.blockX}, ${blockPos.blockY}, ${blockPos.blockZ}) defeated by ${player.username}")
                     return
                 }
