@@ -5,6 +5,9 @@ import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Town
 import net.aechronis.staff.managers.Vanish
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.Style
+import net.kyori.adventure.text.format.TextColor
+import net.kyori.adventure.text.format.TextDecoration
 import net.luckperms.api.LuckPerms
 import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.MinecraftServer
@@ -41,15 +44,43 @@ object TabWorlds {
         return ranks.firstOrNull { it.first.group in groups }
     }
 
-    /** Chat prefix like "[VIP] " for the highest purchased rank, or empty (staff ranks are not shown in chat). */
+    /** Chat prefix for the highest rank (purchased or staff), or empty. */
     fun chatPrefix(uuid: UUID): Component {
         val lp = LuckPermsProvider.get()
-        return prefix(highest(lp, uuid, rankWeights(lp).filter { !it.first.staff })?.first)
+        return prefix(highest(lp, uuid, rankWeights(lp))?.first)
     }
 
+    /** One color per character of [text]. */
+    private fun letters(
+        text: String,
+        vararg colors: Int,
+    ) = text.mapIndexed { i, c -> c.toString() to colors[i] }
+
+    /** Bold label segments (text, color); a segment may span several characters sharing one color. */
+    private val chatGradients: Map<Rank, List<Pair<String, Int>>> =
+        mapOf(
+            Rank.SUPPORTER to
+                letters("SUPPORTER", 0x56B4E9, 0x49BFE0, 0x3DCBD7, 0x30D6CE, 0x24C2D7, 0x18AEDF, 0x0B9AE7, 0x0086EF, 0x0086EF),
+            Rank.SUPPORTER_PLUS to
+                letters("SUPPORTER+", 0xB16CFF, 0xBB60F5, 0xC654EB, 0xD148E1, 0xDC3CD7, 0xE730CD, 0xF224C3, 0xFD18B9, 0xE925CB, 0xD532DD),
+            Rank.VIP to letters("VIP", 0xFFB52E, 0xFFC247, 0xFFD660),
+            Rank.LEGEND to letters("LEGEND", 0xFFE66D, 0xFFDF4D, 0xFFD82E, 0xFFD00F, 0xFFC900, 0xFFE66D),
+            Rank.JR_MOD to
+                listOf("J" to 0x6EDD56, "r" to 0x59D944, " M" to 0x43D532, "O" to 0x2DD120, "D" to 0x17CD0E),
+            Rank.MOD to letters("MOD", 0x36D6C4, 0x26CFCF, 0x16C8DA),
+            Rank.SENIOR_MOD to
+                listOf("S" to 0x459BFF, "r" to 0x3589F5, "-M" to 0x2577EB, "O" to 0x1565E1, "D" to 0x0553D7),
+            Rank.ADMIN to letters("ADMIN", 0xD09AFF, 0xB873F0, 0xA34CE1, 0x8E25D2, 0x7900C3),
+        )
+
+    /** Bold gradient label followed by a space (e.g. `VIP `). */
     fun prefix(rank: Rank?): Component {
-        if (rank == null || rank.staff) return Component.empty()
-        return Component.text("[${rank.label}] ", rank.color)
+        val parts = rank?.let { chatGradients[it] } ?: return Component.empty()
+        return Component
+            .text()
+            .append(parts.map { (t, c) -> Component.text(t, Style.style(TextColor.color(c), TextDecoration.BOLD)) })
+            .append(Component.text(" "))
+            .build()
     }
 
     /** Real world from Nodes + LuckPerms. Vanished players are excluded from every count. */
