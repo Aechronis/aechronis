@@ -35,6 +35,10 @@ object Chat {
     var colorPlayerTownLeader = ChatColor.BOLD
     var colorPlayerNationLeader = "${ChatColor.GOLD}${ChatColor.BOLD}"
 
+    /** Set by the tablist module: chat prefix (e.g. a purchased rank tag) for a player, "" for none. */
+    @Volatile
+    var rankPrefix: (java.util.UUID) -> String = { "" }
+
     fun process(event: PlayerChatEvent) {
         // FIRST MOST IMPORTANT: APPLY GREENTEXT
         var msg = event.rawMessage
@@ -141,7 +145,7 @@ object Chat {
             }
         }
 
-        return color + playerName
+        return rankPrefix(resident.uuid) + color + playerName
     }
 
     fun formatMsgGlobal(resident: Resident, playerName: String, message: String): Component {

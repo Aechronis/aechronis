@@ -67,6 +67,7 @@ include(
     ":modules:tebex",
     ":modules:votifier",
     ":modules:stats",
+    ":modules:tablist",
     ":modules:guard",
     ":modules:duels",
     ":modules:printer",
