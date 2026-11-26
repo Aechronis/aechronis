@@ -24,7 +24,8 @@ import net.minestom.server.item.ItemStack
  *
  * The client shows a block the moment it places it and only removes it when the server's refusal arrives,
  * so players could stand on it for a moment. In adventure mode the client never places the block at all.
- * War flags stay placeable because the land check allows them where a cap is allowed.
+ * War flag blocks never count as refused: a cap is placed from outside the land it targets (a warzone's neighbour,
+ * allied or enemy land), so where the player stands says nothing about whether the cap is valid.
  * Anything that is not a block (guns, tools, melee) leaves the player in survival, because adventure mode
  * stops the client swinging at blocks and those items fire on the swing.
  * Both hands count, since the client falls back to the offhand when the main hand does nothing.
@@ -63,7 +64,9 @@ object AdventureLandListener {
         player: Player,
         position: BlockVec,
         block: Block?,
-    ): Boolean = block != null && LandAccess.check(player, position, LandAccessAction.PLACE, block) != LandAccessDecision.ALLOW
+    ): Boolean = block != null &&
+        block !in Nodes.config.flagBlocks &&
+        LandAccess.check(player, position, LandAccessAction.PLACE, block) != LandAccessDecision.ALLOW
 
     private fun update(player: Player, position: Point) = update(player, position, player.itemInMainHand, player.itemInOffHand)
 
