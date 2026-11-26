@@ -1,5 +1,6 @@
 package net.aechronis.tablist
 
+import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
@@ -77,13 +78,16 @@ class TabSender {
             true,
             0,
             GameMode.SURVIVAL,
-            cell.text,
+            cell.text.font(TAB_FONT),
             null,
             order,
             false,
         )
 
     companion object {
+        /** Smaller font from the tablist resource pack (assets/aechronis/font/tab.json): narrower text, so narrower columns. */
+        private val TAB_FONT = Key.key("aechronis", "tab")
+
         private val ADD_ACTIONS =
             EnumSet.of(
                 Action.ADD_PLAYER,

@@ -17,6 +17,7 @@ data class Cell(
 const val ROWS = 16
 const val COLUMNS = 4
 private const val MAX_OTHER_TOWNS = 4
+
 private val BLANK = Cell(null, null, Component.empty())
 private val STAR = Component.text("★ ", NamedTextColor.YELLOW)
 private val CROWN = Component.text("♛ ", NamedTextColor.GOLD)
@@ -88,11 +89,10 @@ class TabLayout(
             } else {
                 others.map { townLine(it, DARK) }
             }
-        val shownOthers: List<Cell> = if (others.isEmpty()) emptyList() else listOf(divider(DARK)) + townRows
+        val shownOthers: List<Cell> = townRows
         val top = ArrayList<Cell>()
         if (nation != null) top += textRow("Nation: ${nation.onlineTotal}", DARK, bold = true)
         top += textRow("${town.name}: ${town.online.size}", BRIGHT, bold = true)
-        top += divider(BRIGHT)
 
         val memberRoom = ROWS - top.size - shownOthers.size
         val members =
@@ -151,9 +151,8 @@ class TabLayout(
     ): List<Cell> {
         val rows = ArrayList<Cell>()
         rows += textRow("$title: ${nations.sumOf { it.onlineTotal }}", color, bold = true)
-        rows += divider(color)
         nations.sortedByDescending { it.onlineTotal }.forEach { n ->
-            rows += textRow("${n.name}: ${n.onlineTotal}", color)
+            rows += textRow("${n.name}: ${n.onlineTotal}", color, bold = true)
         }
         return rows
     }
@@ -172,7 +171,7 @@ class TabLayout(
     private fun townLine(
         t: TownView,
         color: TextColor,
-    ) = textRow("${t.name}: ${t.online.size}", color)
+    ) = textRow("${t.name}: ${t.online.size}", color, bold = true)
 
     private fun pad(
         rows: MutableList<Cell>,
@@ -185,11 +184,7 @@ class TabLayout(
     private fun playerText(
         m: Member,
         nameColor: TextColor,
-    ): Component {
-        val name = Component.text(m.name, nameColor)
-        val rank = m.rank ?: return name
-        return Component.text("[${rank.label}] ", rank.color).append(name)
-    }
+    ): Component = Component.text(m.name, nameColor)
 
     private fun textRow(
         text: String,

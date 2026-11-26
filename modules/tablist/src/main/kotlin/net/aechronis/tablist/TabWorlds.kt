@@ -35,12 +35,10 @@ object TabWorlds {
         uuid: UUID,
         ranks: List<Pair<Rank, Int>>,
     ): Pair<Rank, Int>? {
-        val perms =
-            lp.userManager
-                .getUser(uuid)
-                ?.cachedData
-                ?.permissionData ?: return null
-        return ranks.firstOrNull { perms.checkPermission("group.${it.first.group}").asBoolean() }
+        // Real group membership, not checkPermission("group.x"): that also matches wildcards, so a `*` holder looked like every rank.
+        val user = lp.userManager.getUser(uuid) ?: return null
+        val groups = user.getInheritedGroups(lp.contextManager.staticQueryOptions).mapTo(HashSet()) { it.name }
+        return ranks.firstOrNull { it.first.group in groups }
     }
 
     /** Chat prefix like "[VIP] " for the highest purchased rank, or empty (staff ranks are not shown in chat). */
