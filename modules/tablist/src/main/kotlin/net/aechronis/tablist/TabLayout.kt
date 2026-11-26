@@ -14,9 +14,9 @@ data class Cell(
     val text: Component,
 )
 
-const val ROWS = 20
+const val ROWS = 16
 const val COLUMNS = 4
-private const val MAX_OTHER_TOWNS = 6
+private const val MAX_OTHER_TOWNS = 4
 private val BLANK = Cell(null, null, Component.empty())
 private val STAR = Component.text("★ ", NamedTextColor.YELLOW)
 private val CROWN = Component.text("♛ ", NamedTextColor.GOLD)

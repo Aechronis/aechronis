@@ -5,6 +5,7 @@ import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.server.modules.ModuleScheduler
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextColor
 import net.minestom.server.adventure.audience.Audiences
 import net.minestom.server.event.Event
 import net.minestom.server.event.EventNode
@@ -21,20 +22,9 @@ object TabManager {
     private const val NANOSECONDS_PER_SECOND = 1_000_000_000L
     private const val UPDATE_INTERVAL_TICKS = 20
 
-    private val runtime = Runtime.getRuntime()
-    private val maxMemory = runtime.maxMemory() / BYTES_PER_MEBIBYTE
-    private val header =
-        Component
-            .newline()
-            .append(Component.text("\ue002").appendNewline()) // server logo
-            .appendNewline()
-            .appendNewline()
-            .appendNewline()
-            .appendNewline()
-            .appendNewline()
-            .append(Component.text("Victorian Era", NamedTextColor.GRAY))
-            .appendNewline()
-            .append(Component.text("                                      ")) // force tab width
+    private const val LOGO_GAP_SPACES = 10
+    private val DISCORD = TextColor.color(0x5865F2)
+
     private var eventNode: EventNode<Event>? = null
 
     fun start() {
@@ -61,10 +51,7 @@ object TabManager {
         ModuleScheduler
             .buildTask {
                 val tickTime = lastTick.get()?.tickTime ?: 0.0
-                val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / BYTES_PER_MEBIBYTE
-                val footer = createFooter(tickTime, ticksInPastSecond.get(), usedMemory)
-
-                Audiences.players().sendPlayerListHeaderAndFooter(header, footer)
+                Audiences.players().sendPlayerListHeaderAndFooter(createHeader(tickTime, ticksInPastSecond.get()), Component.empty())
             }.repeat(TaskSchedule.tick(UPDATE_INTERVAL_TICKS))
             .schedule()
     }
@@ -75,24 +62,74 @@ object TabManager {
         Audiences.players().sendPlayerListHeaderAndFooter(Component.empty(), Component.empty())
     }
 
-    private fun createFooter(
+    /** Small logo on top; TPS/MSPT to its left and the links to its right, on the two lines beside it. */
+    private fun createHeader(
         tickTime: Double,
         ticksPerSecond: Int,
-        usedMemory: Long,
     ): Component =
         Component
             .newline()
-            .append(Component.text("TPS: ", NamedTextColor.GOLD))
+            .append(Component.text("")) // server logo, 32px tall (font/default.json)
+            .appendNewline()
             .append(
-                Component.text(
-                    "$ticksPerSecond / 20",
-                    NamedTextColor.GRAY,
+                row(
+                    stat("TPS: ", "$ticksPerSecond / 20"),
+                    "TPS: $ticksPerSecond / 20",
+                    Component.text("discord.gg/aechronis", DISCORD),
+                    "discord.gg/aechronis",
                 ),
             ).appendNewline()
-            .append(Component.text("MSPT: ", NamedTextColor.GOLD))
-            .append(Component.text("${MathUtils.round(tickTime, 1)} ms / 50ms", NamedTextColor.GRAY))
+            .append(
+                row(
+                    stat("MSPT: ", "${MathUtils.round(tickTime, 1)} ms / 50ms"),
+                    "MSPT: ${MathUtils.round(tickTime, 1)} ms / 50ms",
+                    Component.text("aechronis.net", NamedTextColor.GOLD),
+                    "aechronis.net",
+                ),
+            ).appendNewline()
             .appendNewline()
-            .append(Component.text("Memory: ", NamedTextColor.GOLD))
-            .append(Component.text("$usedMemory MB / $maxMemory MB", NamedTextColor.GRAY))
+            .append(Component.text("Victorian Era", NamedTextColor.GRAY))
             .appendNewline()
+
+    private fun stat(
+        label: String,
+        value: String,
+    ) = Component.text(label, NamedTextColor.GOLD).append(Component.text(value, NamedTextColor.GRAY))
+
+    /**
+     * Tab header lines are centered, so the logo (centered on its own line, drawn over the lines below) sits in the
+     * middle of this row only if both sides are equally wide: pad the narrower side with spaces on its outer edge.
+     */
+    private fun row(
+        left: Component,
+        leftText: String,
+        right: Component,
+        rightText: String,
+    ): Component {
+        val leftWidth = textWidth(leftText)
+        val rightWidth = textWidth(rightText)
+        val widest = maxOf(leftWidth, rightWidth)
+
+        fun pad(width: Int) = Component.text(" ".repeat((widest - width) / SPACE_WIDTH))
+        return pad(leftWidth)
+            .append(left)
+            .append(Component.text(" ".repeat(LOGO_GAP_SPACES)))
+            .append(right)
+            .append(pad(rightWidth))
+    }
+
+    private const val SPACE_WIDTH = 4
+
+    /** Advance width in pixels of the default font (ASCII only, close enough to center a row). */
+    private fun textWidth(text: String): Int =
+        text.sumOf {
+            when (it) {
+                '!', '.', ',', ':', ';', 'i', '|' -> 2
+                '\'', 'l', '`' -> 3
+                ' ', 'I', 't', '[', ']' -> 4
+                '"', '(', ')', '*', '<', '>', 'f', 'k', '{', '}' -> 5
+                '@', '~' -> 7
+                else -> 6
+            }.toInt()
+        }
 }
