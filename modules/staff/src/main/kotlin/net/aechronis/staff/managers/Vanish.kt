@@ -35,6 +35,9 @@ object Vanish {
 
     fun isVanished(player: Player): Boolean = player.uuid in vanished
 
+    /** The level a vanished player hides at (0 if not vanished); viewers need a strictly higher [level] to see them. */
+    fun vanishLevel(player: Player): Int = vanished[player.uuid]?.level ?: 0
+
     internal fun captureTransientState(): ByteArray {
         val states = vanished.entries.sortedBy { (uuid, _) -> uuid.toString() }
         return ByteArrayOutputStream().use { bytes ->

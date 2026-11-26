@@ -27,17 +27,17 @@ private val DARK = NamedTextColor.DARK_GREEN
 class TabLayout(
     private val world: World,
 ) {
-    private val col1 = arrayOfNulls<List<Cell>>(2)
+    private val col1 = HashMap<Int, List<Cell>>()
     private val townColumns = HashMap<TownView, List<Cell>>()
     private val relationColumns = HashMap<NationView, Pair<List<Cell>, List<Cell>>>()
 
     fun build(
         viewerId: UUID,
-        seesVanished: Boolean,
+        viewerLevel: Int,
     ): List<Cell>? {
         val town = world.townOf(viewerId) ?: return null
         val out = ArrayList<Cell>(ROWS * COLUMNS)
-        out += staffColumn(seesVanished)
+        out += staffColumn(viewerLevel)
         out += townColumns.getOrPut(town) { townColumn(town) }
         val nation = town.nation
         val (allies, others) = relationColumns.getOrPut(nation ?: NO_NATION) { relationColumns(nation) }
@@ -47,19 +47,19 @@ class TabLayout(
     }
 
     /** Players without a town only see column 1; their other columns are padded blank. */
-    fun buildStaffOnly(seesVanished: Boolean): List<Cell> = staffColumn(seesVanished) + List(ROWS * (COLUMNS - 1)) { BLANK }
+    fun buildStaffOnly(viewerLevel: Int): List<Cell> = staffColumn(viewerLevel) + List(ROWS * (COLUMNS - 1)) { BLANK }
 
-    private fun staffColumn(seesVanished: Boolean): List<Cell> {
-        val idx = if (seesVanished) 1 else 0
-        return col1[idx] ?: run {
-            val list = if (seesVanished) world.staffWithVanished else world.staff
+    private fun staffColumn(viewerLevel: Int): List<Cell> =
+        col1.getOrPut(viewerLevel) {
+            // Same rule as the Vanish visibility rule: a viewer sees a vanished player only with a strictly higher level.
+            val list = world.staffWithVanished.filter { it.vanishLevel == 0 || viewerLevel > it.vanishLevel }
             val rows = ArrayList<Cell>()
             rows += textRow("Staff", NamedTextColor.GOLD, bold = true)
             rows += divider()
             val room = ROWS - 4
             list.take(if (list.size > room) room - 1 else room).forEach { m ->
                 var text = playerText(m, NamedTextColor.WHITE)
-                if (m.vanished) text = text.append(Component.text(" (V)", NamedTextColor.GRAY))
+                if (m.vanishLevel > 0) text = text.append(Component.text(" (V)", NamedTextColor.GRAY))
                 rows += Cell(m.uuid, m.skin, text)
             }
             if (list.size > room) rows += textRow("+${list.size - room + 1} more", NamedTextColor.GRAY)
@@ -67,8 +67,7 @@ class TabLayout(
             rows += divider()
             rows += textRow("Online: ${world.totalOnline}", NamedTextColor.GOLD)
             rows
-        }.also { col1[idx] = it }
-    }
+        }
 
     private fun townColumn(town: TownView): List<Cell> {
         val nation = town.nation

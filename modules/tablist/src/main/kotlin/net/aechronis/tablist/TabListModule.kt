@@ -70,7 +70,7 @@ class TabListModule : AechronisModule {
         val world = if (spoof != null) TabWorlds.spoof(spoof) else TabWorlds.real()
         val layout = TabLayout(world)
         for (p in players) {
-            val seesVanished = Vanish.level(p) > 0
+            val seesVanished = Vanish.level(p)
             val cells = layout.build(p.uuid, seesVanished) ?: layout.buildStaffOnly(seesVanished)
             senders.getOrPut(p.uuid, ::TabSender).update(p, cells)
         }

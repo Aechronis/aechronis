@@ -59,7 +59,7 @@ object TabWorlds {
 
         fun member(p: Player): Member {
             val hit = highest(lp, p.uuid, ranks)
-            return Member(p.uuid, p.username, p.skin, hit?.first, hit?.second ?: 0, Vanish.isVanished(p))
+            return Member(p.uuid, p.username, p.skin, hit?.first, hit?.second ?: 0, Vanish.vanishLevel(p))
         }
 
         val players = MinecraftServer.getConnectionManager().onlinePlayers.toList()
@@ -80,12 +80,11 @@ object TabWorlds {
                     }
                 }
             byViewer[p.uuid] = view
-            if (!members[i].vanished) view.online += members[i]
+            if (members[i].vanishLevel == 0) view.online += members[i]
         }
         val nationByView = nationViews.entries.associate { (n, v) -> v to n }
-        val visible = members.filter { !it.vanished }
+        val visible = members.filter { it.vanishLevel == 0 }
         return World(
-            staff = visible.filter { it.rank?.staff == true }.sortedWith(staffOrder),
             staffWithVanished = members.filter { it.rank?.staff == true }.sortedWith(staffOrder),
             totalOnline = visible.size,
             nations = nationViews.values.toList(),
@@ -135,9 +134,8 @@ object TabWorlds {
         MinecraftServer.getConnectionManager().onlinePlayers.forEach { viewers[it.uuid] = first }
         val fakeStaff =
             Rank.entries.take(4).mapIndexed { i, r -> Member(UUID(i.toLong(), 1), "SpoofStaff$i", null, r, r.fallbackWeight) }
-        val staff = (real.staff + fakeStaff).sortedWith(staffOrder)
+        val staff = (real.staffWithVanished + fakeStaff).sortedWith(staffOrder)
         return World(
-            staff = staff,
             staffWithVanished = staff,
             totalOnline = count + real.totalOnline,
             nations = nations,

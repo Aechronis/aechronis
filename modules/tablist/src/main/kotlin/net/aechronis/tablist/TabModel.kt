@@ -28,7 +28,7 @@ class Member(
     val skin: PlayerSkin?,
     val rank: Rank?,
     val weight: Int,
-    val vanished: Boolean = false,
+    val vanishLevel: Int = 0,
 )
 
 class TownView(
@@ -52,7 +52,6 @@ enum class Relation { ALLY, ENEMY, NEUTRAL }
 
 /** One immutable-by-convention snapshot of who is online, built once per refresh. */
 class World(
-    val staff: List<Member>,
     val staffWithVanished: List<Member>,
     val totalOnline: Int,
     val nations: List<NationView>,
