@@ -95,6 +95,21 @@ private val IronPickaxeBlocks =
             )
     }
 
+// Non-pickaxe blocks whose drops differ from the block itself; silk touch gives the block back.
+private val ExtraSilkTouchBlocks =
+    listOf(
+        Material.GRASS_BLOCK,
+        Material.GLASS,
+        Material.GLASS_PANE,
+        Material.ICE,
+        Material.CLAY,
+        Material.GLOWSTONE,
+        Material.SEA_LANTERN,
+        Material.AMETHYST_CLUSTER,
+        Material.MELON,
+        Material.SNOW,
+    )
+
 data class BlocksConfig(
     val blockDrops: Map<Material, List<ItemStack>> =
         mapOf(
@@ -114,7 +129,7 @@ data class BlocksConfig(
             Material.ICE to listOf(),
         ),
     val blocksRequiringTool: Set<Material> = PickaxeBlocks.toSet(),
-    val blocksSilkTouchable: Set<Material> = PickaxeBlocks.toSet(),
+    val blocksSilkTouchable: Set<Material> = (PickaxeBlocks + ExtraSilkTouchBlocks).toSet(),
     val toolMinableBlocks: Map<Material, List<Material>> =
         mapOf(
             Material.WOODEN_PICKAXE to StonePickaxeBlocks,
