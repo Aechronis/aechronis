@@ -329,7 +329,13 @@ internal object DiscordBot {
                                     ChannelProvider { ByteReadChannel(reply.lines.joinToString("\n").toByteArray(Charsets.UTF_8)) },
                                 )
                             } else {
-                                embed { description = pages.firstOrNull() ?: "Command completed." }
+                                embed {
+                                    if (command.rootName == "paste") {
+                                        title = "Can't paste that"
+                                        color = Color(0xED4245)
+                                    }
+                                    description = pages.firstOrNull() ?: "Command completed."
+                                }
                             }
                         }
                     if (!attachment) {

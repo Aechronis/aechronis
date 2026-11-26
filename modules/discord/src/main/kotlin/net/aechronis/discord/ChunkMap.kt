@@ -240,14 +240,14 @@ internal class ChunkMap(
             val colorTop = IntArray(width * length) { Int.MIN_VALUE }
             val colorRgb = IntArray(width * length)
             var empty = true
+            val banned = sortedSetOf<String>()
             for (pos in clipboard.region) {
                 val type = clipboard.getBlock(pos).blockType
                 if (type.material.isAir) continue
                 val id = type.id()
                 if (PasteOrders.isOre(id)) {
-                    return Result.failure(
-                        IllegalArgumentException("Schematics containing ores or mineral blocks are not allowed (found $id)."),
-                    )
+                    banned += id.removePrefix("minecraft:")
+                    continue
                 }
                 empty = false
                 val i = (pos.x() - min.x()) * length + (pos.z() - min.z())
@@ -258,6 +258,14 @@ internal class ChunkMap(
                     colorTop[i] = y
                     colorRgb[i] = rgb
                 }
+            }
+            if (banned.isNotEmpty()) {
+                return Result.failure(
+                    IllegalArgumentException(
+                        "Schematics can't contain ores or mineral blocks. Remove these and upload again:\n" +
+                            banned.joinToString("\n") { "• $it" },
+                    ),
+                )
             }
             if (empty) return Result.failure(IllegalArgumentException("The schematic contains no blocks."))
             return Result.success(Footprint(min.x() - origin.x(), min.z() - origin.z(), width, length, anyTop, colorTop, colorRgb))
