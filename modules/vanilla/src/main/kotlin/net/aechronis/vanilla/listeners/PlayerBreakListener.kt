@@ -3,6 +3,7 @@ package net.aechronis.vanilla.listeners
 import net.aechronis.server.modules.ModuleEvents
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.BlockDrops
+import net.aechronis.vanilla.managers.Durability
 import net.aechronis.vanilla.managers.Items
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
@@ -76,7 +77,7 @@ object PlayerBreakListener {
             }
         }
 
-        val damagedTool = heldItem.damage(1)
+        val damagedTool = Durability.damageTool(heldItem)
         if (damagedTool != heldItem) player.itemInMainHand = damagedTool
     }
 

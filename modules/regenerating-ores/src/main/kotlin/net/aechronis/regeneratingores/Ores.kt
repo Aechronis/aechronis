@@ -8,6 +8,7 @@ import net.aechronis.utils.JsonRegistryFile
 import net.aechronis.utils.OreSounds
 import net.aechronis.vanilla.Vanilla
 import net.aechronis.vanilla.managers.BlockDrops
+import net.aechronis.vanilla.managers.Durability
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
@@ -294,7 +295,7 @@ object Ores {
         }
         if (dropped) player.playSound(OreSounds.DING)
 
-        val damagedTool = heldItem.damage(1)
+        val damagedTool = Durability.damageTool(heldItem)
         if (damagedTool != heldItem) player.itemInMainHand = damagedTool
 
         cooldowns[cooldown] = now + ore.timeSeconds * 1_000L
