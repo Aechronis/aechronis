@@ -17,6 +17,9 @@ import java.util.UUID
 object TabWorlds {
     private val staffOrder = compareBy<Member>({ -it.weight }, { it.name.lowercase() })
 
+    /** True if a player with no skin would get the default skin the pack turns transparent (see TabSender.BLANK_SKIN_INDEX). */
+    fun hasTransparentDefaultSkin(uuid: UUID): Boolean = Math.floorMod(uuid.hashCode(), 18) == TabSender.BLANK_SKIN_INDEX
+
     private fun rankWeights(lp: LuckPerms): List<Pair<Rank, Int>> =
         Rank.entries
             .map {

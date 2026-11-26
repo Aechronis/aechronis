@@ -73,7 +73,7 @@ class TabSender {
         PlayerInfoUpdatePacket.Entry(
             id,
             "tab" + Integer.toHexString(id.hashCode()),
-            emptyList(),
+            listOfNotNull(cell.skin?.let { PlayerInfoUpdatePacket.Property("textures", it.textures(), it.signature()) }),
             true,
             0,
             GameMode.SURVIVAL,
@@ -95,13 +95,15 @@ class TabSender {
             )
 
         /**
-         * Blank rows must hash to the default skin the resource pack makes transparent
-         * (index 10 of 18 = wide/ari, see DefaultPlayerSkin).
+         * Text rows have no player, so their head must be invisible: they hash to the default skin the resource pack makes
+         * transparent (index 10 of 18 = wide/ari, see DefaultPlayerSkin). TabListModule keeps real players off that skin.
          */
+        const val BLANK_SKIN_INDEX = 10
+
         private val blankIds: List<UUID> =
             generateSequence(0L) { it + 1 }
                 .map { UUID(0x7AB0_0000_0000_0000L, it) }
-                .filter { Math.floorMod(it.hashCode(), 18) == 10 }
+                .filter { Math.floorMod(it.hashCode(), 18) == BLANK_SKIN_INDEX }
                 .take(ROWS * COLUMNS)
                 .toList()
 
@@ -111,10 +113,10 @@ class TabSender {
             owner: UUID,
             column: Int,
         ): UUID {
-            // Same transparent-head trick as blank rows: nudge until the default skin is the overridden one.
+            // One fake entry per column. Players without a skin show a default head, so keep them off the transparent one.
             val msb = owner.mostSignificantBits xor (0x5AB0_0000_0000_0000L + column)
             var lsb = owner.leastSignificantBits
-            while (Math.floorMod(UUID(msb, lsb).hashCode(), 18) != 10) lsb++
+            while (Math.floorMod(UUID(msb, lsb).hashCode(), 18) == BLANK_SKIN_INDEX) lsb++
             return UUID(msb, lsb)
         }
     }

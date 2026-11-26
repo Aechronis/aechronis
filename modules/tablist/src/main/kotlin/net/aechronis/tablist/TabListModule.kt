@@ -8,9 +8,12 @@ import net.aechronis.staff.managers.Vanish
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerSkin
 import net.minestom.server.event.player.PlayerDisconnectEvent
+import net.minestom.server.event.player.PlayerSkinInitEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.timer.TaskSchedule
+import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -24,7 +27,14 @@ class TabListModule : AechronisModule {
     override fun initialize(context: ModuleContext) {
         // Dev only: AECHRONIS_TAB_SPOOF=300 fakes that many extra online players.
         val spoof = System.getenv("AECHRONIS_TAB_SPOOF")?.toIntOrNull()
-        MinecraftServer.getConnectionManager().onlinePlayers.forEach { it.isListed = false }
+        MinecraftServer.getConnectionManager().onlinePlayers.forEach {
+            it.isListed = false
+            if (it.skin == null && TabWorlds.hasTransparentDefaultSkin(it.uuid)) it.skin = FALLBACK_SKIN
+        }
+        // The pack makes one default skin transparent for text rows; a skinless player who hashes to it would be invisible.
+        context.addListener(PlayerSkinInitEvent::class.java) { event ->
+            if (event.skin == null && TabWorlds.hasTransparentDefaultSkin(event.player.uuid)) event.skin = FALLBACK_SKIN
+        }
         context.addListener(PlayerSpawnEvent::class.java) { event ->
             // Real players stay in the world but leave the vanilla list; we draw our own.
             if (event.isFirstSpawn) {
@@ -86,5 +96,15 @@ class TabListModule : AechronisModule {
 
     private companion object {
         const val REFRESH_TICKS = 20
+
+        /** Steve, from Mojang's texture server (the client only loads skins from Mojang domains). */
+        val FALLBACK_SKIN =
+            PlayerSkin(
+                Base64.getEncoder().encodeToString(
+                    """{"textures":{"SKIN":{"url":"http://textures.minecraft.net/texture/31f477eb1a7beee631c2ca64d06f8f68fa93a3386d04452ab27f43acdf1b60cb"}}}"""
+                        .toByteArray(),
+                ),
+                "",
+            )
     }
 }
