@@ -68,8 +68,13 @@ class TabListModule : AechronisModule {
                 val (n, t, m) = speakers.randomOrNull() ?: return@buildTask
                 val tags = "[${Chat.colorNation}${n.name}${Chat.colorDefault}|${Chat.colorTown}${t.name}${Chat.colorDefault}] "
                 val msg = lines.random().let { if (it[0] == '>') "${Chat.colorGreen}$it" else it }
-                val text = "$tags${TabWorlds.prefix(m.rank)}${Chat.colorDefault}${m.name}${Chat.colorDefault}: $msg"
-                MinecraftServer.getConnectionManager().onlinePlayers.forEach { it.sendMessage(Component.text(text)) }
+                val text =
+                    Component
+                        .text(
+                            tags,
+                        ).append(TabWorlds.prefix(m.rank))
+                        .append(Component.text("${Chat.colorDefault}${m.name}${Chat.colorDefault}: $msg"))
+                MinecraftServer.getConnectionManager().onlinePlayers.forEach { it.sendMessage(text) }
             }.repeat(TaskSchedule.tick(40))
             .schedule()
     }
@@ -90,7 +95,7 @@ class TabListModule : AechronisModule {
         val online = MinecraftServer.getConnectionManager().onlinePlayers.associateBy(Player::getUuid)
         senders.forEach { (id, s) -> s.clear(online[id]) }
         senders.clear()
-        Chat.rankPrefix = { "" }
+        Chat.rankPrefix = { Component.empty() }
         online.values.forEach { it.isListed = true }
     }
 

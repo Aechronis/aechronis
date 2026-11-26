@@ -35,9 +35,9 @@ object Chat {
     var colorPlayerTownLeader = ChatColor.BOLD
     var colorPlayerNationLeader = "${ChatColor.GOLD}${ChatColor.BOLD}"
 
-    /** Set by the tablist module: chat prefix (e.g. a purchased rank tag) for a player, "" for none. */
+    /** Set by the tablist module: chat prefix (e.g. a purchased rank tag) for a player, empty for none. A component, so it can use hex colors. */
     @Volatile
-    var rankPrefix: (java.util.UUID) -> String = { "" }
+    var rankPrefix: (java.util.UUID) -> Component = { Component.empty() }
 
     fun process(event: PlayerChatEvent) {
         // FIRST MOST IMPORTANT: APPLY GREENTEXT
@@ -145,7 +145,7 @@ object Chat {
             }
         }
 
-        return rankPrefix(resident.uuid) + color + playerName
+        return color + playerName
     }
 
     fun formatMsgGlobal(resident: Resident, playerName: String, message: String): Component {
@@ -161,27 +161,35 @@ object Chat {
             ""
         }
 
-        return Component.text("${formattedResidentAllegiance}${formattedResidentName}$colorDefault: $message")
+        return Component.text(formattedResidentAllegiance)
+            .append(rankPrefix(resident.uuid))
+            .append(Component.text("${formattedResidentName}$colorDefault: $message"))
     }
 
     fun formatMsgTown(resident: Resident, playerName: String, message: String): Component {
         // format player name
         val formattedResidentName = formatResidentName(resident, playerName)
 
-        return Component.text("$colorTown[Town] ${formattedResidentName}$colorTown: $message")
+        return Component.text("$colorTown[Town] ")
+            .append(rankPrefix(resident.uuid))
+            .append(Component.text("${formattedResidentName}$colorTown: $message"))
     }
 
     fun formatMsgNation(resident: Resident, playerName: String, message: String): Component {
         // format player name
         val formattedResidentName = formatResidentName(resident, playerName)
 
-        return Component.text("$colorNation[Nation] ${formattedResidentName}$colorNation: $message")
+        return Component.text("$colorNation[Nation] ")
+            .append(rankPrefix(resident.uuid))
+            .append(Component.text("${formattedResidentName}$colorNation: $message"))
     }
 
     fun formatMsgAlly(resident: Resident, playerName: String, message: String): Component {
         // format player name
         val formattedResidentName = formatResidentName(resident, playerName)
 
-        return Component.text("$colorAlly[Ally] ${formattedResidentName}$colorAlly: $message")
+        return Component.text("$colorAlly[Ally] ")
+            .append(rankPrefix(resident.uuid))
+            .append(Component.text("${formattedResidentName}$colorAlly: $message"))
     }
 }

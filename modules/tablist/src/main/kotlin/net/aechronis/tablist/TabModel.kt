@@ -1,6 +1,5 @@
 package net.aechronis.tablist
 
-import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import net.minestom.server.entity.PlayerSkin
 import java.util.UUID
@@ -12,14 +11,14 @@ enum class Rank(
     val staff: Boolean,
     val fallbackWeight: Int,
 ) {
-    ADMIN("admin", "Admin", NamedTextColor.RED, true, 100),
-    SENIOR_MOD("senior-mod", "Sr Mod", NamedTextColor.DARK_RED, true, 30),
-    MOD("mod-", "Mod", NamedTextColor.DARK_AQUA, true, 20),
-    JR_MOD("jr-mod", "Jr Mod", NamedTextColor.AQUA, true, 10),
-    LEGEND("legend", "Legend", NamedTextColor.LIGHT_PURPLE, false, 4),
-    VIP("vip", "VIP", NamedTextColor.YELLOW, false, 3),
-    SUPPORTER_PLUS("supporter-plus", "Supporter+", NamedTextColor.DARK_PURPLE, false, 2),
-    SUPPORTER("supporter", "Supporter", NamedTextColor.GRAY, false, 1),
+    ADMIN("admin", "Admin", TextColor.color(0x2A3FD0), true, 100),
+    SENIOR_MOD("senior-mod", "Sr Mod", TextColor.color(0x3F66E8), true, 30),
+    MOD("mod-", "Mod", TextColor.color(0x5E94F5), true, 20),
+    JR_MOD("jr-mod", "Jr Mod", TextColor.color(0x8FCBFF), true, 10),
+    LEGEND("legend", "Legend", TextColor.color(0xFF69B4), false, 4),
+    VIP("vip", "VIP", TextColor.color(0xE15FD0), false, 3),
+    SUPPORTER_PLUS("supporter-plus", "Supporter+", TextColor.color(0xB85FE6), false, 2),
+    SUPPORTER("supporter", "Supporter", TextColor.color(0x8A4FFF), false, 1),
 }
 
 class Member(

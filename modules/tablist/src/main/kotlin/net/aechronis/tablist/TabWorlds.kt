@@ -5,7 +5,6 @@ import net.aechronis.nodes.objects.Resident
 import net.aechronis.nodes.objects.Town
 import net.aechronis.staff.managers.Vanish
 import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import net.luckperms.api.LuckPerms
 import net.luckperms.api.LuckPermsProvider
 import net.minestom.server.MinecraftServer
@@ -44,15 +43,15 @@ object TabWorlds {
         return ranks.firstOrNull { perms.checkPermission("group.${it.first.group}").asBoolean() }
     }
 
-    /** Chat prefix like "[VIP] " for the highest purchased rank, or "" (staff ranks are not shown in chat). */
-    fun chatPrefix(uuid: UUID): String {
+    /** Chat prefix like "[VIP] " for the highest purchased rank, or empty (staff ranks are not shown in chat). */
+    fun chatPrefix(uuid: UUID): Component {
         val lp = LuckPermsProvider.get()
         return prefix(highest(lp, uuid, rankWeights(lp).filter { !it.first.staff })?.first)
     }
 
-    fun prefix(rank: Rank?): String {
-        if (rank == null || rank.staff) return ""
-        return LegacyComponentSerializer.legacySection().serialize(Component.text("[${rank.label}]", rank.color)) + "§r "
+    fun prefix(rank: Rank?): Component {
+        if (rank == null || rank.staff) return Component.empty()
+        return Component.text("[${rank.label}] ", rank.color)
     }
 
     /** Real world from Nodes + LuckPerms. Vanished players are excluded from every count. */
