@@ -153,10 +153,7 @@ class TabLayout(
         rows += textRow("$title: ${nations.sumOf { it.onlineTotal }}", color, bold = true)
         rows += divider(color)
         nations.sortedByDescending { it.onlineTotal }.forEach { n ->
-            rows += textRow(n.name, color, bold = true)
-            n.towns.filter { it.online.isNotEmpty() }.sortedByDescending { it.online.size }.forEach { t ->
-                rows += textRow("  · ${t.name}: ${t.online.size}", color)
-            }
+            rows += textRow("${n.name}: ${n.onlineTotal}", color)
         }
         return rows
     }
