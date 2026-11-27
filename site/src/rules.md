@@ -186,7 +186,6 @@ The following are mandatory. Staff may remove any build that violates this Artic
 
 ### 8.1 Progressive penalties
 * Staff impose penalties progressively according to the schedule in Section 8.2. The schedule states typical penalties only, and every penalty is subject to Staff discretion.
-* The staff reference is the [Infraction Guidelines sheet](https://docs.google.com/spreadsheets/d/14l6BO-DI-rIeCiI21nU32plxJAe989of-PJR6fp1dxs/edit?usp=sharing).
 
 ### 8.2 Schedule of penalties
 
