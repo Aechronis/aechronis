@@ -1,223 +1,212 @@
 # Rules
 
-## 1. Chat & Community Rules
+## 1. Chat and Discord Conduct
+
+### 1.1 Spam and advertising
+* A Player shall not flood chat, repeat messages, or advertise other Minecraft servers. This Section applies to in-game chat, the Discord, signs and structures.
+
+### 1.2 Conduct towards others
+* A Player shall not harass, threaten or discriminate against any person, use slurs or Hate Speech, threaten to disclose private information ("doxx threats"), or encourage self-harm.
+
+### 1.3 Prohibited topics
+* A Player shall not engage in political or religious debate likely to cause conflict, nor glorify illegal acts or real-world tragedies.
+
+### 1.4 Discord
+* A Player shall comply with Discord's Terms of Service and Community Guidelines in the Discord. Conduct covered by those documents, including NSFW or gore content and the discussion of illegal activity, is not separately regulated by these Rules.
+
+## 2. Conduct, Reports and Tickets
+
+### 2.1 Duty to report
+* A Player who witnesses a violation of these Rules or an Exploit shall report it. Concealing a violation constitutes a failure to report.
+
+### 2.2 Honesty
+* A Player shall not lie to Staff or submit false or altered evidence.
+
+### 2.3 Safety
+* A Player shall not groom or engage in sexual interaction with minors, shall not engage in predatory behaviour or sexual harassment, and shall not disclose or threaten to disclose private information that could identify or endanger any person. A violation of this Section results in blacklisting.
 
-### 1.1 Abusing Chat 
-* Spamming, flooding chat, or repeatedly posting similar messages is prohibited.
-* Advertising or promoting other Minecraft servers is not allowed.
+### 2.4 Minecraft EULA and real-money trading
+* A Player shall comply with the Minecraft End User License Agreement.
+* In-game items, currency, services and accounts shall not be exchanged for real-world money or its equivalent.
 
-### 1.2 Respect & Conduct
-* Treat all members with respect. No harassment, hate speech, or discrimination.
-* Political or religious debates that may cause conflict or disrupt the community are not allowed. This also includes praising, joking about, or glorifying illegal acts or real-world tragedies (e.g., self-harm or terrorism).
+### 2.5 Tickets
+* (a) A Player shall open one ticket per issue and include supporting evidence.
+* (b) A Player shall not submit duplicate tickets or repeatedly contact Staff to expedite a ticket.
+* (c) A Player shall not argue technicalities or reword these Rules to avoid a penalty ("ticket-lawyering").
+* (d) A report resulting in a ban shorter than five (5) days is valid only if made within five (5) days of the violation. No time limit applies to other reports.
+* (e) A report made in bad faith, with the purpose of causing a Player to be punished, is treated as a violation of Section 2.2.
 
-## 2. General Conduct Rules
+### 2.6 Staff misconduct
+* A Player who wishes to report misconduct by Staff shall send the evidence by direct message to the Staff manager.
 
-### 2.1 Failing to assist staffing
-* If you witness a rule violation, you are expected to report it to staff. Intentionally hiding rule-breaking is not permitted.
+## 3. Accounts, Modifications and Clients
 
-* Lying to staff members or submitting false, altered, or misleading evidence is prohibited.
+### 3.1 Alternate accounts
+* (a) A Player shall not play an alternate account without Staff approval, obtained by Discord ticket.
+* (b) An approved alternate account shall not be a member of a different nation from the Player's main account.
+* (c) Playing an unapproved alternate account is a medium general offence.
 
-### 2.2 Server Safety
-* Any form of harassment, grooming, or illegal sexual interaction involving minors will result in severe punishment.
+### 3.2 Ban evasion
+* A Player shall not play on another account or IP address in order to circumvent a ban.
 
-* Never share, leak, or threaten to share personal or private information that could endanger or identify another player.
+### 3.3 Permitted software
+* The following are permitted:
+  * (a) the default Lunar and Feather clients;
+  * (b) utility mods approved by Staff, such as Error Utils;
+  * (c) minimaps, including player radar;
+  * (d) Replay Mod and client-side health indicators;
+  * (e) Litematica and Schematica for building, including downloading schematics of the Player's own builds, provided that easy-place and printer functions are not used for PvP or for placing blocks during war.
+* A Player in doubt as to whether software is permitted shall ask Staff before using it.
 
-### 2.3 Minecraft Terms of Service
-* All players must comply with Minecraft’s Terms of Service while playing on Aechronis.
+### 3.4 Prohibited software
+* The following are prohibited:
+  * (a) hacked clients and any modification giving an unfair advantage, including ESP, X-ray and other vision hacks, freecam, aimbot and triggerbot;
+  * (b) macros and automation, including mining macros, inventory-move mods and mouse tweaks;
+  * (c) artillery or mortar calculator programs. Basic spreadsheet calculation of distance is permitted.
 
-* Trading or exchanging in-game items, currency, or services for real-world money is not allowed.
+### 3.5 Screenshares
+* Staff shall request a screenshare only where strong evidence exists, such as an anticheat flag or a reviewed clip, and shall not request routine scans of a Player's computer.
+* A screenshare is limited to scanning, and to the sharing of files and executables. Staff shall never request control of a Player's computer, including through AnyDesk or any equivalent program. A Staff Member who makes such a request acts outside Staff authority, and the Player shall report the request by direct message to an owner or the Staff manager.
+* A Player who refuses or evades a requested screenshare commits a major modification offence.
 
-## 3. Gameplay Rules
+## 4. Exploits and Spawn Camping
 
-### 3.1 Exploits & Bugs
-* Exploiting bugs, glitches, or unintended game mechanics to gain an advantage is prohibited.
-* If you discover an exploit—especially one that is game-breaking—you must report it to staff immediately.
-* Obtaining items through prohibited means (such as duping, glitching, or abnormal mining rates) is forbidden. If you believe an item was obtained due to a bug, report it.
-* Vehicles such as artillery, mortars, or tanks are not permitted in KOTH.
+### 4.1 Exploits
+* A Player shall not exploit any bug, and shall report every game-breaking Exploit immediately. Without limitation, the following constitute Exploits:
+  * (a) duplication of items ("duping");
+  * (b) block glitching;
+  * (c) abnormal mining rates;
+  * (d) lag machines;
+  * (e) bypassing combat tagging;
+  * (f) abuse of donator permissions, including town fly;
+  * (g) abuse of WorldGuard regions. Whether a particular use of a WorldGuard region constitutes an Exploit is at Staff discretion.
 
-### 3.2 Alternate Accounts
-* Alternate accounts (alts) are not permitted unless explicitly approved by staff via a Discord ticket.
+### 4.2 Spawn camping
+* (a) Each town is expected to fortify its T Spawn Area.
+* (b) During war, no limit applies to the number of times a Player may be killed in an enemy T Spawn Area.
+* (c) Outside war, a Player may enter another town's T Spawn Area and kill Players present, subject to the following limits:
+  * (i) a Player without gear may be killed up to three (3) times, after which that Player shall not be attacked further;
+  * (ii) a Player who attempts to obtain loot forfeits the protection of subparagraph (i), the count resets, and that Player may be killed immediately;
+  * (iii) if no Player present has gear, the attackers may remain for two (2) minutes and shall then teleport to their own T Spawn or leave. Obtaining gear or attempting to fight restarts the two (2) minute period;
+  * (iv) after five (5) minutes, the attackers shall leave, and the Players being camped should state in chat that the time has elapsed.
+* (d) Attackers who remain in the T Spawn Area after five (5) minutes commit spawn camping, which is a minor general offence.
 
-* You may not have an alt in another nation.
+## 5. Building
 
-### 3.3 Spawn Camping
-* Camping town spawn locations outside of wartime is not allowed.
+The following are mandatory. Staff may remove any build that violates this Article and may impose a penalty.
 
-## 4. Build Regulations
+### 5.1 Theme and Meme Builds
+* Builds shall fit the theme of the current iteration.
+* A Player shall not construct a Meme Build, including a massive featureless wall, and excessive griefing of structures is treated as a Meme Build.
+* Staff shall remove ("nuke") a Meme Build. A first offence results in a warning; any repeat offence results in a ban. A Meme Build shall receive no tier from Staff during nodesweep.
 
-### 4.1 Building Violations
-* Nerd poles may not exceed **10 blocks** in height and must be removed within **24 hours**.
-* All nation builds must align with the current iteration’s theme.
-* Fast-travel systems (such as ice highways) are not allowed.
-* Meme builds or large off-theme structures (bases, walls, etc.) are strictly prohibited.
-* Massive, featureless walls, oversized trap systems, or similar structures are not allowed.
-* Traps designed to instantly kill players or deal passive damage are prohibited.
-* Walls that prevent players from entering your town are fully no longer allowed and will be removed and the person who created them will get punished.
-* Trenches and dug-out fortifications may be no wider than **7 blocks**; airlocks are permitted.
-* Chunk forts must be fully navigable and functional—not spammed gank-and-trench designs.
-* Ambush forts (“ganks”) larger than **5×5 blocks** are prohibited.
+### 5.2 Nerdpoles
+* A nerdpole shall not exceed **ten (10) blocks** in height and shall be removed within **twenty-four (24) hours**.
 
-### 4.2 Griefing 
-* Excessive griefing of structures—including wilderness builds and ports—is prohibited.
-
-## 5. Nation Rules
-
-### 5.1 Leader Responsibility
-* Nations must be formed with genuine intent to actively participate for the duration of the iteration.
-* Nation leaders and officers are responsible for enforcing rules among their members. Failure to do so may result in punishment.
-* Blacklisted players may not be invited, assisted, or supported in any capacity.
-* Nation leaders may not abandon or leave their nation.
-
-### 5.2 Insiding
-* Insiding, storage wiping, or other malicious internal actions are strictly prohibited. Members may only leave with items stored in their personal chests. Refunds for insiding require proof of significant loss.
-
-### 5.3 Town Property
-* Town owners reserve the right to confiscate all items within their town. Items belonging to removed members become town property.
-
-### 5.4 Staff Approval
-* Staff approval is required to create, delete, or merge a nation.
-
-### 5.5 Town Manipulation
-* Towns may not be created or removed solely to gain unfair advantages, such as spawn relocation or war staging.
-
-## 6. Mods & Clients
-
-### 6.1 Allowed Mods
-
-* Default Lunar Client, Feather Client, and approved utility mods (e.g., Error Utils).
-* Minimaps with player radar are allowed.
-* Replay Mod
-* Client-side health indicators.
-* Litematica and Schematica easy-place features (only Litematica’s printer is approved). These may **not** be used for PvP or wartime block placement.
-* Downloading schematics of your own builds is allowed; accessing others’ bases or schematics is prohibited.
-
-### 6.2 Disallowed Mods & Clients
-
-* Any modification that grants unfair or impossible advantages in vanilla gameplay.
-* Automation scripts or macros for mining, building, or repetitive actions (including mouse-button macros).
-* ESP, enhanced name tags, X-ray, or vision-based hacks.
-* Hacked clients or combat-altering mods such as freecam.
-* VPN use requires a nation leader to vouch for the player. If the VPN user is banned or blacklisted, the vouching leader will be punished.
-* Artillery or mortar calculator programs are prohibited; basic spreadsheet distance calculations are allowed.
-
-### 6.3 Screen Shares
-
-* Staff may request a screenshare or PC scan at any time to check for cheating software. Refusal or logging out during the screenshare will result in punishment.
-* Players that refuse or dodge screenshares will receive an iteration ban. Repeat offenders will be blacklisted.
-* If you are caught with hacked clients during your screenshare, you will receive an iteration ban. Illegal mods (ex. player mini-map, freecam) will result in a one week ban.
-
-## 7. Discord Rules
-
-### 7.1 Discord Terms of Service
-* Any violation of Discord’s Terms of Service in the official Aechronis Discord will result in a ban.
-
-### 7.2 Content Restrictions
-* NSFW, excessively violent, or gory content is not allowed.
-* Hate speech is moderated in all public channels, including nation-operated channels.
-
-### 7.3 Illegal Activity
-* Discussing real-world illegal activities is prohibited.
-* Ban weaponization or blackmail of any kind is forbidden.
-
-### 7.4 Ticket rules
-* Evidence for punishments under **five days** is only valid for **24 hours**.
-* Ticket-lawyering or spamming tickets to argue punishments is not allowed.
-
-## 8. Warzone Rules
-
-### 8.1 Node Flipping
-* Node flipping is only allowed if **all** of the following conditions are met:
-  * No player is currently flagging the node
-  * The node has not been flagged within the past **15 minutes**
-  * There is no active combat at the node
-  * Both attackers and defenders agree to the flip
-
-### 8.2 Warzone Building Violations
-* Blocking, trapping, or building around warzone entrances or exits is forbidden.
-* The construction of chunk-forts or “meme forts” in or on the edge of warzones is allowed, however they may be removed by staff following the conclusion of the warzone event.
-* Permanent or passive-damage traps are not allowed.
-
-### 8.3 Node Ownership
-* Unless otherwise stated, only nations bordering the warzone may retain nodes afterward.
-
-### 8.4 Standard War Rules
-* All standard war rules apply within warzones.
-
-## 9. General War Rules
-
-### 9.1 Nation Changes During War
-* Towns or nations may not be deleted, split, created, merged, or reorganized while at war or actively preparing for war. This includes relocating populations within your nation.
-
-### 9.2 Town Switching
-* Switching towns or nations within **24 hours** of a war is prohibited. Excessive “town hopping” may result in staff punishment.
-
-### 9.3 War Surrender
-* If the majority of a nation’s online players log off during an active war, that nation is considered to have surrendered immediately.
-
-### 9.4 Friendly Sabotage
-* Griefing, sabotaging, or otherwise harming your own faction (e.g., breaking friendly flags or team-killing) is strictly forbidden.
-
-### 9.5 Rebellion
-* Leaving your nation without formally declaring war (rebelling) is not allowed. Ceding nodes without nation leader approval is also prohibited.
-
-### 9.6 Conquered Towns
-* Conquered or merged towns may not leave the conquering nation unless given permission by a staff member.
-
-### 9.7 Attacker Permissions
-* If your town is captured, you may not revoke attacker permissions during the war.
-
-### 9.8 Post-Capture Combat
-* Once your town has fallen, you may not assist allies or resume fighting until the war has officially ended.
-
-## 10. War Mechanics & Restrictions
-
-### 10.1 Flag Placement
-* Flags must either touch natural terrain (such as trees) within three blocks of ground level or connect to an existing defender-built structure. Players actively flagging a chunk are considered the attackers.
-
-### 10.2 Sky Platforms
-* Building sky platforms or bridging through open air to capture territory is not allowed.
-
-### 10.3 Artillery Placement
-* All artillery must be placed at ground level on existing structures or battlements.
-
-### 10.4 Artillery Tunneling
-* Using artillery or tanks to tunnel underground is prohibited.
-
-### 10.5 Node Exploits
-* Node flipping through exploits (such as attacking from non-bordering chunks) is strictly banned.
-
-### 10.6 Flag Entombing
-* Flag entombing—placing blocks within two blocks of a flag to enclose it—is not allowed.
-
-### 10.7 Boat Exploit
-* Using boats to negate fall damage while breaking flags is prohibited.
-
-## 11. War Declaration
-
-### 11.1 Declaration Requirement
-* All wars must be formally declared in a public nation announcement and accompanied by an appropriate roleplay (LARP-based) announcement message.
-
-## 12. War Annexation
-
-### 12.1 Node Annexation
-* Each successfully captured node will be formally annexed into the conquering nation at the conclusion of the war.
-
-## 13. War Combat Rules
-
-### 13.1 Town Entrances
-* Town entrances may be sealed for war. However, they must be unsealed afterwards.
-
-### 13.2 Combat Participants
-* Combat may only take place between members of officially warring factions.
-
-### 13.3 Neutral Protection
-* Neutral towns, staff towns, and neutral ports may not be attacked or camped.
-
-### 13.4 Spawn Protection
-* Spawn is a designated safezone. Attempting to shove or force players during wartime within spawn is prohibited.
-
-### 13.5 War Looting
-* During the active war period, combatants may pillage and loot chests or storage belonging to enemy towns.
-
-### 13.6 Post-War Looting
-* Looting or pillaging after the war period has ended is strictly forbidden.
+### 5.3 Movement systems
+* A Player shall not build ice highways or any other system that bypasses the intended movement mechanics of the Server.
+
+### 5.4 Traps and ambush forts
+* A Player shall not build an instant-kill trap, a passive-damage trap or a teleport-cancelling trap.
+* A Player shall not build an ambush fort ("gank").
+
+### 5.5 Entrances
+* A Player shall not block or wall off a town entrance, or a Warzone entrance or exit.
+* During war a town may seal its entrances, and shall unseal them when the war ends. No other building rule is relaxed during war.
+
+### 5.6 Dimensions
+* (a) A trench or dug-out fortification shall not exceed **seven (7) blocks** in width. Airlocks are permitted.
+* (b) A chunk fort shall be navigable and functional.
+
+### 5.7 Sky bases and lag machines
+* A Player shall not build a sky base, being an unsupported structure intended to gain an advantage over opponents, or a lag machine, being a construction intentionally designed to lag the Server.
+
+### 5.8 Block glitching
+* A Player shall not place blocks rapidly in protected territory in order to jump higher or reach positions before the Server removes the blocks.
+
+### 5.9 Warzone edges
+* Chunk forts and Meme Builds within two (2) chunks of an active Warzone are permitted while the Warzone is active and incur no penalty under Section 5.1. The builder shall remove them within twenty-four (24) hours after the Warzone ends, failing which Staff may remove them.
+* Permanent traps and passive-damage traps remain prohibited.
+
+### 5.10 Factories
+* The drop location of an active factory shall be easily and obviously accessible to all Players. A Player shall not place a gate, a fully enclosed wall, a hidden entrance or any similar obstruction at or around that location.
+
+## 6. Nations
+
+### 6.1 Responsibility of leaders
+* A nation shall be formed with genuine intent to participate.
+* Its leaders and officers shall enforce these Rules among its members.
+* A leader shall not abandon or leave the nation.
+
+### 6.2 Insiding
+* A Player shall not engage in insiding, wipe storage, or otherwise sabotage the Player's own town or nation. Promoting illegal action within a nation, or taking an illegal nation action, is a major nation offence.
+
+### 6.3 Blacklisted Players
+* A Player shall not support, host or assist a blacklisted Player.
+
+### 6.4 Nation bans
+* A Staff Member who bans another Player from the Staff Member's own nation shall apply the default ban time.
+
+### 6.5 Administration
+* The following describe how nations are administered and impose no obligation on Players:
+  * (a) Staff create, delete and merge towns and nations.
+  * (b) A town owner may confiscate town items. Items left by a removed member become town property.
+  * (c) A refund for loss requires proof of significant loss and is at Staff discretion.
+
+## 7. War and Warzones
+
+### 7.1 Flags
+* (a) A Flag shall touch natural terrain within **three (3) blocks** of ground level, or connect to a structure built by the defenders.
+* (b) A Player shall not build a sky platform, or bridge through open air, in order to reach a capture point ("sky cap"). This prohibition includes bridging across a body of water where a bridge would not be feasible in reality, such as the English Channel or the Strait of Gibraltar.
+
+### 7.2 Artillery
+* Artillery, ballistae and tanks shall be placed at ground level, on existing structures or battlements. Sky artillery is prohibited.
+
+### 7.3 Friendly sabotage
+* A Player shall not kill allies or members of the Player's own faction, and shall not grief the builds or supplies of the Player's own side during war.
+
+### 7.4 Neutral parties
+* Neutral towns, Staff towns and neutral ports shall not be attacked or camped.
+
+### 7.5 Warzone nodes
+* Only a nation whose territory borders a Warzone may retain nodes captured in that Warzone. Where a non-bordering nation prevails, Staff shall reassign the nodes manually.
+
+### 7.6 Warzone conduct
+* All rules governing war apply in a Warzone. Section 5.5 applies to Warzone entrances and exits.
+
+### 7.7 Operation of war
+* The following describe how war operates and impose no obligation on Players:
+  * (a) Staff declare war and conduct the roleplay announcement. A Player cannot declare war.
+  * (b) A Player may capture only chunks adjacent to land held by the Player's side, and only from nations at war with the Player's nation, except in a skirmish or deathwar.
+  * (c) During war a Player may loot enemy town chests. After war the Server withholds access to those chests. Player corpses may be looted at any time.
+  * (d) A captured town that has no lives remaining joins the conquering nation when the war ends.
+  * (e) A Player cannot leave, split or switch nations, or cede nodes.
+
+## 8. Penalties
+
+### 8.1 Progressive penalties
+* Staff impose penalties progressively according to the schedule in Section 8.2. The schedule states typical penalties only, and every penalty is subject to Staff discretion.
+* The staff reference is the [Infraction Guidelines sheet](https://docs.google.com/spreadsheets/d/14l6BO-DI-rIeCiI21nU32plxJAe989of-PJR6fp1dxs/edit?usp=sharing).
+
+### 8.2 Schedule of penalties
+
+| Category | Severity | 1st offence | 2nd offence | 3rd offence | 4th offence | Examples |
+| --- | --- | --- | --- | --- | --- | --- |
+| Chat | Minor | Warn | 1-4h mute | 1-3d mute | 7-9d mute | Spamming chat, minor harassment of Staff |
+| Chat | Medium | 1-3h mute | 1d mute | 10-12d mute | 2d ban | Low-level racism, advertising, inappropriate debates |
+| Chat | Major | 5-7d mute + 1h ban | 14-18d mute + 1d ban | 7d ban + perm mute | 7d ban + perm mute | Slurs, encouraging self-harm, doxx threats, extreme Hate Speech |
+| Build | Minor | 1d ban | 2-4d ban | 6-8d ban | 12-16d ban | Repeat Meme Builds after a warning (including excessive griefing), nerdpoles, block glitching, ambush forts, illegal walls |
+| Build | Medium | 2-4d ban | 6-8d ban | iter ban | iter ban | Instant-kill traps, teleport-cancelling traps, sky bases |
+| Build | Major | iter ban | blacklist | blacklist | blacklist | Lag machines |
+| General | Minor | 1-2d ban | 2-4d ban | 6-8d ban | iter ban | Spawn camping outside war, combat-log bypass |
+| General | Medium | 3-5d ban | 6-8d ban | iter ban | iter ban | Minor duping, failure to report Exploits or violations, lying to Staff, abusing donator permissions, unapproved alternate accounts |
+| General | Major | iter ban | blacklist | blacklist | blacklist | Major duping or exploiting, assisting blacklisted Players |
+| War | Minor | 30m-1h ban | 2-4d ban | 6-8d ban | 12-16d ban | Sky capping, illegal Flag placement |
+| War | Medium | 1-2d ban | 3-7d ban | 10-12d ban | iter ban | Sky artillery or vehicles |
+| War | Major | 4-6d ban | 14-16d ban | iter ban | iter ban | Nation sabotage |
+| Nation | Minor | 7-9d ban | iter ban | iter ban | iter ban | Insiding, griefing the Player's own nation |
+| Nation | Major | iter ban | iter ban | iter ban | iter ban | Promoting illegal action in a nation, illegal nation actions |
+| Modifications | Minor | 3-4d ban | iter ban | iter ban | iter ban | Small illegal modifications: mouse tweaks, inventory move, mining macros |
+| Modifications | Major | iter ban | blacklist | blacklist | blacklist | Major cheats (ESP, triggerbot, aimbot), refusing a screenshare |
+| Admin+ | Blacklist | blacklist | blacklist | blacklist | blacklist | Doxxing, sexual harassment, grooming, predatory action, real-money trading, repeated violations |
+| Ban evasion | Major | iter ban + IP ban | blacklist | blacklist | blacklist | Playing while banned on another account |
