@@ -25,6 +25,7 @@ import dev.kord.gateway.Intent
 import dev.kord.gateway.Intents
 import dev.kord.rest.builder.interaction.ChatInputCreateBuilder
 import dev.kord.rest.builder.interaction.attachment
+import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.message.actionRow
 import dev.kord.rest.builder.message.allowedMentions
@@ -92,7 +93,7 @@ internal object DiscordBot {
                         ?: null.also { System.err.println("[Discord] /schemupload channel not found; is the bot in that server?") }
                 } ?: guildId
             val names =
-                nodes.names + setOf("link", "unlink", "account") +
+                nodes.names + setOf("link", "unlink", "account", "imageupload") +
                     setOfNotNull("paste".takeIf { pastes != null }, "schemupload".takeIf { schems != null })
             if (pastes != null) {
                 web =
@@ -264,6 +265,22 @@ internal object DiscordBot {
                                                 pickerLink = link
                                                 landLink = land
                                             }
+                                        "imageupload" -> {
+                                            val file = command.attachments["image"]
+                                            CommandReply(
+                                                ImageUpload.upload(
+                                                    links,
+                                                    nodes,
+                                                    http,
+                                                    id,
+                                                    file?.filename,
+                                                    file?.size ?: 0,
+                                                    file?.url,
+                                                    command.strings["name"].orEmpty(),
+                                                    command.integers["cols"]?.toInt() ?: 2,
+                                                ),
+                                            )
+                                        }
                                         "schemupload" -> {
                                             val file = command.attachments["schematic"]
                                             when {
@@ -359,6 +376,7 @@ internal object DiscordBot {
                         "link" -> "Link your Minecraft account using an in-game /discord link code"
                         "paste" -> "Paste a schematic (${PasteOrders.COST_PER_CHUNK} gems per new chunk); no file shows your paid chunks"
                         "schemupload" -> "Upload a .schem to the server for //schem load in-game (upload channel only)"
+                        "imageupload" -> "Upload a PNG or JPEG to show in item frames (ranked players)"
                         "unlink" -> "Revoke this Discord account's access to your Minecraft account"
                         "account" -> "Show your linked Minecraft account"
                         in Punishments.commandNames -> "Staff: run the in-game /$name command as your linked account"
@@ -381,6 +399,17 @@ internal object DiscordBot {
                         "schemupload" -> {
                             attachment("schematic", "Sponge .schem file") { required = true }
                             string("name", "Name for //schem load; defaults to the file name") { maxLength = 48 }
+                        }
+                        "imageupload" -> {
+                            attachment("image", "PNG or JPEG, up to 5 MB") { required = true }
+                            string("name", "Name to use with /image give in Minecraft") {
+                                required = true
+                                maxLength = 24
+                            }
+                            integer("cols", "Tiles wide, 1-4 (height follows the image; default 2)") {
+                                minValue = 1
+                                maxValue = 4
+                            }
                         }
                         "unlink", "account" -> Unit
                         in Punishments.commandNames -> PunishmentOptions.register(this, name)

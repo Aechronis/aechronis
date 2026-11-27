@@ -71,6 +71,7 @@ include(
     ":modules:guard",
     ":modules:duels",
     ":modules:printer",
+    ":modules:imagemaps",
     ":modules:iterations:a-new-millenium",
     ":modules:iterations:victorian-era",
 )

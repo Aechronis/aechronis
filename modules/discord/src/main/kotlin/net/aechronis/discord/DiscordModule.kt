@@ -17,7 +17,7 @@ import java.nio.file.Path
 
 class DiscordModule : AechronisModule {
     override val id = "discord"
-    override val dependencies = setOf("nodes", "luckperms", "economy", "worldedit", "punishments")
+    override val dependencies = setOf("nodes", "luckperms", "economy", "worldedit", "punishments", "imagemaps")
 
     private var job: Job? = null
 

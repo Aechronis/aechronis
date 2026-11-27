@@ -57,6 +57,10 @@ object ItemFrames {
     @Volatile
     private var accessChecker: ((Player, BlockVec, FrameAction) -> Boolean)? = null
 
+    /** Called when a player starts viewing a frame that holds an item, and when an item is inserted. */
+    @Volatile
+    var viewerHook: ((Player, ItemStack) -> Unit)? = null
+
     enum class FrameAction { PLACE, INTERACT, BREAK }
 
     fun setAccessChecker(checker: ((Player, BlockVec, FrameAction) -> Boolean)?) {
@@ -120,6 +124,7 @@ object ItemFrames {
         val held = event.player.getItemInHand(event.hand)
         if (meta.item.isAir && !held.isAir) {
             meta.item = held.withAmount(1)
+            viewerHook?.let { hook -> entity.viewers.forEach { hook(it, meta.item) } }
             if (event.player.gameMode != GameMode.CREATIVE) {
                 event.player.setItemInHand(event.hand, held.withAmount(held.amount() - 1))
             }
@@ -308,7 +313,13 @@ object ItemFrames {
         glowing: Boolean,
         face: BlockFace,
     ): Entity =
-        Entity(if (glowing) EntityType.GLOW_ITEM_FRAME else EntityType.ITEM_FRAME).also { entity ->
+        object : Entity(if (glowing) EntityType.GLOW_ITEM_FRAME else EntityType.ITEM_FRAME) {
+            override fun updateNewViewer(player: Player) {
+                super.updateNewViewer(player)
+                val item = (entityMeta as? ItemFrameMeta)?.item?.takeUnless(ItemStack::isAir) ?: return
+                viewerHook?.invoke(player, item)
+            }
+        }.also { entity ->
             // AbstractDecorationEntity is static and has no gravity in vanilla.
             entity.setHasPhysics(false)
             entity.setNoGravity(true)

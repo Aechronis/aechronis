@@ -19,6 +19,7 @@ tasks.named<ShadowJar>("shadowJar") {
 
 dependencies {
     compileOnly(project(":modules:economy"))
+    compileOnly(project(":modules:imagemaps"))
     compileOnly(project(":modules:nodes"))
     compileOnly(project(":modules:punishments"))
     compileOnly(project(":modules:worldedit"))
