@@ -4,6 +4,7 @@ import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.constants.DiplomaticRelationship
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TownFly
 import net.aechronis.server.Server
 import net.minestom.server.entity.Player
 import net.minestom.server.event.entity.EntityDamageEvent
@@ -16,6 +17,13 @@ object NodesPlayerDamageListener {
         if (victim !is Player || attacker !is Player) return
         // Town diplomacy only applies in the main world; duel arenas run in their own instances.
         if (victim.instance !== Server.instance) return
+
+        // flying (or recently flown) players can't attack
+        if (attacker !== victim && TownFly.isPvpLocked(attacker)) {
+            event.isCancelled = true
+            Message.error(attacker, "You cannot attack players while flying or for a while after")
+            return
+        }
 
         // if relationship is ally, town or nation, and config specifies it, cancel event and notify attacker
         val relationship = Town.relationshipOfPlayerToPlayer(victim, attacker)
@@ -39,7 +47,17 @@ object NodesPlayerDamageListener {
         }
     }
 
+    // runs after protection listeners (e.g. Guard safe zones), so only real hits end flight
+    private fun onDamageApplied(event: EntityDamageEvent) {
+        if (event.isCancelled) return
+        val victim = event.entity as? Player ?: return
+        val attacker = event.damage.attacker as? Player ?: return
+        if (attacker === victim || victim.instance !== Server.instance) return
+        TownFly.onPvpHit(victim)
+    }
+
     fun init() {
         Nodes.eventNode.addListener(EntityDamageEvent::class.java, this::onDamage)
+        Nodes.lowPriorityEventNode.addListener(EntityDamageEvent::class.java, this::onDamageApplied)
     }
 }

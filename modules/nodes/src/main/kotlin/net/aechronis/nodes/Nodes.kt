@@ -68,6 +68,7 @@ import net.aechronis.nodes.objects.TerritoryPreprocessing
 import net.aechronis.nodes.objects.TerritoryResources
 import net.aechronis.nodes.objects.TestTownSelection
 import net.aechronis.nodes.objects.Town
+import net.aechronis.nodes.objects.TownFly
 import net.aechronis.nodes.objects.TownMembershipRequests
 import net.aechronis.nodes.objects.Trains
 import net.aechronis.nodes.objects.WaypointMenu
@@ -185,6 +186,7 @@ object Nodes {
             ColonizationMenu.init()
             TrainsListener.init()
             ActiveBuildings.init()
+            TownFly.start()
             WaypointMenu.init()
             FlagsMenu.init()
             FactoriesMenu.init()
@@ -292,6 +294,7 @@ object Nodes {
         cleanupStage(CleanupStage.FLAGS_MENU, FlagsMenu::closeAll)
         cleanupStage(CleanupStage.TREASURY_MENU, TownTreasuryCommand::closeAll)
         cleanupStage(CleanupStage.ACTIVE_BUILDINGS, ActiveBuildings::shutdown)
+        cleanupStage(CleanupStage.TOWN_FLY, TownFly::stop)
         cleanupStage(CleanupStage.WARP_TASKS, PortWarpTask::cancelAll)
         cleanupStage(CleanupStage.MEMBERSHIP_REQUESTS) { captureLive(TownMembershipRequests::clear) }
         cleanupStage(CleanupStage.RESIDENTS) {
@@ -354,6 +357,7 @@ object Nodes {
         FLAGS_MENU,
         TREASURY_MENU,
         ACTIVE_BUILDINGS,
+        TOWN_FLY,
         WARP_TASKS,
         MEMBERSHIP_REQUESTS,
         RESIDENTS,

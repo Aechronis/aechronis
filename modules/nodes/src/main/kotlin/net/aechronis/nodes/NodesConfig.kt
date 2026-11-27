@@ -98,6 +98,12 @@ data class NodesConfig(
     // Time a player must wait after voluntarily leaving a town before joining another.
     val townLeaveJoinCooldown: Long = 86_400_000, // 1 day
 
+    // Time a player can't attack other players while using /town fly and after it ends.
+    val townFlyPvpLockTime: Long = 180_000, // 3 minutes
+
+    // Remaining pvp lock after a flying or recently flying player is hit by another player.
+    val townFlyPvpLockAfterHitTime: Long = 30_000,
+
     // Whether voluntarily leaving a town applies the town-join cooldown.
     var townLeavePenaltyEnabled: Boolean = true,
 

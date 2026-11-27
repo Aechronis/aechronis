@@ -1,5 +1,6 @@
 package net.aechronis.nodes.commands
 
+import net.aechronis.combat.managers.CombatTags
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.objects.NodesCommand
@@ -88,13 +89,18 @@ class TownFlyCommand : NodesCommand("fly", "nodes.fly") {
                 return@addSyntax
             }
 
+            if (CombatTags.isInCombat(player)) {
+                Message.error(player, "Cannot fly while in combat")
+                return@addSyntax
+            }
+
             if (!TownFly.isAllowed(town, Territory.fromPlayer(player))) {
                 Message.error(player, "You must be in your town or nation to enable flight")
                 return@addSyntax
             }
 
-            player.isAllowFlying = true
-            Message.print(player, "Enabled flight")
+            TownFly.enable(player)
+            Message.print(player, "Enabled flight. You can't attack players while flying or for a while after")
         })
     }
 }
