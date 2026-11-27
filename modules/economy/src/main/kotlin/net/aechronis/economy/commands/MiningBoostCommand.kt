@@ -7,14 +7,13 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.CommandContext
 import net.minestom.server.command.builder.arguments.ArgumentType
-import net.minestom.server.entity.Player
 
 class MiningBoostCommand : Command("miningboost", "economy.admin") {
     init {
-        setDefaultExecutor { player, _ ->
-            CommandOutput.send(player, Component.text("Usage: /miningboost <haste|boost> <multiplier> <time>", NamedTextColor.AQUA))
+        setSenderDefaultExecutor { sender, _ ->
+            CommandOutput.send(sender, Component.text("Usage: /miningboost <haste|boost> <multiplier> <time>", NamedTextColor.AQUA))
             CommandOutput.send(
-                player,
+                sender,
                 Component.text("Time accepts seconds by default, or ms, s, m, h, and d suffixes (for example: 30m)", NamedTextColor.AQUA),
             )
         }
@@ -23,24 +22,24 @@ class MiningBoostCommand : Command("miningboost", "economy.admin") {
         val multiplierArg = ArgumentType.Integer("multiplier")
         val timeArg = ArgumentType.Word("time")
 
-        addSyntax({ player: Player, context: CommandContext ->
+        addSenderSyntax({ sender, context: CommandContext ->
             val duration = parseMiningBoostDuration(context[timeArg])
             if (duration == null) {
                 CommandOutput.send(
-                    player,
+                    sender,
                     Component.text(
                         "Invalid time. Use a positive number of seconds, or add ms, s, m, h, or d (for example: 30m)",
                         NamedTextColor.RED,
                     ),
                 )
-                return@addSyntax
+                return@addSenderSyntax
             }
 
             MiningBoostManager
                 .addBoost(context[typeArg], context[multiplierArg], duration)
                 .onSuccess { boost ->
                     CommandOutput.send(
-                        player,
+                        sender,
                         Component.text(
                             "Global ${context[typeArg]} ${boost.multiplier}x activated for ${formatMiningBoostDuration(
                                 boost.remainingMillis,
@@ -49,7 +48,7 @@ class MiningBoostCommand : Command("miningboost", "economy.admin") {
                         ),
                     )
                 }.onFailure { error ->
-                    CommandOutput.send(player, Component.text(error.message ?: "Failed to activate mining boost", NamedTextColor.RED))
+                    CommandOutput.send(sender, Component.text(error.message ?: "Failed to activate mining boost", NamedTextColor.RED))
                 }
         }, typeArg, multiplierArg, timeArg)
     }

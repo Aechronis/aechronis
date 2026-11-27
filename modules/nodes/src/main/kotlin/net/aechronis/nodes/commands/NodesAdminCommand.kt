@@ -3,12 +3,12 @@ package net.aechronis.nodes.commands
 import net.aechronis.nodes.Message
 import net.aechronis.nodes.objects.NodesCommand
 import net.aechronis.nodes.utils.ChatColor
-import net.minestom.server.entity.Player
+import net.minestom.server.command.CommandSender
 
 class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            printNodesAdminHelp(player)
+        setSenderDefaultExecutor { sender, context ->
+            printNodesAdminHelp(sender)
         }
 
         addSubcommand(NodesAdminHelpCommand())
@@ -30,13 +30,13 @@ class NodesAdminCommand : NodesCommand("nodesadmin", "nodes.admin", "nda") {
 
 class NodesAdminHelpCommand : NodesCommand("help", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            printNodesAdminHelp(player)
+        setSenderDefaultExecutor { sender, context ->
+            printNodesAdminHelp(sender)
         }
     }
 }
 
-private fun printNodesAdminHelp(sender: Player) {
+private fun printNodesAdminHelp(sender: CommandSender) {
     Message.print(sender, "[Nodes] Admin commands:")
     Message.print(sender, "/nodesadmin war${ChatColor.WHITE}: Enable/disable war")
     Message.print(sender, "/nodesadmin warzone${ChatColor.WHITE}: Manage warzones")

@@ -18,12 +18,12 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 
 class NodesAdminBuildingCommand : NodesCommand("building", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "${ChatColor.AQUA}/nodesadmin building create${ChatColor.WHITE}: Create a new building")
-            Message.print(player, "${ChatColor.AQUA}/nodesadmin building delete${ChatColor.WHITE}: Delete the building in your current chunk")
-            Message.print(player, "${ChatColor.AQUA}/nodesadmin building settier${ChatColor.WHITE}: Set tier of the building in your current chunk")
-            Message.print(player, "${ChatColor.AQUA}/nda building setprogress${ChatColor.WHITE}: Set active factory production progress in your current chunk")
-            Message.print(player, "Run a command with no args to see usage.")
+        setSenderDefaultExecutor { sender, context ->
+            Message.print(sender, "${ChatColor.AQUA}/nodesadmin building create${ChatColor.WHITE}: Create a new building")
+            Message.print(sender, "${ChatColor.AQUA}/nodesadmin building delete${ChatColor.WHITE}: Delete the building in your current chunk")
+            Message.print(sender, "${ChatColor.AQUA}/nodesadmin building settier${ChatColor.WHITE}: Set tier of the building in your current chunk")
+            Message.print(sender, "${ChatColor.AQUA}/nda building setprogress${ChatColor.WHITE}: Set active factory production progress in your current chunk")
+            Message.print(sender, "Run a command with no args to see usage.")
         }
 
         addSubcommand(NodesAdminBuildingCreateCommand())
@@ -158,8 +158,8 @@ class NodesAdminBuildingDeleteCommand : NodesCommand("delete", "nodes.admin") {
 
 class NodesAdminBuildingSetTierCommand : NodesCommand("settier", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin building settier <tier>")
+        setSenderDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin building settier <tier>")
         }
 
         val tierArg = ArgumentType.Integer("tier").between(1, 3)

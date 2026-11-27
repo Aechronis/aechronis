@@ -45,13 +45,13 @@ class WarzoneCommand : NodesCommand("warzone") {
 
 class NodesAdminWarzoneCommand : NodesCommand("warzone", "nodes.admin") {
     init {
-        setDefaultExecutor { player, _, _ ->
-            Message.print(player, "Usage: /nda warzone create <start> <duration> <territory-ids>")
-            Message.print(player, "  start: now, a delay like 2h or 1d6h, or a time like 2026-10-04T18:00 (${zone().id})")
-            Message.print(player, "  duration: like 90m, 2h or 1d12h")
-            Message.print(player, "/nda warzone list")
-            Message.print(player, "/nda warzone stop <territory-id> (end now and award)")
-            Message.print(player, "/nda warzone cancel <territory-id> (remove without award)")
+        setSenderDefaultExecutor { sender, _ ->
+            Message.print(sender, "Usage: /nda warzone create <start> <duration> <territory-ids>")
+            Message.print(sender, "  start: now, a delay like 2h or 1d6h, or a time like 2026-10-04T18:00 (${zone().id})")
+            Message.print(sender, "  duration: like 90m, 2h or 1d12h")
+            Message.print(sender, "/nda warzone list")
+            Message.print(sender, "/nda warzone stop <territory-id> (end now and award)")
+            Message.print(sender, "/nda warzone cancel <territory-id> (remove without award)")
         }
 
         addSubcommand(NodesAdminWarzoneCreateCommand())
@@ -63,24 +63,24 @@ class NodesAdminWarzoneCommand : NodesCommand("warzone", "nodes.admin") {
 
 private class NodesAdminWarzoneCreateCommand : NodesCommand("create", "nodes.admin") {
     init {
-        setDefaultExecutor { player, _, _ ->
-            Message.print(player, "Usage: /nda warzone create <start> <duration> <territory-ids>")
+        setSenderDefaultExecutor { sender, _ ->
+            Message.print(sender, "Usage: /nda warzone create <start> <duration> <territory-ids>")
         }
 
         val startArg = ArgumentType.Word("start")
         val durationArg = ArgumentType.Word("duration")
         val territoriesArg = ArgumentTerritoryArray.create("territory-ids")
-        addSyntax({ player, _, context ->
+        addSenderSyntax({ sender, context ->
             val now = System.currentTimeMillis()
             val start = parseStart(context[startArg], now)
             if (start == null) {
-                Message.error(player, "Invalid start. Use now, a delay like 2h, or a time like 2026-10-04T18:00 (${zone().id})")
-                return@addSyntax
+                Message.error(sender, "Invalid start. Use now, a delay like 2h, or a time like 2026-10-04T18:00 (${zone().id})")
+                return@addSenderSyntax
             }
             val duration = parseDuration(context[durationArg])
             if (duration == null) {
-                Message.error(player, "Invalid duration. Use something like 90m, 2h or 1d12h")
-                return@addSyntax
+                Message.error(sender, "Invalid duration. Use something like 90m, 2h or 1d12h")
+                return@addSenderSyntax
             }
             val territories = context[territoriesArg].distinctBy { it.id }
             val end = start + duration
@@ -88,12 +88,12 @@ private class NodesAdminWarzoneCreateCommand : NodesCommand("create", "nodes.adm
                 .onSuccess {
                     val ids = territories.joinToString(", ") { it.id.toString() }
                     Message.print(
-                        player,
+                        sender,
                         "Warzone scheduled for territories $ids from ${formatInstant(start)} to ${formatInstant(end)} " +
                             "(starts ${if (start <= now) "now" else "in ${Warzone.formatDuration(start - now)}"})",
                     )
                 }
-                .onFailure { error -> Message.error(player, error.message ?: "Failed to schedule warzone") }
+                .onFailure { error -> Message.error(sender, error.message ?: "Failed to schedule warzone") }
         }, startArg, durationArg, territoriesArg)
     }
 }
@@ -118,30 +118,30 @@ private class NodesAdminWarzoneListCommand : NodesCommand("list", "nodes.admin")
 
 private class NodesAdminWarzoneStopCommand : NodesCommand("stop", "nodes.admin") {
     init {
-        setDefaultExecutor { player, _, _ ->
-            Message.print(player, "Usage: /nda warzone stop <territory-id>")
+        setSenderDefaultExecutor { sender, _ ->
+            Message.print(sender, "Usage: /nda warzone stop <territory-id>")
         }
 
         val territoryArg = ArgumentTerritory.create("territory-id")
-        addSyntax({ player, _, context ->
+        addSenderSyntax({ sender, context ->
             Warzone.stop(context[territoryArg])
-                .onFailure { error -> Message.error(player, error.message ?: "Failed to stop warzone") }
+                .onFailure { error -> Message.error(sender, error.message ?: "Failed to stop warzone") }
         }, territoryArg)
     }
 }
 
 private class NodesAdminWarzoneCancelCommand : NodesCommand("cancel", "nodes.admin") {
     init {
-        setDefaultExecutor { player, _, _ ->
-            Message.print(player, "Usage: /nda warzone cancel <territory-id>")
+        setSenderDefaultExecutor { sender, _ ->
+            Message.print(sender, "Usage: /nda warzone cancel <territory-id>")
         }
 
         val territoryArg = ArgumentTerritory.create("territory-id")
-        addSyntax({ player, _, context ->
+        addSenderSyntax({ sender, context ->
             val territory = context[territoryArg]
             Warzone.cancel(territory)
-                .onSuccess { Message.print(player, "Cancelled warzone for territory ${territory.id}; nothing was awarded") }
-                .onFailure { error -> Message.error(player, error.message ?: "Failed to cancel warzone") }
+                .onSuccess { Message.print(sender, "Cancelled warzone for territory ${territory.id}; nothing was awarded") }
+                .onFailure { error -> Message.error(sender, error.message ?: "Failed to cancel warzone") }
         }, territoryArg)
     }
 }

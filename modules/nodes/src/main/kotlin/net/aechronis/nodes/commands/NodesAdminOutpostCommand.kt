@@ -7,8 +7,8 @@ import net.aechronis.nodes.objects.Outposts
 
 class NodesAdminOutpostCommand : NodesCommand("outpost", "nodes.admin") {
     init {
-        setDefaultExecutor { player, _, _ ->
-            Message.print(player, "Usage: /nda outpost add|remove <territory-id>, /nda outpost list")
+        setSenderDefaultExecutor { sender, _ ->
+            Message.print(sender, "Usage: /nda outpost add|remove <territory-id>, /nda outpost list")
         }
         addSubcommand(OutpostChangeCommand("add", Outposts::add, "is now a mining outpost"))
         addSubcommand(OutpostChangeCommand("remove", Outposts::remove, "is no longer a mining outpost"))
@@ -22,22 +22,22 @@ private class OutpostChangeCommand(
     private val success: String,
 ) : NodesCommand(name, "nodes.admin") {
     init {
-        setDefaultExecutor { player, _, _ -> Message.print(player, "Usage: /nda outpost $name <territory-id>") }
+        setSenderDefaultExecutor { sender, _ -> Message.print(sender, "Usage: /nda outpost $name <territory-id>") }
         val territoryArg = ArgumentTerritory.create("territory-id")
-        addSyntax({ player, _, context ->
+        addSenderSyntax({ sender, context ->
             val territory = context[territoryArg]
             change(territory)
-                .onSuccess { Message.print(player, "Territory ${territory.id} $success") }
-                .onFailure { error -> Message.error(player, error.message ?: "Failed") }
+                .onSuccess { Message.print(sender, "Territory ${territory.id} $success") }
+                .onFailure { error -> Message.error(sender, error.message ?: "Failed") }
         }, territoryArg)
     }
 }
 
 private class OutpostListCommand : NodesCommand("list", "nodes.admin") {
     init {
-        setDefaultExecutor { player, _, _ ->
+        setSenderDefaultExecutor { sender, _ ->
             val ids = Outposts.all()
-            Message.print(player, if (ids.isEmpty()) "No mining outposts" else "Mining outposts: ${ids.joinToString(", ")}")
+            Message.print(sender, if (ids.isEmpty()) "No mining outposts" else "Mining outposts: ${ids.joinToString(", ")}")
         }
     }
 }

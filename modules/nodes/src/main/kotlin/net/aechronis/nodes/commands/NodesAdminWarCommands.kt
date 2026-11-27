@@ -11,10 +11,10 @@ import net.minestom.server.adventure.audience.Audiences
 
 class NodesAdminWarCommand : NodesCommand("war", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            FlagWar.printInfo(player, true)
-            Message.print(player, "Toggle state: \"/nodesadmin war [enable|disable|skirmish|deathwar]\"")
-            Message.print(player, "Release all war occupations: \"/nodesadmin war releaseall\"")
+        setSenderDefaultExecutor { sender, context ->
+            FlagWar.printInfo(sender, true)
+            Message.print(sender, "Toggle state: \"/nodesadmin war [enable|disable|skirmish|deathwar]\"")
+            Message.print(sender, "Release all war occupations: \"/nodesadmin war releaseall\"")
         }
 
         addSubcommand(NodesAdminWarEnableCommand())
@@ -27,25 +27,25 @@ class NodesAdminWarCommand : NodesCommand("war", "nodes.admin") {
 
 class NodesAdminWarReleaseAllCommand : NodesCommand("releaseall", "nodes.admin") {
     init {
-        addSyntax({ player, resident, context ->
+        addSenderSyntax({ sender, context ->
             // A running war tracks defeats and owed lives against occupied homes; releasing them mid-war would desync that.
             if (FlagWar.enabled) {
-                Message.error(player, "Disable the war first")
-                return@addSyntax
+                Message.error(sender, "Disable the war first")
+                return@addSenderSyntax
             }
             val released = FlagWar.releaseWarOccupations()
-            Message.print(player, "Released $released occupied territories (colonies and warzones kept)")
+            Message.print(sender, "Released $released occupied territories (colonies and warzones kept)")
         })
     }
 }
 
 class NodesAdminWarEnableCommand : NodesCommand("enable", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin war enable")
+        setSenderDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin war enable")
         }
 
-        addSyntax({ player, resident, context ->
+        addSenderSyntax({ sender, context ->
             FlagWar.enable(canAnnexTerritories = true, canOnlyAttackBorders = false, destructionEnabled = true)
             Message.broadcast("${ChatColor.DARK_RED}${ChatColor.BOLD}Nodes war enabled")
 
@@ -57,11 +57,11 @@ class NodesAdminWarEnableCommand : NodesCommand("enable", "nodes.admin") {
 
 class NodesAdminWarDeathWarCommand : NodesCommand("deathwar", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin war deathwar")
+        setSenderDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin war deathwar")
         }
 
-        addSyntax({ player, resident, context ->
+        addSenderSyntax({ sender, context ->
             FlagWar.enable(
                 canAnnexTerritories = true,
                 canOnlyAttackBorders = false,
@@ -76,16 +76,16 @@ class NodesAdminWarDeathWarCommand : NodesCommand("deathwar", "nodes.admin") {
 
 class NodesAdminWarDisableCommand : NodesCommand("disable", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin war disable")
+        setSenderDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin war disable")
         }
 
-        addSyntax({ player, resident, context ->
+        addSenderSyntax({ sender, context ->
             if (FlagWar.enabled) {
                 FlagWar.disable()
                 Message.broadcast("${ChatColor.BOLD}Nodes war disabled")
             } else {
-                Message.error(player, "Nodes war already disabled")
+                Message.error(sender, "Nodes war already disabled")
             }
         })
     }
@@ -93,11 +93,11 @@ class NodesAdminWarDisableCommand : NodesCommand("disable", "nodes.admin") {
 
 class NodesAdminWarSkirmishCommand : NodesCommand("skirmish", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin war skirmish")
+        setSenderDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin war skirmish")
         }
 
-        addSyntax({ player, resident, context ->
+        addSenderSyntax({ sender, context ->
             FlagWar.enable(
                 canAnnexTerritories = false,
                 canOnlyAttackBorders = true,

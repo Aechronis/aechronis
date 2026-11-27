@@ -20,7 +20,7 @@ const val LOOKUP_USAGE =
 
 class LoggerLookupCommand : Command("lookup", "logger.lookup", "l") {
     init {
-        setDefaultExecutor { sender, _ -> sender.sendMessage(Component.text(LOOKUP_USAGE, NamedTextColor.GOLD)) }
+        setSenderDefaultExecutor { sender, _ -> sender.sendMessage(Component.text(LOOKUP_USAGE, NamedTextColor.GOLD)) }
         val params =
             ArgumentType.StringArray("params").setSuggestionCallback { sender, context, suggestion ->
                 LookupSuggestions.suggest(sender, context, suggestion)

@@ -8,9 +8,9 @@ import net.minestom.server.command.builder.arguments.ArgumentType
 
 class NodesAdminResidentCommand : NodesCommand("resident", "nodes.admin") {
     init {
-        setDefaultExecutor { player, _, _ ->
-            Message.print(player, "Usage: /nda resident removecooldown <player-names>")
-            Message.print(player, "Usage: /nda resident leavepenalty <allow|deny>")
+        setSenderDefaultExecutor { sender, _ ->
+            Message.print(sender, "Usage: /nda resident removecooldown <player-names>")
+            Message.print(sender, "Usage: /nda resident leavepenalty <allow|deny>")
         }
 
         addSubcommand(NodesAdminResidentRemoveCooldownCommand())
@@ -20,16 +20,16 @@ class NodesAdminResidentCommand : NodesCommand("resident", "nodes.admin") {
 
 class NodesAdminResidentRemoveCooldownCommand : NodesCommand("removecooldown", "nodes.admin") {
     init {
-        setDefaultExecutor { player, _, _ ->
-            Message.print(player, "Usage: /nda resident removecooldown <player-names>")
+        setSenderDefaultExecutor { sender, _ ->
+            Message.print(sender, "Usage: /nda resident removecooldown <player-names>")
         }
 
         val playersArg = ArgumentResidentArray.create("player-names")
 
-        addSyntax({ player, _, context ->
+        addSenderSyntax({ sender, context ->
             context[playersArg].forEach { resident ->
                 resident.clearTownJoinCooldown()
-                Message.print(player, "Removed town-join cooldown for \"${resident.name}\"")
+                Message.print(sender, "Removed town-join cooldown for \"${resident.name}\"")
             }
         }, playersArg)
     }
@@ -37,16 +37,16 @@ class NodesAdminResidentRemoveCooldownCommand : NodesCommand("removecooldown", "
 
 class NodesAdminResidentLeavePenaltyCommand : NodesCommand("leavepenalty", "nodes.admin") {
     init {
-        setDefaultExecutor { player, _, _ ->
-            Message.print(player, "Usage: /nda resident leavepenalty <allow|deny>")
+        setSenderDefaultExecutor { sender, _ ->
+            Message.print(sender, "Usage: /nda resident leavepenalty <allow|deny>")
         }
 
         val flagArg = ArgumentType.Word("flag").from("allow", "deny")
-        addSyntax({ player, _, context ->
+        addSenderSyntax({ sender, context ->
             val enabled = context[flagArg] == "allow"
             Nodes.config.townLeavePenaltyEnabled = enabled
             val state = if (enabled) "enabled" else "disabled"
-            Message.print(player, "Town leave penalty $state for future voluntary leaves")
+            Message.print(sender, "Town leave penalty $state for future voluntary leaves")
         }, flagArg)
     }
 }

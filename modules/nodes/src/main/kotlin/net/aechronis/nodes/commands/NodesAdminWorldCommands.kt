@@ -37,8 +37,8 @@ class NodesAdminTeleportCommand : NodesCommand("teleport", "nodes.admin") {
 
 class NodesAdminReasorceCommand : NodesCommand("reasorce", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin reasorce <remove|add> <territory-id> <reasorce-node>")
+        setSenderDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin reasorce <remove|add> <territory-id> <reasorce-node>")
         }
 
         val territoryArg = ArgumentTerritory.create("territory-id")
@@ -74,25 +74,25 @@ class NodesAdminReasorceCommand : NodesCommand("reasorce", "nodes.admin") {
 
 class NodesAdminSaveCommand : NodesCommand("save", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage:")
-            Message.print(player, "/nodesadmin save")
-            Message.print(player, "/nodesadmin save <sync>")
+        setSenderDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage:")
+            Message.print(sender, "/nodesadmin save")
+            Message.print(sender, "/nodesadmin save <sync>")
         }
 
         val syncArg = ArgumentType.Boolean("sync")
 
-        addSyntax({ player, resident, context ->
-            Message.print(player, "[Nodes] Saving world (async)")
+        addSenderSyntax({ sender, context ->
+            Message.print(sender, "[Nodes] Saving world (async)")
             Nodes.saveWorld(checkIfNeedsSave = false, async = true)
         })
 
-        addSyntax({ player, resident, context ->
+        addSenderSyntax({ sender, context ->
             if (context[syncArg]) {
-                Message.print(player, "[Nodes] Saving world (sync)")
+                Message.print(sender, "[Nodes] Saving world (sync)")
                 Nodes.saveWorld(checkIfNeedsSave = false, async = false)
             } else {
-                Message.print(player, "[Nodes] Saving world (async)")
+                Message.print(sender, "[Nodes] Saving world (async)")
                 Nodes.saveWorld(checkIfNeedsSave = false, async = true)
             }
         }, syncArg)
@@ -101,18 +101,18 @@ class NodesAdminSaveCommand : NodesCommand("save", "nodes.admin") {
 
 class NodesAdminLoadCommand : NodesCommand("load", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin load")
+        setSenderDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin load")
         }
 
-        addSyntax({ player, resident, context ->
-            Message.print(player, "[Nodes] Loading world")
+        addSenderSyntax({ sender, context ->
+            Message.print(sender, "[Nodes] Loading world")
             try {
                 Nodes.loadWorld()
             } catch (error: Exception) {
                 System.err.println("[Nodes] Failed to reload world: ${error.message}")
                 error.printStackTrace()
-                Message.error(player, "Failed to load world: ${error.message}. Saving is suspended; correct the data and run /nda load again.")
+                Message.error(sender, "Failed to load world: ${error.message}. Saving is suspended; correct the data and run /nda load again.")
             }
         })
     }
@@ -120,12 +120,12 @@ class NodesAdminLoadCommand : NodesCommand("load", "nodes.admin") {
 
 class NodesAdminRunIncomeCommand : NodesCommand("runincome", "nodes.admin") {
     init {
-        setDefaultExecutor { player, resident, context ->
-            Message.print(player, "Usage: /nodesadmin runincome")
+        setSenderDefaultExecutor { sender, context ->
+            Message.print(sender, "Usage: /nodesadmin runincome")
         }
 
-        addSyntax({ player, resident, context ->
-            Message.print(player, "Running incomes for all towns")
+        addSenderSyntax({ sender, context ->
+            Message.print(sender, "Running incomes for all towns")
             Nodes.runIncome()
         })
     }

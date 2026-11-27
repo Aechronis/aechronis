@@ -15,6 +15,7 @@ import net.aechronis.combat.listeners.HatListener
 import net.aechronis.combat.objects.Explosion
 import net.aechronis.combat.objects.HatMenu
 import net.aechronis.combat.objects.Hitbox
+import net.aechronis.combat.objects.Item
 import net.aechronis.combat.objects.VehicleCollisionEntity
 import net.aechronis.combat.objects.VehicleRegistry
 import net.aechronis.combat.storage.HatCollection
@@ -26,7 +27,7 @@ import net.minestom.server.entity.Player
 
 class CombatAdminCommand : Command("combatadmin", "combat.admin", "ca") {
     init {
-        setDefaultExecutor { sender, _ ->
+        setSenderDefaultExecutor { sender, _ ->
             Message.print(sender, "[Combat] Admin commands:")
             Message.print(sender, "/combatadmin give: Give yourself various items")
             Message.print(sender, "/combatadmin explosion: Make an explosion")
@@ -43,23 +44,38 @@ class CombatAdminCommand : Command("combatadmin", "combat.admin", "ca") {
 
 class CombatAdminGiveCommand : Command("give", "combat.admin") {
     init {
-        setDefaultExecutor { sender, _ ->
-            Message.print(sender, "Usage: /combatadmin give <item-name>")
+        setSenderDefaultExecutor { sender, _ ->
+            Message.print(sender, "Usage: /combatadmin give <item-name> [player-name]")
         }
 
         val itemArg = ArgumentItem.create("item-name")
+        val playerArg = ArgumentEntity("player-name").onlyPlayers(true).singleEntity(true)
 
-        addSyntax({ player: Player, context ->
-            val item = context[itemArg]
-            val stack = item.toItemStack()
-            if (!player.inventory.addItemStack(stack)) player.dropItem(stack)
-        }, itemArg)
+        addSyntax({ player: Player, context -> giveItem(player, context[itemArg]) }, itemArg)
+
+        addSenderSyntax({ sender, context ->
+            val target =
+                context[playerArg].findFirstPlayer(sender) ?: run {
+                    Message.error(sender, "Player not found")
+                    return@addSenderSyntax
+                }
+            giveItem(target, context[itemArg])
+            Message.print(sender, "Gave ${context[itemArg].name} to ${target.username}")
+        }, itemArg, playerArg)
     }
+}
+
+private fun giveItem(
+    player: Player,
+    item: Item,
+) {
+    val stack = item.toItemStack()
+    if (!player.inventory.addItemStack(stack)) player.dropItem(stack)
 }
 
 class CombatAdminExplosionCommand : Command("explosion", "combat.admin") {
     init {
-        setDefaultExecutor { sender, _ ->
+        setSenderDefaultExecutor { sender, _ ->
             Message.print(sender, "Usage: /combatadmin explosion <radius> <fire> <damage>")
         }
 
@@ -105,7 +121,7 @@ class CombatAdminHitboxCommand : Command("hitbox", "combat.admin") {
 
 class CombatAdminHatCommand : Command("hat", "combat.admin") {
     init {
-        setDefaultExecutor { sender, _ ->
+        setSenderDefaultExecutor { sender, _ ->
             Message.print(sender, "Usage:")
             Message.print(sender, "/combatadmin hat give <player-name> <hat-name>")
             Message.print(sender, "/combatadmin hat remove <player-name> <hat-number>")
@@ -121,15 +137,15 @@ class CombatAdminHatGiveCommand : Command("give", "combat.admin") {
         val playerArg = ArgumentEntity("player-name").onlyPlayers(true).singleEntity(true)
         val hatArg = ArgumentHat.create("hat-name")
 
-        setDefaultExecutor { sender, _ ->
+        setSenderDefaultExecutor { sender, _ ->
             Message.print(sender, "Usage: /combatadmin hat give <player-name> <hat-name>")
         }
 
-        addSyntax({ sender: Player, context ->
+        addSenderSyntax({ sender, context ->
             val target =
                 context[playerArg].findFirstPlayer(sender) ?: run {
                     Message.print(sender, "Player not found")
-                    return@addSyntax
+                    return@addSenderSyntax
                 }
             val hat = context[hatArg]
 
@@ -145,21 +161,21 @@ class CombatAdminHatRemoveCommand : Command("remove", "combat.admin") {
         val playerArg = ArgumentEntity("player-name").onlyPlayers(true).singleEntity(true)
         val numberArg = ArgumentType.Long("hat-number").min(1L)
 
-        setDefaultExecutor { sender, _ ->
+        setSenderDefaultExecutor { sender, _ ->
             Message.print(sender, "Usage: /combatadmin hat remove <player-name> <hat-number>")
         }
 
-        addSyntax({ sender: Player, context ->
+        addSenderSyntax({ sender, context ->
             val target =
                 context[playerArg].findFirstPlayer(sender) ?: run {
                     Message.print(sender, "Player not found")
-                    return@addSyntax
+                    return@addSenderSyntax
                 }
             val number = context[numberArg]
             val hat =
                 HatCollection.remove(target.uuid, number) ?: run {
                     Message.error(sender, "${target.username} does not own hat #$number")
-                    return@addSyntax
+                    return@addSenderSyntax
                 }
             HatListener.refresh(target)
             HatMenu.refresh(target)

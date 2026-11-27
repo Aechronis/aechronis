@@ -55,7 +55,7 @@ class NodesAdminTrainsCommand : NodesCommand("trains", "nodes.admin") {
         val remove = ArgumentType.Literal("remove")
         val station = stationArgument("station-id")
 
-        addSyntax({ player, _, context ->
+        addSyntax({ player, resident, context ->
             Trains.scan(context[station].id, player.instance).onSuccess { count ->
                 Message.print(player, "Scanned station ${context[station].id}: found $count connection(s)")
             }.onFailure { error ->
@@ -68,27 +68,27 @@ class NodesAdminTrainsCommand : NodesCommand("trains", "nodes.admin") {
             Message.print(player, "Rescanned all stations: found $count connection(s)")
         }, scanAll)
 
-        addSyntax({ player, _, context ->
+        addSyntax({ player, resident, context ->
             val target = context[station]
             player.teleport(Pos(target.position.x() + 0.5, target.position.y() + 1.0, target.position.z() + 0.5, player.position.yaw, player.position.pitch))
             Message.print(player, "Teleported to station ${target.id}")
         }, teleport, station)
 
-        addSyntax({ player, _, context ->
+        addSenderSyntax({ sender, context ->
             val target = context[station]
             Trains.setBanned(target.id, true).onSuccess {
-                Message.print(player, "Station ${target.id} banned")
+                Message.print(sender, "Station ${target.id} banned")
             }.onFailure { error ->
-                Message.error(player, error.message ?: "Failed to ban station")
+                Message.error(sender, error.message ?: "Failed to ban station")
             }
         }, ban, station)
 
-        addSyntax({ player, _, context ->
+        addSenderSyntax({ sender, context ->
             val target = context[station]
             Trains.setBanned(target.id, false).onSuccess {
-                Message.print(player, "Station ${target.id} unbanned")
+                Message.print(sender, "Station ${target.id} unbanned")
             }.onFailure { error ->
-                Message.error(player, error.message ?: "Failed to unban station")
+                Message.error(sender, error.message ?: "Failed to unban station")
             }
         }, unban, station)
 
@@ -106,10 +106,10 @@ class NodesAdminTrainsCommand : NodesCommand("trains", "nodes.admin") {
             }
         }, list)
 
-        addSyntax({ player, _, context ->
+        addSenderSyntax({ sender, context ->
             val station = context[station]
             Trains.remove(station.id)
-            Message.print(player, "Removed station ${station.id}")
+            Message.print(sender, "Removed station ${station.id}")
         }, remove, station)
     }
 }

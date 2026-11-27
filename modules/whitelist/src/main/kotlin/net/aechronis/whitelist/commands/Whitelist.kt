@@ -6,14 +6,13 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.builder.arguments.ArgumentType
-import net.minestom.server.entity.Player
 import net.aechronis.whitelist.managers.Whitelist as WhitelistManager
 
 class Whitelist : Command("whitelist", "whitelist.manage") {
     init {
-        setDefaultExecutor { player: Player, _ ->
-            player.sendMessage(Component.text("Usage:", NamedTextColor.LIGHT_PURPLE))
-            player.sendMessage(Component.text("/whitelist <toggle|enforce|add|remove> [player] [tier]", NamedTextColor.LIGHT_PURPLE))
+        setSenderDefaultExecutor { sender, _ ->
+            sender.sendMessage(Component.text("Usage:", NamedTextColor.LIGHT_PURPLE))
+            sender.sendMessage(Component.text("/whitelist <toggle|enforce|add|remove> [player] [tier]", NamedTextColor.LIGHT_PURPLE))
         }
 
         val toggleArg = ArgumentType.Literal("toggle")
@@ -29,17 +28,17 @@ class Whitelist : Command("whitelist", "whitelist.manage") {
                     WhitelistManager.SUPER_ADMIN_TIER,
                 ).setDefaultValue(WhitelistManager.WEAK_TIER)
 
-        addSyntax({ sender: Player, _ ->
+        addSenderSyntax({ sender, _ ->
             val enabled = WhitelistManager.toggle()
             sender.sendMessage(Component.text("Whitelist is now ${if (enabled) "enabled" else "disabled"}", NamedTextColor.LIGHT_PURPLE))
         }, toggleArg)
 
-        addSyntax({ sender: Player, _ ->
+        addSenderSyntax({ sender, _ ->
             WhitelistManager.enforce()
             sender.sendMessage(Component.text("Whitelist enforced. Non-whitelisted players have been kicked.", NamedTextColor.LIGHT_PURPLE))
         }, enforceArg)
 
-        addSyntax({ sender: Player, context ->
+        addSenderSyntax({ sender, context ->
             val name = context[playerArg]
             if (name == "*") {
                 val players = MinecraftServer.getConnectionManager().onlinePlayers.toList()
@@ -57,7 +56,7 @@ class Whitelist : Command("whitelist", "whitelist.manage") {
             }
         }, addArg, playerArg, tierArg)
 
-        addSyntax({ sender: Player, context ->
+        addSenderSyntax({ sender, context ->
             val name = context[playerArg]
             if (name == "*") {
                 val players = MinecraftServer.getConnectionManager().onlinePlayers.toList()

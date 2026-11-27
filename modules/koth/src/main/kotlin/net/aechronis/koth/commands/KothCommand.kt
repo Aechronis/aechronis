@@ -4,6 +4,7 @@ import net.aechronis.koth.Koth
 import net.aechronis.utils.Command
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.minestom.server.command.CommandSender
 import net.minestom.server.command.builder.CommandContext
 import net.minestom.server.command.builder.arguments.ArgumentType
 import net.minestom.server.entity.Player
@@ -26,10 +27,10 @@ class KothCommand : Command("koth", "vanilla.koth") {
     private val dayOfWeekArg = ArgumentType.Word("day-of-week")
 
     init {
-        setDefaultExecutor { sender: Player, _ -> sendList(sender) }
-        addSyntax("vanilla.koth", { sender: Player, _ -> sendList(sender) }, ArgumentType.Literal("list"))
+        setSenderDefaultExecutor { sender, _ -> sendList(sender) }
+        addSenderSyntax("vanilla.koth", { sender, _ -> sendList(sender) }, ArgumentType.Literal("list"))
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             val created = Koth.add(name, context[captureSecondsArg], context[eventSecondsArg], context[radiusArg])
             sender.message(
@@ -60,22 +61,22 @@ class KothCommand : Command("koth", "vanilla.koth") {
             )
         }, ArgumentType.Literal("pos2"), nameArg)
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             sender.message(if (Koth.remove(name)) "Removed KOTH $name." else "Unable to remove KOTH $name. Stop it first.")
         }, ArgumentType.Literal("remove"), nameArg)
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             sender.message(if (Koth.start(name)) "Started KOTH $name." else "Unable to start KOTH $name. Check its world and corners.")
         }, ArgumentType.Literal("start"), nameArg)
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             sender.message(if (Koth.stop(name)) "Stopped KOTH $name." else "KOTH $name is not active.")
         }, ArgumentType.Literal("stop"), nameArg)
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             sender.message(
                 if (Koth.addReward(
@@ -90,18 +91,18 @@ class KothCommand : Command("koth", "vanilla.koth") {
             )
         }, ArgumentType.Literal("reward"), ArgumentType.Literal("add"), nameArg, rewardArg)
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             sender.message(if (Koth.removeReward(name, context[indexArg])) "Removed reward command." else "Unknown reward command index.")
         }, ArgumentType.Literal("reward"), ArgumentType.Literal("remove"), nameArg, indexArg)
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             val rewards = Koth.rewards(name)
             sender.message(rewards?.mapIndexed { index, command -> "$index: $command" }?.joinToString(" | ") ?: "Unknown KOTH: $name")
         }, ArgumentType.Literal("reward"), ArgumentType.Literal("list"), nameArg)
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             val crate = context[crateArg]
             val keys = context[keysArg]
@@ -114,19 +115,19 @@ class KothCommand : Command("koth", "vanilla.koth") {
             )
         }, ArgumentType.Literal("crate"), ArgumentType.Literal("set"), nameArg, crateArg, keysArg)
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             sender.message(if (Koth.setCrate(name, null)) "Removed the crate key reward from $name." else "Unknown KOTH: $name")
         }, ArgumentType.Literal("crate"), ArgumentType.Literal("clear"), nameArg)
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             sender.message(Koth.crate(name)?.let { "$name crate reward: $it" } ?: "Unknown KOTH: $name")
         }, ArgumentType.Literal("crate"), ArgumentType.Literal("info"), nameArg)
 
-        addSyntax(
+        addSenderSyntax(
             "vanilla.koth.admin",
-            { sender: Player, context ->
+            { sender, context ->
                 val name = context[nameArg]
                 sender.message(
                     if (Koth.addSchedule(name, scheduleExpression(context))) {
@@ -146,9 +147,9 @@ class KothCommand : Command("koth", "vanilla.koth") {
             dayOfWeekArg,
         )
 
-        addSyntax(
+        addSenderSyntax(
             "vanilla.koth.admin",
-            { sender: Player, context ->
+            { sender, context ->
                 val name = context[nameArg]
                 sender.message(
                     if (Koth.removeSchedule(name, scheduleExpression(context))) {
@@ -168,13 +169,13 @@ class KothCommand : Command("koth", "vanilla.koth") {
             dayOfWeekArg,
         )
 
-        addSyntax("vanilla.koth.admin", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth.admin", { sender, context ->
             val name = context[nameArg]
             sender.message(Koth.schedules(name)?.joinToString(", ") ?: "Unknown KOTH: $name")
         }, ArgumentType.Literal("schedule"), ArgumentType.Literal("list"), nameArg)
 
-        addSyntax("vanilla.koth", { sender: Player, _ -> sendStatuses(sender) }, ArgumentType.Literal("status"))
-        addSyntax("vanilla.koth", { sender: Player, context ->
+        addSenderSyntax("vanilla.koth", { sender, _ -> sendStatuses(sender) }, ArgumentType.Literal("status"))
+        addSenderSyntax("vanilla.koth", { sender, context ->
             val name = context[nameArg]
             sender.message(Koth.status(name) ?: "Unknown KOTH: $name")
         }, ArgumentType.Literal("status"), nameArg)
@@ -189,12 +190,12 @@ class KothCommand : Command("koth", "vanilla.koth") {
             context[dayOfWeekArg],
         ).joinToString(" ")
 
-    private fun sendList(sender: Player) {
+    private fun sendList(sender: CommandSender) {
         val names = Koth.configuredNames()
         sender.message(if (names.isEmpty()) "No KOTHS are configured." else "KOTHS: ${names.joinToString(", ")}")
     }
 
-    private fun sendStatuses(sender: Player) {
+    private fun sendStatuses(sender: CommandSender) {
         val names = Koth.configuredNames()
         if (names.isEmpty()) {
             sender.message("No KOTHS are configured.")
@@ -203,5 +204,5 @@ class KothCommand : Command("koth", "vanilla.koth") {
         names.forEach { name -> sender.message(Koth.status(name)!!) }
     }
 
-    private fun Player.message(text: String) = sendMessage(Component.text(text, NamedTextColor.LIGHT_PURPLE))
+    private fun CommandSender.message(text: String) = sendMessage(Component.text(text, NamedTextColor.LIGHT_PURPLE))
 }

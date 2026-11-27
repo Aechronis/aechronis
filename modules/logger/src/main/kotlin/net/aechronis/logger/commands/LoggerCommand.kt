@@ -6,7 +6,7 @@ import net.kyori.adventure.text.format.NamedTextColor
 
 class LoggerCommand : Command("logger", null, "lo") {
     init {
-        setDefaultExecutor { sender, _ ->
+        setSenderDefaultExecutor { sender, _ ->
             sender.sendMessage(
                 Component.text(
                     "Usage: /logger inspect | lookup | snapshot | rollback | restore | restorechunk | undo | redo | safety | recover",

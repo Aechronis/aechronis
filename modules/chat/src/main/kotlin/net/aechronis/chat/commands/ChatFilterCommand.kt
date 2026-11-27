@@ -5,7 +5,6 @@ import net.aechronis.utils.Command
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentType
-import net.minestom.server.entity.Player
 
 class ChatFilterCommand : Command("chatfilter", PERMISSION) {
     companion object {
@@ -16,32 +15,32 @@ class ChatFilterCommand : Command("chatfilter", PERMISSION) {
     private val wordArg = ArgumentType.Word("word")
 
     init {
-        setDefaultExecutor { player: Player, _ ->
-            player.sendMessage(Component.text("Usage:", NamedTextColor.LIGHT_PURPLE))
-            player.sendMessage(Component.text("/chatfilter add <word>", NamedTextColor.LIGHT_PURPLE))
-            player.sendMessage(Component.text("/chatfilter remove <word>", NamedTextColor.LIGHT_PURPLE))
-            player.sendMessage(Component.text("/chatfilter list", NamedTextColor.LIGHT_PURPLE))
+        setSenderDefaultExecutor { sender, _ ->
+            sender.sendMessage(Component.text("Usage:", NamedTextColor.LIGHT_PURPLE))
+            sender.sendMessage(Component.text("/chatfilter add <word>", NamedTextColor.LIGHT_PURPLE))
+            sender.sendMessage(Component.text("/chatfilter remove <word>", NamedTextColor.LIGHT_PURPLE))
+            sender.sendMessage(Component.text("/chatfilter list", NamedTextColor.LIGHT_PURPLE))
         }
 
-        addSyntax({ player: Player, _ ->
-            player.sendMessage(Component.text("Blocked words: ${ChatFilter.list().joinToString(", ")}", NamedTextColor.LIGHT_PURPLE))
+        addSenderSyntax({ sender, _ ->
+            sender.sendMessage(Component.text("Blocked words: ${ChatFilter.list().joinToString(", ")}", NamedTextColor.LIGHT_PURPLE))
         }, ArgumentType.Literal("list"))
 
-        addSyntax({ player: Player, context ->
+        addSenderSyntax({ sender, context ->
             val word = ChatFilter.normalizeWord(context[wordArg])
             when {
-                word.isEmpty() -> player.sendMessage(Component.text("Words must contain letters.", NamedTextColor.RED))
-                ChatFilter.add(word) -> player.sendMessage(Component.text("Added '$word' to the chat filter.", NamedTextColor.GREEN))
-                else -> player.sendMessage(Component.text("'$word' is already filtered.", NamedTextColor.RED))
+                word.isEmpty() -> sender.sendMessage(Component.text("Words must contain letters.", NamedTextColor.RED))
+                ChatFilter.add(word) -> sender.sendMessage(Component.text("Added '$word' to the chat filter.", NamedTextColor.GREEN))
+                else -> sender.sendMessage(Component.text("'$word' is already filtered.", NamedTextColor.RED))
             }
         }, ArgumentType.Literal("add"), wordArg)
 
-        addSyntax({ player: Player, context ->
+        addSenderSyntax({ sender, context ->
             val word = ChatFilter.normalizeWord(context[wordArg])
             if (ChatFilter.remove(word)) {
-                player.sendMessage(Component.text("Removed '$word' from the chat filter.", NamedTextColor.GREEN))
+                sender.sendMessage(Component.text("Removed '$word' from the chat filter.", NamedTextColor.GREEN))
             } else {
-                player.sendMessage(Component.text("'$word' is not filtered.", NamedTextColor.RED))
+                sender.sendMessage(Component.text("'$word' is not filtered.", NamedTextColor.RED))
             }
         }, ArgumentType.Literal("remove"), wordArg)
     }
