@@ -24,8 +24,13 @@ class CratesCommand : Command("crates", null, "keys") {
     private val amountArg = ArgumentType.Integer("amount").min(1)
 
     init {
-        setDefaultExecutor { player: Player, _ -> showKeys(player) }
-        addSyntax({ player: Player, _ -> showKeys(player) }, ArgumentType.Literal("keys"))
+        setSenderDefaultExecutor(null) { sender, _ -> showOwnKeys(sender) }
+        addSenderSyntax(null, { sender, _ -> showOwnKeys(sender) }, ArgumentType.Literal("keys"))
+
+        addSenderSyntax(ADMIN, { sender, context ->
+            val target = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(context[playerArg])
+            if (target == null) sender.reply("${context[playerArg]} is not online.", NamedTextColor.RED) else showKeys(sender, target)
+        }, ArgumentType.Literal("keys"), playerArg)
 
         addSenderSyntax(ADMIN, { sender, _ ->
             sender.reply(if (Crates.ids().isEmpty()) "No crates exist." else "Crates: ${Crates.ids().joinToString(", ")}")
@@ -113,13 +118,21 @@ class CratesCommand : Command("crates", null, "keys") {
         }, ArgumentType.Literal("take"), playerArg, crateArg, amountArg)
     }
 
-    private fun showKeys(player: Player) {
-        val keys = CrateKeys.all(player.uuid)
+    private fun showOwnKeys(sender: CommandSender) {
+        if (sender is Player) showKeys(sender, sender) else sender.reply("Usage: /keys keys <player>", NamedTextColor.RED)
+    }
+
+    private fun showKeys(
+        sender: CommandSender,
+        target: Player,
+    ) {
+        val keys = CrateKeys.all(target.uuid)
+        val who = if (sender === target) "You don't" else "${target.username} doesn't"
         if (keys.isEmpty()) {
-            player.reply("You don't have any crate keys.")
+            sender.reply("$who have any crate keys.")
             return
         }
-        player.reply(keys.entries.joinToString(", ") { (crate, count) -> "${Crates.title(crate)}: $count" })
+        sender.reply(keys.entries.joinToString(", ") { (crate, count) -> "${Crates.title(crate)}: $count" })
     }
 
     private fun CommandSender.result(
