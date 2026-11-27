@@ -111,6 +111,7 @@ object ImagesMenu {
         if (event.slot == PREVIOUS_PAGE_SLOT && session.page > 0) return openPage(player, session, session.page - 1)
         if (event.slot == NEXT_PAGE_SLOT && session.page < session.lastPage) return openPage(player, session, session.page + 1)
         val image = session.entries.getOrNull(event.slot) ?: return
+        if (ImageMaps.all().none { it.firstMapId == image.firstMapId }) return player.error("That image was deleted")
 
         val now = System.currentTimeMillis()
         cooldowns.values.removeIf { it <= now }
