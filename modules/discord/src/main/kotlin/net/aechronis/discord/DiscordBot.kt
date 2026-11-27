@@ -45,6 +45,7 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import net.aechronis.imagemaps.ImageMaps
 import net.aechronis.punishments.Punishments
 import java.net.URLEncoder
 import java.nio.file.Files
@@ -60,6 +61,7 @@ internal object DiscordBot {
         punishmentLog: Snowflake? = null,
         adminRole: Snowflake? = null,
         schems: SchemUpload? = null,
+        imageReview: Snowflake? = null,
     ) {
         // Explicitly own the engine, including when Kord fails during construction.
         val engine = OkHttp.create()
@@ -93,8 +95,12 @@ internal object DiscordBot {
                         ?: null.also { System.err.println("[Discord] /schemupload channel not found; is the bot in that server?") }
                 } ?: guildId
             val names =
-                nodes.names + setOf("link", "unlink", "account", "imageupload") +
-                    setOfNotNull("paste".takeIf { pastes != null }, "schemupload".takeIf { schems != null })
+                nodes.names + setOf("link", "unlink", "account") +
+                    setOfNotNull(
+                        "paste".takeIf { pastes != null },
+                        "schemupload".takeIf { schems != null },
+                        "imageupload".takeIf { imageReview != null },
+                    )
             if (pastes != null) {
                 web =
                     try {
@@ -178,6 +184,54 @@ internal object DiscordBot {
                         throw error
                     } catch (error: Exception) {
                         System.err.println("[Discord] Paste button failed (${error.javaClass.simpleName})")
+                    }
+                }
+            }
+            if (imageReview != null) {
+                client.on<ButtonInteractionCreateEvent>(scope = scope) {
+                    val parts = interaction.componentId.split(":", limit = 2)
+                    if (parts.size != 2 || parts[0] !in setOf("image-approve", "image-reject")) return@on
+                    if (!requests.claim(interaction.id.toString())) return@on
+                    try {
+                        val response = interaction.deferEphemeralResponse()
+                        val approve = parts[0] == "image-approve"
+                        val (done, result) = ImageUpload.review(parts[1], approve)
+                        val old = interaction.message.embeds.firstOrNull()
+                        interaction.message.edit {
+                            allowedMentions { }
+                            embed {
+                                old?.apply(this)
+                                val label =
+                                    if (!done) {
+                                        "Not handled"
+                                    } else if (approve) {
+                                        "Approved"
+                                    } else {
+                                        "Rejected"
+                                    }
+                                title = "$label · ${old?.title.orEmpty()}"
+                                color = Color(if (done && approve) 0x57F287 else 0xED4245)
+                                field(
+                                    if (!done) {
+                                        "Handled by"
+                                    } else if (approve) {
+                                        "Approved by"
+                                    } else {
+                                        "Rejected by"
+                                    },
+                                    true,
+                                ) {
+                                    "<@${interaction.user.id}> (${interaction.user.username})"
+                                }
+                                field("Result") { result }
+                            }
+                            components = mutableListOf()
+                        }
+                        response.respond { content = "Done." }
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        System.err.println("[Discord] Image review button failed (${error.javaClass.simpleName})")
                     }
                 }
             }
@@ -279,7 +333,9 @@ internal object DiscordBot {
                                                     command.strings["name"].orEmpty(),
                                                     command.integers["cols"]?.toInt() ?: 2,
                                                     command.integers["rows"]?.toInt(),
-                                                ),
+                                                ) { entry, preview, discordId ->
+                                                    postImageForStaff(client, imageReview!!, entry, preview, discordId)
+                                                },
                                             )
                                         }
                                         "schemupload" -> {
@@ -495,6 +551,33 @@ private suspend fun submitPaste(
             .getOrElse { return CommandReply(it.message ?: "Could not process that schematic.") }
     onLink(pastes.webUrl + draft.id, false)
     return CommandReply("")
+}
+
+internal suspend fun postImageForStaff(
+    kord: Kord,
+    channel: Snowflake,
+    entry: ImageMaps.Pending,
+    preview: ByteArray,
+    discordId: String,
+) {
+    MessageChannelBehavior(channel, kord).createMessage {
+        allowedMentions { }
+        embed {
+            author { name = "${entry.ownerName} submitted an image" }
+            title = entry.name
+            description =
+                "<@$discordId> · ${entry.cols}×${entry.rows} tiles (${entry.cols * 128}×${entry.rows * 128} px)\n" +
+                "Check it for offensive content. Approved images appear in the public `/images` gallery."
+            color = Color(0xF0B232)
+            image = "attachment://preview.png"
+            footer { text = "Upload ${entry.id}" }
+        }
+        addFile("preview.png", ChannelProvider { ByteReadChannel(preview) })
+        actionRow {
+            interactionButton(ButtonStyle.Success, "image-approve:${entry.id}") { label = "Approve" }
+            interactionButton(ButtonStyle.Danger, "image-reject:${entry.id}") { label = "Reject" }
+        }
+    }
 }
 
 private suspend fun postForStaff(

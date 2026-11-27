@@ -9,15 +9,18 @@ import net.aechronis.vanilla.managers.ItemFrames
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.MapDataPacket
+import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import javax.imageio.ImageIO
 
 class ImageMapException(
     message: String,
@@ -50,7 +53,20 @@ object ImageMaps {
         val mapIds: IntRange get() = firstMapId until firstMapId + cols * rows
     }
 
+    /** An upload waiting for staff approval; its tiles live in `pending/<id>.bin` until approved or rejected. */
+    @Serializable
+    data class Pending(
+        val id: String,
+        val name: String,
+        val owner: String,
+        val ownerName: String,
+        val cols: Int,
+        val rows: Int,
+        val created: Long,
+    )
+
     private val images = linkedMapOf<Int, Image>()
+    private val pending = ConcurrentHashMap<String, Pending>()
     private val storage = JsonRegistryFile("imagemaps")
 
     // ponytail: tiles stay cached for the process lifetime (16 KB each); add eviction if galleries get large.
@@ -61,9 +77,19 @@ object ImageMaps {
     fun init(dir: Path) {
         this.dir = dir
         Files.createDirectories(dir.resolve("maps"))
+        Files.createDirectories(dir.resolve("pending"))
         ModulePermissions.register(UPLOAD_PERMISSION, USE_PERMISSION, BYPASS_PERMISSION)
         storage.load(dir.resolve("index.json"), images) { contents ->
             Json.decodeFromString<List<Image>>(contents).filter(::valid).associateBy(Image::firstMapId)
+        }
+        pending.clear()
+        Files.list(dir.resolve("pending")).use { paths ->
+            paths.filter { it.fileName.toString().endsWith(".json") }.forEach { path ->
+                runCatching { Json.decodeFromString<Pending>(Files.readString(path)) }
+                    .getOrNull()
+                    ?.takeIf(::valid)
+                    ?.let { pending[it.id] = it }
+            }
         }
         ItemFrames.viewerHook = { player, item -> item.get(DataComponents.MAP_ID)?.let { send(player, it) } }
     }
@@ -72,6 +98,7 @@ object ImageMaps {
         ItemFrames.viewerHook = null
         tileCache.clear()
         sent.clear()
+        pending.clear()
         synchronized(images) { images.clear() }
     }
 
@@ -88,28 +115,90 @@ object ImageMaps {
         name: String,
     ): Image? = list(owner).firstOrNull { it.name.equals(name, ignoreCase = true) }
 
-    /** Stores [tiles] for [owner]; throws [ImageMapException] with a player-facing reason on rejection. */
-    fun add(
+    /**
+     * Parks [tiles] for staff review; throws [ImageMapException] with a player-facing reason on rejection.
+     * Pending uploads count toward the quota so one player can't flood the review channel.
+     */
+    fun submit(
         owner: UUID,
         ownerName: String,
         name: String,
         tiles: Tiles,
         bypassQuota: Boolean,
-    ): Image =
+    ): Pending =
         synchronized(images) {
             if (!validName(name)) throw ImageMapException("Names are 1-24 letters, digits, '_' or '-'.")
             if (!storage.canSave) throw ImageMapException("Image storage is unavailable.")
-            if (find(owner, name) != null) throw ImageMapException("You already have an image named $name.")
-            if (list(owner).size >= MAX_IMAGES_PER_PLAYER && !bypassQuota) {
-                throw ImageMapException("You can store up to $MAX_IMAGES_PER_PLAYER images. Delete one first.")
+            val waiting = pending.values.filter { it.owner == owner.toString() }
+            if (find(owner, name) != null || waiting.any { it.name.equals(name, ignoreCase = true) }) {
+                throw ImageMapException("You already have an image named $name.")
             }
+            if (list(owner).size + waiting.size >= MAX_IMAGES_PER_PLAYER && !bypassQuota) {
+                throw ImageMapException(
+                    "You can have up to $MAX_IMAGES_PER_PLAYER images, counting ones awaiting review. Delete one first.",
+                )
+            }
+            val id = UUID.randomUUID().toString().take(8)
+            val entry = Pending(id, name, owner.toString(), ownerName, tiles.cols, tiles.rows, System.currentTimeMillis())
+            Files.write(pendingPath(id, "bin"), tiles.tiles.fold(ByteArray(0)) { all, tile -> all + tile })
+            Files.writeString(pendingPath(id, "json"), Json.encodeToString(entry))
+            pending[id] = entry
+            entry
+        }
+
+    /** What staff review: the quantized tiles stitched back into one PNG, exactly as they will look in frames. */
+    fun preview(id: String): ByteArray? {
+        val entry = pending[id] ?: return null
+        val out = ByteArrayOutputStream()
+        ImageIO.write(ImageQuantizer.render(readPending(entry)), "png", out)
+        return out.toByteArray()
+    }
+
+    /** Publishes a pending upload to the gallery; throws [ImageMapException] if it was already handled. */
+    fun approve(id: String): Image =
+        synchronized(images) {
+            val entry = pending[id] ?: throw ImageMapException("That upload was already handled.")
+            val owner = UUID.fromString(entry.owner)
+            if (find(owner, entry.name) != null) throw ImageMapException("${entry.ownerName} already has an image named ${entry.name}.")
+            val tiles = readPending(entry)
             val first = images.values.maxOfOrNull { it.mapIds.last + 1 } ?: FIRST_MAP_ID
-            val image = Image(name, owner.toString(), tiles.cols, tiles.rows, first, System.currentTimeMillis(), ownerName)
+            val image = Image(entry.name, entry.owner, entry.cols, entry.rows, first, System.currentTimeMillis(), entry.ownerName)
             tiles.tiles.forEachIndexed { index, data -> Files.write(tilePath(first + index), data) }
             images[first] = image
             save()
+            discard(id)
             image
         }
+
+    /** Drops a pending upload; null if it was already handled. */
+    fun reject(id: String): Pending? = synchronized(images) { pending[id]?.also { discard(id) } }
+
+    /** Tells the uploader the outcome if they are online; offline players just find the image in /images. */
+    fun notifyOwner(
+        owner: String,
+        message: String,
+    ) {
+        MinecraftServer
+            .getConnectionManager()
+            .getOnlinePlayerByUuid(UUID.fromString(owner))
+            ?.sendMessage(Component.text(message, NamedTextColor.LIGHT_PURPLE))
+    }
+
+    private fun discard(id: String) {
+        pending.remove(id)
+        Files.deleteIfExists(pendingPath(id, "bin"))
+        Files.deleteIfExists(pendingPath(id, "json"))
+    }
+
+    private fun readPending(entry: Pending): Tiles {
+        val bytes = Files.readAllBytes(pendingPath(entry.id, "bin"))
+        return Tiles(entry.cols, entry.rows, List(entry.cols * entry.rows) { bytes.copyOfRange(it * TILE_BYTES, (it + 1) * TILE_BYTES) })
+    }
+
+    private fun pendingPath(
+        id: String,
+        extension: String,
+    ) = dir.resolve("pending").resolve("$id.$extension")
 
     fun delete(
         owner: UUID,
@@ -183,4 +272,11 @@ object ImageMaps {
             image.cols in 1..ImageQuantizer.MAX_COLS &&
             image.rows in 1..ImageQuantizer.MAX_ROWS &&
             image.firstMapId >= FIRST_MAP_ID
+
+    private fun valid(entry: Pending) =
+        entry.id.matches(Regex("[0-9a-f]{8}")) &&
+            validName(entry.name) &&
+            runCatching { UUID.fromString(entry.owner) }.isSuccess &&
+            entry.cols in 1..ImageQuantizer.MAX_COLS &&
+            entry.rows in 1..ImageQuantizer.MAX_ROWS
 }

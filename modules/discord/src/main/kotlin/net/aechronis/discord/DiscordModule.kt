@@ -96,7 +96,7 @@ class DiscordModule : AechronisModule {
                 ?.takeIf { it > 0u }
                 ?.let { SchemUpload(Snowflake(it)) }
         if (schems == null) println("[Discord] /schemupload disabled: set DISCORD_SCHEM_UPLOAD_CHANNEL_ID")
-        scope.launch { DiscordBot.run(token, guildId, scope, links, commands, pastes, punishmentLog, adminRole, schems) }
+        scope.launch { DiscordBot.run(token, guildId, scope, links, commands, pastes, punishmentLog, adminRole, schems, staffChannel) }
     }
 
     override fun prepareForShutdown(context: ModuleContext) = stop()

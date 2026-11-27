@@ -3,6 +3,7 @@ package net.aechronis.discord
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.aechronis.imagemaps.ImageMapException
@@ -35,6 +36,7 @@ internal object ImageUpload {
         name: String,
         cols: Int,
         rows: Int?,
+        post: suspend (entry: ImageMaps.Pending, preview: ByteArray, discordId: String) -> Unit,
     ): String {
         val uuid = links.player(discordId) ?: return "Not linked. Run /discord link in Minecraft, then /link code:<code> here."
         if (!nodes.allowed(uuid, ImageMaps.UPLOAD_PERMISSION)) return "Your rank can't upload images."
@@ -50,19 +52,51 @@ internal object ImageUpload {
         return try {
             val bytes = http.get(url).body<ByteArray>()
             if (bytes.size > MAX_BYTES) return "Image must be under ${MAX_BYTES / 1_000_000} MB."
-            val image =
+            val entry =
                 withContext(Dispatchers.Default) {
                     val tiles = ImageQuantizer.quantize(decode(bytes), cols, rows)
-                    ImageMaps.add(uuid, ownerName, name, tiles, bypass)
+                    ImageMaps.submit(uuid, ownerName, name, tiles, bypass)
                 }
-            println("[Discord] $uuid uploaded image $name (${image.cols}x${image.rows})")
-            "Uploaded `${image.name}` as ${image.cols}x${image.rows} tiles. Anyone can take it with `/images` in game; put the tiles in item frames row by row, left to right."
+            try {
+                post(entry, ImageMaps.preview(entry.id) ?: error("preview missing"), discordId)
+            } catch (error: CancellationException) {
+                ImageMaps.reject(entry.id)
+                throw error
+            } catch (error: Exception) {
+                // Nobody can approve what staff never saw; drop it so it doesn't count against the quota.
+                ImageMaps.reject(entry.id)
+                System.err.println("[Discord] Could not post image for review (${error.javaClass.simpleName})")
+                return "Could not send your image to staff for review. Try again later."
+            }
+            println("[Discord] $uuid submitted image $name (${entry.cols}x${entry.rows}) for review")
+            "Sent `${entry.name}` (${entry.cols}x${entry.rows} tiles) to staff for review. You'll get a message in game when it's decided."
         } catch (error: ImageMapException) {
             error.message ?: "Could not store that image."
         } catch (_: IOException) {
             "Could not read that image."
         }
     }
+
+    /** Staff verdict on a pending upload; returns whether it succeeded and a line for the review message. */
+    suspend fun review(
+        id: String,
+        approve: Boolean,
+    ): Pair<Boolean, String> =
+        withContext(Dispatchers.IO) {
+            if (approve) {
+                try {
+                    val image = ImageMaps.approve(id)
+                    ImageMaps.notifyOwner(image.owner, "Your image ${image.name} was approved. Take it with /images.")
+                    true to "Approved `${image.name}` (${image.cols}x${image.rows} tiles); it is in /images now."
+                } catch (error: ImageMapException) {
+                    false to (error.message ?: "Could not approve that image.")
+                }
+            } else {
+                val entry = ImageMaps.reject(id) ?: return@withContext false to "That upload was already handled."
+                ImageMaps.notifyOwner(entry.owner, "Your image ${entry.name} was rejected by staff.")
+                true to "Rejected `${entry.name}`."
+            }
+        }
 
     // Reads the header first so a tiny file can't declare a huge canvas and exhaust memory on decode.
     private fun decode(bytes: ByteArray): BufferedImage {

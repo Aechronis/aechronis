@@ -123,6 +123,20 @@ object ImageQuantizer {
         return Tiles(tileCols, rows, tiles)
     }
 
+    /** Stitches [tiles] back into one image using the real map colours; transparent bytes stay transparent. */
+    fun render(tiles: Tiles): BufferedImage {
+        val image = BufferedImage(tiles.cols * TILE, tiles.rows * TILE, BufferedImage.TYPE_INT_ARGB)
+        tiles.tiles.forEachIndexed { tile, data ->
+            val originX = tile % tiles.cols * TILE
+            val originY = tile / tiles.cols * TILE
+            data.forEachIndexed { index, color ->
+                val value = color.toInt() and 0xFF
+                if (value >= 4) image.setRGB(originX + index % TILE, originY + index / TILE, palette[value] or (0xFF shl 24))
+            }
+        }
+        return image
+    }
+
     private fun nearest(argb: Int): Byte {
         if ((argb ushr 24) < 128) return 0
         val r = (argb shr 16) and 0xFF
