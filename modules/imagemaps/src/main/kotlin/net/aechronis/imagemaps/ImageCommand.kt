@@ -21,7 +21,9 @@ class ImageCommand : Command("image", ImageMaps.USE_PERMISSION) {
 
     init {
         setDefaultExecutor { player: Player, _ ->
-            player.message("Upload with /image upload in Discord. In game: /image list, /image give <name>, /image delete <name>.")
+            player.message(
+                "Upload with /imageupload in Discord. Browse everyone's images with /images. Yours: /image list, /image give <name>, /image delete <name>.",
+            )
         }
 
         addSyntax({ player: Player, _ ->

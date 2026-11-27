@@ -8,6 +8,7 @@ import kotlinx.coroutines.withContext
 import net.aechronis.imagemaps.ImageMapException
 import net.aechronis.imagemaps.ImageMaps
 import net.aechronis.imagemaps.ImageQuantizer
+import net.aechronis.nodes.objects.Resident
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.IOException
@@ -33,6 +34,7 @@ internal object ImageUpload {
         url: String?,
         name: String,
         cols: Int,
+        rows: Int?,
     ): String {
         val uuid = links.player(discordId) ?: return "Not linked. Run /discord link in Minecraft, then /link code:<code> here."
         if (!nodes.allowed(uuid, ImageMaps.UPLOAD_PERMISSION)) return "Your rank can't upload images."
@@ -44,16 +46,17 @@ internal object ImageUpload {
         val uri = runCatching { URI(url) }.getOrNull()
         if (uri?.scheme != "https" || uri.host?.lowercase() !in HOSTS) return "That attachment link isn't from Discord."
         val bypass = nodes.allowed(uuid, ImageMaps.BYPASS_PERMISSION)
+        val ownerName = onGameThread { Resident.fromUuid(uuid)?.name } ?: "unknown"
         return try {
             val bytes = http.get(url).body<ByteArray>()
             if (bytes.size > MAX_BYTES) return "Image must be under ${MAX_BYTES / 1_000_000} MB."
             val image =
                 withContext(Dispatchers.Default) {
-                    val tiles = ImageQuantizer.quantize(decode(bytes), cols)
-                    ImageMaps.add(uuid, name, tiles, bypass)
+                    val tiles = ImageQuantizer.quantize(decode(bytes), cols, rows)
+                    ImageMaps.add(uuid, ownerName, name, tiles, bypass)
                 }
             println("[Discord] $uuid uploaded image $name (${image.cols}x${image.rows})")
-            "Uploaded `${image.name}` as ${image.cols}x${image.rows} tiles. In game: `/image give ${image.name}`, then put the tiles in item frames row by row."
+            "Uploaded `${image.name}` as ${image.cols}x${image.rows} tiles. Anyone can take it with `/images` in game; put the tiles in item frames row by row, left to right."
         } catch (error: ImageMapException) {
             error.message ?: "Could not store that image."
         } catch (_: IOException) {

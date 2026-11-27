@@ -278,6 +278,7 @@ internal object DiscordBot {
                                                     file?.url,
                                                     command.strings["name"].orEmpty(),
                                                     command.integers["cols"]?.toInt() ?: 2,
+                                                    command.integers["rows"]?.toInt(),
                                                 ),
                                             )
                                         }
@@ -406,7 +407,11 @@ internal object DiscordBot {
                                 required = true
                                 maxLength = 24
                             }
-                            integer("cols", "Tiles wide, 1-4 (height follows the image; default 2)") {
+                            integer("cols", "Tiles wide, 1-4 (default 2)") {
+                                minValue = 1
+                                maxValue = 4
+                            }
+                            integer("rows", "Tiles tall, 1-4 (default: follows the image's shape)") {
                                 minValue = 1
                                 maxValue = 4
                             }

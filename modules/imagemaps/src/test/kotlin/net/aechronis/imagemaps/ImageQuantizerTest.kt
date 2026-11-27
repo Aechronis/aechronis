@@ -27,6 +27,17 @@ class ImageQuantizerTest {
     }
 
     @Test
+    fun `explicit rows override the aspect ratio`() {
+        val image = BufferedImage(512, 128, BufferedImage.TYPE_INT_ARGB)
+
+        val result = ImageQuantizer.quantize(image, 4, 4)
+
+        assertEquals(4, result.cols)
+        assertEquals(4, result.rows)
+        assertEquals(16, result.tiles.size)
+    }
+
+    @Test
     fun `tall images get more rows and tile order is row-major`() {
         val image = BufferedImage(128, 256, BufferedImage.TYPE_INT_ARGB)
         for (y in 0 until 256) {

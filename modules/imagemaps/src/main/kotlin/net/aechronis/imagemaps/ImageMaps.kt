@@ -45,6 +45,7 @@ object ImageMaps {
         val rows: Int,
         val firstMapId: Int,
         val created: Long,
+        val ownerName: String = "",
     ) {
         val mapIds: IntRange get() = firstMapId until firstMapId + cols * rows
     }
@@ -76,6 +77,9 @@ object ImageMaps {
 
     fun validName(name: String) = NAME.matches(name)
 
+    /** Every stored image, for the public `/images` browser. */
+    fun all(): List<Image> = synchronized(images) { images.values.sortedBy { it.name.lowercase() } }
+
     fun list(owner: UUID): List<Image> =
         synchronized(images) { images.values.filter { it.owner == owner.toString() }.sortedBy(Image::name) }
 
@@ -87,6 +91,7 @@ object ImageMaps {
     /** Stores [tiles] for [owner]; throws [ImageMapException] with a player-facing reason on rejection. */
     fun add(
         owner: UUID,
+        ownerName: String,
         name: String,
         tiles: Tiles,
         bypassQuota: Boolean,
@@ -99,7 +104,7 @@ object ImageMaps {
                 throw ImageMapException("You can store up to $MAX_IMAGES_PER_PLAYER images. Delete one first.")
             }
             val first = images.values.maxOfOrNull { it.mapIds.last + 1 } ?: FIRST_MAP_ID
-            val image = Image(name, owner.toString(), tiles.cols, tiles.rows, first, System.currentTimeMillis())
+            val image = Image(name, owner.toString(), tiles.cols, tiles.rows, first, System.currentTimeMillis(), ownerName)
             tiles.tiles.forEachIndexed { index, data -> Files.write(tilePath(first + index), data) }
             images[first] = image
             save()

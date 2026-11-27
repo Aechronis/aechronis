@@ -4,6 +4,7 @@ import net.aechronis.server.modules.AechronisModule
 import net.aechronis.server.modules.ModuleCommands
 import net.aechronis.server.modules.ModuleContext
 import net.aechronis.server.modules.ModuleScheduler
+import net.aechronis.utils.Command
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.timer.TaskSchedule
@@ -15,14 +16,19 @@ class ImageMapsModule : AechronisModule {
 
     override fun initialize(context: ModuleContext) {
         ImageMaps.init(Path.of("imagemaps"))
+        ImagesMenu.init(context)
         context.addListener(PlayerDisconnectEvent::class.java) { ImageMaps.forget(it.player) }
         // Maps reach inventories by pickup, chests and trades; rescanning is cheaper than hooking each path.
         ModuleScheduler
             .buildTask { MinecraftServer.getConnectionManager().onlinePlayers.forEach(ImageMaps::sendInventory) }
             .repeat(TaskSchedule.seconds(1))
             .schedule()
-        ModuleCommands.register(ImageCommand())
+        // No permission: like /flags, anyone can browse and take any image.
+        ModuleCommands.register(ImageCommand(), Command("images").apply { setDefaultExecutor { player, _ -> ImagesMenu.open(player) } })
     }
 
-    override fun shutdown(context: ModuleContext) = ImageMaps.shutdown()
+    override fun shutdown(context: ModuleContext) {
+        ImagesMenu.closeAll()
+        ImageMaps.shutdown()
+    }
 }

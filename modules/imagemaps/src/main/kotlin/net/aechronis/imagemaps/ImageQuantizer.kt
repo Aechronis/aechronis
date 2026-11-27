@@ -93,14 +93,20 @@ object ImageQuantizer {
             (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
         }
 
-    /** Scales to [cols] tiles wide (rows follow the aspect ratio, capped at [MAX_ROWS]) and quantizes. */
+    /**
+     * Scales to [cols] tiles wide and [rows] tall (stretching to fit), or, when [rows] is null, as tall as the
+     * aspect ratio suggests, capped at [MAX_ROWS]; then quantizes.
+     */
     fun quantize(
         source: BufferedImage,
         cols: Int,
+        rows: Int? = null,
     ): Tiles {
         val tileCols = cols.coerceIn(1, MAX_COLS)
         val width = tileCols * TILE
-        val rows = Math.round(width.toDouble() * source.height / source.width / TILE).toInt().coerceIn(1, MAX_ROWS)
+        val rows =
+            rows?.coerceIn(1, MAX_ROWS)
+                ?: Math.round(width.toDouble() * source.height / source.width / TILE).toInt().coerceIn(1, MAX_ROWS)
         val height = rows * TILE
         val scaled = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
         val graphics = scaled.createGraphics()
