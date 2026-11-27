@@ -181,31 +181,3 @@ The following are mandatory. Staff may remove any build that violates this Artic
   * (c) During war a Player may loot enemy town chests. After war the Server withholds access to those chests. Player corpses may be looted at any time.
   * (d) A captured town that has no lives remaining joins the conquering nation when the war ends.
   * (e) A Player cannot leave, split or switch nations, or cede nodes.
-
-## 8. Penalties
-
-### 8.1 Progressive penalties
-* Staff impose penalties progressively according to the schedule in Section 8.2. The schedule states typical penalties only, and every penalty is subject to Staff discretion.
-
-### 8.2 Schedule of penalties
-
-| Category | Severity | 1st offence | 2nd offence | 3rd offence | 4th offence | Examples |
-| --- | --- | --- | --- | --- | --- | --- |
-| Chat | Minor | Warn | 1-4h mute | 1-3d mute | 7-9d mute | Spamming chat, minor harassment of Staff |
-| Chat | Medium | 1-3h mute | 1d mute | 10-12d mute | 2d ban | Low-level racism, advertising, inappropriate debates |
-| Chat | Major | 5-7d mute + 1h ban | 14-18d mute + 1d ban | 7d ban + perm mute | 7d ban + perm mute | Slurs, encouraging self-harm, doxx threats, extreme Hate Speech |
-| Build | Minor | 1d ban | 2-4d ban | 6-8d ban | 12-16d ban | Repeat Meme Builds after a warning (including excessive griefing), nerdpoles, block glitching, ambush forts, illegal walls |
-| Build | Medium | 2-4d ban | 6-8d ban | iter ban | iter ban | Instant-kill traps, teleport-cancelling traps, sky bases |
-| Build | Major | iter ban | blacklist | blacklist | blacklist | Lag machines |
-| General | Minor | 1-2d ban | 2-4d ban | 6-8d ban | iter ban | Spawn camping outside war, combat-log bypass |
-| General | Medium | 3-5d ban | 6-8d ban | iter ban | iter ban | Minor duping, failure to report Exploits or violations, lying to Staff, abusing donator permissions, unapproved alternate accounts |
-| General | Major | iter ban | blacklist | blacklist | blacklist | Major duping or exploiting, assisting blacklisted Players |
-| War | Minor | 30m-1h ban | 2-4d ban | 6-8d ban | 12-16d ban | Sky capping, illegal Flag placement |
-| War | Medium | 1-2d ban | 3-7d ban | 10-12d ban | iter ban | Sky artillery or vehicles |
-| War | Major | 4-6d ban | 14-16d ban | iter ban | iter ban | Nation sabotage |
-| Nation | Minor | 7-9d ban | iter ban | iter ban | iter ban | Insiding, griefing the Player's own nation |
-| Nation | Major | iter ban | iter ban | iter ban | iter ban | Promoting illegal action in a nation, illegal nation actions |
-| Modifications | Minor | 3-4d ban | iter ban | iter ban | iter ban | Small illegal modifications: mouse tweaks, inventory move, mining macros |
-| Modifications | Major | iter ban | blacklist | blacklist | blacklist | Major cheats (ESP, triggerbot, aimbot), refusing a screenshare |
-| Admin+ | Blacklist | blacklist | blacklist | blacklist | blacklist | Doxxing, sexual harassment, grooming, predatory action, real-money trading, repeated violations |
-| Ban evasion | Major | iter ban + IP ban | blacklist | blacklist | blacklist | Playing while banned on another account |
