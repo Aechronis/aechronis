@@ -39,7 +39,12 @@ internal object ImageUpload {
         post: suspend (entry: ImageMaps.Pending, preview: ByteArray, discordId: String) -> Unit,
     ): String {
         val uuid = links.player(discordId) ?: return "Not linked. Run /discord link in Minecraft, then /link code:<code> here."
-        if (!nodes.allowed(uuid, ImageMaps.UPLOAD_PERMISSION)) return "Your rank can't upload images."
+        val limit =
+            if (nodes.allowed(uuid, ImageMaps.BYPASS_PERMISSION)) {
+                Int.MAX_VALUE
+            } else {
+                ImageMaps.TIERS.firstOrNull { nodes.allowed(uuid, "group.${it.first}") }?.second
+            } ?: return "Only Supporter ranks and above can upload images."
         if (filename == null || url == null || filename.substringAfterLast('.', "").lowercase() !in EXTENSIONS) {
             return "Attach a PNG or JPEG image (animated GIFs aren't supported yet)."
         }
@@ -47,7 +52,6 @@ internal object ImageUpload {
         if (!ImageMaps.validName(name)) return "Names are 1-24 letters, digits, '_' or '-'."
         val uri = runCatching { URI(url) }.getOrNull()
         if (uri?.scheme != "https" || uri.host?.lowercase() !in HOSTS) return "That attachment link isn't from Discord."
-        val bypass = nodes.allowed(uuid, ImageMaps.BYPASS_PERMISSION)
         val ownerName = onGameThread { Resident.fromUuid(uuid)?.name } ?: "unknown"
         return try {
             val bytes = http.get(url).body<ByteArray>()
@@ -55,7 +59,7 @@ internal object ImageUpload {
             val entry =
                 withContext(Dispatchers.Default) {
                     val tiles = ImageQuantizer.quantize(decode(bytes), cols, rows)
-                    ImageMaps.submit(uuid, ownerName, name, tiles, bypass)
+                    ImageMaps.submit(uuid, ownerName, name, tiles, limit)
                 }
             try {
                 post(entry, ImageMaps.preview(entry.id) ?: error("preview missing"), discordId)

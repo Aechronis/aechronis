@@ -28,12 +28,11 @@ class ImageMapException(
 
 /** Player-uploaded images stored as vanilla map tiles, shown through filled maps in item frames. */
 object ImageMaps {
-    const val UPLOAD_PERMISSION = "images.upload"
     const val USE_PERMISSION = "images.use"
     const val BYPASS_PERMISSION = "images.bypass"
 
-    // Rank tiers are undecided; one flat quota for now (staff skip it with BYPASS_PERMISSION).
-    const val MAX_IMAGES_PER_PLAYER = 5
+    /** LuckPerms group to image limit, highest rank first; staff with BYPASS_PERMISSION have no limit. */
+    val TIERS = listOf("legend" to Int.MAX_VALUE, "vip" to 10, "supporter-plus" to 3, "supporter" to 1)
 
     // Far above any vanilla map id so uploaded ids never collide with real maps.
     private const val FIRST_MAP_ID = 1_000_000
@@ -78,7 +77,7 @@ object ImageMaps {
         this.dir = dir
         Files.createDirectories(dir.resolve("maps"))
         Files.createDirectories(dir.resolve("pending"))
-        ModulePermissions.register(UPLOAD_PERMISSION, USE_PERMISSION, BYPASS_PERMISSION)
+        ModulePermissions.register(USE_PERMISSION, BYPASS_PERMISSION)
         storage.load(dir.resolve("index.json"), images) { contents ->
             Json.decodeFromString<List<Image>>(contents).filter(::valid).associateBy(Image::firstMapId)
         }
@@ -124,7 +123,7 @@ object ImageMaps {
         ownerName: String,
         name: String,
         tiles: Tiles,
-        bypassQuota: Boolean,
+        limit: Int,
     ): Pending =
         synchronized(images) {
             if (!validName(name)) throw ImageMapException("Names are 1-24 letters, digits, '_' or '-'.")
@@ -133,9 +132,9 @@ object ImageMaps {
             if (find(owner, name) != null || waiting.any { it.name.equals(name, ignoreCase = true) }) {
                 throw ImageMapException("You already have an image named $name.")
             }
-            if (list(owner).size + waiting.size >= MAX_IMAGES_PER_PLAYER && !bypassQuota) {
+            if (list(owner).size + waiting.size >= limit) {
                 throw ImageMapException(
-                    "You can have up to $MAX_IMAGES_PER_PLAYER images, counting ones awaiting review. Delete one first.",
+                    "Your rank allows $limit image${if (limit == 1) "" else "s"}, counting ones awaiting review. Delete one first.",
                 )
             }
             val id = UUID.randomUUID().toString().take(8)
