@@ -157,10 +157,12 @@ object ImageMaps {
     fun approve(id: String): Image =
         synchronized(images) {
             val entry = pending[id] ?: throw ImageMapException("That upload was already handled.")
+            if (!storage.canSave) throw ImageMapException("Image storage is unavailable; the upload stays pending.")
             val owner = UUID.fromString(entry.owner)
             if (find(owner, entry.name) != null) throw ImageMapException("${entry.ownerName} already has an image named ${entry.name}.")
             val tiles = readPending(entry)
-            val first = images.values.maxOfOrNull { it.mapIds.last + 1 } ?: FIRST_MAP_ID
+            val first = nextMapId()
+            Files.writeString(dir.resolve("next-map-id"), (first + entry.cols * entry.rows).toString())
             val image = Image(entry.name, entry.owner, entry.cols, entry.rows, first, System.currentTimeMillis(), entry.ownerName)
             tiles.tiles.forEachIndexed { index, data -> Files.write(tilePath(first + index), data) }
             images[first] = image
@@ -168,6 +170,12 @@ object ImageMaps {
             discard(id)
             image
         }
+
+    // Ids only ever grow, even after deletes, so copies still in inventories or frames never show another image.
+    private fun nextMapId(): Int {
+        val saved = runCatching { Files.readString(dir.resolve("next-map-id")).trim().toInt() }.getOrDefault(FIRST_MAP_ID)
+        return maxOf(saved, images.values.maxOfOrNull { it.mapIds.last + 1 } ?: FIRST_MAP_ID)
+    }
 
     /** Drops a pending upload; null if it was already handled. */
     fun reject(id: String): Pending? = synchronized(images) { pending[id]?.also { discard(id) } }
