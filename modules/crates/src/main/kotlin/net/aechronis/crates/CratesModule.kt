@@ -9,7 +9,7 @@ import java.nio.file.Path
 
 class CratesModule : AechronisModule {
     override val id = "crates"
-    override val dependencies = setOf("utils")
+    override val dependencies = setOf("utils", "economy")
 
     override fun initialize(context: ModuleContext) {
         Crates.init(Path.of("crates"), takeDefaults())

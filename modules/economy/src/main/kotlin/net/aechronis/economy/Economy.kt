@@ -79,6 +79,23 @@ object Economy {
     /** Offline-safe, keyed by UUID. Null if the player has never joined. */
     fun balance(uuid: UUID): Long? = repository.balance(uuid)
 
+    /**
+     * Resolves a command target who may be offline: an online name, a UUID with or without dashes
+     * (the player need not have joined yet), or the last known name of a player who joined before.
+     */
+    fun resolvePlayer(query: String): KnownPlayer? {
+        MinecraftServer.getConnectionManager().onlinePlayers.firstOrNull { it.username.equals(query, ignoreCase = true) }?.let {
+            return KnownPlayer(it.uuid, it.username)
+        }
+        val uuid = parseUuid(query)
+        val account = if (uuid == null) repository.findPlayer(query) else repository.findPlayer(uuid)
+        return when {
+            account != null -> KnownPlayer(account.uuid, account.name.ifEmpty { account.uuid.toString() })
+            uuid != null -> KnownPlayer(uuid, uuid.toString())
+            else -> null
+        }
+    }
+
     /** Atomic debit plus transaction row (product <= 64 chars). Null if funds are short or the player is unknown. */
     fun charge(
         uuid: UUID,
@@ -641,9 +658,9 @@ private class GemCommand(
             )
         }
         addSenderSyntax("gems.admin", { sender, context ->
-            val target = repository.findPlayer(context[player])
+            val target = Economy.resolvePlayer(context[player])
             if (target == null) {
-                sender.sendMessage(Component.text("No gem account exists for '${context[player]}'.", NamedTextColor.RED))
+                sender.sendMessage(unknownPlayer(context[player]))
                 return@addSenderSyntax
             }
             val transactions = repository.transactions(target.uuid)
@@ -663,12 +680,14 @@ private class GemCommand(
             }
         }, transactionsAction, player)
         addSenderSyntax("gems.admin", { sender, context ->
-            val target = repository.findPlayer(context[player])
+            val target = Economy.resolvePlayer(context[player])
             if (target == null) {
-                sender.sendMessage(Component.text("No gem account exists for '${context[player]}'.", NamedTextColor.RED))
+                sender.sendMessage(unknownPlayer(context[player]))
                 return@addSenderSyntax
             }
             val delta = if (context[action] == "give") context[amount] else -context[amount]
+            // A purchase can arrive before the buyer's first join.
+            if (delta > 0) repository.ensureAccount(target.uuid)
             val balance = repository.adjust(target.uuid, delta)
             if (balance == null) {
                 sender.sendMessage(Component.text("${target.name} does not have enough gems.", NamedTextColor.RED))
@@ -685,6 +704,9 @@ private class GemCommand(
         }, action, player, amount)
     }
 }
+
+private fun unknownPlayer(query: String): Component =
+    Component.text("Unknown player '$query'. For someone who has never joined, use their UUID.", NamedTextColor.RED)
 
 private class GemShopCommand : Command("gemshop") {
     init {

@@ -2,6 +2,8 @@ package net.aechronis.crates.commands
 
 import net.aechronis.crates.CrateKeys
 import net.aechronis.crates.Crates
+import net.aechronis.economy.Economy
+import net.aechronis.economy.KnownPlayer
 import net.aechronis.server.CommandOutput
 import net.aechronis.utils.Command
 import net.kyori.adventure.text.Component
@@ -28,8 +30,8 @@ class CratesCommand : Command("crates", null, "keys") {
         addSenderSyntax(null, { sender, _ -> showOwnKeys(sender) }, ArgumentType.Literal("keys"))
 
         addSenderSyntax(ADMIN, { sender, context ->
-            val target = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(context[playerArg])
-            if (target == null) sender.reply("${context[playerArg]} is not online.", NamedTextColor.RED) else showKeys(sender, target)
+            val target = Economy.resolvePlayer(context[playerArg])
+            if (target == null) sender.unknownPlayer(context[playerArg]) else showKeys(sender, target)
         }, ArgumentType.Literal("keys"), playerArg)
 
         addSenderSyntax(ADMIN, { sender, _ ->
@@ -92,42 +94,49 @@ class CratesCommand : Command("crates", null, "keys") {
             }
         }, ArgumentType.Literal("reward"), ArgumentType.Literal("list"), crateArg)
 
-        // Console-capable so KOTH reward commands, Tebex and staff can grant keys.
+        // Console-capable so KOTH reward commands, Tebex and staff can grant keys, to offline players too.
         addSenderSyntax(ADMIN, { sender, context ->
-            val target = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(context[playerArg])
+            val target = Economy.resolvePlayer(context[playerArg])
             val crate = context[crateArg]
             val amount = context[amountArg]
             when {
-                target == null -> sender.reply("${context[playerArg]} is not online.", NamedTextColor.RED)
+                target == null -> sender.unknownPlayer(context[playerArg])
                 !CrateKeys.give(target.uuid, crate, amount) -> sender.reply("Unknown crate: $crate", NamedTextColor.RED)
                 else -> {
-                    target.reply("You received $amount ${Crates.title(crate)} key${if (amount == 1) "" else "s"}!", NamedTextColor.GREEN)
-                    sender.reply("Gave ${target.username} $amount $crate key(s).")
+                    MinecraftServer
+                        .getConnectionManager()
+                        .getOnlinePlayerByUuid(target.uuid)
+                        ?.reply("You received $amount ${Crates.title(crate)} key${if (amount == 1) "" else "s"}!", NamedTextColor.GREEN)
+                    sender.reply("Gave ${target.name} $amount $crate key(s).")
                 }
             }
         }, ArgumentType.Literal("give"), playerArg, crateArg, amountArg)
 
         addSenderSyntax(ADMIN, { sender, context ->
-            val target = MinecraftServer.getConnectionManager().getOnlinePlayerByUsername(context[playerArg])
+            val target = Economy.resolvePlayer(context[playerArg])
             if (target == null) {
-                sender.reply("${context[playerArg]} is not online.", NamedTextColor.RED)
+                sender.unknownPlayer(context[playerArg])
                 return@addSenderSyntax
             }
             val removed = CrateKeys.take(target.uuid, context[crateArg], context[amountArg])
-            sender.reply("Took $removed ${context[crateArg]} key(s) from ${target.username}.")
+            sender.reply("Took $removed ${context[crateArg]} key(s) from ${target.name}.")
         }, ArgumentType.Literal("take"), playerArg, crateArg, amountArg)
     }
 
     private fun showOwnKeys(sender: CommandSender) {
-        if (sender is Player) showKeys(sender, sender) else sender.reply("Usage: /keys keys <player>", NamedTextColor.RED)
+        if (sender is Player) {
+            showKeys(sender, KnownPlayer(sender.uuid, sender.username))
+        } else {
+            sender.reply("Usage: /keys keys <player>", NamedTextColor.RED)
+        }
     }
 
     private fun showKeys(
         sender: CommandSender,
-        target: Player,
+        target: KnownPlayer,
     ) {
         val keys = CrateKeys.all(target.uuid)
-        val who = if (sender === target) "You don't" else "${target.username} doesn't"
+        val who = if ((sender as? Player)?.uuid == target.uuid) "You don't" else "${target.name} doesn't"
         if (keys.isEmpty()) {
             sender.reply("$who have any crate keys.")
             return
@@ -139,6 +148,9 @@ class CratesCommand : Command("crates", null, "keys") {
         error: String?,
         success: String,
     ) = if (error == null) reply(success) else reply(error, NamedTextColor.RED)
+
+    private fun CommandSender.unknownPlayer(query: String) =
+        reply("Unknown player '$query'. For someone who has never joined, use their UUID.", NamedTextColor.RED)
 
     private fun CommandSender.reply(
         text: String,

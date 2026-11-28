@@ -75,11 +75,30 @@ class GemRepository(
         }
     }
 
+    /** Opens an empty account for a player who has not joined yet. Their name stays blank until they do. */
+    fun ensureAccount(uuid: UUID) {
+        database.connection().use { connection ->
+            connection
+                .prepareStatement(
+                    "INSERT INTO gems (player_uuid, player_name, gem_amount) SELECT ?, '', 0 WHERE NOT EXISTS (SELECT 1 FROM gems WHERE player_uuid = ?)",
+                ).use { insert ->
+                    insert.setString(1, uuid.toString())
+                    insert.setString(2, uuid.toString())
+                    try {
+                        insert.executeUpdate()
+                    } catch (exception: SQLException) {
+                        // The player joined on another connection in the meantime.
+                        if (exception.sqlState != "23505") throw exception
+                    }
+                }
+        }
+    }
+
     fun playersMatching(prefix: String): List<GemPlayer> =
         database.connection().use { connection ->
             connection
                 .prepareStatement(
-                    "SELECT player_uuid, player_name, gem_amount FROM gems WHERE LOWER(player_name) LIKE ? ORDER BY player_name LIMIT 100",
+                    "SELECT player_uuid, player_name, gem_amount FROM gems WHERE player_name <> '' AND LOWER(player_name) LIKE ? ORDER BY player_name LIMIT 100",
                 ).use { statement ->
                     statement.setString(1, "${prefix.lowercase()}%")
                     statement.executeQuery().use { rows ->
@@ -98,13 +117,20 @@ class GemRepository(
                 }
         }
 
-    fun findPlayer(name: String): GemPlayer? =
+    fun findPlayer(name: String): GemPlayer? = findPlayerWhere("LOWER(player_name) = LOWER(?)", name)
+
+    fun findPlayer(uuid: UUID): GemPlayer? = findPlayerWhere("player_uuid = ?", uuid.toString())
+
+    private fun findPlayerWhere(
+        condition: String,
+        value: String,
+    ): GemPlayer? =
         database.connection().use { connection ->
             connection
                 .prepareStatement(
-                    "SELECT player_uuid, player_name, gem_amount FROM gems WHERE LOWER(player_name) = LOWER(?)",
+                    "SELECT player_uuid, player_name, gem_amount FROM gems WHERE $condition",
                 ).use { statement ->
-                    statement.setString(1, name)
+                    statement.setString(1, value)
                     statement.executeQuery().use { rows ->
                         if (rows.next()) {
                             GemPlayer(
@@ -239,6 +265,22 @@ data class GemPlayer(
     val name: String,
     val balance: Long,
 )
+
+/** A command target who may be offline. [name] is the UUID when the player has not joined yet. */
+data class KnownPlayer(
+    val uuid: UUID,
+    val name: String,
+)
+
+private val UNDASHED_UUID = Regex("[0-9a-fA-F]{32}")
+
+/** Stores such as Tebex send UUIDs without dashes. */
+internal fun parseUuid(text: String): UUID? =
+    when {
+        text.length == 36 -> runCatching { UUID.fromString(text) }.getOrNull()
+        UNDASHED_UUID.matches(text) -> UUID(text.substring(0, 16).toULong(16).toLong(), text.substring(16).toULong(16).toLong())
+        else -> null
+    }
 
 data class GemTransaction(
     val id: UUID,

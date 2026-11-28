@@ -5,5 +5,6 @@ plugins {
 
 dependencies {
     compileOnly(libs.kotlinx.serialization.json)
+    compileOnly(project(":modules:economy"))
     compileOnly(project(":modules:utils"))
 }
