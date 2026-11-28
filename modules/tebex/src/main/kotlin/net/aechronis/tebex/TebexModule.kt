@@ -146,7 +146,7 @@ class TebexModule : AechronisModule {
                     command.command
                         .trim()
                         .removePrefix("/")
-                        .replace("{name}", player?.username ?: delivery.player.name)
+                        .replace("{username}", player?.username ?: delivery.player.name)
                         .replace("{id}", delivery.player.uuid)
                         .replace("{uuid}", delivery.player.uuid)
                 if (text.isBlank() || '\n' in text || '\r' in text) {
