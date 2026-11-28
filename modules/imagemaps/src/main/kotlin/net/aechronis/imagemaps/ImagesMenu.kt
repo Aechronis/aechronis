@@ -106,8 +106,9 @@ object ImagesMenu {
     private fun onClick(event: InventoryPreClickEvent) {
         val player = event.player
         val session = sessions[player.uuid] ?: return
-        if (event.inventory !== session.inventory) return
+        // Cancel clicks in the player's own inventory too, or shift-click would drop items into the temporary chest.
         event.isCancelled = true
+        if (event.inventory !== session.inventory) return
         if (event.slot == PREVIOUS_PAGE_SLOT && session.page > 0) return openPage(player, session, session.page - 1)
         if (event.slot == NEXT_PAGE_SLOT && session.page < session.lastPage) return openPage(player, session, session.page + 1)
         val image = session.entries.getOrNull(event.slot) ?: return
