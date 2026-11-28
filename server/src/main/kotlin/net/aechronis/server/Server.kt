@@ -140,8 +140,7 @@ private fun startMinecraftServer(
     ServerShutdown.configure(
         beginShutdown = {},
         stopWorldSaver = {},
-        prepareModules = {},
-        saveModuleState = {},
+        persistModules = {},
         stopServer = MinecraftServer::stopCleanly,
         saveCoreWorld = {},
         closeModules = {},
@@ -222,8 +221,7 @@ private fun startMinecraftServer(
             ChunkUnloader.shutdown()
             WorldSaver.shutdown()
         },
-        prepareModules = { moduleManager.prepareForShutdown(moduleContext) },
-        saveModuleState = { moduleManager.saveState(moduleContext) },
+        persistModules = { moduleManager.persistForShutdown(moduleContext) },
         stopServer = MinecraftServer::stopCleanly,
         saveCoreWorld = WorldSaver::saveWorldAndWait,
         closeModules = moduleManager::close,

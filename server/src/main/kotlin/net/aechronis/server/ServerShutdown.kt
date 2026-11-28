@@ -11,13 +11,12 @@ internal class ShutdownCoordinator(
     private val started = AtomicBoolean()
 
     @Volatile
-    private var stages = Stages({}, {}, {}, {}, {}, {}, {})
+    private var stages = Stages({}, {}, {}, {}, {}, {})
 
     fun configure(
         beginShutdown: () -> Unit,
         stopWorldSaver: () -> Unit,
-        prepareModules: () -> Unit,
-        saveModuleState: () -> Unit,
+        persistModules: () -> Unit,
         stopServer: () -> Unit,
         saveCoreWorld: () -> Unit,
         closeModules: () -> Unit,
@@ -26,52 +25,44 @@ internal class ShutdownCoordinator(
             Stages(
                 beginShutdown,
                 stopWorldSaver,
-                prepareModules,
-                saveModuleState,
+                persistModules,
                 stopServer,
                 saveCoreWorld,
                 closeModules,
             )
     }
 
+    // Every stage runs even after an earlier one fails: skipping the saves because one module
+    // could not prepare would discard everything since the last periodic checkpoint.
     fun shutdown() {
         if (!started.compareAndSet(false, true)) return
 
         val configured = stages
         runStage("begin module shutdown", configured.beginShutdown)
         runStage("stop the world saver", configured.stopWorldSaver)
-        val prepared = runStage("quiesce module work", configured.prepareModules)
-        if (prepared) {
-            runStage("save live module state", configured.saveModuleState)
-            runStage("stop the game server", configured.stopServer)
-            runStage("save the final core world state", configured.saveCoreWorld)
-            runStage("stop modules", configured.closeModules)
-        } else {
-            // Persisting while a module can still mutate the world would create an internally
-            // inconsistent checkpoint. Fail closed, but continue stopping every live service.
-            runStage("stop the game server", configured.stopServer)
-            runStage("stop modules", configured.closeModules)
-        }
+        runStage("save modules and the world", configured.persistModules)
+        runStage("stop the game server", configured.stopServer)
+        // Catches chunks changed between resuming gameplay and the server stopping.
+        runStage("save the final core world state", configured.saveCoreWorld)
+        runStage("stop modules", configured.closeModules)
         runStage("close external services", closeExternalServices)
     }
 
     private fun runStage(
         description: String,
         action: () -> Unit,
-    ): Boolean =
+    ) {
         try {
             action()
-            true
         } catch (error: Throwable) {
             reportFailure(description, error)
-            false
         }
+    }
 
     private data class Stages(
         val beginShutdown: () -> Unit,
         val stopWorldSaver: () -> Unit,
-        val prepareModules: () -> Unit,
-        val saveModuleState: () -> Unit,
+        val persistModules: () -> Unit,
         val stopServer: () -> Unit,
         val saveCoreWorld: () -> Unit,
         val closeModules: () -> Unit,
@@ -107,8 +98,7 @@ object ServerShutdown {
     fun configure(
         beginShutdown: () -> Unit,
         stopWorldSaver: () -> Unit,
-        prepareModules: () -> Unit,
-        saveModuleState: () -> Unit,
+        persistModules: () -> Unit,
         stopServer: () -> Unit,
         saveCoreWorld: () -> Unit,
         closeModules: () -> Unit,
@@ -119,8 +109,7 @@ object ServerShutdown {
                 beginShutdown()
             },
             stopWorldSaver,
-            prepareModules,
-            saveModuleState,
+            persistModules,
             stopServer,
             saveCoreWorld,
             closeModules,

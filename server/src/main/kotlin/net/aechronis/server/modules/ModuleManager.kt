@@ -6,6 +6,7 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.network.packet.server.CachedPacket
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
@@ -475,22 +476,60 @@ class ModuleManager private constructor(
         CompletableFuture.runAsync({}, worker).join()
     }
 
-    fun prepareForShutdown(context: ModuleContext) =
+    /**
+     * Prepares and saves every module, then the core world, at one paused tick boundary, as a
+     * reload does. A module that fails to detach, quiesce or prepare keeps its own state off disk,
+     * but every other module and the world are still saved; skipping them all would roll the whole
+     * server back to the previous checkpoint.
+     */
+    fun persistForShutdown(context: ModuleContext) =
         onWorker {
             phase = "closing"
             updateSnapshot()
-            val modules = (loaded.values + unsafeModules).distinct()
-            modules.asReversed().forEach(LoadedModule::detachInputs)
-            modules.asReversed().forEach(LoadedModule::quiesce)
-            modules.asReversed().forEach { it.prepareForShutdown(context) }
-        }
+            val failures = mutableListOf<Throwable>()
 
-    fun saveState(context: ModuleContext) =
-        onWorker {
-            loaded.values
-                .toList()
-                .asReversed()
-                .forEach { it.saveState(context) }
+            fun attempt(
+                description: String,
+                action: () -> Unit,
+            ): Boolean =
+                runCatching(action)
+                    .onFailure { failures += IllegalStateException("Failed to $description during shutdown", it) }
+                    .isSuccess
+
+            // A tick that is already stuck cannot pause; save without it rather than never.
+            var gameplayPause: AutoCloseable? = null
+            attempt("pause gameplay") { gameplayPause = context.pauseGameplay(SHUTDOWN_PAUSE_TIMEOUT) }
+            try {
+                if (gameplayPause != null) {
+                    // Inventory close listeners must settle before their module callbacks are detached.
+                    attempt("close open inventories") {
+                        context.runLive {
+                            MinecraftServer.getConnectionManager().onlinePlayers.forEach { player ->
+                                if (player.openInventory != null) player.closeInventory()
+                            }
+                        }
+                    }
+                }
+                val modules = (loaded.values + unsafeModules).distinct().asReversed()
+                val failed = mutableSetOf<LoadedModule>()
+                modules.forEach { if (!attempt("detach ${it.module.id}", it::detachInputs)) failed += it }
+                modules.forEach { if (it !in failed && !attempt("quiesce ${it.module.id}", it::quiesce)) failed += it }
+                modules.forEach { module ->
+                    if (module !in failed && !attempt("prepare ${module.module.id}") { module.prepareForShutdown(context) }) {
+                        failed += module
+                    }
+                }
+                loaded.values.toList().asReversed().forEach { module ->
+                    if (module !in failed) attempt("save ${module.module.id}") { module.saveState(context) }
+                }
+                attempt("save the core world") { context.saveCoreWorld() }
+            } finally {
+                gameplayPause?.let { pause -> attempt("resume gameplay", pause::close) }
+            }
+            failures.firstOrNull()?.let { first ->
+                failures.drop(1).forEach(first::addSuppressed)
+                throw first
+            }
         }
 
     fun saveCheckpoint(context: ModuleContext): CompletableFuture<Void> =
@@ -592,6 +631,9 @@ class ModuleManager private constructor(
     private enum class Action { ENABLE, DISABLE, RESTART, RELOAD }
 
     companion object {
+        // Well inside systemd's 90 s stop timeout, which still has to cover every save.
+        private val SHUTDOWN_PAUSE_TIMEOUT = Duration.ofSeconds(10)
+
         fun discover(directory: Path): ModuleManager {
             Files.createDirectories(directory)
             val manager = ModuleManager(directory)

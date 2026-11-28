@@ -14,6 +14,7 @@ import net.minestom.server.event.Event
 import net.minestom.server.instance.InstanceContainer
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
@@ -142,11 +143,14 @@ class ModuleContext(
         MinecraftServer.getConnectionManager().onlinePlayers.forEach(server::sendResourcePacksAsync)
     }
 
-    /** Park the tick at a scheduler boundary, after the previous entity tick has finished. */
-    internal fun pauseGameplay(): AutoCloseable {
+    /**
+     * Park the tick at a scheduler boundary, after the previous entity tick has finished. With an
+     * [enterTimeout], a tick that does not get there in time throws instead of blocking forever.
+     */
+    internal fun pauseGameplay(enterTimeout: Duration? = null): AutoCloseable {
         check(tickPause == null) { "Gameplay is already paused" }
         val executor = liveExecutor?.takeIf { liveExecutionAvailable() } ?: return AutoCloseable {}
-        val pause = ModuleTickPause(executor)
+        val pause = ModuleTickPause(executor, enterTimeout)
         tickPause = pause
         val startedAt = System.nanoTime()
         return AutoCloseable {
