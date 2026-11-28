@@ -34,6 +34,7 @@ private val INTERACTIVE_BLOCKS: Set<Block> = setOf(
 
 private val INTERACTIVE_TAGS = listOf(
     BlockTags.SHULKER_BOXES,
+    BlockTags.COPPER_CHESTS,
     BlockTags.BUTTONS,
     BlockTags.DOORS,
     BlockTags.TRAPDOORS,
