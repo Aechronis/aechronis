@@ -90,6 +90,12 @@ internal object RallyCapAdmission {
 object NodesPlayerJoinQuitListener {
     fun onPlayerConfiguration(event: AsyncPlayerConfigurationEvent) {
         event.player.respawnPoint = respawnPoint(event.player)
+        // Refused while the proxy still counts the player as connecting, so ajQueue's kick-reasons
+        // drop them from the proxy instead of failing them over back to main in a loop.
+        HomeCaptureBan.reason(event.player.uuid)?.let { reason ->
+            event.player.kick(Component.text(reason))
+            return
+        }
         RallyCapAdmission.reserve(event.player.uuid)?.let { reason ->
             event.player.kick(Component.text(reason))
         }
@@ -102,6 +108,7 @@ object NodesPlayerJoinQuitListener {
         Resident.create(player)
 
         val resident: Resident = Resident.fromPlayer(player)!!
+        // A home captured after configuration: HomeCaptureBan.kickResidents only reaches players already online.
         HomeCaptureBan.reason(player.uuid)?.let { reason ->
             player.kick(Component.text(reason))
             return
