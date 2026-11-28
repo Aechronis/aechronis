@@ -3,82 +3,24 @@
  * manually cancelled.
  *
  * -> When player has fence in hand, must allow interact event
- * -> Force cancel when target block is in this list
+ * -> Force cancel when target block is in this list or one of the tags below
+ * -> Tags cover every wood and copper variant, so new block types are protected automatically
  */
 
 package net.aechronis.nodes.constants
 
+import net.minestom.server.MinecraftServer
 import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.block.BlockTags
 
-val INTERACTIVE_BLOCKS: MutableSet<Block> = mutableSetOf(
+/** Blocks that are not covered by a tag. */
+private val INTERACTIVE_BLOCKS: Set<Block> = setOf(
     Block.CHEST,
     Block.TRAPPED_CHEST,
     Block.BARREL,
     Block.FURNACE,
     Block.BLAST_FURNACE,
     Block.SMOKER,
-    Block.WHITE_SHULKER_BOX,
-    Block.ORANGE_SHULKER_BOX,
-    Block.MAGENTA_SHULKER_BOX,
-    Block.LIGHT_BLUE_SHULKER_BOX,
-    Block.YELLOW_SHULKER_BOX,
-    Block.LIME_SHULKER_BOX,
-    Block.PINK_SHULKER_BOX,
-    Block.GRAY_SHULKER_BOX,
-    Block.LIGHT_GRAY_SHULKER_BOX,
-    Block.CYAN_SHULKER_BOX,
-    Block.PURPLE_SHULKER_BOX,
-    Block.BLUE_SHULKER_BOX,
-    Block.BROWN_SHULKER_BOX,
-    Block.GREEN_SHULKER_BOX,
-    Block.RED_SHULKER_BOX,
-    Block.BLACK_SHULKER_BOX,
-    Block.STONE_BUTTON,
-    Block.OAK_BUTTON,
-    Block.SPRUCE_BUTTON,
-    Block.BIRCH_BUTTON,
-    Block.JUNGLE_BUTTON,
-    Block.ACACIA_BUTTON,
-    Block.DARK_OAK_BUTTON,
-    Block.CRIMSON_BUTTON,
-    Block.WARPED_BUTTON,
-    Block.CHERRY_BUTTON,
-    Block.MANGROVE_BUTTON,
-    Block.BAMBOO_BUTTON,
-    Block.POLISHED_BLACKSTONE_BUTTON,
-    Block.OAK_DOOR,
-    Block.SPRUCE_DOOR,
-    Block.BIRCH_DOOR,
-    Block.JUNGLE_DOOR,
-    Block.ACACIA_DOOR,
-    Block.DARK_OAK_DOOR,
-    Block.CRIMSON_DOOR,
-    Block.WARPED_DOOR,
-    Block.CHERRY_DOOR,
-    Block.MANGROVE_DOOR,
-    Block.BAMBOO_DOOR,
-    Block.OAK_TRAPDOOR,
-    Block.SPRUCE_TRAPDOOR,
-    Block.BIRCH_TRAPDOOR,
-    Block.JUNGLE_TRAPDOOR,
-    Block.ACACIA_TRAPDOOR,
-    Block.DARK_OAK_TRAPDOOR,
-    Block.CRIMSON_TRAPDOOR,
-    Block.WARPED_TRAPDOOR,
-    Block.CHERRY_TRAPDOOR,
-    Block.MANGROVE_TRAPDOOR,
-    Block.BAMBOO_TRAPDOOR,
-    Block.OAK_FENCE_GATE,
-    Block.SPRUCE_FENCE_GATE,
-    Block.BIRCH_FENCE_GATE,
-    Block.JUNGLE_FENCE_GATE,
-    Block.ACACIA_FENCE_GATE,
-    Block.DARK_OAK_FENCE_GATE,
-    Block.CRIMSON_FENCE_GATE,
-    Block.WARPED_FENCE_GATE,
-    Block.CHERRY_FENCE_GATE,
-    Block.MANGROVE_FENCE_GATE,
-    Block.BAMBOO_FENCE_GATE,
     Block.REPEATER,
     Block.COMPARATOR,
     Block.LEVER,
@@ -89,3 +31,17 @@ val INTERACTIVE_BLOCKS: MutableSet<Block> = mutableSetOf(
     Block.BEACON,
     Block.JUKEBOX,
 )
+
+private val INTERACTIVE_TAGS = listOf(
+    BlockTags.SHULKER_BOXES,
+    BlockTags.BUTTONS,
+    BlockTags.DOORS,
+    BlockTags.TRAPDOORS,
+    BlockTags.FENCE_GATES,
+)
+
+fun isInteractiveBlock(block: Block): Boolean {
+    if (INTERACTIVE_BLOCKS.any { block.compare(it) }) return true
+    val tags = MinecraftServer.process().blocks()
+    return INTERACTIVE_TAGS.any { tags.getTag(it)?.contains(block) == true }
+}

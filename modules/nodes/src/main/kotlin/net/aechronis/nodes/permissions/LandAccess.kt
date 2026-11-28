@@ -2,9 +2,9 @@ package net.aechronis.nodes.permissions
 
 import net.aechronis.nodes.Nodes
 import net.aechronis.nodes.colonization.Colonization
-import net.aechronis.nodes.constants.INTERACTIVE_BLOCKS
 import net.aechronis.nodes.constants.PermissionsGroup
 import net.aechronis.nodes.constants.TownPermissions
+import net.aechronis.nodes.constants.isInteractiveBlock
 import net.aechronis.nodes.objects.Outposts
 import net.aechronis.nodes.objects.Plot
 import net.aechronis.nodes.objects.Resident
@@ -55,7 +55,7 @@ private class WorldLandAccessContext(
     override val bypass: Boolean get() = checkNotNull(resident).hasTownPermissionBypass()
 
     // No block means an entity interaction (item frames), which always goes through town permissions.
-    override val interactiveBlock: Boolean get() = block == null || INTERACTIVE_BLOCKS.any { block.compare(it) }
+    override val interactiveBlock: Boolean get() = block == null || isInteractiveBlock(block)
     override val warzonePermission: Boolean?
         get() = warzoneTown?.let { hasTownPermissions(action.permission, it, checkNotNull(resident)) || onCapturingSide() }
     override val warAllowed: Boolean

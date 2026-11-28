@@ -340,11 +340,18 @@ object NodesWorldListener {
         if (event.isCancelled) return
 
         val action = if (PROTECTED_BLOCKS.any { event.block.compare(it) }) LandAccessAction.CHEST_INTERACT else LandAccessAction.INTERACT
-        val decision = LandAccess.check(event.player, event.blockPosition, action, event.block)
+        // Hoes, axes, shovels and bone meal change the block they hit, so they are checked even on blocks that are not interactive.
+        val block = if (editsBlocks(event.player.getItemInHand(event.hand))) null else event.block
+        val decision = LandAccess.check(event.player, event.blockPosition, action, block)
         if (decision != LandAccessDecision.ALLOW) {
             event.isCancelled = true
             Message.error(event.player, checkNotNull(decision.message))
         }
+    }
+
+    private fun editsBlocks(item: ItemStack): Boolean {
+        val name = item.material().key().value()
+        return name.endsWith("_hoe") || name.endsWith("_axe") || name.endsWith("_shovel") || name == "bone_meal"
     }
 
     fun hasStorageAccess(player: Player, position: Point, access: StorageAccess): Boolean {
