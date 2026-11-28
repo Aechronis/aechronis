@@ -22,7 +22,7 @@ internal class VehicleCollisionHitbox(
     private val owner: VehicleRuntime,
 ) {
     private class Part(
-        val carrier: Entity,
+        val carrier: VehicleDisplayEntity,
         val shulker: VehicleCollisionEntity,
     ) {
         private val viewers = HashSet<Player>()
@@ -31,10 +31,14 @@ internal class VehicleCollisionHitbox(
         private var removed = false
         private var spawnFuture = CompletableFuture.completedFuture<Void>(null)
 
+        /** Where the hull places this part; the entities lag behind it while nobody sees them. */
+        private var target = Pos.ZERO
+
         fun spawn(
             instance: Instance,
             position: Pos,
         ) {
+            target = position
             // Wait for both chunks before publishing the chain. Cleanup also waits for
             // registration, so an outstanding chunk load cannot resurrect removed helpers.
             spawnFuture = CompletableFuture.allOf(carrier.setInstance(instance, position), shulker.setInstance(instance, position))
@@ -45,14 +49,34 @@ internal class VehicleCollisionHitbox(
         }
 
         fun move(position: Pos) {
+            target = position
             if (!spawnFuture.isDone || removed) return
             spawnFuture.join()
-            if (carrier.position != position) carrier.teleport(position)
+            // No client collides with a part nobody sees, so it waits behind until it is shown.
+            // It still follows the hull into other chunks, staying loaded and tracked nearby.
+            if (viewers.isNotEmpty() || !carrier.position.sameChunk(position)) {
+                place()
+            } else {
+                updateParked()
+            }
         }
 
-        fun refreshViewers(candidates: Map<Player, ShulkerHitbox.Box>) {
+        private fun place() {
+            if (carrier.position != target) carrier.teleport(target)
+            updateParked()
+        }
+
+        private fun updateParked() {
+            // A part waiting behind must not stop players placing blocks where the hull was.
+            val parked = carrier.position != target
+            carrier.parked = parked
+            shulker.parked = parked
+        }
+
+        fun refreshViewers(candidates: Candidates) {
             if (!spawnFuture.isDone || removed) return
             spawnFuture.join()
+            if (viewers.isEmpty() && candidates.players.isEmpty()) return
 
             val iterator = viewers.iterator()
             while (iterator.hasNext()) {
@@ -63,11 +87,13 @@ internal class VehicleCollisionHitbox(
                 }
             }
 
-            val position = carrier.position.asVec()
+            val position = target.asVec()
             val box = shulker.boundingBox
             val min = position.add(box.relativeStart())
             val max = position.add(box.relativeEnd())
-            for ((player, bounds) in candidates) {
+            for (index in candidates.players.indices) {
+                val player = candidates.players[index]
+                val bounds = candidates.bounds[index]
                 val wasViewing = player in viewers
                 val distance = if (wasViewing) HIDE_DISTANCE else SHOW_DISTANCE
                 // Measure from the collision surfaces, including the player's height.
@@ -77,6 +103,7 @@ internal class VehicleCollisionHitbox(
                 val nearby = dx * dx + dy * dy + dz * dz <= distance * distance
                 if (nearby == wasViewing) continue
                 if (nearby) {
+                    place()
                     // Spawn the carrier first; the shulker bundles its spawn, metadata,
                     // scale, and passenger attachment for this manual viewer.
                     carrier.addViewer(player)
@@ -102,6 +129,16 @@ internal class VehicleCollisionHitbox(
                 carrier.remove()
             }
         }
+    }
+
+    /** Players near the hull, flattened so each of thousands of parts can scan them cheaply. */
+    private class Candidates(
+        val players: Array<Player>,
+        val bounds: Array<ShulkerHitbox.Box>,
+    ) {
+        private val members = players.toHashSet()
+
+        operator fun contains(player: Player): Boolean = player in members
     }
 
     private val parts = ArrayList<Part>()
@@ -149,13 +186,25 @@ internal class VehicleCollisionHitbox(
     }
 
     fun refreshViewers() {
-        val candidates = HashMap<Player, ShulkerHitbox.Box>()
+        // Every part lies within the shape's radius of the hull origin, so players farther
+        // than that plus the hide distance cannot view any part; skip them before the per-part loop.
+        val center = owner.entity.position.asVec()
+        val reach = owner.vehicle.collisionHitbox.radius + HIDE_DISTANCE
+        val players = ArrayList<Player>()
+        val bounds = ArrayList<ShulkerHitbox.Box>()
         for (player in instance?.players.orEmpty()) {
             if (player.isRemoved || !player.autoViewEntities() || VehicleRegistry.ride(player)?.runtime === owner) continue
             val position = player.position.asVec()
             val box = player.boundingBox
-            candidates[player] = ShulkerHitbox.Box(position.add(box.relativeStart()), position.add(box.relativeEnd()))
+            val playerBounds = ShulkerHitbox.Box(position.add(box.relativeStart()), position.add(box.relativeEnd()))
+            val dx = maxOf(0.0, playerBounds.min.x - center.x, center.x - playerBounds.max.x)
+            val dy = maxOf(0.0, playerBounds.min.y - center.y, center.y - playerBounds.max.y)
+            val dz = maxOf(0.0, playerBounds.min.z - center.z, center.z - playerBounds.max.z)
+            if (dx * dx + dy * dy + dz * dz > reach * reach) continue
+            players.add(player)
+            bounds.add(playerBounds)
         }
+        val candidates = Candidates(players.toTypedArray(), bounds.toTypedArray())
         parts.forEach { it.refreshViewers(candidates) }
     }
 
@@ -182,6 +231,10 @@ internal class VehicleCollisionEntity(
     val vehicleEntity: Entity,
     private val scale: Double,
 ) : Entity(EntityType.SHULKER) {
+    /** Set while the part waits at a stale position because nobody sees it. */
+    @Volatile
+    internal var parked = false
+
     init {
         setNoGravity(true)
         setHasPhysics(false)
@@ -221,6 +274,8 @@ internal class VehicleCollisionEntity(
             ),
         )
     }
+
+    override fun preventBlockPlacement(): Boolean = !parked && super.preventBlockPlacement()
 
     fun updateHitboxVisibility(player: Player) {
         player.sendPacket(

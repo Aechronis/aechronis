@@ -22,6 +22,12 @@ internal class VehicleDisplayEntity(
         }
     }
 
+    /** Set while a collision carrier waits at a stale position because nobody sees it. */
+    @Volatile
+    internal var parked = false
+
+    override fun preventBlockPlacement(): Boolean = !parked && super.preventBlockPlacement()
+
     override fun updateNewViewer(player: Player) {
         super.updateNewViewer(player)
         val runtime = VehicleRegistry.runtime(vehicleEntity ?: this) ?: return
