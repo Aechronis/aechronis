@@ -16,6 +16,7 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.MapDataPacket
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
@@ -29,10 +30,11 @@ class ImageMapException(
 /** Player-uploaded images stored as vanilla map tiles, shown through filled maps in item frames. */
 object ImageMaps {
     const val USE_PERMISSION = "images.use"
-    const val BYPASS_PERMISSION = "images.bypass"
+    const val ADMIN_PERMISSION = "images.admin"
 
-    /** LuckPerms group to image limit, highest rank first; staff with BYPASS_PERMISSION have no limit. */
-    val TIERS = listOf("legend" to Int.MAX_VALUE, "vip" to 10, "supporter-plus" to 3, "supporter" to 1)
+    /** Upload limits live in LuckPerms: `images.limit.<n>` allows n images and the highest granted n wins. */
+    const val LIMIT_PREFIX = "images.limit."
+    const val UNLIMITED_PERMISSION = "images.limit.unlimited"
 
     // Far above any vanilla map id so uploaded ids never collide with real maps.
     private const val FIRST_MAP_ID = 1_000_000
@@ -50,6 +52,12 @@ object ImageMaps {
         val ownerName: String = "",
     ) {
         val mapIds: IntRange get() = firstMapId until firstMapId + cols * rows
+
+        /** Images saved before uploader names were stored have none; staff and the gallery call them "unknown". */
+        val ownerLabel: String get() = ownerName.ifEmpty { "unknown" }
+
+        /** Staff can name an uploader by stored name, or by UUID when two accounts share a name. */
+        fun ownedBy(who: String) = ownerLabel.equals(who, ignoreCase = true) || owner.equals(who, ignoreCase = true)
     }
 
     /** An upload waiting for staff approval; its tiles live in `pending/<id>.bin` until approved or rejected. */
@@ -77,7 +85,7 @@ object ImageMaps {
         this.dir = dir
         Files.createDirectories(dir.resolve("maps"))
         Files.createDirectories(dir.resolve("pending"))
-        ModulePermissions.register(USE_PERMISSION, BYPASS_PERMISSION)
+        ModulePermissions.register(USE_PERMISSION, ADMIN_PERMISSION, UNLIMITED_PERMISSION)
         storage.load(dir.resolve("index.json"), images) { contents ->
             Json.decodeFromString<List<Image>>(contents).filter(::valid).associateBy(Image::firstMapId)
         }
@@ -139,8 +147,13 @@ object ImageMaps {
             }
             val id = UUID.randomUUID().toString().take(8)
             val entry = Pending(id, name, owner.toString(), ownerName, tiles.cols, tiles.rows, System.currentTimeMillis())
-            Files.write(pendingPath(id, "bin"), tiles.tiles.fold(ByteArray(0)) { all, tile -> all + tile })
-            Files.writeString(pendingPath(id, "json"), Json.encodeToString(entry))
+            try {
+                Files.write(pendingPath(id, "bin"), tiles.tiles.fold(ByteArray(0)) { all, tile -> all + tile })
+                Files.writeString(pendingPath(id, "json"), Json.encodeToString(entry))
+            } catch (error: IOException) {
+                discard(id)
+                throw ImageMapException("Could not store the image (${error.javaClass.simpleName}). Try again later.")
+            }
             pending[id] = entry
             entry
         }
@@ -153,29 +166,32 @@ object ImageMaps {
         return out.toByteArray()
     }
 
-    /** Publishes a pending upload to the gallery; throws [ImageMapException] if it was already handled. */
+    /** Publishes a pending upload to the gallery; throws [ImageMapException] if it was already handled or can't be stored. */
     fun approve(id: String): Image =
         synchronized(images) {
             val entry = pending[id] ?: throw ImageMapException("That upload was already handled.")
             if (!storage.canSave) throw ImageMapException("Image storage is unavailable; the upload stays pending.")
             val owner = UUID.fromString(entry.owner)
             if (find(owner, entry.name) != null) throw ImageMapException("${entry.ownerName} already has an image named ${entry.name}.")
-            val tiles = readPending(entry)
             val first = nextMapId()
-            Files.writeString(dir.resolve("next-map-id"), (first + entry.cols * entry.rows).toString())
             val image = Image(entry.name, entry.owner, entry.cols, entry.rows, first, System.currentTimeMillis(), entry.ownerName)
-            tiles.tiles.forEachIndexed { index, data -> Files.write(tilePath(first + index), data) }
-            images[first] = image
-            save()
+            try {
+                val tiles = readPending(entry)
+                Files.writeString(dir.resolve("next-map-id"), (first + entry.cols * entry.rows).toString())
+                tiles.tiles.forEachIndexed { index, data -> Files.write(tilePath(first + index), data) }
+                images[first] = image
+                try {
+                    save()
+                } catch (error: IOException) {
+                    images.remove(first)
+                    throw error
+                }
+            } catch (error: IOException) {
+                throw ImageMapException("Could not store the image (${error.javaClass.simpleName}); the upload stays pending.")
+            }
             discard(id)
             image
         }
-
-    // Ids only ever grow, even after deletes, so copies still in inventories or frames never show another image.
-    private fun nextMapId(): Int {
-        val saved = runCatching { Files.readString(dir.resolve("next-map-id")).trim().toInt() }.getOrDefault(FIRST_MAP_ID)
-        return maxOf(saved, images.values.maxOfOrNull { it.mapIds.last + 1 } ?: FIRST_MAP_ID)
-    }
 
     /** Drops a pending upload; null if it was already handled. */
     fun reject(id: String): Pending? = synchronized(images) { pending[id]?.also { discard(id) } }
@@ -191,10 +207,11 @@ object ImageMaps {
             ?.sendMessage(Component.text(message, NamedTextColor.LIGHT_PURPLE))
     }
 
+    // The entry leaves memory first; a stray .json would revive the upload on the next load, so it goes before the tiles.
     private fun discard(id: String) {
         pending.remove(id)
-        Files.deleteIfExists(pendingPath(id, "bin"))
-        Files.deleteIfExists(pendingPath(id, "json"))
+        runCatching { Files.deleteIfExists(pendingPath(id, "json")) }
+        runCatching { Files.deleteIfExists(pendingPath(id, "bin")) }
     }
 
     private fun readPending(entry: Pending): Tiles {
@@ -207,51 +224,99 @@ object ImageMaps {
         extension: String,
     ) = dir.resolve("pending").resolve("$id.$extension")
 
+    // Ids only ever grow, even after deletes, so copies still in inventories or frames never show another image.
+    private fun nextMapId(): Int {
+        val saved = runCatching { Files.readString(dir.resolve("next-map-id")).trim().toInt() }.getOrDefault(FIRST_MAP_ID)
+        return maxOf(saved, images.values.maxOfOrNull { it.mapIds.last + 1 } ?: FIRST_MAP_ID)
+    }
+
     fun delete(
         owner: UUID,
         name: String,
     ): Boolean =
         synchronized(images) {
             val image = find(owner, name) ?: return false
-            images.remove(image.firstMapId)
-            save()
-            image.mapIds.forEach { id ->
-                tileCache.remove(id)
-                Files.deleteIfExists(tilePath(id))
-                // A later upload may reuse these ids; make sure viewers get the new pixels.
-                sent.values.forEach { it.remove(id) }
-            }
+            remove(image)
             true
         }
 
-    /** One filled map per tile, row-major; the lore says where each tile goes on the wall. */
+    /**
+     * Staff removal by the uploader's stored name or UUID; null if nothing matched. Throws if the name is shared
+     * by several accounts, since a renamed player's old name can be reused.
+     */
+    fun delete(
+        who: String,
+        name: String,
+    ): Image? =
+        synchronized(images) {
+            val matches = images.values.filter { it.ownedBy(who) && it.name.equals(name, ignoreCase = true) }
+            if (matches.map(Image::owner).distinct().size > 1) {
+                throw ImageMapException("$who is shared by several players. Use one of their UUIDs: ${matches.joinToString { it.owner }}")
+            }
+            matches.firstOrNull()?.also(::remove)
+        }
+
+    /** Images uploaded by [who] (stored name or UUID), for staff lookups. */
+    fun byOwnerName(who: String): List<Image> = all().filter { it.ownedBy(who) }
+
+    private fun remove(image: Image) {
+        images.remove(image.firstMapId)
+        try {
+            save()
+        } catch (error: IOException) {
+            images[image.firstMapId] = image
+            throw ImageMapException("Could not delete the image (${error.javaClass.simpleName}). Try again later.")
+        }
+        val blank = ByteArray(TILE_BYTES)
+        image.mapIds.forEach { id ->
+            tileCache.remove(id)
+            // A leftover file is harmless: ids are never reused and the image is no longer in the index.
+            runCatching { Files.deleteIfExists(tilePath(id)) }
+            // Clients keep map data by id, so overwrite the picture for everyone who already loaded it.
+            MinecraftServer.getConnectionManager().onlinePlayers.forEach { player ->
+                if (sent[player.uuid]?.remove(id) == true) player.sendPacket(mapPacket(id, blank))
+            }
+        }
+    }
+
+    /** One filled map per tile, row-major; multi-tile images are named after each tile's place on the wall. */
     fun items(image: Image): List<ItemStack> =
         image.mapIds.mapIndexed { index, id ->
+            val single = image.cols * image.rows == 1
+            val title = if (single) image.name else "Row ${index / image.cols + 1}, column ${index % image.cols + 1}"
+            val lore = if (single) emptyList() else listOf(plain(image.name, NamedTextColor.GRAY))
             ItemStack
                 .of(Material.FILLED_MAP)
                 .with(DataComponents.MAP_ID, id)
-                .with(
-                    DataComponents.CUSTOM_NAME,
-                    Component.text(image.name, NamedTextColor.LIGHT_PURPLE).decoration(TextDecoration.ITALIC, false),
-                ).with(
-                    DataComponents.LORE,
-                    listOf(
-                        Component
-                            .text("Row ${index / image.cols + 1}, column ${index % image.cols + 1}", NamedTextColor.GRAY)
-                            .decoration(TextDecoration.ITALIC, false),
-                    ),
-                )
+                .with(DataComponents.CUSTOM_NAME, plain(title, NamedTextColor.LIGHT_PURPLE))
+                .with(DataComponents.LORE, lore)
         }
+
+    private fun plain(
+        text: String,
+        color: NamedTextColor,
+    ) = Component.text(text, color).decoration(TextDecoration.ITALIC, false)
 
     /** Sends the tile's pixels once per session; the client keeps map data by id after that. */
     fun send(
         player: Player,
         mapId: Int,
     ) {
-        val data = tile(mapId) ?: return
-        if (!sent.computeIfAbsent(player.uuid) { ConcurrentHashMap.newKeySet() }.add(mapId)) return
+        if (mapId < FIRST_MAP_ID) return
+        // Same lock as remove(), so a tile can't be sent after its image was deleted and blanked.
+        synchronized(images) {
+            val data = tile(mapId) ?: return
+            if (!sent.computeIfAbsent(player.uuid) { ConcurrentHashMap.newKeySet() }.add(mapId)) return
+            player.sendPacket(mapPacket(mapId, data))
+        }
+    }
+
+    private fun mapPacket(
+        mapId: Int,
+        data: ByteArray,
+    ): MapDataPacket {
         val size = ImageQuantizer.TILE.toByte()
-        player.sendPacket(MapDataPacket(mapId, 0, true, false, emptyList(), MapDataPacket.ColorContent(size, size, 0, 0, data)))
+        return MapDataPacket(mapId, 0, true, false, emptyList(), MapDataPacket.ColorContent(size, size, 0, 0, data))
     }
 
     fun sendInventory(player: Player) {

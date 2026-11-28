@@ -24,7 +24,8 @@ class ImageMapsModule : AechronisModule {
             .repeat(TaskSchedule.seconds(1))
             .schedule()
         // No permission: like /flags, anyone can browse and take any image.
-        ModuleCommands.register(ImageCommand(), Command("images").apply { setDefaultExecutor { player, _ -> ImagesMenu.open(player) } })
+        val gallery = Command("images").apply { setDefaultExecutor { player, _ -> ImagesMenu.open(player) } }
+        ModuleCommands.register(ImageCommand(), ImageAdminCommand(), gallery)
     }
 
     override fun shutdown(context: ModuleContext) {

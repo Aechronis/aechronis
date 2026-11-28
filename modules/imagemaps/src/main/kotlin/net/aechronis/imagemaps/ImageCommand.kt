@@ -41,13 +41,17 @@ class ImageCommand : Command("image", ImageMaps.USE_PERMISSION) {
             val image = ImageMaps.find(player.uuid, context[nameArg]) ?: return@addSyntax player.error("Unknown image: ${context[nameArg]}")
             val missed = ImageMaps.items(image).count { !player.inventory.addItemStack(it) }
             ImageMaps.sendInventory(player)
-            if (missed > 0) player.error("Inventory full: $missed tile(s) were not given. Free some slots and run it again.")
+            if (missed > 0) return@addSyntax player.error("$missed tile(s) not given, inventory full. Free slots and run it again.")
             player.message("Gave ${image.name}: ${image.cols}x${image.rows} tiles. Place them row by row, left to right.")
         }, ArgumentType.Literal("give"), nameArg)
 
         addSyntax({ player: Player, context ->
             val name = context[nameArg]
-            if (ImageMaps.delete(player.uuid, name)) player.message("Deleted $name.") else player.error("Unknown image: $name")
+            try {
+                if (ImageMaps.delete(player.uuid, name)) player.message("Deleted $name.") else player.error("Unknown image: $name")
+            } catch (error: ImageMapException) {
+                player.error(error.message.orEmpty())
+            }
         }, ArgumentType.Literal("delete"), nameArg)
     }
 

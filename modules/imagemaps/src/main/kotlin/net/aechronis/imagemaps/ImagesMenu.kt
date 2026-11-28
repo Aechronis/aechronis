@@ -76,14 +76,20 @@ object ImagesMenu {
 
     // A filled map slot icon is the generic map sprite; the picture only renders once the tiles are placed in frames.
     private fun icon(image: ImageMaps.Image): ItemStack =
-        ImageMaps.items(image).first().with(
-            DataComponents.LORE,
-            listOf(
-                line("By ${image.ownerName.ifEmpty { "unknown" }}", NamedTextColor.GRAY),
-                line("${image.cols}x${image.rows} tiles", NamedTextColor.GRAY),
-                line("Click to take all ${image.cols * image.rows} tile(s)", NamedTextColor.AQUA),
-            ),
-        )
+        ImageMaps
+            .items(image)
+            .first()
+            .with(
+                DataComponents.CUSTOM_NAME,
+                line(image.name, NamedTextColor.LIGHT_PURPLE),
+            ).with(
+                DataComponents.LORE,
+                listOf(
+                    line("By ${image.ownerLabel}", NamedTextColor.GRAY),
+                    line("${image.cols}x${image.rows} tiles", NamedTextColor.GRAY),
+                    line("Click to take all ${image.cols * image.rows} tile(s)", NamedTextColor.AQUA),
+                ),
+            )
 
     private fun line(
         text: String,

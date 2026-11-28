@@ -40,11 +40,11 @@ internal object ImageUpload {
     ): String {
         val uuid = links.player(discordId) ?: return "Not linked. Run /discord link in Minecraft, then /link code:<code> here."
         val limit =
-            if (nodes.allowed(uuid, ImageMaps.BYPASS_PERMISSION)) {
+            if (nodes.allowed(uuid, ImageMaps.UNLIMITED_PERMISSION)) {
                 Int.MAX_VALUE
             } else {
-                ImageMaps.TIERS.firstOrNull { nodes.allowed(uuid, "group.${it.first}") }?.second
-            } ?: return "Only Supporter ranks and above can upload images."
+                nodes.highest(uuid, ImageMaps.LIMIT_PREFIX)?.takeIf { it > 0 }
+            } ?: return "Your rank can't upload images."
         if (filename == null || url == null || filename.substringAfterLast('.', "").lowercase() !in EXTENSIONS) {
             return "Attach a PNG or JPEG image (animated GIFs aren't supported yet)."
         }
@@ -111,7 +111,12 @@ internal object ImageUpload {
                 if (reader.getWidth(0) > MAX_DIMENSION || reader.getHeight(0) > MAX_DIMENSION) {
                     throw ImageMapException("Image is larger than ${MAX_DIMENSION}x$MAX_DIMENSION pixels.")
                 }
-                return reader.read(0)
+                // Some malformed or exotic JPEGs make the decoder throw unchecked exceptions instead of IOException.
+                return try {
+                    reader.read(0)
+                } catch (_: RuntimeException) {
+                    throw ImageMapException("Could not read that image.")
+                }
             } finally {
                 reader.dispose()
             }

@@ -12,6 +12,7 @@ import net.aechronis.server.Permissions
 import net.aechronis.server.modules.ModuleScheduler
 import net.aechronis.utils.Command
 import net.luckperms.api.LuckPermsProvider
+import net.luckperms.api.model.user.User
 import net.minestom.server.MinecraftServer
 import net.minestom.server.command.CommandSender
 import net.minestom.server.command.ExecutableCommand
@@ -239,15 +240,28 @@ internal class NodesCommands(
         permission: String,
     ): Boolean = withPermissions(uuid) { Permissions.hasPermission(uuid, permission) }
 
+    /** Highest `<prefix><n>` node granted to [uuid] (inherited included), online or not; null if none. */
+    suspend fun highest(
+        uuid: UUID,
+        prefix: String,
+    ): Int? =
+        withPermissions(uuid) { user ->
+            user.cachedData.permissionData.permissionMap
+                .filterValues { it }
+                .keys
+                .mapNotNull { if (it.startsWith(prefix)) it.removePrefix(prefix).toIntOrNull() else null }
+                .maxOrNull()
+        }
+
     private suspend fun <T> withPermissions(
         uuid: UUID,
-        action: suspend () -> T,
+        action: suspend (User) -> T,
     ): T =
         permissionLocks[(uuid.hashCode() and Int.MAX_VALUE) % permissionLocks.size].withLock {
             val manager = LuckPermsProvider.get().userManager
             val user = manager.loadUser(uuid).await()
             try {
-                action()
+                action(user)
             } finally {
                 manager.cleanupUser(user)
             }
